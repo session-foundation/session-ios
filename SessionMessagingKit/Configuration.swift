@@ -36,7 +36,8 @@ public enum SNMessagingKit: MigratableTarget { // Just to make the external API 
                     _016_MakeBrokenProfileTimestampsNullable.self,
                     _017_RebuildFTSIfNeeded_2_4_5.self,
                     _018_DisappearingMessagesConfiguration.self,
-                    _019_GroupsRebuildChanges.self
+                    _019_ScheduleAppUpdateCheckJob.self,
+                    _020_GroupsRebuildChanges.self
                 ]
             ]
         )
@@ -61,6 +62,7 @@ public enum SNMessagingKit: MigratableTarget { // Just to make the external API 
             .configurationSync: ConfigurationSyncJob.self,
             .configMessageReceive: ConfigMessageReceiveJob.self,
             .expirationUpdate: ExpirationUpdateJob.self,
+            .checkForAppUpdates: CheckForAppUpdatesJob.self,
             .displayPictureDownload: DisplayPictureDownloadJob.self,
             .getExpiration: GetExpirationJob.self,
             .groupInviteMember: GroupInviteMemberJob.self,

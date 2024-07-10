@@ -115,7 +115,8 @@ public enum MimeTypeUtil {
         for attachmentId: String,
         ofMimeType mimeType: String,
         sourceFilename: String?,
-        in folder: String
+        in folder: String,
+        using dependencies: Dependencies
     ) -> String? {
         let defaultFileExtension: String = "bin"
         
@@ -156,7 +157,7 @@ public enum MimeTypeUtil {
                 // to avoid collisions between multiple attachments with the same name
                 let attachmentFolderPath: String = folder.appending("/\(attachmentId)")
                 
-                guard case .success = Result(try FileSystem.ensureDirectoryExists(at: attachmentFolderPath)) else {
+                guard case .success = Result(try FileSystem.ensureDirectoryExists(at: attachmentFolderPath, using: dependencies)) else {
                     return nil
                 }
                 

@@ -101,7 +101,7 @@ class NotificationSettingsViewModel: SessionTableViewModel, NavigatableStateHold
                                 dependencies[defaults: .standard, key: .isUsingFullAPNs] = !dependencies[defaults: .standard, key: .isUsingFullAPNs]
 
                                 // Force sync the push tokens on change
-                                SyncPushTokensJob.run(uploadOnlyIfStale: false)
+                                SyncPushTokensJob.run(uploadOnlyIfStale: false, using: dependencies)
                                 self?.forceRefresh(type: .postDatabaseQuery)
                             }
                         ),
@@ -129,7 +129,9 @@ class NotificationSettingsViewModel: SessionTableViewModel, NavigatableStateHold
                             trailingAccessory: .dropDown { current.notificationSound.displayName },
                             onTap: { [weak self] in
                                 self?.transitionToScreen(
-                                    SessionTableViewController(viewModel: NotificationSoundViewModel())
+                                    SessionTableViewController(
+                                        viewModel: NotificationSoundViewModel(using: dependencies)
+                                    )
                                 )
                             }
                         ),
@@ -158,7 +160,9 @@ class NotificationSettingsViewModel: SessionTableViewModel, NavigatableStateHold
                             trailingAccessory: .dropDown { current.previewType.name },
                             onTap: { [weak self] in
                                 self?.transitionToScreen(
-                                    SessionTableViewController(viewModel: NotificationContentViewModel())
+                                    SessionTableViewController(
+                                        viewModel: NotificationContentViewModel(using: dependencies)
+                                    )
                                 )
                             }
                         )

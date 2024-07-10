@@ -87,79 +87,34 @@ public extension LibSession {
             )
         }
         
-        func addingLogger() -> Config {
+        func push(variant: ConfigDump.Variant) -> PendingChanges.PushData? {
             switch self {
+                case .invalid: return nil
                 case .object(let conf):
-                    config_set_logger(
-                        conf,
-                        { logLevel, messagePtr, _ in
-                            guard
-                                logLevel.rawValue >= SessionUtil.logLevel.rawValue,
-                                let messagePtr = messagePtr
-                            else { return }
-
-                            let message: String = String(cString: messagePtr)
-                            print("[SessionUtil] \(message)")
-                        },
-                        nil
-                    )
-                
-                default: break
-            }
-            
-            return self
-        }
-        
-        func push(variant: ConfigDump.Variant) throws -> PendingChanges {
-            switch self {
-                case .invalid: throw LibSessionError.invalidConfigObject
-                case .object(let conf):
-                    var cPushData: UnsafeMutablePointer<config_push_data>!
-                    
-                    try CExceptionHelper.performSafely {
-                        cPushData = config_push(conf)
-                    }
-                    
+                    let cPushData: UnsafeMutablePointer<config_push_data> = config_push(conf)
                     let pushData: Data = Data(
                         bytes: cPushData.pointee.config,
                         count: cPushData.pointee.config_len
                     )
-                    let obsoleteHashes: [String] = [String](
-                        pointer: cPushData.pointee.obsolete,
-                        count: cPushData.pointee.obsolete_len,
-                        defaultValue: []
-                    )
                     let seqNo: Int64 = cPushData.pointee.seqno
                     cPushData.deallocate()
                     
-                    return PendingChanges(
-                        pushData: [
-                            PendingChanges.PushData(
-                                data: pushData,
-                                seqNo: seqNo,
-                                variant: variant
-                            )
-                        ],
-                        obsoleteHashes: obsoleteHashes
+                    return PendingChanges.PushData(
+                        data: pushData,
+                        seqNo: seqNo,
+                        variant: variant
                     )
                     
                 case .groupKeys(let conf, _, _):
                     var pushResult: UnsafePointer<UInt8>!
                     var pushResultLen: Int = 0
                     
-                    guard groups_keys_pending_config(conf, &pushResult, &pushResultLen) else {
-                        return LibSession.PendingChanges()
-                    }
+                    guard groups_keys_pending_config(conf, &pushResult, &pushResultLen) else { return nil }
                     
-                    return PendingChanges(
-                        pushData: [
-                            PendingChanges.PushData(
-                                data: Data(bytes: pushResult, count: pushResultLen),
-                                seqNo: 0,
-                                variant: variant
-                            )
-                        ],
-                        obsoleteHashes: []
+                    return PendingChanges.PushData(
+                        data: Data(bytes: pushResult, count: pushResultLen),
+                        seqNo: 0,
+                        variant: variant
                     )
             }
         }
@@ -168,11 +123,11 @@ public extension LibSession {
             seqNo: Int64,
             hash: String
         ) {
-            var cHash: [CChar] = hash.cArray.nullTerminated()
+            guard let cHash: [CChar] = hash.cString(using: .ascii) else { return }
             
             switch self {
                 case .invalid: return
-                case .object(let conf): return config_confirm_pushed(conf, seqNo, &cHash)
+                case .object(let conf): return config_confirm_pushed(conf, seqNo, cHash)
                 case .groupKeys: return // No need to do anything here
             }
         }
@@ -181,13 +136,14 @@ public extension LibSession {
             var dumpResult: UnsafeMutablePointer<UInt8>? = nil
             var dumpResultLen: Int = 0
             
-            try CExceptionHelper.performSafely {
-                switch self {
-                    case .invalid: return
-                    case .object(let conf): config_dump(conf, &dumpResult, &dumpResultLen)
-                    case .groupKeys(let conf, _, _): groups_keys_dump(conf, &dumpResult, &dumpResultLen)
-                }
+            switch self {
+                case .invalid: throw LibSessionError.invalidConfigObject
+                case .object(let conf): config_dump(conf, &dumpResult, &dumpResultLen)
+                case .groupKeys(let conf, _, _): groups_keys_dump(conf, &dumpResult, &dumpResultLen)
             }
+            
+            // If we got an error then throw it
+            try LibSessionError.throwIfNeeded(self)
             
             guard let dumpResult: UnsafeMutablePointer<UInt8> = dumpResult else { return nil }
             
@@ -253,25 +209,40 @@ public extension LibSession {
             switch self {
                 case .invalid: throw LibSessionError.invalidConfigObject
                 case .object(let conf):
-                    var mergeHashes: [UnsafePointer<CChar>?] = messages
-                        .map { message in message.serverHash.cArray.nullTerminated() }
-                        .unsafeCopy()
-                    var mergeData: [UnsafePointer<UInt8>?] = messages
-                        .map { message -> [UInt8] in message.data.bytes }
-                        .unsafeCopy()
-                    var mergeSize: [Int] = messages.map { $0.data.count }
-                    var mergedHashesPtr: UnsafeMutablePointer<config_string_list>?
-                    try CExceptionHelper.performSafely {
-                        mergedHashesPtr = config_merge(
-                            conf,
-                            &mergeHashes,
-                            &mergeData,
-                            &mergeSize,
-                            messages.count
-                        )
+                    var mergeHashes: [UnsafePointer<CChar>?] = (try? (messages
+                        .compactMap { message in message.serverHash.cString(using: .utf8) }
+                        .unsafeCopyCStringArray()))
+                        .defaulting(to: [])
+                    var mergeData: [UnsafePointer<UInt8>?] = (try? (messages
+                        .map { message -> [UInt8] in Array(message.data) }
+                        .unsafeCopyUInt8Array()))
+                        .defaulting(to: [])
+                    defer {
+                        mergeHashes.forEach { $0?.deallocate() }
+                        mergeData.forEach { $0?.deallocate() }
                     }
-                    mergeHashes.forEach { $0?.deallocate() }
-                    mergeData.forEach { $0?.deallocate() }
+                    
+                    guard
+                        mergeHashes.count == messages.count,
+                        mergeData.count == messages.count,
+                        mergeHashes.allSatisfy({ $0 != nil }),
+                        mergeData.allSatisfy({ $0 != nil })
+                    else {
+                        Log.error("[LibSession] Failed to correctly allocate merge data")
+                        return nil
+                    }
+                    
+                    var mergeSize: [size_t] = messages.map { size_t($0.data.count) }
+                    let mergedHashesPtr: UnsafeMutablePointer<config_string_list>? = config_merge(
+                        conf,
+                        &mergeHashes,
+                        &mergeData,
+                        &mergeSize,
+                        messages.count
+                    )
+                    
+                    // If we got an error then throw it
+                    try LibSessionError.throwIfNeeded(conf)
                     
                     // Get the list of hashes from the config (to determine which were successful)
                     let mergedHashes: [String] = mergedHashesPtr
@@ -286,7 +257,7 @@ public extension LibSession {
                     mergedHashesPtr?.deallocate()
                     
                     if mergedHashes.count != messages.count {
-                        SNLog("[SessionUtil] Unable to merge \(messages[0].namespace) messages (\(mergedHashes.count)/\(messages.count))")
+                        Log.warn("[LibSession] Unable to merge \(messages[0].namespace) messages (\(mergedHashes.count)/\(messages.count))")
                     }
                     
                     return messages
@@ -296,19 +267,25 @@ public extension LibSession {
                         .last
                     
                 case .groupKeys(let conf, let infoConf, let membersConf):
-                    let successfulMergeTimestamps: [Int64] = messages
+                    let successfulMergeTimestamps: [Int64] = try messages
                         .map { message -> (Bool, Int64) in
                             var data: [UInt8] = Array(message.data)
-                            var messageHash: [CChar] = message.serverHash.cArray.nullTerminated()
+                            var cServerHash: [CChar] = try message.serverHash.cString(using: .utf8) ?? {
+                                throw LibSessionError.invalidCConversion
+                            }()
+                            
                             let result: Bool = groups_keys_load_message(
                                 conf,
-                                &messageHash,
+                                &cServerHash,
                                 &data,
                                 data.count,
                                 message.serverTimestampMs,
                                 infoConf,
                                 membersConf
                             )
+                            
+                            // If we got an error then throw it
+                            try LibSessionError.throwIfNeeded(conf)
                             
                             return (result, message.serverTimestampMs)
                         }
@@ -317,7 +294,7 @@ public extension LibSession {
                         .sorted()
                     
                     if successfulMergeTimestamps.count != messages.count {
-                        SNLog("[SessionUtil] Unable to merge \(SnodeAPI.Namespace.configGroupKeys) messages (\(successfulMergeTimestamps.count)/\(messages.count))")
+                        Log.warn("[LibSession] Unable to merge \(SnodeAPI.Namespace.configGroupKeys) messages (\(successfulMergeTimestamps.count)/\(messages.count))")
                     }
                     
                     return successfulMergeTimestamps.last
@@ -325,7 +302,6 @@ public extension LibSession {
         }
         
         func count(for variant: ConfigDump.Variant) -> String {
-            var result: String? = nil
             let funcMap: [ConfigDump.Variant: (info: String, size: ConfigSizeInfo)] = [
                 .userProfile: ("profile", { _ in 1 }),
                 .contacts: ("contacts", contacts_size),
@@ -335,15 +311,14 @@ public extension LibSession {
                 .groupMembers: ("group members", groups_members_size)
             ]
             
-            try? CExceptionHelper.performSafely {
-                switch self {
-                    case .invalid: return
-                    case .object(let conf): result = funcMap[variant].map { "\($0.size(conf)) \($0.info)" }
-                    case .groupKeys(let conf, _, _): result = "\(groups_keys_size(conf)) group keys"
-                }
+            switch self {
+                case .invalid: return "Invalid"
+                case .groupKeys(let conf, _, _): return "\(groups_keys_size(conf)) group keys"
+                case .object(let conf):
+                    return funcMap[variant]
+                        .map { "\($0.size(conf)) \($0.info)" }
+                        .defaulting(to: "Invalid")
             }
-            
-            return (result ?? "Invalid")
         }
     }
 }
@@ -371,7 +346,9 @@ internal extension LibSession {
                 pushData.append(data)
             }
             
-            obsoleteHashes.insert(contentsOf: Set(hashes))
+            if !hashes.isEmpty {
+                obsoleteHashes.insert(contentsOf: Set(hashes))
+            }
         }
     }
 }
@@ -432,6 +409,37 @@ public extension Atomic where Value == Optional<LibSession.Config> {
     var needsPush: Bool { return wrappedValue.needsPush }
     
     func needsDump(using dependencies: Dependencies) -> Bool { return wrappedValue.needsDump(using: dependencies) }
+}
+
+// MARK: - LibSessionError Convenience
+
+public extension LibSessionError {
+    init(
+        _ config: LibSession.Config?,
+        fallbackError: LibSessionError,
+        logMessage: String? = nil
+    ) {
+        switch config {
+            case .none, .invalid:
+                self = fallbackError
+                
+                if let logMessage: String = logMessage {
+                    Log.error("\(logMessage): \(self)")
+                }
+                
+            case .object(let conf): self = LibSessionError(conf, fallbackError: fallbackError, logMessage: logMessage)
+            case .groupKeys(let conf, _, _): self = LibSessionError(conf, fallbackError: fallbackError, logMessage: logMessage)
+        }
+    }
+    
+    static func throwIfNeeded(_ config: LibSession.Config?) throws {
+        switch config {
+            case .none: return
+            case .invalid: throw LibSessionError.invalidConfigObject
+            case .object(let conf): try LibSessionError.throwIfNeeded(conf)
+            case .groupKeys(let conf, _, _): try LibSessionError.throwIfNeeded(conf)
+        }
+    }
 }
 
 // MARK: - Formatting

@@ -189,7 +189,7 @@ public struct SessionThreadViewModel: FetchableRecordWithRowId, Decodable, Equat
                         return "COMMUNITY_MESSAGE_REQUEST_DISABLED_EMPTY_STATE".localized()
                     
                     case (.group, _, false, _):
-                        guard SessionUtil.wasKickedFromGroup(groupSessionId: SessionId(.group, hex: threadId)) else {
+                        guard LibSession.wasKickedFromGroup(groupSessionId: SessionId(.group, hex: threadId), using: dependencies) else {
                             return "CONVERSATION_EMPTY_STATE_READ_ONLY".localized()
                         }
                         
@@ -367,7 +367,8 @@ public struct SessionThreadViewModel: FetchableRecordWithRowId, Decodable, Equat
                             threadId: threadId,
                             threadVariant: threadVariant,
                             isBlocked: threadIsBlocked,
-                            isMessageRequest: threadIsMessageRequest
+                            isMessageRequest: threadIsMessageRequest,
+                            using: dependencies
                         ),
                         using: dependencies
                     )
@@ -413,7 +414,8 @@ public extension SessionThreadViewModel {
         openGroupPermissions: OpenGroup.Permissions? = nil,
         unreadCount: UInt = 0,
         hasUnreadMessagesOfAnyKind: Bool = false,
-        disappearingMessagesConfiguration: DisappearingMessagesConfiguration? = nil
+        disappearingMessagesConfiguration: DisappearingMessagesConfiguration? = nil,
+        using dependencies: Dependencies
     ) {
         self.rowId = -1
         self.threadId = threadId
@@ -476,7 +478,7 @@ public extension SessionThreadViewModel {
         self.authorId = nil
         self.threadContactNameInternal = nil
         self.authorNameInternal = nil
-        self.currentUserSessionId = getUserSessionId().hexString
+        self.currentUserSessionId = dependencies[cache: .general].sessionId.hexString
         self.currentUserBlinded15SessionId = nil
         self.currentUserBlinded25SessionId = nil
         self.recentReactionEmoji = nil
@@ -551,7 +553,8 @@ public extension SessionThreadViewModel {
     func populatingCurrentUserBlindedIds(
         _ db: Database? = nil,
         currentUserBlinded15SessionIdForThisThread: String? = nil,
-        currentUserBlinded25SessionIdForThisThread: String? = nil
+        currentUserBlinded25SessionIdForThisThread: String? = nil,
+        using dependencies: Dependencies
     ) -> SessionThreadViewModel {
         return SessionThreadViewModel(
             rowId: self.rowId,
@@ -612,7 +615,8 @@ public extension SessionThreadViewModel {
                     db,
                     threadId: self.threadId,
                     threadVariant: self.threadVariant,
-                    blindingPrefix: .blinded15
+                    blindingPrefix: .blinded15,
+                    using: dependencies
                 )?.hexString
             ),
             currentUserBlinded25SessionId: (
@@ -621,7 +625,8 @@ public extension SessionThreadViewModel {
                     db,
                     threadId: self.threadId,
                     threadVariant: self.threadVariant,
-                    blindingPrefix: .blinded25
+                    blindingPrefix: .blinded25,
+                    using: dependencies
                 )?.hexString
             ),
             recentReactionEmoji: self.recentReactionEmoji

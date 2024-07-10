@@ -11,36 +11,34 @@ import SessionUtilitiesKit
 // MARK: - PollerType
 
 public protocol PollerType {
-    func start(using dependencies: Dependencies)
-    func startIfNeeded(for publicKey: String, using dependencies: Dependencies)
-    func stopAllPollers()
-    func stopPolling(for publicKey: String)
+    var swarmPublicKey: String { get }
+    
+    init(
+        swarmPublicKey: String,
+        shouldStoreMessages: Bool,
+        logStartAndStopCalls: Bool,
+        customAuthMethod: AuthenticationMethod?,
+        drainBehaviour: SwarmDrainBehaviour,
+        using dependencies: Dependencies
+    )
+    
+    func startIfNeeded()
+    func stop()
     
     func poll(
         namespaces: [SnodeAPI.Namespace],
-        for publicKey: String,
         calledFromBackgroundPoller: Bool,
-        isBackgroundPollValid: @escaping () -> Bool,
-        drainBehaviour: Atomic<SwarmDrainBehaviour>,
-        using dependencies: Dependencies
-    ) -> AnyPublisher<[ProcessedMessage], Error>
-    func afterNextPoll(for publicKey: String, closure: @escaping ([ProcessedMessage]) -> ())
+        isBackgroundPollValid: @escaping () -> Bool
+    ) -> AnyPublisher<Poller.PollResponse, Error>
+    func afterNextPoll(perform closure: @escaping ([ProcessedMessage]) -> ())
 }
 
 public extension PollerType {
-    func poll(
-        namespaces: [SnodeAPI.Namespace],
-        for publicKey: String,
-        drainBehaviour: Atomic<SwarmDrainBehaviour>,
-        using dependencies: Dependencies
-    ) -> AnyPublisher<[ProcessedMessage], Error> {
+    func poll(namespaces: [SnodeAPI.Namespace]) -> AnyPublisher<Poller.PollResponse, Error> {
         return poll(
             namespaces: namespaces,
-            for: publicKey,
             calledFromBackgroundPoller: false,
-            isBackgroundPollValid: { true },
-            drainBehaviour: drainBehaviour,
-            using: dependencies
+            isBackgroundPollValid: { true }
         )
     }
 }
@@ -48,144 +46,175 @@ public extension PollerType {
 // MARK: - Poller
 
 public class Poller: PollerType {
-    private var cancellables: Atomic<[String: AnyCancellable]> = Atomic([:])
-    private var pollResultCallbacks: Atomic<[String: [([ProcessedMessage]) -> ()]]> = Atomic([:])
-    internal var isPolling: Atomic<[String: Bool]> = Atomic([:])
-    internal var pollCount: Atomic<[String: Int]> = Atomic([:])
-    internal var failureCount: Atomic<[String: Int]> = Atomic([:])
-    internal var drainBehaviour: Atomic<[String: Atomic<SwarmDrainBehaviour>]> = Atomic([:])
+    public typealias PollResponse = (
+        messages: [ProcessedMessage],
+        rawMessageCount: Int,
+        validMessageCount: Int,
+        hadValidHashUpdate: Bool
+    )
+    
+    internal enum PollerErrorResponse {
+        case stopPolling
+        case continuePolling
+        case continuePollingInfo(String)
+    }
+    
+    internal let dependencies: Dependencies
+    private let customAuthMethod: AuthenticationMethod?
+    private let shouldStoreMessages: Bool
+    private let logStartAndStopCalls: Bool
+    internal var drainBehaviour: Atomic<SwarmDrainBehaviour>
+    internal var cancellable: AnyCancellable?
+    internal var pollCount: Int = 0
+    internal var failureCount: Int = 0
+    public var swarmPublicKey: String
+    public var isPolling: Bool = false
+    private var pollResultCallbacks: Atomic<[([ProcessedMessage]) -> ()]> = Atomic([])
+
+    // MARK: - Initialization
+    
+    required public init(
+        swarmPublicKey: String,
+        shouldStoreMessages: Bool,
+        logStartAndStopCalls: Bool,
+        customAuthMethod: AuthenticationMethod? = nil,
+        drainBehaviour: SwarmDrainBehaviour,
+        using dependencies: Dependencies
+    ) {
+        self.dependencies = dependencies
+        self.swarmPublicKey = swarmPublicKey
+        self.customAuthMethod = customAuthMethod
+        self.shouldStoreMessages = shouldStoreMessages
+        self.logStartAndStopCalls = logStartAndStopCalls
+        self.drainBehaviour = Atomic(drainBehaviour)
+    }
     
     // MARK: - Settings
-    
-    /// The namespaces which this poller queries
-    internal func namespaces(for publicKey: String) -> [SnodeAPI.Namespace] {
-        preconditionFailure("abstract class - override in subclass")
-    }
     
     /// The queue this poller should run on
     internal var pollerQueue: DispatchQueue {
         preconditionFailure("abstract class - override in subclass")
     }
     
-    /// The behaviour for how the poller should drain it's swarm when polling
-    internal var pollDrainBehaviour: SwarmDrainBehaviour {
+    /// The namespaces which this poller queries
+    internal var namespaces: [SnodeAPI.Namespace] {
+        preconditionFailure("abstract class - override in subclass")
+    }
+    
+    /// The name for this poller to appear in the logs
+    internal var pollerName: String {
         preconditionFailure("abstract class - override in subclass")
     }
 
-    // MARK: - Public API
+    // MARK: - Functions
     
-    public func start(using dependencies: Dependencies) {
-        preconditionFailure("abstract class - override in subclass")
-    }
-    
-    public func startIfNeeded(for publicKey: String, using dependencies: Dependencies) {
-        // Run on the 'pollerQueue' to ensure any 'Atomic' access doesn't block the main thread
-        // on startup
-        let drainBehaviour: Atomic<SwarmDrainBehaviour> = Atomic(pollDrainBehaviour)
-        
-        pollerQueue.async(using: dependencies) { [weak self] in
-            guard self?.isPolling.wrappedValue[publicKey] != true else { return }
+    public func startIfNeeded() {
+        pollerQueue.async(using: dependencies) { [weak self, pollerName] in
+            guard self?.isPolling != true else { return }
             
             // Might be a race condition that the setUpPolling finishes too soon,
             // and the timer is not created, if we mark the group as is polling
             // after setUpPolling. So the poller may not work, thus misses messages
-            self?.isPolling.mutate { $0[publicKey] = true }
-            self?.drainBehaviour.mutate { $0[publicKey] = drainBehaviour }
-            self?.pollRecursively(for: publicKey, drainBehaviour: drainBehaviour, using: dependencies)
+            self?.isPolling = true
+            self?.pollRecursively()
+            
+            if self?.logStartAndStopCalls == true {
+                Log.info("[Poller] Started \(pollerName).")
+            }
         }
     }
     
-    public func stopAllPollers() {
-        let pollers: [String] = Array(isPolling.wrappedValue.keys)
-        
-        pollers.forEach { groupPublicKey in
-            self.stopPolling(for: groupPublicKey)
+    public func stop() {
+        pollerQueue.async(using: dependencies) { [weak self, pollerName] in
+            self?.isPolling = false
+            self?.cancellable?.cancel()
+            
+            if self?.logStartAndStopCalls == true {
+                Log.info("[Poller] Stopped \(pollerName).")
+            }
         }
-    }
-    
-    public func stopPolling(for publicKey: String) {
-        isPolling.mutate { $0[publicKey] = false }
-        failureCount.mutate { $0[publicKey] = nil }
-        drainBehaviour.mutate { $0[publicKey] = nil }
-        cancellables.mutate { $0[publicKey]?.cancel() }
     }
     
     // MARK: - Abstract Methods
     
-    /// The name for this poller to appear in the logs
-    internal func pollerName(for publicKey: String) -> String {
-        preconditionFailure("abstract class - override in subclass")
-    }
-    
     /// Calculate the delay which should occur before the next poll
-    internal func nextPollDelay(for publicKey: String, using dependencies: Dependencies) -> TimeInterval {
+    internal func nextPollDelay() -> TimeInterval {
         preconditionFailure("abstract class - override in subclass")
     }
     
     /// Perform and logic which should occur when the poll errors, will stop polling if `false` is returned
-    internal func handlePollError(_ error: Error, for publicKey: String, using dependencies: Dependencies) -> Bool {
+    internal func handlePollError(_ error: Error) -> PollerErrorResponse {
         preconditionFailure("abstract class - override in subclass")
     }
 
     // MARK: - Private API
     
-    private func pollRecursively(
-        for swarmPublicKey: String,
-        drainBehaviour: Atomic<SwarmDrainBehaviour>,
-        using dependencies: Dependencies
-    ) {
-        guard isPolling.wrappedValue[swarmPublicKey] == true else { return }
+    private func pollRecursively() {
+        guard isPolling else { return }
         
-        let namespaces: [SnodeAPI.Namespace] = self.namespaces(for: swarmPublicKey)
-        let pollerQueue: DispatchQueue = self.pollerQueue
         let lastPollStart: TimeInterval = dependencies.dateNow.timeIntervalSince1970
-        let lastPollInterval: TimeInterval = nextPollDelay(for: swarmPublicKey, using: dependencies)
         
-        // Store the publisher intp the cancellables dictionary
-        cancellables.mutate { [weak self] cancellables in
-            cancellables[swarmPublicKey] = self?
-                .poll(
-                    namespaces: namespaces,
-                    for: swarmPublicKey,
-                    drainBehaviour: drainBehaviour,
-                    using: dependencies
-                )
-                .subscribe(on: pollerQueue, using: dependencies)
-                .receive(on: pollerQueue, using: dependencies)
-                .sink(
-                    receiveCompletion: { result in
-                        switch result {
-                            case .failure(let error):
-                                // Determine if the error should stop us from polling anymore
-                                guard self?.handlePollError(error, for: swarmPublicKey, using: dependencies) == true else {
-                                    return
-                                }
-                                
-                            case .finished: break
-                        }
-                        
-                        // Calculate the remaining poll delay
-                        let currentTime: TimeInterval = dependencies.dateNow.timeIntervalSince1970
-                        let nextPollInterval: TimeInterval = (
-                            self?.nextPollDelay(for: swarmPublicKey, using: dependencies) ??
-                            lastPollInterval
-                        )
-                        let remainingInterval: TimeInterval = max(0, nextPollInterval - (currentTime - lastPollStart))
-                        
-                        // Schedule the next poll
-                        guard remainingInterval > 0 else {
-                            return pollerQueue.async(using: dependencies) {
-                                self?.pollRecursively(for: swarmPublicKey, drainBehaviour: drainBehaviour, using: dependencies)
+        cancellable = poll(namespaces: namespaces)
+            .subscribe(on: pollerQueue, using: dependencies)
+            .receive(on: pollerQueue, using: dependencies)
+            // FIXME: In iOS 14.0 a `flatMap` was added where the error type in `Never`, we should use that here
+            .map { response -> Result<PollResponse, Error> in Result.success(response) }
+            .catch { error -> AnyPublisher<Result<PollResponse, Error>, Error> in
+                Just(Result.failure(error)).setFailureType(to: Error.self).eraseToAnyPublisher()
+            }
+            .sink(
+                receiveCompletion: { _ in },    // Never called
+                receiveValue: { [weak self, pollerName, pollerQueue, dependencies] result in
+                    // If the polling has been cancelled then don't continue
+                    guard self?.isPolling == true else { return }
+                    
+                    let endTime: TimeInterval = dependencies.dateNow.timeIntervalSince1970
+                    
+                    // Log information about the poll
+                    switch result {
+                        case .failure(let error):
+                            // Determine if the error should stop us from polling anymore
+                            switch self?.handlePollError(error) {
+                                case .stopPolling: return
+                                case .continuePollingInfo(let info):
+                                    Log.error("\(pollerName) failed to process any messages due to error: \(error). \(info)")
+                                    
+                                case .continuePolling, .none:
+                                    Log.error("\(pollerName) failed to process any messages due to error: \(error).")
                             }
+                            
+                        case .success(let response):
+                            let duration: TimeUnit = .seconds(endTime - lastPollStart)
+                            
+                            switch (response.rawMessageCount, response.validMessageCount, response.hadValidHashUpdate) {
+                                case (0, _, _):
+                                    Log.info("Received no new messages in \(pollerName) after \(duration, unit: .s).")
+                                    
+                                case (_, 0, false):
+                                    Log.info("Received \(response.rawMessageCount) new message\(plural: response.rawMessageCount) in \(pollerName) after \(duration, unit: .s), all duplicates - marked the hash we polled with as invalid")
+                                    
+                                default:
+                                    Log.info("Received \(response.validMessageCount) new message\(plural: response.validMessageCount) in \(pollerName) after \(duration, unit: .s) (duplicates: \(response.rawMessageCount - response.validMessageCount))")
+                            }
+                    }
+                    
+                    // Calculate the remaining poll delay and schedule the next poll
+                    guard
+                        self != nil,
+                        let remainingInterval: TimeInterval = (self?.nextPollDelay())
+                            .map({ nextPollInterval in max(0, nextPollInterval - (endTime - lastPollStart)) }),
+                        remainingInterval > 0
+                    else {
+                        return pollerQueue.async(using: dependencies) {
+                            self?.pollRecursively()
                         }
-                        
-                        pollerQueue.asyncAfter(deadline: .now() + .milliseconds(Int(remainingInterval * 1000)), qos: .default, using: dependencies) {
-                            self?.pollRecursively(for: swarmPublicKey, drainBehaviour: drainBehaviour, using: dependencies)
-                        }
-                    },
-                    receiveValue: { _ in }
-                )
-        }
+                    }
+                    
+                    pollerQueue.asyncAfter(deadline: .now() + .milliseconds(Int(remainingInterval * 1000)), qos: .default, using: dependencies) {
+                        self?.pollRecursively()
+                    }
+                }
+            )
     }
     
     /// Polls the specified namespaces and processes any messages, returning an array of messages that were
@@ -195,23 +224,19 @@ public class Poller: PollerType {
     /// for cases where we need explicit/custom behaviours to occur (eg. Onboarding)
     public func poll(
         namespaces: [SnodeAPI.Namespace],
-        for swarmPublicKey: String,
         calledFromBackgroundPoller: Bool = false,
-        isBackgroundPollValid: @escaping (() -> Bool) = { true },
-        drainBehaviour: Atomic<SwarmDrainBehaviour>,
-        using dependencies: Dependencies
-    ) -> AnyPublisher<[ProcessedMessage], Error> {
+        isBackgroundPollValid: @escaping (() -> Bool) = { true }
+    ) -> AnyPublisher<PollResponse, Error> {
         // If the polling has been cancelled then don't continue
         guard
             (calledFromBackgroundPoller && isBackgroundPollValid()) ||
-            isPolling.wrappedValue[swarmPublicKey] == true
+            isPolling
         else {
-            return Just([])
+            return Just(([], 0, 0, false))
                 .setFailureType(to: Error.self)
                 .eraseToAnyPublisher()
         }
         
-        let pollerName: String = pollerName(for: swarmPublicKey)
         let pollerQueue: DispatchQueue = self.pollerQueue
         let configHashes: [String] = LibSession.configHashes(for: swarmPublicKey, using: dependencies)
         
@@ -220,30 +245,31 @@ public class Poller: PollerType {
         /// **Note:**  We need a `writePublisher` here because we want to prune the `lastMessageHash` value when preparing
         /// the request
         return LibSession.getSwarm(for: swarmPublicKey, using: dependencies)
-            .tryFlatMapWithRandomSnode(drainBehaviour: drainBehaviour, using: dependencies) { snode -> AnyPublisher<HTTP.PreparedRequest<SnodeAPI.PollResponse>, Error> in
-                dependencies[singleton: .storage]
-                    .writePublisher(using: dependencies) { db -> HTTP.PreparedRequest<SnodeAPI.PollResponse> in
-                        try SnodeAPI.preparedPoll(
-                            db,
-                            namespaces: namespaces,
-                            refreshingConfigHashes: configHashes,
-                            from: snode,
-                            authMethod: try Authentication.with(
-                                db,
-                                swarmPublicKey: swarmPublicKey,
-                                using: dependencies
-                            ),
-                            using: dependencies
-                        )
-                    }
+            .tryFlatMapWithRandomSnode(drainBehaviour: drainBehaviour, using: dependencies) { [swarmPublicKey, customAuthMethod, dependencies] snode -> AnyPublisher<Network.PreparedRequest<SnodeAPI.PollResponse>, Error> in
+                dependencies[singleton: .storage].writePublisher { db -> Network.PreparedRequest<SnodeAPI.PollResponse> in
+                    let authMethod: AuthenticationMethod = try (customAuthMethod ?? Authentication.with(
+                        db,
+                        swarmPublicKey: swarmPublicKey,
+                        using: dependencies
+                    ))
+                    
+                    return try SnodeAPI.preparedPoll(
+                        db,
+                        namespaces: namespaces,
+                        refreshingConfigHashes: configHashes,
+                        from: snode,
+                        authMethod: authMethod,
+                        using: dependencies
+                    )
+                }
             }
-            .flatMap { $0.send(using: dependencies) }
-            .flatMap { [weak self] (_: ResponseInfoType, namespacedResults: SnodeAPI.PollResponse) -> AnyPublisher<[ProcessedMessage], Error> in
+            .flatMap { [dependencies] request in request.send(using: dependencies) }
+            .flatMap { [weak self, swarmPublicKey, shouldStoreMessages, dependencies] (_: ResponseInfoType, namespacedResults: SnodeAPI.PollResponse) -> AnyPublisher<PollResponse, Error> in
                 guard
                     (calledFromBackgroundPoller && isBackgroundPollValid()) ||
-                    self?.isPolling.wrappedValue[swarmPublicKey] == true
+                    self?.isPolling == true
                 else {
-                    return Just([])
+                    return Just(([], 0, 0, false))
                         .setFailureType(to: Error.self)
                         .eraseToAnyPublisher()
                 }
@@ -256,9 +282,7 @@ public class Poller: PollerType {
                 
                 // No need to do anything if there are no messages
                 guard rawMessageCount > 0 else {
-                    if !calledFromBackgroundPoller { SNLog("Received no new messages in \(pollerName)") }
-                    
-                    return Just([])
+                    return Just(([], 0, 0, false))
                         .setFailureType(to: Error.self)
                         .eraseToAnyPublisher()
                 }
@@ -275,7 +299,6 @@ public class Poller: PollerType {
                 var hadValidHashUpdate: Bool = false
                 var configMessageJobsToRun: [Job] = []
                 var standardMessageJobsToRun: [Job] = []
-                var pollerLogOutput: String = "\(pollerName) failed to process any messages"  // stringlint:disable
                 
                 dependencies[singleton: .storage].write { db in
                     let allProcessedMessages: [ProcessedMessage] = sortedMessages
@@ -286,7 +309,8 @@ public class Poller: PollerType {
                                         return try Message.processRawReceivedMessage(
                                             db,
                                             rawMessage: message,
-                                            publicKey: swarmPublicKey,
+                                            swarmPublicKey: swarmPublicKey,
+                                            shouldStoreMessages: shouldStoreMessages,
                                             using: dependencies
                                         )
                                     }
@@ -309,35 +333,40 @@ public class Poller: PollerType {
                                                 /// In the background ignore 'SQLITE_ABORT' (it generally means the
                                                 /// BackgroundPoller has timed out
                                                 if !calledFromBackgroundPoller {
-                                                    SNLog("Failed to the database being suspended (running in background with no background task).")
+                                                    Log.warn("Failed to the database being suspended (running in background with no background task).")
                                                 }
                                                 break
                                                 
-                                            default: SNLog("Failed to deserialize envelope due to error: \(error).")
+                                            default: Log.error("Failed to deserialize envelope due to error: \(error).")
                                         }
                                         
                                         return nil
                                     }
                                 }
                             
-                            /// If this message should be handled synchronously then do so here before processing the next namespace
-                            guard namespace.shouldHandleSynchronously else { return processedMessages }
+                            /// If this message should be handled by this poller and should be handled  synchronously then do so here before
+                            /// processing the next namespace
+                            guard shouldStoreMessages && namespace.shouldHandleSynchronously else {
+                                return processedMessages
+                            }
                             
                             if namespace.isConfigNamespace {
                                 do {
                                     /// Process config messages all at once in case they are multi-part messages
-                                    try LibSession.handleConfigMessages(
-                                        db,
-                                        messages: ConfigMessageReceiveJob
-                                            .Details(
-                                                messages: processedMessages,
-                                                calledFromBackgroundPoller: false
-                                            )
-                                            .messages,
-                                        swarmPublicKey: swarmPublicKey
-                                    )
+                                    try dependencies.mutate(cache: .libSession) {
+                                        try $0.handleConfigMessages(
+                                            db,
+                                            swarmPublicKey: swarmPublicKey,
+                                            messages: ConfigMessageReceiveJob
+                                                .Details(
+                                                    messages: processedMessages,
+                                                    calledFromBackgroundPoller: false
+                                                )
+                                                .messages
+                                        )
+                                    }
                                 }
-                                catch { SNLog("Failed to handle processed message to error: \(error).") }
+                                catch { Log.error("Failed to handle processed config message due to error: \(error).") }
                             }
                             else {
                                 /// Individually process non-config messages
@@ -353,16 +382,25 @@ public class Poller: PollerType {
                                             threadVariant: threadVariant,
                                             message: messageInfo.message,
                                             serverExpirationTimestamp: messageInfo.serverExpirationTimestamp,
-                                            associatedWithProto: proto
+                                            associatedWithProto: proto,
+                                            using: dependencies
                                         )
                                     }
-                                    catch { SNLog("Failed to handle processed message to error: \(error).") }
+                                    catch { Log.error("Failed to handle processed message due to error: \(error).") }
                                 }
                             }
                             
                             return nil
                         }
                         .flatMap { $0 }
+                    
+                    // If we don't want to store the messages then no need to continue (don't want
+                    // to create message receive jobs or mess with cached hashes)
+                    guard shouldStoreMessages else {
+                        messageCount += allProcessedMessages.count
+                        processedMessages += allProcessedMessages
+                        return
+                    }
                     
                     // Add a job to process the async config messages first
                     let configJobIds: [Int64] = allProcessedMessages
@@ -386,14 +424,12 @@ public class Poller: PollerType {
                             // If we are force-polling then add to the JobRunner so they are
                             // persistent and will retry on the next app run if they fail but
                             // don't let them auto-start
-                            let updatedJob: Job? = dependencies[singleton: .jobRunner]
-                                .add(
-                                    db,
-                                    job: jobToRun,
-                                    canStartJob: !calledFromBackgroundPoller,
-                                    using: dependencies
-                                )
-                                
+                            let updatedJob: Job? = dependencies[singleton: .jobRunner].add(
+                                db,
+                                job: jobToRun,
+                                canStartJob: !calledFromBackgroundPoller
+                            )
+                            
                             return updatedJob?.id
                         }
                     
@@ -420,13 +456,11 @@ public class Poller: PollerType {
                             // If we are force-polling then add to the JobRunner so they are
                             // persistent and will retry on the next app run if they fail but
                             // don't let them auto-start
-                            let updatedJob: Job? = dependencies[singleton: .jobRunner]
-                                .add(
-                                    db,
-                                    job: jobToRun,
-                                    canStartJob: !calledFromBackgroundPoller,
-                                    using: dependencies
-                                )
+                            let updatedJob: Job? = dependencies[singleton: .jobRunner].add(
+                                db,
+                                job: jobToRun,
+                                canStartJob: !calledFromBackgroundPoller
+                            )
                             
                             // Create the dependency between the jobs
                             if let updatedJobId: Int64 = updatedJob?.id {
@@ -440,18 +474,13 @@ public class Poller: PollerType {
                                     }
                                 }
                                 catch {
-                                    SNLog("Failed to add dependency between config processing and non-config processing messageReceive jobs.")
+                                    Log.warn("Failed to add dependency between config processing and non-config processing messageReceive jobs.")
                                 }
                             }
                         }
                     
-                    // Set the output for logging
-                    pollerLogOutput = "Received \(messageCount) new message\(plural: messageCount) in \(pollerName) (duplicates: \(rawMessageCount - messageCount))"  // stringlint:disable
-                    
                     // Clean up message hashes and add some logs about the poll results
                     if sortedMessages.isEmpty && !hadValidHashUpdate {
-                        pollerLogOutput = "Received \(rawMessageCount) new message\(plural: rawMessageCount) in \(pollerName), all duplicates - marking the hash we polled with as invalid" // stringlint:disable
-                        
                         // Update the cached validity of the messages
                         try SnodeReceivedMessageInfo.handlePotentialDeletedOrInvalidHash(
                             db,
@@ -461,14 +490,9 @@ public class Poller: PollerType {
                     }
                 }
                 
-                // Only output logs if it isn't the background poller
-                if !calledFromBackgroundPoller {
-                    SNLog(pollerLogOutput)
-                }
-                
                 // If we aren't runing in a background poller then just finish immediately
                 guard calledFromBackgroundPoller else {
-                    return Just(processedMessages)
+                    return Just((processedMessages, rawMessageCount, messageCount, hadValidHashUpdate))
                         .setFailureType(to: Error.self)
                         .eraseToAnyPublisher()
                 }
@@ -483,9 +507,9 @@ public class Poller: PollerType {
                                     ConfigMessageReceiveJob.run(
                                         job,
                                         queue: pollerQueue,
-                                        success: { _, _, _ in resolver(Result.success(())) },
-                                        failure: { _, _, _, _ in resolver(Result.success(())) },
-                                        deferred: { _, _ in resolver(Result.success(())) },
+                                        success: { _, _ in resolver(Result.success(())) },
+                                        failure: { _, _, _ in resolver(Result.success(())) },
+                                        deferred: { _ in resolver(Result.success(())) },
                                         using: dependencies
                                     )
                                 }
@@ -504,9 +528,9 @@ public class Poller: PollerType {
                                             MessageReceiveJob.run(
                                                 job,
                                                 queue: pollerQueue,
-                                                success: { _, _, _ in resolver(Result.success(())) },
-                                                failure: { _, _, _, _ in resolver(Result.success(())) },
-                                                deferred: { _, _ in resolver(Result.success(())) },
+                                                success: { _, _ in resolver(Result.success(())) },
+                                                failure: { _, _, _ in resolver(Result.success(())) },
+                                                deferred: { _ in resolver(Result.success(())) },
                                                 using: dependencies
                                             )
                                         }
@@ -516,29 +540,27 @@ public class Poller: PollerType {
                             )
                             .collect()
                     }
-                    .map { _ in processedMessages }
+                    .map { _ in (processedMessages, rawMessageCount, messageCount, hadValidHashUpdate) }
                     .eraseToAnyPublisher()
             }
             .handleEvents(
-                receiveOutput: { [weak self] messages in
+                receiveOutput: { [weak self] (pollResponse: Poller.PollResponse) in
                     /// Run any poll result callbacks we registered
                     let callbacks: [([ProcessedMessage]) -> ()] = (self?.pollResultCallbacks
                         .mutate { callbacks in
-                            let result: [([ProcessedMessage]) -> ()] = (callbacks[swarmPublicKey] ?? [])
-                            callbacks.removeValue(forKey: swarmPublicKey)
+                            let result: [([ProcessedMessage]) -> ()] = callbacks
+                            callbacks = []
                             return result
                         })
                         .defaulting(to: [])
                     
-                    callbacks.forEach { $0(messages) }
+                    callbacks.forEach { $0(pollResponse.messages) }
                 }
             )
             .eraseToAnyPublisher()
     }
     
-    public func afterNextPoll(for publicKey: String, closure: @escaping ([ProcessedMessage]) -> ()) {
-        pollResultCallbacks.mutate { callbacks in
-            callbacks[publicKey] = (callbacks[publicKey] ?? []).appending(closure)
-        }
+    public func afterNextPoll(perform closure: @escaping ([ProcessedMessage]) -> ()) {
+        pollResultCallbacks.mutate { $0.appending(closure) }
     }
 }

@@ -99,12 +99,6 @@ final class LinkDeviceVC: BaseVC, UIPageViewControllerDataSource, UIPageViewCont
         scanQRCodePlaceholderVC.constrainHeight(to: height)
     }
     
-    override func viewWillAppear(_ animated: Bool) {
-        super.viewWillAppear(animated)
-        
-        Onboarding.Flow.register.unregister(using: dependencies)
-    }
-    
     override func viewDidAppear(_ animated: Bool) {
         super.viewDidAppear(animated)
         tabBarTopConstraint.constant = navigationController!.navigationBar.bounds.height
@@ -149,11 +143,11 @@ final class LinkDeviceVC: BaseVC, UIPageViewControllerDataSource, UIPageViewCont
     }
     
     func continueWithSeed(_ seed: Data, onError: (() -> ())?) {
-        if (seed.count != 16) {
+        func showError(title: String, message: String = "") {
             let modal: ConfirmationModal = ConfirmationModal(
                 info: ConfirmationModal.Info(
-                    title: "invalid_recovery_phrase".localized(),
-                    body: .text("INVALID_RECOVERY_PHRASE_MESSAGE".localized()),
+                    title: title,
+                    body: .text(message),
                     cancelTitle: "BUTTON_OK".localized(),
                     cancelStyle: .alert_text,
                     afterClosed: onError
@@ -162,17 +156,24 @@ final class LinkDeviceVC: BaseVC, UIPageViewControllerDataSource, UIPageViewCont
             present(modal, animated: true)
             return
         }
-        let (ed25519KeyPair, x25519KeyPair) = try! Identity.generate(from: seed, using: dependencies)
         
-        Onboarding.Flow.link
-            .preregister(
-                ed25519KeyPair: ed25519KeyPair,
-                x25519KeyPair: x25519KeyPair
+        if (seed.count != 16) {
+            return showError(
+                title: "invalid_recovery_phrase".localized(),
+                message: "INVALID_RECOVERY_PHRASE_MESSAGE".localized()
             )
+        }
         
-            // Otherwise continue on to request push notifications permissions
-            let pnModeVC: PNModeVC = PNModeVC(flow: .link)
-            self.navigationController?.pushViewController(pnModeVC, animated: true)
+        do {
+            try dependencies.mutate(cache: .onboarding) { try $0.setSeedData(seed) }
+        }
+        catch let error {
+            return showError(title: Mnemonic.DecodingError.generic.errorDescription!)
+        }
+        
+        // Continue on to request push notifications permissions
+        let pnModeVC: PNModeVC = PNModeVC(using: dependencies)
+        self.navigationController?.pushViewController(pnModeVC, animated: true)
     }
 }
 

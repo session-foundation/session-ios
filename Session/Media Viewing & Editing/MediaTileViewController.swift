@@ -6,7 +6,6 @@ import GRDB
 import DifferenceKit
 import SessionUIKit
 import SignalUtilitiesKit
-import SignalCoreKit
 import SessionMessagingKit
 import SessionUtilitiesKit
 
@@ -48,7 +47,7 @@ public class MediaTileViewController: UIViewController, UICollectionViewDataSour
     }
 
     required public init?(coder aDecoder: NSCoder) {
-        notImplemented()
+        fatalError("init(coder:) has not been implemented")
     }
     
     deinit {
@@ -214,7 +213,7 @@ public class MediaTileViewController: UIViewController, UICollectionViewDataSour
         // If we have a focused item then we want to scroll to it
         guard let focusedIndexPath: IndexPath = self.viewModel.focusedIndexPath else { return }
         
-        Logger.debug("scrolling to focused item at indexPath: \(focusedIndexPath)")
+        Log.debug("[MediaTileViewController] Scrolling to focused item at indexPath: \(focusedIndexPath)")
         
         // Note: For some reason 'scrollToItem' doesn't always work properly so we need to manually
         // calculate what the offset should be to do the initial scroll
@@ -455,7 +454,8 @@ public class MediaTileViewController: UIViewController, UICollectionViewDataSour
         let cell: PhotoGridViewCell = collectionView.dequeue(type: PhotoGridViewCell.self, for: indexPath)
         cell.configure(
             item: GalleryGridCellItem(
-                galleryItem: section.elements[indexPath.row]
+                galleryItem: section.elements[indexPath.row],
+                using: dependencies
             )
         )
 
@@ -641,10 +641,10 @@ public class MediaTileViewController: UIViewController, UICollectionViewDataSour
 
     @objc func didTapSelect(_ sender: Any) {
         isInBatchSelectMode = true
-
+        
         // show toolbar
         let view: UIView = self.view
-        UIView.animate(withDuration: 0.1, delay: 0, options: .curveEaseInOut, animations: { [weak self, view] in
+        UIView.animate(withDuration: 0.1, delay: 0, options: .curveEaseInOut, animations: { [weak self] in
             self?.footerBarBottomConstraint?.isActive = false
             self?.footerBarBottomConstraint = self?.footerBar.pin(.bottom, to: .bottom, of: view.safeAreaLayoutGuide)
             self?.footerBar.superview?.layoutIfNeeded()
@@ -663,7 +663,7 @@ public class MediaTileViewController: UIViewController, UICollectionViewDataSour
 
         // hide toolbar
         let view: UIView = self.view
-        UIView.animate(withDuration: 0.1, delay: 0, options: .curveEaseInOut, animations: { [weak self, view] in
+        UIView.animate(withDuration: 0.1, delay: 0, options: .curveEaseInOut, animations: { [weak self] in
             self?.footerBarBottomConstraint?.isActive = false
             self?.footerBarBottomConstraint = self?.footerBar.pin(.bottom, to: .bottom, of: view, withInset: -MediaTileViewController.footerBarHeight)
             self?.footerBar.superview?.layoutIfNeeded()
@@ -678,7 +678,7 @@ public class MediaTileViewController: UIViewController, UICollectionViewDataSour
 
     @objc func didPressDelete(_ sender: Any) {
         guard let indexPaths = collectionView.indexPathsForSelectedItems else {
-            owsFailDebug("indexPaths was unexpectedly nil")
+            Log.error("[MediaTileViewController] indexPaths was unexpectedly nil")
             return
         }
 
@@ -696,8 +696,8 @@ public class MediaTileViewController: UIViewController, UICollectionViewDataSour
             )
         }()
 
-        let deleteAction = UIAlertAction(title: confirmationTitle, style: .destructive) { [weak self] _ in
-            Dependencies()[singleton: .storage].writeAsync { db in
+        let deleteAction = UIAlertAction(title: confirmationTitle, style: .destructive) { [weak self, dependencies = viewModel.dependencies] _ in
+            dependencies[singleton: .storage].writeAsync { db in
                 let interactionIds: Set<Int64> = items
                     .map { $0.interactionId }
                     .asSet()
@@ -707,7 +707,7 @@ public class MediaTileViewController: UIViewController, UICollectionViewDataSour
                     .deleteAll(db)
                 
                 // Add the garbage collection job to delete orphaned attachment files
-                Dependencies()[singleton: .jobRunner].add(
+                dependencies[singleton: .jobRunner].add(
                     db,
                     job: Job(
                         variant: .garbageCollection,
@@ -716,8 +716,7 @@ public class MediaTileViewController: UIViewController, UICollectionViewDataSour
                             typesToCollect: [.orphanedAttachmentFiles]
                         )
                     ),
-                    canStartJob: true,
-                    using: Dependencies()
+                    canStartJob: true
                 )
                 
                 // Delete any interactions which had all of their attachments removed
@@ -766,9 +765,6 @@ private class MediaTileViewLayout: UICollectionViewFlowLayout {
 }
 
 private class MediaGallerySectionHeader: UICollectionReusableView {
-
-    static let reuseIdentifier = "MediaGallerySectionHeader"
-
     // HACK: scrollbar incorrectly appears *behind* section headers
     // in collection view on iOS11 =(
     private class AlwaysOnTopLayer: CALayer {
@@ -809,7 +805,7 @@ private class MediaGallerySectionHeader: UICollectionReusableView {
 
     @available(*, unavailable, message: "Unimplemented")
     required init?(coder aDecoder: NSCoder) {
-        notImplemented()
+        fatalError("init(coder:) has not been implemented")
     }
 
     public func configure(title: String) {
@@ -824,9 +820,6 @@ private class MediaGallerySectionHeader: UICollectionReusableView {
 }
 
 private class MediaGalleryStaticHeader: UICollectionViewCell {
-
-    static let reuseIdentifier = "MediaGalleryStaticHeader"
-
     let label = UILabel()
 
     override init(frame: CGRect) {
@@ -845,7 +838,7 @@ private class MediaGalleryStaticHeader: UICollectionViewCell {
 
     @available(*, unavailable, message: "Unimplemented")
     required public init?(coder aDecoder: NSCoder) {
-        notImplemented()
+        fatalError("init(coder:) has not been implemented")
     }
 
     public func configure(title: String) {
@@ -858,9 +851,11 @@ private class MediaGalleryStaticHeader: UICollectionViewCell {
 }
 
 class GalleryGridCellItem: PhotoGridItem {
+    private let dependencies: Dependencies
     let galleryItem: MediaGalleryViewModel.Item
 
-    init(galleryItem: MediaGalleryViewModel.Item) {
+    init(galleryItem: MediaGalleryViewModel.Item, using dependencies: Dependencies) {
+        self.dependencies = dependencies
         self.galleryItem = galleryItem
     }
 
@@ -877,7 +872,7 @@ class GalleryGridCellItem: PhotoGridItem {
     }
 
     func asyncThumbnail(completion: @escaping (UIImage?) -> Void) {
-        galleryItem.thumbnailImage(async: completion)
+        galleryItem.thumbnailImage(using: dependencies, async: completion)
     }
 }
 
@@ -894,7 +889,8 @@ extension MediaTileViewController: UIViewControllerTransitioningDelegate {
         guard let focusedIndexPath: IndexPath = self.viewModel.focusedIndexPath else { return nil }
 
         return MediaDismissAnimationController(
-            galleryItem: self.viewModel.galleryData[focusedIndexPath.section].elements[focusedIndexPath.item]
+            galleryItem: self.viewModel.galleryData[focusedIndexPath.section].elements[focusedIndexPath.item],
+            using: dependencies
         )
     }
 
@@ -909,7 +905,8 @@ extension MediaTileViewController: UIViewControllerTransitioningDelegate {
 
         return MediaZoomAnimationController(
             galleryItem: self.viewModel.galleryData[focusedIndexPath.section].elements[focusedIndexPath.item],
-            shouldBounce: false
+            shouldBounce: false,
+            using: dependencies
         )
     }
 }
@@ -918,7 +915,7 @@ extension MediaTileViewController: UIViewControllerTransitioningDelegate {
 
 extension MediaTileViewController: MediaPresentationContextProvider {
     func mediaPresentationContext(mediaItem: Media, in coordinateSpace: UICoordinateSpace) -> MediaPresentationContext? {
-        guard case let .gallery(galleryItem) = mediaItem else { return nil }
+        guard case let .gallery(galleryItem, _) = mediaItem else { return nil }
 
         // Note: According to Apple's docs the 'indexPathsForVisibleRows' method returns an
         // unsorted array which means we can't use it to determine the desired 'visibleCell'

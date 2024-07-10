@@ -83,7 +83,7 @@ final class InputView: UIView, InputViewButtonDelegate, InputTextViewDelegate, M
     private lazy var voiceMessageButtonContainer = container(for: voiceMessageButton)
 
     private lazy var mentionsView: MentionSelectionView = {
-        let result: MentionSelectionView = MentionSelectionView()
+        let result: MentionSelectionView = MentionSelectionView(using: dependencies)
         result.delegate = self
         
         return result
@@ -269,7 +269,8 @@ final class InputView: UIView, InputViewButtonDelegate, InputTextViewDelegate, M
             currentUserBlinded15SessionId: quoteDraftInfo.model.currentUserBlinded15SessionId,
             currentUserBlinded25SessionId: quoteDraftInfo.model.currentUserBlinded25SessionId,
             direction: (quoteDraftInfo.isOutgoing ? .outgoing : .incoming),
-            attachment: quoteDraftInfo.model.attachment
+            attachment: quoteDraftInfo.model.attachment,
+            using: dependencies
         ) { [weak self] in
             self?.quoteDraftInfo = nil
         }
@@ -308,7 +309,7 @@ final class InputView: UIView, InputViewButtonDelegate, InputTextViewDelegate, M
 
     func autoGenerateLinkPreview() {
         // Check that a valid URL is present
-        guard let linkPreviewURL = LinkPreview.previewUrl(for: text, selectedRange: inputTextView.selectedRange) else {
+        guard let linkPreviewURL = LinkPreview.previewUrl(for: text, selectedRange: inputTextView.selectedRange, using: dependencies) else {
             return
         }
         
@@ -321,7 +322,7 @@ final class InputView: UIView, InputViewButtonDelegate, InputTextViewDelegate, M
         
         // Set the state to loading
         linkPreviewInfo = (url: linkPreviewURL, draft: nil)
-        linkPreviewView.update(with: LinkPreview.LoadingState(), isOutgoing: false)
+        linkPreviewView.update(with: LinkPreview.LoadingState(), isOutgoing: false, using: dependencies)
 
         // Add the link preview view
         additionalContentContainer.addSubview(linkPreviewView)
@@ -345,11 +346,15 @@ final class InputView: UIView, InputViewButtonDelegate, InputTextViewDelegate, M
                             self?.additionalContentContainer.subviews.forEach { $0.removeFromSuperview() }
                     }
                 },
-                receiveValue: { [weak self] draft in
+                receiveValue: { [weak self, dependencies] draft in
                     guard self?.linkPreviewInfo?.url == linkPreviewURL else { return } // Obsolete
                     
                     self?.linkPreviewInfo = (url: linkPreviewURL, draft: draft)
-                    self?.linkPreviewView.update(with: LinkPreview.DraftState(linkPreviewDraft: draft), isOutgoing: false)
+                    self?.linkPreviewView.update(
+                        with: LinkPreview.DraftState(linkPreviewDraft: draft),
+                        isOutgoing: false,
+                        using: dependencies
+                    )
                 }
             )
             .store(in: &disposables)

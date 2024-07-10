@@ -2,8 +2,8 @@
 
 import UIKit
 import SessionUIKit
-import SignalCoreKit
 import SignalUtilitiesKit
+import SessionUtilitiesKit
 
 class EmojiSkinTonePicker: UIView {
     let emoji: Emoji
@@ -25,7 +25,7 @@ class EmojiSkinTonePicker: UIView {
         let picker = EmojiSkinTonePicker(emoji: emoji, completion: completion)
 
         guard let superview = referenceView.superview else {
-            owsFailDebug("reference is missing superview")
+            Log.error("[EmojiSkinTonePicker] Reference is missing superview")
             return nil
         }
 
@@ -108,7 +108,7 @@ class EmojiSkinTonePicker: UIView {
     }
 
     init(emoji: EmojiWithSkinTones, completion: @escaping (EmojiWithSkinTones?) -> Void) {
-        owsAssertDebug(emoji.baseEmoji!.hasSkinTones)
+        Log.assert(emoji.baseEmoji!.hasSkinTones)
 
         self.emoji = emoji.baseEmoji!
         self.preferredSkinTonePermutation = emoji.skinTones
@@ -182,7 +182,7 @@ class EmojiSkinTonePicker: UIView {
 
     private lazy var skinToneComponentEmoji: [Emoji] = {
         guard let skinToneComponentEmoji = emoji.skinToneComponentEmoji else {
-            owsFailDebug("missing skin tone component emoji \(emoji)")
+            Log.error("[EmojiSkinTonePicker] Missing skin tone component emoji \(emoji)")
             return []
         }
         return skinToneComponentEmoji

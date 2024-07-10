@@ -5,7 +5,7 @@ import SessionUIKit
 import SessionUtilitiesKit
 
 public extension UIViewController {
-    func findFrontmostViewController(ignoringAlerts: Bool) -> UIViewController {
+    func findFrontMostViewController(ignoringAlerts: Bool) -> UIViewController {
         var visitedViewControllers: [UIViewController] = []
         
         var viewController: UIViewController = self

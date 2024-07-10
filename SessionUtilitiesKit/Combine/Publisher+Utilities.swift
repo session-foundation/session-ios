@@ -48,7 +48,7 @@ public extension Publisher {
     func subscribe<S>(
         on scheduler: S,
         options: S.SchedulerOptions? = nil,
-        using dependencies: Dependencies = Dependencies()
+        using dependencies: Dependencies
     ) -> AnyPublisher<Output, Failure> where S: Scheduler {
         guard !dependencies.forceSynchronous else { return self.eraseToAnyPublisher() }
         
@@ -59,7 +59,7 @@ public extension Publisher {
     func receive<S>(
         on scheduler: S,
         options: S.SchedulerOptions? = nil,
-        using dependencies: Dependencies = Dependencies()
+        using dependencies: Dependencies
     ) -> AnyPublisher<Output, Failure> where S: Scheduler {
         guard !dependencies.forceSynchronous else { return self.eraseToAnyPublisher() }
         
@@ -136,33 +136,5 @@ extension AnyPublisher: ExpressibleByArrayLiteral where Output: Collection {
         }
         
         self = Just(convertedElements).setFailureType(to: Failure.self).eraseToAnyPublisher()
-    }
-}
-
-// MARK: - Data Decoding
-
-public extension Publisher where Output == Data, Failure == Error {
-    func decoded<R: Decodable>(
-        as type: R.Type,
-        using dependencies: Dependencies = Dependencies()
-    ) -> AnyPublisher<R, Failure> {
-        self
-            .tryMap { data -> R in try data.decoded(as: type, using: dependencies) }
-            .eraseToAnyPublisher()
-    }
-}
-
-public extension Publisher where Output == (ResponseInfoType, Data?), Failure == Error {
-    func decoded<R: Decodable>(
-        as type: R.Type,
-        using dependencies: Dependencies = Dependencies()
-    ) -> AnyPublisher<(ResponseInfoType, R), Error> {
-        self
-            .tryMap { responseInfo, maybeData -> (ResponseInfoType, R) in
-                guard let data: Data = maybeData else { throw NetworkError.parsingFailed }
-                
-                return (responseInfo, try data.decoded(as: type, using: dependencies))
-            }
-            .eraseToAnyPublisher()
     }
 }

@@ -2,7 +2,6 @@
 
 import Foundation
 import GRDB
-import SignalCoreKit
 import SessionUtilitiesKit
 
 public enum FailedAttachmentDownloadsJob: JobExecutor {
@@ -13,11 +12,13 @@ public enum FailedAttachmentDownloadsJob: JobExecutor {
     public static func run(
         _ job: Job,
         queue: DispatchQueue,
-        success: @escaping (Job, Bool, Dependencies) -> (),
-        failure: @escaping (Job, Error?, Bool, Dependencies) -> (),
-        deferred: @escaping (Job, Dependencies) -> (),
+        success: @escaping (Job, Bool) -> Void,
+        failure: @escaping (Job, Error, Bool) -> Void,
+        deferred: @escaping (Job) -> Void,
         using dependencies: Dependencies
     ) {
+        guard Identity.userExists(using: dependencies) else { return success(job, false) }
+        
         var changeCount: Int = -1
         
         // Update all 'sending' message states to 'failed'
@@ -27,7 +28,7 @@ public enum FailedAttachmentDownloadsJob: JobExecutor {
                 .updateAll(db, Attachment.Columns.state.set(to: Attachment.State.failedDownload))
         }
         
-        SNLog("[FailedAttachmentDownloadsJob] Marked \(changeCount) attachments as failed")
-        success(job, false, dependencies)
+        Log.info("[FailedAttachmentDownloadsJob] Marked \(changeCount) attachments as failed")
+        success(job, false)
     }
 }

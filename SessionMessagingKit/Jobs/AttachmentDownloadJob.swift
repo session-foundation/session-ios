@@ -4,7 +4,6 @@ import Foundation
 import Combine
 import SessionUtilitiesKit
 import SessionSnodeKit
-import SignalCoreKit
 
 public enum AttachmentDownloadJob: JobExecutor {
     public static var maxFailureCount: Int = 3
@@ -14,9 +13,9 @@ public enum AttachmentDownloadJob: JobExecutor {
     public static func run(
         _ job: Job,
         queue: DispatchQueue,
-        success: @escaping (Job, Bool, Dependencies) -> (),
-        failure: @escaping (Job, Error?, Bool, Dependencies) -> (),
-        deferred: @escaping (Job, Dependencies) -> (),
+        success: @escaping (Job, Bool) -> Void,
+        failure: @escaping (Job, Error, Bool) -> Void,
+        deferred: @escaping (Job) -> Void,
         using dependencies: Dependencies
     ) {
         guard
@@ -26,17 +25,13 @@ public enum AttachmentDownloadJob: JobExecutor {
             let details: Details = try? JSONDecoder(using: dependencies).decode(Details.self, from: detailsData),
             let attachment: Attachment = dependencies[singleton: .storage]
                 .read({ db in try Attachment.fetchOne(db, id: details.attachmentId) })
-        else {
-            failure(job, JobRunnerError.missingRequiredDetails, true, dependencies)
-            return
-        }
+        else { return failure(job, JobRunnerError.missingRequiredDetails, true) }
         
         // Due to the complex nature of jobs and how attachments can be reused it's possible for
         // an AttachmentDownloadJob to get created for an attachment which has already been
         // downloaded/uploaded so in those cases just succeed immediately
         guard attachment.state != .downloaded && attachment.state != .uploaded else {
-            success(job, false, dependencies)
-            return
+            return success(job, false)
         }
         
         // If we ever make attachment downloads concurrent this will prevent us from downloading
@@ -72,8 +67,7 @@ public enum AttachmentDownloadJob: JobExecutor {
             // If there is another current job then just fail this one permanently, otherwise let it
             // retry (if there are more retry attempts available) and in the next retry it's state should
             // be 'failedDownload' so we won't get stuck in a loop
-            failure(job, nil, otherCurrentJobAttachmentIds.contains(attachment.id), dependencies)
-            return
+            return failure(job, JobRunnerError.possibleDuplicateJob, otherCurrentJobAttachmentIds.contains(attachment.id))
         }
         
         // Update to the 'downloading' state (no need to update the 'attachment' instance)
@@ -90,31 +84,27 @@ public enum AttachmentDownloadJob: JobExecutor {
         Just(attachment.downloadUrl)
             .setFailureType(to: Error.self)
             .tryFlatMap { maybeDownloadUrl -> AnyPublisher<Data, Error> in
-                guard
-                    let downloadUrl: String = maybeDownloadUrl,
-                    let fileId: String = Attachment.fileId(for: downloadUrl)
-                else { throw AttachmentDownloadError.invalidUrl }
+                guard let downloadUrl: URL = maybeDownloadUrl.map({ URL(string: $0) }) else {
+                    throw AttachmentDownloadError.invalidUrl
+                }                
                 
                 return dependencies[singleton: .storage]
                     .readPublisher { db -> Network.PreparedRequest<Data> in
                         switch try OpenGroup.fetchOne(db, id: threadId) {
                             case .some(let openGroup):
-                                return try OpenGroupAPI
-                                    .preparedDownloadFile(
-                                        db,
-                                        fileId: fileId,
-                                        from: openGroup.roomToken,
-                                        on: openGroup.server,
-                                        using: dependencies
-                                    )
+                                return try OpenGroupAPI.preparedDownload(
+                                    db,
+                                    url: downloadUrl,
+                                    from: openGroup.roomToken,
+                                    on: openGroup.server,
+                                    using: dependencies
+                                )
                                 
                             case .none:
-                                return try FileServerAPI
-                                    .preparedDownload(
-                                        fileId: fileId,
-                                        useOldServer: downloadUrl.contains(FileServerAPI.oldServer),
-                                        using: dependencies
-                                    )
+                                return try Network.preparedDownload(
+                                    url: downloadUrl,
+                                    using: dependencies
+                                )
                         }
                     }
                     .flatMap { $0.send(using: dependencies) }
@@ -136,17 +126,18 @@ public enum AttachmentDownloadJob: JobExecutor {
                         digest.count > 0
                     else { return data } // Open group attachments are unencrypted
                     
-                    // FIXME: Replace this with an first party solution
-                    return try Cryptography.decryptAttachment(
-                        data,
-                        withKey: key,
-                        digest: digest,
-                        unpaddedSize: UInt32(attachment.byteCount)
+                    return try dependencies[singleton: .crypto].tryGenerate(
+                        .decryptAttachment(
+                            ciphertext: data,
+                            key: key,
+                            digest: digest,
+                            unpaddedSize: attachment.byteCount
+                        )
                     )
                 }()
                 
                 // Write the data to disk
-                guard try attachment.write(data: plaintext) else {
+                guard try attachment.write(data: plaintext, using: dependencies) else {
                     throw AttachmentDownloadError.failedToSaveFile
                 }
                 
@@ -167,18 +158,20 @@ public enum AttachmentDownloadJob: JobExecutor {
                                 try attachment
                                     .with(
                                         state: .downloaded,
-                                        creationTimestamp: TimeInterval(
-                                            (Double(SnodeAPI.currentOffsetTimestampMs(using: dependencies)) / 1000)
-                                        ),
+                                        creationTimestamp: (dependencies[cache: .snodeAPI].currentOffsetTimestampMs() / 1000),
                                         localRelativeFilePath: (
                                             attachment.localRelativeFilePath ??
-                                            Attachment.localRelativeFilePath(from: attachment.originalFilePath)
-                                        )
+                                            Attachment.localRelativeFilePath(
+                                                from: attachment.originalFilePath(using: dependencies),
+                                                using: dependencies
+                                            )
+                                        ),
+                                        using: dependencies
                                     )
                                     .upserted(db)
                             }
                             
-                            success(job, false, dependencies)
+                            success(job, false)
                             
                         case .failure(let error):
                             let targetState: Attachment.State
@@ -218,7 +211,7 @@ public enum AttachmentDownloadJob: JobExecutor {
                             }
                             
                             /// Trigger the failure and provide the `permanentFailure` value defined above
-                            failure(job, error, permanentFailure, dependencies)
+                            failure(job, error, permanentFailure)
                     }
                 }
             )

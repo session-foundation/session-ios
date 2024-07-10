@@ -5,11 +5,6 @@
 import Foundation
 
 public extension Data {
-    func decoded<T: Decodable>(as type: T.Type, using dependencies: Dependencies = Dependencies()) throws -> T {
-        do { return try JSONDecoder(using: dependencies).decode(type, from: self) }
-        catch { throw HTTPError.parsingFailed }
-    }
-    
     func appending(_ other: Data) -> Data {
         var mutableData: Data = Data()
         mutableData.append(self)

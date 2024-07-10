@@ -146,7 +146,8 @@ internal extension ControlMessageProcessRecord {
     init?(
         threadId: String,
         variant: Interaction.Variant,
-        timestampMs: Int64
+        timestampMs: Int64,
+        using dependencies: Dependencies
     ) {
         switch variant {
             case .standardOutgoing, .standardIncoming, .standardIncomingDeleted,
@@ -173,7 +174,7 @@ internal extension ControlMessageProcessRecord {
         self.threadId = threadId
         self.timestampMs = timestampMs
         self.serverExpirationTimestamp = (
-            TimeInterval(Double(SnodeAPI.currentOffsetTimestampMs()) / 1000) +
+            TimeInterval(dependencies[cache: .snodeAPI].currentOffsetTimestampMs() / 1000) +
             ControlMessageProcessRecord.defaultExpirationSeconds
         )
     }

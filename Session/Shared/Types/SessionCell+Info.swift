@@ -3,6 +3,7 @@
 import UIKit
 import DifferenceKit
 import SessionUIKit
+import SessionMessagingKit
 
 extension SessionCell {
     public struct Info<ID: Hashable & Differentiable>: Equatable, Hashable, Differentiable {

@@ -8,7 +8,7 @@ import SessionUtilitiesKit
 
 public extension Profile {
     static func isTooLong(profileName: String) -> Bool {
-        return (profileName.utf8CString.count > SessionUtil.sizeMaxNameBytes)
+        return (profileName.utf8CString.count > LibSession.sizeMaxNameBytes)
     }
     
     static func updateLocal(
@@ -17,9 +17,9 @@ public extension Profile {
         displayPictureUpdate: DisplayPictureManager.Update = .none,
         success: ((Database) throws -> ())? = nil,
         failure: ((DisplayPictureError) -> ())? = nil,
-        using dependencies: Dependencies = Dependencies()
+        using dependencies: Dependencies
     ) {
-        let userSessionId: SessionId = getUserSessionId(using: dependencies)
+        let userSessionId: SessionId = dependencies[cache: .general].sessionId
         let isRemovingAvatar: Bool = {
             switch displayPictureUpdate {
                 case .remove: return true
@@ -48,8 +48,8 @@ public extension Profile {
                         }
                         
                         switch existingProfileUrl {
-                            case .some: SNLog(.verbose, "Updating local profile on service with cleared avatar.")
-                            case .none: SNLog(.verbose, "Updating local profile on service with no avatar.")
+                            case .some: Log.verbose("Updating local profile on service with cleared avatar.")
+                            case .none: Log.verbose("Updating local profile on service with no avatar.")
                         }
                     }
                     
@@ -63,7 +63,7 @@ public extension Profile {
                         using: dependencies
                     )
                     
-                    SNLog("Successfully updated service with profile.")
+                    Log.info("Successfully updated service with profile.")
                     try success?(db)
                 }
                 
@@ -84,7 +84,7 @@ public extension Profile {
                             )
                             
                             dependencies[defaults: .standard, key: .lastProfilePictureUpload] = dependencies.dateNow
-                            SNLog("Successfully updated service with profile.")
+                            Log.info("Successfully updated service with profile.")
                             try success?(db)
                         }
                     },
@@ -104,7 +104,7 @@ public extension Profile {
         calledFromConfig configTriggeringChange: ConfigDump.Variant?,
         using dependencies: Dependencies
     ) throws {
-        let isCurrentUser = (publicKey == getUserSessionId(db, using: dependencies).hexString)
+        let isCurrentUser = (publicKey == dependencies[cache: .general].sessionId.hexString)
         let profile: Profile = Profile.fetchOrCreate(db, id: publicKey)
         var profileChanges: [ConfigColumnAssignment] = []
         
@@ -158,8 +158,7 @@ public extension Profile {
                                 timestamp: sentTimestamp
                             )
                         ),
-                        canStartJob: true,
-                        using: dependencies
+                        canStartJob: true
                     )
             }
         }

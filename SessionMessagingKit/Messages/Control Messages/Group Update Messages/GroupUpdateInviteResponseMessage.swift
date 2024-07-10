@@ -52,7 +52,7 @@ public final class GroupUpdateInviteResponseMessage: ControlMessage {
 
     // MARK: - Proto Conversion
     
-    public override class func fromProto(_ proto: SNProtoContent, sender: String) -> GroupUpdateInviteResponseMessage? {
+    public override class func fromProto(_ proto: SNProtoContent, sender: String, using dependencies: Dependencies) -> GroupUpdateInviteResponseMessage? {
         guard
             let dataMessage: SNProtoDataMessage = proto.dataMessage,
             let groupInviteResponseMessage = dataMessage.groupUpdateMessage?.inviteResponse

@@ -20,7 +20,7 @@ public final class GroupUpdateMemberLeftMessage: ControlMessage {
     
     // MARK: - Proto Conversion
     
-    public override class func fromProto(_ proto: SNProtoContent, sender: String) -> GroupUpdateMemberLeftMessage? {
+    public override class func fromProto(_ proto: SNProtoContent, sender: String, using dependencies: Dependencies) -> GroupUpdateMemberLeftMessage? {
         guard proto.dataMessage?.groupUpdateMessage?.memberLeftMessage != nil else { return nil }
         
         return GroupUpdateMemberLeftMessage()

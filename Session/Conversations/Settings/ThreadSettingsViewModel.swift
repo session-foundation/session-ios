@@ -153,7 +153,7 @@ class ThreadSettingsViewModel: SessionTableViewModel, NavigationItemSource, Navi
                                 .trimmingCharacters(in: .whitespacesAndNewlines)
                             self?.oldDisplayName = (updatedNickname.isEmpty ? nil : editedDisplayName)
 
-                            dependencies[singleton: .storage].writeAsync(using: dependencies) { db in
+                            dependencies[singleton: .storage].writeAsync { db in
                                 try Profile
                                     .filter(id: threadId)
                                     .updateAllAndConfig(
@@ -196,7 +196,7 @@ class ThreadSettingsViewModel: SessionTableViewModel, NavigationItemSource, Navi
     
     lazy var observation: TargetObservation = ObservationBuilder
         .databaseObservation(self) { [dependencies, threadId = self.threadId] db -> State in
-            let userSessionId: SessionId = getUserSessionId(db, using: dependencies)
+            let userSessionId: SessionId = dependencies[cache: .general].sessionId
             let threadViewModel: SessionThreadViewModel? = try SessionThreadViewModel
                 .conversationSettingsQuery(threadId: threadId, userSessionId: userSessionId)
                 .fetchOne(db)
@@ -375,16 +375,14 @@ class ThreadSettingsViewModel: SessionTableViewModel, NavigationItemSource, Navi
 
                                     case .community:
                                         guard
-                                            let server: String = threadViewModel.openGroupServer,
-                                            let roomToken: String = threadViewModel.openGroupRoomToken,
-                                            let publicKey: String = threadViewModel.openGroupPublicKey
+                                            let urlString: String = LibSession.communityUrlFor(
+                                                server: threadViewModel.openGroupServer,
+                                                roomToken: threadViewModel.openGroupRoomToken,
+                                                publicKey: threadViewModel.openGroupPublicKey
+                                            )
                                         else { return }
 
-                                        UIPasteboard.general.string = SessionUtil.communityUrlFor(
-                                            server: server,
-                                            roomToken: roomToken,
-                                            publicKey: publicKey
-                                        )
+                                        UIPasteboard.general.string = urlString
                                 }
 
                                 self?.showToast(
@@ -755,7 +753,7 @@ class ThreadSettingsViewModel: SessionTableViewModel, NavigationItemSource, Navi
         guard
             threadViewModel.threadVariant == .contact,
             let profile: Profile = threadViewModel.profile,
-            let profileData: Data = DisplayPictureManager.displayPicture(owner: .user(profile))
+            let profileData: Data = DisplayPictureManager.displayPicture(owner: .user(profile), using: dependencies)
         else { return }
         
         let format: ImageFormat = profileData.guessedImageFormat
@@ -780,16 +778,12 @@ class ThreadSettingsViewModel: SessionTableViewModel, NavigationItemSource, Navi
     private func inviteUsersToCommunity(threadViewModel: SessionThreadViewModel) {
         guard
             let name: String = threadViewModel.openGroupName,
-            let server: String = threadViewModel.openGroupServer,
-            let roomToken: String = threadViewModel.openGroupRoomToken,
-            let publicKey: String = threadViewModel.openGroupPublicKey
+            let communityUrl: String = LibSession.communityUrlFor(
+                server: threadViewModel.openGroupServer,
+                roomToken: threadViewModel.openGroupRoomToken,
+                publicKey: threadViewModel.openGroupPublicKey
+            )
         else { return }
-        
-        let communityUrl: String = LibSession.communityUrlFor(
-            server: server,
-            roomToken: roomToken,
-            publicKey: publicKey
-        )
         
         self.transitionToScreen(
             SessionTableViewController(
@@ -804,7 +798,7 @@ class ThreadSettingsViewModel: SessionTableViewModel, NavigationItemSource, Navi
                     footerTitle: "GROUP_ACTION_INVITE".localized(),
                     onSubmit: .publisher { [dependencies] _, selectedUserInfo in
                         dependencies[singleton: .storage]
-                            .writePublisher(using: dependencies) { db in
+                            .writePublisher { db in
                                 try selectedUserInfo.forEach { userInfo in
                                     let thread: SessionThread = try SessionThread.fetchOrCreate(
                                         db,
@@ -818,22 +812,25 @@ class ThreadSettingsViewModel: SessionTableViewModel, NavigationItemSource, Navi
                                     try LinkPreview(
                                         url: communityUrl,
                                         variant: .openGroupInvitation,
-                                        title: name
+                                        title: name,
+                                        using: dependencies
                                     )
                                     .upsert(db)
                                     
                                     let interaction: Interaction = try Interaction(
                                         threadId: thread.id,
+                                        threadVariant: thread.variant,
                                         authorId: userInfo.profileId,
                                         variant: .standardOutgoing,
-                                        timestampMs: SnodeAPI.currentOffsetTimestampMs(using: dependencies),
+                                        timestampMs: dependencies[cache: .snodeAPI].currentOffsetTimestampMs(),
                                         expiresInSeconds: try? DisappearingMessagesConfiguration
                                             .select(.durationSeconds)
                                             .filter(id: userInfo.profileId)
                                             .filter(DisappearingMessagesConfiguration.Columns.isEnabled == true)
                                             .asRequest(of: TimeInterval.self)
                                             .fetchOne(db),
-                                        linkPreviewUrl: communityUrl
+                                        linkPreviewUrl: communityUrl,
+                                        using: dependencies
                                     )
                                     .inserted(db)
                                     
@@ -851,11 +848,10 @@ class ThreadSettingsViewModel: SessionTableViewModel, NavigationItemSource, Navi
                                         job: DisappearingMessagesJob.updateNextRunIfNeeded(
                                             db,
                                             interaction: interaction,
-                                            startedAtMs: Double(SnodeAPI.currentOffsetTimestampMs(using: dependencies)),
+                                            startedAtMs: dependencies[cache: .snodeAPI].currentOffsetTimestampMs(),
                                             using: dependencies
                                         ),
-                                        canStartJob: true,
-                                        using: dependencies
+                                        canStartJob: true
                                     )
                                 }
                             }

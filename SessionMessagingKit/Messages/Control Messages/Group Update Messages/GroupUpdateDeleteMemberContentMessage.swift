@@ -104,7 +104,7 @@ public final class GroupUpdateDeleteMemberContentMessage: ControlMessage {
 
     // MARK: - Proto Conversion
     
-    public override class func fromProto(_ proto: SNProtoContent, sender: String) -> GroupUpdateDeleteMemberContentMessage? {
+    public override class func fromProto(_ proto: SNProtoContent, sender: String, using dependencies: Dependencies) -> GroupUpdateDeleteMemberContentMessage? {
         guard let groupDeleteMemberContentMessage = proto.dataMessage?.groupUpdateMessage?.deleteMemberContent else { return nil }
         
         return GroupUpdateDeleteMemberContentMessage(

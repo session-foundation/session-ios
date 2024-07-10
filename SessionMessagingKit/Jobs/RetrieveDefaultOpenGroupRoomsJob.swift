@@ -12,15 +12,14 @@ public enum RetrieveDefaultOpenGroupRoomsJob: JobExecutor {
     public static func run(
         _ job: Job,
         queue: DispatchQueue,
-        success: @escaping (Job, Bool, Dependencies) -> (),
-        failure: @escaping (Job, Error?, Bool, Dependencies) -> (),
-        deferred: @escaping (Job, Dependencies) -> (),
+        success: @escaping (Job, Bool) -> Void,
+        failure: @escaping (Job, Error, Bool) -> Void,
+        deferred: @escaping (Job) -> Void,
         using dependencies: Dependencies
     ) {
         // Don't run when inactive or not in main app
         guard dependencies[defaults: .appGroup, key: .isMainAppActive] else {
-            deferred(job, dependencies) // Don't need to do anything if it's not the main app
-            return
+            return deferred(job) // Don't need to do anything if it's not the main app
         }
         
         // The OpenGroupAPI won't make any API calls if there is no entry for an OpenGroup
@@ -42,19 +41,17 @@ public enum RetrieveDefaultOpenGroupRoomsJob: JobExecutor {
             .upserted(db)
         }
         
-        OpenGroupManager.getDefaultRoomsIfNeeded()
+        dependencies[singleton: .openGroupManager].getDefaultRoomsIfNeeded()
             .subscribe(on: queue)
             .receive(on: queue)
             .sinkUntilComplete(
                 receiveCompletion: { result in
                     switch result {
                         case .finished:
-                            SNLog("[RetrieveDefaultOpenGroupRoomsJob] Successfully retrieved default Community rooms")
-                            success(job, false, dependencies)
+                            Log.info("[RetrieveDefaultOpenGroupRoomsJob] Successfully retrieved default Community rooms")
+                            success(job, false)
                             
-                        case .failure(let error):
-                            SNLog("[RetrieveDefaultOpenGroupRoomsJob] Failed to get default Community rooms")
-                            failure(job, error, false, dependencies)
+                        case .failure(let error): failure(job, error, false)
                     }
                 }
             )

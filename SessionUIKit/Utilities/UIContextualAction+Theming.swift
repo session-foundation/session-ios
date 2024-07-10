@@ -1,11 +1,8 @@
 // Copyright © 2023 Rangeproof Pty Ltd. All rights reserved.
 
 import UIKit
-import SessionUtilitiesKit
 
 public extension UIContextualAction {
-    private static var lookupMap: Atomic<[Int: [String: [Int: ActionInfo]]]> = Atomic([:])
-    
     private struct ActionInfo {
         let themeTintColor: ThemeValue
         let accessibility: Accessibility?
@@ -54,20 +51,15 @@ public extension UIContextualAction {
         self.themeBackgroundColor = themeBackgroundColor
         self.accessibilityLabel = accessibility?.label
         
-        UIContextualAction.lookupMap.mutate {
-            $0[tableView.hashValue] = ($0[tableView.hashValue] ?? [:])
-                .setting(
-                    side.key(for: indexPath),
-                    (($0[tableView.hashValue] ?? [:])[side.key(for: indexPath)] ?? [:])
-                        .setting(
-                            actionIndex,
-                            ActionInfo(
-                                themeTintColor: themeTintColor,
-                                accessibility: accessibility
-                            )
-                        )
-                )
-        }
+        SNUIKit.config?.cacheContextualActionInfo(
+            tableViewHash: tableView.hashValue,
+            sideKey: side.key(for: indexPath),
+            actionIndex: actionIndex,
+            actionInfo: ActionInfo(
+                themeTintColor: themeTintColor,
+                accessibility: accessibility
+            )
+        )
     }
     
     private static func imageWith(
@@ -152,9 +144,10 @@ public extension UIContextualAction {
                 .filter({ $0 != targetCell })
                 .first,
             let side: Side = Side(for: targetSuperview),
-            let themeMap: [Int: ActionInfo] = UIContextualAction.lookupMap.wrappedValue
-                .getting(tableView.hashValue)?
-                .getting(side.key(for: indexPath)),
+            let themeMap: [Int: ActionInfo] = SNUIKit.config?.cachedContextualActionInfo(
+                tableViewHash: tableView.hashValue,
+                sideKey: side.key(for: indexPath)
+            ) as? [Int: ActionInfo],
             targetSuperview.subviews.count == themeMap.count
         else { return }
         
@@ -163,7 +156,7 @@ public extension UIContextualAction {
         
         guard targetViews.count == themeMap.count else { return }
         
-        // Set the imageView and background colours (so they change correctly when the theme changes)
+        // Set the imageView and background colors (so they change correctly when the theme changes)
         targetViews.enumerated().forEach { index, targetView in
             guard let actionInfo: ActionInfo = themeMap[index] else { return }
             
@@ -175,21 +168,9 @@ public extension UIContextualAction {
     static func didEndEditing(indexPath: IndexPath?, tableView: UITableView) {
         guard let indexPath: IndexPath = indexPath else { return }
         
-        let leadingKey: String = Side.leading.key(for: indexPath)
-        let trailingKey: String = Side.trailing.key(for: indexPath)
-        
-        guard
-            UIContextualAction.lookupMap.wrappedValue[tableView.hashValue]?[leadingKey] != nil ||
-            UIContextualAction.lookupMap.wrappedValue[tableView.hashValue]?[trailingKey] != nil
-        else { return }
-        
-        UIContextualAction.lookupMap.mutate {
-            $0[tableView.hashValue]?[leadingKey] = nil
-            $0[tableView.hashValue]?[trailingKey] = nil
-            
-            if $0[tableView.hashValue]?.isEmpty == true {
-                $0[tableView.hashValue] = nil
-            }
-        }
+        SNUIKit.config?.removeCachedContextualActionInfo(
+            tableViewHash: tableView.hashValue,
+            keys: [Side.leading.key(for: indexPath), Side.trailing.key(for: indexPath)]
+        )
     }
 }

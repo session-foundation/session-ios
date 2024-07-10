@@ -6,6 +6,8 @@ import GRDB
 @testable import SessionUtilitiesKit
 
 class SynchronousStorage: Storage {
+    private let dependencies: Dependencies
+    
     public init(
         customWriter: DatabaseWriter? = nil,
         migrationTargets: [MigratableTarget.Type]? = nil,
@@ -13,6 +15,8 @@ class SynchronousStorage: Storage {
         using dependencies: Dependencies,
         initialData: ((Database) throws -> ())? = nil
     ) {
+        self.dependencies = dependencies
+        
         super.init(customWriter: customWriter, using: dependencies)
         
         // Process any migration targets first
@@ -22,8 +26,7 @@ class SynchronousStorage: Storage {
                 async: false,
                 onProgressUpdate: nil,
                 onMigrationRequirement: { _, _ in },
-                onComplete: { _, _ in },
-                using: dependencies
+                onComplete: { _, _ in }
             )
         }
         
@@ -34,8 +37,7 @@ class SynchronousStorage: Storage {
                 async: false,
                 onProgressUpdate: nil,
                 onMigrationRequirement: { _, _ in },
-                onComplete: { _, _ in },
-                using: dependencies
+                onComplete: { _, _ in }
             )
         }
         
@@ -46,7 +48,6 @@ class SynchronousStorage: Storage {
         fileName: String = #file,
         functionName: String = #function,
         lineNumber: Int = #line,
-        using dependencies: Dependencies = Dependencies(),
         updates: @escaping (Database) throws -> T?
     ) -> T? {
         guard isValid, let dbWriter: DatabaseWriter = testDbWriter else { return nil }
@@ -63,7 +64,6 @@ class SynchronousStorage: Storage {
             fileName: fileName,
             functionName: functionName,
             lineNumber: lineNumber,
-            using: dependencies,
             updates: updates
         )
     }
@@ -72,7 +72,6 @@ class SynchronousStorage: Storage {
         fileName: String = #file,
         functionName: String = #function,
         lineNumber: Int = #line,
-        using dependencies: Dependencies = Dependencies(),
         _ value: @escaping (Database) throws -> T?
     ) -> T? {
         guard isValid, let dbWriter: DatabaseWriter = testDbWriter else { return nil }
@@ -89,7 +88,6 @@ class SynchronousStorage: Storage {
             fileName: fileName,
             functionName: functionName,
             lineNumber: lineNumber,
-            using: dependencies,
             value
         )
     }
@@ -100,7 +98,6 @@ class SynchronousStorage: Storage {
         fileName: String = #file,
         functionName: String = #function,
         lineNumber: Int = #line,
-        using dependencies: Dependencies = Dependencies(),
         value: @escaping (Database) throws -> T
     ) -> AnyPublisher<T, Error> {
         guard isValid, let dbWriter: DatabaseWriter = testDbWriter else {
@@ -119,23 +116,22 @@ class SynchronousStorage: Storage {
                 .eraseToAnyPublisher()
         }
         
-        return super.readPublisher(fileName: fileName, functionName: functionName, lineNumber: lineNumber, using: dependencies, value: value)
+        return super.readPublisher(fileName: fileName, functionName: functionName, lineNumber: lineNumber, value: value)
     }
     
     override func writeAsync<T>(
         fileName: String = #file,
         functionName: String = #function,
         lineNumber: Int = #line,
-        using dependencies: Dependencies = Dependencies(),
         updates: @escaping (Database) throws -> T,
         completion: @escaping (Database, Result<T, Error>) throws -> Void
     ) {
         do {
-            let result: T = try write(using: dependencies, updates: updates) ?? { throw StorageError.failedToSave }()
-            write(using: dependencies) { db in try completion(db, Result.success(result)) }
+            let result: T = try write(updates: updates) ?? { throw StorageError.failedToSave }()
+            write { db in try completion(db, Result.success(result)) }
         }
         catch {
-            write(using: dependencies) { db in try completion(db, Result.failure(error)) }
+            write { db in try completion(db, Result.failure(error)) }
         }
     }
     
@@ -143,7 +139,6 @@ class SynchronousStorage: Storage {
         fileName: String = #file,
         functionName: String = #function,
         lineNumber: Int = #line,
-        using dependencies: Dependencies = Dependencies(),
         updates: @escaping (Database) throws -> T
     ) -> AnyPublisher<T, Error> {
         guard isValid, let dbWriter: DatabaseWriter = testDbWriter else {
@@ -162,6 +157,6 @@ class SynchronousStorage: Storage {
                 .eraseToAnyPublisher()
         }
         
-        return super.writePublisher(fileName: fileName, functionName: functionName, lineNumber: lineNumber, using: dependencies, updates: updates)
+        return super.writePublisher(fileName: fileName, functionName: functionName, lineNumber: lineNumber, updates: updates)
     }
 }

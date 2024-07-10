@@ -6,7 +6,6 @@ import GRDB
 import DifferenceKit
 import SessionUIKit
 import SignalUtilitiesKit
-import SignalCoreKit
 import SessionMessagingKit
 import SessionUtilitiesKit
 
@@ -40,7 +39,7 @@ public class DocumentTileViewController: UIViewController, UITableViewDelegate, 
     }
 
     required public init?(coder aDecoder: NSCoder) {
-        notImplemented()
+        fatalError("init(coder:) has not been implemented")
     }
     
     deinit {
@@ -148,7 +147,7 @@ public class DocumentTileViewController: UIViewController, UITableViewDelegate, 
         // If we have a focused item then we want to scroll to it
         guard let focusedIndexPath: IndexPath = self.viewModel.focusedIndexPath else { return }
         
-        Logger.debug("scrolling to focused item at indexPath: \(focusedIndexPath)")
+        Log.debug("[DocumentTitleViewController] Scrolling to focused item at indexPath: \(focusedIndexPath)")
         self.view.layoutIfNeeded()
         self.tableView.scrollToRow(at: focusedIndexPath, at: .middle, animated: false)
         
@@ -337,7 +336,7 @@ public class DocumentTileViewController: UIViewController, UITableViewDelegate, 
     public func tableView(_ tableView: UITableView, didSelectRowAt indexPath: IndexPath) {
         tableView.deselectRow(at: indexPath, animated: false)
         let attachment: Attachment = self.viewModel.galleryData[indexPath.section].elements[indexPath.row].attachment
-        guard let originalFilePath: String = attachment.originalFilePath else { return }
+        guard let originalFilePath: String = attachment.originalFilePath(using: dependencies) else { return }
         
         let fileUrl: URL = URL(fileURLWithPath: originalFilePath)
         
@@ -572,7 +571,7 @@ class DocumentSectionHeaderView: UIView {
 
     @available(*, unavailable, message: "Unimplemented")
     required init?(coder aDecoder: NSCoder) {
-        notImplemented()
+        fatalError("init(coder:) has not been implemented")
     }
 
     public func configure(title: String) {
@@ -600,7 +599,7 @@ class DocumentStaticHeaderView: UIView {
 
     @available(*, unavailable, message: "Unimplemented")
     required public init?(coder aDecoder: NSCoder) {
-        notImplemented()
+        fatalError("init(coder:) has not been implemented")
     }
 
     public func configure(title: String) {

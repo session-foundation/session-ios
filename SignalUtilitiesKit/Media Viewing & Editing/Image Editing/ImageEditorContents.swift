@@ -1,7 +1,7 @@
 //  Copyright (c) 2019 Open Whisper Systems. All rights reserved.
 
 import UIKit
-import SignalCoreKit
+import SessionUtilitiesKit
 
 // ImageEditorContents represents a snapshot of canvas
 // state.
@@ -36,25 +36,25 @@ public class ImageEditorContents {
     }
 
     public func append(item: ImageEditorItem) {
-        Logger.verbose("\(item.itemId)")
+        Log.verbose("[ImageEditorContents] append: \(item.itemId)")
 
         itemMap.append(key: item.itemId, value: item)
     }
 
     public func replace(item: ImageEditorItem) {
-        Logger.verbose("\(item.itemId)")
+        Log.verbose("[ImageEditorContents] replace: \(item.itemId)")
 
         itemMap.replace(key: item.itemId, value: item)
     }
 
     public func remove(item: ImageEditorItem) {
-        Logger.verbose("\(item.itemId)")
+        Log.verbose("[ImageEditorContents] remove: \(item.itemId)")
 
         itemMap.remove(key: item.itemId)
     }
 
     public func remove(itemId: String) {
-        Logger.verbose("\(itemId)")
+        Log.verbose("[ImageEditorContents] remove: \(itemId)")
 
         itemMap.remove(key: itemId)
     }

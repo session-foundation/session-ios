@@ -356,6 +356,12 @@ class LibSessionSpec: QuickSpec {
                     expect(LibSession.communityUrlFor(server: "SeRVer", roomToken: "RoOM", publicKey: "f8fec9b701000000ffffffff0400008000000000000000000000000000000000"))
                         .to(equal("SeRVer/RoOM?public_key=f8fec9b701000000ffffffff0400008000000000000000000000000000000000"))
                 }
+                
+                // MARK: ---- returns null when given a null value
+                it("returns null when given a null value") {
+                    expect(LibSession.communityUrlFor(server: nil, roomToken: "RoOM", publicKey: "f8fec9b701000000ffffffff0400008000000000000000000000000000000000"))
+                        .to(beNil())
+                }
             }
             
             // MARK: -- when creating a group
@@ -1416,7 +1422,7 @@ class LibSessionSpec: QuickSpec {
                                 .selectedNetworkRequest(
                                     expectedRequest.httpBody!,
                                     to: dependencies.randomElement(mockSwarmCache)!,
-                                    timeout: HTTP.defaultTimeout,
+                                    timeout: Network.defaultTimeout,
                                     using: .any
                                 )
                             )

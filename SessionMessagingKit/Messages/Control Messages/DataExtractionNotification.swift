@@ -71,7 +71,7 @@ public final class DataExtractionNotification: ControlMessage {
 
     // MARK: - Proto Conversion
     
-    public override class func fromProto(_ proto: SNProtoContent, sender: String) -> DataExtractionNotification? {
+    public override class func fromProto(_ proto: SNProtoContent, sender: String, using dependencies: Dependencies) -> DataExtractionNotification? {
         guard let dataExtractionNotification = proto.dataExtractionNotification else { return nil }
         let kind: Kind
         switch dataExtractionNotification.type {

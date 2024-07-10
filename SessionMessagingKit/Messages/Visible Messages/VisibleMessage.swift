@@ -120,7 +120,7 @@ public final class VisibleMessage: Message {
 
     // MARK: - Proto Conversion
     
-    public override class func fromProto(_ proto: SNProtoContent, sender: String) -> VisibleMessage? {
+    public override class func fromProto(_ proto: SNProtoContent, sender: String, using dependencies: Dependencies) -> VisibleMessage? {
         guard let dataMessage = proto.dataMessage else { return nil }
         
         return VisibleMessage(

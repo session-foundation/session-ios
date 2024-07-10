@@ -1,10 +1,8 @@
 // Copyright © 2022 Rangeproof Pty Ltd. All rights reserved.
 
 import UIKit
-import CryptoKit
 import Combine
 import GRDB
-import SignalCoreKit
 import SessionSnodeKit
 import SessionUtilitiesKit
 
@@ -108,10 +106,10 @@ public struct DisplayPictureManager {
     public static func profileAvatarFilepath(
         _ db: Database? = nil,
         id: String,
-        using dependencies: Dependencies = Dependencies()
+        using dependencies: Dependencies
     ) -> String? {
         guard let db: Database = db else {
-            return dependencies[singleton: .storage].read { db in profileAvatarFilepath(db, id: id) }
+            return dependencies[singleton: .storage].read { db in profileAvatarFilepath(db, id: id, using: dependencies) }
         }
         
         let maybeFileName: String? = try? Profile
@@ -167,7 +165,7 @@ public struct DisplayPictureManager {
                             return result
                         }
                         
-                        dependencies[singleton: .storage].writeAsync(using: dependencies) { db in
+                        dependencies[singleton: .storage].writeAsync { db in
                             pendingInfo.forEach { info in
                                 // If the current file is invalid then clear out the 'profilePictureFileName'
                                 // and try to re-download the file
@@ -182,8 +180,7 @@ public struct DisplayPictureManager {
                                         shouldBeUnique: true,
                                         details: DisplayPictureDownloadJob.Details(owner: info.owner)
                                     ),
-                                    canStartJob: true,
-                                    using: dependencies
+                                    canStartJob: true
                                 )
                             }
                         }
@@ -225,8 +222,7 @@ public struct DisplayPictureManager {
                                 // Our avatar dimensions are so small that it's incredibly unlikely we wouldn't
                                 // be able to fit our profile photo (eg. generating pure noise at our resolution
                                 // compresses to ~200k)
-                                SNLog("Animated profile avatar was too large.")
-                                SNLog("Updating service with profile failed.")
+                                Log.error("[DisplayPictureManager] Updating service with profile failed: \(DisplayPictureError.uploadMaxFileSizeExceeded).")
                                 throw DisplayPictureError.uploadMaxFileSizeExceeded
                             }
                             
@@ -244,12 +240,12 @@ public struct DisplayPictureManager {
                     if image.size.width != DisplayPictureManager.maxDiameter || image.size.height != DisplayPictureManager.maxDiameter {
                         // To help ensure the user is being shown the same cropping of their avatar as
                         // everyone else will see, we want to be sure that the image was resized before this point.
-                        SNLog("Avatar image should have been resized before trying to upload")
+                        Log.verbose("[DisplayPictureManager] Avatar image should have been resized before trying to upload.")
                         image = image.resized(toFillPixelSize: CGSize(width: DisplayPictureManager.maxDiameter, height: DisplayPictureManager.maxDiameter))
                     }
                     
                     guard let data: Data = image.jpegData(compressionQuality: 0.95) else {
-                        SNLog("Updating service with profile failed.")
+                        Log.error("[DisplayPictureManager] Updating service with profile failed.")
                         throw DisplayPictureError.writeFailed
                     }
                     
@@ -257,8 +253,8 @@ public struct DisplayPictureManager {
                         // Our avatar dimensions are so small that it's incredibly unlikely we wouldn't
                         // be able to fit our profile photo (eg. generating pure noise at our resolution
                         // compresses to ~200k)
-                        SNLog("Suprised to find profile avatar was too large. Was it scaled properly? image: \(image)")
-                        SNLog("Updating service with profile failed.")
+                        Log.verbose("[DisplayPictureManager] Suprised to find profile avatar was too large. Was it scaled properly? image: \(image)")
+                        Log.error("[DisplayPictureManager] Updating service with profile failed.")
                         throw DisplayPictureError.uploadMaxFileSizeExceeded
                     }
                     
@@ -284,7 +280,7 @@ public struct DisplayPictureManager {
             // * Encrypt it
             // * Upload it to asset service
             // * Send asset service info to Signal Service
-            SNLog(.verbose, "Updating local profile on service with new avatar.")
+            Log.verbose("[DisplayPictureManager] Updating local profile on service with new avatar.")
             
             let fileName: String = dependencies[singleton: .crypto].generate(.uuid())
                 .defaulting(to: UUID())
@@ -295,7 +291,7 @@ public struct DisplayPictureManager {
             // Write the avatar to disk
             do { try finalImageData.write(to: URL(fileURLWithPath: filePath), options: [.atomic]) }
             catch {
-                SNLog("Updating service with profile failed.")
+                Log.error("[DisplayPictureManager] Updating service with profile failed.")
                 failure?(.writeFailed)
                 return
             }
@@ -306,14 +302,14 @@ public struct DisplayPictureManager {
                     .encryptedDataDisplayPicture(data: finalImageData, key: newEncryptionKey, using: dependencies)
                 )
             else {
-                SNLog("Updating service with profile failed.")
+                Log.error("[DisplayPictureManager] Updating service with profile failed.")
                 failure?(.encryptionFailed)
                 return
             }
             
             // Upload the avatar to the FileServer
-            guard let preparedUpload: HTTP.PreparedRequest<FileUploadResponse> = try? FileServerAPI.preparedUpload(encryptedData, using: dependencies) else {
-                SNLog("Updating service with profile failed.")
+            guard let preparedUpload: Network.PreparedRequest<FileUploadResponse> = try? Network.preparedUpload(data: encryptedData, using: dependencies) else {
+                Log.error("[DisplayPictureManager] Updating service with profile failed.")
                 failure?(.uploadFailed)
                 return
             }
@@ -327,19 +323,19 @@ public struct DisplayPictureManager {
                         switch result {
                             case .finished: break
                             case .failure(let error):
-                                SNLog("Updating service with profile failed.")
+                                Log.error("[DisplayPictureManager] Updating service with profile failed with error: \(error).")
                                 
                                 let isMaxFileSizeExceeded: Bool = ((error as? NetworkError) == .maxFileSizeExceeded)
                                 failure?(isMaxFileSizeExceeded ? .uploadMaxFileSizeExceeded : .uploadFailed)
                         }
                     },
                     receiveValue: { _, fileUploadResponse in
-                        let downloadUrl: String = "\(FileServerAPI.server)/file/\(fileUploadResponse.id)"
+                        let downloadUrl: String = Network.FileServer.downloadUrlString(for: fileUploadResponse.id)
                         
                         // Update the cached avatar image value
                         dependencies.mutate(cache: .displayPicture) { $0.imageData[fileName] = finalImageData }
                         
-                        SNLog("Successfully uploaded avatar image.")
+                        Log.verbose("[DisplayPictureManager] Successfully uploaded avatar image.")
                         success((downloadUrl, fileName, newEncryptionKey))
                     }
                 )

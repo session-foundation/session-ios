@@ -247,7 +247,7 @@ public extension DisappearingMessagesConfiguration {
             return
         }
         
-        let userSessionId: SessionId = getUserSessionId(db, using: dependencies)
+        let userSessionId: SessionId = dependencies[cache: .general].sessionId
         
         switch (self.isEnabled, self.type) {
             case (false, _):
@@ -307,44 +307,52 @@ public extension DisappearingMessagesConfiguration {
             }
         }
         
-        let userSessionId: SessionId = getUserSessionId(db, using: dependencies)
+        let userSessionId: SessionId = dependencies[cache: .general].sessionId
         let wasRead: Bool = (
             authorId == userSessionId.hexString ||
             LibSession.timestampAlreadyRead(
                 threadId: threadId,
                 threadVariant: threadVariant,
                 timestampMs: timestampMs,
-                userSessionId: getUserSessionId(db, using: dependencies),
+                userSessionId: userSessionId,
                 openGroup: nil,
                 using: dependencies
             )
         )
         let messageExpirationInfo: Message.MessageExpirationInfo = Message.getMessageExpirationInfo(
-            wasRead: wasRead, 
+            threadVariant: threadVariant,
+            wasRead: wasRead,
             serverExpirationTimestamp: serverExpirationTimestamp,
             expiresInSeconds: self.durationSeconds,
-            expiresStartedAtMs: (self.type == .disappearAfterSend) ? Double(timestampMs) : nil
+            expiresStartedAtMs: (self.type == .disappearAfterSend) ? Double(timestampMs) : nil,
+            using: dependencies
         )
         let interaction = try Interaction(
             serverHash: serverHash,
             threadId: threadId,
+            threadVariant: threadVariant,
             authorId: authorId,
             variant: .infoDisappearingMessagesUpdate,
             body: self.messageInfoString(
                 threadVariant: threadVariant,
-                senderName: (authorId != userSessionId.hexString ? Profile.displayName(db, id: authorId) : nil),
+                senderName: (authorId != userSessionId.hexString ?
+                    Profile.displayName(db, id: authorId, using: dependencies) :
+                    nil
+                ),
                 using: dependencies
             ),
             timestampMs: timestampMs,
             wasRead: wasRead,
             expiresInSeconds: (threadVariant == .legacyGroup ? nil : messageExpirationInfo.expiresInSeconds), // Do not expire this control message in legacy groups
-            expiresStartedAtMs: (threadVariant == .legacyGroup ? nil : messageExpirationInfo.expiresStartedAtMs)
+            expiresStartedAtMs: (threadVariant == .legacyGroup ? nil : messageExpirationInfo.expiresStartedAtMs),
+            using: dependencies
         ).inserted(db)
         
         if messageExpirationInfo.shouldUpdateExpiry {
             Message.updateExpiryForDisappearAfterReadMessages(
                 db,
                 threadId: threadId,
+                threadVariant: threadVariant,
                 serverHash: serverHash,
                 expiresInSeconds: messageExpirationInfo.expiresInSeconds,
                 expiresStartedAtMs: messageExpirationInfo.expiresStartedAtMs,
@@ -367,6 +375,7 @@ extension DisappearingMessagesConfiguration {
             case .disappearAfterRead:
                 return [
                     (dependencies[feature: .debugDisappearingMessageDurations] ? 10 : nil),
+                    (dependencies[feature: .debugDisappearingMessageDurations] ? 30 : nil),
                     (dependencies[feature: .debugDisappearingMessageDurations] ? 60 : nil),
                     (5 * 60),
                     (1 * 60 * 60),
@@ -376,10 +385,11 @@ extension DisappearingMessagesConfiguration {
                     (2 * 7 * 24 * 60 * 60)
                 ]
                 .compactMap { duration in duration.map { TimeInterval($0) } }
-                
+
             case .disappearAfterSend:
                 return [
                     (dependencies[feature: .debugDisappearingMessageDurations] ? 10 : nil),
+                    (dependencies[feature: .debugDisappearingMessageDurations] ? 30 : nil),
                     (12 * 60 * 60),
                     (24 * 60 * 60),
                     (7 * 24 * 60 * 60),

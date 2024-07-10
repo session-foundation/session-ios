@@ -17,14 +17,13 @@ class MockOGMCache: Mock<OGMCacheType>, OGMCacheType {
         set { mockNoReturn(args: [newValue]) }
     }
     
-    var pollers: [String: OpenGroupAPI.Poller] {
+    var isPolling: Bool {
         get { return mock() }
         set { mockNoReturn(args: [newValue]) }
     }
     
-    var isPolling: Bool {
-        get { return mock() }
-        set { mockNoReturn(args: [newValue]) }
+    var serversBeingPolled: Set<String> {
+        get { return accept() as! Set<String> }
     }
     
     var hasPerformedInitialPoll: [String: Bool] {
@@ -41,6 +40,12 @@ class MockOGMCache: Mock<OGMCacheType>, OGMCacheType {
         get { return mock() }
         set { mockNoReturn(args: [newValue]) }
     }
+    
+    func getOrCreatePoller(for server: String) -> OpenGroupAPI.PollerType {
+        return accept(args: [server]) as! OpenGroupAPI.PollerType
+    }
+    func stopAndRemovePoller(for server: String) { accept(args: [server]) }
+    func stopAndRemoveAllPollers() { accept() }
     
     func getTimeSinceLastOpen(using dependencies: Dependencies) -> TimeInterval {
         return mock(args: [dependencies])

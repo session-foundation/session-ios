@@ -19,9 +19,9 @@ public enum GroupInviteMemberJob: JobExecutor {
     public static func run(
         _ job: Job,
         queue: DispatchQueue,
-        success: @escaping (Job, Bool, Dependencies) -> (),
-        failure: @escaping (Job, Error?, Bool, Dependencies) -> (),
-        deferred: @escaping (Job, Dependencies) -> (),
+        success: @escaping (Job, Bool) -> Void,
+        failure: @escaping (Job, Error, Bool) -> Void,
+        deferred: @escaping (Job) -> Void,
         using dependencies: Dependencies
     ) {
         guard
@@ -39,17 +39,13 @@ public enum GroupInviteMemberJob: JobExecutor {
                 return (groupName, Profile.fetchOrCreateCurrentUser(db, using: dependencies))
             }),
             let details: Details = try? JSONDecoder(using: dependencies).decode(Details.self, from: detailsData)
-        else {
-            SNLog("[GroupInviteMemberJob] Failing due to missing details")
-            failure(job, JobRunnerError.missingRequiredDetails, true, dependencies)
-            return
-        }
+        else { return failure(job, JobRunnerError.missingRequiredDetails, true) }
         
-        let sentTimestamp: Int64 = SnodeAPI.currentOffsetTimestampMs(using: dependencies)
+        let sentTimestamp: Int64 = dependencies[cache: .snodeAPI].currentOffsetTimestampMs()
         
         /// Perform the actual message sending
         dependencies[singleton: .storage]
-            .readPublisher { db -> HTTP.PreparedRequest<Void> in
+            .readPublisher { db -> Network.PreparedRequest<Void> in
                 try MessageSender.preparedSend(
                     db,
                     message: try GroupUpdateInviteMessage(
@@ -64,7 +60,7 @@ public enum GroupInviteMemberJob: JobExecutor {
                         sentTimestamp: UInt64(sentTimestamp),
                         authMethod: try Authentication.with(
                             db,
-                            sessionIdHexString: threadId,
+                            swarmPublicKey: threadId,
                             using: dependencies
                         ),
                         using: dependencies
@@ -83,7 +79,7 @@ public enum GroupInviteMemberJob: JobExecutor {
                 receiveCompletion: { result in
                     switch result {
                         case .finished:
-                            dependencies[singleton: .storage].write(using: dependencies) { db in
+                            dependencies[singleton: .storage].write { db in
                                 try GroupMember
                                     .filter(
                                         GroupMember.Columns.groupId == threadId &&
@@ -99,14 +95,14 @@ public enum GroupInviteMemberJob: JobExecutor {
                                     )
                             }
                             
-                            success(job, false, dependencies)
+                            success(job, false)
                             
                         case .failure(let error):
-                            SNLog("[GroupInviteMemberJob] Couldn't send message due to error: \(error).")
+                            Log.error("[GroupInviteMemberJob] Couldn't send message due to error: \(error).")
                             
                             // Update the invite status of the group member (only if the role is 'standard' and
                             // the role status isn't already 'accepted')
-                            dependencies[singleton: .storage].write(using: dependencies) { db in
+                            dependencies[singleton: .storage].write { db in
                                 try GroupMember
                                     .filter(
                                         GroupMember.Columns.groupId == threadId &&
@@ -132,16 +128,16 @@ public enum GroupInviteMemberJob: JobExecutor {
                             // Register the failure
                             switch error {
                                 case let senderError as MessageSenderError where !senderError.isRetryable:
-                                    failure(job, error, true, dependencies)
+                                    failure(job, error, true)
                                     
-                                case OnionRequestAPIError.httpRequestFailedAtDestination(let statusCode, _, _) where statusCode == 429: // Rate limited
-                                    failure(job, error, true, dependencies)
+                                case SnodeAPIError.rateLimited:
+                                    failure(job, error, true)
                                     
                                 case SnodeAPIError.clockOutOfSync:
-                                    SNLog("[GroupInviteMemberJob] Permanently Failing to send due to clock out of sync issue.")
-                                    failure(job, error, true, dependencies)
+                                    Log.error("[GroupInviteMemberJob] Permanently Failing to send due to clock out of sync issue.")
+                                    failure(job, error, true)
                                     
-                                default: failure(job, error, false, dependencies)
+                                default: failure(job, error, false)
                             }
                     }
                 }
@@ -229,7 +225,7 @@ public enum GroupInviteMemberJob: JobExecutor {
                         typealias FetchedData = (groupName: String, profileInfo: [String: Profile])
                         
                         let data: FetchedData = dependencies[singleton: .storage]
-                            .read(using: dependencies) { db in
+                            .read { db in
                                 (
                                     try ClosedGroup
                                         .filter(id: groupId)

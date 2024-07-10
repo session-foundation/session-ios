@@ -124,16 +124,25 @@ final class LandingVC: BaseVC {
     // MARK: - Interaction
     
     @objc private func register() {
+        // Reset the Onboarding cache to create a new user (in case the user previously went back)
+        dependencies.set(cache: .onboarding, to: Onboarding.Cache(flow: .register, using: dependencies))
+        
         let registerVC = RegisterVC(using: dependencies)
         navigationController!.pushViewController(registerVC, animated: true)
     }
     
     @objc private func restore() {
+        // Reset the Onboarding cache to create a new user (in case the user previously went back)
+        dependencies.set(cache: .onboarding, to: Onboarding.Cache(flow: .loadAccount, using: dependencies))
+        
         let restoreVC = RestoreVC(using: dependencies)
         navigationController!.pushViewController(restoreVC, animated: true)
     }
     
     @objc private func link() {
+        // Reset the Onboarding cache to create a new user (in case the user previously went back)
+        dependencies.set(cache: .onboarding, to: Onboarding.Cache(flow: .link, using: dependencies))
+        
         let linkVC = LinkDeviceVC(using: dependencies)
         navigationController!.pushViewController(linkVC, animated: true)
     }

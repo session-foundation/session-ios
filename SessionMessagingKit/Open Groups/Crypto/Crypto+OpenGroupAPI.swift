@@ -139,13 +139,15 @@ public extension Crypto.Verification {
             id: "sessionId",
             args: [standardSessionId, blindedSessionId, serverPublicKey]
         ) {
-            var cSessionId: [CChar] = standardSessionId.cArray
-            var cBlindedId15: [CChar] = blindedSessionId.cArray
-            var cServerPublicKey: [CChar] = serverPublicKey.cArray
-
+            guard
+                var cStandardSessionId: [CChar] = standardSessionId.cString(using: .utf8),
+                var cBlindedSessionId: [CChar] = blindedSessionId.cString(using: .utf8),
+                var cServerPublicKey: [CChar] = serverPublicKey.cString(using: .utf8)
+            else { return false }
+            
             return session_id_matches_blinded_id(
-                &cSessionId,
-                &cBlindedId15,
+                &cStandardSessionId,
+                &cBlindedSessionId,
                 &cServerPublicKey
             )
         }
@@ -166,7 +168,7 @@ public extension Crypto.Generator {
             id: "ciphertextWithSessionBlindingProtocol",
             args: [plaintext, serverPublicKey]
         ) {
-            let ed25519KeyPair: KeyPair = try Identity.fetchUserEd25519KeyPair(db, using: dependencies) ?? {
+            let ed25519KeyPair: KeyPair = try Identity.fetchUserEd25519KeyPair(db) ?? {
                 throw MessageSenderError.noUserED25519KeyPair
             }()
 
@@ -211,7 +213,7 @@ public extension Crypto.Generator {
             id: "plaintextWithSessionBlindingProtocol",
             args: [ciphertext, senderId, recipientId]
         ) {
-            let ed25519KeyPair: KeyPair = try Identity.fetchUserEd25519KeyPair(db, using: dependencies) ?? {
+            let ed25519KeyPair: KeyPair = try Identity.fetchUserEd25519KeyPair(db) ?? {
                 throw MessageSenderError.noUserED25519KeyPair
             }()
 

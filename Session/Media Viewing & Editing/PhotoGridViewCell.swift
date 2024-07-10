@@ -4,7 +4,7 @@
 
 import UIKit
 import SessionUIKit
-import SignalCoreKit
+import SessionUtilitiesKit
 
 public enum PhotoGridItemType {
     case photo, animated, video
@@ -101,7 +101,7 @@ public class PhotoGridViewCell: UICollectionViewCell {
 
     @available(*, unavailable, message: "Unimplemented")
     required public init?(coder aDecoder: NSCoder) {
-        notImplemented()
+        fatalError("init(coder:) has not been implemented")
     }
 
     var image: UIImage? {
@@ -128,7 +128,7 @@ public class PhotoGridViewCell: UICollectionViewCell {
             guard currentItem === item else { return }
 
             if image == nil {
-                Logger.debug("image == nil")
+                Log.debug("[PhotoGridViewCell] image == nil")
             }
             
             DispatchQueue.main.async {

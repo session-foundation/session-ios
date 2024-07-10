@@ -16,9 +16,9 @@ public enum ProcessPendingGroupMemberRemovalsJob: JobExecutor {
     public static func run(
         _ job: Job,
         queue: DispatchQueue,
-        success: @escaping (Job, Bool, Dependencies) -> (),
-        failure: @escaping (Job, Error?, Bool, Dependencies) -> (),
-        deferred: @escaping (Job, Dependencies) -> (),
+        success: @escaping (Job, Bool) -> Void,
+        failure: @escaping (Job, Error, Bool) -> Void,
+        deferred: @escaping (Job) -> Void,
         using dependencies: Dependencies
     ) {
         guard
@@ -32,11 +32,7 @@ public enum ProcessPendingGroupMemberRemovalsJob: JobExecutor {
                     .fetchOne(db)
             }),
             let details: Details = try? JSONDecoder(using: dependencies).decode(Details.self, from: detailsData)
-        else {
-            SNLog("[ProcessPendingGroupMemberRemovalsJob] Failing due to missing details")
-            failure(job, JobRunnerError.missingRequiredDetails, true, dependencies)
-            return
-        }
+        else { return failure(job, JobRunnerError.missingRequiredDetails, true) }
         
         /// It's possible for multiple jobs with the same target (group) to try to run at the same time, rather than adding dependencies between the jobs
         /// we just continue to defer the subsequent job while the first one is running in order to prevent multiple jobs with the same target from running
@@ -59,18 +55,18 @@ public enum ProcessPendingGroupMemberRemovalsJob: JobExecutor {
             }
             
             SNLog("[ProcessPendingGroupMemberRemovalsJob] For \(job.threadId ?? "UnknownId") deferred due to in progress job")
-            return deferred(updatedJob ?? job, dependencies)
+            return deferred(updatedJob ?? job)
         }
         
         /// If there are no pending removals then we can just complete
         guard
-            let pendingRemovals: [String: Bool] = try? SessionUtil.getPendingMemberRemovals(
+            let pendingRemovals: [String: Bool] = try? LibSession.getPendingMemberRemovals(
                 groupSessionId: groupSessionId,
                 using: dependencies
             ),
             !pendingRemovals.isEmpty
         else {
-            return success(job, false, dependencies)
+            return success(job, false)
         }
         
         /// Define a timestamp to use for all messages created by the removal changes
@@ -79,18 +75,18 @@ public enum ProcessPendingGroupMemberRemovalsJob: JobExecutor {
         /// member was originally removed whereas the `messageSendTimestamp` is the time it will be uploaded to the swarm
         let targetChangeTimestampMs: Int64 = (
             details.changeTimestampMs ??
-            SnodeAPI.currentOffsetTimestampMs(using: dependencies)
+            dependencies[cache: .snodeAPI].currentOffsetTimestampMs()
         )
-        let messageSendTimestamp: Int64 = SnodeAPI.currentOffsetTimestampMs(using: dependencies)
+        let messageSendTimestamp: Int64 = dependencies[cache: .snodeAPI].currentOffsetTimestampMs()
         
         return Just(())
             .setFailureType(to: Error.self)
-            .tryMap { _ -> HTTP.PreparedRequest<HTTP.BatchResponse> in
+            .tryMap { _ -> Network.PreparedRequest<Network.BatchResponse> in
                 /// Revoke the members authData from the group so the server rejects API calls from the ex-members (fire-and-forget
                 /// this request, we don't want it to be blocking)
-                let preparedRevokeSubaccounts: HTTP.PreparedRequest<Void> = try SnodeAPI.preparedRevokeSubaccounts(
+                let preparedRevokeSubaccounts: Network.PreparedRequest<Void> = try SnodeAPI.preparedRevokeSubaccounts(
                     subaccountsToRevoke: try Array(pendingRemovals.keys).map { memberId in
-                        try SessionUtil.generateSubaccountToken(
+                        try LibSession.generateSubaccountToken(
                             groupSessionId: groupSessionId,
                             memberId: memberId,
                             using: dependencies
@@ -104,7 +100,7 @@ public enum ProcessPendingGroupMemberRemovalsJob: JobExecutor {
                 )
                 
                 /// Prepare a `groupKicked` `LibSessionMessage` to be sent (instruct their clients to delete the group content)
-                let currentGen: Int = try SessionUtil.currentGeneration(
+                let currentGen: Int = try LibSession.currentGeneration(
                     groupSessionId: groupSessionId,
                     using: dependencies
                 )
@@ -118,7 +114,7 @@ public enum ProcessPendingGroupMemberRemovalsJob: JobExecutor {
                         domain: .kickedMessage
                     )
                 )
-                let preparedGroupDeleteMessage: HTTP.PreparedRequest<Void> = try SnodeAPI
+                let preparedGroupDeleteMessage: Network.PreparedRequest<Void> = try SnodeAPI
                     .preparedSendMessage(
                         message: SnodeMessage(
                             recipient: groupSessionId.hexString,
@@ -139,7 +135,7 @@ public enum ProcessPendingGroupMemberRemovalsJob: JobExecutor {
                 return try SnodeAPI.preparedSequence(
                     requests: [preparedRevokeSubaccounts, preparedGroupDeleteMessage],
                     requireAllBatchResponses: true,
-                    associatedWith: groupSessionId.hexString,
+                    swarmPublicKey: groupSessionId.hexString,
                     using: dependencies
                 )
             }
@@ -148,7 +144,7 @@ public enum ProcessPendingGroupMemberRemovalsJob: JobExecutor {
                 /// If any one of the requests failed then we didn't successfully remove the members access so try again later
                 guard
                     response.allSatisfy({ subResponse in
-                        200...299 ~= ((subResponse as? HTTP.BatchSubResponse<Void>)?.code ?? 400)
+                        200...299 ~= ((subResponse as? Network.BatchSubResponse<Void>)?.code ?? 400)
                     })
                 else { throw MessageSenderError.invalidClosedGroupUpdate }
                 
@@ -157,17 +153,14 @@ public enum ProcessPendingGroupMemberRemovalsJob: JobExecutor {
             .sinkUntilComplete(
                 receiveCompletion: { result in
                     switch result {
-                        case .failure(let error):
-                            SNLog("[ProcessPendingGroupMemberRemovalsJob] Failed due to error: \(error).")
-                            failure(job, error, false, dependencies)
+                        case .failure(let error): failure(job, error, false)
                             
                         case .finished:
                             dependencies[singleton: .storage]
                                 .writeAsync(
-                                    using: dependencies,
                                     updates: { db in
                                         /// Remove the members from the `GROUP_MEMBERS` config
-                                        try SessionUtil.removeMembers(
+                                        try LibSession.removeMembers(
                                             db,
                                             groupSessionId: groupSessionId,
                                             memberIds: Set(pendingRemovals.keys),
@@ -179,7 +172,7 @@ public enum ProcessPendingGroupMemberRemovalsJob: JobExecutor {
                                         ///
                                         /// **Note:** This **MUST** be called _after_ the members have been removed, otherwise
                                         /// the removed members may still be able to access the keys
-                                        try SessionUtil.rekey(
+                                        try LibSession.rekey(
                                             db,
                                             groupSessionId: groupSessionId,
                                             using: dependencies
@@ -251,10 +244,8 @@ public enum ProcessPendingGroupMemberRemovalsJob: JobExecutor {
                                     completion: { db, result in
                                         queue.async(using: dependencies) {
                                             switch result {
-                                                case .success: success(job, false, dependencies)
-                                                case .failure(let error):
-                                                    SNLog("[ProcessPendingGroupMemberRemovalsJob] Failed due to error: \(error).")
-                                                    failure(job, error, false, dependencies)
+                                                case .success: success(job, false)
+                                                case .failure(let error): failure(job, error, false)
                                             }
                                         }
                                     }

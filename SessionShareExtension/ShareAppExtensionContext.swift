@@ -4,17 +4,17 @@ import UIKit
 import SignalUtilitiesKit
 import SessionUtilitiesKit
 import SessionMessagingKit
-import SignalCoreKit
 
 /// This is _NOT_ a singleton and will be instantiated each time that the SAE is used.
 final class ShareAppExtensionContext: AppContext {
+    private let dependencies: Dependencies
     var _temporaryDirectory: String?
     var rootViewController: UIViewController
     var reportedApplicationState: UIApplication.State
     
     let appLaunchTime: Date = Date()
     let isShareExtension: Bool = true
-    var frontmostViewController: UIViewController? { rootViewController.findFrontmostViewController(ignoringAlerts: true) }
+    var frontMostViewController: UIViewController? { rootViewController.findFrontMostViewController(ignoringAlerts: true) }
     
     var mainWindow: UIWindow?
     var wasWokenUpByPushNotification: Bool = false
@@ -35,7 +35,8 @@ final class ShareAppExtensionContext: AppContext {
     
     // MARK: - Initialization
 
-    init(rootViewController: UIViewController) {
+    init(rootViewController: UIViewController, using dependencies: Dependencies) {
+        self.dependencies = dependencies
         self.rootViewController = rootViewController
         self.reportedApplicationState = .active
         self.createTemporaryDirectory()
@@ -73,8 +74,7 @@ final class ShareAppExtensionContext: AppContext {
     // MARK: - Notifications
     
     @objc private func extensionHostDidBecomeActive(notification: NSNotification) {
-        AssertIsOnMainThread()
-        OWSLogger.info("")
+        Log.assertOnMainThread()
 
         self.reportedApplicationState = .active
         
@@ -85,13 +85,10 @@ final class ShareAppExtensionContext: AppContext {
     }
     
     @objc private func extensionHostWillResignActive(notification: NSNotification) {
-        AssertIsOnMainThread()
+        Log.assertOnMainThread()
 
         self.reportedApplicationState = .inactive
         
-        OWSLogger.info("")
-        DDLog.flushLog()
-
         NotificationCenter.default.post(
             name: .sessionWillResignActive,
             object: nil
@@ -99,10 +96,7 @@ final class ShareAppExtensionContext: AppContext {
     }
 
     @objc private func extensionHostDidEnterBackground(notification: NSNotification) {
-        AssertIsOnMainThread()
-        
-        OWSLogger.info("")
-        DDLog.flushLog()
+        Log.assertOnMainThread()
 
         self.reportedApplicationState = .background
 
@@ -113,9 +107,7 @@ final class ShareAppExtensionContext: AppContext {
     }
 
     @objc private func extensionHostWillEnterForeground(notification: NSNotification) {
-        AssertIsOnMainThread()
-        
-        OWSLogger.info("")
+        Log.assertOnMainThread()
 
         self.reportedApplicationState = .inactive
 
@@ -123,5 +115,12 @@ final class ShareAppExtensionContext: AppContext {
             name: .sessionWillEnterForeground,
             object: nil
         )
+    }
+    
+    // MARK: - Temporary Directories
+    
+    var temporaryDirectory: String { temporaryDirectory(using: dependencies) }
+    var temporaryDirectoryAccessibleAfterFirstAuth: String {
+        temporaryDirectoryAccessibleAfterFirstAuth(using: dependencies)
     }
 }

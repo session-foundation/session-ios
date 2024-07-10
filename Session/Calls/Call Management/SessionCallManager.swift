@@ -5,7 +5,6 @@ import CallKit
 import GRDB
 import SessionUIKit
 import SessionMessagingKit
-import SignalCoreKit
 import SignalUtilitiesKit
 import SessionUtilitiesKit
 
@@ -101,7 +100,7 @@ public final class SessionCallManager: NSObject, CallManagerProtocol {
     }
     
     public func reportOutgoingCall(_ call: SessionCall, using dependencies: Dependencies) {
-        AssertIsOnMainThread()
+        Log.assertOnMainThread()
         dependencies[defaults: .appGroup, key: .isCallOngoing] = true
         dependencies[defaults: .appGroup, key: .lastCallPreOffer] = Date()
         
@@ -158,7 +157,7 @@ public final class SessionCallManager: NSObject, CallManagerProtocol {
             
             if dependencies.hasInitialised(singleton: .appContext) && dependencies[singleton: .appContext].isInBackground {
                 (UIApplication.shared.delegate as? AppDelegate)?.stopPollers()
-                DDLog.flushLog()
+                Log.flush()
             }
         }
         
@@ -205,9 +204,10 @@ public final class SessionCallManager: NSObject, CallManagerProtocol {
     public func suspendDatabaseIfCallEndedInBackground() {
         if dependencies.hasInitialised(singleton: .appContext) && dependencies[singleton: .appContext].isInBackground {
             // Stop all jobs except for message sending and when completed suspend the database
-            dependencies[singleton: .jobRunner].stopAndClearPendingJobs(exceptForVariant: .messageSend, using: dependencies) { [dependencies] in
+            dependencies[singleton: .jobRunner].stopAndClearPendingJobs(exceptForVariant: .messageSend) { [dependencies] in
+                LibSession.suspendNetworkAccess()
                 Storage.suspendDatabaseAccess(using: dependencies)
-                LibSession.closeNetworkConnections()
+                Log.flush()
             }
         }
     }
@@ -233,7 +233,7 @@ public final class SessionCallManager: NSObject, CallManagerProtocol {
                 guard
                     dependencies.hasInitialised(singleton: .appContext),
                     dependencies[singleton: .appContext].isMainAppAndActive,
-                    let presentingVC: UIViewController = dependencies[singleton: .appContext].frontmostViewController
+                    let presentingVC: UIViewController = dependencies[singleton: .appContext].frontMostViewController
                 else { return }
                 
                 if
@@ -263,7 +263,7 @@ public final class SessionCallManager: NSObject, CallManagerProtocol {
             return
         }
         
-        (dependencies[singleton: .appContext].frontmostViewController as? CallVC)?.handleAnswerMessage(message)
+        (dependencies[singleton: .appContext].frontMostViewController as? CallVC)?.handleAnswerMessage(message)
     }
     
     public func dismissAllCallUI() {
@@ -276,7 +276,7 @@ public final class SessionCallManager: NSObject, CallManagerProtocol {
         }
         
         IncomingCallBanner.current?.dismiss()
-        (dependencies[singleton: .appContext].frontmostViewController as? CallVC)?.handleEndCallMessage()
+        (dependencies[singleton: .appContext].frontMostViewController as? CallVC)?.handleEndCallMessage()
         MiniCallView.current?.dismiss()
     }
 }

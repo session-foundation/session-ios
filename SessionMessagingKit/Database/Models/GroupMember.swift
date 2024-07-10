@@ -141,7 +141,10 @@ extension GroupMember: ProfileAssociated {
     public func itemDescription(using dependencies: Dependencies) -> String? { return statusDescription }
     public func itemDescriptionColor(using dependencies: Dependencies) -> ThemeValue { return statusDescriptionColor }
     
-    public static func compare(lhs: WithProfile<GroupMember>, rhs: WithProfile<GroupMember>) -> Bool {
+    public static func compare(
+        lhs: WithProfile<GroupMember>,
+        rhs: WithProfile<GroupMember>
+    ) -> Bool {
         let isUpdatedGroup: Bool = (((try? SessionId.Prefix(from: lhs.value.groupId)) ?? .group) == .group)
         let lhsDisplayName: String = (lhs.profile?.displayName(for: .contact))
             .defaulting(to: Profile.truncated(id: lhs.profileId, threadVariant: .contact))
@@ -169,7 +172,7 @@ extension GroupMember: ProfileAssociated {
         /// • Members
         ///
         /// And the current user should appear at the top of their respective group
-        let userSessionId: SessionId = getUserSessionId()
+        let userSessionId: SessionId = lhs.currentUserSessionId
         
         /// If the role and status match then we want to sort by current user, no-name members by id, then by name
         guard lhs.value.role != rhs.value.role || lhs.value.roleStatus != rhs.value.roleStatus else {

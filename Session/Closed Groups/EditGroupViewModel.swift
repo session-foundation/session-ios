@@ -47,7 +47,7 @@ class EditGroupViewModel: SessionTableViewModel, NavigatableStateHolder, Editabl
     init(threadId: String, using dependencies: Dependencies) {
         self.dependencies = dependencies
         self.threadId = threadId
-        self.userSessionId = getUserSessionId(using: dependencies)
+        self.userSessionId = dependencies[cache: .general].sessionId
     }
     
     // MARK: - Config
@@ -141,7 +141,7 @@ class EditGroupViewModel: SessionTableViewModel, NavigatableStateHolder, Editabl
                 profileBack: profileBack,
                 members: try GroupMember
                     .filter(GroupMember.Columns.groupId == threadId)
-                    .fetchAllWithProfiles(db),
+                    .fetchAllWithProfiles(db, using: dependencies),
                 isValid: true
             )
         }
@@ -172,7 +172,7 @@ class EditGroupViewModel: SessionTableViewModel, NavigatableStateHolder, Editabl
             ]
         }
         
-        let userSessionId: SessionId = getUserSessionId(using: dependencies)
+        let userSessionId: SessionId = dependencies[cache: .general].sessionId
         let isUpdatedGroup: Bool = (((try? SessionId.Prefix(from: threadId)) ?? .group) == .group)
         let editIcon: UIImage? = UIImage(systemName: "pencil")
         let sortedMembers: [WithProfile<GroupMember>] = {
@@ -448,8 +448,8 @@ class EditGroupViewModel: SessionTableViewModel, NavigatableStateHolder, Editabl
     private func updateDisplayPicture(currentFileName: String?) {
         guard dependencies[feature: .updatedGroupsAllowDisplayPicture] else { return }
         
-        let existingImageData: Data? = dependencies[singleton: .storage].read(using: dependencies) { [threadId] db in
-            DisplayPictureManager.displayPicture(db, id: .group(threadId))
+        let existingImageData: Data? = dependencies[singleton: .storage].read { [threadId, dependencies] db in
+            DisplayPictureManager.displayPicture(db, id: .group(threadId), using: dependencies)
         }
         let editDisplayPictureModalInfo: ConfirmationModal.Info = ConfirmationModal.Info(
             title: "EDIT_GROUP_DISPLAY_PICTURE".localized(),
@@ -544,7 +544,7 @@ class EditGroupViewModel: SessionTableViewModel, NavigatableStateHolder, Editabl
         }
         
         func performChanges(_ viewController: ModalActivityIndicatorViewController, _ displayPictureUpdate: DisplayPictureManager.Update) {
-            let existingFileName: String? = dependencies[singleton: .storage].read(using: dependencies) { [threadId] db in
+            let existingFileName: String? = dependencies[singleton: .storage].read { [threadId] db in
                 try? ClosedGroup
                     .filter(id: threadId)
                     .select(.displayPictureFilename)
@@ -683,7 +683,7 @@ class EditGroupViewModel: SessionTableViewModel, NavigatableStateHolder, Editabl
                         let maybeErrorString: String? = {
                             guard !finalName.isEmpty else { return "EDIT_GROUP_NAME_ERROR_MISSING".localized() }
                             guard !Profile.isTooLong(profileName: finalName) else { return "EDIT_GROUP_NAME_ERROR_LONG".localized() }
-                            guard !SessionUtil.isTooLong(groupDescription: (finalDescription ?? "")) else {
+                            guard !LibSession.isTooLong(groupDescription: (finalDescription ?? "")) else {
                                 return "EDIT_GROUP_DESCRIPTION_ERROR_LONG".localized()
                             }
                             
@@ -781,7 +781,7 @@ class EditGroupViewModel: SessionTableViewModel, NavigatableStateHolder, Editabl
                                     let updatedMemberIds: Set<String> = currentMemberIds
                                         .inserting(contentsOf: selectedMemberInfo.map { $0.profileId }.asSet())
                                     
-                                    guard updatedMemberIds.count <= SessionUtil.sizeMaxGroupMemberCount else {
+                                    guard updatedMemberIds.count <= LibSession.sizeMaxGroupMemberCount else {
                                         throw UserListError.error(
                                             "vc_create_closed_group_too_many_group_members_error".localized()
                                         )
@@ -828,7 +828,7 @@ class EditGroupViewModel: SessionTableViewModel, NavigatableStateHolder, Editabl
                                     let updatedMemberIds: Set<String> = currentMemberIds
                                         .inserting(contentsOf: selectedMemberInfo.map { $0.profileId }.asSet())
                                     
-                                    guard updatedMemberIds.count <= SessionUtil.sizeMaxGroupMemberCount else {
+                                    guard updatedMemberIds.count <= LibSession.sizeMaxGroupMemberCount else {
                                         return Fail(error: .error("vc_create_closed_group_too_many_group_members_error".localized()))
                                             .eraseToAnyPublisher()
                                     }
@@ -901,7 +901,7 @@ class EditGroupViewModel: SessionTableViewModel, NavigatableStateHolder, Editabl
             .asSet()
         
         // Make sure inviting another member wouldn't hit the member limit
-        guard (currentMemberIds.count + 1) <= SessionUtil.sizeMaxGroupMemberCount else {
+        guard (currentMemberIds.count + 1) <= LibSession.sizeMaxGroupMemberCount else {
             return showError("vc_create_closed_group_too_many_group_members_error".localized())
         }
         
@@ -920,7 +920,7 @@ class EditGroupViewModel: SessionTableViewModel, NavigatableStateHolder, Editabl
                     confirmStyle: .danger,
                     cancelStyle: .alert_text,
                     dismissOnConfirm: false,
-                    onConfirm: { [weak self] modal in
+                    onConfirm: { [weak self, dependencies] modal in
                         // FIXME: Consolidate this with the logic in `NewDMVC`
                         switch Result(catching: { try SessionId(from: self?.inviteByIdValue) }) {
                             case .success(let sessionId) where sessionId.prefix == .standard:
@@ -943,7 +943,7 @@ class EditGroupViewModel: SessionTableViewModel, NavigatableStateHolder, Editabl
                                 // This could be an ONS name
                                 let viewController = ModalActivityIndicatorViewController() { modalActivityIndicator in
                                     SnodeAPI
-                                        .getSessionID(for: inviteByIdValue)
+                                        .getSessionID(for: inviteByIdValue, using: dependencies)
                                         .subscribe(on: DispatchQueue.global(qos: .userInitiated))
                                         .receive(on: DispatchQueue.main)
                                         .sinkUntilComplete(

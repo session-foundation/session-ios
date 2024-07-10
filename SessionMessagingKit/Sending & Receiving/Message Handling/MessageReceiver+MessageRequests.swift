@@ -14,7 +14,7 @@ extension MessageReceiver {
         message: MessageRequestResponse,
         using dependencies: Dependencies
     ) throws {
-        let userSessionId = getUserSessionId(db, using: dependencies)
+        let userSessionId = dependencies[cache: .general].sessionId
         var blindedContactIds: [String] = []
         
         // Ignore messages which were sent from the current user
@@ -151,12 +151,14 @@ extension MessageReceiver {
         _ = try Interaction(
             serverHash: message.serverHash,
             threadId: unblindedThread.id,
+            threadVariant: unblindedThread.variant,
             authorId: senderId,
             variant: .infoMessageRequestAccepted,
             timestampMs: (
                 message.sentTimestamp.map { Int64($0) } ??
-                SnodeAPI.currentOffsetTimestampMs()
-            )
+                dependencies[cache: .snodeAPI].currentOffsetTimestampMs()
+            ),
+            using: dependencies
         ).inserted(db)
     }
     
@@ -166,7 +168,7 @@ extension MessageReceiver {
         threadId: String?,
         using dependencies: Dependencies
     ) throws {
-        let userSessionId: SessionId = getUserSessionId(db, using: dependencies)
+        let userSessionId: SessionId = dependencies[cache: .general].sessionId
         
         // If the sender of the message was the current user
         if senderSessionId == userSessionId.hexString {
@@ -175,12 +177,12 @@ extension MessageReceiver {
             guard
                 let threadId: String = threadId,
                 let thread: SessionThread = try? SessionThread.fetchOne(db, id: threadId),
-                !thread.isNoteToSelf(db)
+                !thread.isNoteToSelf(db, using: dependencies)
             else { return }
             
             // Sending a message to someone flags them as approved so create the contact record if
             // it doesn't exist
-            let contact: Contact = Contact.fetchOrCreate(db, id: threadId)
+            let contact: Contact = Contact.fetchOrCreate(db, id: threadId, using: dependencies)
             
             guard !contact.isApproved else { return }
             
@@ -197,7 +199,7 @@ extension MessageReceiver {
         else {
             // The message was sent to the current user so flag their 'didApproveMe' as true (can't send a message to
             // someone without approving them)
-            let contact: Contact = Contact.fetchOrCreate(db, id: senderSessionId)
+            let contact: Contact = Contact.fetchOrCreate(db, id: senderSessionId, using: dependencies)
             
             guard !contact.didApproveMe else { return }
 

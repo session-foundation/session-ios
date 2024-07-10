@@ -29,7 +29,8 @@ struct MessageInfoScreen: View {
                 ) {
                     // Message bubble snapshot
                     MessageBubble(
-                        messageViewModel: messageViewModel
+                        messageViewModel: messageViewModel,
+                        dependencies: dependencies
                     )
                     .background(
                         RoundedRectangle(cornerRadius: Self.cornerRadius)
@@ -87,7 +88,8 @@ struct MessageInfoScreen: View {
                                 SessionCarouselView_SwiftUI(
                                     index: $index,
                                     isOutgoing: (messageViewModel.variant == .standardOutgoing),
-                                    contentInfos: attachments
+                                    contentInfos: attachments,
+                                    using: dependencies
                                 )
                                 .frame(
                                     maxWidth: .infinity,
@@ -98,7 +100,8 @@ struct MessageInfoScreen: View {
                                 MediaView_SwiftUI(
                                     attachment: attachments[0],
                                     isOutgoing: (messageViewModel.variant == .standardOutgoing),
-                                    cornerRadius: 0
+                                    cornerRadius: 0,
+                                    using: dependencies
                                 )
                                 .frame(
                                     maxWidth: .infinity,
@@ -240,7 +243,8 @@ struct MessageInfoScreen: View {
                                         threadVariant: .contact,    // Always show the display picture in 'contact' mode
                                         displayPictureFilename: nil,
                                         profile: messageViewModel.profile,
-                                        profileIcon: (messageViewModel.isSenderOpenGroupModerator ? .crown : .none)
+                                        profileIcon: (messageViewModel.isSenderOpenGroupModerator ? .crown : .none),
+                                        using: dependencies
                                     )
                                     
                                     let size: ProfilePictureView.Size = .list
@@ -375,6 +379,7 @@ struct MessageBubble: View {
     static private let inset: CGFloat = 12
     
     let messageViewModel: MessageViewModel
+    let dependencies: Dependencies
     
     var bodyLabelTextColor: ThemeValue {
         messageViewModel.variant == .standardOutgoing ?
@@ -398,7 +403,8 @@ struct MessageBubble: View {
                                 LinkPreviewView_SwiftUI(
                                     state: LinkPreview.SentState(
                                         linkPreview: linkPreview,
-                                        imageAttachment: messageViewModel.linkPreviewAttachment
+                                        imageAttachment: messageViewModel.linkPreviewAttachment,
+                                        using: dependencies
                                     ),
                                     isOutgoing: (messageViewModel.variant == .standardOutgoing),
                                     maxWidth: maxWidth,
@@ -428,7 +434,8 @@ struct MessageBubble: View {
                                         currentUserBlinded25SessionId: messageViewModel.currentUserBlinded25SessionId,
                                         direction: (messageViewModel.variant == .standardOutgoing ? .outgoing : .incoming),
                                         attachment: messageViewModel.quoteAttachment
-                                    )
+                                    ),
+                                    using: dependencies
                                 )
                                 .fixedSize(horizontal: false, vertical: true)
                                 .padding(.top, Self.inset)
@@ -442,7 +449,8 @@ struct MessageBubble: View {
                             theme: ThemeManager.currentTheme,
                             primaryColor: ThemeManager.primaryColor,
                             textColor: bodyLabelTextColor,
-                            searchText: nil
+                            searchText: nil,
+                            using: dependencies
                         ) {
                             AttributedText(bodyText)
                                 .padding(.all, Self.inset)
@@ -454,7 +462,8 @@ struct MessageBubble: View {
                         theme: ThemeManager.currentTheme,
                         primaryColor: ThemeManager.primaryColor,
                         textColor: bodyLabelTextColor,
-                        searchText: nil
+                        searchText: nil,
+                        using: dependencies
                     ) {
                         AttributedText(bodyText)
                             .padding(.all, Self.inset)
@@ -486,7 +495,8 @@ struct MessageBubble: View {
                                 theme: ThemeManager.currentTheme,
                                 primaryColor: ThemeManager.primaryColor,
                                 textColor: bodyLabelTextColor,
-                                searchText: nil
+                                searchText: nil,
+                                using: dependencies
                             ) {
                                 ZStack{
                                     AttributedText(bodyText)
@@ -561,6 +571,7 @@ final class MessageInfoViewController: SessionHostingViewController<MessageInfoS
 
 struct MessageInfoView_Previews: PreviewProvider {
     static var messageViewModel: MessageViewModel {
+        let dependencies: Dependencies = .createEmpty()
         let result = MessageViewModel(
             optimisticMessageId: UUID(),
             threadId: "d4f1g54sdf5g1d5f4g65ds4564df65f4g65d54gdfsg",
@@ -570,8 +581,8 @@ struct MessageInfoView_Previews: PreviewProvider {
             threadOpenGroupServer: nil,
             threadOpenGroupPublicKey: nil,
             threadContactNameInternal: "Test",
-            timestampMs: SnodeAPI.currentOffsetTimestampMs(),
-            receivedAtTimestampMs: SnodeAPI.currentOffsetTimestampMs(),
+            timestampMs: dependencies[cache: .snodeAPI].currentOffsetTimestampMs(),
+            receivedAtTimestampMs: dependencies[cache: .snodeAPI].currentOffsetTimestampMs(),
             authorId: "d4f1g54sdf5g1d5f4g65ds4564df65f4g65d54gdfsg",
             authorNameInternal: "Test",
             body: "Mauris sapien dui, sagittis et fringilla eget, tincidunt vel mauris. Mauris bibendum quis ipsum ac pulvinar. Integer semper elit vitae placerat efficitur. Quisque blandit scelerisque orci, a fringilla dui. In a sollicitudin tortor. Vivamus consequat sollicitudin felis, nec pretium dolor bibendum sit amet. Integer non congue risus, id imperdiet diam. Proin elementum enim at felis commodo semper. Pellentesque magna magna, laoreet nec hendrerit in, suscipit sit amet risus. Nulla et imperdiet massa. Donec commodo felis quis arcu dignissim lobortis. Praesent nec fringilla felis, ut pharetra sapien. Donec ac dignissim nisi, non lobortis justo. Nulla congue velit nec sodales bibendum. Nullam feugiat, mauris ac consequat posuere, eros sem dignissim nulla, ac convallis dolor sem rhoncus dolor. Cras ut luctus risus, quis viverra mauris.",
@@ -579,7 +590,7 @@ struct MessageInfoView_Previews: PreviewProvider {
             expiresInSeconds: nil,
             state: .failed,
             isSenderOpenGroupModerator: false,
-            currentUserProfile: Profile.fetchOrCreateCurrentUser(),
+            currentUserProfile: Profile.fetchOrCreateCurrentUser(using: dependencies),
             quote: nil,
             quoteAttachment: nil,
             linkPreview: nil,
@@ -602,7 +613,7 @@ struct MessageInfoView_Previews: PreviewProvider {
         MessageInfoScreen(
             actions: actions,
             messageViewModel: messageViewModel,
-            dependencies: Dependencies()
+            dependencies: Dependencies.createEmpty()
         )
     }
 }

@@ -3,7 +3,6 @@
 import UIKit
 import SessionUIKit
 import SessionUtilitiesKit
-import SignalCoreKit
 
 protocol EmojiPickerCollectionViewDelegate: AnyObject {
     func emojiPicker(_ emojiPicker: EmojiPickerCollectionView?, didSelectEmoji emoji: EmojiWithSkinTones)
@@ -122,12 +121,12 @@ class EmojiPickerCollectionView: UICollectionView {
         guard section > 0 || !hasRecentEmoji else { return Array(recentEmoji[0..<min(maxRecentEmoji, recentEmoji.count)]) }
 
         guard let category = Emoji.Category.allCases[safe: section - categoryIndexOffset] else {
-            owsFailDebug("Unexpectedly missing category for section \(section)")
+            Log.error("[EmojiPickerCollectionView] Unexpectedly missing category for section \(section)")
             return []
         }
 
         guard let categoryEmoji = allSendableEmojiByCategory[category] else {
-            owsFailDebug("Unexpectedly missing emoji for category \(category)")
+            Log.error("[EmojiPickerCollectionView] Unexpectedly missing emoji for category \(category)")
             return []
         }
 
@@ -144,7 +143,7 @@ class EmojiPickerCollectionView: UICollectionView {
         }
 
         guard let category = Emoji.Category.allCases[safe: section - categoryIndexOffset] else {
-            owsFailDebug("Unexpectedly missing category for section \(section)")
+            Log.error("[EmojiPickerCollectionView] Unexpectedly missing category for section \(section)")
             return nil
         }
 
@@ -232,7 +231,7 @@ extension EmojiPickerCollectionView: UIGestureRecognizerDelegate {
 extension EmojiPickerCollectionView: UICollectionViewDelegate {
     func collectionView(_ collectionView: UICollectionView, didSelectItemAt indexPath: IndexPath) {
         guard let emoji = emojiForIndexPath(indexPath) else {
-            return owsFailDebug("Missing emoji for indexPath \(indexPath)")
+            return Log.error("[EmojiPickerCollectionView] Missing emoji for indexPath \(indexPath)")
         }
         
         pickerDelegate?.emojiPicker(self, didSelectEmoji: emoji)
@@ -252,12 +251,12 @@ extension EmojiPickerCollectionView: UICollectionViewDataSource {
         let cell = dequeueReusableCell(withReuseIdentifier: EmojiCell.reuseIdentifier, for: indexPath)
 
         guard let emojiCell = cell as? EmojiCell else {
-            owsFailDebug("unexpected cell type")
+            Log.error("[EmojiPickerCollectionView] unexpected cell type")
             return cell
         }
 
         guard let emoji = emojiForIndexPath(indexPath) else {
-            owsFailDebug("unexpected indexPath")
+            Log.error("[EmojiPickerCollectionView] unexpected indexPath")
             return cell
         }
 
@@ -275,7 +274,7 @@ extension EmojiPickerCollectionView: UICollectionViewDataSource {
         )
 
         guard let sectionHeader = supplementaryView as? EmojiSectionHeader else {
-            owsFailDebug("unexpected supplementary view type")
+            Log.error("[EmojiPickerCollectionView] unexpected supplementary view type")
             return supplementaryView
         }
 

@@ -22,7 +22,7 @@ class NotificationSoundViewModel: SessionTableViewModel, NavigationItemSource, N
     
     // MARK: - Initialization
     
-    init(using dependencies: Dependencies = Dependencies()) {
+    init(using dependencies: Dependencies) {
         self.dependencies = dependencies
         
         let originalSelection: Preferences.Sound = dependencies[singleton: .storage, key: .defaultNotificationSound]

@@ -200,7 +200,7 @@ public struct FeatureValue<R> {
     
     // MARK: - Functions
     
-    public func value(using dependencies: Dependencies = Dependencies()) -> R {
+    public func value(using dependencies: Dependencies) -> R {
         return valueGenerator(dependencies)
     }
 }

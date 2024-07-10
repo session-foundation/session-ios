@@ -11,6 +11,7 @@ enum _014_GenerateInitialUserConfigDumps: Migration {
     static let identifier: String = "GenerateInitialUserConfigDumps" // stringlint:disable
     static let needsConfigSync: Bool = true
     static let minExpectedRunDuration: TimeInterval = 4.0
+    static var requirements: [MigrationRequirement] = [.sessionIdCached]
     static let fetchedTables: [(TableRecord & FetchableRecord).Type] = [
         Identity.self, SessionThread.self, Contact.self, Profile.self, ClosedGroup.self,
         OpenGroup.self, DisappearingMessagesConfiguration.self, GroupMember.self, ConfigDump.self
@@ -25,11 +26,10 @@ enum _014_GenerateInitialUserConfigDumps: Migration {
             return
         }
         
-        // Create the initial config state
-        let userSessionId: SessionId = getUserSessionId(db, using: dependencies)
-        let timestampMs: Int64 = Int64(Date().timeIntervalSince1970 * 1000)
-        
-        LibSession.loadState(db, using: dependencies)
+        // Create the initial config state        
+        let userSessionId: SessionId = dependencies[cache: .general].sessionId
+        let timestampMs: Int64 = Int64(dependencies.dateNow.timeIntervalSince1970 * TimeInterval(1000))
+        dependencies.set(cache: .libSession, to: LibSession.Cache(userSessionId: userSessionId, using: dependencies))
         
         // Retrieve all threads (we are going to base the config dump data on the active
         // threads rather than anything else in the database)
@@ -39,11 +39,11 @@ enum _014_GenerateInitialUserConfigDumps: Migration {
         
         // MARK: - UserProfile Config Dump
         
-        try dependencies[cache: .sessionUtil]
+        try dependencies[cache: .libSession]
             .config(for: .userProfile, sessionId: userSessionId)
             .mutate { config in
                 try LibSession.update(
-                    profile: Profile.fetchOrCreateCurrentUser(db),
+                    profile: Profile.fetchOrCreateCurrentUser(db, using: dependencies),
                     in: config
                 )
                 
@@ -71,7 +71,7 @@ enum _014_GenerateInitialUserConfigDumps: Migration {
         
         // MARK: - Contact Config Dump
         
-        try dependencies[cache: .sessionUtil]
+        try dependencies[cache: .libSession]
             .config(for: .contacts, sessionId: userSessionId)
             .mutate { config in
                 // Exclude Note to Self, community, group and outgoing blinded message requests
@@ -100,7 +100,7 @@ enum _014_GenerateInitialUserConfigDumps: Migration {
                             contentsOf: threadIdsNeedingContacts
                                 .map { contactId in
                                     ContactInfo(
-                                        contact: Contact.fetchOrCreate(db, id: contactId),
+                                        contact: Contact.fetchOrCreate(db, id: contactId, using: dependencies),
                                         profile: nil
                                     )
                                 }
@@ -139,7 +139,7 @@ enum _014_GenerateInitialUserConfigDumps: Migration {
         
         // MARK: - ConvoInfoVolatile Config Dump
         
-        try dependencies[cache: .sessionUtil]
+        try dependencies[cache: .libSession]
             .config(for: .convoInfoVolatile, sessionId: userSessionId)
             .mutate { config in
                 let volatileThreadInfo: [LibSession.VolatileThreadInfo] = LibSession.VolatileThreadInfo
@@ -166,7 +166,7 @@ enum _014_GenerateInitialUserConfigDumps: Migration {
         
         // MARK: - UserGroups Config Dump
         
-        try dependencies[cache: .sessionUtil]
+        try dependencies[cache: .libSession]
             .config(for: .userGroups, sessionId: userSessionId)
             .mutate { config in
                 let legacyGroupData: [LibSession.LegacyGroupInfo] = try LibSession.LegacyGroupInfo.fetchAll(db)
@@ -211,7 +211,7 @@ enum _014_GenerateInitialUserConfigDumps: Migration {
         
         // Enqueue a config sync job to ensure the generated configs get synced
         db.afterNextTransactionNestedOnce(dedupeId: LibSession.syncDedupeId(userSessionId.hexString)) { db in
-            ConfigurationSyncJob.enqueue(db, sessionIdHexString: userSessionId.hexString)
+            ConfigurationSyncJob.enqueue(db, swarmPublicKey: userSessionId.hexString, using: dependencies)
         }
         
         Storage.update(progress: 1, for: self, in: target, using: dependencies)
@@ -226,18 +226,5 @@ enum _014_GenerateInitialUserConfigDumps: Migration {
         
         let contact: Contact
         let profile: Profile?
-    }
-
-    struct GroupInfo: FetchableRecord, Decodable, ColumnExpressible {
-        typealias Columns = CodingKeys
-        enum CodingKeys: String, CodingKey, ColumnExpression, CaseIterable {
-            case closedGroup
-            case disappearingMessagesConfiguration
-            case groupMembers
-        }
-        
-        let closedGroup: ClosedGroup
-        let disappearingMessagesConfiguration: DisappearingMessagesConfiguration?
-        let groupMembers: [GroupMember]
     }
 }

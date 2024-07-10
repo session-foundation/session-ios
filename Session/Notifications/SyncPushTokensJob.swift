@@ -3,11 +3,9 @@
 import Foundation
 import Combine
 import GRDB
-import SignalCoreKit
 import SessionSnodeKit
 import SessionMessagingKit
 import SessionUtilitiesKit
-import SignalCoreKit
 
 public enum SyncPushTokensJob: JobExecutor {
     public static let maxFailureCount: Int = -1
@@ -19,23 +17,23 @@ public enum SyncPushTokensJob: JobExecutor {
     public static func run(
         _ job: Job,
         queue: DispatchQueue,
-        success: @escaping (Job, Bool, Dependencies) -> (),
-        failure: @escaping (Job, Error?, Bool, Dependencies) -> (),
-        deferred: @escaping (Job, Dependencies) -> (),
-        using dependencies: Dependencies = Dependencies()
+        success: @escaping (Job, Bool) -> Void,
+        failure: @escaping (Job, Error, Bool) -> Void,
+        deferred: @escaping (Job) -> Void,
+        using dependencies: Dependencies
     ) {
         // Don't run when inactive or not in main app or if the user doesn't exist yet
         guard dependencies[defaults: .appGroup, key: .isMainAppActive] else {
-            return deferred(job, dependencies) // Don't need to do anything if it's not the main app
+            return deferred(job) // Don't need to do anything if it's not the main app
         }
-        guard Identity.userCompletedRequiredOnboarding() else {
-            SNLog("[SyncPushTokensJob] Deferred due to incomplete registration")
-            return deferred(job, dependencies)
+        guard Identity.userCompletedRequiredOnboarding(using: dependencies) else {
+            Log.info("[SyncPushTokensJob] Deferred due to incomplete registration")
+            return deferred(job)
         }
         
         /// Since this job can be dependant on network conditions it's possible for multiple jobs to run at the same time, while this shouldn't cause issues
         /// it can result in multiple API calls getting made concurrently so to avoid this we defer the job as if the previous one was successful then the
-        ///  `lastPushNotificationSync` value will prevent the subsequent call being made
+        ///  `lastDeviceTokenUpload` value will prevent the subsequent call being made
         guard
             dependencies[singleton: .jobRunner]
                 .jobInfoFor(state: .running, variant: .syncPushTokens)
@@ -50,8 +48,8 @@ public enum SyncPushTokensJob: JobExecutor {
                     .upserted(db)
             }
             
-            SNLog("[SyncPushTokensJob] Deferred due to in progress job")
-            return deferred(updatedJob ?? job, dependencies)
+            Log.info("[SyncPushTokensJob] Deferred due to in progress job")
+            return deferred(updatedJob ?? job)
         }
         
         // Determine if the device has 'Fast Mode' (APNS) enabled
@@ -69,20 +67,20 @@ public enum SyncPushTokensJob: JobExecutor {
                     DispatchQueue.main.sync { UIApplication.shared.unregisterForRemoteNotifications() }
                     
                     // Clear the old token
-                    dependencies[singleton: .storage].write(using: dependencies) { db in
+                    dependencies[singleton: .storage].write { db in
                         db[.lastRecordedPushToken] = nil
                     }
                     
                     // Unregister from our server
                     if let existingToken: String = lastRecordedPushToken {
-                        SNLog("[SyncPushTokensJob] Unregister using last recorded push token: \(redact(existingToken))")
+                        Log.info("[SyncPushTokensJob] Unregister using last recorded push token: \(redact(existingToken))")
                         return PushNotificationAPI
                             .unsubscribeAll(token: Data(hex: existingToken), using: dependencies)
                             .map { _ in () }
                             .eraseToAnyPublisher()
                     }
                     
-                    SNLog("[SyncPushTokensJob] No previous token stored just triggering device unregister")
+                    Log.info("[SyncPushTokensJob] No previous token stored just triggering device unregister")
                     return Just(())
                         .setFailureType(to: Error.self)
                         .eraseToAnyPublisher()
@@ -91,12 +89,12 @@ public enum SyncPushTokensJob: JobExecutor {
                 .sinkUntilComplete(
                     receiveCompletion: { result in
                         switch result {
-                            case .finished: SNLog("[SyncPushTokensJob] Unregister Completed")
-                            case .failure: SNLog("[SyncPushTokensJob] Unregister Failed")
+                            case .finished: Log.info("[SyncPushTokensJob] Unregister Completed")
+                            case .failure: Log.error("[SyncPushTokensJob] Unregister Failed")
                         }
                         
                         // We want to complete this job regardless of success or failure
-                        success(job, false, dependencies)
+                        success(job, false)
                     }
                 )
             return
@@ -106,8 +104,8 @@ public enum SyncPushTokensJob: JobExecutor {
         ///
         /// **Note:** Apple's documentation states that we should re-register for notifications on every launch:
         /// https://developer.apple.com/library/archive/documentation/NetworkingInternet/Conceptual/RemoteNotificationsPG/HandlingRemoteNotifications.html#//apple_ref/doc/uid/TP40008194-CH6-SW1
-        SNLog("[SyncPushTokensJob] Re-registering for remote notifications")
-        PushRegistrationManager.shared.requestPushTokens(using: dependencies)
+        Log.info("[SyncPushTokensJob] Re-registering for remote notifications")
+        dependencies[singleton: .pushRegistrationManager].requestPushTokens()
             .flatMap { (pushToken: String, voipToken: String) -> AnyPublisher<(String, String)?, Error> in
                 Deferred {
                     Future<(String, String)?, Error> { resolver in
@@ -154,7 +152,7 @@ public enum SyncPushTokensJob: JobExecutor {
                     dependencies[singleton: .storage, key: .lastRecordedPushToken] != pushToken ||
                     uploadOnlyIfStale == false
                 else {
-                    SNLog("[SyncPushTokensJob] OS subscription completed, skipping server subscription due to frequency")
+                    Log.info("[SyncPushTokensJob] OS subscription completed, skipping server subscription due to frequency")
                     return Just(())
                         .setFailureType(to: Error.self)
                         .eraseToAnyPublisher()
@@ -171,13 +169,13 @@ public enum SyncPushTokensJob: JobExecutor {
                         receiveCompletion: { result in
                             switch result {
                                 case .failure(let error):
-                                    SNLog("[SyncPushTokensJob] Failed to register due to error: \(error)")
+                                    Log.error("[SyncPushTokensJob] Failed to register due to error: \(error)")
                                 
                                 case .finished:
-                                    Logger.warn("Recording push tokens locally. pushToken: \(redact(pushToken)), voipToken: \(redact(voipToken))")
-                                    SNLog("[SyncPushTokensJob] Completed")
+                                    Log.debug("[SyncPushTokensJob] Recording push tokens locally. pushToken: \(redact(pushToken)), voipToken: \(redact(voipToken))")
+                                    Log.info("[SyncPushTokensJob] Completed")
 
-                                    dependencies[singleton: .storage].write(using: dependencies) { db in
+                                    dependencies[singleton: .storage].write { db in
                                         db[.lastRecordedPushToken] = pushToken
                                         db[.lastRecordedVoipToken] = voipToken
                                     }
@@ -190,11 +188,11 @@ public enum SyncPushTokensJob: JobExecutor {
             .subscribe(on: queue, using: dependencies)
             .sinkUntilComplete(
                 // We want to complete this job regardless of success or failure
-                receiveCompletion: { _ in success(job, false, dependencies) }
+                receiveCompletion: { _ in success(job, false) }
             )
     }
     
-    public static func run(uploadOnlyIfStale: Bool) {
+    public static func run(uploadOnlyIfStale: Bool, using dependencies: Dependencies) {
         guard let job: Job = Job(
             variant: .syncPushTokens,
             behaviour: .runOnce,
@@ -207,9 +205,10 @@ public enum SyncPushTokensJob: JobExecutor {
         SyncPushTokensJob.run(
             job,
             queue: DispatchQueue.global(qos: .default),
-            success: { _, _, _ in },
-            failure: { _, _, _, _ in },
-            deferred: { _, _ in }
+            success: { _, _ in },
+            failure: { _, _, _ in },
+            deferred: { _ in },
+            using: dependencies
         )
     }
 }

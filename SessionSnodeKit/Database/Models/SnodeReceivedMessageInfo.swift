@@ -73,10 +73,11 @@ public extension SnodeReceivedMessageInfo {
         swarmPublicKey: String,
         using dependencies: Dependencies
     ) throws {
+        let currentOffsetTimestampMs: Int64 = dependencies[cache: .snodeAPI].currentOffsetTimestampMs()
         let rowIds: [Int64] = try SnodeReceivedMessageInfo
             .select(Column.rowID)
             .filter(SnodeReceivedMessageInfo.Columns.key == key(for: snode, swarmPublicKey: swarmPublicKey, namespace: namespace))
-            .filter(SnodeReceivedMessageInfo.Columns.expirationDateMs <= SnodeAPI.currentOffsetTimestampMs(using: dependencies))
+            .filter(SnodeReceivedMessageInfo.Columns.expirationDateMs <= currentOffsetTimestampMs)
             .asRequest(of: Int64.self)
             .fetchAll(db)
         
@@ -96,13 +97,14 @@ public extension SnodeReceivedMessageInfo {
         swarmPublicKey: String,
         using dependencies: Dependencies
     ) throws -> SnodeReceivedMessageInfo? {
+        let currentOffsetTimestampMs: Int64 = dependencies[cache: .snodeAPI].currentOffsetTimestampMs()
         return try SnodeReceivedMessageInfo
             .filter(
                 SnodeReceivedMessageInfo.Columns.wasDeletedOrInvalid == nil ||
                 SnodeReceivedMessageInfo.Columns.wasDeletedOrInvalid == false
             )
             .filter(SnodeReceivedMessageInfo.Columns.key == key(for: snode, swarmPublicKey: swarmPublicKey, namespace: namespace))
-            .filter(SnodeReceivedMessageInfo.Columns.expirationDateMs > SnodeAPI.currentOffsetTimestampMs())
+            .filter(SnodeReceivedMessageInfo.Columns.expirationDateMs > currentOffsetTimestampMs)
             .order(Column.rowID.desc)
             .fetchOne(db)
     }

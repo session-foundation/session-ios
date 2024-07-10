@@ -74,7 +74,7 @@ internal extension LibSession {
         let needsPush: Bool
         
         do {
-            needsPush = try dependencies[cache: .sessionUtil]
+            needsPush = try dependencies[cache: .libSession]
                 .config(for: variant, sessionId: sessionId)
                 .mutate { config in
                     // Peform the change
@@ -82,7 +82,7 @@ internal extension LibSession {
                     
                     // If an error occurred during the change then actually throw it to prevent
                     // any database change from completing
-                    if let lastError: SessionUtilError = config?.lastError { throw lastError }
+                    try LibSessionError.throwIfNeeded(config)
 
                     // If we don't need to dump the data the we can finish early
                     guard config.needsDump(using: dependencies) else { return config.needsPush }
@@ -91,7 +91,7 @@ internal extension LibSession {
                         config: config,
                         for: variant,
                         sessionId: sessionId,
-                        timestampMs: SnodeAPI.currentOffsetTimestampMs(using: dependencies),
+                        timestampMs: dependencies[cache: .snodeAPI].currentOffsetTimestampMs(),
                         using: dependencies
                     )?.upsert(db)
 
@@ -106,7 +106,7 @@ internal extension LibSession {
         // Make sure we need a push before scheduling one
         guard needsPush else { return }
         
-        db.afterNextTransactionNestedOnce(dedupeId: SessionUtil.syncDedupeId(sessionId.hexString)) { db in
+        db.afterNextTransactionNestedOnce(dedupeId: LibSession.syncDedupeId(sessionId.hexString)) { db in
             ConfigurationSyncJob.enqueue(db, swarmPublicKey: sessionId.hexString, using: dependencies)
         }
     }
@@ -123,7 +123,7 @@ internal extension LibSession {
         // If we have no updated threads then no need to continue
         guard !updatedThreads.isEmpty else { return updated }
         
-        let userSessionId: SessionId = getUserSessionId(db, using: dependencies)
+        let userSessionId: SessionId = dependencies[cache: .general].sessionId
         let groupedThreads: [SessionThread.Variant: [SessionThread]] = updatedThreads
             .grouped(by: \.variant)
         let urlInfo: [String: OpenGroupUrlInfo] = try OpenGroupUrlInfo
@@ -131,7 +131,7 @@ internal extension LibSession {
             .reduce(into: [:]) { result, next in result[next.threadId] = next }
         
         // Update the unread state for the threads first (just in case that's what changed)
-        try SessionUtil.updateMarkedAsUnreadState(db, threads: updatedThreads, using: dependencies)
+        try LibSession.updateMarkedAsUnreadState(db, threads: updatedThreads, using: dependencies)
         
         // Then update the `hidden` and `priority` values
         try groupedThreads.forEach { variant, threads in
@@ -236,20 +236,20 @@ internal extension LibSession {
                     }
                 
                 case .group:
-                    try SessionUtil.performAndPushChange(
+                    try LibSession.performAndPushChange(
                         db,
                         for: .userGroups,
                         sessionId: userSessionId,
                         using: dependencies
                     ) { config in
-                        try SessionUtil.upsert(
+                        try LibSession.upsert(
                             groups: threads
                                 .map { thread in
                                     GroupInfo(
                                         groupSessionId: thread.id,
                                         priority: thread.pinnedPriority
-                                            .map { Int32($0 == 0 ? SessionUtil.visiblePriority : max($0, 1)) }
-                                            .defaulting(to: SessionUtil.visiblePriority)
+                                            .map { Int32($0 == 0 ? LibSession.visiblePriority : max($0, 1)) }
+                                            .defaulting(to: LibSession.visiblePriority)
                                     )
                                 },
                             in: config,
@@ -267,12 +267,12 @@ internal extension LibSession {
         forKey key: String,
         using dependencies: Dependencies
     ) throws -> Bool {
-        let userSessionId: SessionId = getUserSessionId(db, using: dependencies)
+        let userSessionId: SessionId = dependencies[cache: .general].sessionId
         
         // Currently the only synced setting is 'checkForCommunityMessageRequests'
         switch key {
             case Setting.BoolKey.checkForCommunityMessageRequests.rawValue:
-                return try dependencies[cache: .sessionUtil]
+                return try dependencies[cache: .libSession]
                     .config(for: .userProfile, sessionId: userSessionId)
                     .wrappedValue
                     .map { config -> Bool in (try LibSession.rawBlindedMessageRequestValue(in: config) >= 0) }
@@ -290,7 +290,7 @@ internal extension LibSession {
         // Don't current support any nullable settings
         guard let updatedSetting: Setting = updated else { return }
         
-        let userSessionId: SessionId = getUserSessionId(db, using: dependencies)
+        let userSessionId: SessionId = dependencies[cache: .general].sessionId
         
         // Currently the only synced setting is 'checkForCommunityMessageRequests'
         switch updatedSetting.id {
@@ -405,12 +405,12 @@ internal extension LibSession {
         threadId: String,
         targetConfig: ConfigDump.Variant,
         changeTimestampMs: Int64,
-        using dependencies: Dependencies = Dependencies()
+        using dependencies: Dependencies
     ) -> Bool {
         let targetSessionId: String = {
             switch targetConfig {
                 case .userProfile, .contacts, .convoInfoVolatile, .userGroups:
-                    return getUserSessionId(db, using: dependencies).hexString
+                    return dependencies[cache: .general].sessionId.hexString
                     
                 case .groupInfo, .groupMembers, .groupKeys: return threadId
                 case .invalid: return ""
@@ -441,83 +441,6 @@ internal extension LibSession {
     }
 }
 
-// MARK: - Encryption
-
-public extension LibSession {
-    static func encrypt(
-        messages: [Data],
-        toRecipients recipients: [SessionId],
-        ed25519PrivateKey: [UInt8],
-        domain: SessionUtil.Crypto.Domain,
-        using dependencies: Dependencies
-    ) throws -> Data {
-        var outLen: Int = 0
-        var cMessages: [UnsafePointer<UInt8>?] = messages
-            .map { message in message.cArray }
-            .unsafeCopy()
-        var messageSizes: [Int] = messages.map { $0.count }
-        var cRecipients: [UnsafePointer<UInt8>?] = recipients
-            .map { recipient in recipient.publicKey }
-            .unsafeCopy()
-        var secretKey: [UInt8] = ed25519PrivateKey
-        var cDomain: [CChar] = domain.cArray
-        var cEncryptedDataPtr: UnsafeMutablePointer<UInt8>?
-        
-        try CExceptionHelper.performSafely {
-            cEncryptedDataPtr = session_encrypt_for_multiple_simple_ed25519(
-                &outLen,
-                &cMessages,
-                &messageSizes,
-                messages.count,
-                &cRecipients,
-                recipients.count,
-                &secretKey,
-                &cDomain,
-                nil,
-                0
-            )
-        }
-        
-        let encryptedData: Data? = cEncryptedDataPtr.map { Data(bytes: $0, count: outLen) }
-        cMessages.forEach { $0?.deallocate() }
-        cRecipients.forEach { $0?.deallocate() }
-        cEncryptedDataPtr?.deallocate()
-        
-        return try encryptedData ?? { throw MessageSenderError.encryptionFailed }()
-    }
-    
-    static func decrypt(
-        ciphertext: Data,
-        senderSessionId: SessionId,
-        ed25519KeyPair: KeyPair,
-        domain: SessionUtil.Crypto.Domain,
-        using dependencies: Dependencies
-    ) throws -> Data {
-        var outLen: Int = 0
-        var cEncryptedData: [UInt8] = Array(ciphertext)
-        var secretKey: [UInt8] = ed25519KeyPair.secretKey
-        var cSenderPubkey: [UInt8] = senderSessionId.publicKey
-        var cDomain: [CChar] = domain.cArray
-        var cDecryptedDataPtr: UnsafeMutablePointer<UInt8>?
-        
-        try CExceptionHelper.performSafely {
-            cDecryptedDataPtr = session_decrypt_for_multiple_simple_ed25519(
-                &outLen,
-                &cEncryptedData,
-                cEncryptedData.count,
-                &secretKey,
-                &cSenderPubkey,
-                &cDomain
-            )
-        }
-        
-        let decryptedData: Data? = cDecryptedDataPtr.map { Data(bytes: $0, count: outLen) }
-        cDecryptedDataPtr?.deallocate()
-        
-        return try decryptedData ?? { throw MessageReceiverError.decryptionFailed }()
-    }
-}
-
 // MARK: - External Outgoing Changes
 
 public extension LibSession {
@@ -528,7 +451,16 @@ public extension LibSession {
         visibleOnly: Bool,
         using dependencies: Dependencies
     ) -> Bool {
-        let userSessionId: SessionId = getUserSessionId(db, using: dependencies)
+        // Currently blinded conversations cannot be contained in the config, so there is no point checking (it'll always be
+        // false)
+        guard
+            threadVariant == .community || (
+                (try? SessionId(from: threadId))?.prefix != .blinded15 &&
+                (try? SessionId(from: threadId))?.prefix != .blinded25
+            )
+        else { return false }
+        
+        let userSessionId: SessionId = dependencies[cache: .general].sessionId
         let configVariant: ConfigDump.Variant = {
             switch threadVariant {
                 case .contact: return (threadId == userSessionId.hexString ? .userProfile : .contacts)
@@ -536,13 +468,14 @@ public extension LibSession {
             }
         }()
         
-        return dependencies[cache: .sessionUtil]
+        return dependencies[cache: .libSession]
             .config(for: configVariant, sessionId: userSessionId)
             .wrappedValue
             .map { config in
-                guard case .object(let conf) = config else { return false }
-                
-                var cThreadId: [CChar] = threadId.cArray.nullTerminated()
+                guard
+                    case .object(let conf) = config,
+                    var cThreadId: [CChar] = threadId.cString(using: .utf8)
+                else { return false }
                 
                 switch threadVariant {
                     case .contact:
@@ -556,7 +489,10 @@ public extension LibSession {
                         
                         var contact: contacts_contact = contacts_contact()
                         
-                        guard contacts_get(conf, &contact, &cThreadId) else { return false }
+                        guard contacts_get(conf, &contact, &cThreadId) else {
+                            LibSessionError.clear(conf)
+                            return false
+                        }
                         
                         /// If the user opens a conversation with an existing contact but doesn't send them a message
                         /// then the one-to-one conversation should remain hidden so we want to delete the `SessionThread`
@@ -568,17 +504,23 @@ public extension LibSession {
                             .read { db in try OpenGroupUrlInfo.fetchAll(db, ids: [threadId]) }?
                             .first
                         
-                        guard let urlInfo: OpenGroupUrlInfo = maybeUrlInfo else { return false }
+                        guard
+                            let urlInfo: OpenGroupUrlInfo = maybeUrlInfo,
+                            var cBaseUrl: [CChar] = urlInfo.server.cString(using: .utf8),
+                            var cRoom: [CChar] = urlInfo.roomToken.cString(using: .utf8)
+                        else { return false }
                         
-                        var cBaseUrl: [CChar] = urlInfo.server.cArray.nullTerminated()
-                        var cRoom: [CChar] = urlInfo.roomToken.cArray.nullTerminated()
                         var community: ugroups_community_info = ugroups_community_info()
                         
                         /// Not handling the `hidden` behaviour for communities so just indicate the existence
-                        return user_groups_get_community(conf, &community, &cBaseUrl, &cRoom)
+                        let result: Bool = user_groups_get_community(conf, &community, &cBaseUrl, &cRoom)
+                        LibSessionError.clear(conf)
+                        
+                        return result
                         
                     case .legacyGroup:
                         let groupInfo: UnsafeMutablePointer<ugroups_legacy_group_info>? = user_groups_get_legacy_group(conf, &cThreadId)
+                        LibSessionError.clear(conf)
                         
                         /// Not handling the `hidden` behaviour for legacy groups so just indicate the existence
                         if groupInfo != nil {

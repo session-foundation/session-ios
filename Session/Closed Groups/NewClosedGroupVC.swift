@@ -231,7 +231,8 @@ final class NewClosedGroupVC: BaseVC, UITableViewDataSource, UITableViewDelegate
                 accessibility: Accessibility(
                     identifier: "Contact"
                 )
-            )
+            ),
+            using: dependencies
         )
         
         return cell
@@ -334,14 +335,14 @@ final class NewClosedGroupVC: BaseVC, UITableViewDataSource, UITableViewDelegate
         else {
             return showError(title: "vc_create_closed_group_group_name_missing_error".localized())
         }
-        guard name.utf8CString.count < SessionUtil.sizeMaxGroupNameBytes else {
+        guard name.utf8CString.count < LibSession.sizeMaxGroupNameBytes else {
             return showError(title: "vc_create_closed_group_group_name_too_long_error".localized())
         }
         guard selectedProfiles.count >= 1 else {
             return showError(title: "GROUP_ERROR_NO_MEMBER_SELECTION".localized())
         }
         /// Minus one because we're going to include self later
-        guard selectedProfiles.count < (SessionUtil.sizeMaxGroupMemberCount - 1) else {
+        guard selectedProfiles.count < (LibSession.sizeMaxGroupMemberCount - 1) else {
             return showError(title: "vc_create_closed_group_too_many_group_members_error".localized())
         }
         let selectedProfiles: [(String, Profile?)] = self.selectedProfiles
@@ -391,12 +392,11 @@ final class NewClosedGroupVC: BaseVC, UITableViewDataSource, UITableViewDelegate
                         }
                     },
                     receiveValue: { thread in
-                        SessionApp.presentConversationCreatingIfNeeded(
+                        dependencies[singleton: .app].presentConversationCreatingIfNeeded(
                             for: thread.id,
                             variant: thread.variant,
                             dismissing: self?.presentingViewController,
-                            animated: false,
-                            using: dependencies
+                            animated: false
                         )
                     }
                 )

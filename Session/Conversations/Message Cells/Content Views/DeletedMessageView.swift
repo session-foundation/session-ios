@@ -1,9 +1,9 @@
 // Copyright © 2022 Rangeproof Pty Ltd. All rights reserved.
 
 import UIKit
+import SessionUIKit
 import SignalUtilitiesKit
 import SessionUtilitiesKit
-import SessionUIKit
 
 final class DeletedMessageView: UIView {
     private static let iconSize: CGFloat = 18

@@ -58,7 +58,7 @@ public class Message: Codable {
 
     // MARK: - Proto Conversion
     
-    public class func fromProto(_ proto: SNProtoContent, sender: String) -> Self? {
+    public class func fromProto(_ proto: SNProtoContent, sender: String, using dependencies: Dependencies) -> Self? {
         preconditionFailure("fromProto(_:sender:) is abstract and must be overridden.")
     }
 
@@ -276,7 +276,7 @@ public extension Message {
         }
     }
     
-    static func createMessageFrom(_ proto: SNProtoContent, sender: String) throws -> Message {
+    static func createMessageFrom(_ proto: SNProtoContent, sender: String, using dependencies: Dependencies) throws -> Message {
         let decodedMessage: Message? = Variant
             .allCases
             .sorted { lhs, rhs -> Bool in lhs.protoPriority < rhs.protoPriority }
@@ -284,7 +284,7 @@ public extension Message {
             .reduce(nil) { prev, variant in
                 guard prev == nil else { return prev }
                 
-                return variant.messageType.fromProto(proto, sender: sender)
+                return variant.messageType.fromProto(proto, sender: sender, using: dependencies)
             }
         
         return try decodedMessage ?? { throw MessageReceiverError.unknownMessage }()
@@ -357,7 +357,8 @@ public extension Message {
     static func processRawReceivedMessage(
         _ db: Database,
         rawMessage: SnodeReceivedMessage,
-        publicKey: String,
+        swarmPublicKey: String,
+        shouldStoreMessages: Bool,
         using dependencies: Dependencies
     ) throws -> ProcessedMessage {
         do {
@@ -365,7 +366,7 @@ public extension Message {
                 db,
                 data: rawMessage.data,
                 from: .swarm(
-                    publicKey: publicKey,
+                    publicKey: swarmPublicKey,
                     namespace: rawMessage.namespace,
                     serverHash: rawMessage.info.hash,
                     serverTimestampMs: rawMessage.timestampMs,
@@ -373,6 +374,9 @@ public extension Message {
                 ),
                 using: dependencies
             )
+            
+            /// If we don't want to store the messages then don't store any records for deduping purposes
+            guard shouldStoreMessages else { return processedMessage }
             
             // Ensure we actually want to de-dupe messages for this namespace, otherwise just
             // succeed early
@@ -433,7 +437,7 @@ public extension Message {
                 serverHash: metadata.hash,
                 serverTimestampMs: metadata.createdTimestampMs,
                 serverExpirationTimestamp: (
-                    TimeInterval(Double(SnodeAPI.currentOffsetTimestampMs(using: dependencies)) / 1000) +
+                    TimeInterval(dependencies[cache: .snodeAPI].currentOffsetTimestampMs() / 1000) +
                     ControlMessageProcessRecord.defaultExpirationSeconds
                 )
             ),
@@ -498,7 +502,7 @@ public extension Message {
     ) -> [Reaction] {
         guard let reactions: [String: OpenGroupAPI.Message.Reaction] = message.reactions else { return [] }
         
-        let currentUserSessionId: SessionId = getUserSessionId(db, using: dependencies)
+        let currentUserSessionId: SessionId = dependencies[cache: .general].sessionId
         let blinded15SessionId: SessionId? = SessionThread
             .getCurrentUserBlindedSessionId(
                 db,
@@ -565,7 +569,7 @@ public extension Message {
                 )
                 
                 let count: Int64 = (next.value.you ? next.value.count - 1 : next.value.count)
-                let timestampMs: Int64 = SnodeAPI.currentOffsetTimestampMs()
+                let timestampMs: Int64 = dependencies[cache: .snodeAPI].currentOffsetTimestampMs()
                 let maxLength: Int = shouldAddSelfReaction ? 4 : 5
                 let desiredReactorIds: [String] = reactors
                     .filter { id -> Bool in

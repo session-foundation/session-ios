@@ -217,7 +217,7 @@ public extension Profile {
                 try Profile
                     .allContactProfiles(
                         excluding: excluding
-                            .inserting(excludeCurrentUser ? getUserSessionId(db).hexString : nil)
+                            .inserting(excludeCurrentUser ? dependencies[cache: .general].sessionId.hexString : nil)
                     )
                     .fetchAll(db)
                     .sorted(by: { lhs, rhs -> Bool in lhs.displayName() < rhs.displayName() })
@@ -230,7 +230,7 @@ public extension Profile {
         id: ID,
         threadVariant: SessionThread.Variant = .contact,
         customFallback: String? = nil,
-        using dependencies: Dependencies = Dependencies()
+        using dependencies: Dependencies
     ) -> String {
         guard let db: Database = db else {
             return dependencies[singleton: .storage]
@@ -256,7 +256,7 @@ public extension Profile {
         _ db: Database? = nil,
         id: ID,
         threadVariant: SessionThread.Variant = .contact,
-        using dependencies: Dependencies = Dependencies()
+        using dependencies: Dependencies
     ) -> String? {
         guard let db: Database = db else {
             return dependencies[singleton: .storage].read { db in
@@ -270,7 +270,7 @@ public extension Profile {
     
     // MARK: - Fetch or Create
     
-    private static func defaultFor(_ id: String) -> Profile {
+    static func defaultFor(_ id: String) -> Profile {
         return Profile(
             id: id,
             name: "",
@@ -289,21 +289,24 @@ public extension Profile {
     ///
     /// **Note:** This method intentionally does **not** save the newly created Profile,
     /// it will need to be explicitly saved after calling
-    static func fetchOrCreateCurrentUser(
-        _ db: Database? = nil,
-        using dependencies: Dependencies = Dependencies()
-    ) -> Profile {
-        let userSessionid: SessionId = getUserSessionId(db, using: dependencies)
+    static func fetchOrCreateCurrentUser(using dependencies: Dependencies) -> Profile {
+        let userSessionId: SessionId = dependencies[cache: .general].sessionId
         
-        guard let db: Database = db else {
-            return dependencies[singleton: .storage]
-                .read { db in fetchOrCreateCurrentUser(db, using: dependencies) }
-                .defaulting(to: defaultFor(userSessionid.hexString))
-        }
+        return dependencies[singleton: .storage]
+            .read { db in fetchOrCreateCurrentUser(db, using: dependencies) }
+            .defaulting(to: defaultFor(userSessionId.hexString))
+    }
+    
+    /// Fetches or creates a Profile for the current user
+    ///
+    /// **Note:** This method intentionally does **not** save the newly created Profile,
+    /// it will need to be explicitly saved after calling
+    static func fetchOrCreateCurrentUser(_ db: Database, using dependencies: Dependencies) -> Profile {
+        let userSessionId: SessionId = dependencies[cache: .general].sessionId
         
         return (
-            (try? Profile.fetchOne(db, id: userSessionid.hexString)) ??
-            defaultFor(userSessionid.hexString)
+            (try? Profile.fetchOne(db, id: userSessionId.hexString)) ??
+            defaultFor(userSessionId.hexString)
         )
     }
     
@@ -396,6 +399,7 @@ public extension Profile {
 public struct WithProfile<T: ProfileAssociated>: Equatable, Hashable, Comparable {
     public let value: T
     public let profile: Profile?
+    public let currentUserSessionId: SessionId
     
     public var profileId: String { value.profileId }
     
@@ -429,7 +433,7 @@ public extension ProfileAssociated {
 }
 
 public extension FetchRequest where RowDecoder: FetchableRecord & ProfileAssociated {
-    func fetchAllWithProfiles(_ db: Database) throws -> [WithProfile<RowDecoder>] {
+    func fetchAllWithProfiles(_ db: Database, using dependencies: Dependencies) throws -> [WithProfile<RowDecoder>] {
         let originalResult: [RowDecoder] = try self.fetchAll(db)
         let profiles: [String: Profile]? = try? Profile
             .fetchAll(db, ids: originalResult.map { $0.profileId }.asSet())
@@ -438,7 +442,8 @@ public extension FetchRequest where RowDecoder: FetchableRecord & ProfileAssocia
         return originalResult.map {
             WithProfile(
                 value: $0,
-                profile: profiles?[$0.profileId]
+                profile: profiles?[$0.profileId],
+                currentUserSessionId: dependencies[cache: .general].sessionId
             )
         }
     }

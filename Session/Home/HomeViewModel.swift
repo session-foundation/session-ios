@@ -34,20 +34,18 @@ public class HomeViewModel {
     
     // MARK: - Initialization
     
-    init(
-        using dependencies: Dependencies = Dependencies()
-    ) {
+    init(using dependencies: Dependencies) {
         let initialState: State? = dependencies[singleton: .storage].read { db -> State in
             try HomeViewModel.retrieveState(db, excludingMessageRequestThreadCount: true, using: dependencies)
         }
         
         self.dependencies = dependencies
         self.state = State(
-            userSessionId: (initialState?.userSessionId ?? getUserSessionId(using: dependencies)),
+            userSessionId: (initialState?.userSessionId ?? dependencies[cache: .general].sessionId),
             showViewedSeedBanner: (initialState?.showViewedSeedBanner ?? true),
             hasHiddenMessageRequests: (initialState?.hasHiddenMessageRequests ?? false),
             unreadMessageRequestThreadCount: 0,
-            userProfile: (initialState?.userProfile ?? Profile.fetchOrCreateCurrentUser())
+            userProfile: (initialState?.userProfile ?? Profile.fetchOrCreateCurrentUser(using: dependencies))
         )
         self.pagedDataObserver = nil
         
@@ -204,7 +202,7 @@ public class HomeViewModel {
                 PagedData.processAndTriggerUpdates(
                     updatedData: self?.process(data: updatedData, for: updatedPageInfo),
                     currentDataRetriever: { self?.threadData },
-                    onDataChange: self?.onThreadChange,
+                    onDataChangeRetriever: { self?.onThreadChange },
                     onUnobservedDataChange: { updatedData, changeset in
                         self?.unobservedThreadDataChanges = (changeset.isEmpty ?
                             nil :
@@ -249,10 +247,10 @@ public class HomeViewModel {
         excludingMessageRequestThreadCount: Bool = false,
         using dependencies: Dependencies
     ) throws -> State {
-        let userSessionId: SessionId = getUserSessionId(db)
+        let userSessionId: SessionId = dependencies[cache: .general].sessionId
         let hasViewedSeed: Bool = db[.hasViewedSeed]
         let hasHiddenMessageRequests: Bool = db[.hasHiddenMessageRequests]
-        let userProfile: Profile = Profile.fetchOrCreateCurrentUser(db)
+        let userProfile: Profile = Profile.fetchOrCreateCurrentUser(db, using: dependencies)
         let unreadMessageRequestThreadCount: Int = (excludingMessageRequestThreadCount ? 0 :
             try SessionThread
                 .unreadMessageRequestsCountQuery(userSessionId: userSessionId)
@@ -294,7 +292,7 @@ public class HomeViewModel {
         PagedData.processAndTriggerUpdates(
             updatedData: updatedThreadData,
             currentDataRetriever: { [weak self] in (self?.unobservedThreadDataChanges?.0 ?? self?.threadData) },
-            onDataChange: onThreadChange,
+            onDataChangeRetriever: { [weak self] in self?.onThreadChange },
             onUnobservedDataChange: { [weak self] updatedData, changeset in
                 self?.unobservedThreadDataChanges = (changeset.isEmpty ?
                     nil :
@@ -348,7 +346,8 @@ public class HomeViewModel {
                     elements: [
                         SessionThreadViewModel(
                             threadId: SessionThreadViewModel.messageRequestsSectionId,
-                            unreadCount: UInt(finalUnreadMessageRequestCount)
+                            unreadCount: UInt(finalUnreadMessageRequestCount),
+                            using: dependencies
                         )
                     ]
                 )]
@@ -375,7 +374,8 @@ public class HomeViewModel {
                                     .currentUserBlinded15SessionId,
                                 currentUserBlinded25SessionIdForThisThread: groupedOldData[viewModel.threadId]?
                                     .first?
-                                    .currentUserBlinded25SessionId
+                                    .currentUserBlinded25SessionId,
+                                using: dependencies
                             )
                         }
                 )

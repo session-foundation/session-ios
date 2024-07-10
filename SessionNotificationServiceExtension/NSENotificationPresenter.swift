@@ -8,8 +8,15 @@ import SignalUtilitiesKit
 import SessionMessagingKit
 import SessionUtilitiesKit
 
-public class NSENotificationPresenter: NSObject, NotificationsManagerType {
+public class NSENotificationPresenter: NotificationsManagerType {
+    private let dependencies: Dependencies
     private var notifications: [String: UNNotificationRequest] = [:]
+    
+    // MARK: - Initialization
+    
+    required public init(using dependencies: Dependencies) {
+        self.dependencies = dependencies
+    }
     
     // MARK: - Registration
     
@@ -23,22 +30,21 @@ public class NSENotificationPresenter: NSObject, NotificationsManagerType {
         _ db: Database,
         for interaction: Interaction,
         in thread: SessionThread,
-        applicationState: UIApplication.State,
-        using dependencies: Dependencies
+        applicationState: UIApplication.State
     ) {
         let isMessageRequest: Bool = SessionThread.isMessageRequest(
             db,
             threadId: thread.id,
-            userSessionId: getUserSessionId(db),
+            userSessionId: dependencies[cache: .general].sessionId,
             includeNonVisible: true
         )
         
         // Ensure we should be showing a notification for the thread
-        guard thread.shouldShowNotification(db, for: interaction, isMessageRequest: isMessageRequest) else {
+        guard thread.shouldShowNotification(db, for: interaction, isMessageRequest: isMessageRequest, using: dependencies) else {
             return
         }
         
-        let senderName: String = Profile.displayName(db, id: interaction.authorId, threadVariant: thread.variant)
+        let senderName: String = Profile.displayName(db, id: interaction.authorId, threadVariant: thread.variant, using: dependencies)
         let groupName: String = SessionThread.displayName(
             threadId: thread.id,
             variant: thread.variant,
@@ -61,8 +67,9 @@ public class NSENotificationPresenter: NSObject, NotificationsManagerType {
         }
         
         let snippet: String = (interaction.previewText(db, using: dependencies)
-            .filterForDisplay?
-            .replacingMentions(for: thread.id))
+            .filteredForDisplay
+            .nullIfEmpty?
+            .replacingMentions(for: thread.id, using: dependencies))
             .defaulting(to: "APN_Message".localized())
         
         let userInfo: [String: Any] = [
@@ -76,7 +83,7 @@ public class NSENotificationPresenter: NSObject, NotificationsManagerType {
         notificationContent.sound = thread.notificationSound
             .defaulting(to: db[.defaultNotificationSound] ?? Preferences.Sound.defaultNotificationSound)
             .notificationSound(isQuiet: false)
-        notificationContent.badge = (try? Interaction.fetchUnreadCount(db))
+        notificationContent.badge = (try? Interaction.fetchUnreadCount(db, using: dependencies))
             .map { NSNumber(value: $0) }
             .defaulting(to: NSNumber(value: 0))
         
@@ -177,14 +184,14 @@ public class NSENotificationPresenter: NSObject, NotificationsManagerType {
         notificationContent.sound = thread.notificationSound
             .defaulting(to: db[.defaultNotificationSound] ?? Preferences.Sound.defaultNotificationSound)
             .notificationSound(isQuiet: false)
-        notificationContent.badge = (try? Interaction.fetchUnreadCount(db))
+        notificationContent.badge = (try? Interaction.fetchUnreadCount(db, using: dependencies))
             .map { NSNumber(value: $0) }
             .defaulting(to: NSNumber(value: 0))
         
         notificationContent.title = "Session"
         notificationContent.body = ""
         
-        let senderName: String = Profile.displayName(db, id: interaction.authorId, threadVariant: thread.variant)
+        let senderName: String = Profile.displayName(db, id: interaction.authorId, threadVariant: thread.variant, using: dependencies)
         
         if messageInfo.state == .permissionDenied {
             notificationContent.body = String(
@@ -204,7 +211,7 @@ public class NSENotificationPresenter: NSObject, NotificationsManagerType {
         let isMessageRequest: Bool = SessionThread.isMessageRequest(
             db,
             threadId: thread.id,
-            userSessionId: getUserSessionId(db),
+            userSessionId: dependencies[cache: .general].sessionId,
             includeNonVisible: true
         )
         
@@ -217,7 +224,7 @@ public class NSENotificationPresenter: NSObject, NotificationsManagerType {
         else { return }
         guard !isMessageRequest else { return }
         
-        let senderName: String = Profile.displayName(db, id: reaction.authorId, threadVariant: thread.variant)
+        let senderName: String = Profile.displayName(db, id: reaction.authorId, threadVariant: thread.variant, using: dependencies)
         let notificationTitle = "Session"
         var notificationBody = String(format: "EMOJI_REACTS_NOTIFICATION".localized(), senderName, reaction.emoji)
         
@@ -286,7 +293,7 @@ private extension NSENotificationPresenter {
 
 private extension String {
     
-    func replacingMentions(for threadID: String) -> String {
+    func replacingMentions(for threadID: String, using dependencies: Dependencies) -> String {
         var result = self
         let regex = try! NSRegularExpression(pattern: "@[0-9a-fA-F]{66}", options: [])
         var mentions: [(range: NSRange, publicKey: String)] = []
@@ -295,7 +302,7 @@ private extension String {
             let publicKey = String((result as NSString).substring(with: m1.range).dropFirst()) // Drop the @
             var matchEnd = m1.range.location + m1.range.length
             
-            if let displayName: String = Profile.displayNameNoFallback(id: publicKey) {
+            if let displayName: String = Profile.displayNameNoFallback(id: publicKey, using: dependencies) {
                 result = (result as NSString).replacingCharacters(in: m1.range, with: "@\(displayName)")
                 mentions.append((range: NSRange(location: m1.range.location, length: displayName.utf16.count + 1), publicKey: publicKey)) // + 1 to include the @
                 matchEnd = m1.range.location + displayName.utf16.count

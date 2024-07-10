@@ -2,6 +2,7 @@
 
 import UIKit
 import SessionUIKit
+import SessionMessagingKit
 
 class MessageRequestFooterView: UIView {
     private var onBlock: (() -> ())?
@@ -56,7 +57,7 @@ class MessageRequestFooterView: UIView {
     
     private lazy var blockButton: UIButton = {
         let result: UIButton = UIButton()
-        result.setCompressionResistanceHigh()
+        result.setCompressionResistance(to: .defaultHigh)
         result.accessibilityLabel = "Block message request"
         result.translatesAutoresizingMaskIntoConstraints = false
         result.clipsToBounds = true

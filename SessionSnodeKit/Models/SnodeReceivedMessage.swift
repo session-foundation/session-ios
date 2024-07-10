@@ -28,7 +28,7 @@ public struct SnodeReceivedMessage: CustomDebugStringConvertible {
         
         self.info = SnodeReceivedMessageInfo(
             snode: snode,
-            publicKey: publicKey,
+            swarmPublicKey: publicKey,
             namespace: namespace,
             hash: rawMessage.hash,
             expirationDateMs: (rawMessage.expiration ?? SnodeReceivedMessage.defaultExpirationSeconds)

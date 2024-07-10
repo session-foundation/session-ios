@@ -69,7 +69,8 @@ public class Dependencies {
     
     // MARK: - Initialization
     
-    public init() {}
+    private init() {}
+    public static func createEmpty() -> Dependencies { return Dependencies() }
     
     // MARK: - Functions
     
@@ -158,9 +159,25 @@ public class Dependencies {
         return (Dependencies.singletonInstances.wrappedValue[singleton.identifier] != nil)
     }
     
+    public func warmCache<M, I>(cache: CacheConfig<M, I>) {
+        _ = getValueSettingIfNull(cache: cache)
+    }
+    
     public func set<S>(singleton: SingletonConfig<S>, to instance: S) {
         Dependencies.singletonInstances.mutate {
             $0[singleton.identifier] = instance
+        }
+    }
+    
+    public func set<M, I>(cache: CacheConfig<M, I>, to instance: M) {
+        Dependencies.cacheInstances.mutate {
+            $0[cache.identifier] = Atomic(cache.mutableInstance(instance))
+        }
+    }
+    
+    public func remove<M, I>(cache: CacheConfig<M, I>) {
+        Dependencies.cacheInstances.mutate {
+            $0[cache.identifier] = nil
         }
     }
     

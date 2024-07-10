@@ -2,6 +2,7 @@
 
 import UIKit
 import SessionUIKit
+import SessionUtilitiesKit
 
 final class FakeChatView: UIView {
     private let spacing = Values.mediumSpacing

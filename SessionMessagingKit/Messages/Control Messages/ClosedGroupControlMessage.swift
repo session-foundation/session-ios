@@ -234,7 +234,7 @@ public final class ClosedGroupControlMessage: ControlMessage {
 
     // MARK: - Proto Conversion
     
-    public override class func fromProto(_ proto: SNProtoContent, sender: String) -> ClosedGroupControlMessage? {
+    public override class func fromProto(_ proto: SNProtoContent, sender: String, using dependencies: Dependencies) -> ClosedGroupControlMessage? {
         guard let closedGroupControlMessageProto = proto.dataMessage?.closedGroupControlMessage else {
             return nil
         }
@@ -363,7 +363,7 @@ public final class ClosedGroupControlMessage: ControlMessage {
 // MARK: - Convenience
 
 public extension ClosedGroupControlMessage.Kind {
-    func infoMessage(_ db: Database, sender: String) throws -> String? {
+    func infoMessage(_ db: Database, sender: String, using dependencies: Dependencies) throws -> String? {
         switch self {
             case .nameChange(let name):
                 return String(format: "GROUP_TITLE_CHANGED".localized(), name)
@@ -385,7 +385,7 @@ public extension ClosedGroupControlMessage.Kind {
                 )
                 
             case .membersRemoved(let membersAsData):
-                let userSessionId: SessionId = getUserSessionId(db)
+                let userSessionId: SessionId = dependencies[cache: .general].sessionId
                 let memberIds: Set<String> = membersAsData
                     .map { $0.toHexString() }
                     .asSet()
@@ -418,11 +418,11 @@ public extension ClosedGroupControlMessage.Kind {
                 return infoMessage
                 
             case .memberLeft:
-                let userSessionId: SessionId = getUserSessionId(db)
+                let userSessionId: SessionId = dependencies[cache: .general].sessionId
                 
                 guard sender != userSessionId.hexString else { return "GROUP_YOU_LEFT".localized() }
                 
-                if let displayName: String = Profile.displayNameNoFallback(db, id: sender) {
+                if let displayName: String = Profile.displayNameNoFallback(db, id: sender, using: dependencies) {
                     return String(format: "GROUP_MEMBER_LEFT".localized(), displayName)
                 }
                 

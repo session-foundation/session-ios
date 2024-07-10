@@ -7,9 +7,6 @@ import SessionUtilitiesKit
 
 final class RegisterVC : BaseVC {
     private let dependencies: Dependencies
-    private var seed: Data! { didSet { updateKeyPair() } }
-    private var ed25519KeyPair: KeyPair!
-    private var x25519KeyPair: KeyPair! { didSet { updatePublicKeyLabel() } }
     
     // MARK: - Components
     
@@ -160,14 +157,8 @@ final class RegisterVC : BaseVC {
         mainStackView.pin(to: view)
         topSpacer.heightAnchor.constraint(equalTo: bottomSpacer.heightAnchor, multiplier: 1).isActive = true
         
-        // Peform initial seed update
-        try? updateSeed()
-    }
-    
-    override func viewWillAppear(_ animated: Bool) {
-        super.viewWillAppear(animated)
-        
-        Onboarding.Flow.register.unregister(using: dependencies)
+        // Start the public key label
+        updatePublicKeyLabel()
     }
     
     // MARK: General
@@ -180,16 +171,8 @@ final class RegisterVC : BaseVC {
     
     // MARK: Updating
     
-    private func updateSeed() throws {
-        seed = try dependencies[singleton: .crypto].tryGenerate(.randomBytes(16))
-    }
-    
-    private func updateKeyPair() {
-        (ed25519KeyPair, x25519KeyPair) = try! Identity.generate(from: seed, using: dependencies)
-    }
-    
     private func updatePublicKeyLabel() {
-        let sessionId: SessionId = SessionId(.standard, publicKey: x25519KeyPair.publicKey)
+        let sessionId: SessionId = dependencies[cache: .onboarding].userSessionId
         publicKeyLabel.accessibilityLabel = sessionId.hexString
         publicKeyLabel.accessibilityIdentifier = "Session ID"
         publicKeyLabel.isAccessibilityElement = true
@@ -221,18 +204,12 @@ final class RegisterVC : BaseVC {
     // MARK: - Interaction
     
     @objc private func register() {
-        Onboarding.Flow.register
-            .preregister(
-                ed25519KeyPair: ed25519KeyPair,
-                x25519KeyPair: x25519KeyPair
-            )
-            
-        let displayNameVC: DisplayNameVC = DisplayNameVC(flow: .register)
+        let displayNameVC: DisplayNameVC = DisplayNameVC(using: dependencies)
         self.navigationController?.pushViewController(displayNameVC, animated: true)
     }
     
     @objc private func copyPublicKey() {
-        UIPasteboard.general.string = SessionId(.standard, publicKey: x25519KeyPair.publicKey).hexString
+        UIPasteboard.general.string = dependencies[cache: .onboarding].userSessionId.hexString
         copyPublicKeyButton.isUserInteractionEnabled = false
         copyPublicKeyButton.accessibilityLabel = "Copy session id"
         copyPublicKeyButton.isAccessibilityElement = true

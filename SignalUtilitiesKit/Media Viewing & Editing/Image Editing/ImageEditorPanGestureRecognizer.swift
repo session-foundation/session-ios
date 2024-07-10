@@ -1,7 +1,7 @@
 //  Copyright (c) 2019 Open Whisper Systems. All rights reserved.
 
 import UIKit
-import SignalCoreKit
+import SessionUtilitiesKit
 
 // This GR:
 //
@@ -43,13 +43,12 @@ public class ImageEditorPanGestureRecognizer: UIPanGestureRecognizer {
     }
 
     private func updateLocationHistory(event: UIEvent) {
-        guard let touches = event.allTouches,
-            touches.count > 0 else {
-                owsFailDebug("no touches.")
-                return
+        guard let touches = event.allTouches, touches.count > 0 else {
+            Log.error("[ImageEditorPanGestureRecognizer] No touches.")
+            return
         }
         guard let referenceView = referenceView else {
-            owsFailDebug("Missing view")
+            Log.error("[ImageEditorPanGestureRecognizer] Missing view.")
             return
         }
         // Find the centroid.

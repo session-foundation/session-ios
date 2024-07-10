@@ -156,16 +156,16 @@ public final class SessionCall: CurrentCallProtocol, WebRTCSessionDelegate {
         self.callId = UUID()
         self.mode = mode
         self.audioMode = .earpiece
-        self.webRTCSession = WebRTCSession.current ?? WebRTCSession(for: sessionId, with: uuid)
+        self.webRTCSession = WebRTCSession.current ?? WebRTCSession(for: sessionId, with: uuid, using: dependencies)
         self.isOutgoing = outgoing
         
-        let avatarData: Data? = DisplayPictureManager.displayPicture(db, id: .user(sessionId))
-        self.contactName = Profile.displayName(db, id: sessionId, threadVariant: .contact)
+        let avatarData: Data? = DisplayPictureManager.displayPicture(db, id: .user(sessionId), using: dependencies)
+        self.contactName = Profile.displayName(db, id: sessionId, threadVariant: .contact, using: dependencies)
         self.profilePicture = avatarData
             .map { UIImage(data: $0) }
             .defaulting(to: PlaceholderIcon.generate(seed: sessionId, text: self.contactName, size: 300))
         self.animatedProfilePicture = avatarData
-            .map { data in
+            .map { data -> YYImage? in
                 switch data.guessedImageFormat {
                     case .gif, .webp: return YYImage(data: data)
                     default: return nil
@@ -223,7 +223,7 @@ public final class SessionCall: CurrentCallProtocol, WebRTCSessionDelegate {
         else { return }
         
         let webRTCSession: WebRTCSession = self.webRTCSession
-        let timestampMs: Int64 = SnodeAPI.currentOffsetTimestampMs()
+        let timestampMs: Int64 = dependencies[cache: .snodeAPI].currentOffsetTimestampMs()
         let disappearingMessagesConfiguration = try? thread.disappearingMessagesConfiguration.fetchOne(db)?.forcedWithDisappearAfterReadIfNeeded()
         let message: CallMessage = CallMessage(
             uuid: self.uuid,
@@ -236,12 +236,14 @@ public final class SessionCall: CurrentCallProtocol, WebRTCSessionDelegate {
         let interaction: Interaction? = try? Interaction(
             messageUuid: self.uuid,
             threadId: sessionId,
-            authorId: getUserSessionId(db).hexString,
+            threadVariant: thread.variant,
+            authorId: dependencies[cache: .general].sessionId.hexString,
             variant: .infoCall,
             body: String(data: messageInfoData, encoding: .utf8),
             timestampMs: timestampMs,
             expiresInSeconds: message.expiresInSeconds,
-            expiresStartedAtMs: message.expiresStartedAtMs
+            expiresStartedAtMs: message.expiresStartedAtMs,
+            using: dependencies
         )
         .inserted(db)
         
@@ -405,7 +407,7 @@ public final class SessionCall: CurrentCallProtocol, WebRTCSessionDelegate {
         DispatchQueue.main.async { [dependencies] in
             if let currentBanner = IncomingCallBanner.current { currentBanner.dismiss() }
             guard dependencies.hasInitialised(singleton: .appContext) else { return }
-            if let callVC = dependencies[singleton: .appContext].frontmostViewController as? CallVC { callVC.handleEndCallMessage() }
+            if let callVC = dependencies[singleton: .appContext].frontMostViewController as? CallVC { callVC.handleEndCallMessage() }
             if let miniCallView = MiniCallView.current { miniCallView.dismiss() }
             dependencies[singleton: .callManager].reportCurrentCallEnded(reason: .remoteEnded)
         }
@@ -432,10 +434,10 @@ public final class SessionCall: CurrentCallProtocol, WebRTCSessionDelegate {
         
         // Register a callback to get the current network status then remove it immediately as we only
         // care about the current status
-        let networkStatusCallbackId: UUID = LibSession.onNetworkStatusChanged { [weak self] status in
+        let networkStatusCallbackId: UUID = LibSession.onNetworkStatusChanged { [weak self, dependencies] status in
             guard status != .connected else { return }
             
-            self?.reconnectTimer = Timer.scheduledTimerOnMainThread(withTimeInterval: 5, repeats: false) { _ in
+            self?.reconnectTimer = Timer.scheduledTimerOnMainThread(withTimeInterval: 5, repeats: false, using: dependencies) { _ in
                 self?.tryToReconnect()
             }
         }
@@ -461,7 +463,7 @@ public final class SessionCall: CurrentCallProtocol, WebRTCSessionDelegate {
         
         let timeInterval: TimeInterval = 60
         
-        timeOutTimer = Timer.scheduledTimerOnMainThread(withTimeInterval: timeInterval, repeats: false) { [weak self, dependencies] _ in
+        timeOutTimer = Timer.scheduledTimerOnMainThread(withTimeInterval: timeInterval, repeats: false, using: dependencies) { [weak self, dependencies] _ in
             self?.didTimeout = true
             
             dependencies[singleton: .callManager].endCall(self) { error in

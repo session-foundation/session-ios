@@ -163,7 +163,8 @@ final class NewConversationVC: BaseVC, ThemedNavigation, UITableViewDelegate, UI
                 leadingAccessory: .profile(id: profile.id, profile: profile),
                 title: profile.displayName(),
                 styling: SessionCell.StyleInfo(backgroundStyle: .edgeToEdge)
-            )
+            ),
+            using: viewModel.dependencies
         )
         
         return cell
@@ -193,12 +194,11 @@ final class NewConversationVC: BaseVC, ThemedNavigation, UITableViewDelegate, UI
         
         let sessionId = viewModel.sectionData[indexPath.section].contacts[indexPath.row].id
         
-        SessionApp.presentConversationCreatingIfNeeded(
+        viewModel.dependencies[singleton: .app].presentConversationCreatingIfNeeded(
             for: sessionId,
             variant: .contact,
             dismissing: navigationController,
-            animated: false,
-            using: viewModel.dependencies
+            animated: false
         )
     }
     

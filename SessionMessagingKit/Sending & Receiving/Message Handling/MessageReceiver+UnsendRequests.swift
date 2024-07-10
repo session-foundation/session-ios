@@ -11,11 +11,11 @@ extension MessageReceiver {
         threadId: String,
         threadVariant: SessionThread.Variant,
         message: UnsendRequest,
-        using dependencies: Dependencies = Dependencies()
+        using dependencies: Dependencies
     ) throws {
         guard
             message.sender == message.author ||
-            getUserSessionId(db, using: dependencies).hexString == message.sender
+            dependencies[cache: .general].sessionId.hexString == message.sender
         else { return }
         guard let author: String = message.author, let timestampMs: UInt64 = message.timestamp else { return }
         
@@ -47,7 +47,7 @@ extension MessageReceiver {
         
         if author == message.sender, let serverHash: String = interaction.serverHash {
             dependencies[singleton: .storage]
-                .readPublisher(using: dependencies) { db in
+                .readPublisher { db in
                     try SnodeAPI
                         .preparedDeleteMessages(
                             serverHashes: [serverHash],

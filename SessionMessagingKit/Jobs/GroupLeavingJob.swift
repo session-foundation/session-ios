@@ -3,7 +3,6 @@
 import Foundation
 import Combine
 import GRDB
-import SignalCoreKit
 import SessionUtilitiesKit
 import SessionSnodeKit
 
@@ -15,20 +14,17 @@ public enum GroupLeavingJob: JobExecutor {
     public static func run(
         _ job: Job,
         queue: DispatchQueue,
-        success: @escaping (Job, Bool, Dependencies) -> (),
-        failure: @escaping (Job, Error?, Bool, Dependencies) -> (),
-        deferred: @escaping (Job, Dependencies) -> (),
-        using dependencies: Dependencies = Dependencies()
+        success: @escaping (Job, Bool) -> Void,
+        failure: @escaping (Job, Error, Bool) -> Void,
+        deferred: @escaping (Job) -> Void,
+        using dependencies: Dependencies
     ) {
         guard
             let detailsData: Data = job.details,
             let details: Details = try? JSONDecoder(using: dependencies).decode(Details.self, from: detailsData),
             let threadId: String = job.threadId,
             let interactionId: Int64 = job.interactionId
-        else {
-            SNLog("[GroupLeavingJob] Failed due to missing details")
-            return failure(job, JobRunnerError.missingRequiredDetails, true, dependencies)
-        }
+        else { return failure(job, JobRunnerError.missingRequiredDetails, true) }
         
         let destination: Message.Destination = .closedGroup(groupPublicKey: threadId)
         
@@ -41,15 +37,15 @@ public enum GroupLeavingJob: JobExecutor {
                         .asRequest(of: SessionThread.Variant.self)
                         .fetchOne(db)
                 else {
-                    SNLog("[GroupLeavingJob] Failed due to non-existent group conversation")
+                    Log.error("[GroupLeavingJob] Failed due to non-existent group conversation")
                     throw MessageSenderError.noThread
                 }
                 guard (try? ClosedGroup.exists(db, id: threadId)) == true else {
-                    SNLog("[GroupLeavingJob] Failed due to non-existent group")
+                    Log.error("[GroupLeavingJob] Failed due to non-existent group")
                     throw MessageSenderError.invalidClosedGroupUpdate
                 }
                 
-                let userSessionId: SessionId = getUserSessionId(db, using: dependencies)
+                let userSessionId: SessionId = dependencies[cache: .general].sessionId
                 let isAdminUser: Bool = GroupMember
                     .filter(GroupMember.Columns.groupId == threadId)
                     .filter(GroupMember.Columns.profileId == userSessionId.hexString)
@@ -91,7 +87,7 @@ public enum GroupLeavingJob: JobExecutor {
                         )
                         
                     case (.group, .delete, _), (.group, .leave, true):
-                        try SessionUtil.deleteGroupForEveryone(
+                        try LibSession.deleteGroupForEveryone(
                             db,
                             groupSessionId: SessionId(.group, hex: threadId),
                             using: dependencies
@@ -112,7 +108,7 @@ public enum GroupLeavingJob: JobExecutor {
                         
                     case .delete:
                         return ConfigurationSyncJob
-                            .run(sessionIdHexString: threadId, using: dependencies)
+                            .run(swarmPublicKey: threadId, using: dependencies)
                             .map { _ in () }
                             .eraseToAnyPublisher()
                 }
@@ -143,7 +139,7 @@ public enum GroupLeavingJob: JobExecutor {
                             }()
                             
                             // Update the interaction to indicate we failed to leave the group
-                            dependencies[singleton: .storage].writeAsync(using: dependencies) { db in
+                            dependencies[singleton: .storage].writeAsync { db in
                                 try Interaction
                                     .filter(id: interactionId)
                                     .updateAll(
@@ -154,11 +150,11 @@ public enum GroupLeavingJob: JobExecutor {
                                     )
                             }
                             
-                            failure(job, error, true, dependencies)
+                            failure(job, error, true)
                             
                         case .finished:
                             // Remove all of the group data
-                            dependencies[singleton: .storage].writeAsync(using: dependencies) { db in
+                            dependencies[singleton: .storage].writeAsync { db in
                                 try ClosedGroup.removeData(
                                     db,
                                     threadIds: [threadId],
@@ -168,7 +164,7 @@ public enum GroupLeavingJob: JobExecutor {
                                 )
                             }
                             
-                            success(job, false, dependencies)
+                            success(job, false)
                     }
                 }
             )
@@ -206,7 +202,7 @@ extension GroupLeavingJob {
 
 private extension GroupLeavingJob {
     enum LeaveType {
-        case leave(HTTP.PreparedRequest<Void>)
+        case leave(Network.PreparedRequest<Void>)
         case delete
     }
 }

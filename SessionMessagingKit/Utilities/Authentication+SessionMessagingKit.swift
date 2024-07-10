@@ -15,6 +15,11 @@ public extension Authentication {
         
         public var info: Info { .standard(sessionId: sessionId, ed25519KeyPair: ed25519KeyPair) }
         
+        public init(sessionId: SessionId, ed25519KeyPair: KeyPair) {
+            self.sessionId = sessionId
+            self.ed25519KeyPair = ed25519KeyPair
+        }
+        
         // MARK: - SignatureGenerator
         
         public func generateSignature(with verificationBytes: [UInt8], using dependencies: Dependencies) throws -> Authentication.Signature {
@@ -60,7 +65,7 @@ public extension Authentication {
         // MARK: - SignatureGenerator
         
         public func generateSignature(with verificationBytes: [UInt8], using dependencies: Dependencies) throws -> Authentication.Signature {
-            return try SessionUtil.generateSubaccountSignature(
+            return try LibSession.generateSubaccountSignature(
                 groupSessionId: groupSessionId,
                 verificationBytes: verificationBytes,
                 memberAuthData: authData,
@@ -85,7 +90,7 @@ public extension Authentication {
     ) throws -> AuthenticationMethod {
         switch try? SessionId(from: swarmPublicKey) {
             case .some(let sessionId) where sessionId.prefix == .standard:
-                guard let keyPair: KeyPair = Identity.fetchUserEd25519KeyPair(db, using: dependencies) else {
+                guard let keyPair: KeyPair = Identity.fetchUserEd25519KeyPair(db) else {
                     throw SnodeAPIError.noKeyPair
                 }
                 

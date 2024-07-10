@@ -50,7 +50,7 @@ extension UpdateExpiryAllResponse: ValidatableResponse {
     internal static var requiredSuccessfulResponses: Int { -1 }
     
     internal func validResultMap(
-        publicKey: String,
+        swarmPublicKey: String,
         validationData: UInt64,
         using dependencies: Dependencies
     ) throws -> [String: [String]] {
@@ -74,7 +74,7 @@ extension UpdateExpiryAllResponse: ValidatableResponse {
             /// Signature of `( PUBKEY_HEX || EXPIRY || UPDATED[0] || ... || UPDATED[N] )`
             /// signed by the node's ed25519 pubkey.  When doing a multi-namespace delete the `UPDATED`
             /// values are totally ordered (i.e. among all the hashes deleted regardless of namespace)
-            let verificationBytes: [UInt8] = publicKey.bytes
+            let verificationBytes: [UInt8] = swarmPublicKey.bytes
                 .appending(contentsOf: "\(validationData)".data(using: .ascii)?.bytes)
                 .appending(contentsOf: next.value.updated.joined().bytes)
             

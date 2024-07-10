@@ -106,16 +106,16 @@ public extension Data {
     
     // MARK: - Initialization
     
-    init?(validImageDataAt path: String, mimeType: String? = nil) throws {
+    init?(validImageDataAt path: String, mimeType: String? = nil, using dependencies: Dependencies) throws {
         let fileUrl: URL = URL(fileURLWithPath: path)
         
         guard
             let mimeType: String = (mimeType ?? MimeTypeUtil.mimeType(for: fileUrl.pathExtension)),
             !mimeType.isEmpty,
-            let fileSize: UInt64 = FileSystem.fileSize(of: path)
+            let fileSize: UInt64 = FileSystem.fileSize(of: path, using: dependencies)
         else { return nil }
         
-        guard fileSize <= FileSystem.maxFileSize else { return nil }
+        guard fileSize <= SNUtilitiesKitConfiguration.maxFileSize else { return nil }
         guard MimeTypeUtil.isImage(mimeType) || MimeTypeUtil.isAnimated(mimeType) else { return nil }
         
         self = try Data(contentsOf: fileUrl, options: [.dataReadingMapped])
@@ -173,8 +173,10 @@ public extension Data {
         }
     }
     
-    static func isValidImage(at path: String, mimeType: String? = nil) -> Bool {
-        guard let data: Data = try? Data(validImageDataAt: path, mimeType: mimeType) else { return false }
+    static func isValidImage(at path: String, mimeType: String? = nil, using dependencies: Dependencies) -> Bool {
+        guard let data: Data = try? Data(validImageDataAt: path, mimeType: mimeType, using: dependencies) else {
+            return false
+        }
         
         return data.hasValidImageDimensions(isAnimated: (mimeType.map { MimeTypeUtil.isAnimated($0) } ?? false))
     }
@@ -234,12 +236,12 @@ public extension Data {
         return ImageDimensions(pixelSize: CGSize(width: width, height: height), depthBytes: depthBytes)
     }
     
-    static func imageSize(for path: String, mimeType: String) -> CGSize {
+    static func imageSize(for path: String, mimeType: String, using dependencies: Dependencies) -> CGSize {
         let fileUrl: URL = URL(fileURLWithPath: path)
         let isAnimated: Bool = MimeTypeUtil.isAnimated(mimeType)
         
         guard
-            let data: Data = try? Data(validImageDataAt: path, mimeType: mimeType),
+            let data: Data = try? Data(validImageDataAt: path, mimeType: mimeType, using: dependencies),
             let pixelSize: CGSize = imageSize(at: path, with: data, mimeType: mimeType, isAnimated: isAnimated)
         else { return .zero }
         

@@ -228,6 +228,8 @@ final class ConversationVC: BaseVC, LibSessionRespondingViewController, Conversa
                 onTap: { [weak self] in self?.removeOutdatedClientBanner() }
             )
         )
+        result.accessibilityLabel = "Outdated client banner"
+        result.isAccessibilityElement = true
         
         return result
     }()
@@ -250,6 +252,8 @@ final class ConversationVC: BaseVC, LibSessionRespondingViewController, Conversa
             )
         )
         result.isHidden = (self.viewModel.threadData.threadVariant != .legacyGroup)
+        result.accessibilityLabel = "Legacy group banner"
+        result.isAccessibilityElement = true
         
         return result
     }()
@@ -505,16 +509,6 @@ final class ConversationVC: BaseVC, LibSessionRespondingViewController, Conversa
     override func viewDidAppear(_ animated: Bool) {
         super.viewDidAppear(animated)
         
-        /// When the `ConversationVC` is on the screen we want to store it so we can avoid sending notification without accessing the
-        /// main thread (we don't currently care if it's still in the nav stack though - so if a user is on a conversation settings screen this should
-        /// get cleared within `viewWillDisappear`)
-        ///
-        /// **Note:** We do this on an async queue because `Atomic<T>` can block if something else is mutating it and we want to avoid
-        /// the risk of blocking the conversation transition
-        DispatchQueue.global(qos: .userInitiated).async { [weak self] in
-            SessionApp.currentlyOpenConversationViewController.mutate { $0 = self }
-        }
-        
         if delayFirstResponder || isShowingSearchUI {
             delayFirstResponder = false
             
@@ -544,16 +538,6 @@ final class ConversationVC: BaseVC, LibSessionRespondingViewController, Conversa
 
     override func viewWillDisappear(_ animated: Bool) {
         super.viewWillDisappear(animated)
-        
-        /// When the `ConversationVC` is on the screen we want to store it so we can avoid sending notification without accessing the
-        /// main thread (we don't currently care if it's still in the nav stack though - so if a user leaves a conversation settings screen we clear
-        /// it, and if a user moves to a different `ConversationVC` this will get updated to that one within `viewDidAppear`)
-        ///
-        /// **Note:** We do this on an async queue because `Atomic<T>` can block if something else is mutating it and we want to avoid
-        /// the risk of blocking the conversation transition
-        DispatchQueue.global(qos: .userInitiated).async {
-            SessionApp.currentlyOpenConversationViewController.mutate { $0 = nil }
-        }
         
         viewIsDisappearing = true
         lastPresentedViewController = self.presentedViewController
@@ -941,9 +925,11 @@ final class ConversationVC: BaseVC, LibSessionRespondingViewController, Conversa
             
             // If we just sent a message then we want to jump to the bottom of the conversation instantly
             if didSendMessageBeforeUpdate {
-                // We need to dispatch to the next run loop because it seems trying to scroll immediately after
-                // triggering a 'reloadData' doesn't work
-                DispatchQueue.main.async { [weak self] in
+                // We need to dispatch to the next run loop after a slight delay because it seems trying to scroll
+                // immediately after triggering a 'reloadData' doesn't work and it's possible (eg. when uploading)
+                // for two updates to come through in rapid succession which will result in two updates, the second
+                // which stops the scroll from working
+                DispatchQueue.main.asyncAfter(deadline: .now() + .milliseconds(50)) { [weak self] in
                     self?.tableView.layoutIfNeeded()
                     self?.scrollToBottom(isAnimated: false)
                     
@@ -1339,7 +1325,8 @@ final class ConversationVC: BaseVC, LibSessionRespondingViewController, Conversa
                         threadVariant: threadData.threadVariant,
                         displayPictureFilename: nil,
                         profile: threadData.profile,
-                        additionalProfile: nil
+                        additionalProfile: nil,
+                        using: viewModel.dependencies
                     )
                     profilePictureView.customWidth = (44 - 16)   // Width of the standard back button
 
@@ -1507,7 +1494,11 @@ final class ConversationVC: BaseVC, LibSessionRespondingViewController, Conversa
         self.outdatedClientBanner.update(
             message: String(
                 format: "DISAPPEARING_MESSAGES_OUTDATED_CLIENT_BANNER".localized(),
-                Profile.displayName(id: outdatedMemberId, threadVariant: self.viewModel.threadData.threadVariant)
+                Profile.displayName(
+                    id: outdatedMemberId,
+                    threadVariant: viewModel.threadData.threadVariant,
+                    using: viewModel.dependencies
+                )
             ),
             onTap: { [weak self] in self?.removeOutdatedClientBanner() }
         )
@@ -1587,8 +1578,8 @@ final class ConversationVC: BaseVC, LibSessionRespondingViewController, Conversa
                 cell.update(
                     with: cellViewModel,
                     mediaCache: mediaCache,
-                    playbackInfo: viewModel.playbackInfo(for: cellViewModel) { updatedInfo, error in
-                        DispatchQueue.main.async { [weak self] in
+                    playbackInfo: viewModel.playbackInfo(for: cellViewModel) { [weak self] updatedInfo, error in
+                        DispatchQueue.main.async {
                             guard error == nil else {
                                 let modal: ConfirmationModal = ConfirmationModal(
                                     targetView: self?.view,

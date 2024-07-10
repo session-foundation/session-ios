@@ -119,13 +119,13 @@ public final class GroupUpdateInviteMessage: ControlMessage {
 
     // MARK: - Proto Conversion
     
-    public override class func fromProto(_ proto: SNProtoContent, sender: String) -> GroupUpdateInviteMessage? {
+    public override class func fromProto(_ proto: SNProtoContent, sender: String, using dependencies: Dependencies) -> GroupUpdateInviteMessage? {
         guard
             let dataMessage: SNProtoDataMessage = proto.dataMessage,
             let groupInviteMessage = dataMessage.groupUpdateMessage?.inviteMessage
         else { return nil }
         
-        let userSessionId: SessionId = getUserSessionId()
+        let userSessionId: SessionId = dependencies[cache: .general].sessionId
         
         return GroupUpdateInviteMessage(
             inviteeSessionIdHexString: userSessionId.hexString,

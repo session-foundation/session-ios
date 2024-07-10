@@ -278,7 +278,8 @@ public final class FullConversationCell: UITableViewCell, SwipeActionOptimisticC
             threadVariant: cellViewModel.threadVariant,
             displayPictureFilename: cellViewModel.displayPictureFilename,
             profile: cellViewModel.profile,
-            additionalProfile: cellViewModel.additionalProfile
+            additionalProfile: cellViewModel.additionalProfile,
+            using: dependencies
         )
         
         isPinnedIcon.isHidden = true
@@ -320,18 +321,24 @@ public final class FullConversationCell: UITableViewCell, SwipeActionOptimisticC
                 currentUserBlinded25SessionId: cellViewModel.currentUserBlinded25SessionId,
                 searchText: searchText.lowercased(),
                 fontSize: Values.smallFontSize,
-                textColor: textColor
+                textColor: textColor,
+                using: dependencies
             )
         }
     }
     
-    public func updateForContactAndGroupSearchResult(with cellViewModel: SessionThreadViewModel, searchText: String) {
+    public func updateForContactAndGroupSearchResult(
+        with cellViewModel: SessionThreadViewModel,
+        searchText: String,
+        using dependencies: Dependencies
+    ) {
         profilePictureView.update(
             publicKey: cellViewModel.threadId,
             threadVariant: cellViewModel.threadVariant,
             displayPictureFilename: cellViewModel.displayPictureFilename,
             profile: cellViewModel.profile,
-            additionalProfile: cellViewModel.additionalProfile
+            additionalProfile: cellViewModel.additionalProfile,
+            using: dependencies
         )
         
         isPinnedIcon.isHidden = true
@@ -350,7 +357,8 @@ public final class FullConversationCell: UITableViewCell, SwipeActionOptimisticC
                 currentUserBlinded25SessionId: cellViewModel.currentUserBlinded25SessionId,
                 searchText: searchText.lowercased(),
                 fontSize: Values.mediumFontSize,
-                textColor: textColor
+                textColor: textColor,
+                using: dependencies
             )
         }
         
@@ -370,7 +378,8 @@ public final class FullConversationCell: UITableViewCell, SwipeActionOptimisticC
                             currentUserBlinded25SessionId: cellViewModel.currentUserBlinded25SessionId,
                             searchText: searchText.lowercased(),
                             fontSize: Values.smallFontSize,
-                            textColor: textColor
+                            textColor: textColor,
+                            using: dependencies
                         )
                     }
                 }
@@ -423,7 +432,8 @@ public final class FullConversationCell: UITableViewCell, SwipeActionOptimisticC
             threadVariant: cellViewModel.threadVariant,
             displayPictureFilename: cellViewModel.displayPictureFilename,
             profile: cellViewModel.profile,
-            additionalProfile: cellViewModel.additionalProfile
+            additionalProfile: cellViewModel.additionalProfile,
+            using: dependencies
         )
         displayNameLabel.text = cellViewModel.displayName
         timestampLabel.text = cellViewModel.lastInteractionDate.formattedForDisplay
@@ -613,7 +623,8 @@ public final class FullConversationCell: UITableViewCell, SwipeActionOptimisticC
                 threadVariant: cellViewModel.threadVariant,
                 currentUserSessionId: cellViewModel.currentUserSessionId,
                 currentUserBlinded15SessionId: cellViewModel.currentUserBlinded15SessionId,
-                currentUserBlinded25SessionId: cellViewModel.currentUserBlinded25SessionId
+                currentUserBlinded25SessionId: cellViewModel.currentUserBlinded25SessionId,
+                using: dependencies
             ),
             attributes: [ .foregroundColor: textColor ]
         ))
@@ -629,7 +640,8 @@ public final class FullConversationCell: UITableViewCell, SwipeActionOptimisticC
         currentUserBlinded25SessionId: String?,
         searchText: String,
         fontSize: CGFloat,
-        textColor: UIColor
+        textColor: UIColor,
+        using dependencies: Dependencies
     ) -> NSAttributedString {
         guard !content.isEmpty, content != "NOTE_TO_SELF".localized() else {
             return NSMutableAttributedString(
@@ -650,7 +662,8 @@ public final class FullConversationCell: UITableViewCell, SwipeActionOptimisticC
             threadVariant: .contact,
             currentUserSessionId: currentUserSessionId,
             currentUserBlinded15SessionId: currentUserBlinded15SessionId,
-            currentUserBlinded25SessionId: currentUserBlinded25SessionId
+            currentUserBlinded25SessionId: currentUserBlinded25SessionId,
+            using: dependencies
         )
         let result: NSMutableAttributedString = NSMutableAttributedString(
             string: mentionReplacedContent,

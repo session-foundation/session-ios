@@ -3,7 +3,6 @@
 import UIKit
 import GRDB
 import SignalUtilitiesKit
-import SignalCoreKit
 import SessionUIKit
 import SessionMessagingKit
 import SessionUtilitiesKit
@@ -73,7 +72,7 @@ extension ConversationSearchController: UISearchControllerDelegate {
 
 extension ConversationSearchController: UISearchResultsUpdating {
     public func updateSearchResults(for searchController: UISearchController) {
-        Logger.verbose("searchBar.text: \( searchController.searchBar.text ?? "<blank>")")
+        Log.verbose("searchBar.text: \( searchController.searchBar.text ?? "<blank>")")
 
         guard
             let dependencies: Dependencies = self.delegate?.conversationSearchControllerDependencies(),
@@ -264,7 +263,6 @@ public final class SearchResultsBar: UIView {
     }
 
     @objc public func handleDownButtonTapped() {
-        Logger.debug("")
         guard let results: [Interaction.TimestampInfo] = results.wrappedValue else { return }
         guard let currentIndex: Int = currentIndex, currentIndex > 0 else { return }
 

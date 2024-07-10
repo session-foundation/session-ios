@@ -3,6 +3,8 @@
 import Foundation
 
 public struct KeyPair: Codable, Equatable {
+    public static let empty: KeyPair = KeyPair(publicKey: [], secretKey: [])
+    
     public let publicKey: [UInt8]
     public let secretKey: [UInt8]
     

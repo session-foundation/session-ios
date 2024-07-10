@@ -7,7 +7,6 @@ import SessionUIKit
 import SessionMessagingKit
 import SessionUtilitiesKit
 import SignalUtilitiesKit
-import SignalCoreKit
 
 class GlobalSearchViewController: BaseVC, LibSessionRespondingViewController, UITableViewDelegate, UITableViewDataSource {
     fileprivate typealias SectionModel = ArraySection<SearchSection, SessionThreadViewModel>
@@ -33,9 +32,9 @@ class GlobalSearchViewController: BaseVC, LibSessionRespondingViewController, UI
     
     private let dependencies: Dependencies
     private lazy var defaultSearchResults: [SectionModel] = {
-        let result: SessionThreadViewModel? = Dependencies()[singleton: .storage].read { db -> SessionThreadViewModel? in
+        let result: SessionThreadViewModel? = dependencies[singleton: .storage].read { [dependencies] db -> SessionThreadViewModel? in
             try SessionThreadViewModel
-                .noteToSelfOnlyQuery(userSessionId: getUserSessionId(db))
+                .noteToSelfOnlyQuery(userSessionId: dependencies[cache: .general].sessionId)
                 .fetchOne(db)
         }
         
@@ -52,11 +51,13 @@ class GlobalSearchViewController: BaseVC, LibSessionRespondingViewController, UI
     
     @objc public var searchText = "" {
         didSet {
-            AssertIsOnMainThread()
+            Log.assertOnMainThread()
             // Use a slight delay to debounce updates.
             refreshSearchResults()
         }
     }
+    
+    // MARK: - Initialization
     
     init(using dependencies: Dependencies) {
         self.dependencies = dependencies
@@ -67,7 +68,7 @@ class GlobalSearchViewController: BaseVC, LibSessionRespondingViewController, UI
     required init?(coder: NSCoder) {
         fatalError("init(coder:) has not been implemented")
     }
-    
+
     // MARK: - UI Components
 
     internal lazy var searchBar: SearchBar = {
@@ -168,15 +169,14 @@ class GlobalSearchViewController: BaseVC, LibSessionRespondingViewController, UI
 
     private func refreshSearchResults() {
         refreshTimer?.invalidate()
-        refreshTimer = Timer.scheduledTimerOnMainThread(withTimeInterval: 0.1) { [weak self] _ in
+        refreshTimer = Timer.scheduledTimerOnMainThread(withTimeInterval: 0.1, using: dependencies) { [weak self] _ in
             self?.updateSearchResults(searchText: (self?.searchText ?? ""))
         }
     }
 
     private func updateSearchResults(
         searchText rawSearchText: String,
-        force: Bool = false,
-        using dependencies: Dependencies = Dependencies()
+        force: Bool = false
     ) {
         let searchText = rawSearchText.stripped
         
@@ -192,14 +192,14 @@ class GlobalSearchViewController: BaseVC, LibSessionRespondingViewController, UI
 
         lastSearchText = searchText
 
-        DispatchQueue.global(qos: .default).async { [weak self] in
+        DispatchQueue.global(qos: .default).async { [weak self, dependencies] in
             self?.readConnection.wrappedValue?.interrupt()
             
             let result: Result<[SectionModel], Error>? = dependencies[singleton: .storage].read { db -> Result<[SectionModel], Error> in
                 self?.readConnection.mutate { $0 = db }
                 
                 do {
-                    let userSessionId: SessionId = getUserSessionId(db, using: dependencies)
+                    let userSessionId: SessionId = dependencies[cache: .general].sessionId
                     let contactsAndGroupsResults: [SessionThreadViewModel] = try SessionThreadViewModel
                         .contactsAndGroupsQuery(
                             userSessionId: userSessionId,
@@ -243,7 +243,10 @@ class GlobalSearchViewController: BaseVC, LibSessionRespondingViewController, UI
                                 ArraySection(
                                     model: .noResults,
                                     elements: [
-                                        SessionThreadViewModel(threadId: SessionThreadViewModel.invalidId)
+                                        SessionThreadViewModel(
+                                            threadId: SessionThreadViewModel.invalidId,
+                                            using: dependencies
+                                        )
                                     ]
                                 )
                             ]),
@@ -288,7 +291,7 @@ extension GlobalSearchViewController: UISearchBarDelegate {
     }
 
     func updateSearchText() {
-        guard let searchText = searchBar.text?.ows_stripped() else { return }
+        guard let searchText = searchBar.text?.stripped else { return }
         self.searchText = searchText
     }
 }
@@ -329,8 +332,7 @@ extension GlobalSearchViewController {
         threadId: String,
         threadVariant: SessionThread.Variant,
         focusedInteractionInfo: Interaction.TimestampInfo? = nil,
-        animated: Bool = true,
-        using dependencies: Dependencies = Dependencies()
+        animated: Bool = true
     ) {
         guard Thread.isMainThread else {
             DispatchQueue.main.async { [weak self] in
@@ -342,7 +344,7 @@ extension GlobalSearchViewController {
         // If it's a one-to-one thread then make sure the thread exists before pushing to it (in case the
         // contact has been hidden)
         if threadVariant == .contact {
-            dependencies[singleton: .storage].write { db in
+            dependencies[singleton: .storage].write { [dependencies] db in
                 try SessionThread.fetchOrCreate(
                     db,
                     id: threadId,
@@ -436,7 +438,11 @@ extension GlobalSearchViewController {
                 
             case .contactsAndGroups:
                 let cell: FullConversationCell = tableView.dequeue(type: FullConversationCell.self, for: indexPath)
-                cell.updateForContactAndGroupSearchResult(with: section.elements[indexPath.row], searchText: self.termForCurrentSearchResultSet)
+                cell.updateForContactAndGroupSearchResult(
+                    with: section.elements[indexPath.row],
+                    searchText: self.termForCurrentSearchResultSet,
+                    using: dependencies
+                )
                 return cell
                 
             case .messages:

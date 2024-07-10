@@ -3,7 +3,6 @@
 import Foundation
 import UIKit
 import SessionUIKit
-import SignalCoreKit
 import SessionUtilitiesKit
 
 protocol AttachmentCaptionToolbarDelegate: AnyObject {
@@ -73,7 +72,7 @@ class AttachmentCaptionToolbar: UIView, UITextViewDelegate {
     }
 
     required init?(coder aDecoder: NSCoder) {
-        notImplemented()
+        fatalError("init(coder:) has not been implemented")
     }
 
     // MARK: - UIView Overrides
@@ -156,7 +155,7 @@ class AttachmentCaptionToolbar: UIView, UITextViewDelegate {
 
         // After verifying the byte-length is sufficiently small, verify the character count is within bounds.
         guard proposedText.count < kMaxCaptionCharacterCount else {
-            Logger.debug("hit attachment message body character count limit")
+            Log.debug("[AttachmentCaptionToolbar] hit attachment message body character count limit")
 
             self.lengthLimitLabel.isHidden = false
 
@@ -191,7 +190,7 @@ class AttachmentCaptionToolbar: UIView, UITextViewDelegate {
         let newHeight = clampedTextViewHeight(fixedWidth: currentSize.width)
 
         if newHeight != textViewHeight {
-            Logger.debug("TextView height changed: \(textViewHeight) -> \(newHeight)")
+            Log.debug("[AttachmentCaptionToolbar] TextView height changed: \(textViewHeight) -> \(newHeight)")
             textViewHeight = newHeight
             textViewHeightConstraint?.constant = textViewHeight
             invalidateIntrinsicContentSize()

@@ -3,7 +3,7 @@
 import Foundation
 import Combine
 import GRDB
-import SignalCoreKit
+import SessionSnodeKit
 import SessionUtilitiesKit
 
 public enum AttachmentUploadJob: JobExecutor {
@@ -14,9 +14,9 @@ public enum AttachmentUploadJob: JobExecutor {
     public static func run(
         _ job: Job,
         queue: DispatchQueue,
-        success: @escaping (Job, Bool, Dependencies) -> (),
-        failure: @escaping (Job, Error?, Bool, Dependencies) -> (),
-        deferred: @escaping (Job, Dependencies) -> (),
+        success: @escaping (Job, Bool) -> Void,
+        failure: @escaping (Job, Error, Bool) -> Void,
+        deferred: @escaping (Job) -> Void,
         using dependencies: Dependencies
     ) {
         guard
@@ -26,28 +26,25 @@ public enum AttachmentUploadJob: JobExecutor {
             let details: Details = try? JSONDecoder(using: dependencies).decode(Details.self, from: detailsData),
             let attachment: Attachment = dependencies[singleton: .storage]
                 .read({ db in try Attachment.fetchOne(db, id: details.attachmentId) })
-        else {
-            SNLog("[AttachmentUploadJob] Failed due to missing details")
-            return failure(job, JobRunnerError.missingRequiredDetails, true, dependencies)
-        }
+        else { return failure(job, JobRunnerError.missingRequiredDetails, true) }
         
         // If the original interaction no longer exists then don't bother uploading the attachment (ie. the
         // message was deleted before it even got sent)
         guard dependencies[singleton: .storage].read({ db in try Interaction.exists(db, id: interactionId) }) == true else {
             SNLog("[AttachmentUploadJob] Failed due to missing interaction")
-            return failure(job, StorageError.objectNotFound, true, dependencies)
+            return failure(job, StorageError.objectNotFound, true)
         }
         
         // If the attachment is still pending download the hold off on running this job
         guard attachment.state != .pendingDownload && attachment.state != .downloading else {
             SNLog("[AttachmentUploadJob] Deferred as attachment is still being downloaded")
-            return deferred(job, dependencies)
+            return deferred(job)
         }
         
         // If this upload is related to sending a message then trigger the 'handleMessageWillSend' logic
         // as if this is a retry the logic wouldn't run until after the upload has completed resulting in
         // a potentially incorrect delivery status
-        dependencies[singleton: .storage].write(using: dependencies) { db in
+        dependencies[singleton: .storage].write { db in
             guard
                 let sendJob: Job = try Job.fetchOne(db, id: details.messageSendJobId),
                 let sendJobDetails: Data = sendJob.details,
@@ -67,7 +64,7 @@ public enum AttachmentUploadJob: JobExecutor {
         // reentrancy issues when the success/failure closures get called before the upload as the JobRunner
         // will attempt to update the state of the job immediately
         dependencies[singleton: .storage]
-            .writePublisher(using: dependencies) { db -> HTTP.PreparedRequest<String> in
+            .writePublisher { db -> Network.PreparedRequest<String> in
                 try attachment.preparedUpload(db, threadId: threadId, using: dependencies)
             }
             .flatMap { $0.send(using: dependencies) }
@@ -82,7 +79,7 @@ public enum AttachmentUploadJob: JobExecutor {
                             // has the correct delivery status
                             var didLogError: Bool = false
                             
-                            dependencies[singleton: .storage].read(using: dependencies) { db in
+                            dependencies[singleton: .storage].read { db in
                                 guard
                                     let sendJob: Job = try Job.fetchOne(db, id: details.messageSendJobId),
                                     let sendJobDetails: Data = sendJob.details,
@@ -102,10 +99,10 @@ public enum AttachmentUploadJob: JobExecutor {
                             }
                             
                             // If we didn't log an error above then log it now
-                            if !didLogError { SNLog("[AttachmentUploadJob] Failed due to error: \(error)") }
-                            failure(job, error, false, dependencies)
+                            if !didLogError { Log.error("[AttachmentUploadJob] Failed due to error: \(error)") }
+                            failure(job, error, false)
                         
-                        case .finished: success(job, false, dependencies)
+                        case .finished: success(job, false)
                     }
                 }
             )

@@ -50,7 +50,7 @@ extension DeleteAllMessagesResponse: ValidatableResponse {
     internal static var requiredSuccessfulResponses: Int { 1 }
     
     internal func validResultMap(
-        publicKey: String,
+        swarmPublicKey: String,
         validationData: UInt64,
         using dependencies: Dependencies
     ) throws -> [String: Bool] {
@@ -74,7 +74,7 @@ extension DeleteAllMessagesResponse: ValidatableResponse {
             /// Signature of `( PUBKEY_HEX || TIMESTAMP || DELETEDHASH[0] || ... || DELETEDHASH[N] )`
             /// signed by the node's ed25519 pubkey.  When doing a multi-namespace delete the `DELETEDHASH`
             /// values are totally ordered (i.e. among all the hashes deleted regardless of namespace)
-            let verificationBytes: [UInt8] = publicKey.bytes
+            let verificationBytes: [UInt8] = swarmPublicKey.bytes
                 .appending(contentsOf: "\(validationData)".data(using: .ascii)?.bytes)
                 .appending(contentsOf: next.value.deleted.joined().bytes)
             

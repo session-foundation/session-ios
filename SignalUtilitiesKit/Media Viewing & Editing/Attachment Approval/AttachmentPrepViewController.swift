@@ -5,7 +5,6 @@ import UIKit
 import AVKit
 import AVFoundation
 import SessionUIKit
-import SignalCoreKit
 import SessionMessagingKit
 import SessionUtilitiesKit
 
@@ -106,7 +105,7 @@ public class AttachmentPrepViewController: OWSViewController {
         super.init(nibName: nil, bundle: nil)
         
         if attachment.hasError {
-            owsFailDebug(attachment.error.debugDescription)
+            Log.error("[AttachmentPrepViewController] \(attachment.error.debugDescription)")
         }
     }
 
@@ -343,7 +342,7 @@ extension AttachmentPrepViewController: UIScrollViewDelegate {
         
         // Ensure bounds have been computed
         guard mediaMessageView.bounds.width > 0, mediaMessageView.bounds.height > 0 else {
-            Logger.warn("bad bounds")
+            Log.warn("[AttachmentPrepViewController] bad bounds")
             return
         }
 

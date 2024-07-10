@@ -18,7 +18,7 @@ public class SnodeRecursiveResponse<T: SnodeSwarmItem>: SnodeResponse {
     ) {
         self.swarm = swarm
         
-        super.init(hardFork: hardFork, timeOffset: timeOffset)
+        super.init(hardForkVersion: hardFork, timeOffset: timeOffset)
     }
     
     required init(from decoder: Decoder) throws {

@@ -9,11 +9,11 @@ import SessionSnodeKit
 extension MessageSender {
     private typealias PreparedGroupData = (
         groupSessionId: SessionId,
-        groupState: [ConfigDump.Variant: SessionUtil.Config],
+        groupState: [ConfigDump.Variant: LibSession.Config],
         thread: SessionThread,
         group: ClosedGroup,
         members: [GroupMember],
-        preparedNotificationsSubscription: HTTP.PreparedRequest<PushNotificationAPI.SubscribeResponse>?
+        preparedNotificationsSubscription: Network.PreparedRequest<PushNotificationAPI.SubscribeResponse>?
     )
     
     public static func createGroup(
@@ -47,9 +47,9 @@ extension MessageSender {
                 }.eraseToAnyPublisher()
             }
             .flatMap { displayPictureInfo -> AnyPublisher<PreparedGroupData, Error> in
-                dependencies[singleton: .storage].writePublisher(using: dependencies) { db -> PreparedGroupData in
+                dependencies[singleton: .storage].writePublisher { db -> PreparedGroupData in
                     // Create and cache the libSession entries
-                    let createdInfo: SessionUtil.CreatedGroupInfo = try SessionUtil.createGroup(
+                    let createdInfo: LibSession.CreatedGroupInfo = try LibSession.createGroup(
                         db,
                         name: name,
                         description: description,
@@ -74,7 +74,7 @@ extension MessageSender {
                     try createdInfo.members.forEach { try $0.insert(db) }
                     
                     // Prepare the notification subscription
-                    var preparedNotificationSubscription: HTTP.PreparedRequest<PushNotificationAPI.SubscribeResponse>?
+                    var preparedNotificationSubscription: Network.PreparedRequest<PushNotificationAPI.SubscribeResponse>?
                     
                     if let token: String = dependencies[defaults: .standard, key: .deviceToken] {
                         preparedNotificationSubscription = try? PushNotificationAPI
@@ -98,11 +98,11 @@ extension MessageSender {
             }
             .flatMap { preparedGroupData -> AnyPublisher<PreparedGroupData, Error> in
                 ConfigurationSyncJob
-                    .run(sessionIdHexString: preparedGroupData.groupSessionId.hexString, using: dependencies)
+                    .run(swarmPublicKey: preparedGroupData.groupSessionId.hexString, using: dependencies)
                     .flatMap { _ in
-                        dependencies[singleton: .storage].writePublisher(using: dependencies) { db in
+                        dependencies[singleton: .storage].writePublisher { db in
                             // Save the successfully created group and add to the user config
-                            try SessionUtil.saveCreatedGroup(
+                            try LibSession.saveCreatedGroup(
                                 db,
                                 group: preparedGroupData.group,
                                 groupState: preparedGroupData.groupState,
@@ -118,8 +118,8 @@ extension MessageSender {
                                 case .finished: break
                                 case .failure:
                                     // Remove the config and database states
-                                    dependencies[singleton: .storage].writeAsync(using: dependencies) { db in
-                                        SessionUtil.removeGroupStateIfNeeded(
+                                    dependencies[singleton: .storage].writeAsync { db in
+                                        LibSession.removeGroupStateIfNeeded(
                                             db,
                                             groupSessionId: preparedGroupData.groupSessionId,
                                             using: dependencies
@@ -137,7 +137,9 @@ extension MessageSender {
             .handleEvents(
                 receiveOutput: { _, _, thread, _, members, preparedNotificationSubscription in
                     // Start polling
-                    dependencies[singleton: .groupsPoller].startIfNeeded(for: thread.id, using: dependencies)
+                    dependencies
+                        .mutate(cache: .groupPollers) { $0.getOrCreatePoller(for: thread.id) }
+                        .startIfNeeded()
                     
                     // Subscribe for push notifications (if PNs are enabled)
                     preparedNotificationSubscription?
@@ -146,15 +148,15 @@ extension MessageSender {
                         .sinkUntilComplete()
                     
                     // Save jobs for sending group member invitations
-                    dependencies[singleton: .storage].write(using: dependencies) { db in
-                        let userSessionId: SessionId = getUserSessionId(db, using: dependencies)
+                    dependencies[singleton: .storage].write { db in
+                        let userSessionId: SessionId = dependencies[cache: .general].sessionId
                         
                         members
                             .filter { $0.profileId != userSessionId.hexString }
                             .compactMap { member -> (GroupMember, GroupInviteMemberJob.Details)? in
                                 // Generate authData for the removed member
                                 guard
-                                    let memberAuthInfo: Authentication.Info = try? SessionUtil.generateAuthData(
+                                    let memberAuthInfo: Authentication.Info = try? LibSession.generateAuthData(
                                         groupSessionId: SessionId(.group, hex: thread.id),
                                         memberId: member.profileId,
                                         using: dependencies
@@ -175,8 +177,7 @@ extension MessageSender {
                                         threadId: thread.id,
                                         details: jobDetails
                                     ),
-                                    canStartJob: true,
-                                    using: dependencies
+                                    canStartJob: true
                                 )
                             }
                     }
@@ -194,7 +195,7 @@ extension MessageSender {
     ) -> AnyPublisher<Void, Error> {
         guard let sessionId: SessionId = try? SessionId(from: groupSessionId), sessionId.prefix == .group else {
             // FIXME: Fail with `MessageSenderError.invalidClosedGroupUpdate` once support for legacy groups is removed
-            let maybeMemberIds: Set<String>? = dependencies[singleton: .storage].read(using: dependencies) { db in
+            let maybeMemberIds: Set<String>? = dependencies[singleton: .storage].read { db in
                 try GroupMember
                     .filter(GroupMember.Columns.groupId == groupSessionId)
                     .select(.profileId)
@@ -220,8 +221,8 @@ extension MessageSender {
                     throw MessageSenderError.invalidClosedGroupUpdate
                 }
                 
-                let userSessionId: SessionId = getUserSessionId(db, using: dependencies)
-                let changeTimestampMs: Int64 = SnodeAPI.currentOffsetTimestampMs(using: dependencies)
+                let userSessionId: SessionId = dependencies[cache: .general].sessionId
+                let changeTimestampMs: Int64 = dependencies[cache: .snodeAPI].currentOffsetTimestampMs()
                 
                 var groupChanges: [ConfigColumnAssignment] = []
                 
@@ -247,12 +248,14 @@ extension MessageSender {
                 if name != closedGroup.name {
                     _ = try Interaction(
                         threadId: groupSessionId,
+                        threadVariant: .group,
                         authorId: userSessionId.hexString,
                         variant: .infoGroupInfoUpdated,
                         body: ClosedGroup.MessageInfo
                             .updatedName(name)
                             .infoString(using: dependencies),
-                        timestampMs: changeTimestampMs
+                        timestampMs: changeTimestampMs,
+                        using: dependencies
                     ).inserted(db)
                     
                     // Schedule the control message to be sent to the group
@@ -264,7 +267,7 @@ extension MessageSender {
                             sentTimestamp: UInt64(changeTimestampMs),
                             authMethod: try Authentication.with(
                                 db,
-                                sessionIdHexString: groupSessionId,
+                                swarmPublicKey: groupSessionId,
                                 using: dependencies
                             ),
                             using: dependencies
@@ -290,8 +293,8 @@ extension MessageSender {
         
         return dependencies[singleton: .storage]
             .writePublisher { db in
-                let userSessionId: SessionId = getUserSessionId(db, using: dependencies)
-                let changeTimestampMs: Int64 = SnodeAPI.currentOffsetTimestampMs(using: dependencies)
+                let userSessionId: SessionId = dependencies[cache: .general].sessionId
+                let changeTimestampMs: Int64 = dependencies[cache: .snodeAPI].currentOffsetTimestampMs()
                 
                 switch displayPictureUpdate {
                     case .remove:
@@ -326,12 +329,14 @@ extension MessageSender {
                 // Add a record of the change to the conversation
                 _ = try Interaction(
                     threadId: groupSessionId,
+                    threadVariant: .group,
                     authorId: userSessionId.hexString,
                     variant: .infoGroupInfoUpdated,
                     body: ClosedGroup.MessageInfo
                         .updatedDisplayPicture
                         .infoString(using: dependencies),
-                    timestampMs: changeTimestampMs
+                    timestampMs: changeTimestampMs,
+                    using: dependencies
                 ).inserted(db)
                 
                 // Schedule the control message to be sent to the group
@@ -342,7 +347,7 @@ extension MessageSender {
                         sentTimestamp: UInt64(changeTimestampMs),
                         authMethod: try Authentication.with(
                             db,
-                            sessionIdHexString: groupSessionId,
+                            swarmPublicKey: groupSessionId,
                             using: dependencies
                         ),
                         using: dependencies
@@ -367,7 +372,7 @@ extension MessageSender {
         }
         
         return dependencies[singleton: .storage]
-            .writePublisher(using: dependencies) { db in
+            .writePublisher { db in
                 guard
                     let groupIdentityPrivateKey: Data = try? ClosedGroup
                         .filter(id: sessionId.hexString)
@@ -376,11 +381,11 @@ extension MessageSender {
                         .fetchOne(db)
                 else { throw MessageSenderError.invalidClosedGroupUpdate }
                 
-                let userSessionId: SessionId = getUserSessionId(db, using: dependencies)
-                let changeTimestampMs: Int64 = SnodeAPI.currentOffsetTimestampMs(using: dependencies)
+                let userSessionId: SessionId = dependencies[cache: .general].sessionId
+                let changeTimestampMs: Int64 = dependencies[cache: .snodeAPI].currentOffsetTimestampMs()
                 
                 /// Add the members to the `GROUP_MEMBERS` config
-                try SessionUtil.addMembers(
+                try LibSession.addMembers(
                     db,
                     groupSessionId: sessionId,
                     members: members,
@@ -398,7 +403,7 @@ extension MessageSender {
                     /// Since our state doesn't care about the `GROUP_KEYS` needed for other members triggering a `keySupplement`
                     /// change won't result in the `GROUP_KEYS` config changing or the `ConfigurationSyncJob` getting triggered
                     /// we need to push the change directly
-                    let supplementData: Data = try SessionUtil.keySupplement(
+                    let supplementData: Data = try LibSession.keySupplement(
                         db,
                         groupSessionId: sessionId,
                         memberIds: members.map { $0.id }.asSet(),
@@ -425,7 +430,7 @@ extension MessageSender {
                         .sinkUntilComplete()
                 }
                 else {
-                    try SessionUtil.rekey(
+                    try LibSession.rekey(
                         db,
                         groupSessionId: sessionId,
                         using: dependencies
@@ -439,12 +444,12 @@ extension MessageSender {
                 let memberJobData: [(id: String, profile: Profile?, jobDetails: GroupInviteMemberJob.Details, subaccountToken: [UInt8])] = (try? members
                     .map { id, profile in
                         // Generate authData for the newly added member
-                        let subaccountToken: [UInt8] = try SessionUtil.generateSubaccountToken(
+                        let subaccountToken: [UInt8] = try LibSession.generateSubaccountToken(
                             groupSessionId: sessionId,
                             memberId: id,
                             using: dependencies
                         )
-                        let memberAuthInfo: Authentication.Info = try SessionUtil.generateAuthData(
+                        let memberAuthInfo: Authentication.Info = try LibSession.generateAuthData(
                             groupSessionId: sessionId,
                             memberId: id,
                             using: dependencies
@@ -492,14 +497,14 @@ extension MessageSender {
                             threadId: sessionId.hexString,
                             details: inviteJobDetails
                         ),
-                        canStartJob: true,
-                        using: dependencies
+                        canStartJob: true
                     )
                 }
                 
                 /// Add a record of the change to the conversation
                 _ = try? Interaction(
                     threadId: groupSessionId,
+                    threadVariant: .group,
                     authorId: userSessionId.hexString,
                     variant: .infoGroupMembersUpdated,
                     body: ClosedGroup.MessageInfo
@@ -514,13 +519,14 @@ extension MessageSender {
                             historyShared: allowAccessToHistoricMessages
                         )
                         .infoString(using: dependencies),
-                    timestampMs: changeTimestampMs
+                    timestampMs: changeTimestampMs,
+                    using: dependencies
                 ).inserted(db)
                 
                 /// Schedule the control message to be sent to the group
                 (try? Authentication.with(
                     db,
-                    sessionIdHexString: groupSessionId,
+                    swarmPublicKey: groupSessionId,
                     using: dependencies
                 )).map { authMethod in
                     try? MessageSender.send(
@@ -550,7 +556,7 @@ extension MessageSender {
     ) {
         guard let sessionId: SessionId = try? SessionId(from: groupSessionId), sessionId.prefix == .group else { return }
         
-        dependencies[singleton: .storage].writeAsync(using: dependencies) { [dependencies] db in
+        dependencies[singleton: .storage].writeAsync { [dependencies] db in
             guard
                 let groupIdentityPrivateKey: Data = try? ClosedGroup
                     .filter(id: groupSessionId)
@@ -559,14 +565,14 @@ extension MessageSender {
                     .fetchOne(db)
             else { throw MessageSenderError.invalidClosedGroupUpdate }
             
-            let subaccountToken: [UInt8] = try SessionUtil.generateSubaccountToken(
+            let subaccountToken: [UInt8] = try LibSession.generateSubaccountToken(
                 groupSessionId: sessionId,
                 memberId: memberId,
                 using: dependencies
             )
             let inviteDetails: GroupInviteMemberJob.Details = try GroupInviteMemberJob.Details(
                 memberSessionIdHexString: memberId,
-                authInfo: try SessionUtil.generateAuthData(
+                authInfo: try LibSession.generateAuthData(
                     groupSessionId: sessionId,
                     memberId: memberId,
                     using: dependencies
@@ -588,7 +594,7 @@ extension MessageSender {
                 .subscribe(on: DispatchQueue.global(qos: .background), using: dependencies)
                 .sinkUntilComplete()
             
-            try SessionUtil.updateMemberStatus(
+            try LibSession.updateMemberStatus(
                 db,
                 groupSessionId: SessionId(.group, hex: groupSessionId),
                 memberId: memberId,
@@ -626,8 +632,7 @@ extension MessageSender {
                     threadId: groupSessionId,
                     details: inviteDetails
                 ),
-                canStartJob: true,
-                using: dependencies
+                canStartJob: true
             )
         }
     }
@@ -646,11 +651,11 @@ extension MessageSender {
         
         let targetChangeTimestampMs: Int64 = (
             changeTimestampMs ??
-            SnodeAPI.currentOffsetTimestampMs(using: dependencies)
+            dependencies[cache: .snodeAPI].currentOffsetTimestampMs()
         )
         
         return dependencies[singleton: .storage]
-            .writePublisher(using: dependencies) { db in
+            .writePublisher { db in
                 guard
                     let groupIdentityPrivateKey: Data = try? ClosedGroup
                         .filter(id: sessionId.hexString)
@@ -660,7 +665,7 @@ extension MessageSender {
                 else { throw MessageSenderError.invalidClosedGroupUpdate }
                 
                 /// Flag the members for removal
-                try SessionUtil.flagMembersForRemoval(
+                try LibSession.flagMembersForRemoval(
                     db,
                     groupSessionId: sessionId,
                     memberIds: memberIds,
@@ -686,13 +691,12 @@ extension MessageSender {
                             changeTimestampMs: changeTimestampMs
                         )
                     ),
-                    canStartJob: true,
-                    using: dependencies
+                    canStartJob: true
                 )
                 
                 /// Send the member changed message if desired
                 if sendMemberChangedMessage {
-                    let userSessionId: SessionId = getUserSessionId(db, using: dependencies)
+                    let userSessionId: SessionId = dependencies[cache: .general].sessionId
                     let removedMemberProfiles: [String: Profile] = (try? Profile
                         .filter(ids: memberIds)
                         .fetchAll(db))
@@ -702,6 +706,7 @@ extension MessageSender {
                     /// Add a record of the change to the conversation
                     _ = try Interaction(
                         threadId: sessionId.hexString,
+                        threadVariant: .group,
                         authorId: userSessionId.hexString,
                         variant: .infoGroupMembersUpdated,
                         body: ClosedGroup.MessageInfo
@@ -712,7 +717,8 @@ extension MessageSender {
                                 }
                             )
                             .infoString(using: dependencies),
-                        timestampMs: targetChangeTimestampMs
+                        timestampMs: targetChangeTimestampMs,
+                        using: dependencies
                     ).inserted(db)
                     
                     /// Schedule the control message to be sent to the group
@@ -745,13 +751,13 @@ extension MessageSender {
         sendAdminChangedMessage: Bool,
         using dependencies: Dependencies
     ) {
-        let changeTimestampMs: Int64 = SnodeAPI.currentOffsetTimestampMs(using: dependencies)
+        let changeTimestampMs: Int64 = dependencies[cache: .snodeAPI].currentOffsetTimestampMs()
         
-        dependencies[singleton: .storage].writeAsync(using: dependencies) { db in
+        dependencies[singleton: .storage].writeAsync { db in
             // Update the libSession status for each member and schedule a job to send
             // the promotion message
             try members.forEach { memberId, _ in
-                try SessionUtil.updateMemberStatus(
+                try LibSession.updateMemberStatus(
                     db,
                     groupSessionId: groupSessionId,
                     memberId: memberId,
@@ -802,16 +808,16 @@ extension MessageSender {
                             memberSessionIdHexString: memberId
                         )
                     ),
-                    canStartJob: true,
-                    using: dependencies
+                    canStartJob: true
                 )
             }
             
             /// Send the admin changed message if desired
             if sendAdminChangedMessage {
-                let userSessionId: SessionId = getUserSessionId(db, using: dependencies)
+                let userSessionId: SessionId = dependencies[cache: .general].sessionId
                 _ = try Interaction(
                     threadId: groupSessionId.hexString,
+                    threadVariant: .group,
                     authorId: userSessionId.hexString,
                     variant: .infoGroupMembersUpdated,
                     body: ClosedGroup.MessageInfo
@@ -822,7 +828,8 @@ extension MessageSender {
                             }
                         )
                         .infoString(using: dependencies),
-                    timestampMs: changeTimestampMs
+                    timestampMs: changeTimestampMs,
+                    using: dependencies
                 ).inserted(db)
                 
                 /// Schedule the control message to be sent to the group
@@ -835,7 +842,7 @@ extension MessageSender {
                         sentTimestamp: UInt64(changeTimestampMs),
                         authMethod: try Authentication.with(
                             db,
-                            sessionIdHexString: groupSessionId.hexString,
+                            swarmPublicKey: groupSessionId.hexString,
                             using: dependencies
                         ),
                         using: dependencies
@@ -856,17 +863,19 @@ extension MessageSender {
     public static func leave(
         _ db: Database,
         groupPublicKey: String,
-        using dependencies: Dependencies = Dependencies()
+        using dependencies: Dependencies
     ) throws {
-        let userSessionId: SessionId = getUserSessionId(db, using: dependencies)
+        let userSessionId: SessionId = dependencies[cache: .general].sessionId
         
         // Notify the user
         let interaction: Interaction = try Interaction(
             threadId: groupPublicKey,
+            threadVariant: .group,
             authorId: userSessionId.hexString,
             variant: .infoGroupCurrentUserLeaving,
             body: "group_you_leaving".localized(),
-            timestampMs: SnodeAPI.currentOffsetTimestampMs(using: dependencies)
+            timestampMs: dependencies[cache: .snodeAPI].currentOffsetTimestampMs(),
+            using: dependencies
         ).inserted(db)
         
         dependencies[singleton: .jobRunner].upsert(
@@ -879,8 +888,7 @@ extension MessageSender {
                     behaviour: .leave
                 )
             ),
-            canStartJob: true,
-            using: dependencies
+            canStartJob: true
         )
     }
 }

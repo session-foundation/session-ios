@@ -4,7 +4,7 @@
 
 import UIKit
 import SessionUIKit
-import SignalCoreKit
+import SessionUtilitiesKit
 
 public protocol VAlignTextViewDelegate: AnyObject {
     func textViewDidComplete()
@@ -48,7 +48,7 @@ private class VAlignTextView: UITextView {
 
     @available(*, unavailable, message: "use other init() instead.")
     required public init?(coder aDecoder: NSCoder) {
-        notImplemented()
+        fatalError("init(coder:) has not been implemented")
     }
 
     deinit {
@@ -83,8 +83,6 @@ private class VAlignTextView: UITextView {
 
     @objc
     public func modifiedReturnPressed(sender: UIKeyCommand) {
-        Logger.verbose("")
-
         self.textViewDelegate?.textViewDidComplete()
     }
 }
@@ -139,7 +137,7 @@ public class ImageEditorTextViewController: OWSViewController, VAlignTextViewDel
 
     @available(*, unavailable, message: "use other init() instead.")
     required public init?(coder aDecoder: NSCoder) {
-        notImplemented()
+        fatalError("init(coder:) has not been implemented")
     }
 
     // MARK: - View Lifecycle
@@ -248,7 +246,7 @@ public class ImageEditorTextViewController: OWSViewController, VAlignTextViewDel
 
     @objc
     public func handlePinchGesture(_ gestureRecognizer: ImageEditorPinchGestureRecognizer) {
-        AssertIsOnMainThread()
+        Log.assertOnMainThread()
 
         switch gestureRecognizer.state {
         case .began:
@@ -274,8 +272,6 @@ public class ImageEditorTextViewController: OWSViewController, VAlignTextViewDel
     // MARK: - Events
 
     @objc func didTapUndo(sender: UIButton) {
-        Logger.verbose("")
-
         self.delegate?.textEditDidCancel()
 
         self.dismiss(animated: false) {
@@ -284,8 +280,6 @@ public class ImageEditorTextViewController: OWSViewController, VAlignTextViewDel
     }
 
     @objc func didTapDone(sender: UIButton) {
-        Logger.verbose("")
-
         completeAndDismiss()
     }
 
@@ -316,19 +310,18 @@ public class ImageEditorTextViewController: OWSViewController, VAlignTextViewDel
         if let newFont = textView.font {
             font = newFont
         } else {
-            owsFailDebug("Missing font.")
+            Log.error("[ImageEditorTextViewController] Missing font.")
         }
         newTextItem = newTextItem.copy(font: font)
 
-        guard let text = textView.text?.ows_stripped(),
-            text.count > 0 else {
-                self.delegate?.textEditDidDelete(textItem: textItem)
+        guard let text = textView.text?.stripped, text.count > 0 else {
+            self.delegate?.textEditDidDelete(textItem: textItem)
 
-                self.dismiss(animated: false) {
-                    // Do nothing.
-                }
+            self.dismiss(animated: false) {
+                // Do nothing.
+            }
 
-                return
+            return
         }
 
         newTextItem = newTextItem.copy(withText: text, color: paletteView.selectedValue)

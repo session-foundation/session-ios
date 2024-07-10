@@ -15,7 +15,7 @@ public enum MessageReceiver {
         origin: Message.Origin,
         using dependencies: Dependencies
     ) throws -> ProcessedMessage {
-        let userSessionId: String = getUserHexEncodedPublicKey(db, using: dependencies)
+        let userSessionId: SessionId = dependencies[cache: .general].sessionId
         var plaintext: Data
         var customProto: SNProtoContent? = nil
         var customMessage: Message? = nil
@@ -50,10 +50,6 @@ public enum MessageReceiver {
                 }
                 
             case (_, .openGroupInbox(let timestamp, let messageServerId, let serverPublicKey, let senderId, let recipientId)):
-                guard let userEd25519KeyPair: KeyPair = Identity.fetchUserEd25519KeyPair(db) else {
-                    throw MessageReceiverError.noUserED25519KeyPair
-                }
-                
                 (plaintext, sender) = try dependencies[singleton: .crypto].tryGenerate(
                     .plaintextWithSessionBlindingProtocol(
                         db,
@@ -103,7 +99,7 @@ public enum MessageReceiver {
                         
                     case .groupMessages:
                         let plaintextEnvelope: Data
-                        (plaintextEnvelope, sender) = try SessionUtil.decrypt(
+                        (plaintextEnvelope, sender) = try LibSession.decrypt(
                             ciphertext: data,
                             groupSessionId: SessionId(.group, hex: publicKey),
                             using: dependencies
@@ -200,14 +196,18 @@ public enum MessageReceiver {
         let proto: SNProtoContent = try (customProto ?? Result(catching: { try SNProtoContent.parseData(plaintext) })
            .onFailure { SNLog("Couldn't parse proto due to error: \($0).") }
            .successOrThrow())
-        let message: Message = try (customMessage ?? Message.createMessageFrom(proto, sender: sender))
+        let message: Message = try (customMessage ?? Message.createMessageFrom(proto, sender: sender, using: dependencies))
         message.sender = sender
         message.recipient = userSessionId.hexString
         message.serverHash = origin.serverHash
         message.sentTimestamp = sentTimestamp
         message.receivedTimestamp = dependencies[cache: .snodeAPI].currentOffsetTimestampMs()
         message.openGroupServerMessageId = openGroupServerMessageId
-        message.attachDisappearingMessagesConfiguration(from: proto)
+        
+        // Ignore disappearing message settings in communities (in case of modified clients)
+        if threadVariant != .community {
+            message.attachDisappearingMessagesConfiguration(from: proto)
+        }
         
         // Don't process the envelope any further if the sender is blocked
         guard (try? Contact.fetchOne(db, id: sender))?.isBlocked != true || message.processWithBlockedSender else {
@@ -255,7 +255,7 @@ public enum MessageReceiver {
         message: Message,
         serverExpirationTimestamp: TimeInterval?,
         associatedWithProto proto: SNProtoContent,
-        using dependencies: Dependencies = Dependencies()
+        using dependencies: Dependencies
     ) throws {
         // Check if the message requires an existing conversation (if it does and the conversation isn't in
         // the config then the message will be dropped)
@@ -402,6 +402,7 @@ public enum MessageReceiver {
         try MessageReceiver.postHandleMessage(
             db,
             threadId: threadId,
+            threadVariant: threadVariant,
             message: message,
             using: dependencies
         )
@@ -410,6 +411,7 @@ public enum MessageReceiver {
     public static func postHandleMessage(
         _ db: Database,
         threadId: String,
+        threadVariant: SessionThread.Variant,
         message: Message,
         using dependencies: Dependencies
     ) throws {
@@ -448,17 +450,18 @@ public enum MessageReceiver {
         
         // Start the disappearing messages timer if needed
         // For disappear after send, this is necessary so the message will disappear even if it is not read
-        db.afterNextTransactionNestedOnce(
-            dedupeId: "PostInsertDisappearingMessagesJob",  // stringlint:disable
-            onCommit: { db in
-                dependencies[singleton: .jobRunner].upsert(
-                    db,
-                    job: DisappearingMessagesJob.updateNextRunIfNeeded(db),
-                    canStartJob: true,
-                    using: dependencies
-                )
-            }
-        )
+        if threadVariant != .community {
+            db.afterNextTransactionNestedOnce(
+                dedupeId: "PostInsertDisappearingMessagesJob",  // stringlint:disable
+                onCommit: { db in
+                    dependencies[singleton: .jobRunner].upsert(
+                        db,
+                        job: DisappearingMessagesJob.updateNextRunIfNeeded(db, using: dependencies),
+                        canStartJob: true
+                    )
+                }
+            )
+        }
         
         // Only check the current visibility state if we should become visible for this message type
         guard shouldBecomeVisible else { return }
@@ -515,7 +518,7 @@ public enum MessageReceiver {
         message: Message,
         threadId: String,
         threadVariant: SessionThread.Variant,
-        using dependencies: Dependencies = Dependencies()
+        using dependencies: Dependencies
     ) throws {
         switch message {
             case is ReadReceipt: return // No visible artifact created so better to keep for more reliable read states
@@ -524,7 +527,7 @@ public enum MessageReceiver {
         }
         
         // Determine the state of the conversation and the validity of the message
-        let userSessionId: SessionId = getUserSessionId(db, using: dependencies)
+        let userSessionId: SessionId = dependencies[cache: .general].sessionId
         let conversationVisibleInConfig: Bool = LibSession.conversationInConfig(
             db,
             threadId: threadId,
@@ -541,7 +544,10 @@ public enum MessageReceiver {
                     default: return .userGroups
                 }
             }(),
-            changeTimestampMs: (message.sentTimestamp.map { Int64($0) } ?? SnodeAPI.currentOffsetTimestampMs())
+            changeTimestampMs: message.sentTimestamp
+                .map { Int64($0) }
+                .defaulting(to: dependencies[cache: .snodeAPI].currentOffsetTimestampMs()),
+            using: dependencies
         )
         let conversationIsDestroyed: Bool = {
             guard threadVariant == .group else { return false }

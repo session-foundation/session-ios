@@ -16,13 +16,13 @@ public enum ConfigurationSyncJob: JobExecutor {
     public static func run(
         _ job: Job,
         queue: DispatchQueue,
-        success: @escaping (Job, Bool, Dependencies) -> (),
-        failure: @escaping (Job, Error?, Bool, Dependencies) -> (),
-        deferred: @escaping (Job, Dependencies) -> (),
+        success: @escaping (Job, Bool) -> Void,
+        failure: @escaping (Job, Error, Bool) -> Void,
+        deferred: @escaping (Job) -> Void,
         using dependencies: Dependencies
     ) {
         guard Identity.userCompletedRequiredOnboarding(using: dependencies) else {
-            return success(job, true, dependencies)
+            return success(job, true)
         }
         
         // It's possible for multiple ConfigSyncJob's with the same target (user/group) to try to run at the
@@ -34,7 +34,7 @@ public enum ConfigurationSyncJob: JobExecutor {
                 .jobInfoFor(state: .running, variant: .configurationSync)
                 .filter({ key, info in
                     key != job.id &&                // Exclude this job
-                    info.threadId == job.threadId   // Exclude jobs for different ids
+                    info.threadId == job.threadId   // Exclude jobs for different config stores
                 })
                 .isEmpty
         else {
@@ -47,7 +47,7 @@ public enum ConfigurationSyncJob: JobExecutor {
             }
             
             SNLog("[ConfigurationSyncJob] For \(job.threadId ?? "UnknownId") deferred due to in progress job")
-            return deferred(updatedJob ?? job, dependencies)
+            return deferred(updatedJob ?? job)
         }
         
         // If we don't have a userKeyPair yet then there is no need to sync the configuration
@@ -55,29 +55,34 @@ public enum ConfigurationSyncJob: JobExecutor {
         // fresh install due to the migrations getting run)
         guard
             let swarmPublicKey: String = job.threadId,
-            let pendingChanges: LibSession.PendingChanges = dependencies[singleton: .storage]
-                .read(using: dependencies, { db in try LibSession.pendingChanges(db, publicKey: publicKey) })
+            let pendingChanges: LibSession.PendingChanges = dependencies[singleton: .storage].read({ db in
+                try LibSession.pendingChanges(
+                    db,
+                    swarmPubkey: swarmPublicKey,
+                    using: dependencies
+                )
+            })
         else {
             SNLog("[ConfigurationSyncJob] For \(job.threadId ?? "UnknownId") failed due to invalid data")
-            return failure(job, StorageError.generic, false, dependencies)
+            return failure(job, StorageError.generic, false)
         }
         
         // If there are no pending changes then the job can just complete (next time something
         // is updated we want to try and run immediately so don't scuedule another run in this case)
         guard !pendingChanges.pushData.isEmpty || !pendingChanges.obsoleteHashes.isEmpty else {
             SNLog("[ConfigurationSyncJob] For \(swarmPublicKey) completed with no pending changes")
-            return success(job, true, dependencies)
+            return success(job, true)
         }
         
         let jobStartTimestamp: TimeInterval = dependencies.dateNow.timeIntervalSince1970
-        let messageSendTimestamp: Int64 = SnodeAPI.currentOffsetTimestampMs()
+        let messageSendTimestamp: Int64 = dependencies[cache: .snodeAPI].currentOffsetTimestampMs()
         SNLog("[ConfigurationSyncJob] For \(swarmPublicKey) started with \(pendingChanges.pushData.count) change\( plural: pendingChanges.pushData.count), \(pendingChanges.obsoleteHashes.count) old hash\(pluralES: pendingChanges.obsoleteHashes.count)")
         
-        // TODO: Seems like the conversatino list will randomly not get the last message (Lokinet updates???)
+        // TODO: Seems like the conversation list will randomly not get the last message (Lokinet updates???)
         dependencies[singleton: .storage]
-            .readPublisher { db -> HTTP.PreparedRequest<HTTP.BatchResponse> in
+            .readPublisher { db -> Network.PreparedRequest<Network.BatchResponse> in
                 try SnodeAPI.preparedSequence(
-                    requests: try pendingConfigChanges
+                    requests: try pendingChanges.pushData
                         .map { pushData -> ErasedPreparedRequest in
                             try SnodeAPI
                                 .preparedSendMessage(
@@ -151,7 +156,7 @@ public enum ConfigurationSyncJob: JobExecutor {
                         case .finished: SNLog("[ConfigurationSyncJob] For \(swarmPublicKey) completed")
                         case .failure(let error):
                             SNLog("[ConfigurationSyncJob] For \(swarmPublicKey) failed due to error: \(error)")
-                            failure(job, error, false, dependencies)
+                            failure(job, error, false)
                     }
                 },
                 receiveValue: { (configDumps: [ConfigDump]) in
@@ -203,7 +208,7 @@ public enum ConfigurationSyncJob: JobExecutor {
                             .upserted(db)
                     }
                     
-                    success((updatedJob ?? job), shouldFinishCurrentJob, dependencies)
+                    success((updatedJob ?? job), shouldFinishCurrentJob)
                 }
             )
     }
@@ -233,8 +238,7 @@ public extension ConfigurationSyncJob {
         dependencies[singleton: .jobRunner].upsert(
             db,
             job: ConfigurationSyncJob.createIfNeeded(db, swarmPublicKey: swarmPublicKey, using: dependencies),
-            canStartJob: true,
-            using: dependencies
+            canStartJob: true
         )
     }
     
@@ -283,20 +287,20 @@ public extension ConfigurationSyncJob {
                         threadId: swarmPublicKey,
                         details: OptionalDetails(wasManualTrigger: true)
                     )
-                else { return resolver(Result.failure(NetworkError.invalidJSON)) }
+                else { return resolver(Result.failure(NetworkError.parsingFailed)) }
                 
                 ConfigurationSyncJob.run(
                     job,
                     queue: .global(qos: .userInitiated),
-                    success: { _, _, _ in resolver(Result.success(())) },
-                    failure: { _, error, _, _ in resolver(Result.failure(error ?? NetworkError.generic)) },
-                    deferred: { job, _ in
+                    success: { _, _ in resolver(Result.success(())) },
+                    failure: { _, error, _ in resolver(Result.failure(error)) },
+                    deferred: { job in
                         dependencies[singleton: .jobRunner].afterJob(job) { result in
                             switch result {
                                 /// If it gets deferred a second time then we should probably just fail - no use waiting on something
                                 /// that may never run (also means we can avoid another potential defer loop)
-                                case .notFound, .deferred: resolver(Result.failure(NetworkError.generic))
-                                case .failed(let error, _): resolver(Result.failure(error ?? NetworkError.generic))
+                                case .notFound, .deferred: resolver(Result.failure(NetworkError.unknown))
+                                case .failed(let error, _): resolver(Result.failure(error))
                                 case .succeeded: resolver(Result.success(()))
                             }
                         }

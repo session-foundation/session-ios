@@ -10,21 +10,22 @@ import SessionUtilitiesKit
 public extension Singleton {
     static let notificationsManager: SingletonConfig<NotificationsManagerType> = Dependencies.create(
         identifier: "notificationsManager",
-        createInstance: { _ in NoopNotificationsManager() }
+        createInstance: { dependencies in NoopNotificationsManager(using: dependencies) }
     )
 }
 
 // MARK: - NotificationsManagerType
 
 public protocol NotificationsManagerType {
+    init(using dependencies: Dependencies)
+    
     func registerNotificationSettings() -> AnyPublisher<Void, Never>
     
     func notifyUser(
         _ db: Database,
         for interaction: Interaction,
         in thread: SessionThread,
-        applicationState: UIApplication.State,
-        using dependencies: Dependencies
+        applicationState: UIApplication.State
     )
     
     func notifyUser(_ db: Database, forIncomingCall interaction: Interaction, in thread: SessionThread, applicationState: UIApplication.State)
@@ -38,6 +39,8 @@ public protocol NotificationsManagerType {
 // MARK: - NoopNotificationsManager
 
 public struct NoopNotificationsManager: NotificationsManagerType {
+    public init(using dependencies: Dependencies) {}
+    
     public func registerNotificationSettings() -> AnyPublisher<Void, Never> {
         return Just(()).eraseToAnyPublisher()
     }
@@ -46,8 +49,7 @@ public struct NoopNotificationsManager: NotificationsManagerType {
         _ db: Database,
         for interaction: Interaction,
         in thread: SessionThread,
-        applicationState: UIApplication.State,
-        using dependencies: Dependencies
+        applicationState: UIApplication.State
     ) {}
     public func notifyUser(_ db: Database, forIncomingCall interaction: Interaction, in thread: SessionThread, applicationState: UIApplication.State) {}
     public func notifyUser(_ db: Database, forReaction reaction: Reaction, in thread: SessionThread, applicationState: UIApplication.State) {}

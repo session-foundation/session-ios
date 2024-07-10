@@ -37,7 +37,7 @@ class UserListViewModel<T: ProfileAssociated & FetchableRecord>: SessionTableVie
         footerTitle: String? = nil,
         onTap: OnTapAction = .radio,
         onSubmit: OnSubmitAction = .none,
-        using dependencies: Dependencies = Dependencies()
+        using dependencies: Dependencies
     ) {
         self.dependencies = dependencies
         self.title = title
@@ -86,11 +86,11 @@ class UserListViewModel<T: ProfileAssociated & FetchableRecord>: SessionTableVie
     var emptyStateTextPublisher: AnyPublisher<String?, Never> { Just(emptyState).eraseToAnyPublisher() }
     
     lazy var observation: TargetObservation = ObservationBuilder
-        .databaseObservation(self) { [request] db -> [WithProfile<T>] in
-            try request.fetchAllWithProfiles(db)
+        .databaseObservation(self) { [request, dependencies] db -> [WithProfile<T>] in
+            try request.fetchAllWithProfiles(db, using: dependencies)
         }
         .map { [weak self, dependencies, showProfileIcons, onTapAction, selectedUsersSubject] (users: [WithProfile<T>]) -> [SectionModel] in
-            let userSessionId: SessionId = getUserSessionId(using: dependencies)
+            let userSessionId: SessionId = dependencies[cache: .general].sessionId
             
             return [
                 SectionModel(

@@ -19,7 +19,7 @@ extension MessageReceiver {
         guard
             let sender: String = message.sender,
             let senderSessionId: SessionId = try? SessionId(from: sender),
-            let userEd25519KeyPair: KeyPair = Identity.fetchUserEd25519KeyPair(db, using: dependencies)
+            let userEd25519KeyPair: KeyPair = Identity.fetchUserEd25519KeyPair(db)
         else { throw MessageReceiverError.decryptionFailed }
         
         let supportedEncryptionDomains: [LibSession.Crypto.Domain] = [
@@ -27,7 +27,7 @@ extension MessageReceiver {
         ]
         
         try supportedEncryptionDomains
-            .map { domain -> (domain: SessionUtil.Crypto.Domain, plaintext: Data) in
+            .map { domain -> (domain: LibSession.Crypto.Domain, plaintext: Data) in
                 (
                     domain,
                     try dependencies[singleton: .crypto].tryGenerate(
@@ -42,7 +42,7 @@ extension MessageReceiver {
             }
             .forEach { domain, plaintext in
                 switch domain {
-                    case SessionUtil.Crypto.Domain.kickedMessage:
+                    case LibSession.Crypto.Domain.kickedMessage:
                         try handleGroupDelete(
                             db,
                             groupSessionId: senderSessionId,
@@ -50,7 +50,7 @@ extension MessageReceiver {
                             using: dependencies
                         )
                         
-                    default: SNLog("[MessageReceiver] Received libSession encrypted message with unsupported domain: \(domain)")
+                    default: Log.error("[MessageReceiver] Received libSession encrypted message with unsupported domain: \(domain)")
                 }
             }
     }

@@ -80,7 +80,7 @@ extension MessageReceiver {
         message: GroupUpdateInviteMessage,
         using dependencies: Dependencies
     ) throws {
-        let userSessionId: SessionId = getUserSessionId(db, using: dependencies)
+        let userSessionId: SessionId = dependencies[cache: .general].sessionId
         
         guard
             let sender: String = message.sender,
@@ -96,7 +96,7 @@ extension MessageReceiver {
             ),
             // Somewhat redundant because we know the sender was a group admin but this confirms the
             // authData is valid so protects against invalid invite spam from a group admin
-            let userEd25519KeyPair: KeyPair = Identity.fetchUserEd25519KeyPair(db, using: dependencies),
+            let userEd25519KeyPair: KeyPair = Identity.fetchUserEd25519KeyPair(db),
             dependencies[singleton: .crypto].verify(
                 .memberAuthData(
                     groupSessionId: message.groupSessionId,
@@ -140,7 +140,7 @@ extension MessageReceiver {
             return ((try? Contact.fetchOne(db, id: sender))?.isApproved == true)
         }()
         let threadAlreadyExisted: Bool = ((try? SessionThread.exists(db, id: message.groupSessionId.hexString)) ?? false)
-        let wasKickedFromGroup: Bool = SessionUtil.wasKickedFromGroup(
+        let wasKickedFromGroup: Bool = LibSession.wasKickedFromGroup(
             groupSessionId: message.groupSessionId,
             using: dependencies
         )
@@ -178,6 +178,7 @@ extension MessageReceiver {
         
         let interaction: Interaction = try Interaction(
             threadId: message.groupSessionId.hexString,
+            threadVariant: .group,
             authorId: sender,
             variant: .infoGroupInfoInvited,
             body: ClosedGroup.MessageInfo
@@ -188,14 +189,15 @@ extension MessageReceiver {
                 )
                 .infoString(using: dependencies),
             timestampMs: Int64(sentTimestampMs),
-            wasRead: SessionUtil.timestampAlreadyRead(
+            wasRead: LibSession.timestampAlreadyRead(
                 threadId: message.groupSessionId.hexString,
                 threadVariant: .group,
                 timestampMs: Int64(sentTimestampMs),
                 userSessionId: userSessionId,
                 openGroup: nil,
                 using: dependencies
-            )
+            ),
+            using: dependencies
         ).inserted(db)
         
         /// Notify the user about the group message request if needed
@@ -210,7 +212,7 @@ extension MessageReceiver {
                     db,
                     message: GroupUpdateInviteResponseMessage(
                         isApproved: true,
-                        sentTimestamp: UInt64(SnodeAPI.currentOffsetTimestampMs(using: dependencies))
+                        sentTimestamp: dependencies[cache: .snodeAPI].currentOffsetTimestampMs()
                     ),
                     interactionId: nil,
                     threadId: message.groupSessionId.hexString,
@@ -233,8 +235,7 @@ extension MessageReceiver {
                         calledFromConfig: nil,
                         using: dependencies
                     ),
-                    applicationState: (isMainAppActive ? .active : .background),
-                    using: dependencies
+                    applicationState: (isMainAppActive ? .active : .background)
                 )
         }
     }
@@ -273,7 +274,7 @@ extension MessageReceiver {
         
         if configTriggeringChange != .userGroups {
             // Update libSession
-            try? SessionUtil.add(
+            try? LibSession.add(
                 db,
                 groupSessionId: groupSessionId,
                 groupIdentityPrivateKey: groupIdentityPrivateKey,
@@ -307,11 +308,11 @@ extension MessageReceiver {
             )
         else { throw MessageReceiverError.invalidMessage }
         
-        let userSessionId: SessionId = getUserSessionId(db, using: dependencies)
+        let userSessionId: SessionId = dependencies[cache: .general].sessionId
         let groupSessionId: SessionId = SessionId(.group, publicKey: groupIdentityKeyPair.publicKey)
         
         // Load the admin key into libSession
-        try SessionUtil
+        try LibSession
             .loadAdminKey(
                 db,
                 groupIdentitySeed: message.groupIdentitySeed,
@@ -363,7 +364,7 @@ extension MessageReceiver {
                 // If there is no value in the database then just update libSession directly (this
                 // will trigger an updated `GROUP_MEMBERS` message if there are changes which will
                 // result in the database getting updated to the correct state)
-                try SessionUtil.updateMemberStatus(
+                try LibSession.updateMemberStatus(
                     db,
                     groupSessionId: groupSessionId,
                     memberId: userSessionId.hexString,
@@ -401,31 +402,35 @@ extension MessageReceiver {
                 _ = try Interaction(
                     serverHash: message.serverHash,
                     threadId: groupSessionId.hexString,
+                    threadVariant: .group,
                     authorId: sender,
                     variant: .infoGroupInfoUpdated,
                     body: message.updatedName
                         .map { ClosedGroup.MessageInfo.updatedName($0) }
                         .defaulting(to: ClosedGroup.MessageInfo.updatedNameFallback)
                         .infoString(using: dependencies),
-                    timestampMs: Int64(sentTimestampMs)
+                    timestampMs: Int64(sentTimestampMs),
+                    using: dependencies
                 ).inserted(db)
                 
             case .avatar:
                 _ = try Interaction(
                     serverHash: message.serverHash,
                     threadId: groupSessionId.hexString,
+                    threadVariant: .group,
                     authorId: sender,
                     variant: .infoGroupInfoUpdated,
                     body: ClosedGroup.MessageInfo
                         .updatedDisplayPicture
                         .infoString(using: dependencies),
-                    timestampMs: Int64(sentTimestampMs)
+                    timestampMs: Int64(sentTimestampMs),
+                    using: dependencies
                 ).inserted(db)
                 
             case .disappearingMessages:
                 /// **Note:** We only create this in order to get the 'messageInfoString' it **should not** be saved as that would
                 /// override the correct settings applied by the group config messages
-                let userSessionId: SessionId = getUserSessionId(db, using: dependencies)
+                let userSessionId: SessionId = dependencies[cache: .general].sessionId
                 let relevantConfig: DisappearingMessagesConfiguration = DisappearingMessagesConfiguration(
                     threadId: groupSessionId.hexString,
                     isEnabled: ((message.updatedExpiration ?? 0) > 0),
@@ -440,18 +445,19 @@ extension MessageReceiver {
                 _ = try Interaction(
                     serverHash: message.serverHash,
                     threadId: groupSessionId.hexString,
+                    threadVariant: .group,
                     authorId: sender,
                     variant: .infoDisappearingMessagesUpdate,
                     body: relevantConfig.messageInfoString(
                         threadVariant: .group,
                         senderName: (sender != userSessionId.hexString ?
-                            Profile.displayName(db, id: sender) :
+                            Profile.displayName(db, id: sender, using: dependencies) :
                             nil
                         ),
                         using: dependencies
                     ),
                     timestampMs: Int64(sentTimestampMs),
-                    wasRead: SessionUtil.timestampAlreadyRead(
+                    wasRead: LibSession.timestampAlreadyRead(
                         threadId: groupSessionId.hexString,
                         threadVariant: .group,
                         timestampMs: Int64(sentTimestampMs),
@@ -459,7 +465,8 @@ extension MessageReceiver {
                         openGroup: nil,
                         using: dependencies
                     ),
-                    expiresInSeconds: (relevantConfig.isEnabled ? nil : localConfig.durationSeconds)
+                    expiresInSeconds: (relevantConfig.isEnabled ? nil : localConfig.durationSeconds),
+                    using: dependencies
                 ).inserted(db)
         }
     }
@@ -484,7 +491,7 @@ extension MessageReceiver {
             )
         else { throw MessageReceiverError.invalidMessage }
         
-        let userSessionId: SessionId = getUserSessionId(db, using: dependencies)
+        let userSessionId: SessionId = dependencies[cache: .general].sessionId
         let profiles: [String: Profile] = (try? Profile
             .filter(ids: message.memberSessionIds)
             .fetchAll(db))
@@ -501,6 +508,7 @@ extension MessageReceiver {
         // config messages so these are only for record purposes)
         _ = try Interaction(
             threadId: groupSessionId.hexString,
+            threadVariant: .group,
             authorId: sender,
             variant: .infoGroupMembersUpdated,
             body: {
@@ -525,7 +533,8 @@ extension MessageReceiver {
                             .infoString(using: dependencies)
                 }
             }(),
-            timestampMs: Int64(sentTimestampMs)
+            timestampMs: Int64(sentTimestampMs),
+            using: dependencies
         ).inserted(db)
     }
     
@@ -544,6 +553,7 @@ extension MessageReceiver {
         // config messages so these are only for record purposes)
         _ = try Interaction(
             threadId: groupSessionId.hexString,
+            threadVariant: .group,
             authorId: sender,
             variant: .infoGroupMembersUpdated,
             body: ClosedGroup.MessageInfo
@@ -554,7 +564,8 @@ extension MessageReceiver {
                     )
                 )
                 .infoString(using: dependencies),
-            timestampMs: Int64(sentTimestampMs)
+            timestampMs: Int64(sentTimestampMs),
+            using: dependencies
         ).inserted(db)
         
         // If the user is a group admin then we need to remove the member from the group, we already have a
@@ -706,10 +717,10 @@ extension MessageReceiver {
         /// messages from the swarm as well
         guard
             !messageHashesToDeleteFromServer.isEmpty,
-            SessionUtil.isAdmin(groupSessionId: groupSessionId, using: dependencies),
+            LibSession.isAdmin(groupSessionId: groupSessionId, using: dependencies),
             let authMethod: AuthenticationMethod = try? Authentication.with(
                 db,
-                sessionIdHexString: groupSessionId.hexString,
+                swarmPublicKey: groupSessionId.hexString,
                 using: dependencies
             )
         else { return }
@@ -739,13 +750,13 @@ extension MessageReceiver {
         plaintext: Data,
         using dependencies: Dependencies
     ) throws {
-        let userSessionId: SessionId = getUserSessionId(db, using: dependencies)
+        let userSessionId: SessionId = dependencies[cache: .general].sessionId
         
         /// Ignore the message if the `memberSessionIds` doesn't contain the current users session id,
         /// it was sent before the user joined the group or if the `adminSignature` isn't valid
         guard
             let (memberId, keysGen): (SessionId, Int) = try? LibSessionMessage.groupKicked(plaintext: plaintext),
-            let currentKeysGen: Int = try? SessionUtil.currentGeneration(
+            let currentKeysGen: Int = try? LibSession.currentGeneration(
                 groupSessionId: groupSessionId,
                 using: dependencies
             ),
@@ -807,7 +818,7 @@ extension MessageReceiver {
                 // don't change the database as we assume it's state is correct, just update `libSession`
                 // in case it didn't have the correct `invited` state (if this triggers a GROUP_MEMBERS
                 // update then the database will eventually get back to a valid state)
-                try SessionUtil.updateMemberStatus(
+                try LibSession.updateMemberStatus(
                     db,
                     groupSessionId: groupSessionId,
                     memberId: senderSessionId,

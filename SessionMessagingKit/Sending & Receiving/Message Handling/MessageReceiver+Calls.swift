@@ -68,15 +68,16 @@ extension MessageReceiver {
                 .fetchOne(db))
                 .defaulting(to: false)
         else { return }
-        guard let timestamp = message.sentTimestamp, TimestampUtils.isWithinOneMinute(timestamp: timestamp) else {
+        guard let timestamp = message.sentTimestamp, TimestampUtils.isWithinOneMinute(timestampMs: timestamp) else {
             // Add missed call message for call offer messages from more than one minute
-            if let interaction: Interaction = try MessageReceiver.insertCallInfoMessage(db, for: message, state: .missed) {
+            if let interaction: Interaction = try MessageReceiver.insertCallInfoMessage(db, for: message, state: .missed, using: dependencies) {
                 let thread: SessionThread = try SessionThread.fetchOrCreate(
                     db,
                     id: sender,
                     variant: .contact,
                     shouldBeVisible: nil,
-                    calledFromConfig: nil
+                    calledFromConfig: nil,
+                    using: dependencies
                 )
                 
                 if !interaction.wasRead {
@@ -92,13 +93,14 @@ extension MessageReceiver {
         }
         
         guard db[.areCallsEnabled] else {
-            if let interaction: Interaction = try MessageReceiver.insertCallInfoMessage(db, for: message, state: .permissionDenied) {
+            if let interaction: Interaction = try MessageReceiver.insertCallInfoMessage(db, for: message, state: .permissionDenied, using: dependencies) {
                 let thread: SessionThread = try SessionThread.fetchOrCreate(
                     db,
                     id: sender,
                     variant: .contact,
                     shouldBeVisible: nil,
-                    calledFromConfig: nil
+                    calledFromConfig: nil,
+                    using: dependencies
                 )
                 
                 if !interaction.wasRead {
@@ -126,11 +128,11 @@ extension MessageReceiver {
         }
         
         guard dependencies[singleton: .callManager].currentCall == nil else {
-            try MessageReceiver.handleIncomingCallOfferInBusyState(db, message: message)
+            try MessageReceiver.handleIncomingCallOfferInBusyState(db, message: message, using: dependencies)
             return
         }
         
-        let interaction: Interaction? = try MessageReceiver.insertCallInfoMessage(db, for: message)
+        let interaction: Interaction? = try MessageReceiver.insertCallInfoMessage(db, for: message, using: dependencies)
         
         // Handle UI
         dependencies[singleton: .callManager].showCallUIForCall(
@@ -170,7 +172,7 @@ extension MessageReceiver {
             let sender: String = message.sender
         else { return }
         
-        guard sender != getUserSessionId(db, using: dependencies).hexString else {
+        guard sender != dependencies[cache: .general].sessionId.hexString else {
             guard !currentCall.hasStartedConnecting else { return }
             
             dependencies[singleton: .callManager].dismissAllCallUI()
@@ -201,7 +203,7 @@ extension MessageReceiver {
         
         dependencies[singleton: .callManager].dismissAllCallUI()
         dependencies[singleton: .callManager].reportCurrentCallEnded(
-            reason: (sender == getUserSessionId(db, using: dependencies).hexString ?
+            reason: (sender == dependencies[cache: .general].sessionId.hexString ?
                 .declinedElsewhere :
                 .remoteEnded
             )
@@ -213,14 +215,18 @@ extension MessageReceiver {
     public static func handleIncomingCallOfferInBusyState(
         _ db: Database,
         message: CallMessage,
-        using dependencies: Dependencies = Dependencies()
+        using dependencies: Dependencies
     ) throws {
         let messageInfo: CallMessage.MessageInfo = CallMessage.MessageInfo(state: .missed)
         
         guard
             let caller: String = message.sender,
             let messageInfoData: Data = try? JSONEncoder(using: dependencies).encode(messageInfo),
-            !SessionThread.isMessageRequest(db, threadId: caller, userSessionId: getUserSessionId(db, using: dependencies)),
+            !SessionThread.isMessageRequest(
+                db,
+                threadId: caller,
+                userSessionId: dependencies[cache: .general].sessionId
+            ),
             let thread: SessionThread = try SessionThread.fetchOne(db, id: caller)
         else { return }
         
@@ -228,12 +234,13 @@ extension MessageReceiver {
         
         let messageSentTimestamp: Int64 = (
             message.sentTimestamp.map { Int64($0) } ??
-            SnodeAPI.currentOffsetTimestampMs()
+            dependencies[cache: .snodeAPI].currentOffsetTimestampMs()
         )
         _ = try Interaction(
             serverHash: message.serverHash,
             messageUuid: message.uuid,
             threadId: thread.id,
+            threadVariant: thread.variant,
             authorId: caller,
             variant: .infoCall,
             body: String(data: messageInfoData, encoding: .utf8),
@@ -242,12 +249,13 @@ extension MessageReceiver {
                 threadId: thread.id,
                 threadVariant: thread.variant,
                 timestampMs: (messageSentTimestamp * 1000),
-                userSessionId: getUserSessionId(db, using: dependencies),
+                userSessionId: dependencies[cache: .general].sessionId,
                 openGroup: nil,
                 using: dependencies
             ),
             expiresInSeconds: message.expiresInSeconds,
-            expiresStartedAtMs: message.expiresStartedAtMs
+            expiresStartedAtMs: message.expiresStartedAtMs,
+            using: dependencies
         )
         .inserted(db)
 
@@ -281,7 +289,7 @@ extension MessageReceiver {
         _ db: Database,
         for message: CallMessage,
         state: CallMessage.MessageInfo.State? = nil,
-        using dependencies: Dependencies = Dependencies()
+        using dependencies: Dependencies
     ) throws -> Interaction? {
         guard
             (try? Interaction
@@ -290,11 +298,15 @@ extension MessageReceiver {
                 .isEmpty(db))
                 .defaulting(to: false),
             let sender: String = message.sender,
-            !SessionThread.isMessageRequest(db, threadId: sender, userSessionId: getUserSessionId(db, using: dependencies)),
+            !SessionThread.isMessageRequest(
+                db,
+                threadId: sender,
+                userSessionId: dependencies[cache: .general].sessionId
+            ),
             let thread: SessionThread = try SessionThread.fetchOne(db, id: sender)
         else { return nil }
         
-        let userSessionId: SessionId = getUserSessionId(db, using: dependencies)
+        let userSessionId: SessionId = dependencies[cache: .general].sessionId
         let messageInfo: CallMessage.MessageInfo = CallMessage.MessageInfo(
             state: state.defaulting(
                 to: (sender == userSessionId.hexString ?
@@ -305,7 +317,7 @@ extension MessageReceiver {
         )
         let timestampMs: Int64 = (
             message.sentTimestamp.map { Int64($0) } ??
-            SnodeAPI.currentOffsetTimestampMs(using: dependencies)
+            dependencies[cache: .snodeAPI].currentOffsetTimestampMs()
         )
         
         guard let messageInfoData: Data = try? JSONEncoder(using: dependencies).encode(messageInfo) else {
@@ -316,6 +328,7 @@ extension MessageReceiver {
             serverHash: message.serverHash,
             messageUuid: message.uuid,
             threadId: thread.id,
+            threadVariant: thread.variant,
             authorId: sender,
             variant: .infoCall,
             body: String(data: messageInfoData, encoding: .utf8),
@@ -329,7 +342,8 @@ extension MessageReceiver {
                 using: dependencies
             ),
             expiresInSeconds: message.expiresInSeconds,
-            expiresStartedAtMs: message.expiresStartedAtMs
+            expiresStartedAtMs: message.expiresStartedAtMs,
+            using: dependencies
         )
         .inserted(db)
     }

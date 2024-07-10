@@ -3,7 +3,6 @@
 import Foundation
 import Combine
 import GRDB
-import SignalCoreKit
 import SignalUtilitiesKit
 import SessionSnodeKit
 import SessionMessagingKit
@@ -28,7 +27,7 @@ public class NotificationActionHandler {
         completionHandler: @escaping () -> Void,
         using dependencies: Dependencies
     ) {
-        AssertIsOnMainThread()
+        Log.assertOnMainThread()
         handleNotificationResponse(response, using: dependencies)
             .subscribe(on: DispatchQueue.global(qos: .userInitiated), using: dependencies)
             .receive(on: DispatchQueue.main, using: dependencies)
@@ -38,7 +37,7 @@ public class NotificationActionHandler {
                         case .finished: break
                         case .failure(let error):
                             completionHandler()
-                            SNLog(.error, "error: \(error)")
+                            Log.error("[NotificationActionHandler] An error occured handling a notification response: \(error)")
                     }
                 },
                 receiveValue: { _ in completionHandler() }
@@ -49,7 +48,7 @@ public class NotificationActionHandler {
         _ response: UNNotificationResponse,
         using dependencies: Dependencies
     ) -> AnyPublisher<Void, Error> {
-        AssertIsOnMainThread()
+        Log.assertOnMainThread()
         assert(dependencies[singleton: .appReadiness].isAppReady)
 
         let userInfo: [AnyHashable: Any] = response.notification.request.content.userInfo
@@ -57,14 +56,14 @@ public class NotificationActionHandler {
 
         switch response.actionIdentifier {
             case UNNotificationDefaultActionIdentifier:
-                SNLog(.debug, "default action")
+                Log.debug("[NotificationActionHandler] Default action")
                 return showThread(userInfo: userInfo, using: dependencies)
                     .setFailureType(to: Error.self)
                     .eraseToAnyPublisher()
                 
             case UNNotificationDismissActionIdentifier:
                 // TODO - mark as read?
-                SNLog(.debug, "dismissed notification")
+                Log.debug("[NotificationActionHandler] Dismissed notification")
                 return Just(())
                     .setFailureType(to: Error.self)
                     .eraseToAnyPublisher()
@@ -135,14 +134,16 @@ public class NotificationActionHandler {
         }
         
         return dependencies[singleton: .storage]
-            .writePublisher { db -> HTTP.PreparedRequest<Void> in
+            .writePublisher { db -> Network.PreparedRequest<Void> in
                 let interaction: Interaction = try Interaction(
                     threadId: threadId,
-                    authorId: getUserSessionId(db, using: dependencies).hexString,
+                    threadVariant: thread.variant,
+                    authorId: dependencies[cache: .general].sessionId.hexString,
                     variant: .standardOutgoing,
                     body: replyText,
-                    timestampMs: SnodeAPI.currentOffsetTimestampMs(using: dependencies),
-                    hasMention: Interaction.isUserMentioned(db, threadId: threadId, body: replyText)
+                    timestampMs: dependencies[cache: .snodeAPI].currentOffsetTimestampMs(),
+                    hasMention: Interaction.isUserMentioned(db, threadId: threadId, body: replyText, using: dependencies),
+                    using: dependencies
                 ).inserted(db)
                 
                 try Interaction.markAsRead(
@@ -154,7 +155,8 @@ public class NotificationActionHandler {
                     trySendReadReceipt: try SessionThread.canSendReadReceipt(
                         db,
                         threadId: threadId,
-                        threadVariant: thread.variant
+                        threadVariant: thread.variant,
+                        using: dependencies
                     ),
                     using: dependencies
                 )
@@ -193,24 +195,23 @@ public class NotificationActionHandler {
             let threadId = userInfo[AppNotificationUserInfoKey.threadId] as? String,
             let threadVariantRaw = userInfo[AppNotificationUserInfoKey.threadVariantRaw] as? Int,
             let threadVariant: SessionThread.Variant = SessionThread.Variant(rawValue: threadVariantRaw)
-        else { return showHomeVC() }
+        else { return showHomeVC(using: dependencies) }
 
         // If this happens when the the app is not, visible we skip the animation so the thread
         // can be visible to the user immediately upon opening the app, rather than having to watch
         // it animate in from the homescreen.
-        SessionApp.presentConversationCreatingIfNeeded(
+        dependencies[singleton: .app].presentConversationCreatingIfNeeded(
             for: threadId,
             variant: threadVariant,
             dismissing: nil,
-            animated: (UIApplication.shared.applicationState == .active),
-            using: dependencies
+            animated: (UIApplication.shared.applicationState == .active)
         )
         
         return Just(()).eraseToAnyPublisher()
     }
     
-    func showHomeVC() -> AnyPublisher<Void, Never> {
-        SessionApp.showHomeView()
+    func showHomeVC(using dependencies: Dependencies) -> AnyPublisher<Void, Never> {
+        dependencies[singleton: .app].showHomeView()
         return Just(()).eraseToAnyPublisher()
     }
     
@@ -243,7 +244,8 @@ public class NotificationActionHandler {
                     trySendReadReceipt: try SessionThread.canSendReadReceipt(
                         db,
                         threadId: threadId,
-                        threadVariant: threadVariant
+                        threadVariant: threadVariant,
+                        using: dependencies
                     ),
                     using: dependencies
                 )

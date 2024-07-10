@@ -1,11 +1,9 @@
 // Copyright © 2022 Rangeproof Pty Ltd. All rights reserved.
 
 import UIKit
-import SignalCoreKit
 import SignalUtilitiesKit
 import SessionUIKit
 import SessionUtilitiesKit
-import SignalCoreKit
 
 final class SAEScreenLockViewController: ScreenLockViewController {
     private var hasShownAuthUIOnce: Bool = false
@@ -24,10 +22,6 @@ final class SAEScreenLockViewController: ScreenLockViewController {
     
     required init?(coder aDecoder: NSCoder) {
         fatalError("init(coder:) has not been implemented")
-    }
-    
-    deinit {
-        OWSLogger.verbose("Dealloc: \(type(of: self))")
     }
     
     // MARK: - UI
@@ -102,34 +96,34 @@ final class SAEScreenLockViewController: ScreenLockViewController {
     // MARK: - Functions
     
     private func tryToPresentAuthUIToUnlockScreenLock() {
-        AssertIsOnMainThread()
+        Log.assertOnMainThread()
 
         // If we're already showing the auth UI; abort.
         if self.isShowingAuthUI { return }
         
-        OWSLogger.info("try to unlock screen lock")
+        Log.info("try to unlock screen lock")
 
         isShowingAuthUI = true
         
         ScreenLock.shared.tryToUnlockScreenLock(
             success: { [weak self] in
-                AssertIsOnMainThread()
-                OWSLogger.info("unlock screen lock succeeded.")
+                Log.assertOnMainThread()
+                Log.info("unlock screen lock succeeded.")
                 
                 self?.isShowingAuthUI = false
                 self?.shareViewDelegate?.shareViewWasUnlocked()
             },
             failure: { [weak self] error in
-                AssertIsOnMainThread()
-                OWSLogger.info("unlock screen lock failed.")
+                Log.assertOnMainThread()
+                Log.info("unlock screen lock failed.")
                 
                 self?.isShowingAuthUI = false
                 self?.ensureUI()
                 self?.showScreenLockFailureAlert(message: error.localizedDescription)
             },
             unexpectedFailure: { [weak self] error in
-                AssertIsOnMainThread()
-                OWSLogger.info("unlock screen lock unexpectedly failed.")
+                Log.assertOnMainThread()
+                Log.info("unlock screen lock unexpectedly failed.")
                 
                 self?.isShowingAuthUI = false
                 
@@ -141,8 +135,8 @@ final class SAEScreenLockViewController: ScreenLockViewController {
                 }
             },
             cancel: { [weak self] in
-                AssertIsOnMainThread()
-                OWSLogger.info("unlock screen lock cancelled.")
+                Log.assertOnMainThread()
+                Log.info("unlock screen lock cancelled.")
                 
                 self?.isShowingAuthUI = false
                 self?.ensureUI()
@@ -157,7 +151,7 @@ final class SAEScreenLockViewController: ScreenLockViewController {
     }
     
     private func showScreenLockFailureAlert(message: String) {
-        AssertIsOnMainThread()
+        Log.assertOnMainThread()
         
         let modal: ConfirmationModal = ConfirmationModal(
             targetView: self.view,
@@ -173,8 +167,8 @@ final class SAEScreenLockViewController: ScreenLockViewController {
     }
     
     func unlockButtonWasTapped() {
-        AssertIsOnMainThread()
-        OWSLogger.info("unlockButtonWasTapped")
+        Log.assertOnMainThread()
+        Log.info("unlockButtonWasTapped")
         
         self.tryToPresentAuthUIToUnlockScreenLock()
     }
@@ -182,7 +176,7 @@ final class SAEScreenLockViewController: ScreenLockViewController {
     // MARK: - Transitions
     
     @objc private func dismissPressed() {
-        OWSLogger.debug("unlock screen lock cancelled.")
+        Log.debug("unlock screen lock cancelled.")
         
         self.cancelShareExperience()
     }

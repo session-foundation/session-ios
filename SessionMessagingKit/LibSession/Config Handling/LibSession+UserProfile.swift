@@ -5,6 +5,20 @@ import GRDB
 import SessionUtil
 import SessionUtilitiesKit
 
+// MARK: - LibSessionImmutableCacheType
+
+public extension LibSessionImmutableCacheType {
+    var userProfileDisplayName: String {
+        guard
+            let config: LibSession.Config = self.config(for: .userProfile, sessionId: userSessionId).wrappedValue,
+            case .object(let conf) = config,
+            let profileNamePtr: UnsafePointer<CChar> = user_profile_get_name(conf)
+        else { return "" }
+        
+        return String(cString: profileNamePtr)
+    }
+}
+
 internal extension LibSession {
     static let columnsRelatedToUserProfile: [Profile.Columns] = [
         Profile.Columns.name,
@@ -25,12 +39,14 @@ internal extension LibSession {
         using dependencies: Dependencies
     ) throws {
         guard config.needsDump(using: dependencies) else { return }
-        guard case .object(let conf) = config else { throw LibSessionError.invalidConfigObject }
+        guard case .object(let conf) = config else {
+            throw LibSessionError.invalidConfigObject
+        }
         
         // A profile must have a name so if this is null then it's invalid and can be ignored
         guard let profileNamePtr: UnsafePointer<CChar> = user_profile_get_name(conf) else { return }
         
-        let userSessionId: SessionId = getUserSessionId(db, using: dependencies)
+        let userSessionId: SessionId = dependencies[cache: .general].sessionId
         let profileName: String = String(cString: profileNamePtr)
         let profilePic: user_profile_pic = user_profile_get_pic(conf)
         let profilePictureUrl: String? = String(libSessionVal: profilePic.url, nullIfEmpty: true)
@@ -93,8 +109,9 @@ internal extension LibSession {
                     db,
                     id: userSessionId.hexString,
                     variant: .contact,
-                    shouldBeVisible: SessionUtil.shouldBeVisible(priority: targetPriority),
-                    calledFromConfig: .userProfile
+                    shouldBeVisible: LibSession.shouldBeVisible(priority: targetPriority),
+                    calledFromConfig: .userProfile,
+                    using: dependencies
                 )
             
             try SessionThread
@@ -158,7 +175,7 @@ internal extension LibSession {
         
         // Create a contact for the current user if needed (also force-approve the current user
         // in case the account got into a weird state or restored directly from a migration)
-        let userContact: Contact = Contact.fetchOrCreate(db, id: userSessionId.hexString)
+        let userContact: Contact = Contact.fetchOrCreate(db, id: userSessionId.hexString, using: dependencies)
         
         if !userContact.isTrusted || !userContact.isApproved || !userContact.didApproveMe {
             try userContact.upsert(db)
@@ -181,17 +198,21 @@ internal extension LibSession {
         profile: Profile,
         in config: Config?
     ) throws {
-        guard case .object(let conf) = config else { throw LibSessionError.invalidConfigObject }
+        guard case .object(let conf) = config else {
+            throw LibSessionError.invalidConfigObject
+        }
         
         // Update the name
-        var updatedName: [CChar] = profile.name.cArray.nullTerminated()
-        user_profile_set_name(conf, &updatedName)
+        var cUpdatedName: [CChar] = try profile.name.cString(using: .utf8) ?? { throw LibSessionError.invalidCConversion }()
+        user_profile_set_name(conf, &cUpdatedName)
+        try LibSessionError.throwIfNeeded(conf)
         
         // Either assign the updated profile pic, or sent a blank profile pic (to remove the current one)
         var profilePic: user_profile_pic = user_profile_pic()
         profilePic.url = profile.profilePictureUrl.toLibSession()
         profilePic.key = profile.profileEncryptionKey.toLibSession()
         user_profile_set_pic(conf, profilePic)
+        try LibSessionError.throwIfNeeded(conf)
     }
     
     static func updateNoteToSelf(
@@ -199,7 +220,9 @@ internal extension LibSession {
         disappearingMessagesConfig: DisappearingMessagesConfiguration? = nil,
         in config: Config?
     ) throws {
-        guard case .object(let conf) = config else { throw LibSessionError.invalidConfigObject }
+        guard case .object(let conf) = config else {
+            throw LibSessionError.invalidConfigObject
+        }
         
         if let priority: Int32 = priority {
             user_profile_set_nts_priority(conf, priority)

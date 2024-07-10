@@ -32,8 +32,8 @@ public class ThreadPickerViewModel {
     /// fetch (after the ones in `ValueConcurrentObserver.asyncStart`/`ValueConcurrentObserver.syncStart`)
     /// just in case the database has changed between the two reads - unfortunately it doesn't look like there is a way to prevent this
     public lazy var observableViewData = ValueObservation
-        .trackingConstantRegion { db -> [SessionThreadViewModel] in
-            let userSessionId: SessionId = getUserSessionId(db)
+        .trackingConstantRegion { [dependencies] db -> [SessionThreadViewModel] in
+            let userSessionId: SessionId = dependencies[cache: .general].sessionId
             
             return try SessionThreadViewModel
                 .shareQuery(userSessionId: userSessionId)

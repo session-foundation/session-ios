@@ -1,7 +1,6 @@
 //  Copyright (c) 2019 Open Whisper Systems. All rights reserved.
 
-import Foundation
-import SignalCoreKit
+import UIKit
 
 protocol GifPickerLayoutDelegate: AnyObject {
     func imageInfosForLayout() -> [GiphyImageInfo]
@@ -20,7 +19,7 @@ class GifPickerLayout: UICollectionViewLayout {
 
     @available(*, unavailable, message:"use other constructor instead.")
     required init?(coder aDecoder: NSCoder) {
-        notImplemented()
+        fatalError("init(coder:) has not been implemented")
     }
 
     override init() {

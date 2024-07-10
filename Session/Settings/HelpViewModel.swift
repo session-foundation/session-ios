@@ -7,7 +7,6 @@ import DifferenceKit
 import SessionUIKit
 import SessionMessagingKit
 import SessionUtilitiesKit
-import SignalCoreKit
 
 class HelpViewModel: SessionTableViewModel, NavigatableStateHolder, ObservableTableSource {
     typealias TableItem = Section
@@ -151,15 +150,13 @@ class HelpViewModel: SessionTableViewModel, NavigatableStateHolder, ObservableTa
         using dependencies: Dependencies,
         onShareComplete: (() -> ())? = nil
     ) {
-        OWSLogger.info("[Version] \(SessionApp.versionInfo)")
-        DDLog.flushLog()
-        
-        let logFilePaths: [String] = AppEnvironment.shared.fileLogger.logFileManager.sortedLogFilePaths
+        Log.info("[Version] \(dependencies[cache: .appVersion].versionInfo)")
+        Log.flush()
         
         guard
-            let latestLogFilePath: String = logFilePaths.first,
+            let latestLogFilePath: String = Log.logFilePath(),
             dependencies.hasInitialised(singleton: .appContext),
-            let viewController: UIViewController = dependencies[singleton: .appContext].frontmostViewController
+            let viewController: UIViewController = dependencies[singleton: .appContext].frontMostViewController
         else { return }
         
         let showShareSheet: () -> () = {

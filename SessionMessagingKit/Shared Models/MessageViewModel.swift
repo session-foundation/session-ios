@@ -269,7 +269,8 @@ public struct MessageViewModel: FetchableRecordWithRowId, Decodable, Equatable, 
         isLast: Bool,
         isLastOutgoing: Bool,
         currentUserBlinded15SessionId: String?,
-        currentUserBlinded25SessionId: String?
+        currentUserBlinded25SessionId: String?,
+        using dependencies: Dependencies
     ) -> MessageViewModel {
         let cellType: CellType = {
             guard self.isTypingIndicator != true else { return .typingIndicator }
@@ -420,7 +421,8 @@ public struct MessageViewModel: FetchableRecordWithRowId, Decodable, Equatable, 
                         )
                     },
                     attachmentCount: self.attachments?.count,
-                    isOpenGroupInvitation: (self.linkPreview?.variant == .openGroupInvitation)
+                    isOpenGroupInvitation: (self.linkPreview?.variant == .openGroupInvitation),
+                    using: dependencies
                 )
             ),
             rawBody: self.body,
@@ -500,7 +502,8 @@ public struct MessageViewModel: FetchableRecordWithRowId, Decodable, Equatable, 
             for: self.threadVariant,
             id: self.authorId,
             name: self.authorNameInternal,
-            nickname: nil  // Folded into 'authorName' within the Query
+            nickname: nil,      // Folded into 'authorName' within the Query
+            suppressId: false   // Show the id next to the author name if desired
         )
         
         return Interaction.attributedPreviewText(
@@ -510,7 +513,8 @@ public struct MessageViewModel: FetchableRecordWithRowId, Decodable, Equatable, 
                 for: self.threadVariant,
                 id: self.threadId,
                 name: self.threadContactNameInternal,
-                nickname: nil  // Folded into 'threadContactNameInternal' within the Query
+                nickname: nil,      // Folded into 'threadContactNameInternal' within the Query
+                suppressId: false   // Show the id next to the author name if desired
             ),
             authorDisplayName: authorDisplayName,
             attachmentDescriptionInfo: self.attachments?.first.map { firstAttachment in

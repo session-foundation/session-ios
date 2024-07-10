@@ -3,6 +3,5 @@
 #ifndef SessionUtilitiesKit_h
 #define SessionUtilitiesKit_h
 
-#import <SessionUtilitiesKit/CExceptionHelper.h>
-
 #endif /* SessionUtilitiesKit_h */
+

@@ -1,15 +1,20 @@
 // Copyright © 2023 Rangeproof Pty Ltd. All rights reserved.
 
 import UIKit
-import SessionUtilitiesKit
 
 public class TopBannerController: UIViewController {
     public enum Warning: String, Codable {
         case outdatedUserConfig
         
+        var shouldAppearOnResume: Bool {
+            switch self {
+                case .outdatedUserConfig: return true
+            }
+        }
+        
         var text: String {
             switch self {
-                case .outdatedUserConfig: return "USER_CONFIG_OUTDATED_WARNING".localized()
+                case .outdatedUserConfig: return NSLocalizedString("USER_CONFIG_OUTDATED_WARNING", comment: "")
             }
         }
     }
@@ -132,11 +137,9 @@ public class TopBannerController: UIViewController {
     
     // MARK: - Actions
     
-    @objc private func dismissBannerTapped() { dismissBanner() }
-    
-    private func dismissBanner(using dependencies: Dependencies = Dependencies()) {
+    @objc private func dismissBannerTapped() {
         // Remove the cached warning
-        dependencies[defaults: .appGroup, key: .topBannerWarningToShow] = nil
+        SNUIKit.topBannerChanged(to: nil)
         
         UIView.animate(
             withDuration: 0.3,
@@ -168,12 +171,11 @@ public class TopBannerController: UIViewController {
     
     public static func show(
         warning: Warning,
-        inWindowFor view: UIView? = nil,
-        using dependencies: Dependencies = Dependencies()
+        inWindowFor view: UIView? = nil
     ) {
         guard Thread.isMainThread else {
             DispatchQueue.main.async {
-                TopBannerController.show(warning: warning, inWindowFor: view, using: dependencies)
+                TopBannerController.show(warning: warning, inWindowFor: view)
             }
             return
         }
@@ -184,7 +186,9 @@ public class TopBannerController: UIViewController {
         }
         
         // Cache the banner to show (so we can show it on re-launch)
-        dependencies[defaults: .appGroup, key: .topBannerWarningToShow] = warning.rawValue
+        if instance.initialCachedWarning != nil && warning != instance.initialCachedWarning {
+            SNUIKit.topBannerChanged(to: warning)
+        }
         
         UIView.performWithoutAnimation {
             instance.bannerLabel.text = warning.text
@@ -214,6 +218,6 @@ public class TopBannerController: UIViewController {
             return
         }
         
-        UIView.performWithoutAnimation { instance.dismissBanner() }
+        UIView.performWithoutAnimation { instance.dismissBannerTapped() }
     }
 }

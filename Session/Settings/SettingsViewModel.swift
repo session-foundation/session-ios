@@ -3,7 +3,6 @@
 import Foundation
 import Combine
 import GRDB
-import YYImage
 import DifferenceKit
 import SessionUIKit
 import SessionMessagingKit
@@ -38,7 +37,7 @@ class SettingsViewModel: SessionTableViewModel, NavigationItemSource, Navigatabl
     
     init(using dependencies: Dependencies) {
         self.dependencies = dependencies
-        self.userSessionId = getUserSessionId(using: dependencies)
+        self.userSessionId = dependencies[cache: .general].sessionId
         self.oldDisplayName = Profile.fetchOrCreateCurrentUser(using: dependencies).name
     }
     
@@ -506,7 +505,7 @@ class SettingsViewModel: SessionTableViewModel, NavigationItemSource, Navigatabl
         /// Do nothing if developer mode is already enabled
         guard !dependencies[singleton: .storage, key: .developerModeEnabled] else { return }
         
-        dependencies[singleton: .storage].write(using: dependencies) { db in
+        dependencies[singleton: .storage].write { db in
             db[.developerModeEnabled] = true
         }
     }).eraseToAnyPublisher()
@@ -515,8 +514,8 @@ class SettingsViewModel: SessionTableViewModel, NavigationItemSource, Navigatabl
     
     private func updateProfilePicture(currentFileName: String?) {
         let existingDisplayName: String = self.oldDisplayName
-        let existingImageData: Data? = dependencies[singleton: .storage].read(using: dependencies) { [userSessionId] db in
-            DisplayPictureManager.displayPicture(db, id: .user(userSessionId.hexString))
+        let existingImageData: Data? = dependencies[singleton: .storage].read { [userSessionId, dependencies] db in
+            DisplayPictureManager.displayPicture(db, id: .user(userSessionId.hexString), using: dependencies)
         }
         let editProfilePictureModalInfo: ConfirmationModal.Info = ConfirmationModal.Info(
             title: "update_profile_modal_title".localized(),
@@ -614,7 +613,7 @@ class SettingsViewModel: SessionTableViewModel, NavigationItemSource, Navigatabl
         displayPictureUpdate: DisplayPictureManager.Update,
         onComplete: (() -> ())? = nil
     ) {
-        let viewController = ModalActivityIndicatorViewController(canCancel: false) { [weak self] modalActivityIndicator in
+        let viewController = ModalActivityIndicatorViewController(canCancel: false) { [weak self, dependencies] modalActivityIndicator in
             Profile.updateLocal(
                 queue: .global(qos: .default),
                 profileName: name,
@@ -665,7 +664,8 @@ class SettingsViewModel: SessionTableViewModel, NavigationItemSource, Navigatabl
                             )
                         }
                     }
-                }
+                },
+                using: dependencies
             )
         }
         

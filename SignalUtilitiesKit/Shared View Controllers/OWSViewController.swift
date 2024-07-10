@@ -95,7 +95,7 @@ open class OWSViewController: UIViewController {
         self.bottomLayoutConstraint = view.pin(
             .bottom,
             to: .bottom,
-            of: (avoidNotch ? view.safeAreaLayoutGuide : view)
+            of: (avoidNotch ? self.view.safeAreaLayoutGuide : self.view)
         )
     }
     

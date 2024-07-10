@@ -235,6 +235,12 @@ public struct Interaction: Codable, Identifiable, Equatable, FetchableRecord, Mu
     /// This value is the id of the user within an Open Group who is the target of this whisper interaction
     public let openGroupWhisperTo: String?
     
+    // MARK: - Internal Values Used During Creation
+    
+    /// **Note:** This reference only exist during the initial creation (it should be accessible from within the
+    /// `{will/around/did}Inset` functions as well) so shouldn't be relied on elsewhere to exist
+    private let transientDependencies: EquatableIgnoring<Dependencies>?
+    
     // MARK: - Relationships
          
     public var thread: QueryInterfaceRequest<SessionThread> {
@@ -279,7 +285,7 @@ public struct Interaction: Codable, Identifiable, Equatable, FetchableRecord, Mu
     
     // MARK: - Initialization
     
-    internal init(
+    private init(
         id: Int64? = nil,
         serverHash: String?,
         messageUuid: String?,
@@ -296,7 +302,8 @@ public struct Interaction: Codable, Identifiable, Equatable, FetchableRecord, Mu
         linkPreviewUrl: String?,
         openGroupServerMessageId: Int64?,
         openGroupWhisperMods: Bool,
-        openGroupWhisperTo: String?
+        openGroupWhisperTo: String?,
+        transientDependencies: EquatableIgnoring<Dependencies>?
     ) {
         self.id = id
         self.serverHash = serverHash
@@ -315,12 +322,14 @@ public struct Interaction: Codable, Identifiable, Equatable, FetchableRecord, Mu
         self.openGroupServerMessageId = openGroupServerMessageId
         self.openGroupWhisperMods = openGroupWhisperMods
         self.openGroupWhisperTo = openGroupWhisperTo
+        self.transientDependencies = transientDependencies
     }
     
     public init(
         serverHash: String? = nil,
         messageUuid: String? = nil,
         threadId: String,
+        threadVariant: SessionThread.Variant,
         authorId: String,
         variant: Variant,
         body: String? = nil,
@@ -332,7 +341,8 @@ public struct Interaction: Codable, Identifiable, Equatable, FetchableRecord, Mu
         linkPreviewUrl: String? = nil,
         openGroupServerMessageId: Int64? = nil,
         openGroupWhisperMods: Bool = false,
-        openGroupWhisperTo: String? = nil
+        openGroupWhisperTo: String? = nil,
+        using dependencies: Dependencies
     ) {
         self.serverHash = serverHash
         self.messageUuid = messageUuid
@@ -343,7 +353,8 @@ public struct Interaction: Codable, Identifiable, Equatable, FetchableRecord, Mu
         self.timestampMs = timestampMs
         self.receivedAtTimestampMs = {
             switch variant {
-                case .standardIncoming, .standardOutgoing: return SnodeAPI.currentOffsetTimestampMs()
+                case .standardIncoming, .standardOutgoing:
+                    return dependencies[cache: .snodeAPI].currentOffsetTimestampMs()
 
                 /// For TSInteractions which are not `standardIncoming` and `standardOutgoing` use the `timestampMs` value
                 default: return timestampMs
@@ -351,12 +362,13 @@ public struct Interaction: Codable, Identifiable, Equatable, FetchableRecord, Mu
         }()
         self.wasRead = (wasRead || !variant.canBeUnread)
         self.hasMention = hasMention
-        self.expiresInSeconds = expiresInSeconds
-        self.expiresStartedAtMs = expiresStartedAtMs
+        self.expiresInSeconds = (threadVariant != .community ? expiresInSeconds : nil)
+        self.expiresStartedAtMs = (threadVariant != .community ? expiresStartedAtMs : nil)
         self.linkPreviewUrl = linkPreviewUrl
         self.openGroupServerMessageId = openGroupServerMessageId
         self.openGroupWhisperMods = openGroupWhisperMods
         self.openGroupWhisperTo = openGroupWhisperTo
+        self.transientDependencies = EquatableIgnoring(value: dependencies)
     }
     
     // MARK: - Custom Database Interaction
@@ -408,9 +420,9 @@ public struct Interaction: Codable, Identifiable, Equatable, FetchableRecord, Mu
                         
                         // Exclude the current user when creating recipient states (as they will never
                         // receive the message resulting in the message getting flagged as failed)
-                        let userSessionId: SessionId = getUserSessionId(db)
+                        let currentUserSessionId: SessionId? = transientDependencies?.value[cache: .general].sessionId
                         try closedGroupMemberIds
-                            .filter { memberId -> Bool in memberId != userSessionId.hexString }
+                            .filter { memberId -> Bool in memberId != currentUserSessionId?.hexString }
                             .forEach { memberId in
                                 try RecipientState(
                                     interactionId: success.rowID,
@@ -434,18 +446,51 @@ public struct Interaction: Codable, Identifiable, Equatable, FetchableRecord, Mu
         }
         
         // Start the disappearing messages timer if needed
-        if self.expiresStartedAtMs != nil {
-            Dependencies()[singleton: .jobRunner].upsert(
-                db,
-                job: DisappearingMessagesJob.updateNextRunIfNeeded(db),
-                canStartJob: true,
-                using: Dependencies()
-            )
+        switch (self.transientDependencies?.value, self.expiresStartedAtMs) {
+            case (_, .none): break
+            case (.none, .some):
+                Log.error("[Interaction] Could not update disappearing messages job due to missing transientDependencies.")
+                
+            case (.some(let dependencies), .some):
+                dependencies[singleton: .jobRunner].upsert(
+                    db,
+                    job: DisappearingMessagesJob.updateNextRunIfNeeded(db, using: dependencies),
+                    canStartJob: true
+                )
         }
     }
     
     public mutating func didInsert(_ inserted: InsertionSuccess) {
         self.id = inserted.rowID
+    }
+}
+
+// MARK: - Codable
+
+public extension Interaction {
+    init(from decoder: any Decoder) throws {
+        let container: KeyedDecodingContainer<CodingKeys> = try decoder.container(keyedBy: CodingKeys.self)
+        
+        self = Interaction(
+            id: try? container.decode(Int64?.self, forKey: .id),
+            serverHash: try? container.decode(String?.self, forKey: .serverHash),
+            messageUuid: try? container.decode(String?.self, forKey: .messageUuid),
+            threadId: try container.decode(String.self, forKey: .threadId),
+            authorId: try container.decode(String.self, forKey: .authorId),
+            variant: try container.decode(Variant.self, forKey: .variant),
+            body: try? container.decode(String?.self, forKey: .body),
+            timestampMs: try container.decode(Int64.self, forKey: .timestampMs),
+            receivedAtTimestampMs: try container.decode(Int64.self, forKey: .receivedAtTimestampMs),
+            wasRead: try container.decode(Bool.self, forKey: .wasRead),
+            hasMention: try container.decode(Bool.self, forKey: .hasMention),
+            expiresInSeconds: try? container.decode(TimeInterval?.self, forKey: .expiresInSeconds),
+            expiresStartedAtMs: try? container.decode(Double?.self, forKey: .expiresStartedAtMs),
+            linkPreviewUrl: try? container.decode(String?.self, forKey: .linkPreviewUrl),
+            openGroupServerMessageId: try? container.decode(Int64?.self, forKey: .openGroupServerMessageId),
+            openGroupWhisperMods: try container.decode(Bool.self, forKey: .openGroupWhisperMods),
+            openGroupWhisperTo: try? container.decode(String?.self, forKey: .openGroupWhisperTo),
+            transientDependencies: decoder.dependencies.map { EquatableIgnoring(value: $0) }
+        )
     }
 }
 
@@ -480,33 +525,22 @@ public extension Interaction {
             linkPreviewUrl: self.linkPreviewUrl,
             openGroupServerMessageId: (openGroupServerMessageId ?? self.openGroupServerMessageId),
             openGroupWhisperMods: self.openGroupWhisperMods,
-            openGroupWhisperTo: self.openGroupWhisperTo
+            openGroupWhisperTo: self.openGroupWhisperTo,
+            transientDependencies: self.transientDependencies
         )
     }
     
-    func withDisappearAfterReadIfNeeded(_ db: Database) -> Interaction {
+    func withDisappearingMessagesConfiguration(_ db: Database, threadVariant: SessionThread.Variant) -> Interaction {
+        guard threadVariant != .community else { return self }
+        
         if let config = try? DisappearingMessagesConfiguration.fetchOne(db, id: self.threadId) {
-            return self.withDisappearingMessagesConfiguration(
-                config: config.with(type: .disappearAfterRead)
+            return self.with(
+                expiresInSeconds: config.durationSeconds,
+                expiresStartedAtMs: (config.type == .disappearAfterSend ? Double(self.timestampMs) : nil)
             )
         }
         
         return self
-    }
-    
-    func withDisappearingMessagesConfiguration(_ db: Database) -> Interaction {
-        if let config = try? DisappearingMessagesConfiguration.fetchOne(db, id: self.threadId) {
-            return self.withDisappearingMessagesConfiguration(config: config)
-        }
-        
-        return self
-    }
-    
-    func withDisappearingMessagesConfiguration(config: DisappearingMessagesConfiguration?) -> Interaction {
-        return self.with(
-            expiresInSeconds: config?.durationSeconds,
-            expiresStartedAtMs: (config?.type == .disappearAfterSend ? Double(self.timestampMs) : nil)
-        )
     }
 }
 
@@ -522,9 +556,9 @@ public extension Interaction {
     
     static func fetchUnreadCount(
         _ db: Database,
-        using dependencies: Dependencies = Dependencies()
+        using dependencies: Dependencies
     ) throws -> Int {
-        let userSessionId: SessionId = getUserSessionId(db, using: dependencies)
+        let userSessionId: SessionId = dependencies[cache: .general].sessionId
         let thread: TypedTableAlias<SessionThread> = TypedTableAlias()
         
         return try Interaction
@@ -752,12 +786,11 @@ public extension Interaction {
                 job: DisappearingMessagesJob.updateNextRunIfNeeded(
                     db,
                     interactionIds: interactionInfo.map { $0.id },
-                    startedAtMs: Double(SnodeAPI.currentOffsetTimestampMs(using: dependencies)),
+                    startedAtMs: dependencies[cache: .snodeAPI].currentOffsetTimestampMs(),
                     threadId: threadId,
                     using: dependencies
                 ),
-                canStartJob: true,
-                using: dependencies
+                canStartJob: true
             )
         }
         else {
@@ -800,8 +833,7 @@ public extension Interaction {
                         .map { $0.id },
                     using: dependencies
                 ),
-                canStartJob: true,
-                using: dependencies
+                canStartJob: true
             )
         }
     }
@@ -912,7 +944,8 @@ public extension Interaction {
             linkPreviewUrl: nil,
             openGroupServerMessageId: openGroupServerMessageId,
             openGroupWhisperMods: openGroupWhisperMods,
-            openGroupWhisperTo: openGroupWhisperTo
+            openGroupWhisperTo: openGroupWhisperTo,
+            transientDependencies: transientDependencies
         )
     }
     
@@ -921,10 +954,10 @@ public extension Interaction {
         threadId: String,
         body: String?,
         quoteAuthorId: String? = nil,
-        using dependencies: Dependencies = Dependencies()
+        using dependencies: Dependencies
     ) -> Bool {
         var publicKeysToCheck: [String] = [
-            getUserSessionId(db, using: dependencies).hexString
+            dependencies[cache: .general].sessionId.hexString
         ]
         
         // If the thread is an open group then add the blinded id as a key to check
@@ -992,7 +1025,7 @@ public extension Interaction {
                 return Interaction.previewText(
                     variant: self.variant,
                     body: self.body,
-                    authorDisplayName: Profile.displayName(db, id: threadId),
+                    authorDisplayName: Profile.displayName(db, id: threadId, using: dependencies),
                     using: dependencies
                 )
 

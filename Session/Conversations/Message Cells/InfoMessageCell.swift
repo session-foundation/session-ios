@@ -182,7 +182,8 @@ final class InfoMessageCell: MessageCell {
             
             timerView.configure(
                 expirationTimestampMs: expirationTimestampMs,
-                initialDurationSeconds: expiresInSeconds
+                initialDurationSeconds: expiresInSeconds,
+                using: dependencies
             )
             timerView.themeTintColor = .textSecondary
             timerView.isHidden = false

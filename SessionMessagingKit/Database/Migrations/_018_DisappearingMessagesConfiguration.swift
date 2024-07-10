@@ -38,7 +38,7 @@ enum _018_DisappearingMessagesConfiguration: Migration {
         
         // If there isn't already a user account then we can just finish here (there will be no
         // threads/configs to update and the configs won't be setup which would cause this to crash
-        guard Identity.userExists(db) else {
+        guard Identity.userExists(db, using: dependencies) else {
             return Storage.update(progress: 1, for: self, in: target, using: dependencies)
         }
         
@@ -61,7 +61,7 @@ enum _018_DisappearingMessagesConfiguration: Migration {
             .fetchAll(db)
             .forEach { config in
                 guard let thread: SessionThread = try? SessionThread.fetchOne(db, id: config.threadId) else { return }
-                guard !thread.isNoteToSelf(db) else {
+                guard !thread.isNoteToSelf(db, using: dependencies) else {
                     try updateDisappearingMessageType(db, id: config.threadId, type: .disappearAfterSend)
                     return
                 }

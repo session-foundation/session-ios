@@ -150,19 +150,19 @@ public enum OpenGroupAPI {
         requests: [any ErasedPreparedRequest],
         using dependencies: Dependencies
     ) throws -> Network.PreparedRequest<Network.BatchResponseMap<Endpoint>> {
-        return try OpenGroupAPI
-            .prepareRequest(
-                request: Request(
-                    db,
-                    method: .post,
-                    server: server,
-                    endpoint: .batch,
-                    body: Network.BatchRequest(requests: requests)
-                ),
-                responseType: Network.BatchResponseMap<Endpoint>.self,
-                using: dependencies
-            )
-            .signed(db, with: OpenGroupAPI.signRequest, using: dependencies)
+        return try Network.PreparedRequest(
+            request: Request(
+                db,
+                method: .post,
+                server: server,
+                endpoint: Endpoint.batch,
+                body: Network.BatchRequest(requests: requests)
+            ),
+            responseType: Network.BatchResponseMap<Endpoint>.self,
+            additionalSignatureData: AdditionalSigningData(server: server),
+            using: dependencies
+        )
+        .signed(db, with: OpenGroupAPI.signRequest, using: dependencies)
     }
     
     /// This is like `/batch`, except that it guarantees to perform requests sequentially in the order provided and will stop processing requests
@@ -181,19 +181,19 @@ public enum OpenGroupAPI {
         requests: [any ErasedPreparedRequest],
         using dependencies: Dependencies
     ) throws -> Network.PreparedRequest<Network.BatchResponseMap<Endpoint>> {
-        return try OpenGroupAPI
-            .prepareRequest(
-                request: Request(
-                    db,
-                    method: .post,
-                    server: server,
-                    endpoint: .sequence,
-                    body: Network.BatchRequest(requests: requests)
-                ),
-                responseType: Network.BatchResponseMap<Endpoint>.self,
-                using: dependencies
-            )
-            .signed(db, with: OpenGroupAPI.signRequest, using: dependencies)
+        return try Network.PreparedRequest(
+            request: Request(
+                db,
+                method: .post,
+                server: server,
+                endpoint: Endpoint.sequence,
+                body: Network.BatchRequest(requests: requests)
+            ),
+            responseType: Network.BatchResponseMap<Endpoint>.self,
+            additionalSignatureData: AdditionalSigningData(server: server),
+            using: dependencies
+        )
+        .signed(db, with: OpenGroupAPI.signRequest, using: dependencies)
     }
     
     // MARK: - Capabilities
@@ -211,18 +211,20 @@ public enum OpenGroupAPI {
         forceBlinded: Bool = false,
         using dependencies: Dependencies
     ) throws -> Network.PreparedRequest<Capabilities> {
-        return try OpenGroupAPI
-            .prepareRequest(
-                request: Request<NoBody, Endpoint>(
-                    db,
-                    server: server,
-                    endpoint: .capabilities,
-                    forceBlinded: forceBlinded
-                ),
-                responseType: Capabilities.self,
-                using: dependencies
-            )
-            .signed(db, with: OpenGroupAPI.signRequest, using: dependencies)
+        return try Network.PreparedRequest(
+            request: Request<NoBody, Endpoint>(
+                db,
+                server: server,
+                endpoint: .capabilities
+            ),
+            responseType: Capabilities.self,
+            additionalSignatureData: AdditionalSigningData(
+                server: server,
+                forceBlinded: forceBlinded
+            ),
+            using: dependencies
+        )
+        .signed(db, with: OpenGroupAPI.signRequest, using: dependencies)
     }
     
     // MARK: - Room
@@ -235,17 +237,17 @@ public enum OpenGroupAPI {
         server: String,
         using dependencies: Dependencies
     ) throws -> Network.PreparedRequest<[Room]> {
-        return try OpenGroupAPI
-            .prepareRequest(
-                request: Request<NoBody, Endpoint>(
-                    db,
-                    server: server,
-                    endpoint: .rooms
-                ),
-                responseType: [Room].self,
-                using: dependencies
-            )
-            .signed(db, with: OpenGroupAPI.signRequest, using: dependencies)
+        return try Network.PreparedRequest(
+            request: Request<NoBody, Endpoint>(
+                db,
+                server: server,
+                endpoint: .rooms
+            ),
+            responseType: [Room].self,
+            additionalSignatureData: AdditionalSigningData(server: server),
+            using: dependencies
+        )
+        .signed(db, with: OpenGroupAPI.signRequest, using: dependencies)
     }
     
     /// Returns the details of a single room
@@ -255,17 +257,17 @@ public enum OpenGroupAPI {
         on server: String,
         using dependencies: Dependencies
     ) throws -> Network.PreparedRequest<Room> {
-        return try OpenGroupAPI
-            .prepareRequest(
-                request: Request<NoBody, Endpoint>(
-                    db,
-                    server: server,
-                    endpoint: .room(roomToken)
-                ),
-                responseType: Room.self,
-                using: dependencies
-            )
-            .signed(db, with: OpenGroupAPI.signRequest, using: dependencies)
+        return try Network.PreparedRequest(
+            request: Request<NoBody, Endpoint>(
+                db,
+                server: server,
+                endpoint: .room(roomToken)
+            ),
+            responseType: Room.self,
+            additionalSignatureData: AdditionalSigningData(server: server),
+            using: dependencies
+        )
+        .signed(db, with: OpenGroupAPI.signRequest, using: dependencies)
     }
     
     /// Polls a room for metadata updates
@@ -279,17 +281,17 @@ public enum OpenGroupAPI {
         on server: String,
         using dependencies: Dependencies
     ) throws -> Network.PreparedRequest<RoomPollInfo> {
-        return try OpenGroupAPI
-            .prepareRequest(
-                request: Request<NoBody, Endpoint>(
-                    db,
-                    server: server,
-                    endpoint: .roomPollInfo(roomToken, lastUpdated)
-                ),
-                responseType: RoomPollInfo.self,
-                using: dependencies
-            )
-            .signed(db, with: OpenGroupAPI.signRequest, using: dependencies)
+        return try Network.PreparedRequest(
+            request: Request<NoBody, Endpoint>(
+                db,
+                server: server,
+                endpoint: .roomPollInfo(roomToken, lastUpdated)
+            ),
+            responseType: RoomPollInfo.self,
+            additionalSignatureData: AdditionalSigningData(server: server),
+            using: dependencies
+        )
+        .signed(db, with: OpenGroupAPI.signRequest, using: dependencies)
     }
     
     public typealias CapabilitiesAndRoomResponse = (
@@ -415,25 +417,25 @@ public enum OpenGroupAPI {
             using: dependencies
         )
         
-        return try OpenGroupAPI
-            .prepareRequest(
-                request: Request(
-                    db,
-                    method: .post,
-                    server: server,
-                    endpoint: Endpoint.roomMessage(roomToken),
-                    body: SendMessageRequest(
-                        data: plaintext,
-                        signature: Data(signResult.signature),
-                        whisperTo: whisperTo,
-                        whisperMods: whisperMods,
-                        fileIds: fileIds
-                    )
-                ),
-                responseType: Message.self,
-                using: dependencies
-            )
-            .signed(db, with: OpenGroupAPI.signRequest, using: dependencies)
+        return try Network.PreparedRequest(
+            request: Request(
+                db,
+                method: .post,
+                server: server,
+                endpoint: Endpoint.roomMessage(roomToken),
+                body: SendMessageRequest(
+                    data: plaintext,
+                    signature: Data(signResult.signature),
+                    whisperTo: whisperTo,
+                    whisperMods: whisperMods,
+                    fileIds: fileIds
+                )
+            ),
+            responseType: Message.self,
+            additionalSignatureData: AdditionalSigningData(server: server),
+            using: dependencies
+        )
+        .signed(db, with: OpenGroupAPI.signRequest, using: dependencies)
     }
     
     /// Returns a single message by ID
@@ -444,17 +446,17 @@ public enum OpenGroupAPI {
         on server: String,
         using dependencies: Dependencies
     ) throws -> Network.PreparedRequest<Message> {
-        return try OpenGroupAPI
-            .prepareRequest(
-                request: Request<NoBody, Endpoint>(
-                    db,
-                    server: server,
-                    endpoint: .roomMessageIndividual(roomToken, id: id)
-                ),
-                responseType: Message.self,
-                using: dependencies
-            )
-            .signed(db, with: OpenGroupAPI.signRequest, using: dependencies)
+        return try Network.PreparedRequest(
+            request: Request<NoBody, Endpoint>(
+                db,
+                server: server,
+                endpoint: .roomMessageIndividual(roomToken, id: id)
+            ),
+            responseType: Message.self,
+            additionalSignatureData: AdditionalSigningData(server: server),
+            using: dependencies
+        )
+        .signed(db, with: OpenGroupAPI.signRequest, using: dependencies)
     }
     
     /// Edits a message, replacing its existing content with new content and a new signature
@@ -477,23 +479,23 @@ public enum OpenGroupAPI {
             using: dependencies
         )
         
-        return try OpenGroupAPI
-            .prepareRequest(
-                request: Request(
-                    db,
-                    method: .put,
-                    server: server,
-                    endpoint: Endpoint.roomMessageIndividual(roomToken, id: id),
-                    body: UpdateMessageRequest(
-                        data: plaintext,
-                        signature: Data(signResult.signature),
-                        fileIds: fileIds
-                    )
-                ),
-                responseType: NoResponse.self,
-                using: dependencies
-            )
-            .signed(db, with: OpenGroupAPI.signRequest, using: dependencies)
+        return try Network.PreparedRequest(
+            request: Request(
+                db,
+                method: .put,
+                server: server,
+                endpoint: Endpoint.roomMessageIndividual(roomToken, id: id),
+                body: UpdateMessageRequest(
+                    data: plaintext,
+                    signature: Data(signResult.signature),
+                    fileIds: fileIds
+                )
+            ),
+            responseType: NoResponse.self,
+            additionalSignatureData: AdditionalSigningData(server: server),
+            using: dependencies
+        )
+        .signed(db, with: OpenGroupAPI.signRequest, using: dependencies)
     }
     
     /// Remove a message by its message id
@@ -504,18 +506,18 @@ public enum OpenGroupAPI {
         on server: String,
         using dependencies: Dependencies
     ) throws -> Network.PreparedRequest<NoResponse> {
-        return try OpenGroupAPI
-            .prepareRequest(
-                request: Request<NoBody, Endpoint>(
-                    db,
-                    method: .delete,
-                    server: server,
-                    endpoint: .roomMessageIndividual(roomToken, id: id)
-                ),
-                responseType: NoResponse.self,
-                using: dependencies
-            )
-            .signed(db, with: OpenGroupAPI.signRequest, using: dependencies)
+        return try Network.PreparedRequest(
+            request: Request<NoBody, Endpoint>(
+                db,
+                method: .delete,
+                server: server,
+                endpoint: .roomMessageIndividual(roomToken, id: id)
+            ),
+            responseType: NoResponse.self,
+            additionalSignatureData: AdditionalSigningData(server: server),
+            using: dependencies
+        )
+        .signed(db, with: OpenGroupAPI.signRequest, using: dependencies)
     }
     
     /// Retrieves recent messages posted to this room
@@ -529,21 +531,21 @@ public enum OpenGroupAPI {
         on server: String,
         using dependencies: Dependencies
     ) throws -> Network.PreparedRequest<[Failable<Message>]> {
-        return try OpenGroupAPI
-            .prepareRequest(
-                request: Request<NoBody, Endpoint>(
-                    db,
-                    server: server,
-                    endpoint: .roomMessagesRecent(roomToken),
-                    queryParameters: [
-                        .updateTypes: UpdateTypes.reaction.rawValue,
-                        .reactors: "5"
-                    ]
-                ),
-                responseType: [Failable<Message>].self,
-                using: dependencies
-            )
-            .signed(db, with: OpenGroupAPI.signRequest, using: dependencies)
+        return try Network.PreparedRequest(
+            request: Request<NoBody, Endpoint>(
+                db,
+                server: server,
+                endpoint: .roomMessagesRecent(roomToken),
+                queryParameters: [
+                    .updateTypes: UpdateTypes.reaction.rawValue,
+                    .reactors: "5"
+                ]
+            ),
+            responseType: [Failable<Message>].self,
+            additionalSignatureData: AdditionalSigningData(server: server),
+            using: dependencies
+        )
+        .signed(db, with: OpenGroupAPI.signRequest, using: dependencies)
     }
     
     /// Retrieves messages from the room preceding a given id.
@@ -559,21 +561,21 @@ public enum OpenGroupAPI {
         on server: String,
         using dependencies: Dependencies
     ) throws -> Network.PreparedRequest<[Failable<Message>]> {
-        return try OpenGroupAPI
-            .prepareRequest(
-                request: Request<NoBody, Endpoint>(
-                    db,
-                    server: server,
-                    endpoint: .roomMessagesBefore(roomToken, id: messageId),
-                    queryParameters: [
-                        .updateTypes: UpdateTypes.reaction.rawValue,
-                        .reactors: "5"
-                    ]
-                ),
-                responseType: [Failable<Message>].self,
-                using: dependencies
-            )
-            .signed(db, with: OpenGroupAPI.signRequest, using: dependencies)
+        return try Network.PreparedRequest(
+            request: Request<NoBody, Endpoint>(
+                db,
+                server: server,
+                endpoint: .roomMessagesBefore(roomToken, id: messageId),
+                queryParameters: [
+                    .updateTypes: UpdateTypes.reaction.rawValue,
+                    .reactors: "5"
+                ]
+            ),
+            responseType: [Failable<Message>].self,
+            additionalSignatureData: AdditionalSigningData(server: server),
+            using: dependencies
+        )
+        .signed(db, with: OpenGroupAPI.signRequest, using: dependencies)
     }
     
     /// Retrieves message updates from a room. This is the main message polling endpoint in SOGS.
@@ -589,21 +591,21 @@ public enum OpenGroupAPI {
         on server: String,
         using dependencies: Dependencies
     ) throws -> Network.PreparedRequest<[Failable<Message>]> {
-        return try OpenGroupAPI
-            .prepareRequest(
-                request: Request<NoBody, Endpoint>(
-                    db,
-                    server: server,
-                    endpoint: .roomMessagesSince(roomToken, seqNo: seqNo),
-                    queryParameters: [
-                        .updateTypes: UpdateTypes.reaction.rawValue,
-                        .reactors: "5"
-                    ]
-                ),
-                responseType: [Failable<Message>].self,
-                using: dependencies
-            )
-            .signed(db, with: OpenGroupAPI.signRequest, using: dependencies)
+        return try Network.PreparedRequest(
+            request: Request<NoBody, Endpoint>(
+                db,
+                server: server,
+                endpoint: .roomMessagesSince(roomToken, seqNo: seqNo),
+                queryParameters: [
+                    .updateTypes: UpdateTypes.reaction.rawValue,
+                    .reactors: "5"
+                ]
+            ),
+            responseType: [Failable<Message>].self,
+            additionalSignatureData: AdditionalSigningData(server: server),
+            using: dependencies
+        )
+        .signed(db, with: OpenGroupAPI.signRequest, using: dependencies)
     }
     
     /// Deletes all messages from a given sessionId within the provided rooms (or globally) on a server
@@ -626,18 +628,18 @@ public enum OpenGroupAPI {
         on server: String,
         using dependencies: Dependencies
     ) throws -> Network.PreparedRequest<NoResponse> {
-        return try OpenGroupAPI
-            .prepareRequest(
-                request: Request<NoBody, Endpoint>(
-                    db,
-                    method: .delete,
-                    server: server,
-                    endpoint: Endpoint.roomDeleteMessages(roomToken, sessionId: sessionId)
-                ),
-                responseType: NoResponse.self,
-                using: dependencies
-            )
-            .signed(db, with: OpenGroupAPI.signRequest, using: dependencies)
+        return try Network.PreparedRequest(
+            request: Request<NoBody, Endpoint>(
+                db,
+                method: .delete,
+                server: server,
+                endpoint: Endpoint.roomDeleteMessages(roomToken, sessionId: sessionId)
+            ),
+            responseType: NoResponse.self,
+            additionalSignatureData: AdditionalSigningData(server: server),
+            using: dependencies
+        )
+        .signed(db, with: OpenGroupAPI.signRequest, using: dependencies)
     }
     
     // MARK: - Reactions
@@ -657,18 +659,18 @@ public enum OpenGroupAPI {
             throw OpenGroupAPIError.invalidEmoji
         }
         
-        return try OpenGroupAPI
-            .prepareRequest(
-                request: Request<NoBody, Endpoint>(
-                    db,
-                    method: .get,
-                    server: server,
-                    endpoint: .reactors(roomToken, id: id, emoji: encodedEmoji)
-                ),
-                responseType: NoResponse.self,
-                using: dependencies
-            )
-            .signed(db, with: OpenGroupAPI.signRequest, using: dependencies)
+        return try Network.PreparedRequest(
+            request: Request<NoBody, Endpoint>(
+                db,
+                method: .get,
+                server: server,
+                endpoint: .reactors(roomToken, id: id, emoji: encodedEmoji)
+            ),
+            responseType: NoResponse.self,
+            additionalSignatureData: AdditionalSigningData(server: server),
+            using: dependencies
+        )
+        .signed(db, with: OpenGroupAPI.signRequest, using: dependencies)
     }
     
     /// Adds a reaction to the given message in this room. The user must have read access in the room.
@@ -689,18 +691,18 @@ public enum OpenGroupAPI {
             throw OpenGroupAPIError.invalidEmoji
         }
         
-        return try OpenGroupAPI
-            .prepareRequest(
-                request: Request<NoBody, Endpoint>(
-                    db,
-                    method: .put,
-                    server: server,
-                    endpoint: .reaction(roomToken, id: id, emoji: encodedEmoji)
-                ),
-                responseType: ReactionAddResponse.self,
-                using: dependencies
-            )
-            .signed(db, with: OpenGroupAPI.signRequest, using: dependencies)
+        return try Network.PreparedRequest(
+            request: Request<NoBody, Endpoint>(
+                db,
+                method: .put,
+                server: server,
+                endpoint: .reaction(roomToken, id: id, emoji: encodedEmoji)
+            ),
+            responseType: ReactionAddResponse.self,
+            additionalSignatureData: AdditionalSigningData(server: server),
+            using: dependencies
+        )
+        .signed(db, with: OpenGroupAPI.signRequest, using: dependencies)
     }
     
     /// Removes a reaction from a post this room. The user must have read access in the room. This only removes the user's own reaction
@@ -719,18 +721,18 @@ public enum OpenGroupAPI {
             throw OpenGroupAPIError.invalidEmoji
         }
         
-        return try OpenGroupAPI
-            .prepareRequest(
-                request: Request<NoBody, Endpoint>(
-                    db,
-                    method: .delete,
-                    server: server,
-                    endpoint: .reaction(roomToken, id: id, emoji: encodedEmoji)
-                ),
-                responseType: ReactionRemoveResponse.self,
-                using: dependencies
-            )
-            .signed(db, with: OpenGroupAPI.signRequest, using: dependencies)
+        return try Network.PreparedRequest(
+            request: Request<NoBody, Endpoint>(
+                db,
+                method: .delete,
+                server: server,
+                endpoint: .reaction(roomToken, id: id, emoji: encodedEmoji)
+            ),
+            responseType: ReactionRemoveResponse.self,
+            additionalSignatureData: AdditionalSigningData(server: server),
+            using: dependencies
+        )
+        .signed(db, with: OpenGroupAPI.signRequest, using: dependencies)
     }
     
     /// Removes all reactions of all users from a post in this room. The calling must have moderator permissions in the room. This endpoint
@@ -750,18 +752,18 @@ public enum OpenGroupAPI {
             throw OpenGroupAPIError.invalidEmoji
         }
         
-        return try OpenGroupAPI
-            .prepareRequest(
-                request: Request<NoBody, Endpoint>(
-                    db,
-                    method: .delete,
-                    server: server,
-                    endpoint: .reactionDelete(roomToken, id: id, emoji: encodedEmoji)
-                ),
-                responseType: ReactionRemoveAllResponse.self,
-                using: dependencies
-            )
-            .signed(db, with: OpenGroupAPI.signRequest, using: dependencies)
+        return try Network.PreparedRequest(
+            request: Request<NoBody, Endpoint>(
+                db,
+                method: .delete,
+                server: server,
+                endpoint: .reactionDelete(roomToken, id: id, emoji: encodedEmoji)
+            ),
+            responseType: ReactionRemoveAllResponse.self,
+            additionalSignatureData: AdditionalSigningData(server: server),
+            using: dependencies
+        )
+        .signed(db, with: OpenGroupAPI.signRequest, using: dependencies)
     }
     
     // MARK: - Pinning
@@ -783,18 +785,18 @@ public enum OpenGroupAPI {
         on server: String,
         using dependencies: Dependencies
     ) throws -> Network.PreparedRequest<NoResponse> {
-        return try OpenGroupAPI
-            .prepareRequest(
-                request: Request<NoBody, Endpoint>(
-                    db,
-                    method: .post,
-                    server: server,
-                    endpoint: .roomPinMessage(roomToken, id: id)
-                ),
-                responseType: NoResponse.self,
-                using: dependencies
-            )
-            .signed(db, with: OpenGroupAPI.signRequest, using: dependencies)
+        return try Network.PreparedRequest(
+            request: Request<NoBody, Endpoint>(
+                db,
+                method: .post,
+                server: server,
+                endpoint: .roomPinMessage(roomToken, id: id)
+            ),
+            responseType: NoResponse.self,
+            additionalSignatureData: AdditionalSigningData(server: server),
+            using: dependencies
+        )
+        .signed(db, with: OpenGroupAPI.signRequest, using: dependencies)
     }
     
     /// Remove a message from this room's pinned message list
@@ -807,18 +809,18 @@ public enum OpenGroupAPI {
         on server: String,
         using dependencies: Dependencies
     ) throws -> Network.PreparedRequest<NoResponse> {
-        return try OpenGroupAPI
-            .prepareRequest(
-                request: Request<NoBody, Endpoint>(
-                    db,
-                    method: .post,
-                    server: server,
-                    endpoint: .roomUnpinMessage(roomToken, id: id)
-                ),
-                responseType: NoResponse.self,
-                using: dependencies
-            )
-            .signed(db, with: OpenGroupAPI.signRequest, using: dependencies)
+        return try Network.PreparedRequest(
+            request: Request<NoBody, Endpoint>(
+                db,
+                method: .post,
+                server: server,
+                endpoint: .roomUnpinMessage(roomToken, id: id)
+            ),
+            responseType: NoResponse.self,
+            additionalSignatureData: AdditionalSigningData(server: server),
+            using: dependencies
+        )
+        .signed(db, with: OpenGroupAPI.signRequest, using: dependencies)
     }
     
     /// Removes _all_ pinned messages from this room
@@ -830,81 +832,97 @@ public enum OpenGroupAPI {
         on server: String,
         using dependencies: Dependencies
     ) throws -> Network.PreparedRequest<NoResponse> {
-        return try OpenGroupAPI
-            .prepareRequest(
-                request: Request<NoBody, Endpoint>(
-                    db,
-                    method: .post,
-                    server: server,
-                    endpoint: .roomUnpinAll(roomToken)
-                ),
-                responseType: NoResponse.self,
-                using: dependencies
-            )
-            .signed(db, with: OpenGroupAPI.signRequest, using: dependencies)
+        return try Network.PreparedRequest(
+            request: Request<NoBody, Endpoint>(
+                db,
+                method: .post,
+                server: server,
+                endpoint: .roomUnpinAll(roomToken)
+            ),
+            responseType: NoResponse.self,
+            additionalSignatureData: AdditionalSigningData(server: server),
+            using: dependencies
+        )
+        .signed(db, with: OpenGroupAPI.signRequest, using: dependencies)
     }
     
     // MARK: - Files
     
-    /// Uploads a file to a room.
-    ///
-    /// Takes the request as binary in the body and takes other properties (specifically the suggested filename) via submitted headers.
-    ///
-    /// The user must have upload and posting permissions for the room. The file will have a default lifetime of 1 hour, which is extended
-    /// to 15 days (by default) when a post referencing the uploaded file is posted or edited.
-    public static func preparedUploadFile(
+    public static func preparedUpload(
         _ db: Database,
-        bytes: [UInt8],
-        fileName: String? = nil,
+        data: Data,
         to roomToken: String,
         on server: String,
+        fileName: String? = nil,
         using dependencies: Dependencies
     ) throws -> Network.PreparedRequest<FileUploadResponse> {
-        return try OpenGroupAPI
-            .prepareRequest(
-                request: Request(
-                    db,
-                    method: .post,
+        let maybePublicKey: String? = try? OpenGroup
+            .select(.publicKey)
+            .filter(OpenGroup.Columns.server == server.lowercased())
+            .asRequest(of: String.self)
+            .fetchOne(db)
+
+        guard let serverPublicKey: String = maybePublicKey else { throw OpenGroupAPIError.noPublicKey }
+        
+        return try Network.PreparedRequest(
+            request: Request(
+                method: .post,
+                endpoint: Endpoint.roomFile(roomToken),
+                destination: .serverUpload(
                     server: server,
                     endpoint: Endpoint.roomFile(roomToken),
-                    headers: [
-                        .contentDisposition: [ "attachment", fileName.map { "filename=\"\($0)\"" } ]
-                            .compactMap{ $0 }
-                            .joined(separator: "; "),
-                        .contentType: "application/octet-stream"
-                    ],
-                    body: bytes
+                    x25519PublicKey: serverPublicKey,
+                    fileName: fileName
                 ),
-                responseType: FileUploadResponse.self,
-                timeout: FileServerAPI.fileUploadTimeout,
-                using: dependencies
-            )
-            .signed(db, with: OpenGroupAPI.signRequest, using: dependencies)
+                body: data
+            ),
+            responseType: FileUploadResponse.self,
+            additionalSignatureData: AdditionalSigningData(server: server),
+            timeout: Network.fileUploadTimeout,
+            using: dependencies
+        )
+        .signed(db, with: OpenGroupAPI.signRequest, using: dependencies)
     }
     
-    /// Retrieves a file uploaded to the room.
-    ///
-    /// Retrieves a file via its numeric id from the room, returning the file content directly as the binary response body. The file's suggested
-    /// filename (as provided by the uploader) is provided in the Content-Disposition header, if available.
-    public static func preparedDownloadFile(
+    public static func downloadUrlString(
+        for fileId: String,
+        server: String,
+        roomToken: String
+    ) -> String {
+        return "\(server)/\(Endpoint.roomFileIndividual(roomToken, fileId).path)"
+    }
+    
+    public static func preparedDownload(
+        _ db: Database,
+        url: URL,
+        from roomToken: String,
+        on server: String,
+        using dependencies: Dependencies
+    ) throws -> Network.PreparedRequest<Data> {
+        guard let fileId: String = Attachment.fileId(for: url.absoluteString) else { throw NetworkError.invalidURL }
+        
+        return try preparedDownload(db, fileId: fileId, from: roomToken, on: server, using: dependencies)
+    }
+    
+    public static func preparedDownload(
         _ db: Database,
         fileId: String,
         from roomToken: String,
         on server: String,
         using dependencies: Dependencies
     ) throws -> Network.PreparedRequest<Data> {
-        return try OpenGroupAPI
-            .prepareRequest(
-                request: Request<NoBody, Endpoint>(
-                    db,
-                    server: server,
-                    endpoint: .roomFileIndividual(roomToken, fileId)
-                ),
-                responseType: Data.self,
-                timeout: FileServerAPI.fileDownloadTimeout,
-                using: dependencies
-            )
-            .signed(db, with: OpenGroupAPI.signRequest, using: dependencies)
+        return try Network.PreparedRequest(
+            request: Request<NoBody, Endpoint>(
+                db,
+                server: server,
+                endpoint: .roomFileIndividual(roomToken, fileId)
+            ),
+            responseType: Data.self,
+            additionalSignatureData: AdditionalSigningData(server: server),
+            timeout: Network.fileDownloadTimeout,
+            using: dependencies
+        )
+        .signed(db, with: OpenGroupAPI.signRequest, using: dependencies)
     }
     
     // MARK: - Inbox/Outbox (Message Requests)
@@ -917,17 +935,17 @@ public enum OpenGroupAPI {
         on server: String,
         using dependencies: Dependencies
     ) throws -> Network.PreparedRequest<[DirectMessage]?> {
-        return try OpenGroupAPI
-            .prepareRequest(
-                request: Request<NoBody, Endpoint>(
-                    db,
-                    server: server,
-                    endpoint: .inbox
-                ),
-                responseType: [DirectMessage]?.self,
-                using: dependencies
-            )
-            .signed(db, with: OpenGroupAPI.signRequest, using: dependencies)
+        return try Network.PreparedRequest(
+            request: Request<NoBody, Endpoint>(
+                db,
+                server: server,
+                endpoint: .inbox
+            ),
+            responseType: [DirectMessage]?.self,
+            additionalSignatureData: AdditionalSigningData(server: server),
+            using: dependencies
+        )
+        .signed(db, with: OpenGroupAPI.signRequest, using: dependencies)
     }
     
     /// Polls for any DMs received since the given id, this method will return a `304` with an empty response if there are no messages
@@ -939,17 +957,17 @@ public enum OpenGroupAPI {
         on server: String,
         using dependencies: Dependencies
     ) throws -> Network.PreparedRequest<[DirectMessage]?> {
-        return try OpenGroupAPI
-            .prepareRequest(
-                request: Request<NoBody, Endpoint>(
-                    db,
-                    server: server,
-                    endpoint: .inboxSince(id: id)
-                ),
-                responseType: [DirectMessage]?.self,
-                using: dependencies
-            )
-            .signed(db, with: OpenGroupAPI.signRequest, using: dependencies)
+        return try Network.PreparedRequest(
+            request: Request<NoBody, Endpoint>(
+                db,
+                server: server,
+                endpoint: .inboxSince(id: id)
+            ),
+            responseType: [DirectMessage]?.self,
+            additionalSignatureData: AdditionalSigningData(server: server),
+            using: dependencies
+        )
+        .signed(db, with: OpenGroupAPI.signRequest, using: dependencies)
     }
     
     /// Remove all message requests from inbox, this methrod will return the number of messages deleted
@@ -958,18 +976,18 @@ public enum OpenGroupAPI {
         on server: String,
         using dependencies: Dependencies
     ) throws -> Network.PreparedRequest<DeleteInboxResponse> {
-        return try OpenGroupAPI
-            .prepareRequest(
-                request: Request<NoBody, Endpoint>(
-                    db,
-                    method: .delete,
-                    server: server,
-                    endpoint: .inbox
-                ),
-                responseType: DeleteInboxResponse.self,
-                using: dependencies
-            )
-            .signed(db, with: OpenGroupAPI.signRequest, using: dependencies)
+        return try Network.PreparedRequest(
+            request: Request<NoBody, Endpoint>(
+                db,
+                method: .delete,
+                server: server,
+                endpoint: .inbox
+            ),
+            responseType: DeleteInboxResponse.self,
+            additionalSignatureData: AdditionalSigningData(server: server),
+            using: dependencies
+        )
+        .signed(db, with: OpenGroupAPI.signRequest, using: dependencies)
     }
     
     /// Delivers a direct message to a user via their blinded Session ID
@@ -982,21 +1000,21 @@ public enum OpenGroupAPI {
         on server: String,
         using dependencies: Dependencies
     ) throws -> Network.PreparedRequest<SendDirectMessageResponse> {
-        return try OpenGroupAPI
-            .prepareRequest(
-                request: Request(
-                    db,
-                    method: .post,
-                    server: server,
-                    endpoint: Endpoint.inboxFor(sessionId: blindedSessionId),
-                    body: SendDirectMessageRequest(
-                        message: ciphertext
-                    )
-                ),
-                responseType: SendDirectMessageResponse.self,
-                using: dependencies
-            )
-            .signed(db, with: OpenGroupAPI.signRequest, using: dependencies)
+        return try Network.PreparedRequest(
+            request: Request(
+                db,
+                method: .post,
+                server: server,
+                endpoint: Endpoint.inboxFor(sessionId: blindedSessionId),
+                body: SendDirectMessageRequest(
+                    message: ciphertext
+                )
+            ),
+            responseType: SendDirectMessageResponse.self,
+            additionalSignatureData: AdditionalSigningData(server: server),
+            using: dependencies
+        )
+        .signed(db, with: OpenGroupAPI.signRequest, using: dependencies)
     }
     
     /// Retrieves all of the user's sent DMs (up to limit)
@@ -1007,17 +1025,17 @@ public enum OpenGroupAPI {
         on server: String,
         using dependencies: Dependencies
     ) throws -> Network.PreparedRequest<[DirectMessage]?> {
-        return try OpenGroupAPI
-            .prepareRequest(
-                request: Request<NoBody, Endpoint>(
-                    db,
-                    server: server,
-                    endpoint: .outbox
-                ),
-                responseType: [DirectMessage]?.self,
-                using: dependencies
-            )
-            .signed(db, with: OpenGroupAPI.signRequest, using: dependencies)
+        return try Network.PreparedRequest(
+            request: Request<NoBody, Endpoint>(
+                db,
+                server: server,
+                endpoint: .outbox
+            ),
+            responseType: [DirectMessage]?.self,
+            additionalSignatureData: AdditionalSigningData(server: server),
+            using: dependencies
+        )
+        .signed(db, with: OpenGroupAPI.signRequest, using: dependencies)
     }
     
     /// Polls for any DMs sent since the given id, this method will return a `304` with an empty response if there are no messages
@@ -1029,17 +1047,17 @@ public enum OpenGroupAPI {
         on server: String,
         using dependencies: Dependencies
     ) throws -> Network.PreparedRequest<[DirectMessage]?> {
-        return try OpenGroupAPI
-            .prepareRequest(
-                request: Request<NoBody, Endpoint>(
-                    db,
-                    server: server,
-                    endpoint: .outboxSince(id: id)
-                ),
-                responseType: [DirectMessage]?.self,
-                using: dependencies
-            )
-            .signed(db, with: OpenGroupAPI.signRequest, using: dependencies)
+        return try Network.PreparedRequest(
+            request: Request<NoBody, Endpoint>(
+                db,
+                server: server,
+                endpoint: .outboxSince(id: id)
+            ),
+            responseType: [DirectMessage]?.self,
+            additionalSignatureData: AdditionalSigningData(server: server),
+            using: dependencies
+        )
+        .signed(db, with: OpenGroupAPI.signRequest, using: dependencies)
     }
     
     // MARK: - Users
@@ -1083,23 +1101,23 @@ public enum OpenGroupAPI {
         on server: String,
         using dependencies: Dependencies
     ) throws -> Network.PreparedRequest<NoResponse> {
-        return try OpenGroupAPI
-            .prepareRequest(
-                request: Request(
-                    db,
-                    method: .post,
-                    server: server,
-                    endpoint: Endpoint.userBan(sessionId),
-                    body: UserBanRequest(
-                        rooms: roomTokens,
-                        global: (roomTokens == nil ? true : nil),
-                        timeout: timeout
-                    )
-                ),
-                responseType: NoResponse.self,
-                using: dependencies
-            )
-            .signed(db, with: OpenGroupAPI.signRequest, using: dependencies)
+        return try Network.PreparedRequest(
+            request: Request(
+                db,
+                method: .post,
+                server: server,
+                endpoint: Endpoint.userBan(sessionId),
+                body: UserBanRequest(
+                    rooms: roomTokens,
+                    global: (roomTokens == nil ? true : nil),
+                    timeout: timeout
+                )
+            ),
+            responseType: NoResponse.self,
+            additionalSignatureData: AdditionalSigningData(server: server),
+            using: dependencies
+        )
+        .signed(db, with: OpenGroupAPI.signRequest, using: dependencies)
     }
     
     /// Removes a user ban from specific rooms, or from the server globally
@@ -1133,22 +1151,22 @@ public enum OpenGroupAPI {
         on server: String,
         using dependencies: Dependencies
     ) throws -> Network.PreparedRequest<NoResponse> {
-        return try OpenGroupAPI
-            .prepareRequest(
-                request: Request(
-                    db,
-                    method: .post,
-                    server: server,
-                    endpoint: Endpoint.userUnban(sessionId),
-                    body: UserUnbanRequest(
-                        rooms: roomTokens,
-                        global: (roomTokens == nil ? true : nil)
-                    )
-                ),
-                responseType: NoResponse.self,
-                using: dependencies
-            )
-            .signed(db, with: OpenGroupAPI.signRequest, using: dependencies)
+        return try Network.PreparedRequest(
+            request: Request(
+                db,
+                method: .post,
+                server: server,
+                endpoint: Endpoint.userUnban(sessionId),
+                body: UserUnbanRequest(
+                    rooms: roomTokens,
+                    global: (roomTokens == nil ? true : nil)
+                )
+            ),
+            responseType: NoResponse.self,
+            additionalSignatureData: AdditionalSigningData(server: server),
+            using: dependencies
+        )
+        .signed(db, with: OpenGroupAPI.signRequest, using: dependencies)
     }
     
     /// Appoints or removes a moderator or admin
@@ -1216,25 +1234,25 @@ public enum OpenGroupAPI {
             throw NetworkError.invalidPreparedRequest
         }
         
-        return try OpenGroupAPI
-            .prepareRequest(
-                request: Request(
-                    db,
-                    method: .post,
-                    server: server,
-                    endpoint: Endpoint.userModerator(sessionId),
-                    body: UserModeratorRequest(
-                        rooms: roomTokens,
-                        global: (roomTokens == nil ? true : nil),
-                        moderator: moderator,
-                        admin: admin,
-                        visible: visible
-                    )
-                ),
-                responseType: NoResponse.self,
-                using: dependencies
-            )
-            .signed(db, with: OpenGroupAPI.signRequest, using: dependencies)
+        return try Network.PreparedRequest(
+            request: Request(
+                db,
+                method: .post,
+                server: server,
+                endpoint: Endpoint.userModerator(sessionId),
+                body: UserModeratorRequest(
+                    rooms: roomTokens,
+                    global: (roomTokens == nil ? true : nil),
+                    moderator: moderator,
+                    admin: admin,
+                    visible: visible
+                )
+            ),
+            responseType: NoResponse.self,
+            additionalSignatureData: AdditionalSigningData(server: server),
+            using: dependencies
+        )
+        .signed(db, with: OpenGroupAPI.signRequest, using: dependencies)
     }
     
     /// This is a convenience method which constructs a `/sequence` of the `userBan` and `userDeleteMessages`  requests, refer to those
@@ -1273,6 +1291,68 @@ public enum OpenGroupAPI {
     
     // MARK: - Authentication
     
+    fileprivate static func signatureHeaders(
+        _ db: Database,
+        url: URL,
+        method: HTTPMethod,
+        server: String,
+        serverPublicKey: String,
+        body: Data?,
+        forceBlinded: Bool,
+        using dependencies: Dependencies
+    ) throws -> [HTTPHeader: String] {
+        let path: String = url.path
+            .appending(url.query.map { value in "?\(value)" })
+        let method: String = method.rawValue
+        let timestamp: Int = Int(floor(dependencies.dateNow.timeIntervalSince1970))
+        let serverPublicKeyData: Data = Data(hex: serverPublicKey)
+        
+        guard
+            !serverPublicKeyData.isEmpty,
+            let nonce: [UInt8] = dependencies[singleton: .crypto].generate(.randomBytes(16)),
+            let timestampBytes: [UInt8] = "\(timestamp)".data(using: .ascii).map({ Array($0) })
+        else { throw OpenGroupAPIError.signingFailed }
+        
+        /// Get a hash of any body content
+        let bodyHash: [UInt8]? = {
+            guard let body: Data = body else { return nil }
+            
+            return dependencies[singleton: .crypto].generate(.hash(message: body.bytes, length: 64))
+        }()
+        
+        /// Generate the signature message
+        /// "ServerPubkey || Nonce || Timestamp || Method || Path || Blake2b Hash(Body)
+        ///     `ServerPubkey`
+        ///     `Nonce`
+        ///     `Timestamp` is the bytes of an ascii decimal string
+        ///     `Method`
+        ///     `Path`
+        ///     `Body` is a Blake2b hash of the data (if there is a body)
+        let messageBytes: [UInt8] = serverPublicKeyData.bytes
+            .appending(contentsOf: nonce)
+            .appending(contentsOf: timestampBytes)
+            .appending(contentsOf: method.bytes)
+            .appending(contentsOf: path.bytes)
+            .appending(contentsOf: bodyHash ?? [])
+        
+        /// Sign the above message
+        let signResult: (publicKey: String, signature: [UInt8]) = try sign(
+            db,
+            messageBytes: messageBytes,
+            for: server,
+            fallbackSigningType: .unblinded,
+            forceBlinded: forceBlinded,
+            using: dependencies
+        )
+        
+        return [
+            HTTPHeader.sogsPubKey: signResult.publicKey,
+            HTTPHeader.sogsTimestamp: "\(timestamp)",
+            HTTPHeader.sogsNonce: Data(nonce).base64EncodedString(),
+            HTTPHeader.sogsSignature: signResult.signature.toBase64()
+        ]
+    }
+    
     /// Sign a message to be sent to SOGS (handles both un-blinded and blinded signing based on the server capabilities)
     private static func sign(
         _ db: Database,
@@ -1283,7 +1363,7 @@ public enum OpenGroupAPI {
         using dependencies: Dependencies
     ) throws -> (publicKey: String, signature: [UInt8]) {
         guard
-            let userEdKeyPair: KeyPair = Identity.fetchUserEd25519KeyPair(db, using: dependencies),
+            let userEdKeyPair: KeyPair = Identity.fetchUserEd25519KeyPair(db),
             let serverPublicKey: String = try? OpenGroup
                 .select(.publicKey)
                 .filter(OpenGroup.Columns.server == serverName.lowercased())
@@ -1333,7 +1413,7 @@ public enum OpenGroupAPI {
             // Default to using the 'standard' key
             default:
                 guard
-                    let userKeyPair: KeyPair = Identity.fetchUserKeyPair(db, using: dependencies),
+                    let userKeyPair: KeyPair = Identity.fetchUserKeyPair(db),
                     let signatureResult: [UInt8] = dependencies[singleton: .crypto].generate(
                         .signatureXed25519(data: messageBytes, curve25519PrivateKey: userKeyPair.secretKey)
                     )
@@ -1351,84 +1431,61 @@ public enum OpenGroupAPI {
         _ db: Database,
         preparedRequest: Network.PreparedRequest<R>,
         using dependencies: Dependencies
-    ) throws -> URLRequest {
-        guard
-            let url: URL = preparedRequest.request.url,
-            let target: Network.OpenGroupAPITarget<OpenGroupAPI.Endpoint> = preparedRequest.target as? Network.OpenGroupAPITarget<OpenGroupAPI.Endpoint>
-        else { throw OpenGroupAPIError.signingFailed }
+    ) throws -> Network.Destination {
+        guard let signingData: AdditionalSigningData = preparedRequest.additionalSignatureData as? AdditionalSigningData else {
+            throw OpenGroupAPIError.signingFailed
+        }
         
-        var updatedRequest: URLRequest = preparedRequest.request
-        let path: String = url.path
-            .appending(url.query.map { value in "?\(value)" })
-        let method: String = preparedRequest.method.rawValue
-        let timestamp: Int = Int(floor(dependencies.dateNow.timeIntervalSince1970))
-        let serverPublicKeyData: Data = Data(hex: target.serverPublicKey)
-        
-        guard
-            !serverPublicKeyData.isEmpty,
-            let nonce: [UInt8] = dependencies[singleton: .crypto].generate(.randomBytes(16)),
-            let timestampBytes: [UInt8] = "\(timestamp)".data(using: .ascii).map({ Array($0) })
-        else { throw OpenGroupAPIError.signingFailed }
-        
-        /// Get a hash of any body content
-        let bodyHash: [UInt8]? = {
-            guard let body: Data = preparedRequest.request.httpBody else { return nil }
-            
-            return dependencies[singleton: .crypto].generate(.hash(message: body.bytes, length: 64))
-        }()
-        
-        /// Generate the signature message
-        /// "ServerPubkey || Nonce || Timestamp || Method || Path || Blake2b Hash(Body)
-        ///     `ServerPubkey`
-        ///     `Nonce`
-        ///     `Timestamp` is the bytes of an ascii decimal string
-        ///     `Method`
-        ///     `Path`
-        ///     `Body` is a Blake2b hash of the data (if there is a body)
-        let messageBytes: [UInt8] = serverPublicKeyData.bytes
-            .appending(contentsOf: nonce)
-            .appending(contentsOf: timestampBytes)
-            .appending(contentsOf: method.bytes)
-            .appending(contentsOf: path.bytes)
-            .appending(contentsOf: bodyHash ?? [])
-        
-        /// Sign the above message
-        let signResult: (publicKey: String, signature: [UInt8]) = try sign(
-            db,
-            messageBytes: messageBytes,
-            for: target.server,
-            fallbackSigningType: .unblinded,
-            forceBlinded: target.forceBlinded,
-            using: dependencies
-        )
-        
-        updatedRequest.allHTTPHeaderFields = (preparedRequest.request.allHTTPHeaderFields ?? [:])
-            .updated(with: [
-                HTTPHeader.sogsPubKey: signResult.publicKey,
-                HTTPHeader.sogsTimestamp: "\(timestamp)",
-                HTTPHeader.sogsNonce: Data(nonce).base64EncodedString(),
-                HTTPHeader.sogsSignature: signResult.signature.toBase64()
-            ])
-        
-        return updatedRequest
+        return try preparedRequest.destination
+            .signed(db, data: signingData, body: preparedRequest.body, using: dependencies)
     }
-    
-    // MARK: - Convenience
-    
-    /// Takes the request information and generates a `PreparedRequest<R, Endpoint>` pbject which is ready for sending to the API, this
-    /// method is mainly here so we can separate the preparation of a request, which requires access to the database for signing, from the
-    /// actual sending of the reuqest to ensure we don't run into any unexpected blocking of the database write thread
-    private static func prepareRequest<T: Encodable, R: Decodable>(
-        request: Request<T, Endpoint>,
-        responseType: R.Type,
-        timeout: TimeInterval = Network.defaultTimeout,
-        using dependencies: Dependencies
-    ) throws -> Network.PreparedRequest<R> {
-        return Network.PreparedRequest(
-            request: request,
-            urlRequest: try request.generateUrlRequest(using: dependencies),
-            responseType: responseType,
-            timeout: timeout
+}
+
+private extension OpenGroupAPI {
+    struct AdditionalSigningData {
+        let server: String
+        let forceBlinded: Bool
+        
+        init(server: String, forceBlinded: Bool = false) {
+            self.server = server
+            self.forceBlinded = forceBlinded
+        }
+    }
+}
+
+private extension Network.Destination {
+    func signed(_ db: Database, data: OpenGroupAPI.AdditionalSigningData, body: Data?, using dependencies: Dependencies) throws -> Network.Destination {
+        switch self {
+            case .snode, .randomSnode, .randomSnodeLatestNetworkTimeTarget: throw NetworkError.unauthorised
+            case .cached: return self
+            case .server(let info): return .server(info: try info.signed(db, data, body, using: dependencies))
+            case .serverUpload(let info, let fileName):
+                return .serverUpload(info: try info.signed(db, data, body, using: dependencies), fileName: fileName)
+            
+            case .serverDownload(let info):
+                return .serverDownload(info: try info.signed(db, data, body, using: dependencies))
+        }
+    }
+}
+
+private extension Network.Destination.ServerInfo {
+    func signed(_ db: Database, _ data: OpenGroupAPI.AdditionalSigningData, _ body: Data?, using dependencies: Dependencies) throws -> Network.Destination.ServerInfo {
+        return Network.Destination.ServerInfo(
+            method: method,
+            url: url,
+            pathAndParamsString: pathAndParamsString,
+            headers: (headers ?? [:])
+                .updated(with: try OpenGroupAPI.signatureHeaders(
+                    db,
+                    url: url,
+                    method: method,
+                    server: data.server,
+                    serverPublicKey: x25519PublicKey,
+                    body: body,
+                    forceBlinded: data.forceBlinded,
+                    using: dependencies
+                )),
+            x25519PublicKey: x25519PublicKey
         )
     }
 }

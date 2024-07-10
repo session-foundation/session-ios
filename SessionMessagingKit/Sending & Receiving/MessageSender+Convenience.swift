@@ -3,6 +3,7 @@
 import Foundation
 import Combine
 import GRDB
+import SessionSnodeKit
 import SessionUtilitiesKit
 
 extension MessageSender {
@@ -92,8 +93,7 @@ extension MessageSender {
                 )
             ),
             dependantJob: blockingJob,
-            canStartJob: true,
-            using: dependencies
+            canStartJob: true
         )
     }
 
@@ -106,7 +106,7 @@ extension MessageSender {
         threadId: String,
         threadVariant: SessionThread.Variant,
         using dependencies: Dependencies
-    ) throws -> HTTP.PreparedRequest<Void> {
+    ) throws -> Network.PreparedRequest<Void> {
         // Only 'VisibleMessage' types can be sent via this method
         guard interaction.variant == .standardOutgoing else { throw MessageSenderError.invalidMessage }
         guard let interactionId: Int64 = interaction.id else { throw StorageError.objectNotSaved }

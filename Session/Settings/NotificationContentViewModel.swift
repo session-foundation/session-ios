@@ -17,7 +17,7 @@ class NotificationContentViewModel: SessionTableViewModel, NavigatableStateHolde
     
     // MARK: - Initialization
     
-    init(using dependencies: Dependencies = Dependencies()) {
+    init(using dependencies: Dependencies) {
         self.dependencies = dependencies
     }
     
@@ -48,7 +48,7 @@ class NotificationContentViewModel: SessionTableViewModel, NavigatableStateHolde
                                     isSelected: (currentSelection == previewType)
                                 ),
                                 onTap: {
-                                    dependencies[singleton: .storage].writeAsync(using: dependencies) { db in
+                                    dependencies[singleton: .storage].writeAsync { db in
                                         db[.preferencesNotificationPreviewType] = previewType
                                     }
                                     

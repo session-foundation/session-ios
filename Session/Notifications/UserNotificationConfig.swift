@@ -4,7 +4,6 @@ import Foundation
 import Combine
 import UserNotifications
 import SessionMessagingKit
-import SignalCoreKit
 import SignalUtilitiesKit
 import SessionUtilitiesKit
 

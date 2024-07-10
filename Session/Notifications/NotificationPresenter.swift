@@ -3,9 +3,8 @@
 import Foundation
 import Combine
 import GRDB
-import SignalCoreKit
-import SignalUtilitiesKit
 import SessionMessagingKit
+import SignalUtilitiesKit
 import SessionUtilitiesKit
 
 // MARK: - NotificationPresenter
@@ -14,9 +13,16 @@ public class NotificationPresenter: NSObject, UNUserNotificationCenterDelegate, 
     private static let audioNotificationsThrottleCount = 2
     private static let audioNotificationsThrottleInterval: TimeInterval = 5
     
+    private let dependencies: Dependencies
     private let notificationCenter: UNUserNotificationCenter = UNUserNotificationCenter.current()
     private var notifications: Atomic<[String: UNNotificationRequest]> = Atomic([:])
     private var mostRecentNotifications: Atomic<TruncatedList<UInt64>> = Atomic(TruncatedList<UInt64>(maxLength: NotificationPresenter.audioNotificationsThrottleCount))
+    
+    // MARK: - Initialization
+    
+    required public init(using dependencies: Dependencies) {
+        self.dependencies = dependencies
+    }
     
     // MARK: - Registration
     
@@ -28,8 +34,8 @@ public class NotificationPresenter: NSObject, UNUserNotificationCenterDelegate, 
                     
                     switch (granted, error) {
                         case (true, _): break
-                        case (false, .some(let error)): Logger.error("[NotificationPresenter] Register settings failed with error: \(error)")
-                        case (false, .none): Logger.error("[NotificationPresenter] Register settings failed without error.")
+                        case (false, .some(let error)): Log.error("[NotificationPresenter] Register settings failed with error: \(error)")
+                        case (false, .none): Log.error("[NotificationPresenter] Register settings failed without error.")
                     }
                     
                     // Note that the promise is fulfilled regardless of if notification permssions were
@@ -47,18 +53,17 @@ public class NotificationPresenter: NSObject, UNUserNotificationCenterDelegate, 
         _ db: Database,
         for interaction: Interaction,
         in thread: SessionThread,
-        applicationState: UIApplication.State,
-        using dependencies: Dependencies
+        applicationState: UIApplication.State
     ) {
         let isMessageRequest: Bool = SessionThread.isMessageRequest(
             db,
             threadId: thread.id,
-            userSessionId: getUserSessionId(db),
+            userSessionId: dependencies[cache: .general].sessionId,
             includeNonVisible: true
         )
         
         // Ensure we should be showing a notification for the thread
-        guard thread.shouldShowNotification(db, for: interaction, isMessageRequest: isMessageRequest) else {
+        guard thread.shouldShowNotification(db, for: interaction, isMessageRequest: isMessageRequest, using: dependencies) else {
             return
         }
         
@@ -79,7 +84,7 @@ public class NotificationPresenter: NSObject, UNUserNotificationCenterDelegate, 
         let notificationTitle: String?
         var notificationBody: String?
         
-        let senderName = Profile.displayName(db, id: interaction.authorId, threadVariant: thread.variant)
+        let senderName = Profile.displayName(db, id: interaction.authorId, threadVariant: thread.variant, using: dependencies)
         let previewType: Preferences.NotificationPreviewType = db[.preferencesNotificationPreviewType]
             .defaulting(to: .defaultPreviewType)
         let groupName: String = SessionThread.displayName(
@@ -138,18 +143,20 @@ public class NotificationPresenter: NSObject, UNUserNotificationCenterDelegate, 
             AppNotificationUserInfoKey.threadVariantRaw: thread.variant.rawValue
         ]
         
-        let userSessionId: SessionId = getUserSessionId(db)
+        let userSessionId: SessionId = dependencies[cache: .general].sessionId
         let userBlinded15SessionId: SessionId? = SessionThread.getCurrentUserBlindedSessionId(
             db,
             threadId: thread.id,
             threadVariant: thread.variant,
-            blindingPrefix: .blinded15
+            blindingPrefix: .blinded15,
+            using: dependencies
         )
         let userBlinded25SessionId: SessionId? = SessionThread.getCurrentUserBlindedSessionId(
             db,
             threadId: thread.id,
             threadVariant: thread.variant,
-            blindingPrefix: .blinded25
+            blindingPrefix: .blinded25,
+            using: dependencies
         )
         let fallbackSound: Preferences.Sound = db[.defaultNotificationSound]
             .defaulting(to: Preferences.Sound.defaultNotificationSound)
@@ -165,7 +172,8 @@ public class NotificationPresenter: NSObject, UNUserNotificationCenterDelegate, 
             threadVariant: thread.variant,
             currentUserSessionId: userSessionId.hexString,
             currentUserBlinded15SessionId: userBlinded15SessionId?.hexString,
-            currentUserBlinded25SessionId: userBlinded25SessionId?.hexString
+            currentUserBlinded25SessionId: userBlinded25SessionId?.hexString,
+            using: dependencies
         )
         
         notify(
@@ -217,7 +225,7 @@ public class NotificationPresenter: NSObject, UNUserNotificationCenterDelegate, 
         ]
         
         let notificationTitle: String = "Session"
-        let senderName: String = Profile.displayName(db, id: interaction.authorId, threadVariant: thread.variant)
+        let senderName: String = Profile.displayName(db, id: interaction.authorId, threadVariant: thread.variant, using: dependencies)
         let notificationBody: String? = {
             switch messageInfo.state {
                 case .permissionDenied:
@@ -266,12 +274,12 @@ public class NotificationPresenter: NSObject, UNUserNotificationCenterDelegate, 
         let isMessageRequest: Bool = SessionThread.isMessageRequest(
             db,
             threadId: thread.id,
-            userSessionId: getUserSessionId(db),
+            userSessionId: dependencies[cache: .general].sessionId,
             includeNonVisible: true
         )
         
         // No reaction notifications for muted, group threads or message requests
-        guard Date().timeIntervalSince1970 > (thread.mutedUntilTimestamp ?? 0) else { return }
+        guard dependencies.dateNow.timeIntervalSince1970 > (thread.mutedUntilTimestamp ?? 0) else { return }
         guard
             thread.variant != .legacyGroup &&
                 thread.variant != .group &&
@@ -279,7 +287,7 @@ public class NotificationPresenter: NSObject, UNUserNotificationCenterDelegate, 
         else { return }
         guard !isMessageRequest else { return }
         
-        let senderName: String = Profile.displayName(db, id: reaction.authorId, threadVariant: thread.variant)
+        let senderName: String = Profile.displayName(db, id: reaction.authorId, threadVariant: thread.variant, using: dependencies)
         let notificationTitle = "Session"
         var notificationBody = String(format: "EMOJI_REACTS_NOTIFICATION".localized(), senderName, reaction.emoji)
         
@@ -346,7 +354,7 @@ public class NotificationPresenter: NSObject, UNUserNotificationCenterDelegate, 
                 .select(.name)
                 .asRequest(of: String.self)
                 .fetchOne(db),
-            isNoteToSelf: (thread.isNoteToSelf(db) == true),
+            isNoteToSelf: (thread.isNoteToSelf(db, using: dependencies) == true),
             profile: try? Profile.fetchOne(db, id: thread.id)
         )
         
@@ -432,18 +440,16 @@ private extension NotificationPresenter {
         let shouldPresentNotification: Bool = shouldPresentNotification(
             category: category,
             applicationState: applicationState,
-            frontMostViewController: SessionApp.currentlyOpenConversationViewController.wrappedValue,
-            userInfo: userInfo
+            userInfo: userInfo,
+            using: dependencies
         )
         var trigger: UNNotificationTrigger?
 
         if shouldPresentNotification {
-            if let displayableTitle = title?.filterForDisplay {
+            if let displayableTitle = title?.filteredForDisplay {
                 content.title = displayableTitle
             }
-            if let displayableBody = body.filterForDisplay {
-                content.body = displayableBody
-            }
+            content.body = body.filteredForDisplay
             
             if shouldGroupNotification {
                 trigger = UNTimeIntervalNotificationTrigger(
@@ -475,7 +481,7 @@ private extension NotificationPresenter {
         }
         else {
             // Play sound and vibrate, but without a `body` no banner will show.
-            Logger.debug("supressing notification body")
+            Log.debug("supressing notification body")
         }
 
         let request = UNNotificationRequest(
@@ -484,7 +490,7 @@ private extension NotificationPresenter {
             trigger: trigger
         )
 
-        Logger.debug("presenting notification with identifier: \(notificationIdentifier)")
+        Log.debug("presenting notification with identifier: \(notificationIdentifier)")
         
         if isReplacingNotification { cancelNotifications(identifiers: [notificationIdentifier]) }
         
@@ -505,20 +511,27 @@ private extension NotificationPresenter {
     private func shouldPresentNotification(
         category: AppNotificationCategory,
         applicationState: UIApplication.State,
-        frontMostViewController: UIViewController?,
-        userInfo: [AnyHashable: Any]
+        userInfo: [AnyHashable: Any],
+        using dependencies: Dependencies
     ) -> Bool {
         guard applicationState == .active else { return true }
         guard category == .incomingMessage || category == .errorMessage else { return true }
 
         guard let notificationThreadId = userInfo[AppNotificationUserInfoKey.threadId] as? String else {
-            owsFailDebug("threadId was unexpectedly nil")
+            Log.error("[UserNotificationPresenterAdaptee] threadId was unexpectedly nil")
             return true
         }
         
-        guard let conversationViewController: ConversationVC = frontMostViewController as? ConversationVC else {
-            return true
-        }
+        /// Check whether the current `frontMostViewController` is a `ConversationVC` for the conversation this notification
+        /// would belong to then we don't want to show the notification, so retrieve the `frontMostViewController` (from the main
+        /// thread) and check
+        guard
+            dependencies.hasInitialised(singleton: .appContext),
+            let frontMostViewController: UIViewController = DispatchQueue.main.sync(execute: {
+                dependencies[singleton: .appContext].frontMostViewController
+            }),
+            let conversationViewController: ConversationVC = frontMostViewController as? ConversationVC
+        else { return true }
         
         /// Show notifications for any **other** threads
         return (conversationViewController.viewModel.threadData.threadId != notificationThreadId)
@@ -526,10 +539,10 @@ private extension NotificationPresenter {
 
     private func checkIfShouldPlaySound(applicationState: UIApplication.State) -> Bool {
         guard applicationState == .active else { return true }
-        guard Dependencies()[singleton: .storage, key: .playNotificationSoundInForeground] else { return false }
+        guard dependencies[singleton: .storage, key: .playNotificationSoundInForeground] else { return false }
 
         let nowMs: UInt64 = UInt64(floor(Date().timeIntervalSince1970 * 1000))
-        let recentThreshold = nowMs - UInt64(NotificationPresenter.audioNotificationsThrottleInterval * Double(kSecondInMs))
+        let recentThreshold = nowMs - UInt64(NotificationPresenter.audioNotificationsThrottleInterval * 1000)
 
         let recentNotifications = mostRecentNotifications.wrappedValue.filter { $0 > recentThreshold }
 
@@ -540,15 +553,13 @@ private extension NotificationPresenter {
     }
 }
 
-// MARK: - NotificationError
-
 enum NotificationError: Error {
     case assertionError(description: String)
 }
 
 extension NotificationError {
     static func failDebug(_ description: String) -> NotificationError {
-        owsFailDebug(description)
+        Log.error("[NotificationActionHandler] Failed with error: \(description)")
         return NotificationError.assertionError(description: description)
     }
 }

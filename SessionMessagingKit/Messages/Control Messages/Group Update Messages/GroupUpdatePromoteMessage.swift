@@ -46,7 +46,7 @@ public final class GroupUpdatePromoteMessage: ControlMessage {
 
     // MARK: - Proto Conversion
     
-    public override class func fromProto(_ proto: SNProtoContent, sender: String) -> GroupUpdatePromoteMessage? {
+    public override class func fromProto(_ proto: SNProtoContent, sender: String, using dependencies: Dependencies) -> GroupUpdatePromoteMessage? {
         guard let groupPromoteMessage = proto.dataMessage?.groupUpdateMessage?.promoteMessage else { return nil }
         
         return GroupUpdatePromoteMessage(

@@ -32,7 +32,7 @@ class MessageRequestsViewModel: SessionTableViewModel, NavigatableStateHolder, O
         // also want to skip the initial query and trigger it async so that the push animation
         // doesn't stutter (it should load basically immediately but without this there is a
         // distinct stutter)
-        let userSessionId: SessionId = getUserSessionId(using: dependencies)
+        let userSessionId: SessionId = dependencies[cache: .general].sessionId
         let thread: TypedTableAlias<SessionThread> = TypedTableAlias()
         
         self.pagedDataObserver = PagedDatabaseObserver(
@@ -108,7 +108,8 @@ class MessageRequestsViewModel: SessionTableViewModel, NavigatableStateHolder, O
                     currentDataRetriever: { self?.tableData },
                     valueSubject: self?.pendingTableDataSubject
                 )
-            }
+            },
+            using: dependencies
         )
         
         // Run the initial query on a background thread so we don't block the push transition
@@ -164,12 +165,13 @@ class MessageRequestsViewModel: SessionTableViewModel, NavigatableStateHolder, O
                                     currentUserBlinded25SessionIdForThisThread: groupedOldData[viewModel.threadId]?
                                         .first?
                                         .id
-                                        .currentUserBlinded25SessionId
+                                        .currentUserBlinded25SessionId,
+                                    using: dependencies
                                 ),
                                 accessibility: Accessibility(
                                     identifier: "Message request"
                                 ),
-                                onTap: { [weak self] in
+                                onTap: { [weak self, dependencies] in
                                     let viewController: ConversationVC = ConversationVC(
                                         threadId: viewModel.threadId,
                                         threadVariant: viewModel.threadVariant,
@@ -276,7 +278,8 @@ class MessageRequestsViewModel: SessionTableViewModel, NavigatableStateHolder, O
                         indexPath: indexPath,
                         tableView: tableView,
                         threadViewModel: threadViewModel,
-                        viewController: viewController
+                        viewController: viewController,
+                        using: dependencies
                     )
                 )
                 

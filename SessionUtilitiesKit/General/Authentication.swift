@@ -9,10 +9,10 @@ public protocol AuthenticationMethod: SignatureGenerator {
 }
 
 public extension AuthenticationMethod {
-    var sessionId: SessionId {
+    var swarmPublicKey: String {
         switch info {
             case .standard(let sessionId, _), .groupAdmin(let sessionId, _), .groupMember(let sessionId, _):
-                return sessionId
+                return sessionId.hexString
         }
     }
 }

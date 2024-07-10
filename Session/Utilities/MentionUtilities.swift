@@ -12,7 +12,8 @@ public enum MentionUtilities {
         threadVariant: SessionThread.Variant,
         currentUserSessionId: String,
         currentUserBlinded15SessionId: String?,
-        currentUserBlinded25SessionId: String?
+        currentUserBlinded25SessionId: String?,
+        using dependencies: Dependencies
     ) -> String {
         /// **Note:** We are returning the string here so the 'textColor' and 'primaryColor' values are irrelevant
         return highlightMentions(
@@ -25,7 +26,8 @@ public enum MentionUtilities {
             textColor: .black,
             theme: .classicDark,
             primaryColor: Theme.PrimaryColor.green,
-            attributes: [:]
+            attributes: [:],
+            using: dependencies
         ).string
     }
 
@@ -39,7 +41,8 @@ public enum MentionUtilities {
         textColor: UIColor,
         theme: Theme,
         primaryColor: Theme.PrimaryColor,
-        attributes: [NSAttributedString.Key: Any]
+        attributes: [NSAttributedString.Key: Any],
+        using dependencies: Dependencies
     ) -> NSAttributedString {
         guard
             let regex: NSRegularExpression = try? NSRegularExpression(pattern: "@[0-9a-fA-F]{66}", options: [])
@@ -70,7 +73,7 @@ public enum MentionUtilities {
             
             guard let targetString: String = {
                 guard !isCurrentUser else { return "MEDIA_GALLERY_SENDER_NAME_YOU".localized() }
-                guard let displayName: String = Profile.displayNameNoFallback(id: sessionId, threadVariant: threadVariant) else {
+                guard let displayName: String = Profile.displayNameNoFallback(id: sessionId, threadVariant: threadVariant, using: dependencies) else {
                     lastMatchEnd = (match.range.location + match.range.length)
                     return nil
                 }

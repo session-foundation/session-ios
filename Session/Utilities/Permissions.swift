@@ -21,7 +21,7 @@ public enum Permissions {
             case .denied, .restricted:
                 guard
                     dependencies.hasInitialised(singleton: .appContext),
-                    let presentingViewController: UIViewController = (presentingViewController ?? dependencies[singleton: .appContext].frontmostViewController)
+                    let presentingViewController: UIViewController = (presentingViewController ?? dependencies[singleton: .appContext].frontMostViewController)
                 else { return false }
                 
                 let confirmationModal: ConfirmationModal = ConfirmationModal(
@@ -64,7 +64,7 @@ public enum Permissions {
             case .denied:
                 guard
                     dependencies.hasInitialised(singleton: .appContext),
-                    let presentingViewController: UIViewController = (presentingViewController ?? dependencies[singleton: .appContext].frontmostViewController)
+                    let presentingViewController: UIViewController = (presentingViewController ?? dependencies[singleton: .appContext].frontMostViewController)
                 else { return }
                 onNotGranted?()
                 
@@ -140,7 +140,7 @@ public enum Permissions {
             case .denied, .restricted:
                 guard
                     dependencies.hasInitialised(singleton: .appContext),
-                    let presentingViewController: UIViewController = (presentingViewController ?? dependencies[singleton: .appContext].frontmostViewController)
+                    let presentingViewController: UIViewController = (presentingViewController ?? dependencies[singleton: .appContext].frontMostViewController)
                 else { return }
                 
                 let confirmationModal: ConfirmationModal = ConfirmationModal(

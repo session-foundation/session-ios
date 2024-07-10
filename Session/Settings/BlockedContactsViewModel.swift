@@ -21,7 +21,7 @@ public class BlockedContactsViewModel: SessionTableViewModel, NavigatableStateHo
     
     // MARK: - Initialization
     
-    init(using dependencies: Dependencies = Dependencies()) {
+    init(using dependencies: Dependencies) {
         self.dependencies = dependencies
         self.pagedDataObserver = nil
         
@@ -65,11 +65,12 @@ public class BlockedContactsViewModel: SessionTableViewModel, NavigatableStateHo
             onChangeUnsorted: { [weak self] updatedData, updatedPageInfo in
                 PagedData.processAndTriggerUpdates(
                     updatedData: self?.process(data: updatedData, for: updatedPageInfo)
-                        .mapToSessionTableViewData(for: self),
+                        .mapToSessionTableViewData(for: self),  // Update the cell positions for background rounding
                     currentDataRetriever: { self?.tableData },
                     valueSubject: self?.pendingTableDataSubject
                 )
-            }
+            },
+            using: dependencies
         )
         
         // Run the initial query on a background thread so we don't block the push transition
@@ -158,7 +159,7 @@ public class BlockedContactsViewModel: SessionTableViewModel, NavigatableStateHo
         ].flatMap { $0 }
     }
     
-    private func unblockTapped(using dependencies: Dependencies = Dependencies()) {
+    private func unblockTapped() {
         guard !selectedIdsSubject.value.isEmpty else { return }
         
         let contactIds: Set<String> = selectedIdsSubject.value
@@ -227,7 +228,7 @@ public class BlockedContactsViewModel: SessionTableViewModel, NavigatableStateHo
                 confirmTitle: "CONVERSATION_SETTINGS_BLOCKED_CONTACTS_UNBLOCK_CONFIRMATION_ACTON".localized(),
                 confirmStyle: .danger,
                 cancelStyle: .alert_text
-            ) { [weak self] _ in
+            ) { [weak self, dependencies] _ in
                 // Unblock the contacts
                 dependencies[singleton: .storage].write { db in
                     _ = try Contact

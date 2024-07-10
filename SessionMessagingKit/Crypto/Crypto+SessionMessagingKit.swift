@@ -21,12 +21,13 @@ public extension Crypto.Generator {
             id: "ciphertextWithSessionProtocol",
             args: [plaintext, destination]
         ) {
-            let ed25519KeyPair: KeyPair = try Identity.fetchUserEd25519KeyPair(db, using: dependencies) ?? {
+            let ed25519KeyPair: KeyPair = try Identity.fetchUserEd25519KeyPair(db) ?? {
                 throw MessageSenderError.noUserED25519KeyPair
             }()
             let destinationX25519PublicKey: Data = try {
                 switch destination {
                     case .contact(let publicKey): return Data(SessionId(.standard, hex: publicKey).publicKey)
+                    case .syncMessage: return Data(dependencies[cache: .general].sessionId.publicKey)
                     case .closedGroup(let groupPublicKey):
                         return try ClosedGroupKeyPair.fetchLatestKeyPair(db, threadId: groupPublicKey)?.publicKey ?? {
                             throw MessageSenderError.noKeyPair
@@ -67,38 +68,37 @@ public extension Crypto.Generator {
         messages: [Data],
         toRecipients recipients: [SessionId],
         ed25519PrivateKey: [UInt8],
-        domain: SessionUtil.Crypto.Domain
+        domain: LibSession.Crypto.Domain
     ) -> Crypto.Generator<Data> {
         return Crypto.Generator(
             id: "ciphertextWithMultiEncrypt",
             args: [messages, recipients, ed25519PrivateKey, domain]
         ) {
             var outLen: Int = 0
-            var cMessages: [UnsafePointer<UInt8>?] = messages
-                .map { message in message.cArray }
-                .unsafeCopy()
+            var cMessages: [UnsafePointer<UInt8>?] = (try? (messages
+                .map { message -> [UInt8] in Array(message) }
+                .unsafeCopyUInt8Array()))
+                .defaulting(to: [])
             var messageSizes: [Int] = messages.map { $0.count }
-            var cRecipients: [UnsafePointer<UInt8>?] = recipients
-                .map { recipient in recipient.publicKey }
-                .unsafeCopy()
+            var cRecipients: [UnsafePointer<UInt8>?] = (try? (recipients
+                .map { recipient -> [UInt8] in recipient.publicKey }
+                .unsafeCopyUInt8Array()))
+                .defaulting(to: [])
             var secretKey: [UInt8] = ed25519PrivateKey
-            var cDomain: [CChar] = domain.cArray
-            var cEncryptedDataPtr: UnsafeMutablePointer<UInt8>?
-
-            try CExceptionHelper.performSafely {
-                cEncryptedDataPtr = session_encrypt_for_multiple_simple_ed25519(
-                    &outLen,
-                    &cMessages,
-                    &messageSizes,
-                    messages.count,
-                    &cRecipients,
-                    recipients.count,
-                    &secretKey,
-                    &cDomain,
-                    nil,
-                    0
-                )
-            }
+            var cDomain: [CChar] = try domain.cString(using: .utf8) ?? { throw LibSessionError.invalidCConversion }()
+            
+            let cEncryptedDataPtr: UnsafeMutablePointer<UInt8>? = session_encrypt_for_multiple_simple_ed25519(
+                &outLen,
+                &cMessages,
+                &messageSizes,
+                messages.count,
+                &cRecipients,
+                recipients.count,
+                &secretKey,
+                &cDomain,
+                nil,
+                0
+            )
 
             let encryptedData: Data? = cEncryptedDataPtr.map { Data(bytes: $0, count: outLen) }
             cMessages.forEach { $0?.deallocate() }
@@ -122,7 +122,7 @@ public extension Crypto.Generator {
             id: "plaintextWithSessionProtocol",
             args: [ciphertext]
         ) {
-            let ed25519KeyPair: KeyPair = try Identity.fetchUserEd25519KeyPair(db, using: dependencies) ?? {
+            let ed25519KeyPair: KeyPair = try Identity.fetchUserEd25519KeyPair(db) ?? {
                 throw MessageSenderError.noUserED25519KeyPair
             }()
 
@@ -226,7 +226,7 @@ public extension Crypto.Generator {
         ciphertext: Data,
         senderSessionId: SessionId,
         ed25519PrivateKey: [UInt8],
-        domain: SessionUtil.Crypto.Domain
+        domain: LibSession.Crypto.Domain
     ) -> Crypto.Generator<Data> {
         return Crypto.Generator(
             id: "plaintextWithMultiEncrypt",
@@ -236,19 +236,15 @@ public extension Crypto.Generator {
             var cEncryptedData: [UInt8] = Array(ciphertext)
             var cEd25519PrivateKey: [UInt8] = ed25519PrivateKey
             var cSenderPubkey: [UInt8] = senderSessionId.publicKey
-            var cDomain: [CChar] = domain.cArray
-            var cDecryptedDataPtr: UnsafeMutablePointer<UInt8>?
-
-            try CExceptionHelper.performSafely {
-                cDecryptedDataPtr = session_decrypt_for_multiple_simple_ed25519(
-                    &outLen,
-                    &cEncryptedData,
-                    cEncryptedData.count,
-                    &cEd25519PrivateKey,
-                    &cSenderPubkey,
-                    &cDomain
-                )
-            }
+            var cDomain: [CChar] = try domain.cString(using: .utf8) ?? { throw LibSessionError.invalidCConversion }()
+            let cDecryptedDataPtr: UnsafeMutablePointer<UInt8>? = session_decrypt_for_multiple_simple_ed25519(
+                &outLen,
+                &cEncryptedData,
+                cEncryptedData.count,
+                &cEd25519PrivateKey,
+                &cSenderPubkey,
+                &cDomain
+            )
 
             let decryptedData: Data? = cDecryptedDataPtr.map { Data(bytes: $0, count: outLen) }
             cDecryptedDataPtr?.deallocate()

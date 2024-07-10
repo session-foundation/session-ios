@@ -14,13 +14,15 @@ public enum DisappearingMessagesJob: JobExecutor {
     public static func run(
         _ job: Job,
         queue: DispatchQueue,
-        success: @escaping (Job, Bool, Dependencies) -> (),
-        failure: @escaping (Job, Error?, Bool, Dependencies) -> (),
-        deferred: @escaping (Job, Dependencies) -> (),
+        success: @escaping (Job, Bool) -> Void,
+        failure: @escaping (Job, Error, Bool) -> Void,
+        deferred: @escaping (Job) -> Void,
         using dependencies: Dependencies
     ) {
+        guard Identity.userExists(using: dependencies) else { return success(job, false) }
+        
         // The 'backgroundTask' gets captured and cleared within the 'completion' block
-        let timestampNowMs: Double = Double(SnodeAPI.currentOffsetTimestampMs(using: dependencies))
+        let timestampNowMs: Double = dependencies[cache: .snodeAPI].currentOffsetTimestampMs()
         var backgroundTask: SessionBackgroundTask? = SessionBackgroundTask(label: #function, using: dependencies)
         var numDeleted: Int = -1
         
@@ -33,13 +35,13 @@ public enum DisappearingMessagesJob: JobExecutor {
             // Update the next run timestamp for the DisappearingMessagesJob (if the call
             // to 'updateNextRunIfNeeded' returns 'nil' then it doesn't need to re-run so
             // should have it's 'nextRunTimestamp' cleared)
-            return try updateNextRunIfNeeded(db)
+            return try updateNextRunIfNeeded(db, using: dependencies)
                 .defaulting(to: job.with(nextRunTimestamp: 0))
                 .upserted(db)
         }
         
-        SNLog("[DisappearingMessagesJob] Deleted \(numDeleted) expired messages")
-        success(updatedJob ?? job, false, dependencies)
+        Log.info("[DisappearingMessagesJob] Deleted \(numDeleted) expired messages")
+        success(updatedJob ?? job, false)
         
         // The 'if' is only there to prevent the "variable never read" warning from showing
         if backgroundTask != nil { backgroundTask = nil }
@@ -50,7 +52,9 @@ public enum DisappearingMessagesJob: JobExecutor {
 
 public extension DisappearingMessagesJob {
     static func cleanExpiredMessagesOnLaunch(using dependencies: Dependencies) {
-        let timestampNowMs: TimeInterval = TimeInterval(SnodeAPI.currentOffsetTimestampMs(using: dependencies))
+        guard Identity.userExists(using: dependencies) else { return }
+        
+        let timestampNowMs: Double = dependencies[cache: .snodeAPI].currentOffsetTimestampMs()
         var numDeleted: Int = -1
         
         dependencies[singleton: .storage].write { db in
@@ -60,7 +64,7 @@ public extension DisappearingMessagesJob {
                 .deleteAll(db)
         }
         
-        SNLog("[DisappearingMessagesJob] Deleted \(numDeleted) expired messages on app launch.")
+        Log.info("[DisappearingMessagesJob] Deleted \(numDeleted) expired messages on app launch.")
     }
 }
 
@@ -69,7 +73,7 @@ public extension DisappearingMessagesJob {
 public extension DisappearingMessagesJob {
     @discardableResult static func updateNextRunIfNeeded(
         _ db: Database,
-        using dependencies: Dependencies = Dependencies()
+        using dependencies: Dependencies
     ) -> Job? {
         // If there is another expiring message then update the job to run 1 second after it's meant to expire
         let nextExpirationTimestampMs: Double? = try? Interaction
@@ -81,15 +85,15 @@ public extension DisappearingMessagesJob {
             .fetchOne(db)
         
         guard let nextExpirationTimestampMs: Double = nextExpirationTimestampMs else {
-            SNLog("[DisappearingMessagesJob] No remaining expiring messages")
+            Log.info("[DisappearingMessagesJob] No remaining expiring messages")
             return nil
         }
         
-        /// The `expiresStartedAtMs` timestamp is now based on the `SnodeAPI.currentOffsetTimestampMs()` value
-        /// so we need to make sure offset the `nextRunTimestamp` accordingly to ensure it runs at the correct local time
+        /// The `expiresStartedAtMs` timestamp is now based on the `dependencies[cache: .snodeAPI].currentOffsetTimestampMs()
+        /// value so we need to make sure offset the `nextRunTimestamp` accordingly to ensure it runs at the correct local time
         let clockOffsetMs: Int64 = dependencies[cache: .snodeAPI].clockOffsetMs
         
-        SNLog("[DisappearingMessagesJob] Scheduled future message expiration")
+        Log.info("[DisappearingMessagesJob] Scheduled future message expiration")
         return try? Job
             .filter(Job.Columns.variant == Job.Variant.disappearingMessages)
             .fetchOne(db)?
@@ -126,8 +130,6 @@ public extension DisappearingMessagesJob {
         
         guard (expirationInfo.count > 0) else { return }
         
-        let startedAtTimestampMs: Double = Double(SnodeAPI.currentOffsetTimestampMs())
-        
         dependencies[singleton: .jobRunner].add(
             db,
             job: Job(
@@ -136,11 +138,10 @@ public extension DisappearingMessagesJob {
                 threadId: threadId,
                 details: GetExpirationJob.Details(
                     expirationInfo: expirationInfo,
-                    startedAtTimestampMs: startedAtTimestampMs
+                    startedAtTimestampMs: dependencies[cache: .snodeAPI].currentOffsetTimestampMs()
                 )
             ),
-            canStartJob: true,
-            using: dependencies
+            canStartJob: true
         )
     }
     
@@ -201,12 +202,11 @@ public extension DisappearingMessagesJob {
                         expirationTimestampMs: expirationTimestampMs
                     )
                 ),
-                canStartJob: true,
-                using: dependencies
+                canStartJob: true
             )
         }
         
-        return updateNextRunIfNeeded(db)
+        return updateNextRunIfNeeded(db, using: dependencies)
     }
     
     @discardableResult static func updateNextRunIfNeeded(
@@ -236,7 +236,7 @@ public extension DisappearingMessagesJob {
             )
         }
         catch {
-            SNLog("[DisappearingMessagesJob] Failed to update the expiring messages timer on an interaction")
+            Log.warn("[DisappearingMessagesJob] Failed to update the expiring messages timer on an interaction")
             return nil
         }
     }

@@ -2,7 +2,6 @@
 
 import UIKit
 import SessionUIKit
-import SignalCoreKit
 import SessionUtilitiesKit
 
 @objc class TypingIndicatorView: UIStackView {
@@ -21,12 +20,12 @@ import SessionUtilitiesKit
 
     @available(*, unavailable, message:"use other constructor instead.")
     required init(coder aDecoder: NSCoder) {
-        notImplemented()
+        fatalError("init(coder:) has not been implemented")
     }
 
     @available(*, unavailable, message:"use other constructor instead.")
     override init(frame: CGRect) {
-        notImplemented()
+        fatalError("init(frame:) has not been implemented")
     }
 
     @objc
@@ -57,7 +56,7 @@ import SessionUtilitiesKit
     // MARK: - Notifications
 
     @objc func didBecomeActive() {
-        AssertIsOnMainThread()
+        Log.assertOnMainThread()
 
         // CoreAnimation animations are stopped in the background, so ensure
         // animations are restored if necessary.
@@ -110,12 +109,12 @@ import SessionUtilitiesKit
 
         @available(*, unavailable, message:"use other constructor instead.")
         required init?(coder aDecoder: NSCoder) {
-            notImplemented()
+            fatalError("init(coder:) has not been implemented")
         }
 
         @available(*, unavailable, message:"use other constructor instead.")
         override init(frame: CGRect) {
-            notImplemented()
+            fatalError("init(frame:) has not been implemented")
         }
 
         init(dotType: DotType) {

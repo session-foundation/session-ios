@@ -24,11 +24,11 @@ extension SessionCallManager {
             dependencies.hasInitialised(singleton: .appContext)
         else { return false }
         
-        if dependencies[singleton: .appContext].frontmostViewController is CallVC {
+        if dependencies[singleton: .appContext].frontMostViewController is CallVC {
             call.answerSessionCall()
         }
         else {
-            guard let presentingVC = dependencies[singleton: .appContext].frontmostViewController else { return false } // FIXME: Handle more gracefully
+            guard let presentingVC = dependencies[singleton: .appContext].frontMostViewController else { return false } // FIXME: Handle more gracefully
             let callVC = CallVC(for: call, using: dependencies)
             
             if let conversationVC = presentingVC as? ConversationVC {

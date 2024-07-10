@@ -123,13 +123,13 @@ public struct SessionThread: Codable, Identifiable, Equatable, FetchableRecord, 
         onlyNotifyForMentions: Bool = false,
         markedAsUnread: Bool? = false,
         pinnedPriority: Int32? = nil,
-        using dependencies: Dependencies = Dependencies()
+        using dependencies: Dependencies
     ) {
         self.id = id
         self.variant = variant
         self.creationDateTimestamp = (
             creationDateTimestamp ??
-            TimeInterval(Double(SnodeAPI.currentOffsetTimestampMs(using: dependencies)) / 1000)
+            (dependencies[cache: .snodeAPI].currentOffsetTimestampMs() / 1000)
         )
         self.shouldBeVisible = shouldBeVisible
         self.messageDraft = messageDraft
@@ -163,7 +163,7 @@ public extension SessionThread {
         variant: Variant,
         shouldBeVisible: Bool?,
         calledFromConfig configTriggeringChange: ConfigDump.Variant?,
-        using dependencies: Dependencies = Dependencies()
+        using dependencies: Dependencies
     ) throws -> SessionThread {
         guard let existingThread: SessionThread = try? fetchOne(db, id: id) else {
             return try SessionThread(
@@ -209,7 +209,8 @@ public extension SessionThread {
         threadId: String,
         threadVariant maybeThreadVariant: SessionThread.Variant? = nil,
         isBlocked maybeIsBlocked: Bool? = nil,
-        isMessageRequest maybeIsMessageRequest: Bool? = nil
+        isMessageRequest maybeIsMessageRequest: Bool? = nil,
+        using dependencies: Dependencies
     ) throws -> Bool {
         let threadVariant: SessionThread.Variant = try {
             try maybeThreadVariant ??
@@ -234,7 +235,7 @@ public extension SessionThread {
             .filter(id: threadId)
             .filter(
                 SessionThread.isMessageRequest(
-                    userSessionId: getUserSessionId(db),
+                    userSessionId: dependencies[cache: .general].sessionId,
                     includeNonVisible: true
                 )
             )
@@ -290,7 +291,7 @@ public extension SessionThread {
         threadVariant: Variant,
         groupLeaveType: ClosedGroup.LeaveType,
         calledFromConfig configTriggeringChange: ConfigDump.Variant?,
-        using dependencies: Dependencies = Dependencies()
+        using dependencies: Dependencies
     ) throws {
         try deleteOrLeave(
             db,
@@ -308,9 +309,9 @@ public extension SessionThread {
         threadVariant: Variant,
         groupLeaveType: ClosedGroup.LeaveType,
         calledFromConfig configTriggeringChange: ConfigDump.Variant?,
-        using dependencies: Dependencies = Dependencies()
+        using dependencies: Dependencies
     ) throws {
-        let userSessionId: SessionId = getUserSessionId(db, using: dependencies)
+        let userSessionId: SessionId = dependencies[cache: .general].sessionId
         let remainingThreadIds: Set<String> = threadIds.asSet().removing(userSessionId.hexString)
         
         switch (threadVariant, groupLeaveType) {
@@ -373,11 +374,10 @@ public extension SessionThread {
                 
             case (.community, _):
                 try threadIds.forEach { threadId in
-                    try OpenGroupManager.shared.delete(
+                    try dependencies[singleton: .openGroupManager].delete(
                         db,
                         openGroupId: threadId,
-                        calledFromConfig: configTriggeringChange,
-                        using: dependencies
+                        calledFromConfig: configTriggeringChange
                     )
                 }
         }
@@ -462,14 +462,19 @@ public extension SessionThread {
         ).sqlExpression
     }
     
-    func isNoteToSelf(_ db: Database? = nil) -> Bool {
+    func isNoteToSelf(_ db: Database? = nil, using dependencies: Dependencies) -> Bool {
         return (
             variant == .contact &&
-            id == getUserSessionId(db).hexString
+            id == dependencies[cache: .general].sessionId.hexString
         )
     }
     
-    func shouldShowNotification(_ db: Database, for interaction: Interaction, isMessageRequest: Bool) -> Bool {
+    func shouldShowNotification(
+        _ db: Database,
+        for interaction: Interaction,
+        isMessageRequest: Bool,
+        using dependencies: Dependencies
+    ) -> Bool {
         // Ensure that the thread isn't muted and either the thread isn't only notifying for mentions
         // or the user was actually mentioned
         guard
@@ -482,7 +487,7 @@ public extension SessionThread {
             )
         else { return false }
         
-        let userSessionId: SessionId = getUserSessionId(db)
+        let userSessionId: SessionId = dependencies[cache: .general].sessionId
         
         // No need to notify the user for self-send messages
         guard interaction.authorId != userSessionId.hexString else { return false }
@@ -540,7 +545,7 @@ public extension SessionThread {
         threadId: String,
         threadVariant: Variant,
         blindingPrefix: SessionId.Prefix,
-        using dependencies: Dependencies = Dependencies()
+        using dependencies: Dependencies
     ) -> SessionId? {
         guard threadVariant == .community else { return nil }
         guard let db: Database = db else {

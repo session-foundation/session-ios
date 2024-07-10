@@ -10,7 +10,7 @@ import SessionUtilitiesKit
 // MARK: - Group Domains
 
 public extension LibSession.Crypto.Domain {
-    static var kickedMessage: SessionUtil.Crypto.Domain = "SessionGroupKickedMessage"   // stringlint:disable
+    static var kickedMessage: LibSession.Crypto.Domain = "SessionGroupKickedMessage"   // stringlint:disable
 }
 
 // MARK: - Convenience
@@ -36,15 +36,13 @@ internal extension LibSession {
     ) throws -> CreatedGroupInfo {
         guard
             let groupIdentityKeyPair: KeyPair = dependencies[singleton: .crypto].generate(.ed25519KeyPair()),
-            let userED25519KeyPair: KeyPair = Identity.fetchUserEd25519KeyPair(db, using: dependencies)
+            let userED25519KeyPair: KeyPair = Identity.fetchUserEd25519KeyPair(db)
         else { throw MessageSenderError.noKeyPair }
         
         // Prep the relevant details (reduce the members to ensure we don't accidentally insert duplicates)
         let groupSessionId: SessionId = SessionId(.group, publicKey: groupIdentityKeyPair.publicKey)
-        let creationTimestamp: TimeInterval = TimeInterval(
-            Double(SnodeAPI.currentOffsetTimestampMs(using: dependencies)) / 1000
-        )
-        let userSessionId: SessionId = getUserSessionId(db, using: dependencies)
+        let creationTimestamp: TimeInterval = TimeInterval(dependencies[cache: .snodeAPI].currentOffsetTimestampMs() / 1000)
+        let userSessionId: SessionId = dependencies[cache: .general].sessionId
         let currentUserProfile: Profile? = Profile.fetchOrCreateCurrentUser(db, using: dependencies)
         
         // Create the new config objects
@@ -65,13 +63,13 @@ internal extension LibSession {
         }
         
         // Set the initial values in the confs
-        var cGroupName: [CChar] = name.cArray.nullTerminated()
-        groups_info_set_name(groupInfoConf, &cGroupName)
+        var cName: [CChar] = try name.cString(using: .utf8) ?? { throw LibSessionError.invalidCConversion }()
+        groups_info_set_name(groupInfoConf, &cName)
         groups_info_set_created(groupInfoConf, Int64(floor(creationTimestamp)))
         
         if let groupDescription: String = description {
-            var cGroupDescription: [CChar] = groupDescription.cArray.nullTerminated()
-            groups_info_set_description(groupInfoConf, &cGroupDescription)
+            var cDesc: [CChar] = try groupDescription.cString(using: .utf8) ?? { throw LibSessionError.invalidCConversion }()
+            groups_info_set_description(groupInfoConf, &cDesc)
         }
         
         if
@@ -85,7 +83,7 @@ internal extension LibSession {
         }
         
         // Now that everything has been populated correctly we can load the state into memory
-        dependencies.mutate(cache: .sessionUtil) { cache in
+        dependencies.mutate(cache: .libSession) { cache in
             groupState.forEach { variant, config in
                 cache.setConfig(for: variant, sessionId: groupSessionId, to: config)
             }
@@ -135,7 +133,7 @@ internal extension LibSession {
         groupSessionId: SessionId,
         using dependencies: Dependencies
     ) {
-        dependencies.mutate(cache: .sessionUtil) { cache in
+        dependencies.mutate(cache: .libSession) { cache in
             cache.setConfig(for: .groupKeys, sessionId: groupSessionId, to: nil)
             cache.setConfig(for: .groupInfo, sessionId: groupSessionId, to: nil)
             cache.setConfig(for: .groupMembers, sessionId: groupSessionId, to: nil)
@@ -154,7 +152,7 @@ internal extension LibSession {
     ) throws {
         // Create and save dumps for the configs
         try groupState.forEach { variant, config in
-            try SessionUtil.createDump(
+            try LibSession.createDump(
                 config: config,
                 for: variant,
                 sessionId: SessionId(.group, hex: group.id),
@@ -164,7 +162,7 @@ internal extension LibSession {
         }
         
         // Add the new group to the USER_GROUPS config message
-        try SessionUtil.add(
+        try LibSession.add(
             db,
             groupSessionId: group.id,
             groupIdentityPrivateKey: group.groupIdentityPrivateKey,
@@ -205,32 +203,31 @@ internal extension LibSession {
             switch admin {
                 case .none: break
                 case .some((let id, let profile)):
-                    try CExceptionHelper.performSafely {
-                        var profilePic: user_profile_pic = user_profile_pic()
-                        
-                        if
-                            let picUrl: String = profile?.profilePictureUrl,
-                            let picKey: Data = profile?.profileEncryptionKey,
-                            !picUrl.isEmpty,
-                            picKey.count == DisplayPictureManager.aes256KeyByteLength
-                        {
-                            profilePic.url = picUrl.toLibSession()
-                            profilePic.key = picKey.toLibSession()
-                        }
-                        
-                        var member: config_group_member = config_group_member(
-                            session_id: id.toLibSession(),
-                            name: (profile?.name ?? "").toLibSession(),
-                            profile_pic: profilePic,
-                            admin: true,
-                            invited: 0,
-                            promoted: 0,
-                            removed: 0,
-                            supplement: false
-                        )
-                        
-                        groups_members_set(membersConf, &member)
+                    var profilePic: user_profile_pic = user_profile_pic()
+                    
+                    if
+                        let picUrl: String = profile?.profilePictureUrl,
+                        let picKey: Data = profile?.profileEncryptionKey,
+                        !picUrl.isEmpty,
+                        picKey.count == DisplayPictureManager.aes256KeyByteLength
+                    {
+                        profilePic.url = picUrl.toLibSession()
+                        profilePic.key = picKey.toLibSession()
                     }
+                    
+                    var member: config_group_member = config_group_member(
+                        session_id: id.toLibSession(),
+                        name: (profile?.name ?? "").toLibSession(),
+                        profile_pic: profilePic,
+                        admin: true,
+                        invited: 0,
+                        promoted: 0,
+                        removed: 0,
+                        supplement: false
+                    )
+                    
+                    groups_members_set(membersConf, &member)
+                    try LibSessionError.throwIfNeeded(membersConf)
             }
             
             /// Then store the initial members
@@ -255,20 +252,19 @@ internal extension LibSession {
                         profilePic.key = picKey.toLibSession()
                     }
                     
-                    try CExceptionHelper.performSafely {
-                        var member: config_group_member = config_group_member(
-                            session_id: memberInfo.id.toLibSession(),
-                            name: (memberInfo.profile?.name ?? "").toLibSession(),
-                            profile_pic: profilePic,
-                            admin: false,
-                            invited: 1,
-                            promoted: 0,
-                            removed: 0,
-                            supplement: false
-                        )
-                        
-                        groups_members_set(membersConf, &member)
-                    }
+                    var member: config_group_member = config_group_member(
+                        session_id: memberInfo.id.toLibSession(),
+                        name: (memberInfo.profile?.name ?? "").toLibSession(),
+                        profile_pic: profilePic,
+                        admin: false,
+                        invited: 1,
+                        promoted: 0,
+                        removed: 0,
+                        supplement: false
+                    )
+                    
+                    groups_members_set(membersConf, &member)
+                    try LibSessionError.throwIfNeeded(membersConf)
                 }
         }
         
@@ -360,7 +356,7 @@ internal extension LibSession {
         // load the state after populating the different configs incase invalid data
         // was provided)
         if shouldLoadState {
-            dependencies.mutate(cache: .sessionUtil) { cache in
+            dependencies.mutate(cache: .libSession) { cache in
                 groupState.forEach { variant, config in
                     cache.setConfig(for: variant, sessionId: groupSessionId, to: config)
                 }
@@ -374,7 +370,7 @@ internal extension LibSession {
         groupSessionId: SessionId,
         using dependencies: Dependencies
     ) -> Bool {
-        return (try? dependencies[cache: .sessionUtil]
+        return (try? dependencies[cache: .libSession]
             .config(for: .groupKeys, sessionId: groupSessionId)
             .wrappedValue
             .map { config in
@@ -390,7 +386,7 @@ internal extension LibSession {
         groupSessionId: SessionId,
         using dependencies: Dependencies
     ) throws -> Data {
-        return try dependencies[cache: .sessionUtil]
+        return try dependencies[cache: .libSession]
             .config(for: .groupKeys, sessionId: groupSessionId)
             .wrappedValue
             .map { config in
@@ -421,7 +417,7 @@ internal extension LibSession {
         groupSessionId: SessionId,
         using dependencies: Dependencies
     ) throws -> (plaintext: Data, sender: String) {
-        return try dependencies[cache: .sessionUtil]
+        return try dependencies[cache: .libSession]
             .config(for: .groupKeys, sessionId: groupSessionId)
             .wrappedValue
             .map { config -> (Data, String) in

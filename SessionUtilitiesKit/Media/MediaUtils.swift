@@ -18,13 +18,13 @@ public enum MediaUtils {
     public static let maxStillImageDimensions: UInt = 8 * 1024
     public static let maxVideoDimensions: CGFloat = 3 * 1024
     
-    public static func thumbnail(forImageAtPath path: String, maxDimension: CGFloat) throws -> UIImage {
+    public static func thumbnail(forImageAtPath path: String, maxDimension: CGFloat, using dependencies: Dependencies) throws -> UIImage {
         SNLog("thumbnailing image: \(path)")
 
         guard FileManager.default.fileExists(atPath: path) else {
             throw MediaError.failure(description: "Media file missing.")
         }
-        guard Data.isValidImage(at: path) else {
+        guard Data.isValidImage(at: path, using: dependencies) else {
             throw MediaError.failure(description: "Invalid image.")
         }
         guard let originalImage = UIImage(contentsOfFile: path) else {
@@ -36,10 +36,10 @@ public enum MediaUtils {
         return thumbnailImage
     }
 
-    public static func thumbnail(forVideoAtPath path: String, maxDimension: CGFloat) throws -> UIImage {
+    public static func thumbnail(forVideoAtPath path: String, maxDimension: CGFloat, using dependencies: Dependencies) throws -> UIImage {
         SNLog("thumbnailing video: \(path)")
 
-        guard isVideoOfValidContentTypeAndSize(path: path) else {
+        guard isVideoOfValidContentTypeAndSize(path: path, using: dependencies) else {
             throw MediaError.failure(description: "Media file has missing or invalid length.")
         }
 
@@ -59,8 +59,8 @@ public enum MediaUtils {
         return image
     }
 
-    public static func isValidVideo(path: String) -> Bool {
-        guard isVideoOfValidContentTypeAndSize(path: path) else {
+    public static func isValidVideo(path: String, using dependencies: Dependencies) -> Bool {
+        guard isVideoOfValidContentTypeAndSize(path: path, using: dependencies) else {
             SNLog("Media file has missing or invalid length.")
             return false
         }
@@ -70,7 +70,7 @@ public enum MediaUtils {
         return isValidVideo(asset: asset)
     }
 
-    private static func isVideoOfValidContentTypeAndSize(path: String) -> Bool {
+    private static func isVideoOfValidContentTypeAndSize(path: String, using dependencies: Dependencies) -> Bool {
         guard FileManager.default.fileExists(atPath: path) else {
             SNLog("Media file missing.")
             return false
@@ -85,7 +85,7 @@ public enum MediaUtils {
             return false
         }
 
-        guard let fileSize = FileSystem.fileSize(of: path) else {
+        guard let fileSize = FileSystem.fileSize(of: path, using: dependencies) else {
             SNLog("Media file has unknown length.")
             return false
         }

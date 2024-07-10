@@ -37,7 +37,7 @@ extension DeleteMessagesResponse: ValidatableResponse {
     internal static var requiredSuccessfulResponses: Int { 1 }
     
     internal func validResultMap(
-        publicKey: String,
+        swarmPublicKey: String,
         validationData: [String],
         using dependencies: Dependencies
     ) throws -> [String: Bool] {
@@ -59,7 +59,7 @@ extension DeleteMessagesResponse: ValidatableResponse {
             }
             
             /// The signature format is `( PUBKEY_HEX || RMSG[0] || ... || RMSG[N] || DMSG[0] || ... || DMSG[M] )`
-            let verificationBytes: [UInt8] = publicKey.bytes
+            let verificationBytes: [UInt8] = swarmPublicKey.bytes
                 .appending(contentsOf: validationData.joined().bytes)
                 .appending(contentsOf: next.value.deleted.joined().bytes)
             

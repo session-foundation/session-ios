@@ -40,7 +40,7 @@ final class ConversationTitleView: UIView {
     }()
     
     private lazy var labelCarouselView: SessionLabelCarouselView = {
-        let result = SessionLabelCarouselView()
+        let result = SessionLabelCarouselView(using: dependencies)
         return result
     }()
     

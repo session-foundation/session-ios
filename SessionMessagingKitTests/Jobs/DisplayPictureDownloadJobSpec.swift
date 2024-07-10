@@ -553,7 +553,7 @@ class DisplayPictureDownloadJobSpec: QuickSpec {
                     )
                 )
                 let expectedRequest: URLRequest = mockStorage
-                    .read(using: dependencies) { db in
+                    .read { db in
                         try OpenGroupAPI.preparedDownloadFile(
                             db,
                             fileId: "12",

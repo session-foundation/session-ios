@@ -4,7 +4,6 @@ import UIKit
 import Combine
 import Photos
 import SignalUtilitiesKit
-import SignalCoreKit
 import SessionUIKit
 import SessionMessagingKit
 import SessionUtilitiesKit
@@ -126,7 +125,7 @@ class SendMediaNavigationController: UINavigationController {
                 mediaLibraryModeButton.isHidden = false
                 
             default:
-                owsFailDebug("unexpected topViewController: \(topViewController)")
+                Log.error("[SendMediaNavigationController] unexpected topViewController: \(topViewController)")
         }
 
         doneButton.updateCount()
@@ -213,14 +212,14 @@ class SendMediaNavigationController: UINavigationController {
     // MARK: Child VC's
 
     private lazy var captureViewController: PhotoCaptureViewController = {
-        let vc = PhotoCaptureViewController()
+        let vc = PhotoCaptureViewController(using: dependencies)
         vc.delegate = self
 
         return vc
     }()
 
     private lazy var mediaLibraryViewController: ImagePickerGridController = {
-        let vc = ImagePickerGridController()
+        let vc = ImagePickerGridController(using: dependencies)
         vc.delegate = self
         vc.collectionView.accessibilityLabel = "Images"
 
@@ -229,7 +228,7 @@ class SendMediaNavigationController: UINavigationController {
 
     private func pushApprovalViewController() -> Bool {
         guard let sendMediaNavDelegate = self.sendMediaNavDelegate else {
-            owsFailDebug("sendMediaNavDelegate was unexpectedly nil")
+            Log.error("[SendMediaNavigationController] sendMediaNavDelegate was unexpectedly nil")
             return false
         }
 
@@ -241,9 +240,7 @@ class SendMediaNavigationController: UINavigationController {
                 attachments: self.attachments,
                 using: dependencies
             )
-        else {
-            return false
-        }
+        else { return false }
         
         approvalViewController.approvalDelegate = self
         approvalViewController.messageText = sendMediaNavDelegate.sendMediaNavInitialMessageText(self)
@@ -360,7 +357,7 @@ extension SendMediaNavigationController: ImagePickerGridControllerDelegate {
                         switch result {
                             case .finished: break
                             case .failure(let error):
-                                Logger.error("failed to prepare attachments. error: \(error)")
+                                Log.error("[SendMediaNavigationController] Failed to prepare attachments. error: \(error)")
                                 modal.dismiss { [weak self] in
                                     let modal: ConfirmationModal = ConfirmationModal(
                                         targetView: self?.view,
@@ -375,7 +372,7 @@ extension SendMediaNavigationController: ImagePickerGridControllerDelegate {
                         }
                     },
                     receiveValue: { attachments in
-                        Logger.debug("built all attachments")
+                        Log.debug("[SendMediaNavigationController] Built all attachments")
                         modal.dismiss {
                             self?.attachmentDraftCollection.selectedFromPicker(attachments: attachments)
                             
@@ -449,7 +446,7 @@ extension SendMediaNavigationController: AttachmentApprovalViewControllerDelegat
 
     func attachmentApproval(_ attachmentApproval: AttachmentApprovalViewController, didRemoveAttachment attachment: SignalAttachment) {
         guard let removedDraft = attachmentDraftCollection.attachmentDrafts.first(where: { $0.attachment == attachment}) else {
-            owsFailDebug("removedDraft was unexpectedly nil")
+            Log.error("[SendMediaNavigationController] removedDraft was unexpectedly nil")
             return
         }
 

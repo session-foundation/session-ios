@@ -14,6 +14,7 @@ enum _013_SessionUtilChanges: Migration {
     static let identifier: String = "SessionUtilChanges"
     static let needsConfigSync: Bool = true
     static let minExpectedRunDuration: TimeInterval = 0.4
+    static var requirements: [MigrationRequirement] = [.sessionIdCached]
     static let fetchedTables: [(TableRecord & FetchableRecord).Type] = [
         Identity.self, GroupMember.self, ClosedGroupKeyPair.self, SessionThread.self
     ]
@@ -192,7 +193,7 @@ enum _013_SessionUtilChanges: Migration {
             )
         
         // If we don't have an ed25519 key then no need to create cached dump data
-        let userSessionId: SessionId = getUserSessionId(db, using: dependencies)
+        let userSessionId: SessionId = dependencies[cache: .general].sessionId
         
         /// Remove any hidden threads to avoid syncing them (they are basically shadow threads created by starting a conversation
         /// but not sending a message so can just be cleared out)
@@ -248,7 +249,8 @@ enum _013_SessionUtilChanges: Migration {
                     id: userSessionId.hexString,
                     variant: .contact,
                     shouldBeVisible: false,
-                    calledFromConfig: nil
+                    calledFromConfig: nil,
+                    using: dependencies
                 )
             }
         }

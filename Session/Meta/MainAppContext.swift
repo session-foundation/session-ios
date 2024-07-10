@@ -1,7 +1,6 @@
 // Copyright © 2023 Rangeproof Pty Ltd. All rights reserved.
 
 import UIKit
-import SignalCoreKit
 import SessionUIKit
 import SessionUtilitiesKit
 
@@ -12,9 +11,21 @@ final class MainAppContext: AppContext {
     
     let appLaunchTime = Date()
     let isMainApp: Bool = true
-    var isMainAppAndActive: Bool { UIApplication.shared.applicationState == .active }
-    var frontmostViewController: UIViewController? {
-        UIApplication.shared.frontmostViewController(ignoringAlerts: true, using: dependencies)
+    var isMainAppAndActive: Bool {
+        var result: Bool = false
+        
+        switch Thread.isMainThread {
+            case true: result = (UIApplication.shared.applicationState == .active)
+            case false:
+                DispatchQueue.main.sync {
+                    result = (UIApplication.shared.applicationState == .active)
+                }
+        }
+        
+        return result
+    }
+    var frontMostViewController: UIViewController? {
+        UIApplication.shared.frontMostViewController(ignoringAlerts: true, using: dependencies)
     }
     
     var mainWindow: UIWindow?
@@ -66,12 +77,6 @@ final class MainAppContext: AppContext {
             name: UIApplication.didBecomeActiveNotification,
             object: nil
         )
-        NotificationCenter.default.addObserver(
-            self,
-            selector: #selector(applicationWillTerminate(notification:)),
-            name: UIApplication.willTerminateNotification,
-            object: nil
-        )
     }
     
     deinit {
@@ -81,10 +86,9 @@ final class MainAppContext: AppContext {
     // MARK: - Notifications
     
     @objc private func applicationWillEnterForeground(notification: NSNotification) {
-        AssertIsOnMainThread()
+        Log.assertOnMainThread()
 
         self.reportedApplicationState = .inactive
-        OWSLogger.info("")
 
         NotificationCenter.default.post(
             name: .sessionWillEnterForeground,
@@ -93,13 +97,10 @@ final class MainAppContext: AppContext {
     }
 
     @objc private func applicationDidEnterBackground(notification: NSNotification) {
-        AssertIsOnMainThread()
+        Log.assertOnMainThread()
         
         self.reportedApplicationState = .background
 
-        OWSLogger.info("")
-        DDLog.flushLog()
-        
         NotificationCenter.default.post(
             name: .sessionDidEnterBackground,
             object: nil
@@ -107,12 +108,9 @@ final class MainAppContext: AppContext {
     }
 
     @objc private func applicationWillResignActive(notification: NSNotification) {
-        AssertIsOnMainThread()
+        Log.assertOnMainThread()
 
         self.reportedApplicationState = .inactive
-
-        OWSLogger.info("")
-        DDLog.flushLog()
 
         NotificationCenter.default.post(
             name: .sessionWillResignActive,
@@ -121,23 +119,14 @@ final class MainAppContext: AppContext {
     }
 
     @objc private func applicationDidBecomeActive(notification: NSNotification) {
-        AssertIsOnMainThread()
+        Log.assertOnMainThread()
 
         self.reportedApplicationState = .active
-
-        OWSLogger.info("")
 
         NotificationCenter.default.post(
             name: .sessionDidBecomeActive,
             object: nil
         )
-    }
-
-    @objc private func applicationWillTerminate(notification: NSNotification) {
-        AssertIsOnMainThread()
-
-        OWSLogger.info("")
-        DDLog.flushLog()
     }
     
     // MARK: - AppContext Functions
@@ -165,16 +154,21 @@ final class MainAppContext: AppContext {
                 if blockingObjects.count > 1 {
                     logString = "\(logString) (and \(blockingObjects.count - 1) others)"
                 }
-                OWSLogger.info(logString)
+                Log.info(logString)
             }
             else {
-                OWSLogger.info("Unblocking Sleep.")
+                Log.info("Unblocking Sleep.")
             }
         }
         UIApplication.shared.isIdleTimerDisabled = shouldBeBlocking
     }
     
-    // MARK: -
+    // MARK: - Temporary Directories
+    
+    var temporaryDirectory: String { temporaryDirectory(using: dependencies) }
+    var temporaryDirectoryAccessibleAfterFirstAuth: String {
+        temporaryDirectoryAccessibleAfterFirstAuth(using: dependencies)
+    }
     
     func clearOldTemporaryDirectories() {
         // We use the lowest priority queue for this, and wait N seconds

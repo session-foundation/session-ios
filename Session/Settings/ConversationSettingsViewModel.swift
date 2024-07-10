@@ -110,9 +110,9 @@ class ConversationSettingsViewModel: SessionTableViewModel, NavigatableStateHold
                                 tintColor: .danger,
                                 backgroundStyle: .noBackground
                             ),
-                            onTap: { [weak self] in
+                            onTap: { [weak self, dependencies] in
                                 self?.transitionToScreen(
-                                    SessionTableViewController(viewModel: BlockedContactsViewModel())
+                                    SessionTableViewController(viewModel: BlockedContactsViewModel(using: dependencies))
                                 )
                             }
                         )

@@ -310,7 +310,8 @@ final class VisibleMessageCell: MessageCell, TappableLabelDelegate {
             threadVariant: .contact,    // Always show the display picture in 'contact' mode
             displayPictureFilename: nil,
             profile: cellViewModel.profile,
-            profileIcon: (cellViewModel.isSenderOpenGroupModerator ? .crown : .none)
+            profileIcon: (cellViewModel.isSenderOpenGroupModerator ? .crown : .none),
+            using: dependencies
         )
        
         // Bubble view
@@ -340,7 +341,8 @@ final class VisibleMessageCell: MessageCell, TappableLabelDelegate {
             for: cellViewModel,
             mediaCache: mediaCache,
             playbackInfo: playbackInfo,
-            lastSearchText: lastSearchText
+            lastSearchText: lastSearchText,
+            using: dependencies
         )
         
         bubbleView.accessibilityIdentifier = "Message body"
@@ -428,7 +430,8 @@ final class VisibleMessageCell: MessageCell, TappableLabelDelegate {
             
             timerView.configure(
                 expirationTimestampMs: expirationTimestampMs,
-                initialDurationSeconds: expiresInSeconds
+                initialDurationSeconds: expiresInSeconds,
+                using: dependencies
             )
             timerView.themeTintColor = tintColor
             timerView.isHidden = false
@@ -461,7 +464,8 @@ final class VisibleMessageCell: MessageCell, TappableLabelDelegate {
         for cellViewModel: MessageViewModel,
         mediaCache: NSCache<NSString, AnyObject>,
         playbackInfo: ConversationViewModel.PlaybackInfo?,
-        lastSearchText: String?
+        lastSearchText: String?,
+        using dependencies: Dependencies
     ) {
         let bodyLabelTextColor: ThemeValue = (cellViewModel.variant == .standardOutgoing ?
             .messageBubble_outgoingText :
@@ -518,13 +522,15 @@ final class VisibleMessageCell: MessageCell, TappableLabelDelegate {
                             linkPreviewView.update(
                                 with: LinkPreview.SentState(
                                     linkPreview: linkPreview,
-                                    imageAttachment: cellViewModel.linkPreviewAttachment
+                                    imageAttachment: cellViewModel.linkPreviewAttachment,
+                                    using: dependencies
                                 ),
                                 isOutgoing: (cellViewModel.variant == .standardOutgoing),
                                 delegate: self,
                                 cellViewModel: cellViewModel,
                                 bodyLabelTextColor: bodyLabelTextColor,
-                                lastSearchText: lastSearchText
+                                lastSearchText: lastSearchText,
+                                using: dependencies
                             )
                             self.linkPreviewView = linkPreviewView
                             bubbleView.addSubview(linkPreviewView)
@@ -568,7 +574,8 @@ final class VisibleMessageCell: MessageCell, TappableLabelDelegate {
                                 .outgoing :
                                 .incoming
                             ),
-                            attachment: cellViewModel.quoteAttachment
+                            attachment: cellViewModel.quoteAttachment,
+                            using: dependencies
                         )
                         self.quoteView = quoteView
                         let quoteViewContainer = UIView(wrapping: quoteView, withInsets: UIEdgeInsets(top: 0, leading: hInset, bottom: 0, trailing: hInset))
@@ -581,7 +588,8 @@ final class VisibleMessageCell: MessageCell, TappableLabelDelegate {
                         with: maxWidth,
                         textColor: bodyLabelTextColor,
                         searchText: lastSearchText,
-                        delegate: self
+                        delegate: self,
+                        using: dependencies
                     )
                     self.bodyTappableLabel = bodyTappableLabel
                     stackView.addArrangedSubview(bodyTappableLabel)
@@ -603,7 +611,8 @@ final class VisibleMessageCell: MessageCell, TappableLabelDelegate {
                         with: maxWidth,
                         textColor: bodyLabelTextColor,
                         searchText: lastSearchText,
-                        delegate: self
+                        delegate: self,
+                        using: dependencies
                     )
 
                     self.bodyTappableLabel = bodyTappableLabel
@@ -620,7 +629,8 @@ final class VisibleMessageCell: MessageCell, TappableLabelDelegate {
                         .filter { $0.isVisualMedia })
                         .defaulting(to: []),
                     isOutgoing: (cellViewModel.variant == .standardOutgoing),
-                    maxMessageWidth: maxMessageWidth
+                    maxMessageWidth: maxMessageWidth,
+                    using: dependencies
                 )
                 self.albumView = albumView
                 let size = getSize(for: cellViewModel)
@@ -674,7 +684,8 @@ final class VisibleMessageCell: MessageCell, TappableLabelDelegate {
                         with: maxWidth,
                         textColor: bodyLabelTextColor,
                         searchText: lastSearchText,
-                        delegate: self
+                        delegate: self,
+                        using: dependencies
                     )
                     
                     self.bodyTappableLabel = bodyTappableLabel
@@ -1100,7 +1111,8 @@ final class VisibleMessageCell: MessageCell, TappableLabelDelegate {
         theme: Theme,
         primaryColor: Theme.PrimaryColor,
         textColor: ThemeValue,
-        searchText: String?
+        searchText: String?,
+        using dependencies: Dependencies
     ) -> NSMutableAttributedString? {
         guard
             let body: String = cellViewModel.body,
@@ -1126,7 +1138,8 @@ final class VisibleMessageCell: MessageCell, TappableLabelDelegate {
                 attributes: [
                     .foregroundColor: actualTextColor,
                     .font: UIFont.systemFont(ofSize: getFontSize(for: cellViewModel))
-                ]
+                ],
+                using: dependencies
             )
         )
         
@@ -1236,7 +1249,8 @@ final class VisibleMessageCell: MessageCell, TappableLabelDelegate {
         with availableWidth: CGFloat,
         textColor: ThemeValue,
         searchText: String?,
-        delegate: TappableLabelDelegate?
+        delegate: TappableLabelDelegate?,
+        using dependencies: Dependencies
     ) -> TappableLabel {
         let result: TappableLabel = TappableLabel()
         result.setContentCompressionResistancePriority(.required, for: .vertical)
@@ -1253,7 +1267,8 @@ final class VisibleMessageCell: MessageCell, TappableLabelDelegate {
                 theme: theme,
                 primaryColor: primaryColor,
                 textColor: textColor,
-                searchText: searchText
+                searchText: searchText,
+                using: dependencies
             )
             
             if let result: TappableLabel = result, !hasPreviousSetText {

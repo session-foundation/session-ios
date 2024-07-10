@@ -10,7 +10,6 @@ import SessionUIKit
 import SessionSnodeKit
 import SessionMessagingKit
 import SessionUtilitiesKit
-import SignalCoreKit
 
 class DeveloperSettingsViewModel: SessionTableViewModel, NavigatableStateHolder, ObservableTableSource {
     public let dependencies: Dependencies
@@ -57,7 +56,6 @@ class DeveloperSettingsViewModel: SessionTableViewModel, NavigatableStateHolder,
         case developerMode
         
         case serviceNetwork
-        case networkLayer
         case resetSnodeCache
         
         case updatedDisappearingMessages
@@ -81,7 +79,6 @@ class DeveloperSettingsViewModel: SessionTableViewModel, NavigatableStateHolder,
         let developerMode: Bool
         
         let serviceNetwork: ServiceNetwork
-        let networkLayer: Network.Layers
         
         let debugDisappearingMessageDurations: Bool
         let updatedDisappearingMessages: Bool
@@ -103,7 +100,6 @@ class DeveloperSettingsViewModel: SessionTableViewModel, NavigatableStateHolder,
             State(
                 developerMode: dependencies[singleton: .storage, key: .developerModeEnabled],
                 serviceNetwork: dependencies[feature: .serviceNetwork],
-                networkLayer: dependencies[feature: .networkLayers],
                 debugDisappearingMessageDurations: dependencies[feature: .debugDisappearingMessageDurations],
                 updatedDisappearingMessages: dependencies[feature: .updatedDisappearingMessages],
                 updatedGroups: dependencies[feature: .updatedGroups],
@@ -175,34 +171,6 @@ class DeveloperSettingsViewModel: SessionTableViewModel, NavigatableStateHolder,
                         }
                     ),
                     SessionCell.Info(
-                        id: .networkLayer,
-                        title: "Routing",
-                        subtitle: """
-                        The network layer which all network traffic should be routed through.
-                        
-                        We do support sending network traffic through multiple network layers, if multiple layers are selected then requests will wait for a response from all layers before completing with the first successful response.
-                        
-                        <b>Warning:</b>
-                        Different network layers offer different levels of privacy, make sure to read the description of the network layers before making a selection.
-                        """,
-                        trailingAccessory: .dropDown { current.networkLayer.title },
-                        onTap: { [weak self, dependencies] in
-                            self?.transitionToScreen(
-                                SessionTableViewController(
-                                    viewModel: SessionListViewModel<Network.Layers>(
-                                        title: "Routing",
-                                        options: Network.Layers.allCases,
-                                        behaviour: .singleSelect(
-                                            initialSelection: current.networkLayer,
-                                            onSaved: self?.updateNetworkLayers
-                                        ),
-                                        using: dependencies
-                                    )
-                                )
-                            )
-                        }
-                    ),
-                    SessionCell.Info(
                         id: .resetSnodeCache,
                         title: "Reset Service Node Cache",
                         subtitle: """
@@ -220,9 +188,9 @@ class DeveloperSettingsViewModel: SessionTableViewModel, NavigatableStateHolder,
                         id: .debugDisappearingMessageDurations,
                         title: "Debug Durations",
                         subtitle: """
-                        Adds 10 and 60 second durations for Disappearing Message settings.
+                        Adds 10, 30 and 60 second durations for Disappearing Message settings.
                         
-                        These should only be used for debugging purposes and can result in odd behaviours.
+                        These should only be used for debugging purposes and will likely result in odd behaviours.
                         """,
                         trailingAccessory: .toggle(
                             current.debugDisappearingMessageDurations,
@@ -442,7 +410,6 @@ class DeveloperSettingsViewModel: SessionTableViewModel, NavigatableStateHolder,
                 case .exportDatabase: break  // Not a feature
                 
                 case .serviceNetwork: updateServiceNetwork(to: nil)
-                case .networkLayer: updateNetworkLayers(to: nil)
                     
                 case .debugDisappearingMessageDurations:
                     updateFlag(for: .debugDisappearingMessageDurations, to: nil)
@@ -462,7 +429,7 @@ class DeveloperSettingsViewModel: SessionTableViewModel, NavigatableStateHolder,
         }
         
         /// Disable developer mode
-        dependencies[singleton: .storage].write(using: dependencies) { db in
+        dependencies[singleton: .storage].write { db in
             db[.developerModeEnabled] = false
         }
         
@@ -478,7 +445,7 @@ class DeveloperSettingsViewModel: SessionTableViewModel, NavigatableStateHolder,
         /// Make sure we are actually changing the network before clearing all of the data
         guard
             updatedNetwork != dependencies[feature: .serviceNetwork],
-            let identityData: IdentityData = dependencies[singleton: .storage].read(using: dependencies, { db in
+            let identityData: IdentityData = dependencies[singleton: .storage].read({ db in
                 IdentityData(
                     ed25519KeyPair: KeyPair(
                         publicKey: Array(try Identity
@@ -507,15 +474,14 @@ class DeveloperSettingsViewModel: SessionTableViewModel, NavigatableStateHolder,
         SNLog("[DevSettings] Swapping to \(String(describing: updatedNetwork)), clearing data")
         
         /// Stop all pollers
-        dependencies[singleton: .currentUserPoller].stopAllPollers()
-        dependencies[singleton: .groupsPoller].stopAllPollers()
-        OpenGroupManager.shared.stopPolling(using: dependencies)
+        dependencies[singleton: .currentUserPoller].stop()
+        dependencies.remove(cache: .groupPollers)
         
-        /// Cancel and remove all current network requests
-        dependencies.mutate(cache: .network) { networkCache in
-            networkCache.currentRequests.forEach { _, value in value.cancel() }
-            networkCache.currentRequests = [:]
-        }
+//        /// Cancel and remove all current network requests
+//        dependencies.mutate(cache: .network) { networkCache in
+//            networkCache.currentRequests.forEach { _, value in value.cancel() }
+//            networkCache.currentRequests = [:]
+//        }
         
         /// Unsubscribe from push notifications (do this after cancelling pending network requests as we don't want these to be cancelled)
         if let existingToken: String = dependencies[singleton: .storage, key: .lastRecordedPushToken] {
@@ -524,33 +490,13 @@ class DeveloperSettingsViewModel: SessionTableViewModel, NavigatableStateHolder,
                 .sinkUntilComplete()
         }
         
-        /// Clear the snodeAPI and getSnodePool caches
-        dependencies.mutate(cache: .snodeAPI) {
-            $0.snodePool = []
-            $0.clearSwarmCache()
-            $0.snodeFailureCount = [:]
-            $0.hasLoadedSnodePool = false
-        }
-        
-        dependencies.mutate(cache: .getSnodePool) {
-            $0.publisher = nil
-        }
-        
-        /// Clear the onionRequestAPI cache
-        dependencies.mutate(cache: .onionRequestAPI) {
-            $0.buildPathsPublisher = nil
-            $0.pathFailureCount = [:]
-            $0.snodeFailureCount = [:]
-            $0.guardSnodes = []
-            $0.paths = []
-        }
+        /// Clear the snodeAPI  caches
+        dependencies.remove(cache: .snodeAPI)   // TODO: Test this works
         
         /// Remove any network-specific data
-        dependencies[singleton: .storage].write(using: dependencies) { [dependencies] db in
-            let userSessionId: SessionId = getUserSessionId(db, using: dependencies)
+        dependencies[singleton: .storage].write { [dependencies] db in
+            let userSessionId: SessionId = dependencies[cache: .general].sessionId
             
-            _ = try Snode.deleteAll(db)
-            _ = try SnodeSet.deleteAll(db)
             _ = try SnodeReceivedMessageInfo.deleteAll(db)
             _ = try SessionThread.deleteAll(db)
             _ = try ControlMessageProcessRecord.deleteAll(db)
@@ -568,53 +514,32 @@ class DeveloperSettingsViewModel: SessionTableViewModel, NavigatableStateHolder,
             _ = try ConfigDump.deleteAll(db)
         }
         
-        /// Notify the UI that the paths were reset
-        DispatchQueue.main.async { [dependencies] in
-            dependencies.notifyObservers(for: .networkLayers, with: .resetPaths)
-        }
-        
         SNLog("[DevSettings] Reloading state for \(String(describing: updatedNetwork))")
         
         /// Reload the libSession state
-        SessionUtil.clearMemoryState(using: dependencies)
+        dependencies.remove(cache: .libSession)
         
         /// Update to the new `ServiceNetwork`
         dependencies.set(feature: .serviceNetwork, to: updatedNetwork)
         
         /// Run the onboarding process as if we are recovering an account (will setup the device in it's proper state)
-        Onboarding.Flow.recover.preregister(
+        Onboarding.Cache(
             ed25519KeyPair: identityData.ed25519KeyPair,
             x25519KeyPair: identityData.x25519KeyPair,
+            displayName: Profile.fetchOrCreateCurrentUser(using: dependencies)
+                .name
+                .nullIfEmpty
+                .defaulting(to: "Anonymous"),
             using: dependencies
-        )
-        Onboarding.Flow.recover.completeRegistration(
-            suppressDidRegisterNotification: true,
-            onComplete: { [dependencies] _ in
-                /// Restart the current user poller (there won't be any other pollers though)
-                dependencies[singleton: .currentUserPoller].start(using: dependencies)
-                
-                /// Re-sync the push tokens (if there are any)
-                SyncPushTokensJob.run(uploadOnlyIfStale: false)
-                
-                SNLog("[DevSettings] Completed swap to \(String(describing: updatedNetwork))")
-            },
-            using: dependencies
-        )
-        
-        forceRefresh(type: .databaseQuery)
-    }
-    
-    private func updateNetworkLayers(to networkLayers: Network.Layers?) {
-        let updatedNetworkLayers: Network.Layers? = networkLayers
-        
-        /// Cancel and remove all current network requests
-        dependencies.mutate(cache: .network) { networkCache in
-            networkCache.currentRequests.forEach { _, value in value.cancel() }
-            networkCache.currentRequests = [:]
+        ).completeRegistration { [dependencies] in
+            /// Restart the current user poller (there won't be any other pollers though)
+            dependencies[singleton: .currentUserPoller].startIfNeeded()
+            
+            /// Re-sync the push tokens (if there are any)
+            SyncPushTokensJob.run(uploadOnlyIfStale: false, using: dependencies)
+            
+            SNLog("[DevSettings] Completed swap to \(String(describing: updatedNetwork))")
         }
-        
-        /// Update to the new `Network.Layers`
-        dependencies.set(feature: .networkLayers, to: updatedNetworkLayers)
         
         forceRefresh(type: .databaseQuery)
     }
@@ -636,46 +561,10 @@ class DeveloperSettingsViewModel: SessionTableViewModel, NavigatableStateHolder,
                     cancelStyle: .alert_text,
                     dismissOnConfirm: true,
                     onConfirm: { [dependencies] _ in
-                        /// Clear the snodeAPI and getSnodePool caches
-                        dependencies.mutate(cache: .snodeAPI) {
-                            $0.snodePool = []
-                            $0.clearSwarmCache()
-                            $0.snodeFailureCount = [:]
-                            $0.hasLoadedSnodePool = false
-                        }
+                        /// Clear the snodeAPI cache
+                        dependencies.remove(cache: .snodeAPI)
                         
-                        dependencies.mutate(cache: .getSnodePool) {
-                            $0.publisher = nil
-                        }
                         
-                        /// Clear the onionRequestAPI cache
-                        dependencies.mutate(cache: .onionRequestAPI) {
-                            $0.buildPathsPublisher = nil
-                            $0.pathFailureCount = [:]
-                            $0.snodeFailureCount = [:]
-                            $0.guardSnodes = []
-                            $0.paths = []
-                        }
-                        
-                        /// Remove any network-specific data
-                        dependencies[singleton: .storage].write(using: dependencies) { db in
-                            _ = try Snode.deleteAll(db)
-                            _ = try SnodeSet.deleteAll(db)
-                        }
-                        
-                        /// Cancel and remove all current network requests
-                        dependencies.mutate(cache: .network) { networkCache in
-                            networkCache.currentRequests.forEach { _, value in value.cancel() }
-                            networkCache.currentRequests = [:]
-                        }
-                        
-                        /// Notify the UI that the paths were reset
-                        DispatchQueue.main.async {
-                            dependencies.notifyObservers(for: .networkLayers, with: .resetPaths)
-                        }
-                        
-                        /// Trigger the `getSnodePool` job to rebuild the pool
-                        GetSnodePoolJob.run(using: dependencies)
                     }
                 )
             ),
@@ -728,7 +617,7 @@ class DeveloperSettingsViewModel: SessionTableViewModel, NavigatableStateHolder,
                             }
                             
                             do {
-                                let exportInfo = try dependencies[singleton: .storage].exportInfo(password: password)
+                                let exportInfo = try dependencies[singleton: .storage].exportInfo(password: password, using: dependencies)
                                 let shareVC = UIActivityViewController(
                                     activityItems: [
                                         URL(fileURLWithPath: exportInfo.dbPath),
@@ -817,4 +706,3 @@ class DeveloperSettingsViewModel: SessionTableViewModel, NavigatableStateHolder,
 // MARK: - Listable Conformance
 
 extension ServiceNetwork: Listable {}
-extension Network.Layers: Listable {}

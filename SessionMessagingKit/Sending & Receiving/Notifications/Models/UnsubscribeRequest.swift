@@ -26,7 +26,7 @@ extension PushNotificationAPI {
                 ///
                 /// Where `SIG_TS` is the `sig_ts` value as a base-10 string and must be within 24 hours of the current time.
                 "UNSUBSCRIBE".bytes
-                    .appending(contentsOf: authMethod.sessionId.hexString.bytes)
+                    .appending(contentsOf: authMethod.swarmPublicKey.bytes)
                     .appending(contentsOf: "\(timestamp)".data(using: .ascii)?.bytes)
             }
             
@@ -52,10 +52,10 @@ extension PushNotificationAPI {
                 
                 try container.encode(serviceInfo, forKey: .serviceInfo)
                 
-                // Use the correct APNS service based on the serviceNetwork
-                switch encoder.dependencies[feature: .serviceNetwork] {
+                // Use the correct APNS service based on the serviceNetwork (default to mainnet)
+                switch encoder.dependencies?[feature: .serviceNetwork] {
                     case .testnet: try container.encode(Service.sandbox, forKey: .service)
-                    case .mainnet: try container.encode(Service.apns, forKey: .service)
+                    case .mainnet, .none: try container.encode(Service.apns, forKey: .service)
                 }
                 
                 try super.encode(to: encoder)

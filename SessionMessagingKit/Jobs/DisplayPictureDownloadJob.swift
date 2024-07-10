@@ -16,28 +16,30 @@ public enum DisplayPictureDownloadJob: JobExecutor {
     public static func run(
         _ job: Job,
         queue: DispatchQueue,
-        success: @escaping (Job, Bool, Dependencies) -> (),
-        failure: @escaping (Job, Error?, Bool, Dependencies) -> (),
-        deferred: @escaping (Job, Dependencies) -> (),
+        success: @escaping (Job, Bool) -> Void,
+        failure: @escaping (Job, Error, Bool) -> Void,
+        deferred: @escaping (Job) -> Void,
         using dependencies: Dependencies
     ) {
         guard
             let detailsData: Data = job.details,
             let details: Details = try? JSONDecoder(using: dependencies).decode(Details.self, from: detailsData),
-            let preparedDownload: HTTP.PreparedRequest<Data> = try? {
+            let preparedDownload: Network.PreparedRequest<Data> = try? {
                 switch details.target {
                     case .profile(_, let url, _), .group(_, let url, _):
-                        guard let fileId: String = Attachment.fileId(for: url) else { return nil }
+                        guard
+                            let fileId: String = Attachment.fileId(for: url),
+                            let downloadUrl: URL = URL(string: Network.FileServer.downloadUrlString(for: url, fileId: fileId))
+                        else { throw NetworkError.invalidURL }
                         
-                        return try FileServerAPI.preparedDownload(
-                            fileId: fileId,
-                            useOldServer: url.contains(FileServerAPI.oldServer),
+                        return try Network.preparedDownload(
+                            url: downloadUrl,
                             using: dependencies
                         )
                         
                     case .community(let fileId, let roomToken, let server):
-                        return dependencies[singleton: .storage].read(using: dependencies) { db in
-                            try OpenGroupAPI.preparedDownloadFile(
+                        return dependencies[singleton: .storage].read { db in
+                            try OpenGroupAPI.preparedDownload(
                                 db,
                                 fileId: fileId,
                                 from: roomToken,
@@ -47,11 +49,7 @@ public enum DisplayPictureDownloadJob: JobExecutor {
                         }
                 }
             }()
-        else {
-            SNLog("[DisplayPictureDownloadJob] Failing due to missing details")
-            failure(job, JobRunnerError.missingRequiredDetails, true, dependencies)
-            return
-        }
+        else { return failure(job, JobRunnerError.missingRequiredDetails, true) }
             
         let fileName: String = DisplayPictureManager.generateFilename(using: dependencies)
         let filePath: String = DisplayPictureManager.filepath(for: fileName, using: dependencies)
@@ -63,8 +61,8 @@ public enum DisplayPictureDownloadJob: JobExecutor {
             .sinkUntilComplete(
                 receiveCompletion: { result in
                     switch result {
-                        case .finished: success(job, false, dependencies)
-                        case .failure(let error): failure(job, error, true, dependencies)
+                        case .finished: success(job, false)
+                        case .failure(let error): failure(job, error, true)
                     }
                 },
                 receiveValue: { _, data in
@@ -84,8 +82,8 @@ public enum DisplayPictureDownloadJob: JobExecutor {
                             }
                         }()
                     else {
-                        SNLog("[DisplayPictureDownloadJob] Failed to decrypt display picture for \(details.target)")
-                        failure(job, DisplayPictureError.writeFailed, true, dependencies)
+                        Log.error("[DisplayPictureDownloadJob] Failed to decrypt display picture for \(details.target)")
+                        failure(job, DisplayPictureError.writeFailed, true)
                         return
                     }
                     
@@ -97,8 +95,8 @@ public enum DisplayPictureDownloadJob: JobExecutor {
                             contents: decryptedData
                         )
                     else {
-                        SNLog("[DisplayPictureDownloadJob] Failed to load display picture for \(details.target)")
-                        failure(job, DisplayPictureError.writeFailed, true, dependencies)
+                        Log.error("[DisplayPictureDownloadJob] Failed to load display picture for \(details.target)")
+                        failure(job, DisplayPictureError.writeFailed, true)
                         return
                     }
                     

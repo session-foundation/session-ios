@@ -1,7 +1,6 @@
 //  Copyright (c) 2019 Open Whisper Systems. All rights reserved.
 
 import UIKit
-import SignalCoreKit
 import SessionUtilitiesKit
 
 public struct ImageEditorPinchState {
@@ -139,7 +138,7 @@ public class ImageEditorPinchGestureRecognizer: UIGestureRecognizer {
 
     private func touchState(for event: UIEvent) -> TouchState {
         guard let allTouches = event.allTouches else {
-            owsFailDebug("Missing allTouches")
+            Log.error("[ImageEditorPinchGestureRecognizer] Missing allTouches")
             return .invalid
         }
         // Note that we use _all_ touches.
@@ -154,7 +153,7 @@ public class ImageEditorPinchGestureRecognizer: UIGestureRecognizer {
 
     private func pinchState() -> ImageEditorPinchState? {
         guard let referenceView = referenceView else {
-            owsFailDebug("Missing view")
+            Log.error("[ImageEditorPinchGestureRecognizer] Missing view")
             return nil
         }
         guard numberOfTouches == 2 else {
@@ -179,7 +178,7 @@ public class ImageEditorPinchGestureRecognizer: UIGestureRecognizer {
 
     private func centroid(forTouches touches: Set<UITouch>?) -> CGPoint {
         guard let view = self.view else {
-            owsFailDebug("Missing view")
+            Log.error("[ImageEditorPinchGestureRecognizer] Missing view")
             return .zero
         }
         guard let touches = touches else {

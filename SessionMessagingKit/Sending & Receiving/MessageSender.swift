@@ -19,8 +19,8 @@ public final class MessageSender {
         using dependencies: Dependencies
     ) throws -> Network.PreparedRequest<Void> {
         // Common logic for all destinations
-        let userSessionId: SessionId = getUserSessionId(db, using: dependencies)
-        let messageSendTimestamp: Int64 = SnodeAPI.currentOffsetTimestampMs(using: dependencies)
+        let userSessionId: SessionId = dependencies[cache: .general].sessionId
+        let messageSendTimestamp: Int64 = dependencies[cache: .snodeAPI].currentOffsetTimestampMs()
         let updatedMessage: Message = message
         
         // Set the message 'sentTimestamp' (Visible messages will already have their sent timestamp set)
@@ -119,7 +119,7 @@ public final class MessageSender {
         switch (destination, (message.recipient == userSessionId.hexString), message as? MessageWithProfile) {
             case (.syncMessage, _, _), (_, true, _), (_, _, .none): break
             case (_, _, .some(var messageWithProfile)):
-                let profile: Profile = Profile.fetchOrCreateCurrentUser(db)
+                let profile: Profile = Profile.fetchOrCreateCurrentUser(db, using: dependencies)
                 
                 if let profileKey: Data = profile.profileEncryptionKey, let profilePictureUrl: String = profile.profilePictureUrl {
                     messageWithProfile.profile = VisibleMessage.VMProfile(
@@ -175,7 +175,7 @@ public final class MessageSender {
                     )
                     .mapError { MessageSenderError.other("Couldn't wrap message", $0) }
                     .successOrThrow()
-                    
+                    // TODO: Crypto?????
                     return try LibSession
                         .encrypt(
                             message: messageData,
@@ -252,31 +252,24 @@ public final class MessageSender {
                     let updatedMessage: Message = message
                     updatedMessage.serverHash = response.hash
                     
-                    let job: Job? = Job(
-                        variant: .notifyPushServer,
-                        behaviour: .runOnce,
-                        details: NotifyPushServerJob.Details(message: snodeMessage)
-                    )
-                    let shouldNotify: Bool = {
-                        switch (updatedMessage, destination) {
-                            // New groups only run via the updated push server so don't notify
-                            case (_, .closedGroup(let groupId)) where (try? SessionId.Prefix(from: groupId)) == .group: return false
-                            case (is VisibleMessage, .syncMessage), (is UnsendRequest, .syncMessage): return false
-                            case (is VisibleMessage, _), (is UnsendRequest, _): return true
-                            case (let callMessage as CallMessage, _):
-                                // Note: Other 'CallMessage' types are too big to send as push notifications
-                                // so only send the 'preOffer' message as a notification
-                                switch callMessage.kind {
-                                    case .preOffer: return true
-                                    default: return false
-                                }
-                            
-                            default: return false
-                        }
+                    // Only legacy groups need to manually trigger push notifications now so only create the job
+                    // if the destination is a legacy group (ie. a group destination with a standard pubkey prefix)
+                    let notifyPushServerJob: Job? = {
+                        guard
+                            case .closedGroup(let groupPublicKey) = destination,
+                            let groupId: SessionId = try? SessionId(from: groupPublicKey),
+                            groupId.prefix == .standard
+                        else { return nil }
+                                    
+                        return Job(
+                            variant: .notifyPushServer,
+                            behaviour: .runOnce,
+                            details: NotifyPushServerJob.Details(message: snodeMessage)
+                        )
                     }()
                     
                     // Save the updated message info and send a PN if needed
-                    dependencies[singleton: .storage].write(using: dependencies) { db -> Void in
+                    dependencies[singleton: .storage].write { db in
                         try MessageSender.handleSuccessfulMessageSend(
                             db,
                             message: updatedMessage,
@@ -284,31 +277,32 @@ public final class MessageSender {
                             interactionId: interactionId,
                             using: dependencies
                         )
-
-                        guard shouldNotify else { return }
+                        
+                        guard notifyPushServerJob != nil else { return }
 
                         dependencies[singleton: .jobRunner].add(
                             db,
-                            job: job,
-                            canStartJob: true,
-                            using: dependencies
+                            job: notifyPushServerJob,
+                            canStartJob: true
                         )
                     }
                     
                     // If we should send a push notification and are sending from the background then
                     // we want to send it on this thread
                     guard
-                        let job: Job = job,
-                        shouldNotify &&
+                        let job: Job = notifyPushServerJob,
                         !dependencies[defaults: .appGroup, key: .isMainAppActive]
                     else { return }
                     
+                    // Want to block the main thread here as it's likely we just went to the background
+                    // and have sent a message in a background task before shutting down the app so want
+                    // the notification to go out
                     NotifyPushServerJob.run(
                         job,
                         queue: .main,
-                        success: { _, _, _ in },
-                        failure: { _, _, _, _ in },
-                        deferred: { _, _ in },
+                        success: { _, _ in },
+                        failure: { _, _, _ in },
+                        deferred: { _ in },
                         using: dependencies
                     )
                 },
@@ -316,7 +310,7 @@ public final class MessageSender {
                     switch result {
                         case .finished: break
                         case .failure(let error):
-                            dependencies[singleton: .storage].read(using: dependencies) { db in
+                            dependencies[singleton: .storage].read { db in
                                 MessageSender.handleFailedMessageSend(
                                     db,
                                     message: message,
@@ -350,7 +344,7 @@ public final class MessageSender {
                 db,
                 id: OpenGroup.idFor(roomToken: roomToken, server: server)
             ),
-            let userEdKeyPair: KeyPair = Identity.fetchUserEd25519KeyPair(db, using: dependencies)
+            let userEdKeyPair: KeyPair = Identity.fetchUserEd25519KeyPair(db)
         else { throw MessageSenderError.invalidMessage }
         
         // Set the sender/recipient info (needed to be valid)
@@ -390,7 +384,7 @@ public final class MessageSender {
         
         // Attach the user's profile
         message.profile = VisibleMessage.VMProfile(
-            profile: Profile.fetchOrCreateCurrentUser(db),
+            profile: Profile.fetchOrCreateCurrentUser(db, using: dependencies),
             blocksCommunityMessageRequests: !db[.checkForCommunityMessageRequests]
         )
 
@@ -427,7 +421,7 @@ public final class MessageSender {
                     let updatedMessage: Message = message
                     updatedMessage.openGroupServerMessageId = UInt64(response.id)
                     
-                    dependencies[singleton: .storage].write(using: dependencies) { db in
+                    dependencies[singleton: .storage].write { db in
                         // The `posted` value is in seconds but we sent it in ms so need that for de-duping
                         try MessageSender.handleSuccessfulMessageSend(
                             db,
@@ -443,7 +437,7 @@ public final class MessageSender {
                     switch result {
                         case .finished: break
                         case .failure(let error):
-                            dependencies[singleton: .storage].read(using: dependencies) { db in
+                            dependencies[singleton: .storage].read { db in
                                 MessageSender.handleFailedMessageSend(
                                     db,
                                     message: message,
@@ -480,7 +474,7 @@ public final class MessageSender {
         
         // Attach the user's profile if needed
         if let message: VisibleMessage = message as? VisibleMessage {
-            let profile: Profile = Profile.fetchOrCreateCurrentUser(db)
+            let profile: Profile = Profile.fetchOrCreateCurrentUser(db, using: dependencies)
             
             if let profileKey: Data = profile.profileEncryptionKey, let profilePictureUrl: String = profile.profilePictureUrl {
                 message.profile = VisibleMessage.VMProfile(
@@ -534,7 +528,7 @@ public final class MessageSender {
                     let updatedMessage: Message = message
                     updatedMessage.openGroupServerMessageId = UInt64(response.id)
                     
-                    dependencies[singleton: .storage].write(using: dependencies) { db in
+                    dependencies[singleton: .storage].write { db in
                         // The `posted` value is in seconds but we sent it in ms so need that for de-duping
                         try MessageSender.handleSuccessfulMessageSend(
                             db,
@@ -550,7 +544,7 @@ public final class MessageSender {
                     switch result {
                         case .finished: break
                         case .failure(let error):
-                            dependencies[singleton: .storage].read(using: dependencies) { db in
+                            dependencies[singleton: .storage].read { db in
                                 MessageSender.handleFailedMessageSend(
                                     db,
                                     message: message,
@@ -678,8 +672,7 @@ public final class MessageSender {
                                     startedAtMs: Double(interaction.timestampMs),
                                     using: dependencies
                                 ),
-                                canStartJob: true,
-                                using: dependencies
+                                canStartJob: true
                             )
                         
                             if
@@ -700,8 +693,7 @@ public final class MessageSender {
                                             expirationTimestampMs: expirationTimestampMs
                                         )
                                     ),
-                                    canStartJob: true,
-                                    using: dependencies
+                                    canStartJob: true
                                 )
                             }
                         }
@@ -722,7 +714,7 @@ public final class MessageSender {
             threadId: threadId,
             message: message,
             serverExpirationTimestamp: (
-                TimeInterval(Double(SnodeAPI.currentOffsetTimestampMs(using: dependencies)) / 1000) +
+                TimeInterval(dependencies[cache: .snodeAPI].currentOffsetTimestampMs() / 1000) +
                 ControlMessageProcessRecord.defaultExpirationSeconds
             )
         )?.insert(db)
@@ -749,7 +741,7 @@ public final class MessageSender {
     ) -> Error {
         // Log a message for any 'other' errors
         switch error {
-            case .other(let description, let error): SNLog("\(description) due to error: \(error).")
+            case .other(let description, let error): Log.error("[MessageSender] \(description) due to error: \(error).")
             default: break
         }
         
@@ -795,7 +787,7 @@ public final class MessageSender {
         // Need to dispatch to a different thread as this function is most commonly called within a read
         // thread and we want to write to the db and don't want to run into a re-entrancy error
         DispatchQueue.global(qos: .background).async(using: dependencies) {
-            dependencies[singleton: .storage].write(using: dependencies) { db in
+            dependencies[singleton: .storage].write { db in
                 switch destination {
                     case .syncMessage:
                         try RecipientState
@@ -848,7 +840,7 @@ public final class MessageSender {
     ) {
         // Sync the message if it's not a sync message, wasn't already sent to the current user and
         // it's a message type which should be synced
-        let userSessionId = getUserSessionId(db, using: dependencies)
+        let userSessionId = dependencies[cache: .general].sessionId
         
         if
             case .contact(let publicKey) = destination,
@@ -870,8 +862,7 @@ public final class MessageSender {
                     )
                 ),
                 dependantJob: blockingJob,
-                canStartJob: true,
-                using: dependencies
+                canStartJob: true
             )
         }
     }

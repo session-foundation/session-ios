@@ -2,7 +2,7 @@
 
 import UIKit
 import SessionUIKit
-import SignalCoreKit
+import SessionUtilitiesKit
 
 public protocol ImageEditorBrushViewControllerDelegate: AnyObject {
     func brushDidComplete(currentColor: ImageEditorColor)
@@ -43,7 +43,7 @@ public class ImageEditorBrushViewController: OWSViewController {
 
     @available(*, unavailable, message: "use other init() instead.")
     required public init?(coder aDecoder: NSCoder) {
-        notImplemented()
+        fatalError("init(coder:) has not been implemented")
     }
 
     // MARK: - View Lifecycle
@@ -126,17 +126,14 @@ public class ImageEditorBrushViewController: OWSViewController {
     // MARK: - Actions
 
     @objc func didTapUndo(sender: UIButton) {
-        Logger.verbose("")
         guard model.canUndo() else {
-            owsFailDebug("Can't undo.")
+            Log.error("[ImageEditorBrushViewController] Can't undo.")
             return
         }
         model.undo()
     }
 
     @objc func didTapDone(sender: UIButton) {
-        Logger.verbose("")
-
         completeAndDismiss()
     }
 
@@ -161,7 +158,7 @@ public class ImageEditorBrushViewController: OWSViewController {
 
     @objc
     public func handleBrushGesture(_ gestureRecognizer: ImageEditorPanGestureRecognizer) {
-        AssertIsOnMainThread()
+        Log.assertOnMainThread()
 
         let removeCurrentStroke = {
             if let stroke = self.currentStroke {
@@ -211,7 +208,7 @@ public class ImageEditorBrushViewController: OWSViewController {
             tryToAppendStrokeSample(locationInView)
 
             guard let lastStroke = self.currentStroke else {
-                owsFailDebug("Missing last stroke.")
+                Log.error("[ImageEditorBrushViewController] Missing last stroke.")
                 removeCurrentStroke()
                 return
             }

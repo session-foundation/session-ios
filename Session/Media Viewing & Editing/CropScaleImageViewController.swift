@@ -4,7 +4,6 @@ import Foundation
 import MediaPlayer
 import SessionUIKit
 import SignalUtilitiesKit
-import SignalCoreKit
 import SessionUtilitiesKit
 
 // This kind of view is tricky.  I've tried to organize things in the 
@@ -76,7 +75,7 @@ import SessionUtilitiesKit
 
     @available(*, unavailable, message:"use other constructor instead.")
     required init?(coder aDecoder: NSCoder) {
-        notImplemented()
+        fatalError("init(coder:) has not been implemented")
     }
 
     @objc required init(srcImage: UIImage, successCompletion : @escaping (Data) -> Void) {
@@ -500,7 +499,7 @@ import SessionUtilitiesKit
         UIGraphicsBeginImageContextWithOptions(dstSizePixels, !hasAlpha, dstScale)
 
         guard let context = UIGraphicsGetCurrentContext() else {
-            owsFailDebug("could not generate dst image.")
+            Log.error("[CropScaleImageViewController] Could not generate dst image.")
             return nil
         }
         context.interpolationQuality = .high
@@ -509,7 +508,7 @@ import SessionUtilitiesKit
         srcImage.draw(in: imageViewFrame)
 
         guard let scaledImage = UIGraphicsGetImageFromCurrentImageContext() else {
-            owsFailDebug("could not generate dst image.")
+            Log.error("[CropScaleImageViewController] Could not generate dst image.")
             return nil
         }
         UIGraphicsEndImageContext()

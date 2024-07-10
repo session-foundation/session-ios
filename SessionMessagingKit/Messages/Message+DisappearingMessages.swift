@@ -14,13 +14,17 @@ extension Message {
     }
     
     public static func getMessageExpirationInfo(
+        threadVariant: SessionThread.Variant,
         wasRead: Bool,
         serverExpirationTimestamp: TimeInterval?,
         expiresInSeconds: TimeInterval?,
-        expiresStartedAtMs: Double?
+        expiresStartedAtMs: Double?,
+        using dependencies: Dependencies
     ) -> MessageExpirationInfo {
         var shouldUpdateExpiry: Bool = false
         let expiresStartedAtMs: Double? = {
+            guard threadVariant != .community else { return nil }
+            
             // Disappear after sent
             guard expiresStartedAtMs == nil else {
                 return expiresStartedAtMs
@@ -36,7 +40,7 @@ extension Message {
                 return nil
             }
             
-            let nowMs: Double = Double(SnodeAPI.currentOffsetTimestampMs())
+            let nowMs: Double = dependencies[cache: .snodeAPI].currentOffsetTimestampMs()
             let serverExpirationTimestampMs: Double = serverExpirationTimestamp * 1000
             let expiresInMs: Double = expiresInSeconds * 1000
             
@@ -60,21 +64,19 @@ extension Message {
     public static func getExpirationForOutgoingDisappearingMessages(
         _ db: Database,
         threadId: String,
+        threadVariant: SessionThread.Variant,
         variant: Interaction.Variant,
         serverHash: String?,
         expireInSeconds: TimeInterval?,
         using dependencies: Dependencies
     ) {
         guard
+            threadVariant != .community,
             variant == .standardOutgoing,
             let serverHash: String = serverHash,
             let expireInSeconds: TimeInterval = expireInSeconds,
             expireInSeconds > 0
-        else {
-            return
-        }
-        
-        let startedAtTimestampMs: Double = Double(SnodeAPI.currentOffsetTimestampMs(using: dependencies))
+        else { return }
         
         dependencies[singleton: .jobRunner].add(
             db,
@@ -84,29 +86,28 @@ extension Message {
                 threadId: threadId,
                 details: GetExpirationJob.Details(
                     expirationInfo: [serverHash: expireInSeconds],
-                    startedAtTimestampMs: startedAtTimestampMs
+                    startedAtTimestampMs: dependencies[cache: .snodeAPI].currentOffsetTimestampMs()
                 )
             ),
-            canStartJob: true,
-            using: dependencies
+            canStartJob: true
         )
     }
     
     public static func updateExpiryForDisappearAfterReadMessages(
         _ db: Database,
         threadId: String,
+        threadVariant: SessionThread.Variant,
         serverHash: String?,
         expiresInSeconds: TimeInterval?,
         expiresStartedAtMs: Double?,
         using dependencies: Dependencies
     ) {
         guard
+            threadVariant != .community,
             let serverHash: String = serverHash,
             let expiresInSeconds: TimeInterval = expiresInSeconds,
             let expiresStartedAtMs: Double = expiresStartedAtMs
-        else {
-            return
-        }
+        else { return }
         
         let expirationTimestampMs: Int64 = Int64(expiresStartedAtMs + expiresInSeconds * 1000)
         
@@ -121,8 +122,7 @@ extension Message {
                     expirationTimestampMs: expirationTimestampMs
                 )
             ),
-            canStartJob: true,
-            using: dependencies
+            canStartJob: true
         )
     }
 }

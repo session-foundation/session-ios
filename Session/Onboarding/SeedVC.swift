@@ -7,7 +7,8 @@ import SessionUtilitiesKit
 final class SeedVC: BaseVC {
     public static func mnemonic(using dependencies: Dependencies) throws -> String {
         guard
-            let ed25519KeyPair: KeyPair = Identity.fetchUserEd25519KeyPair(using: dependencies),
+            let ed25519KeyPair: KeyPair = dependencies[singleton: .storage]
+                .read({ db in Identity.fetchUserEd25519KeyPair(db) }),
             let seedData: Data = dependencies[singleton: .crypto].generate(
                 .ed25519Seed(ed25519SecretKey: ed25519KeyPair.secretKey)
             ),
@@ -17,8 +18,12 @@ final class SeedVC: BaseVC {
             let dbHasRead: Bool = dependencies[singleton: .storage].hasSuccessfullyRead
             let dbHasWritten: Bool = dependencies[singleton: .storage].hasSuccessfullyWritten
             let dbIsSuspendedUnsafe: Bool = dependencies[singleton: .storage].isSuspendedUnsafe
-            let hasStoredXKeyPair: Bool = (Identity.fetchUserKeyPair() != nil)
-            let hasStoredEdKeyPair: Bool = (Identity.fetchUserEd25519KeyPair() != nil)
+            let (hasStoredXKeyPair, hasStoredEdKeyPair) = dependencies[singleton: .storage].read { db -> (Bool, Bool) in
+                (
+                    (Identity.fetchUserKeyPair(db) != nil),
+                    (Identity.fetchUserEd25519KeyPair(db) != nil)
+                )
+            }.defaulting(to: (false, false))
             let dbStates: [String] = [
                 "dbIsValid: \(dbIsValid)",                      // stringlint:disable
                 "dbHasRead: \(dbHasRead)",                      // stringlint:disable
@@ -229,7 +234,7 @@ final class SeedVC: BaseVC {
     
     @objc private func revealMnemonicTapped() { revealMnemonic() }
     
-    private func revealMnemonic(using dependencies: Dependencies = Dependencies()) {
+    private func revealMnemonic() {
         UIView.transition(with: mnemonicLabel, duration: 0.25, options: .transitionCrossDissolve, animations: {
             self.mnemonicLabel.text = self.mnemonic
             self.mnemonicLabel.themeTextColor = .textPrimary

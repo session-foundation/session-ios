@@ -2,15 +2,16 @@
 
 import Foundation
 import GRDB
-import SessionMessagingKit
-import SessionUtilitiesKit
 import SessionUIKit
 import SessionSnodeKit
+import SessionMessagingKit
+import SessionUtilitiesKit
 
 public enum AppSetup {
     private static let hasRun: Atomic<Bool> = Atomic(false)
     
     public static func setupEnvironment(
+        additionalMigrationTargets: [MigratableTarget.Type] = [],
         retrySetupIfDatabaseInvalid: Bool = false,
         appSpecificBlock: (() -> ())? = nil,
         migrationProgressChanged: ((CGFloat, TimeInterval) -> ())? = nil,
@@ -29,7 +30,8 @@ public enum AppSetup {
                         retrySetupIfDatabaseInvalid: false, // Don't want to get stuck in a loop
                         appSpecificBlock: appSpecificBlock,
                         migrationProgressChanged: migrationProgressChanged,
-                        migrationsCompletion: migrationsCompletion
+                        migrationsCompletion: migrationsCompletion,
+                        using: dependencies
                     )
                     
                 default:
@@ -66,13 +68,11 @@ public enum AppSetup {
                 proximityMonitoringManager: OWSProximityMonitoringManagerImpl(using: dependencies),
                 windowManager: OWSWindowManager(default: ())
             )
-            appSpecificBlock?()
-            
-            /// `performMainSetup` **MUST** run before `perform(migrations:)`
-            Configuration.performMainSetup(using: dependencies)
+            appSpecificBlock?()            
             
             runPostSetupMigrations(
                 backgroundTask: backgroundTask,
+                additionalMigrationTargets: additionalMigrationTargets,
                 migrationProgressChanged: migrationProgressChanged,
                 migrationsCompletion: migrationsCompletion,
                 using: dependencies
@@ -85,6 +85,7 @@ public enum AppSetup {
     
     public static func runPostSetupMigrations(
         backgroundTask: SessionBackgroundTask? = nil,
+        additionalMigrationTargets: [MigratableTarget.Type] = [],
         migrationProgressChanged: ((CGFloat, TimeInterval) -> ())? = nil,
         migrationsCompletion: @escaping (Result<Void, Error>, Bool) -> (),
         using dependencies: Dependencies
@@ -92,36 +93,44 @@ public enum AppSetup {
         var backgroundTask: SessionBackgroundTask? = (backgroundTask ?? SessionBackgroundTask(label: #function, using: dependencies))
         
         dependencies[singleton: .storage].perform(
-            migrationTargets: [
-                SNUtilitiesKit.self,
-                SNSnodeKit.self,
-                SNMessagingKit.self,
-                SNUIKit.self
-            ],
+            migrationTargets: additionalMigrationTargets
+                .appending(contentsOf: [
+                    SNUtilitiesKit.self,
+                    SNSnodeKit.self,
+                    SNMessagingKit.self
+                ]),
             onProgressUpdate: migrationProgressChanged,
             onMigrationRequirement: { db, requirement in
                 switch requirement {
+                    case .sessionIdCached:
+                        guard let userKeyPair: KeyPair = Identity.fetchUserKeyPair(db) else { return }
+                        
+                        // Cache the users session id so we don't need to fetch it from the database every time
+                        dependencies.mutate(cache: .general) {
+                            $0.setCachedSessionId(sessionId: SessionId(.standard, publicKey: userKeyPair.publicKey))
+                        }
+                        
                     case .libSessionStateLoaded:
                         guard Identity.userExists(db, using: dependencies) else { return }
                         
                         // After the migrations have run but before the migration completion we load the
                         // SessionUtil state
-                        LibSession.loadState(
-                            db,
-                            userPublicKey: getUserHexEncodedPublicKey(db),
-                            ed25519SecretKey: Identity.fetchUserEd25519KeyPair(db)?.secretKey
+                        let cache: LibSession.Cache = LibSession.Cache(
+                            userSessionId: dependencies[cache: .general].sessionId,
+                            using: dependencies
                         )
+                        cache.loadState(db)
+                        dependencies.set(cache: .libSession, to: cache)
                 }
             },
             onComplete: { result, needsConfigSync in
                 // The 'needsConfigSync' flag should be based on whether either a migration or the
                 // configs need to be sync'ed
-                migrationsCompletion(result, (needsConfigSync || dependencies[cache: .sessionUtil].needsSync))
+                migrationsCompletion(result, (needsConfigSync || dependencies[cache: .libSession].needsSync))
                 
                 // The 'if' is only there to prevent the "variable never read" warning from showing
                 if backgroundTask != nil { backgroundTask = nil }
-            },
-            using: dependencies
+            }
         )
     }
 }

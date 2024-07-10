@@ -3,7 +3,467 @@
 // stringlint:disable
 
 import Foundation
-import SignalCoreKit
+import CocoaLumberjackSwift
+
+// MARK: - Log
+
+public enum Log {
+    fileprivate typealias LogInfo = (
+        level: Log.Level,
+        message: String,
+        withPrefixes: Bool,
+        silenceForTests: Bool,
+        file: StaticString,
+        function: StaticString,
+        line: UInt
+    )
+    
+    public enum Level {
+        case verbose
+        case debug
+        case info
+        case warn
+        case error
+        case critical
+        case off
+    }
+    
+    private static var logger: Atomic<Logger?> = Atomic(nil)
+    private static var pendingStartupLogs: Atomic<[LogInfo]> = Atomic([])
+    
+    public static func setup(with logger: Logger) {
+        logger.retrievePendingStartupLogs = {
+            pendingStartupLogs.mutate { pendingStartupLogs in
+                let logs: [LogInfo] = pendingStartupLogs
+                pendingStartupLogs = []
+                return logs
+            }
+        }
+        Log.logger.mutate { $0 = logger }
+    }
+    
+    public static func appResumedExecution() {
+        guard logger.wrappedValue != nil else { return }
+        
+        logger.wrappedValue?.loadExtensionLogsAndResumeLogging()
+    }
+    
+    public static func logFilePath() -> String? {
+        guard
+            let logger: Logger = logger.wrappedValue
+        else { return nil }
+        
+        let logFiles: [String] = logger.fileLogger.logFileManager.sortedLogFilePaths
+        
+        guard !logFiles.isEmpty else { return nil }
+        
+        // If the latest log file is too short (ie. less that ~100kb) then we want to create a temporary file
+        // which contains the previous log file logs plus the logs from the newest file so we don't miss info
+        // that might be relevant for debugging
+        guard
+            logFiles.count > 1,
+            let attributes: [FileAttributeKey: Any] = try? FileManager.default.attributesOfItem(atPath: logFiles[0]),
+            let fileSize: UInt64 = attributes[.size] as? UInt64,
+            fileSize < (100 * 1024)
+        else { return logFiles[0] }
+        
+        // The file is too small so lets create a temp file to share instead
+        let tempDirectory: String = NSTemporaryDirectory()
+        let tempFilePath: String = URL(fileURLWithPath: tempDirectory)
+            .appendingPathComponent(URL(fileURLWithPath: logFiles[1]).lastPathComponent)
+            .path
+        
+        do {
+            try FileManager.default.copyItem(
+                atPath: logFiles[1],
+                toPath: tempFilePath
+            )
+            
+            guard let fileHandle: FileHandle = FileHandle(forWritingAtPath: tempFilePath) else {
+                throw StorageError.objectNotFound
+            }
+            
+            // Ensure we close the file handle
+            defer { fileHandle.closeFile() }
+            
+            // Move to the end of the file to insert the logs
+            if #available(iOS 13.4, *) { try fileHandle.seekToEnd() }
+            else { fileHandle.seekToEndOfFile() }
+            
+            // Append the data from the newest log to the temp file
+            let newestLogData: Data = try Data(contentsOf: URL(fileURLWithPath: logFiles[0]))
+            if #available(iOS 13.4, *) { try fileHandle.write(contentsOf: newestLogData) }
+            else { fileHandle.write(newestLogData) }
+        }
+        catch { return logFiles[0] }
+        
+        return tempFilePath
+    }
+    
+    public static func flush() {
+        DDLog.flushLog()
+    }
+    
+    // MARK: - Log Functions
+    
+    fileprivate static func empty() {
+        let emptyArguments: [CVarArg] = []
+        
+        withVaList(emptyArguments) { ptr in
+            DDLog.log(
+                asynchronous: true,
+                level: .info,
+                flag: .info,
+                context: 0,
+                file: "",
+                function: "",
+                line: 0,
+                tag: nil,
+                format: "",
+                arguments: ptr)
+        }
+    }
+    
+    public static func verbose(
+        _ message: String,
+        withPrefixes: Bool = true,
+        silenceForTests: Bool = false,
+        file: StaticString = #file,
+        function: StaticString = #function,
+        line: UInt = #line
+    ) {
+        custom(.verbose, message, withPrefixes: withPrefixes, silenceForTests: silenceForTests, file: file, function: function, line: line)
+    }
+    
+    public static func debug(
+        _ message: String,
+        withPrefixes: Bool = true,
+        silenceForTests: Bool = false,
+        file: StaticString = #file,
+        function: StaticString = #function,
+        line: UInt = #line
+    ) {
+        custom(.debug, message, withPrefixes: withPrefixes, silenceForTests: silenceForTests, file: file, function: function, line: line)
+    }
+    
+    public static func info(
+        _ message: String,
+        withPrefixes: Bool = true,
+        silenceForTests: Bool = false,
+        file: StaticString = #file,
+        function: StaticString = #function,
+        line: UInt = #line
+    ) {
+        custom(.info, message, withPrefixes: withPrefixes, silenceForTests: silenceForTests, file: file, function: function, line: line)
+    }
+    
+    public static func warn(
+        _ message: String,
+        withPrefixes: Bool = true,
+        silenceForTests: Bool = false,
+        file: StaticString = #file,
+        function: StaticString = #function,
+        line: UInt = #line
+    ) {
+        custom(.warn, message, withPrefixes: withPrefixes, silenceForTests: silenceForTests, file: file, function: function, line: line)
+    }
+    
+    public static func error(
+        _ message: String,
+        withPrefixes: Bool = true,
+        silenceForTests: Bool = false,
+        file: StaticString = #file,
+        function: StaticString = #function,
+        line: UInt = #line
+    ) {
+        custom(.error, message, withPrefixes: withPrefixes, silenceForTests: silenceForTests, file: file, function: function, line: line)
+    }
+    
+    public static func critical(
+        _ message: String,
+        withPrefixes: Bool = true,
+        silenceForTests: Bool = false,
+        file: StaticString = #file,
+        function: StaticString = #function,
+        line: UInt = #line
+    ) {
+        custom(.critical, message, withPrefixes: withPrefixes, silenceForTests: silenceForTests, file: file, function: function, line: line)
+    }
+    
+    public static func assert(
+        _ condition: Bool,
+        _ message: @autoclosure () -> String = String(),
+        file: StaticString = #file,
+        function: StaticString = #function,
+        line: UInt = #line
+    ) {
+        guard !condition else { return }
+        
+        let filename: String = URL(fileURLWithPath: "\(file)").lastPathComponent
+        let message: String = message()
+        let logMessage: String = (message.isEmpty ? "Assertion failed." : message)
+        let formattedMessage: String = "[\(filename):\(line) \(function)] \(logMessage)"
+        custom(.critical, formattedMessage, withPrefixes: true, silenceForTests: false, file: file, function: function, line: line)
+        assertionFailure(formattedMessage)
+    }
+    
+    public static func assertOnMainThread(
+        file: StaticString = #file,
+        function: StaticString = #function,
+        line: UInt = #line
+    ) {
+        guard !Thread.isMainThread else { return }
+        
+        let filename: String = URL(fileURLWithPath: "\(file)").lastPathComponent
+        let formattedMessage: String = "[\(filename):\(line) \(function)] Must be on main thread."
+        custom(.critical, formattedMessage, withPrefixes: true, silenceForTests: false, file: file, function: function, line: line)
+        assertionFailure(formattedMessage)
+    }
+    
+    public static func custom(
+        _ level: Log.Level,
+        _ message: String,
+        withPrefixes: Bool,
+        silenceForTests: Bool,
+        file: StaticString = #file,
+        function: StaticString = #function,
+        line: UInt = #line
+    ) {
+        guard
+            let logger: Logger = logger.wrappedValue,
+            !logger.isSuspended.wrappedValue
+        else {
+            return pendingStartupLogs.mutate {
+                $0.append((level, message, withPrefixes, silenceForTests, file, function, line))
+            }
+        }
+        
+        logger.log(level, message, withPrefixes: withPrefixes, silenceForTests: silenceForTests, file: file, function: function, line: line)
+    }
+}
+
+// MARK: - Logger
+
+public class Logger {
+    private let isRunningTests: Bool = (ProcessInfo.processInfo.environment["XCTestConfigurationFilePath"] == nil)
+    private let primaryPrefix: String
+    private let forceNSLog: Bool
+    fileprivate let fileLogger: DDFileLogger
+    fileprivate let isSuspended: Atomic<Bool> = Atomic(true)
+    fileprivate var retrievePendingStartupLogs: (() -> [Log.LogInfo])?
+    
+    public init(
+        primaryPrefix: String,
+        customDirectory: String? = nil,
+        forceNSLog: Bool = false
+    ) {
+        self.primaryPrefix = primaryPrefix
+        self.forceNSLog = forceNSLog
+        
+        switch customDirectory {
+            case .none: self.fileLogger = DDFileLogger()
+            case .some(let customDirectory):
+                let logFileManager: DDLogFileManagerDefault = DDLogFileManagerDefault(logsDirectory: customDirectory)
+                self.fileLogger = DDFileLogger(logFileManager: logFileManager)
+        }
+        
+        // We want to use the local datetime and show the timezone offset because it'll make
+        // it easier to debug when users provide logs and specify that something happened at
+        // a certain time (the default is UTC so we'd need to know the users timezone in order
+        // to convert and debug effectively)
+        let dateFormatter: DateFormatter = DateFormatter()
+        dateFormatter.formatterBehavior = .behavior10_4      // 10.4+ style
+        dateFormatter.locale = NSLocale.current              // Use the current locale and include the timezone instead of UTC
+        dateFormatter.timeZone = NSTimeZone.local
+        dateFormatter.dateFormat = "yyyy/MM/dd HH:mm:ss:SSS ZZZZZ"
+        
+        self.fileLogger.logFormatter = DDLogFileFormatterDefault(dateFormatter: dateFormatter)
+        self.fileLogger.rollingFrequency = (24 * 60 * 60) // Refresh everyday
+        self.fileLogger.logFileManager.maximumNumberOfLogFiles = 3 // Save 3 days' log files
+        DDLog.add(self.fileLogger)
+        
+        // Now that we are setup we should load the extension logs which will then
+        // complete the startup process when completed
+        self.loadExtensionLogsAndResumeLogging()
+    }
+    
+    // MARK: - Functions
+    
+    fileprivate func loadExtensionLogsAndResumeLogging() {
+        // Pause logging while we load the extension logs (want to avoid interleaving them where possible)
+        isSuspended.mutate { $0 = true }
+        
+        // The extensions write their logs to the app shared directory but the main app writes
+        // to a local directory (so they can be exported via XCode) - the below code reads any
+        // logs from the shared directly and attempts to add them to the main app logs to make
+        // debugging user issues in extensions easier
+        DispatchQueue.global(qos: .utility).async { [weak self] in
+            guard let currentLogFileInfo: DDLogFileInfo = self?.fileLogger.currentLogFileInfo else {
+                self?.completeResumeLogging(error: "Unable to retrieve current log file.")
+                return
+            }
+            
+            DDLog.loggingQueue.async {
+                let extensionInfo: [(dir: String, type: ExtensionType)] = [
+                    ("\(FileManager.default.appSharedDataDirectoryPath)/Logs/NotificationExtension", .notification),
+                    ("\(FileManager.default.appSharedDataDirectoryPath)/Logs/ShareExtension", .share)
+                ]
+                let extensionLogs: [(path: String, type: ExtensionType)] = extensionInfo.flatMap { dir, type -> [(path: String, type: ExtensionType)] in
+                    guard let files: [String] = try? FileManager.default.contentsOfDirectory(atPath: dir) else { return [] }
+                    
+                    return files.map { ("\(dir)/\($0)", type) }
+                }
+                
+                do {
+                    guard let fileHandle: FileHandle = FileHandle(forWritingAtPath: currentLogFileInfo.filePath) else {
+                        throw StorageError.objectNotFound
+                    }
+                    
+                    // Ensure we close the file handle
+                    defer { fileHandle.closeFile() }
+                    
+                    // Move to the end of the file to insert the logs
+                    if #available(iOS 13.4, *) { try fileHandle.seekToEnd() }
+                    else { fileHandle.seekToEndOfFile() }
+                    
+                    try extensionLogs
+                        .grouped(by: \.type)
+                        .forEach { type, value in
+                            guard !value.isEmpty else { return }    // Ignore if there are no logs
+                            guard
+                                let typeNameStartData: Data = "🧩 \(type.name) -- Start\n".data(using: .utf8),
+                                let typeNameEndData: Data = "🧩 \(type.name) -- End\n".data(using: .utf8)
+                            else { throw StorageError.invalidData }
+                            
+                            var hasWrittenStartLog: Bool = false
+                            
+                            // Write the logs
+                            try value.forEach { path, _ in
+                                let logData: Data = try Data(contentsOf: URL(fileURLWithPath: path))
+                                
+                                guard !logData.isEmpty else { return }  // Ignore empty files
+                                
+                                // Write the type start separator if needed
+                                if !hasWrittenStartLog {
+                                    if #available(iOS 13.4, *) { try fileHandle.write(contentsOf: typeNameStartData) }
+                                    else { fileHandle.write(typeNameStartData) }
+                                    hasWrittenStartLog = true
+                                }
+                                
+                                // Write the log data to the log file
+                                if #available(iOS 13.4, *) { try fileHandle.write(contentsOf: logData) }
+                                else { fileHandle.write(logData) }
+                                
+                                // Extension logs have been writen to the app logs, remove them now
+                                try? FileManager.default.removeItem(atPath: path)
+                            }
+                            
+                            // Write the type end separator if needed
+                            if hasWrittenStartLog {
+                                if #available(iOS 13.4, *) { try fileHandle.write(contentsOf: typeNameEndData) }
+                                else { fileHandle.write(typeNameEndData) }
+                            }
+                        }
+                }
+                catch {
+                    self?.completeResumeLogging(error: "Unable to write extension logs to current log file")
+                    return
+                }
+                
+                self?.completeResumeLogging()
+            }
+        }
+    }
+    
+    private func completeResumeLogging(error: String? = nil) {
+        let pendingLogs: [Log.LogInfo] = isSuspended.mutate { isSuspended in
+            isSuspended = false
+            return (retrievePendingStartupLogs?() ?? [])
+        }
+        
+        // If we had an error loading the extension logs then actually log it
+        if let error: String = error {
+            Log.empty()
+            log(.error, error, withPrefixes: true, silenceForTests: false, file: #file, function: #function, line: #line)
+        }
+        
+        // After creating a new logger we want to log two empty lines to make it easier to read
+        Log.empty()
+        Log.empty()
+        
+        // Add any logs that were pending during the startup process
+        pendingLogs.forEach { level, message, withPrefixes, silenceForTests, file, function, line in
+            log(level, message, withPrefixes: withPrefixes, silenceForTests: silenceForTests, file: file, function: function, line: line)
+        }
+    }
+    
+    fileprivate func log(
+        _ level: Log.Level,
+        _ message: String,
+        withPrefixes: Bool,
+        silenceForTests: Bool,
+        file: StaticString,
+        function: StaticString,
+        line: UInt
+    ) {
+        guard !silenceForTests || !isRunningTests else { return }
+        
+        // Sort out the prefixes
+        let logPrefix: String = {
+            guard withPrefixes else { return "" }
+            
+            let prefixes: String = [
+                primaryPrefix,
+                (Thread.isMainThread ? "Main" : nil),
+                (DispatchQueue.isDBWriteQueue ? "DBWrite" : nil)
+            ]
+            .compactMap { $0 }
+            .joined(separator: ", ")
+            
+            return "[\(prefixes)] "
+        }()
+        
+        // Clean up the message if needed (replace double periods with single, trim whitespace)
+        let logMessage: String = logPrefix
+            .appending(message)
+            .replacingOccurrences(of: "...", with: "|||")
+            .replacingOccurrences(of: "..", with: ".")
+            .replacingOccurrences(of: "|||", with: "...")
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+        
+        switch level {
+            case .off: return
+            case .verbose: DDLogVerbose("💙 \(logMessage)", file: file, function: function, line: line)
+            case .debug: DDLogDebug("💚 \(logMessage)", file: file, function: function, line: line)
+            case .info: DDLogInfo("💛 \(logMessage)", file: file, function: function, line: line)
+            case .warn: DDLogWarn("🧡 \(logMessage)", file: file, function: function, line: line)
+            case .error: DDLogError("❤️ \(logMessage)", file: file, function: function, line: line)
+            case .critical: DDLogError("🔥 \(logMessage)", file: file, function: function, line: line)
+        }
+        
+        #if DEBUG
+        print(logMessage)
+        #endif
+
+        if forceNSLog {
+            NSLog(message)
+        }
+    }
+}
+
+// MARK: - Convenience
+
+private enum ExtensionType {
+    case share
+    case notification
+    
+    var name: String {
+        switch self {
+            case .share: return "ShareExtension"
+            case .notification: return "NotificationExtension"
+        }
+    }
+}
 
 private extension DispatchQueue {
     static var isDBWriteQueue: Bool {
@@ -22,46 +482,7 @@ private extension DispatchQueue {
     }
 }
 
-public enum LogType {
-    case verbose
-    case debug
-    case info
-    case warn
-    case error
+// FIXME: Remove this once everything has been updated to use the new `Log.x()` methods
+public func SNLog(_ message: String, forceNSLog: Bool = false) {
+    Log.info(message)
 }
-
-public func SNLog(_ type: LogType, _ message: String, forceNSLog: Bool = false) {
-    let logPrefixes: String = [
-        "Session",
-        (Thread.isMainThread ? "Main" : nil),
-        (DispatchQueue.isDBWriteQueue ? "DBWrite" : nil)
-    ]
-    .compactMap { $0 }
-    .joined(separator: ", ")
-    
-    #if DEBUG
-    print("[\(logPrefixes)] \(message)")
-    #endif
-    
-    switch type {
-        case .verbose: OWSLogger.verbose("[\(logPrefixes)] \(message)")
-        case .debug: OWSLogger.debug("[\(logPrefixes)] \(message)")
-        case .info: OWSLogger.info("[\(logPrefixes)] \(message)")
-        case .warn: OWSLogger.warn("[\(logPrefixes)] \(message)")
-        case .error: OWSLogger.error("[\(logPrefixes)] \(message)")
-    }
-    
-    if forceNSLog {
-        NSLog(message)
-    }
-}
-
-public func SNLogNotTests(_ type: LogType, _ message: String) {
-    guard ProcessInfo.processInfo.environment["XCTestConfigurationFilePath"] == nil else { return }
-    
-    SNLog(type, message)
-}
-
-// Default to 'info'
-public func SNLog(_ message: String) { SNLog(.info, message) }
-public func SNLogNotTests(_ message: String) { SNLogNotTests(.info, message) }

@@ -3,8 +3,8 @@
 import Foundation
 import Combine
 import GRDB
-import SessionUtilitiesKit
 import SessionSnodeKit
+import SessionUtilitiesKit
 
 public enum GetExpirationJob: JobExecutor {
     public static var maxFailureCount: Int = -1
@@ -15,22 +15,18 @@ public enum GetExpirationJob: JobExecutor {
     public static func run(
         _ job: Job,
         queue: DispatchQueue,
-        success: @escaping (Job, Bool, Dependencies) -> (),
-        failure: @escaping (Job, Error?, Bool, Dependencies) -> (),
-        deferred: @escaping (Job, Dependencies) -> (),
+        success: @escaping (Job, Bool) -> Void,
+        failure: @escaping (Job, Error, Bool) -> Void,
+        deferred: @escaping (Job) -> Void,
         using dependencies: Dependencies
     ) {
         guard
             let detailsData: Data = job.details,
             let details: Details = try? JSONDecoder(using: dependencies).decode(Details.self, from: detailsData)
-        else {
-            SNLog("[GetExpirationJob] Failing due to missing details")
-            failure(job, JobRunnerError.missingRequiredDetails, true, dependencies)
-            return
-        }
+        else { return failure(job, JobRunnerError.missingRequiredDetails, true) }
         
         let expirationInfo: [String: Double] = dependencies[singleton: .storage]
-            .read(using: dependencies) { db -> [String: Double] in
+            .read { db -> [String: Double] in
                 details
                     .expirationInfo
                     .filter { Interaction.filter(Interaction.Columns.serverHash == $0.key).isNotEmpty(db) }
@@ -38,22 +34,20 @@ public enum GetExpirationJob: JobExecutor {
             .defaulting(to: details.expirationInfo)
         
         guard expirationInfo.count > 0 else {
-            success(job, false, dependencies)
-            return
+            return success(job, false)
         }
         
-        return dependencies[singleton: .storage]
-            .readPublisher(using: dependencies) { db in
-                try SnodeAPI
-                    .preparedGetExpiries(
-                        of: expirationInfo.map { $0.key },
-                        authMethod: try Authentication.with(
-                            db,
-                            swarmPublicKey: getUserSessionId(db, using: dependencies).hexString,
-                            using: dependencies
-                        ),
+        dependencies[singleton: .storage]
+            .readPublisher { db -> Network.PreparedRequest<GetExpiriesResponse> in
+                try SnodeAPI.preparedGetExpiries(
+                    of: expirationInfo.map { $0.key },
+                    authMethod: try Authentication.with(
+                        db,
+                        swarmPublicKey: dependencies[cache: .general].sessionId.hexString,
                         using: dependencies
-                    )
+                    ),
+                    using: dependencies
+                )
             }
             .flatMap { $0.send(using: dependencies) }
             .subscribe(on: queue, using: dependencies)
@@ -62,10 +56,10 @@ public enum GetExpirationJob: JobExecutor {
                 receiveCompletion: { result in
                     switch result {
                         case .finished: break
-                        case .failure(let error): failure(job, error, true, dependencies)
+                        case .failure(let error): failure(job, error, true)
                     }
                 },
-                receiveValue: { _, response in
+                receiveValue: { (_: ResponseInfoType, response: GetExpiriesResponse) in
                     let serverSpecifiedExpirationStartTimesMs: [String: Double] = response.expiries
                         .reduce(into: [:]) { result, next in
                             guard let expiresInSeconds: Double = expirationInfo[next.key] else { return }
@@ -75,7 +69,7 @@ public enum GetExpirationJob: JobExecutor {
                     var hashesWithNoExiprationInfo: Set<String> = Set(expirationInfo.keys)
                         .subtracting(serverSpecifiedExpirationStartTimesMs.keys)
                     
-                    dependencies[singleton: .storage].write(using: dependencies) { db in
+                    dependencies[singleton: .storage].write { db in
                         try serverSpecifiedExpirationStartTimesMs.forEach { hash, expiresStartedAtMs in
                             try Interaction
                                 .filter(Interaction.Columns.serverHash == hash)
@@ -109,26 +103,24 @@ public enum GetExpirationJob: JobExecutor {
                                 Interaction.Columns.expiresStartedAtMs.set(to: details.startedAtTimestampMs)
                             )
                         
-                        dependencies[singleton: .jobRunner]
-                            .upsert(
-                                db,
-                                job: DisappearingMessagesJob.updateNextRunIfNeeded(db),
-                                canStartJob: true,
-                                using: dependencies
-                            )
+                        dependencies[singleton: .jobRunner].upsert(
+                            db,
+                            job: DisappearingMessagesJob.updateNextRunIfNeeded(db, using: dependencies),
+                            canStartJob: true
+                        )
                     }
                     
                     guard hashesWithNoExiprationInfo.isEmpty else {
-                        let updatedJob: Job? = dependencies[singleton: .storage].write(using: dependencies) { db in
+                        let updatedJob: Job? = dependencies[singleton: .storage].write { db in
                             try job
                                 .with(nextRunTimestamp: dependencies.dateNow.timeIntervalSince1970 + minRunFrequency)
                                 .upserted(db)
                         }
                         
-                        return deferred(updatedJob ?? job, dependencies)
+                        return deferred(updatedJob ?? job)
                     }
                         
-                    success(job, false, dependencies)
+                    success(job, false)
                 }
             )
     }

@@ -79,18 +79,16 @@ public extension Identity {
     
     static func userExists(
         _ db: Database? = nil,
-        using dependencies: Dependencies = Dependencies()
+        using dependencies: Dependencies
     ) -> Bool {
-        return (fetchUserEd25519KeyPair(db, using: dependencies) != nil)
+        guard let db: Database = db else {
+            return (dependencies[singleton: .storage].read { db in Identity.userExists(db, using: dependencies) } ?? false)
+        }
+        
+        return (fetchUserEd25519KeyPair(db) != nil)
     }
     
-    static func fetchUserKeyPair(
-        _ db: Database? = nil,
-        using dependencies: Dependencies = Dependencies()
-    ) -> KeyPair? {
-        guard let db: Database = db else {
-            return dependencies[singleton: .storage].read { db in fetchUserKeyPair(db, using: dependencies) }
-        }
+    static func fetchUserKeyPair(_ db: Database) -> KeyPair? {
         guard
             let publicKey: Data = try? Identity.fetchOne(db, id: .x25519PublicKey)?.data,
             let secretKey: Data = try? Identity.fetchOne(db, id: .x25519PrivateKey)?.data
@@ -102,13 +100,7 @@ public extension Identity {
         )
     }
     
-    static func fetchUserEd25519KeyPair(
-        _ db: Database? = nil,
-        using dependencies: Dependencies = Dependencies()
-    ) -> KeyPair? {
-        guard let db: Database = db else {
-            return dependencies[singleton: .storage].read { db in fetchUserEd25519KeyPair(db, using: dependencies) }
-        }
+    static func fetchUserEd25519KeyPair(_ db: Database) -> KeyPair? {
         guard
             let publicKey: Data = try? Identity.fetchOne(db, id: .ed25519PublicKey)?.data,
             let secretKey: Data = try? Identity.fetchOne(db, id: .ed25519SecretKey)?.data

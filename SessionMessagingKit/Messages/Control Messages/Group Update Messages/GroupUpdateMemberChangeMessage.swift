@@ -111,7 +111,7 @@ public final class GroupUpdateMemberChangeMessage: ControlMessage {
 
     // MARK: - Proto Conversion
     
-    public override class func fromProto(_ proto: SNProtoContent, sender: String) -> GroupUpdateMemberChangeMessage? {
+    public override class func fromProto(_ proto: SNProtoContent, sender: String, using dependencies: Dependencies) -> GroupUpdateMemberChangeMessage? {
         guard
             let groupMemberChangeMessage = proto.dataMessage?.groupUpdateMessage?.memberChangeMessage,
             let changeType: ChangeType = ChangeType(rawValue: Int(groupMemberChangeMessage.type.rawValue))

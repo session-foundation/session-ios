@@ -19,9 +19,9 @@ public enum GroupPromoteMemberJob: JobExecutor {
     public static func run(
         _ job: Job,
         queue: DispatchQueue,
-        success: @escaping (Job, Bool, Dependencies) -> (),
-        failure: @escaping (Job, Error?, Bool, Dependencies) -> (),
-        deferred: @escaping (Job, Dependencies) -> (),
+        success: @escaping (Job, Bool) -> Void,
+        failure: @escaping (Job, Error, Bool) -> Void,
+        deferred: @escaping (Job) -> Void,
         using dependencies: Dependencies
     ) {
         guard
@@ -35,15 +35,11 @@ public enum GroupPromoteMemberJob: JobExecutor {
                     .fetchOne(db)
             }),
             let details: Details = try? JSONDecoder(using: dependencies).decode(Details.self, from: detailsData)
-        else {
-            SNLog("[GroupPromoteMemberJob] Failing due to missing details")
-            failure(job, JobRunnerError.missingRequiredDetails, true, dependencies)
-            return
-        }
+        else { return failure(job, JobRunnerError.missingRequiredDetails, true) }
         
         // The first 32 bytes of a 64 byte ed25519 private key are the seed which can be used
         // to generate the KeyPair so extract those and send along with the promotion message
-        let sentTimestamp: Int64 = SnodeAPI.currentOffsetTimestampMs(using: dependencies)
+        let sentTimestamp: Int64 = dependencies[cache: .snodeAPI].currentOffsetTimestampMs()
         let message: GroupUpdatePromoteMessage = GroupUpdatePromoteMessage(
             groupIdentitySeed: groupIdentityPrivateKey.prefix(32),
             sentTimestamp: UInt64(sentTimestamp)
@@ -51,7 +47,7 @@ public enum GroupPromoteMemberJob: JobExecutor {
         
         /// Perform the actual message sending
         dependencies[singleton: .storage]
-            .readPublisher { db -> HTTP.PreparedRequest<Void> in
+            .readPublisher { db -> Network.PreparedRequest<Void> in
                 try MessageSender.preparedSend(
                     db,
                     message: message,
@@ -69,7 +65,7 @@ public enum GroupPromoteMemberJob: JobExecutor {
                 receiveCompletion: { result in
                     switch result {
                         case .finished:
-                            dependencies[singleton: .storage].write(using: dependencies) { db in
+                            dependencies[singleton: .storage].write { db in
                                 try GroupMember
                                     .filter(
                                         GroupMember.Columns.groupId == threadId &&
@@ -85,14 +81,14 @@ public enum GroupPromoteMemberJob: JobExecutor {
                                     )
                             }
                             
-                            success(job, false, dependencies)
+                            success(job, false)
                             
                         case .failure(let error):
-                            SNLog("[GroupPromoteMemberJob] Couldn't send message due to error: \(error).")
+                            Log.error("[GroupPromoteMemberJob] Couldn't send message due to error: \(error).")
                             
                             // Update the promotion status of the group member (only if the role is 'admin' and
                             // the role status isn't already 'accepted')
-                            dependencies[singleton: .storage].write(using: dependencies) { db in
+                            dependencies[singleton: .storage].write { db in
                                 try GroupMember
                                     .filter(
                                         GroupMember.Columns.groupId == threadId &&
@@ -118,16 +114,16 @@ public enum GroupPromoteMemberJob: JobExecutor {
                             // Register the failure
                             switch error {
                                 case let senderError as MessageSenderError where !senderError.isRetryable:
-                                    failure(job, error, true, dependencies)
+                                    failure(job, error, true)
                                     
-                                case OnionRequestAPIError.httpRequestFailedAtDestination(let statusCode, _, _) where statusCode == 429: // Rate limited
-                                    failure(job, error, true, dependencies)
+                                case SnodeAPIError.rateLimited:
+                                    failure(job, error, true)
                                     
                                 case SnodeAPIError.clockOutOfSync:
-                                    SNLog("[GroupPromoteMemberJob] Permanently Failing to send due to clock out of sync issue.")
-                                    failure(job, error, true, dependencies)
+                                    Log.error("[GroupPromoteMemberJob] Permanently Failing to send due to clock out of sync issue.")
+                                    failure(job, error, true)
                                     
-                                default: failure(job, error, false, dependencies)
+                                default: failure(job, error, false)
                             }
                     }
                 }
@@ -162,7 +158,7 @@ public enum GroupPromoteMemberJob: JobExecutor {
                         typealias FetchedData = (groupName: String, profileInfo: [String: Profile])
                         
                         let data: FetchedData = dependencies[singleton: .storage]
-                            .read(using: dependencies) { db in
+                            .read { db in
                                 (
                                     try ClosedGroup
                                         .filter(id: groupId)

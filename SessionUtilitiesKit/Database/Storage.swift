@@ -2,11 +2,10 @@
 //
 // stringlint:disable
 
-import Foundation
+import UIKit
 import CryptoKit
 import Combine
 import GRDB
-import SignalCoreKit
 
 // MARK: - Singleton
 
@@ -23,7 +22,6 @@ public extension Singleton {
 
 // MARK: - KeychainStorage
 
-public extension KeychainStorage.ServiceKey { static let storage: Self = "TSKeyChainService" }
 public extension KeychainStorage.DataKey { static let dbCipherKeySpec: Self = "GRDBDatabaseCipherKeySpec" }
 
 // MARK: - Storage
@@ -39,19 +37,19 @@ open class Storage {
     private static var databasePathShm: String { "\(Storage.sharedDatabaseDirectoryPath)/\(Storage.dbFileName)-shm" }
     private static var databasePathWal: String { "\(Storage.sharedDatabaseDirectoryPath)/\(Storage.dbFileName)-wal" }
     
-    public static var hasCreatedValidInstance: Bool { internalHasCreatedValidInstance.wrappedValue }
-    public static var isDatabasePasswordAccessible: Bool {
-        guard (try? getDatabaseCipherKeySpec()) != nil else { return false }
-        
-        return true
-    }
-    
+    private let dependencies: Dependencies
     private var startupError: Error?
-    private let migrationsCompleted: Atomic<Bool> = Atomic(false)
-    private static let internalHasCreatedValidInstance: Atomic<Bool> = Atomic(false)
-    internal let internalCurrentlyRunningMigration: Atomic<(identifier: TargetMigrations.Identifier, migration: Migration.Type)?> = Atomic(nil)
+    fileprivate var dbWriter: DatabaseWriter?
+    internal var testDbWriter: DatabaseWriter? { dbWriter }
+    private var unprocessedMigrationRequirements: Atomic<[MigrationRequirement]> = Atomic(MigrationRequirement.allCases)
+    private var migrationProgressUpdater: Atomic<((String, CGFloat) -> ())>?
+    private var migrationRequirementProcesser: Atomic<(Database, MigrationRequirement) -> ()>?
+    
+    // MARK: - Database State Variables
     
     public private(set) var isValid: Bool = false
+    private static let internalHasCreatedValidInstance: Atomic<Bool> = Atomic(false)
+    public static var hasCreatedValidInstance: Bool { internalHasCreatedValidInstance.wrappedValue }
     
     /// This property gets set when triggering the suspend/resume notifications for the database but `GRDB` will attempt to
     /// resume the suspention when it attempts to perform a write so it's possible for this to return a **false-positive** so
@@ -64,20 +62,24 @@ open class Storage {
     /// This property gets set the first time we successfully write to the database
     public private(set) var hasSuccessfullyWritten: Bool = false
     
+    private let migrationsCompleted: Atomic<Bool> = Atomic(false)
+    internal let internalCurrentlyRunningMigration: Atomic<(identifier: TargetMigrations.Identifier, migration: Migration.Type)?> = Atomic(nil)
     public var hasCompletedMigrations: Bool { migrationsCompleted.wrappedValue }
     public var currentlyRunningMigration: (identifier: TargetMigrations.Identifier, migration: Migration.Type)? {
         internalCurrentlyRunningMigration.wrappedValue
     }
     
-    fileprivate var dbWriter: DatabaseWriter?
-    internal var testDbWriter: DatabaseWriter? { dbWriter }
-    private var unprocessedMigrationRequirements: Atomic<[MigrationRequirement]> = Atomic(MigrationRequirement.allCases)
-    private var migrationProgressUpdater: Atomic<((String, CGFloat) -> ())>?
-    private var migrationRequirementProcesser: Atomic<(Database, MigrationRequirement) -> ()>?
+    public static func isDatabasePasswordAccessible(using dependencies: Dependencies) -> Bool {
+        guard (try? getDatabaseCipherKeySpec(using: dependencies)) != nil else { return false }
+        
+        return true
+    }
     
     // MARK: - Initialization
     
     public init(customWriter: DatabaseWriter? = nil, using dependencies: Dependencies) {
+        self.dependencies = dependencies
+        
         configureDatabase(customWriter: customWriter, using: dependencies)
     }
     
@@ -103,7 +105,7 @@ open class Storage {
         /// **Note:** If we fail to get/generate the keySpec then don't bother continuing to setup the Database as it'll just be invalid,
         /// in this case the App/Extensions will have logic that checks the `isValid` flag of the database
         do {
-            var tmpKeySpec: Data = try Storage.getOrGenerateDatabaseKeySpec()
+            var tmpKeySpec: Data = try Storage.getOrGenerateDatabaseKeySpec(using: dependencies)
             tmpKeySpec.resetBytes(in: 0..<tmpKeySpec.count)
         }
         catch { return }
@@ -113,8 +115,8 @@ open class Storage {
         config.label = Storage.queuePrefix
         config.maximumReaderCount = 10  // Increase the max read connection limit - Default is 5
         config.observesSuspensionNotifications = true // Minimise `0xDEAD10CC` exceptions
-        config.prepareDatabase { db in
-            var keySpec: Data = try Storage.getOrGenerateDatabaseKeySpec()
+        config.prepareDatabase { [dependencies] db in
+            var keySpec: Data = try Storage.getOrGenerateDatabaseKeySpec(using: dependencies)
             defer { keySpec.resetBytes(in: 0..<keySpec.count) } // Reset content immediately after use
             
             // Use a raw key spec, where the 96 hexadecimal digits are provided
@@ -208,16 +210,14 @@ open class Storage {
         async: Bool = true,
         onProgressUpdate: ((CGFloat, TimeInterval) -> ())?,
         onMigrationRequirement: @escaping (Database, MigrationRequirement) -> (),
-        onComplete: @escaping (Result<Void, Error>, Bool) -> (),
-        using dependencies: Dependencies
+        onComplete: @escaping (Result<Void, Error>, Bool) -> ()
     ) {
         perform(
             sortedMigrations: Storage.sortedMigrationInfo(migrationTargets: migrationTargets),
             async: async,
             onProgressUpdate: onProgressUpdate,
             onMigrationRequirement: onMigrationRequirement,
-            onComplete: onComplete,
-            using: dependencies
+            onComplete: onComplete
         )
     }
     
@@ -226,8 +226,7 @@ open class Storage {
         async: Bool,
         onProgressUpdate: ((CGFloat, TimeInterval) -> ())?,
         onMigrationRequirement: @escaping (Database, MigrationRequirement) -> (),
-        onComplete: @escaping (Result<Void, Error>, Bool) -> (),
-        using dependencies: Dependencies
+        onComplete: @escaping (Result<Void, Error>, Bool) -> ()
     ) {
         guard isValid, let dbWriter: DatabaseWriter = dbWriter else {
             let error: Error = (startupError ?? StorageError.startupFailed)
@@ -367,8 +366,15 @@ open class Storage {
     }
     
     public func willStartMigration(_ db: Database, _ migration: Migration.Type) {
-        let unprocessedRequirements: Set<MigrationRequirement> = migration.requirements.asSet()
+        guard let largestMigrationRequirement: MigrationRequirement = migration.requirements.max() else { return }
+        
+        // Get all requirements that are earlier than the largest requirement on the migration and find
+        // any that haven't yet been run
+        let unprocessedRequirements: [MigrationRequirement] = MigrationRequirement.allCases
+            .filter { $0 <= largestMigrationRequirement }
+            .asSet()
             .intersection(unprocessedMigrationRequirements.wrappedValue.asSet())
+            .sorted()
         
         // No need to do anything if there are no unprocessed requirements
         guard !unprocessedRequirements.isEmpty else { return }
@@ -397,13 +403,11 @@ open class Storage {
     
     // MARK: - Security
     
-    private static func getDatabaseCipherKeySpec(using dependencies: Dependencies = Dependencies()) throws -> Data {
-        return try dependencies[singleton: .keychain].data(forService: .storage, key: .dbCipherKeySpec)
+    private static func getDatabaseCipherKeySpec(using dependencies: Dependencies) throws -> Data {
+        return try dependencies[singleton: .keychain].data(forKey: .dbCipherKeySpec)
     }
     
-    @discardableResult private static func getOrGenerateDatabaseKeySpec(
-        using dependencies: Dependencies = Dependencies()
-    ) throws -> Data {
+    @discardableResult private static func getOrGenerateDatabaseKeySpec(using dependencies: Dependencies) throws -> Data {
         do {
             var keySpec: Data = try getDatabaseCipherKeySpec(using: dependencies)
             defer { keySpec.resetBytes(in: 0..<keySpec.count) }
@@ -420,7 +424,7 @@ open class Storage {
                     // and regenerate the key
                     if !SNUtilitiesKit.isRunningTests {
                         // Try to reset app by deleting database.
-                        resetAllStorage()
+                        resetAllStorage(using: dependencies)
                     }
                     fallthrough
                 
@@ -430,7 +434,7 @@ open class Storage {
                         var keySpec: Data = try dependencies[singleton: .crypto].tryGenerate(.randomBytes(kSQLCipherKeySpecLength))
                         defer { keySpec.resetBytes(in: 0..<keySpec.count) } // Reset content immediately after use
                         
-                        try dependencies[singleton: .keychain].set(data: keySpec, service: .storage, key: .dbCipherKeySpec)
+                        try dependencies[singleton: .keychain].set(data: keySpec, forKey: .dbCipherKeySpec)
                         return keySpec
                     }
                     catch {
@@ -449,7 +453,7 @@ open class Storage {
                         SNLog("CipherKeySpec inaccessible. New install or no unlock since device restart?, ApplicationState: \(appState.name)")
                         
                         // In this case we should have already detected the situation earlier and exited
-                        // gracefully (in the app delegate) using isDatabasePasswordAccessible, but we
+                        // gracefully (in the app delegate) using isDatabasePasswordAccessible(using:), but we
                         // want to stop the app running here anyway
                         Thread.sleep(forTimeInterval: 5)    // Sleep to allow any background behaviours to complete
                         throw StorageError.keySpecInaccessible
@@ -472,6 +476,7 @@ open class Storage {
     /// with extensions - this may be possible but will require significant refactoring and a potentially painful migration to move the
     /// database and other files into the App folder
     public static func suspendDatabaseAccess(using dependencies: Dependencies) {
+        Log.info("[Storage] suspendDatabaseAccess called.")
         NotificationCenter.default.post(name: Database.suspendNotification, object: self)
         if Storage.hasCreatedValidInstance { dependencies[singleton: .storage].isSuspendedUnsafe = true }
     }
@@ -481,9 +486,10 @@ open class Storage {
     public static func resumeDatabaseAccess(using dependencies: Dependencies) {
         NotificationCenter.default.post(name: Database.resumeNotification, object: self)
         if Storage.hasCreatedValidInstance { dependencies[singleton: .storage].isSuspendedUnsafe = false }
+        Log.info("[Storage] resumeDatabaseAccess called.")
     }
     
-    public static func resetAllStorage(using dependencies: Dependencies = Dependencies()) {
+    public static func resetAllStorage(using dependencies: Dependencies) {
         dependencies[singleton: .storage].isValid = false
         dependencies[singleton: .storage].migrationsCompleted.mutate { $0 = false }
         dependencies[singleton: .storage].dbWriter = nil
@@ -511,8 +517,8 @@ open class Storage {
         try? FileSystem.deleteFile(at: databasePathWal)
     }
     
-    private static func deleteDbKeys(using dependencies: Dependencies = Dependencies()) throws {
-        try dependencies[singleton: .keychain].remove(service: .storage, key: .dbCipherKeySpec)
+    private static func deleteDbKeys(using dependencies: Dependencies) throws {
+        try dependencies[singleton: .keychain].remove(key: .dbCipherKeySpec)
     }
     
     // MARK: - Logging Functions
@@ -527,6 +533,7 @@ open class Storage {
     
     private static func perform<T>(
         info: CallInfo,
+        using dependencies: Dependencies,
         updates: @escaping (Database) throws -> T
     ) -> (Database) throws -> T {
         return { db in
@@ -536,12 +543,12 @@ open class Storage {
             let timeout: Timer? = {
                 guard info.actions.contains(.logIfSlow) else { return nil }
                 
-                return Timer.scheduledTimerOnMainThread(withTimeInterval: Storage.writeWarningThreadshold) {
+                return Timer.scheduledTimerOnMainThread(withTimeInterval: Storage.writeWarningThreadshold, using: dependencies) {
                     $0.invalidate()
                     
                     // Don't want to log on the main thread as to avoid confusion when debugging issues
                     DispatchQueue.global(qos: .default).async {
-                        SNLog("[Storage\(fileName)] Slow \(actionName) taking longer than \(Storage.writeWarningThreadshold, format: ".2", omitZeroDecimal: true)s - \(info.function)")
+                        Log.warn("[Storage\(fileName)] Slow \(actionName) taking longer than \(Storage.writeWarningThreadshold, format: ".2", omitZeroDecimal: true)s - \(info.function)")
                     }
                 }
             }()
@@ -553,7 +560,7 @@ open class Storage {
                     let end: CFTimeInterval = CACurrentMediaTime()
                     
                     DispatchQueue.global(qos: .default).async {
-                        SNLog("[Storage\(fileName)] Slow \(actionName) completed after \(end - start, format: ".2", omitZeroDecimal: true)s")
+                        Log.warn("[Storage\(fileName)] Slow \(actionName) completed after \(end - start, format: ".2", omitZeroDecimal: true)s")
                     }
                 }
                 
@@ -595,13 +602,12 @@ open class Storage {
         fileName: String = #file,
         functionName: String = #function,
         lineNumber: Int = #line,
-        using dependencies: Dependencies = Dependencies(),
         updates: @escaping (Database) throws -> T?
     ) -> T? {
         guard isValid, let dbWriter: DatabaseWriter = dbWriter else { return nil }
         
         let info: CallInfo = { [weak self] in (self, [.write, .logIfSlow], fileName, functionName, lineNumber) }()
-        do { return try dbWriter.write(Storage.perform(info: info, updates: updates)) }
+        do { return try dbWriter.write(Storage.perform(info: info, using: dependencies, updates: updates)) }
         catch { return Storage.logIfNeeded(error, isWrite: true) }
     }
     
@@ -609,14 +615,12 @@ open class Storage {
         fileName: String = #file,
         functionName: String = #function,
         lineNumber: Int = #line,
-        using dependencies: Dependencies = Dependencies(),
         updates: @escaping (Database) throws -> T
     ) {
         writeAsync(
             fileName: fileName,
             functionName: functionName,
             lineNumber: lineNumber,
-            using: dependencies,
             updates: updates,
             completion: { _, _ in }
         )
@@ -626,7 +630,6 @@ open class Storage {
         fileName: String = #file,
         functionName: String = #function,
         lineNumber: Int = #line,
-        using dependencies: Dependencies = Dependencies(),
         updates: @escaping (Database) throws -> T,
         completion: @escaping (Database, Result<T, Error>) throws -> Void
     ) {
@@ -635,7 +638,7 @@ open class Storage {
         let info: CallInfo = { [weak self] in (self, [.write, .logIfSlow], fileName, functionName, lineNumber) }()
         
         dbWriter.asyncWrite(
-            Storage.perform(info: info, updates: updates),
+            Storage.perform(info: info, using: dependencies, updates: updates),
             completion: { db, result in
                 switch result {
                     case .failure(let error): Storage.logIfNeeded(error, isWrite: true)
@@ -651,7 +654,6 @@ open class Storage {
         fileName: String = #file,
         functionName: String = #function,
         lineNumber: Int = #line,
-        using dependencies: Dependencies = Dependencies(),
         updates: @escaping (Database) throws -> T
     ) -> AnyPublisher<T, Error> {
         guard isValid, let dbWriter: DatabaseWriter = dbWriter else {
@@ -668,9 +670,9 @@ open class Storage {
         ///
         /// Instead of this we are just using `Deferred { Future {} }` which is executed on the specified scheduled
         /// which behaves in a much more expected way than the GRDB `writePublisher` does
-        return Deferred {
+        return Deferred { [dependencies] in
             Future { resolver in
-                do { resolver(Result.success(try dbWriter.write(Storage.perform(info: info, updates: updates)))) }
+                do { resolver(Result.success(try dbWriter.write(Storage.perform(info: info, using: dependencies, updates: updates)))) }
                 catch {
                     Storage.logIfNeeded(error, isWrite: true)
                     resolver(Result.failure(error))
@@ -683,7 +685,6 @@ open class Storage {
         fileName: String = #file,
         functionName: String = #function,
         lineNumber: Int = #line,
-        using dependencies: Dependencies = Dependencies(),
         value: @escaping (Database) throws -> T
     ) -> AnyPublisher<T, Error> {
         guard isValid, let dbWriter: DatabaseWriter = dbWriter else {
@@ -700,9 +701,9 @@ open class Storage {
         ///
         /// Instead of this we are just using `Deferred { Future {} }` which is executed on the specified scheduled
         /// which behaves in a much more expected way than the GRDB `readPublisher` does
-        return Deferred {
+        return Deferred { [dependencies] in
             Future { resolver in
-                do { resolver(Result.success(try dbWriter.read(Storage.perform(info: info, updates: value)))) }
+                do { resolver(Result.success(try dbWriter.read(Storage.perform(info: info, using: dependencies, updates: value)))) }
                 catch {
                     Storage.logIfNeeded(error, isWrite: false)
                     resolver(Result.failure(error))
@@ -715,13 +716,12 @@ open class Storage {
         fileName: String = #file,
         functionName: String = #function,
         lineNumber: Int = #line,
-        using dependencies: Dependencies = Dependencies(),
         _ value: @escaping (Database) throws -> T?
     ) -> T? {
         guard isValid, let dbWriter: DatabaseWriter = dbWriter else { return nil }
         
         let info: CallInfo = { [weak self] in (self, [.read], fileName, functionName, lineNumber) }()
-        do { return try dbWriter.read(Storage.perform(info: info, updates: value)) }
+        do { return try dbWriter.read(Storage.perform(info: info, using: dependencies, updates: value)) }
         catch { return Storage.logIfNeeded(error, isWrite: false) }
     }
     
@@ -796,11 +796,25 @@ public extension ValueObservation {
     }
 }
 
+public extension Publisher where Failure == Error {
+    func flatMapStorageWritePublisher<T>(using dependencies: Dependencies, updates: @escaping (Database, Output) throws -> T) -> AnyPublisher<T, Error> {
+        return self.flatMap { output -> AnyPublisher<T, Error> in
+            dependencies[singleton: .storage].writePublisher(updates: { db in try updates(db, output) })
+        }.eraseToAnyPublisher()
+    }
+    
+    func flatMapStorageReadPublisher<T>(using dependencies: Dependencies, value: @escaping (Database, Output) throws -> T) -> AnyPublisher<T, Error> {
+        return self.flatMap { output -> AnyPublisher<T, Error> in
+            dependencies[singleton: .storage].readPublisher(value: { db in try value(db, output) })
+        }.eraseToAnyPublisher()
+    }
+}
+
 // MARK: - Debug Convenience
 
 public extension Storage {
-    func exportInfo(password: String) throws -> (dbPath: String, keyPath: String) {
-        var keySpec: Data = try Storage.getOrGenerateDatabaseKeySpec()
+    func exportInfo(password: String, using dependencies: Dependencies) throws -> (dbPath: String, keyPath: String) {
+        var keySpec: Data = try Storage.getOrGenerateDatabaseKeySpec(using: dependencies)
         defer { keySpec.resetBytes(in: 0..<keySpec.count) } // Reset content immediately after use
         
         guard var passwordData: Data = password.data(using: .utf8) else { throw StorageError.generic }
@@ -818,7 +832,7 @@ public extension Storage {
         let hash: SHA256.Digest = SHA256.hash(data: passwordData)
         let key: SymmetricKey = SymmetricKey(data: Data(hash.makeIterator()))
         let sealedBox: ChaChaPoly.SealedBox = try ChaChaPoly.seal(keySpec, using: key, nonce: nonce, authenticating: Data())
-        let keyInfoPath: String = "\(NSTemporaryDirectory())key.enc"
+        let keyInfoPath: String = "\(dependencies[singleton: .appContext].temporaryDirectory)key.enc"
         let encryptedKeyBase64: String = sealedBox.combined.base64EncodedString()
         try encryptedKeyBase64.write(toFile: keyInfoPath, atomically: true, encoding: .utf8)
         

@@ -2,7 +2,7 @@
 
 import UIKit
 import SessionUIKit
-import SignalCoreKit
+import SessionUtilitiesKit
 
 protocol ApprovalRailCellViewDelegate: AnyObject {
     func approvalRailCellView(_ approvalRailCellView: ApprovalRailCellView, didRemoveItem attachmentItem: SignalAttachmentItem)
@@ -20,7 +20,7 @@ public class ApprovalRailCellView: GalleryRailCellView {
             guard let strongSelf = self else { return }
 
             guard let attachmentItem = strongSelf.item as? SignalAttachmentItem else {
-                owsFailDebug("attachmentItem was unexpectedly nil")
+                Log.error("[ApprovalRailCellView] attachmentItem was unexpectedly nil")
                 return
             }
 
@@ -67,8 +67,8 @@ public class ApprovalRailCellView: GalleryRailCellView {
         }
     }
 
-    override func configure(item: GalleryRailItem, delegate: GalleryRailCellViewDelegate) {
-        super.configure(item: item, delegate: delegate)
+    override func configure(item: GalleryRailItem, delegate: GalleryRailCellViewDelegate, using dependencies: Dependencies) {
+        super.configure(item: item, delegate: delegate, using: dependencies)
 
         var hasCaption = false
         if let attachmentItem = item as? SignalAttachmentItem {
@@ -76,7 +76,7 @@ public class ApprovalRailCellView: GalleryRailCellView {
                 hasCaption = captionText.count > 0
             }
         } else {
-            owsFailDebug("Invalid item.")
+            Log.error("[ApprovalRailCellView] Invalid item")
         }
 
         if hasCaption {

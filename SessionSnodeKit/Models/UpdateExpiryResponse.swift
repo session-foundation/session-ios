@@ -49,7 +49,7 @@ extension UpdateExpiryResponse: ValidatableResponse {
     internal static var requiredSuccessfulResponses: Int { -1 }
     
     internal func validResultMap(
-        publicKey: String,
+        swarmPublicKey: String,
         validationData: [String],
         using dependencies: Dependencies
     ) throws -> [String: UpdateExpiryResponseResult] {
@@ -79,7 +79,7 @@ extension UpdateExpiryResponse: ValidatableResponse {
             ///
             /// **Note:** If `updated` is empty then the `expiry` value will match the value that was
             /// included in the original request
-            let verificationBytes: [UInt8] = publicKey.bytes
+            let verificationBytes: [UInt8] = swarmPublicKey.bytes
                 .appending(contentsOf: "\(appliedExpiry)".data(using: .ascii)?.bytes)
                 .appending(contentsOf: validationData.joined().bytes)
                 .appending(contentsOf: next.value.updated.sorted().joined().bytes)

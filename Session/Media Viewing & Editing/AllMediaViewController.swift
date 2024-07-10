@@ -7,7 +7,6 @@ import DifferenceKit
 import SessionUIKit
 import SessionUtilitiesKit
 import SignalUtilitiesKit
-import SignalCoreKit
 
 public class AllMediaViewController: UIViewController, UIPageViewControllerDataSource, UIPageViewControllerDelegate {
     private let dependencies: Dependencies
@@ -56,7 +55,7 @@ public class AllMediaViewController: UIViewController, UIPageViewControllerDataS
     }
     
     required init?(coder: NSCoder) {
-        notImplemented()
+        fatalError("init(coder:) has not been implemented")
     }
     
     // MARK: Lifecycle

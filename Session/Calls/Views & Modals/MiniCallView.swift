@@ -158,7 +158,7 @@ final class MiniCallView: UIView, RTCVideoViewDelegate {
         
         guard
             dependencies.hasInitialised(singleton: .appContext),
-            let presentingVC: UIViewController = dependencies[singleton: .appContext].frontmostViewController
+            let presentingVC: UIViewController = dependencies[singleton: .appContext].frontMostViewController
         else { preconditionFailure() } // FIXME: Handle more gracefully
         
         presentingVC.present(callVC, animated: true, completion: nil)

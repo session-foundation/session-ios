@@ -2,7 +2,6 @@
 
 import Foundation
 import GRDB
-import SignalCoreKit
 import SessionUtilitiesKit
 import SessionSnodeKit
 
@@ -21,9 +20,9 @@ public enum GarbageCollectionJob: JobExecutor {
     public static func run(
         _ job: Job,
         queue: DispatchQueue,
-        success: @escaping (Job, Bool, Dependencies) -> (),
-        failure: @escaping (Job, Error?, Bool, Dependencies) -> (),
-        deferred: @escaping (Job, Dependencies) -> (),
+        success: @escaping (Job, Bool) -> Void,
+        failure: @escaping (Job, Error, Bool) -> Void,
+        deferred: @escaping (Job) -> Void,
         using dependencies: Dependencies
     ) {
         /// Determine what types of data we want to collect (if we didn't provide any then assume we want to collect everything)
@@ -60,7 +59,7 @@ public enum GarbageCollectionJob: JobExecutor {
         
         dependencies[singleton: .storage].writeAsync(
             updates: { db in
-                let userSessionId: SessionId = getUserSessionId(db, using: dependencies)
+                let userSessionId: SessionId = dependencies[cache: .general].sessionId
                 
                 /// Remove any typing indicators
                 if finalTypesToCollect.contains(.threadTypingIndicators) {
@@ -397,7 +396,7 @@ public enum GarbageCollectionJob: JobExecutor {
                     
                     // If we couldn't get the file lists then fail (invalid state and don't want to delete all attachment/profile files)
                     guard let fileInfo: FileInfo = maybeFileInfo else {
-                        failure(job, StorageError.generic, false, dependencies)
+                        failure(job, StorageError.generic, false)
                         return
                     }
                         
@@ -408,14 +407,14 @@ public enum GarbageCollectionJob: JobExecutor {
                         // Note: Looks like in order to recursively look through files we need to use the
                         // enumerator method
                         let fileEnumerator = FileManager.default.enumerator(
-                            at: URL(fileURLWithPath: Attachment.attachmentsFolder),
+                            at: URL(fileURLWithPath: Attachment.attachmentsFolder(using: dependencies)),
                             includingPropertiesForKeys: nil,
                             options: .skipsHiddenFiles  // Ignore the `.DS_Store` for the simulator
                         )
                         
                         let allAttachmentFilePaths: Set<String> = (fileEnumerator?
                             .allObjects
-                            .compactMap { Attachment.localRelativeFilePath(from: ($0 as? URL)?.path) })
+                            .compactMap { Attachment.localRelativeFilePath(from: ($0 as? URL)?.path, using: dependencies) })
                             .defaulting(to: [])
                             .asSet()
                         
@@ -436,7 +435,7 @@ public enum GarbageCollectionJob: JobExecutor {
                             // each one and store the error to be used to determine success/failure of the job
                             do {
                                 try FileManager.default.removeItem(
-                                    atPath: URL(fileURLWithPath: Attachment.attachmentsFolder)
+                                    atPath: URL(fileURLWithPath: Attachment.attachmentsFolder(using: dependencies))
                                         .appendingPathComponent(filepath)
                                         .path
                                 )
@@ -444,7 +443,7 @@ public enum GarbageCollectionJob: JobExecutor {
                             catch { deletionErrors.append(error) }
                         }
                         
-                        SNLog("[GarbageCollectionJob] Removed \(orphanedAttachmentFiles.count) orphaned attachment\(plural: orphanedAttachmentFiles.count)")
+                        Log.info("[GarbageCollectionJob] Removed \(orphanedAttachmentFiles.count) orphaned attachment\(plural: orphanedAttachmentFiles.count)")
                     }
                     
                     // Orphaned display picture files (actual deletion)
@@ -467,12 +466,12 @@ public enum GarbageCollectionJob: JobExecutor {
                             catch { deletionErrors.append(error) }
                         }
                         
-                        SNLog("[GarbageCollectionJob] Removed \(orphanedFiles.count) orphaned display picture\(plural: orphanedFiles.count)")
+                        Log.info("[GarbageCollectionJob] Removed \(orphanedFiles.count) orphaned display picture\(plural: orphanedFiles.count)")
                     }
                     
                     // Report a single file deletion as a job failure (even if other content was successfully removed)
                     guard deletionErrors.isEmpty else {
-                        failure(job, (deletionErrors.first ?? StorageError.generic), false, dependencies)
+                        failure(job, (deletionErrors.first ?? StorageError.generic), false)
                         return
                     }
                     
@@ -482,7 +481,7 @@ public enum GarbageCollectionJob: JobExecutor {
                         dependencies[defaults: .standard, key: .lastGarbageCollection] = dependencies.dateNow
                     }
                     
-                    success(job, false, dependencies)
+                    success(job, false)
                 }
             }
         )

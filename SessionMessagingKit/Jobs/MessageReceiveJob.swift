@@ -12,18 +12,16 @@ public enum MessageReceiveJob: JobExecutor {
     public static func run(
         _ job: Job,
         queue: DispatchQueue,
-        success: @escaping (Job, Bool, Dependencies) -> (),
-        failure: @escaping (Job, Error?, Bool, Dependencies) -> (),
-        deferred: @escaping (Job, Dependencies) -> (),
-        using dependencies: Dependencies = Dependencies()
+        success: @escaping (Job, Bool) -> Void,
+        failure: @escaping (Job, Error, Bool) -> Void,
+        deferred: @escaping (Job) -> Void,
+        using dependencies: Dependencies
     ) {
         guard
             let threadId: String = job.threadId,
             let detailsData: Data = job.details,
             let details: Details = try? JSONDecoder(using: dependencies).decode(Details.self, from: detailsData)
-        else {
-            return failure(job, JobRunnerError.missingRequiredDetails, true, dependencies)
-        }
+        else { return failure(job, JobRunnerError.missingRequiredDetails, true) }
         
         var updatedJob: Job = job
         var lastError: Error?
@@ -34,7 +32,7 @@ public enum MessageReceiveJob: JobExecutor {
                     return (messageInfo, try SNProtoContent.parseData(messageInfo.serializedProtoData))
                 }
                 catch {
-                    SNLog("[MessageReceiveJob] Couldn't receive message due to error: \(error)")
+                    Log.error("[MessageReceiveJob] Couldn't receive message due to error: \(error)")
                     lastError = error
                     
                     // We failed to process this message but it is a retryable error
@@ -53,7 +51,8 @@ public enum MessageReceiveJob: JobExecutor {
                         threadVariant: messageInfo.threadVariant,
                         message: messageInfo.message,
                         serverExpirationTimestamp: messageInfo.serverExpirationTimestamp,
-                        associatedWithProto: protoContent
+                        associatedWithProto: protoContent,
+                        using: dependencies
                     )
                 }
                 catch {
@@ -72,11 +71,11 @@ public enum MessageReceiveJob: JobExecutor {
                             break
                         
                         case let receiverError as MessageReceiverError where !receiverError.isRetryable:
-                            SNLog("[MessageReceiveJob] Permanently failed message due to error: \(error)")
+                            Log.error("[MessageReceiveJob] Permanently failed message due to error: \(error)")
                             continue
                         
                         default:
-                            SNLog("[MessageReceiveJob] Couldn't receive message due to error: \(error)")
+                            Log.error("[MessageReceiveJob] Couldn't receive message due to error: \(error)")
                             lastError = error
                             
                             // We failed to process this message but it is a retryable error
@@ -103,14 +102,9 @@ public enum MessageReceiveJob: JobExecutor {
         
         // Handle the result
         switch lastError {
-            case let error as MessageReceiverError where !error.isRetryable:
-                failure(updatedJob, error, true, dependencies)
-                
-            case .some(let error):
-                failure(updatedJob, error, false, dependencies)
-                
-            case .none:
-                success(updatedJob, false, dependencies)
+            case let error as MessageReceiverError where !error.isRetryable: failure(updatedJob, error, true)
+            case .some(let error): failure(updatedJob, error, false)
+            case .none: success(updatedJob, false)
         }
     }
 }

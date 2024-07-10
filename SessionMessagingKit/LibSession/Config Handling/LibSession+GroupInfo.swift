@@ -136,8 +136,7 @@ internal extension LibSession {
                         timestamp: TimeInterval(Double(serverTimestampMs) / 1000)
                     )
                 ),
-                canStartJob: true,
-                using: dependencies
+                canStartJob: true
             )
         }
 
@@ -232,8 +231,7 @@ internal extension LibSession {
                             typesToCollect: [.orphanedAttachments, .orphanedAttachmentFiles]
                         )
                     ),
-                    canStartJob: true,
-                    using: dependencies
+                    canStartJob: true
                 )
             }
         }
@@ -243,7 +241,7 @@ internal extension LibSession {
         if isAdmin && !messageHashesToDelete.isEmpty {
             (try? Authentication.with(
                 db,
-                sessionIdHexString: groupSessionId.hexString,
+                swarmPublicKey: groupSessionId.hexString,
                 using: dependencies
             )).map { authMethod in
                 try? SnodeAPI
@@ -287,16 +285,17 @@ internal extension LibSession {
                 using: dependencies
             ) { config in
                 guard case .object(let conf) = config else { throw LibSessionError.invalidConfigObject }
+                guard
+                    var cGroupName: [CChar] = group.name.cString(using: .utf8),
+                    var cGroupDesc: [CChar] = (group.groupDescription ?? "").cString(using: .utf8)
+                else { throw LibSessionError.invalidCConversion }
                 
                 /// Update the name
                 ///
                 /// **Note:** We indentionally only update the `GROUP_INFO` and not the `USER_GROUPS` as once the
                 /// group is synced between devices we want to rely on the proper group config to get display info
-                var updatedName: [CChar] = group.name.cArray.nullTerminated()
-                groups_info_set_name(conf, &updatedName)
-                
-                var updatedDescription: [CChar] = (group.groupDescription ?? "").cArray.nullTerminated()
-                groups_info_set_description(conf, &updatedDescription)
+                groups_info_set_name(conf, &cGroupName)
+                groups_info_set_description(conf, &cGroupDesc)
                 
                 // Either assign the updated display pic, or sent a blank pic (to remove the current one)
                 var displayPic: user_profile_pic = user_profile_pic()
@@ -440,7 +439,7 @@ public extension LibSession {
         groupSessionId: SessionId,
         using dependencies: Dependencies
     ) -> Bool {
-        return dependencies[cache: .LibSession]
+        return dependencies[cache: .libSession]
             .config(for: .groupInfo, sessionId: groupSessionId)
             .wrappedValue
             .map { config in

@@ -21,7 +21,7 @@ extension MessageReceiver {
             let sender: String = message.sender
         else { throw MessageReceiverError.invalidMessage }
         
-        let userSessionId: SessionId = getUserSessionId(db, using: dependencies)
+        let userSessionId: SessionId = dependencies[cache: .general].sessionId
         
         // Generate an updated configuration
         //
@@ -74,7 +74,8 @@ extension MessageReceiver {
                     default: return .userGroups
                 }
             }(),
-            changeTimestampMs: timestampMs
+            changeTimestampMs: timestampMs,
+            using: dependencies
         )
         
         // Only update libSession if we can perform the change
@@ -114,11 +115,15 @@ extension MessageReceiver {
         _ = try Interaction(
             serverHash: nil, // Intentionally null so sync messages are seen as duplicates
             threadId: threadId,
+            threadVariant: threadVariant,
             authorId: sender,
             variant: .infoDisappearingMessagesUpdate,
             body: updatedConfig.messageInfoString(
                 threadVariant: threadVariant,
-                senderName: (sender != userSessionId.hexString ? Profile.displayName(db, id: sender) : nil),
+                senderName: (sender != userSessionId.hexString ?
+                    Profile.displayName(db, id: sender, using: dependencies) :
+                    nil
+                ),
                 using: dependencies
             ),
             timestampMs: timestampMs,
@@ -129,7 +134,8 @@ extension MessageReceiver {
                 userSessionId: userSessionId,
                 openGroup: nil,
                 using: dependencies
-            )
+            ),
+            using: dependencies
         ).inserted(db)
     }
     
@@ -161,7 +167,7 @@ extension MessageReceiver {
         
         guard dependencies[feature: .updatedDisappearingMessages] else { return }
         
-        if contactId == getUserSessionId(db, using: dependencies).hexString {
+        if contactId == dependencies[cache: .general].sessionId.hexString {
             switch version {
                 case .legacyDisappearingMessages: TopBannerController.show(warning: .outdatedUserConfig)
                 case .newDisappearingMessages: TopBannerController.hide()
@@ -180,6 +186,7 @@ extension MessageReceiver {
     ) throws {
         guard proto.hasExpirationType || proto.hasExpirationTimer else { return }
         guard
+            threadVariant != .community,
             let sender: String = message.sender,
             let timestampMs: UInt64 = message.sentTimestamp,
             dependencies[feature: .updatedDisappearingMessages]
@@ -229,7 +236,7 @@ extension MessageReceiver {
                 // We sync disappearing messages config through shared config message only.
                 // If the updated config from this message is different from local config,
                 // this control message should already be removed.
-                if threadId == getUserSessionId(db, using: dependencies).hexString && updatedConfig != localConfig {
+                if threadId == dependencies[cache: .general].sessionId.hexString && updatedConfig != localConfig {
                     return
                 }
                 

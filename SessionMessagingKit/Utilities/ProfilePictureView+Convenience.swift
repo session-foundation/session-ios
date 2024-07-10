@@ -2,6 +2,7 @@
 
 import UIKit
 import SessionUIKit
+import SessionUtilitiesKit
 
 public extension ProfilePictureView {
     func update(
@@ -11,7 +12,8 @@ public extension ProfilePictureView {
         profile: Profile?,
         profileIcon: ProfileIcon = .none,
         additionalProfile: Profile? = nil,
-        additionalProfileIcon: ProfileIcon = .none
+        additionalProfileIcon: ProfileIcon = .none,
+        using dependencies: Dependencies
     ) {
         let (info, additionalInfo): (Info?, Info?) = ProfilePictureView.getProfilePictureInfo(
             size: self.size,
@@ -21,7 +23,8 @@ public extension ProfilePictureView {
             profile: profile,
             profileIcon: profileIcon,
             additionalProfile: additionalProfile,
-            additionalProfileIcon: additionalProfileIcon
+            additionalProfileIcon: additionalProfileIcon,
+            using: dependencies
         )
         
         guard let info: Info = info else { return }
@@ -37,13 +40,17 @@ public extension ProfilePictureView {
         profile: Profile?,
         profileIcon: ProfileIcon = .none,
         additionalProfile: Profile? = nil,
-        additionalProfileIcon: ProfileIcon = .none
+        additionalProfileIcon: ProfileIcon = .none,
+        using dependencies: Dependencies
     ) -> (Info?, Info?) {
         // If we are given an explicit 'displayPictureFilename' then only use that (this could be for
         // either Community conversations or updated groups)
         if let displayPictureFilename: String = displayPictureFilename {
             return (Info(
-                imageData: DisplayPictureManager.displayPicture(owner: .file(displayPictureFilename)),
+                imageData: DisplayPictureManager.displayPicture(
+                    owner: .file(displayPictureFilename),
+                    using: dependencies
+                ),
                 icon: profileIcon
             ), nil)
         }
@@ -81,7 +88,7 @@ public extension ProfilePictureView {
                 return (
                     Info(
                         imageData: (
-                            profile.map { DisplayPictureManager.displayPicture(owner: .user($0)) } ??
+                            profile.map { DisplayPictureManager.displayPicture(owner: .user($0), using: dependencies) } ??
                             PlaceholderIcon.generate(
                                 seed: publicKey,
                                 text: (profile?.displayName(for: threadVariant))
@@ -98,7 +105,7 @@ public extension ProfilePictureView {
                         .map { otherProfile in
                             Info(
                                 imageData: (
-                                    DisplayPictureManager.displayPicture(owner: .user(otherProfile)) ??
+                                    DisplayPictureManager.displayPicture(owner: .user(otherProfile), using: dependencies) ??
                                     PlaceholderIcon.generate(
                                         seed: otherProfile.id,
                                         text: otherProfile.displayName(for: threadVariant),
@@ -130,7 +137,7 @@ public extension ProfilePictureView {
                 return (
                     Info(
                         imageData: (
-                            profile.map { DisplayPictureManager.displayPicture(owner: .user($0)) } ??
+                            profile.map { DisplayPictureManager.displayPicture(owner: .user($0), using: dependencies) } ??
                             PlaceholderIcon.generate(
                                 seed: publicKey,
                                 text: (profile?.displayName(for: threadVariant))

@@ -20,6 +20,7 @@ final class QuoteView: UIView {
     
     // MARK: - Variables
     
+    private let dependencies: Dependencies
     private let onCancel: (() -> ())?
 
     // MARK: - Lifecycle
@@ -34,8 +35,10 @@ final class QuoteView: UIView {
         currentUserBlinded25SessionId: String?,
         direction: Direction,
         attachment: Attachment?,
+        using dependencies: Dependencies,
         onCancel: (() -> ())? = nil
     ) {
+        self.dependencies = dependencies
         self.onCancel = onCancel
         
         super.init(frame: CGRect.zero)
@@ -133,6 +136,7 @@ final class QuoteView: UIView {
             if attachment.isVisualMedia {
                 attachment.thumbnail(
                     size: .small,
+                    using: dependencies,
                     success: { [imageView] image, _ in
                         guard Thread.isMainThread else {
                             DispatchQueue.main.async {
@@ -182,7 +186,7 @@ final class QuoteView: UIView {
         }()
         bodyLabel.font = .systemFont(ofSize: Values.smallFontSize)
         
-        ThemeManager.onThemeChange(observer: bodyLabel) { [weak bodyLabel] theme, primaryColor in
+        ThemeManager.onThemeChange(observer: bodyLabel) { [weak bodyLabel, dependencies] theme, primaryColor in
             guard let textColor: UIColor = theme.color(for: targetThemeColor) else { return }
             
             bodyLabel?.attributedText = body
@@ -199,7 +203,8 @@ final class QuoteView: UIView {
                         primaryColor: primaryColor,
                         attributes: [
                             .foregroundColor: textColor
-                        ]
+                        ],
+                        using: dependencies
                     )
                 }
                 .defaulting(
@@ -228,13 +233,15 @@ final class QuoteView: UIView {
                 // When we can't find the quoted message we want to hide the author label
                 return Profile.displayNameNoFallback(
                     id: authorId,
-                    threadVariant: threadVariant
+                    threadVariant: threadVariant,
+                    using: dependencies
                 )
             }
             
             return Profile.displayName(
                 id: authorId,
-                threadVariant: threadVariant
+                threadVariant: threadVariant,
+                using: dependencies
             )
         }()
         authorLabel.themeTextColor = targetThemeColor

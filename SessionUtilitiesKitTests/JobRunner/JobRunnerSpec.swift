@@ -1746,15 +1746,15 @@ fileprivate enum TestJob: JobExecutor {
     static func run(
         _ job: Job,
         queue: DispatchQueue,
-        success: @escaping (Job, Bool, Dependencies) -> (),
-        failure: @escaping (Job, Error?, Bool, Dependencies) -> (),
-        deferred: @escaping (Job, Dependencies) -> (),
+        success: @escaping (Job, Bool) -> Void,
+        failure: @escaping (Job, Error, Bool) -> Void,
+        deferred: @escaping (Job) -> Void,
         using dependencies: Dependencies
     ) {
         guard
             let detailsData: Data = job.details,
-            let details: TestDetails = try? JSONDecoder().decode(TestDetails.self, from: detailsData)
-        else { return success(job, true, dependencies) }
+            let details: TestDetails = try? JSONDecoder(using: dependencies).decode(TestDetails.self, from: detailsData)
+        else { return success(job, true) }
         
         let completeJob: () -> () = {
             // Need to increase the 'completeTime' and 'nextRunTimestamp' to prevent the job
@@ -1772,10 +1772,10 @@ fileprivate enum TestJob: JobExecutor {
             dependencies[singleton: .storage].write { db in try updatedJob.upserted(db) }
             
             switch details.result {
-                case .success: success(job, true, dependencies)
-                case .failure: failure(job, nil, false, dependencies)
-                case .permanentFailure: failure(job, nil, true, dependencies)
-                case .deferred: deferred(updatedJob, dependencies)
+                case .success: success(job, true)
+                case .failure: failure(job, nil, false)
+                case .permanentFailure: failure(job, nil, true)
+                case .deferred: deferred(updatedJob)
             }
         }
         

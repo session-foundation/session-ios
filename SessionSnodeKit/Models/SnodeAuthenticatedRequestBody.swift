@@ -36,7 +36,7 @@ public class SnodeAuthenticatedRequestBody: Encodable {
         // Generate the signature for the request for encoding
         let signature: Authentication.Signature = try authMethod.generateSignature(
             with: verificationBytes,
-            using: encoder.dependencies
+            using: try encoder.dependencies ?? { throw CryptoError.signatureGenerationFailed }()
         )
         try container.encodeIfPresent(timestampMs, forKey: .timestampMs)
         

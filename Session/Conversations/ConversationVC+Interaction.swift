@@ -426,7 +426,7 @@ extension ConversationVC:
         }
         
         let fileName = urlResourceValues.name ?? NSLocalizedString("ATTACHMENT_DEFAULT_FILENAME", comment: "")
-        guard let dataSource = DataSourcePath(fileUrl: url, shouldDeleteOnDeinit: false) else {
+        guard let dataSource = DataSourcePath(fileUrl: url, shouldDeleteOnDeinit: false, using: viewModel.dependencies) else {
             DispatchQueue.main.async { [weak self] in
                 let modal: ConfirmationModal = ConfirmationModal(
                     targetView: self?.view,
@@ -449,7 +449,7 @@ extension ConversationVC:
         }
         
         // "Document picker" attachments _SHOULD NOT_ be resized
-        let attachment = SignalAttachment.attachment(dataSource: dataSource, dataUTI: type, imageQuality: .original)
+        let attachment = SignalAttachment.attachment(dataSource: dataSource, dataUTI: type, imageQuality: .original, using: viewModel.dependencies)
         showAttachmentApprovalDialog(for: [ attachment ])
     }
 
@@ -467,8 +467,8 @@ extension ConversationVC:
     }
 
     func showAttachmentApprovalDialogAfterProcessingVideo(at url: URL, with fileName: String) {
-        ModalActivityIndicatorViewController.present(fromViewController: self, canCancel: true, message: nil) { [weak self, dependencies = self.viewModel.dependencies] modalActivityIndicator in
-            let dataSource = DataSourcePath(fileUrl: url, shouldDeleteOnDeinit: false)!
+        ModalActivityIndicatorViewController.present(fromViewController: self, canCancel: true, message: nil) { [weak self, dependencies = viewModel.dependencies] modalActivityIndicator in
+            let dataSource = DataSourcePath(fileUrl: url, shouldDeleteOnDeinit: false, using: dependencies)!
             dataSource.sourceFilename = fileName
             
             SignalAttachment
@@ -563,7 +563,7 @@ extension ConversationVC:
         // use it to determine if the user is creating a new thread and update the 'isApproved'
         // flags appropriately
         let oldThreadShouldBeVisible: Bool = (self.viewModel.threadData.threadShouldBeVisible == true)
-        let sentTimestampMs: Int64 = SnodeAPI.currentOffsetTimestampMs()
+        let sentTimestampMs: Int64 = viewModel.dependencies[cache: .snodeAPI].currentOffsetTimestampMs()
 
         // If this was a message request then approve it
         let approvalBlockingJob: Job? = approveMessageRequestIfNeeded(
@@ -596,7 +596,8 @@ extension ConversationVC:
         DispatchQueue.global(qos:.userInitiated).async(using: viewModel.dependencies) { [dependencies = viewModel.dependencies] in
             // Generate the quote thumbnail if needed (want this to happen outside of the DBWrite thread as
             // this can take up to 0.5s
-            let quoteThumbnailAttachment: Attachment? = optimisticData.quoteModel?.attachment?.cloneAsQuoteThumbnail()
+            let quoteThumbnailAttachment: Attachment? = optimisticData.quoteModel?.attachment?
+                .cloneAsQuoteThumbnail(using: dependencies)
             
             // Actually send the message
             dependencies[singleton: .storage]
@@ -643,7 +644,8 @@ extension ConversationVC:
                             try LinkPreview(
                                 url: linkPreviewDraft.urlString,
                                 title: linkPreviewDraft.title,
-                                attachmentId: try optimisticData.linkPreviewAttachment?.inserted(db).id
+                                attachmentId: try optimisticData.linkPreviewAttachment?.inserted(db).id,
+                                using: dependencies
                             ).upsert(db)
                         }
                     }
@@ -698,8 +700,8 @@ extension ConversationVC:
         
         let threadId: String = self.viewModel.threadData.threadId
         
-        viewModel.dependencies[singleton: .storage].writeAsync { db in
-            TypingIndicators.didStopTyping(db, threadId: threadId, direction: .outgoing)
+        viewModel.dependencies[singleton: .storage].writeAsync { [dependencies = viewModel.dependencies] db in
+            dependencies[singleton: .typingIndicators].didStopTyping(db, threadId: threadId, direction: .outgoing)
             
             _ = try SessionThread
                 .filter(id: threadId)
@@ -737,18 +739,18 @@ extension ConversationVC:
             let threadVariant: SessionThread.Variant = self.viewModel.threadData.threadVariant
             let threadIsMessageRequest: Bool = (self.viewModel.threadData.threadIsMessageRequest == true)
             let threadIsBlocked: Bool = (self.viewModel.threadData.threadIsBlocked == true)
-            let needsToStartTypingIndicator: Bool = TypingIndicators.didStartTypingNeedsToStart(
+            let needsToStartTypingIndicator: Bool = viewModel.dependencies[singleton: .typingIndicators].didStartTypingNeedsToStart(
                 threadId: threadId,
                 threadVariant: threadVariant,
                 threadIsBlocked: threadIsBlocked,
                 threadIsMessageRequest: threadIsMessageRequest,
                 direction: .outgoing,
-                timestampMs: SnodeAPI.currentOffsetTimestampMs(using: viewModel.dependencies)
+                timestampMs: viewModel.dependencies[cache: .snodeAPI].currentOffsetTimestampMs()
             )
             
             if needsToStartTypingIndicator {
-                viewModel.dependencies[singleton: .storage].writeAsync { db in
-                    TypingIndicators.start(db, threadId: threadId, direction: .outgoing)
+                viewModel.dependencies[singleton: .storage].writeAsync { [dependencies = viewModel.dependencies] db in
+                    dependencies[singleton: .typingIndicators].start(db, threadId: threadId, direction: .outgoing)
                 }
             }
         }
@@ -761,8 +763,8 @@ extension ConversationVC:
     func didPasteImageFromPasteboard(_ image: UIImage) {
         guard let imageData = image.jpegData(compressionQuality: 1.0) else { return }
         
-        let dataSource = DataSourceValue(data: imageData, utiType: kUTTypeJPEG as String)
-        let attachment = SignalAttachment.attachment(dataSource: dataSource, dataUTI: kUTTypeJPEG as String, imageQuality: .medium)
+        let dataSource = DataSourceValue(data: imageData, utiType: kUTTypeJPEG as String, using: viewModel.dependencies)
+        let attachment = SignalAttachment.attachment(dataSource: dataSource, dataUTI: kUTTypeJPEG as String, imageQuality: .medium, using: viewModel.dependencies)
 
         guard let approvalVC = AttachmentApprovalViewController.wrappedInNavController(
             threadId: self.viewModel.threadData.threadId,
@@ -885,14 +887,15 @@ extension ConversationVC:
                 currentUserSessionId: self.viewModel.threadData.currentUserSessionId,
                 currentUserBlinded15SessionId: self.viewModel.threadData.currentUserBlinded15SessionId,
                 currentUserBlinded25SessionId: self.viewModel.threadData.currentUserBlinded25SessionId,
-                currentUserIsOpenGroupModerator: OpenGroupManager.isUserModeratorOrAdmin(
+                currentUserIsOpenGroupModerator: viewModel.dependencies[singleton: .openGroupManager].isUserModeratorOrAdmin(
                     publicKey: self.viewModel.threadData.currentUserSessionId,
                     for: self.viewModel.threadData.openGroupRoomToken,
                     on: self.viewModel.threadData.openGroupServer
                 ),
                 currentThreadIsMessageRequest: (self.viewModel.threadData.threadIsMessageRequest == true),
                 forMessageInfoScreen: false,
-                delegate: self
+                delegate: self,
+                using: viewModel.dependencies
             )
         else { return }
         
@@ -905,7 +908,8 @@ extension ConversationVC:
             snapshot: snapshot,
             frame: contextSnapshotView.convert(contextSnapshotView.bounds, to: keyWindow),
             cellViewModel: cellViewModel,
-            actions: actions
+            actions: actions,
+            using: viewModel.dependencies
         ) { [weak self] in
             self?.contextMenuWindow?.isHidden = true
             self?.contextMenuVC = nil
@@ -1091,8 +1095,7 @@ extension ConversationVC:
                                         attachmentId: mediaView.attachment.id
                                     )
                                 ),
-                                canStartJob: true,
-                                using: dependencies
+                                canStartJob: true
                             )
                         }
                         break
@@ -1103,7 +1106,7 @@ extension ConversationVC:
                         
                         guard albumView.numItems > 1 || !mediaView.attachment.isVideo else {
                             guard
-                                let originalFilePath: String = mediaView.attachment.originalFilePath,
+                                let originalFilePath: String = mediaView.attachment.originalFilePath(using: viewModel.dependencies),
                                 FileManager.default.fileExists(atPath: originalFilePath)
                             else { return SNLog("Missing video file") }
                             
@@ -1151,7 +1154,7 @@ extension ConversationVC:
                 guard
                     !handleLinkTapIfNeeded(cell: cell, targetView: (cell as? VisibleMessageCell)?.documentView),
                     let attachment: Attachment = cellViewModel.attachments?.first,
-                    let originalFilePath: String = attachment.originalFilePath
+                    let originalFilePath: String = attachment.originalFilePath(using: viewModel.dependencies)
                 else { return }
                 
                 /// When playing media we need to change the AVAudioSession to 'playback' mode so the device "silent mode"
@@ -1165,7 +1168,7 @@ extension ConversationVC:
                 guard
                     !handleLinkTapIfNeeded(cell: cell, targetView: (cell as? VisibleMessageCell)?.documentView),
                     let attachment: Attachment = cellViewModel.attachments?.first,
-                    let originalFilePath: String = attachment.originalFilePath
+                    let originalFilePath: String = attachment.originalFilePath(using: viewModel.dependencies)
                 else { return }
                 
                 let fileUrl: URL = URL(fileURLWithPath: originalFilePath)
@@ -1377,7 +1380,7 @@ extension ConversationVC:
                 .elements
         else { return }
         
-        let reactionListSheet: ReactionListSheet = ReactionListSheet(for: cellViewModel.id) { [weak self] in
+        let reactionListSheet: ReactionListSheet = ReactionListSheet(for: cellViewModel.id, using: viewModel.dependencies) { [weak self] in
             self?.currentReactionListSheet = nil
         }
         reactionListSheet.delegate = self
@@ -1385,7 +1388,7 @@ extension ConversationVC:
             allMessages,
             selectedReaction: selectedReaction,
             initialLoad: true,
-            shouldShowClearAllButton: OpenGroupManager.isUserModeratorOrAdmin(
+            shouldShowClearAllButton: viewModel.dependencies[singleton: .openGroupManager].isUserModeratorOrAdmin(
                 publicKey: self.viewModel.threadData.currentUserSessionId,
                 for: self.viewModel.threadData.openGroupRoomToken,
                 on: self.viewModel.threadData.openGroupServer
@@ -1454,7 +1457,7 @@ extension ConversationVC:
                         on: openGroup.server,
                         using: dependencies
                     )
-                let pendingChange: OpenGroupAPI.PendingChange = OpenGroupManager
+                let pendingChange: OpenGroupAPI.PendingChange = dependencies[singleton: .openGroupManager]
                     .addPendingReaction(
                         emoji: emoji,
                         id: openGroupServerMessageId,
@@ -1470,11 +1473,10 @@ extension ConversationVC:
                 preparedRequest.send(using: dependencies)
                     .handleEvents(
                         receiveOutput: { _, response in
-                            OpenGroupManager
-                                .updatePendingChange(
-                                    pendingChange,
-                                    seqNo: response.seqNo
-                                )
+                            dependencies[singleton: .openGroupManager].updatePendingChange(
+                                pendingChange,
+                                seqNo: response.seqNo
+                            )
                         }
                     )
                     .eraseToAnyPublisher()
@@ -1502,7 +1504,7 @@ extension ConversationVC:
         // Perform local rate limiting (don't allow more than 20 reactions within 60 seconds)
         let threadVariant: SessionThread.Variant = self.viewModel.threadData.threadVariant
         let openGroupRoom: String? = self.viewModel.threadData.openGroupRoomToken
-        let sentTimestamp: Int64 = SnodeAPI.currentOffsetTimestampMs(using: viewModel.dependencies)
+        let sentTimestamp: Int64 = viewModel.dependencies[cache: .snodeAPI].currentOffsetTimestampMs()
         let recentReactionTimestamps: [Int64] = viewModel.dependencies[cache: .general].recentReactionTimestamps
         
         guard
@@ -1535,7 +1537,7 @@ extension ConversationVC:
         
         /// Perform the sending logic, we generate the pending reaction first in a deferred future closure to prevent the OpenGroup
         /// cache from blocking either the main thread or the database write thread
-        Deferred {
+        Deferred { [dependencies = viewModel.dependencies] in
             Future<OpenGroupAPI.PendingChange?, Error> { resolver in
                 guard
                     threadVariant == .community,
@@ -1546,7 +1548,7 @@ extension ConversationVC:
                   
                 // Create the pending change if we have open group info
                 return resolver(Result.success(
-                    OpenGroupManager.addPendingReaction(
+                    dependencies[singleton: .openGroupManager].addPendingReaction(
                         emoji: emoji,
                         id: serverMessageId,
                         in: openGroupServer,
@@ -1557,8 +1559,8 @@ extension ConversationVC:
             }
         }
         .subscribe(on: DispatchQueue.global(qos: .userInitiated), using: viewModel.dependencies)
-        .flatMap { [dependencies = viewModel.dependencies] pendingChange -> AnyPublisher<HTTP.PreparedRequest<Void>, Error> in
-            dependencies[singleton: .storage].writePublisher { [weak self] db -> HTTP.PreparedRequest<Void> in
+        .flatMap { [dependencies = viewModel.dependencies] pendingChange -> AnyPublisher<Network.PreparedRequest<Void>, Error> in
+            dependencies[singleton: .storage].writePublisher { [weak self] db -> Network.PreparedRequest<Void> in
                 // Update the thread to be visible (if it isn't already)
                 if self?.viewModel.threadData.threadShouldBeVisible == false {
                     _ = try SessionThread
@@ -1619,7 +1621,7 @@ extension ConversationVC:
                             let openGroupServer: String = cellViewModel.threadOpenGroupServer,
                             let openGroupRoom: String = openGroupRoom,
                             let pendingChange: OpenGroupAPI.PendingChange = pendingChange,
-                            OpenGroupManager.doesOpenGroupSupport(db, capability: .reactions, on: openGroupServer)
+                            dependencies[singleton: .openGroupManager].doesOpenGroupSupport(db, capability: .reactions, on: openGroupServer)
                         else { throw MessageSenderError.invalidMessage }
                         
                         let preparedRequest: Network.PreparedRequest<Int64?> = try {
@@ -1651,13 +1653,16 @@ extension ConversationVC:
                         return preparedRequest
                             .handleEvents(
                                 receiveOutput: { _, seqNo in
-                                    OpenGroupManager.updatePendingChange(pendingChange, seqNo: seqNo)
+                                    dependencies[singleton: .openGroupManager].updatePendingChange(
+                                        pendingChange,
+                                        seqNo: seqNo
+                                    )
                                 },
                                 receiveCompletion: { [weak self] result in
                                     switch result {
                                         case .finished: break
                                         case .failure:
-                                            OpenGroupManager.removePendingChange(pendingChange)
+                                            dependencies[singleton: .openGroupManager].removePendingChange(pendingChange)
                                             
                                             self?.handleReactionSentFailure(pendingReaction, remove: remove)
                                     }
@@ -1823,23 +1828,22 @@ extension ConversationVC:
                     
                     dependencies[singleton: .storage]
                         .writePublisher { db in
-                            OpenGroupManager.shared.add(
+                            dependencies[singleton: .openGroupManager].add(
                                 db,
                                 roomToken: room,
                                 server: server,
                                 publicKey: publicKey,
-                                calledFromConfig: nil,
-                                using: dependencies
+                                calledFromConfig: nil
                             )
                         }
                         .flatMap { successfullyAddedGroup in
-                            OpenGroupManager.shared.performInitialRequestsAfterAdd(
+                            dependencies[singleton: .openGroupManager].performInitialRequestsAfterAdd(
+                                queue: DispatchQueue.global(qos: .userInitiated),
                                 successfullyAddedGroup: successfullyAddedGroup,
                                 roomToken: room,
                                 server: server,
                                 publicKey: publicKey,
-                                calledFromConfig: nil,
-                                using: dependencies
+                                calledFromConfig: nil
                             )
                         }
                         .subscribe(on: DispatchQueue.global(qos: .userInitiated))
@@ -1853,11 +1857,10 @@ extension ConversationVC:
                                         // the next launch so remove it (the user will be left on the previous
                                         // screen so can re-trigger the join)
                                         dependencies[singleton: .storage].writeAsync { db in
-                                            try OpenGroupManager.shared.delete(
+                                            try dependencies[singleton: .openGroupManager].delete(
                                                 db,
                                                 openGroupId: OpenGroup.idFor(roomToken: room, server: server),
-                                                calledFromConfig: nil,
-                                                using: dependencies
+                                                calledFromConfig: nil
                                             )
                                         }
                                         
@@ -1891,15 +1894,15 @@ extension ConversationVC:
             currentUserSessionId: self.viewModel.threadData.currentUserSessionId,
             currentUserBlinded15SessionId: self.viewModel.threadData.currentUserBlinded15SessionId,
             currentUserBlinded25SessionId: self.viewModel.threadData.currentUserBlinded25SessionId,
-            currentUserIsOpenGroupModerator: OpenGroupManager.isUserModeratorOrAdmin(
+            currentUserIsOpenGroupModerator: viewModel.dependencies[singleton: .openGroupManager].isUserModeratorOrAdmin(
                 publicKey: self.viewModel.threadData.currentUserSessionId,
                 for: self.viewModel.threadData.openGroupRoomToken,
-                on: self.viewModel.threadData.openGroupServer,
-                using: viewModel.dependencies
+                on: self.viewModel.threadData.openGroupServer
             ),
             currentThreadIsMessageRequest: (self.viewModel.threadData.threadIsMessageRequest == true),
             forMessageInfoScreen: true,
-            delegate: self
+            delegate: self,
+            using: viewModel.dependencies
         ) ?? []
         
         let messageInfoViewController = MessageInfoViewController(
@@ -1965,7 +1968,7 @@ extension ConversationVC:
                     return nil
                 }()
                 try quote.with(
-                    attachmentId: attachment?.cloneAsQuoteThumbnail()?.inserted(db).id
+                    attachmentId: attachment?.cloneAsQuoteThumbnail(using: dependencies)?.inserted(db).id
                 ).update(db)
             }
             
@@ -2029,7 +2032,7 @@ extension ConversationVC:
                         attachment.state == .uploaded
                     ),
                     let utiType: String = MimeTypeUtil.utiType(for: attachment.contentType),
-                    let originalFilePath: String = attachment.originalFilePath,
+                    let originalFilePath: String = attachment.originalFilePath(using: viewModel.dependencies),
                     let data: Data = try? Data(contentsOf: URL(fileURLWithPath: originalFilePath))
                 else { return }
             
@@ -2117,6 +2120,9 @@ extension ConversationVC:
                         }
                     }()
                     
+                    /// Stop the messages audio if needed
+                    self?.viewModel.stopAudioIfNeeded(for: cellViewModel)
+                    
                     /// If we are just doing a local deletion then just trigger it (no need to show a loading indicator
                     guard !deletionBehaviours.isOnlyDeleteFromDatabase(at: selectedIndex) else {
                         dependencies[singleton: .storage].writeAsync { db in
@@ -2127,7 +2133,7 @@ extension ConversationVC:
                                 .fetchAll(db))
                                 .defaulting(to: [])
                             
-                            jobs.forEach { JobRunner.removePendingJob($0) }
+                            jobs.forEach { dependencies[singleton: .jobRunner].removePendingJob($0) }
                             
                             _ = try? Job
                                 .filter(Job.Columns.variant == Job.Variant.messageSend)
@@ -2138,6 +2144,7 @@ extension ConversationVC:
                                 .filter(id: cellViewModel.id)
                                 .deleteAll(db)
                         }
+                        
                         self?.dismiss(animated: true) {
                             self?.becomeFirstResponder()
                         }
@@ -2188,7 +2195,9 @@ extension ConversationVC:
                 )
             }
             .compactMap { attachment in
-                guard let originalFilePath: String = attachment.originalFilePath else { return nil }
+                guard let originalFilePath: String = attachment.originalFilePath(using: viewModel.dependencies) else {
+                    return nil
+                }
                 
                 return (attachment, originalFilePath)
             }
@@ -2234,7 +2243,7 @@ extension ConversationVC:
                 cancelStyle: .alert_text,
                 onConfirm: { [weak self, dependencies = viewModel.dependencies] _ in
                     dependencies[singleton: .storage]
-                        .readPublisher(using: dependencies) { db -> Network.PreparedRequest<NoResponse> in
+                        .readPublisher { db -> Network.PreparedRequest<NoResponse> in
                             guard let openGroup: OpenGroup = try OpenGroup.fetchOne(db, id: threadId) else {
                                 throw StorageError.objectNotFound
                             }
@@ -2355,8 +2364,9 @@ extension ConversationVC:
         self.viewModel.stopAudio()
         
         // Create URL
+        let currentOffsetTimestamp: Int64 = viewModel.dependencies[cache: .snodeAPI].currentOffsetTimestampMs()
         let directory: String = viewModel.dependencies[singleton: .appContext].temporaryDirectory
-        let fileName: String = "\(SnodeAPI.currentOffsetTimestampMs(using: viewModel.dependencies)).m4a"
+        let fileName: String = "\(currentOffsetTimestamp).m4a"
         let url: URL = URL(fileURLWithPath: directory).appendingPathComponent(fileName)
         
         // Set up audio session
@@ -2453,7 +2463,7 @@ extension ConversationVC:
         }
         
         // Get data
-        let dataSourceOrNil = DataSourcePath(fileUrl: audioRecorder.url, shouldDeleteOnDeinit: true)
+        let dataSourceOrNil = DataSourcePath(fileUrl: audioRecorder.url, shouldDeleteOnDeinit: true, using: viewModel.dependencies)
         self.audioRecorder = nil
         
         guard let dataSource = dataSourceOrNil else { return SNLog("Couldn't load recorded data.") }
@@ -2462,7 +2472,7 @@ extension ConversationVC:
         let fileName = ("VOICE_MESSAGE_FILE_NAME".localized() as NSString).appendingPathExtension("m4a")
         dataSource.sourceFilename = fileName
         
-        let attachment = SignalAttachment.voiceMessageAttachment(dataSource: dataSource, dataUTI: kUTTypeMPEG4Audio as String)
+        let attachment = SignalAttachment.voiceMessageAttachment(dataSource: dataSource, dataUTI: kUTTypeMPEG4Audio as String, using: viewModel.dependencies)
         
         guard !attachment.hasError else {
             return showErrorAlert(for: attachment)
@@ -2500,7 +2510,7 @@ extension ConversationVC:
                 db,
                 message: DataExtractionNotification(
                     kind: kind,
-                    sentTimestamp: UInt64(SnodeAPI.currentOffsetTimestampMs(using: dependencies))
+                    sentTimestamp: dependencies[cache: .snodeAPI].currentOffsetTimestampMs()
                 )
                 .with(DisappearingMessagesConfiguration
                     .fetchOne(db, id: threadId)?
@@ -2571,8 +2581,9 @@ extension ConversationVC {
                 // (it'll be updated with correct profile info if they accept the message request so this
                 // shouldn't cause weird behaviours)
                 guard
-                    let contact: Contact = viewModel.dependencies[singleton: .storage]
-                        .read(using: viewModel.dependencies, { db in Contact.fetchOrCreate(db, id: threadId) }),
+                    let contact: Contact = viewModel.dependencies[singleton: .storage].read({ [dependencies = viewModel.dependencies] db in
+                        Contact.fetchOrCreate(db, id: threadId, using: dependencies)
+                    }),
                     !contact.isApproved
                 else { return nil }
                 
@@ -2620,22 +2631,22 @@ extension ConversationVC {
             case .group:
                 // If the group is not in the invited state then don't bother doing anything
                 guard
-                    let group: ClosedGroup = viewModel.dependencies[singleton: .storage]
-                        .read(using: viewModel.dependencies, { db in try ClosedGroup.fetchOne(db, id: threadId) }),
+                    let group: ClosedGroup = viewModel.dependencies[singleton: .storage].read({ db in
+                        try ClosedGroup.fetchOne(db, id: threadId)
+                    }),
                     group.invited == true
                 else { return nil }
                 
-                let pollResponseJob: Job? = viewModel.dependencies[singleton: .storage].write(using: viewModel.dependencies) { [dependencies = viewModel.dependencies] db in
+                let pollResponseJob: Job? = viewModel.dependencies[singleton: .storage].write { [dependencies = viewModel.dependencies] db in
                     dependencies[singleton: .jobRunner].add(
                         db,
                         job: Job(variant: .manualResultJob),
-                        canStartJob: true,
-                        using: dependencies
+                        canStartJob: true
                     )
                 }
                 
                 viewModel.dependencies[singleton: .storage]
-                    .writePublisher(using: viewModel.dependencies) { [dependencies = viewModel.dependencies] db in
+                    .writePublisher { [dependencies = viewModel.dependencies] db in
                         /// If we aren't creating a new thread (ie. sending a message request) then send a
                         /// `GroupUpdateInviteResponseMessage` to the group (this allows other members
                         /// to know that the user has joined the group)
@@ -2659,7 +2670,7 @@ extension ConversationVC {
                         /// state of the group will continue to be `true` while we wait on the initial poll to get back)
                         try GroupMember(
                             groupId: group.id,
-                            profileId: getUserSessionId(db, using: dependencies).hexString,
+                            profileId: dependencies[cache: .general].sessionId.hexString,
                             role: .standard,
                             roleStatus: .accepted,
                             isHidden: false
@@ -2678,13 +2689,14 @@ extension ConversationVC {
                     .sinkUntilComplete(
                         receiveCompletion: { [dependencies = viewModel.dependencies] _ in
                             // Complete the `pollResponseJob` once the next group poll completes
-                            dependencies[singleton: .groupsPoller].afterNextPoll(for: threadId) { _ in
-                                dependencies[singleton: .jobRunner].manuallyTriggerResult(
-                                    pollResponseJob,
-                                    result: .succeeded,
-                                    using: dependencies
-                                )
-                            }
+                            dependencies
+                                .mutate(cache: .groupPollers) { $0.getOrCreatePoller(for: threadId) }
+                                .afterNextPoll { _ in
+                                    dependencies[singleton: .jobRunner].manuallyTriggerResult(
+                                        pollResponseJob,
+                                        result: .succeeded
+                                    )
+                                }
                             
                             // Update the UI
                             updateNavigationBackStack()
@@ -2704,7 +2716,7 @@ extension ConversationVC {
             for: self.viewModel.threadData.threadId,
             threadVariant: self.viewModel.threadData.threadVariant,
             isNewThread: false,
-            timestampMs: SnodeAPI.currentOffsetTimestampMs()
+            timestampMs: viewModel.dependencies[cache: .snodeAPI].currentOffsetTimestampMs()
         )
     }
 
@@ -2715,7 +2727,8 @@ extension ConversationVC {
             indexPath: IndexPath(row: 0, section: 0),
             tableView: self.tableView,
             threadViewModel: self.viewModel.threadData,
-            viewController: self
+            viewController: self,
+            using: viewModel.dependencies
         )
         
         guard let action: UIContextualAction = actions?.first else { return }
@@ -2738,7 +2751,8 @@ extension ConversationVC {
             indexPath: IndexPath(row: 0, section: 0),
             tableView: self.tableView,
             threadViewModel: self.viewModel.threadData,
-            viewController: self
+            viewController: self,
+            using: viewModel.dependencies
         )
         
         guard let action: UIContextualAction = actions?.first else { return }
@@ -2759,7 +2773,7 @@ extension ConversationVC {
 
 extension ConversationVC: MediaPresentationContextProvider {
     func mediaPresentationContext(mediaItem: Media, in coordinateSpace: UICoordinateSpace) -> MediaPresentationContext? {
-        guard case let .gallery(galleryItem) = mediaItem else { return nil }
+        guard case let .gallery(galleryItem, _) = mediaItem else { return nil }
         
         // Note: According to Apple's docs the 'indexPathsForVisibleRows' method returns an
         // unsorted array which means we can't use it to determine the desired 'visibleCell'

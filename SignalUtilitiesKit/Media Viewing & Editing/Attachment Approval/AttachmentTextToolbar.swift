@@ -2,7 +2,6 @@
 
 import Foundation
 import UIKit
-import SignalCoreKit
 import SessionUIKit
 import SessionUtilitiesKit
 
@@ -95,25 +94,25 @@ class AttachmentTextToolbar: UIView, UITextViewDelegate {
         )
 
         self.textViewHeightConstraint = textView.set(.height, to: AttachmentTextToolbar.kMinTextViewHeight)
-        textContainer.pin(.top, to: .top, of: contentView)
-        textContainer.pin(.bottom, to: .bottom, of: contentView)
-        textContainer.pin(.left, to: .left, of: contentView)
+        textContainer.pin(.top, toMargin: .top, of: contentView)
+        textContainer.pin(.bottom, toMargin: .bottom, of: contentView)
+        textContainer.pin(.left, toMargin: .left, of: contentView)
 
         sendButton.pin(.left, to: .right, of: textContainer, withInset: AttachmentTextToolbar.kToolbarMargin)
-        sendButton.pin(.right, to: .right, of: textContainer)
+        sendButton.pin(.right, toMargin: .right, of: contentView)
         sendButton.pin(.bottom, to: .bottom, of: textContainer, withInset: -3)
         sendButton.setContentHugging(to: .required)
         sendButton.setCompressionResistance(to: .required)
 
-        lengthLimitLabel.pin(.left, to: .left, of: contentView)
-        lengthLimitLabel.pin(.right, to: .right, of: contentView)
+        lengthLimitLabel.pin(.left, toMargin: .left, of: contentView)
+        lengthLimitLabel.pin(.right, toMargin: .right, of: contentView)
         lengthLimitLabel.pin(.bottom, to: .top, of: textContainer, withInset: -6)
         lengthLimitLabel.setContentHugging(to: .required)
         lengthLimitLabel.setCompressionResistance(to: .required)
     }
 
     required init?(coder aDecoder: NSCoder) {
-        notImplemented()
+        fatalError("init(coder:) has not been implemented")
     }
 
     // MARK: - UIView Overrides
@@ -222,7 +221,7 @@ class AttachmentTextToolbar: UIView, UITextViewDelegate {
 
         // After verifying the byte-length is sufficiently small, verify the character count is within bounds.
         guard proposedText.count < kMaxMessageBodyCharacterCount else {
-            Logger.debug("hit attachment message body character count limit")
+            Log.debug("[AttachmentTextToolbar] hit attachment message body character count limit")
 
             self.lengthLimitLabel.isHidden = false
 
@@ -287,7 +286,7 @@ class AttachmentTextToolbar: UIView, UITextViewDelegate {
         let newHeight = clampedTextViewHeight(fixedWidth: currentSize.width)
 
         if newHeight != textViewHeight {
-            Logger.debug("TextView height changed: \(textViewHeight) -> \(newHeight)")
+            Log.debug("[AttachmentTextToolbar] TextView height changed: \(textViewHeight) -> \(newHeight)")
             textViewHeight = newHeight
             textViewHeightConstraint?.constant = textViewHeight
             invalidateIntrinsicContentSize()

@@ -50,7 +50,7 @@ extension PushNotificationAPI {
                 /// comma-delimited list of namespaces that should be subscribed to, in the same sorted order as
                 /// the `namespaces` parameter.
                 "MONITOR".bytes
-                    .appending(contentsOf: authMethod.sessionId.hexString.bytes)
+                    .appending(contentsOf: authMethod.swarmPublicKey.bytes)
                     .appending(contentsOf: "\(timestamp)".bytes)
                     .appending(contentsOf: (includeMessageData ? "1" : "0").bytes)
                     .appending(
@@ -95,10 +95,10 @@ extension PushNotificationAPI {
                 try container.encode(serviceInfo, forKey: .serviceInfo)
                 try container.encode(notificationsEncryptionKey.toHexString(), forKey: .notificationsEncryptionKey)
                 
-                // Use the correct APNS service based on the serviceNetwork
-                switch encoder.dependencies[feature: .serviceNetwork] {
+                // Use the correct APNS service based on the serviceNetwork (default to mainnet)
+                switch encoder.dependencies?[feature: .serviceNetwork] {
                     case .testnet: try container.encode(Service.sandbox, forKey: .service)
-                    case .mainnet: try container.encode(Service.apns, forKey: .service)
+                    case .mainnet, .none: try container.encode(Service.apns, forKey: .service)
                 }
                 
                 try super.encode(to: encoder)

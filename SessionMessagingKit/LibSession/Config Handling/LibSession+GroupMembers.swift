@@ -76,8 +76,7 @@ internal extension LibSession {
                         changeTimestampMs: serverTimestampMs
                     )
                 ),
-                canStartJob: true,
-                using: dependencies
+                canStartJob: true
             )
         }
         
@@ -123,7 +122,7 @@ internal extension LibSession {
         groupSessionId: SessionId,
         using dependencies: Dependencies
     ) throws -> Set<GroupMember> {
-        return try dependencies[cache: .sessionUtil]
+        return try dependencies[cache: .libSession]
             .config(for: .groupMembers, sessionId: groupSessionId)
             .wrappedValue
             .map { config in
@@ -140,7 +139,7 @@ internal extension LibSession {
         groupSessionId: SessionId,
         using dependencies: Dependencies
     ) throws -> [String: Bool] {
-        return try dependencies[cache: .sessionUtil]
+        return try dependencies[cache: .libSession]
             .config(for: .groupMembers, sessionId: groupSessionId)
             .wrappedValue
             .map { config in
@@ -160,7 +159,7 @@ internal extension LibSession {
         allowAccessToHistoricMessages: Bool,
         using dependencies: Dependencies
     ) throws {
-        try SessionUtil.performAndPushChange(
+        try LibSession.performAndPushChange(
             db,
             for: .groupMembers,
             sessionId: groupSessionId,
@@ -180,31 +179,27 @@ internal extension LibSession {
                     profilePic.url = picUrl.toLibSession()
                     profilePic.key = picKey.toLibSession()
                 }
-
-                var error: LibSessionError?
-                try CExceptionHelper.performSafely {
-                    var cMemberId: [CChar] = memberId.cArray
-                    var member: config_group_member = config_group_member()
-                    
-                    guard groups_members_get_or_construct(conf, &member, &cMemberId) else {
-                        error = .getOrConstructFailedUnexpectedly
-                        return
-                    }
-                    
-                    // Don't override the existing name with an empty one
-                    if let memberName: String = profile?.name, !memberName.isEmpty {
-                        member.name = memberName.toLibSession()
-                    }
-                    member.profile_pic = profilePic
-                    member.invited = 1
-                    member.supplement = allowAccessToHistoricMessages
-                    groups_members_set(conf, &member)
+                
+                var cMemberId: [CChar] = try memberId.cString(using: .utf8) ?? { throw LibSessionError.invalidCConversion }()
+                var member: config_group_member = config_group_member()
+                
+                guard groups_members_get_or_construct(conf, &member, &cMemberId) else {
+                    throw LibSessionError(
+                        conf,
+                        fallbackError: .getOrConstructFailedUnexpectedly,
+                        logMessage: "[LibSession] Failed to add member to group: \(groupSessionId), error"
+                    )
                 }
                 
-                if let error: LibSessionError = error {
-                    SNLog("[LibSession] Failed to add member to group: \(groupSessionId)")
-                    throw error
+                // Don't override the existing name with an empty one
+                if let memberName: String = profile?.name, !memberName.isEmpty {
+                    member.name = memberName.toLibSession()
                 }
+                member.profile_pic = profilePic
+                member.invited = 1
+                member.supplement = allowAccessToHistoricMessages
+                groups_members_set(conf, &member)
+                try LibSessionError.throwIfNeeded(conf)
             }
         }
     }
@@ -217,7 +212,7 @@ internal extension LibSession {
         status: GroupMember.RoleStatus,
         using dependencies: Dependencies
     ) throws {
-        try SessionUtil.performAndPushChange(
+        try LibSession.performAndPushChange(
             db,
             for: .groupMembers,
             sessionId: groupSessionId,
@@ -226,7 +221,7 @@ internal extension LibSession {
             guard case .object(let conf) = config else { throw LibSessionError.invalidConfigObject }
             
             // Only update members if they already exist in the group
-            var cMemberId: [CChar] = memberId.cArray
+            var cMemberId: [CChar] = try memberId.cString(using: .utf8) ?? { throw LibSessionError.invalidCConversion }()
             var groupMember: config_group_member = config_group_member()
             
             // If the member doesn't exist or the role status is already "accepted" then do nothing
@@ -250,6 +245,7 @@ internal extension LibSession {
             }
             
             groups_members_set(conf, &groupMember)
+            try LibSessionError.throwIfNeeded(conf)
         }
     }
     
@@ -260,7 +256,7 @@ internal extension LibSession {
         removeMessages: Bool,
         using dependencies: Dependencies
     ) throws {
-        try SessionUtil.performAndPushChange(
+        try LibSession.performAndPushChange(
             db,
             for: .groupMembers,
             sessionId: groupSessionId,
@@ -268,15 +264,16 @@ internal extension LibSession {
         ) { config in
             guard case .object(let conf) = config else { throw LibSessionError.invalidConfigObject }
             
-            memberIds.forEach { memberId in
+            try memberIds.forEach { memberId in
                 // Only update members if they already exist in the group
-                var cMemberId: [CChar] = memberId.cArray
+                var cMemberId: [CChar] = try memberId.cString(using: .utf8) ?? { throw LibSessionError.invalidCConversion }()
                 var groupMember: config_group_member = config_group_member()
                 
                 guard groups_members_get(conf, &groupMember, &cMemberId) else { return }
                 
                 groupMember.removed = (removeMessages ? 2 : 1)
                 groups_members_set(conf, &groupMember)
+                try LibSessionError.throwIfNeeded(conf)
             }
         }
     }
@@ -287,7 +284,7 @@ internal extension LibSession {
         memberIds: Set<String>,
         using dependencies: Dependencies
     ) throws {
-        try SessionUtil.performAndPushChange(
+        try LibSession.performAndPushChange(
             db,
             for: .groupMembers,
             sessionId: groupSessionId,
@@ -295,8 +292,9 @@ internal extension LibSession {
         ) { config in
             guard case .object(let conf) = config else { throw LibSessionError.invalidConfigObject }
             
-            memberIds.forEach { memberId in
-                var cMemberId: [CChar] = memberId.cArray
+            try memberIds.forEach { memberId in
+                var cMemberId: [CChar] = try memberId.cString(using: .utf8) ?? { throw LibSessionError.invalidCConversion }()
+                
                 groups_members_erase(conf, &cMemberId)
             }
         }
@@ -322,7 +320,7 @@ internal extension LibSession {
         
         // Loop through each of the groups and update their settings
         try targetMembers.forEach { member in
-            try SessionUtil.performAndPushChange(
+            try LibSession.performAndPushChange(
                 db,
                 for: .groupMembers,
                 sessionId: groupId,
@@ -331,7 +329,9 @@ internal extension LibSession {
                 guard case .object(let conf) = config else { throw LibSessionError.invalidConfigObject }
                 
                 // Only update members if they already exist in the group
-                var cMemberId: [CChar] = member.profileId.cArray
+                var cMemberId: [CChar] = try member.profileId.cString(using: .utf8) ?? {
+                    throw LibSessionError.invalidCConversion
+                }()
                 var groupMember: config_group_member = config_group_member()
                 
                 guard groups_members_get(conf, &groupMember, &cMemberId) else {
@@ -352,6 +352,7 @@ internal extension LibSession {
                 }
                 
                 groups_members_set(conf, &groupMember)
+                try LibSessionError.throwIfNeeded(conf)
             }
         }
         
@@ -382,7 +383,7 @@ internal extension LibSession {
         let membersIterator: UnsafeMutablePointer<groups_members_iterator> = groups_members_iterator_new(conf)
         
         while !groups_members_iterator_done(membersIterator, &member) {
-            try SessionUtil.checkLoopLimitReached(&infiniteLoopGuard, for: .groupMembers)
+            try LibSession.checkLoopLimitReached(&infiniteLoopGuard, for: .groupMembers)
             
             // Ignore members pending removal
             guard member.removed == 0 else { continue }
@@ -425,7 +426,7 @@ internal extension LibSession {
         let membersIterator: UnsafeMutablePointer<groups_members_iterator> = groups_members_iterator_new(conf)
         
         while !groups_members_iterator_done(membersIterator, &member) {
-            try SessionUtil.checkLoopLimitReached(&infiniteLoopGuard, for: .groupMembers)
+            try LibSession.checkLoopLimitReached(&infiniteLoopGuard, for: .groupMembers)
             
             guard member.removed > 0 else {
                 groups_members_iterator_advance(membersIterator)
@@ -456,7 +457,7 @@ internal extension LibSession {
         let membersIterator: UnsafeMutablePointer<groups_members_iterator> = groups_members_iterator_new(conf)
         
         while !groups_members_iterator_done(membersIterator, &member) {
-            try SessionUtil.checkLoopLimitReached(&infiniteLoopGuard, for: .groupMembers)
+            try LibSession.checkLoopLimitReached(&infiniteLoopGuard, for: .groupMembers)
             
             // Ignore members pending removal
             guard member.removed == 0 else { continue }

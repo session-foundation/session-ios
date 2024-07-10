@@ -120,7 +120,8 @@ final class IncomingCallBanner: UIView, UIGestureRecognizerDelegate {
             profile: dependencies[singleton: .storage].read { [sessionId = call.sessionId] db in
                 Profile.fetchOrCreate(db, id: sessionId)
             },
-            additionalProfile: nil
+            additionalProfile: nil,
+            using: dependencies
         )
         displayNameLabel.text = call.contactName
         
@@ -203,7 +204,7 @@ final class IncomingCallBanner: UIView, UIGestureRecognizerDelegate {
         dismiss()
         guard
             dependencies.hasInitialised(singleton: .appContext),
-            let presentingVC: UIViewController = dependencies[singleton: .appContext].frontmostViewController
+            let presentingVC: UIViewController = dependencies[singleton: .appContext].frontMostViewController
         else { preconditionFailure() } // FIXME: Handle more gracefully
         
         let callVC = CallVC(for: self.call, using: dependencies)

@@ -17,7 +17,7 @@ class PreparedRequestOnionRequestsSpec: QuickSpec {
             dependencies.dateNow = Date(timeIntervalSince1970: 1234567890)
         }
         @TestState(singleton: .network, in: dependencies) var mockNetwork: MockNetwork! = MockNetwork()
-        @TestState var preparedRequest: HTTP.PreparedRequest<Int>! = {
+        @TestState var preparedRequest: Network.PreparedRequest<Int>! = {
             let request = Request<NoBody, TestEndpoint>(
                 method: .post,
                 server: "https://www.oxen.io",
@@ -25,7 +25,7 @@ class PreparedRequestOnionRequestsSpec: QuickSpec {
                 x25519PublicKey: ""
             )
             
-            return HTTP.PreparedRequest(
+            return Network.PreparedRequest(
                 request: request,
                 urlRequest: try! request.generateUrlRequest(using: dependencies),
                 responseType: Int.self,
@@ -80,7 +80,7 @@ class PreparedRequestOnionRequestsSpec: QuickSpec {
                 it("can return a cached response") {
                     var response: (info: ResponseInfoType, data: Int)?
                     
-                    preparedRequest = HTTP.PreparedRequest<Int>.cached(
+                    preparedRequest = Network.PreparedRequest<Int>.cached(
                         100,
                         endpoint: TestEndpoint.endpoint1
                     )
@@ -251,7 +251,7 @@ class PreparedRequestOnionRequestsSpec: QuickSpec {
                     it("works with a cached response") {
                         var response: (info: ResponseInfoType, data: String)?
                         
-                        preparedRequest = HTTP.PreparedRequest<Int>.cached(
+                        preparedRequest = Network.PreparedRequest<Int>.cached(
                             100,
                             endpoint: TestEndpoint.endpoint1
                         )
@@ -300,22 +300,22 @@ class PreparedRequestOnionRequestsSpec: QuickSpec {
                             endpoint: TestEndpoint.endpoint2,
                             x25519PublicKey: ""
                         )
-                        @TestState var preparedBatchRequest: HTTP.PreparedRequest<HTTP.BatchResponseMap<TestEndpoint>>! = {
-                            let request = Request<HTTP.BatchRequest, TestEndpoint>(
+                        @TestState var preparedBatchRequest: Network.PreparedRequest<Network.BatchResponseMap<TestEndpoint>>! = {
+                            let request = Request<Network.BatchRequest, TestEndpoint>(
                                 method: .post,
                                 server: "https://www.oxen.io",
                                 endpoint: TestEndpoint.batch,
                                 x25519PublicKey: "",
-                                body: HTTP.BatchRequest(
+                                body: Network.BatchRequest(
                                     requests: [
-                                        HTTP.PreparedRequest(
+                                        Network.PreparedRequest(
                                             request:  subRequest1,
                                             urlRequest: try! subRequest1.generateUrlRequest(using: dependencies),
                                             responseType: TestType.self,
                                             retryCount: 0,
                                             timeout: 10
                                         ),
-                                        HTTP.PreparedRequest(
+                                        Network.PreparedRequest(
                                             request:  subRequest2,
                                             urlRequest: try! subRequest1.generateUrlRequest(using: dependencies),
                                             responseType: TestType.self,
@@ -326,15 +326,15 @@ class PreparedRequestOnionRequestsSpec: QuickSpec {
                                 )
                             )
                             
-                            return HTTP.PreparedRequest(
+                            return Network.PreparedRequest(
                                 request: request,
                                 urlRequest: try! request.generateUrlRequest(using: dependencies),
-                                responseType: HTTP.BatchResponseMap<TestEndpoint>.self,
+                                responseType: Network.BatchResponseMap<TestEndpoint>.self,
                                 retryCount: 0,
                                 timeout: 10
                             )
                         }()
-                        @TestState var response: (info: ResponseInfoType, data: HTTP.BatchResponseMap<TestEndpoint>)?
+                        @TestState var response: (info: ResponseInfoType, data: Network.BatchResponseMap<TestEndpoint>)?
                         @TestState var receivedOutput: (ResponseInfoType, String)? = nil
                         @TestState var didReceiveSubscription: Bool! = false
                         @TestState var receivedCompletion: Subscribers.Completion<Error>? = nil
@@ -360,9 +360,9 @@ class PreparedRequestOnionRequestsSpec: QuickSpec {
                             
                             expect(response).toNot(beNil())
                             expect(response?.data.count).to(equal(2))
-                            expect((response?.data.data[.endpoint1] as? HTTP.BatchSubResponse<TestType>)?.body)
+                            expect((response?.data.data[.endpoint1] as? Network.BatchSubResponse<TestType>)?.body)
                                 .to(equal(TestType(intValue: 100, stringValue: "Test", optionalStringValue: nil)))
-                            expect((response?.data.data[.endpoint2] as? HTTP.BatchSubResponse<TestType>)?.body)
+                            expect((response?.data.data[.endpoint2] as? Network.BatchSubResponse<TestType>)?.body)
                                 .to(equal(TestType(intValue: 100, stringValue: "Test", optionalStringValue: nil)))
                             expect(error).to(beNil())
                         }
@@ -380,14 +380,14 @@ class PreparedRequestOnionRequestsSpec: QuickSpec {
                         // MARK: ------ supports transformations on subrequests
                         it("supports transformations on subrequests") {
                             preparedBatchRequest = {
-                                let request = Request<HTTP.BatchRequest, TestEndpoint>(
+                                let request = Request<Network.BatchRequest, TestEndpoint>(
                                     method: .post,
                                     server: "https://www.oxen.io",
                                     endpoint: TestEndpoint.batch,
                                     x25519PublicKey: "",
-                                    body: HTTP.BatchRequest(
+                                    body: Network.BatchRequest(
                                         requests: [
-                                            HTTP.PreparedRequest(
+                                            Network.PreparedRequest(
                                                 request:  subRequest1,
                                                 urlRequest: try! subRequest1.generateUrlRequest(using: dependencies),
                                                 responseType: TestType.self,
@@ -395,7 +395,7 @@ class PreparedRequestOnionRequestsSpec: QuickSpec {
                                                 timeout: 10
                                             )
                                             .map { _, _ in "Test" },
-                                            HTTP.PreparedRequest(
+                                            Network.PreparedRequest(
                                                 request:  subRequest2,
                                                 urlRequest: try! subRequest1.generateUrlRequest(using: dependencies),
                                                 responseType: TestType.self,
@@ -406,10 +406,10 @@ class PreparedRequestOnionRequestsSpec: QuickSpec {
                                     )
                                 )
                                 
-                                return HTTP.PreparedRequest(
+                                return Network.PreparedRequest(
                                     request: request,
                                     urlRequest: try! request.generateUrlRequest(using: dependencies),
-                                    responseType: HTTP.BatchResponseMap<TestEndpoint>.self,
+                                    responseType: Network.BatchResponseMap<TestEndpoint>.self,
                                     retryCount: 0,
                                     timeout: 10
                                 )
@@ -423,9 +423,9 @@ class PreparedRequestOnionRequestsSpec: QuickSpec {
                             
                             expect(response).toNot(beNil())
                             expect(response?.data.count).to(equal(2))
-                            expect((response?.data.data[.endpoint1] as? HTTP.BatchSubResponse<String>)?.body)
+                            expect((response?.data.data[.endpoint1] as? Network.BatchSubResponse<String>)?.body)
                                 .to(equal("Test"))
-                            expect((response?.data.data[.endpoint2] as? HTTP.BatchSubResponse<TestType>)?.body)
+                            expect((response?.data.data[.endpoint2] as? Network.BatchSubResponse<TestType>)?.body)
                                 .to(equal(TestType(intValue: 100, stringValue: "Test", optionalStringValue: nil)))
                             expect(error).to(beNil())
                         }
@@ -447,14 +447,14 @@ class PreparedRequestOnionRequestsSpec: QuickSpec {
                         // MARK: ------ supports event handling on sub requests
                         it("supports event handling on sub requests") {
                             preparedBatchRequest = {
-                                let request = Request<HTTP.BatchRequest, TestEndpoint>(
+                                let request = Request<Network.BatchRequest, TestEndpoint>(
                                     method: .post,
                                     server: "https://www.oxen.io",
                                     endpoint: TestEndpoint.batch,
                                     x25519PublicKey: "",
-                                    body: HTTP.BatchRequest(
+                                    body: Network.BatchRequest(
                                         requests: [
-                                            HTTP.PreparedRequest(
+                                            Network.PreparedRequest(
                                                 request:  subRequest1,
                                                 urlRequest: try! subRequest1.generateUrlRequest(using: dependencies),
                                                 responseType: TestType.self,
@@ -464,7 +464,7 @@ class PreparedRequestOnionRequestsSpec: QuickSpec {
                                             .handleEvents(
                                                 receiveCompletion: { result in receivedCompletion = result }
                                             ),
-                                            HTTP.PreparedRequest(
+                                            Network.PreparedRequest(
                                                 request:  subRequest2,
                                                 urlRequest: try! subRequest1.generateUrlRequest(using: dependencies),
                                                 responseType: TestType.self,
@@ -475,10 +475,10 @@ class PreparedRequestOnionRequestsSpec: QuickSpec {
                                     )
                                 )
                                 
-                                return HTTP.PreparedRequest(
+                                return Network.PreparedRequest(
                                     request: request,
                                     urlRequest: try! request.generateUrlRequest(using: dependencies),
-                                    responseType: HTTP.BatchResponseMap<TestEndpoint>.self,
+                                    responseType: Network.BatchResponseMap<TestEndpoint>.self,
                                     retryCount: 0,
                                     timeout: 10
                                 )
@@ -505,7 +505,7 @@ fileprivate enum TestEndpoint: EndpointType {
     case batch
     
     static var name: String { "TestEndpoint" }
-    static var batchRequestVariant: HTTP.BatchRequest.Child.Variant { .storageServer }
+    static var batchRequestVariant: Network.BatchRequest.Child.Variant { .storageServer }
     static var excludedSubRequestHeaders: [HTTPHeader] { [] }
     
     var path: String {

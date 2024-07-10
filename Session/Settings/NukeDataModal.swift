@@ -155,8 +155,8 @@ final class NukeDataModal: Modal {
     }
     
     private func clearDeviceOnly() {
-        ModalActivityIndicatorViewController.present(fromViewController: self, canCancel: false) { [weak self] _ in
-            ConfigurationSyncJob.run(sessionIdHexString: getUserSessionId().hexString)
+        ModalActivityIndicatorViewController.present(fromViewController: self, canCancel: false) { [weak self, dependencies] _ in
+            ConfigurationSyncJob.run(swarmPublicKey: dependencies[cache: .general].sessionId.hexString, using: dependencies)
                 .subscribe(on: DispatchQueue.global(qos: .userInitiated))
                 .receive(on: DispatchQueue.main)
                 .sinkUntilComplete(
@@ -183,7 +183,7 @@ final class NukeDataModal: Modal {
                                 namespace: .all,
                                 authMethod: try Authentication.with(
                                     db,
-                                    sessionIdHexString: getUserSessionId(db, using: dependencies).hexString,
+                                    swarmPublicKey: dependencies[cache: .general].sessionId.hexString,
                                     using: dependencies
                                 ),
                                 using: dependencies
@@ -285,23 +285,17 @@ final class NukeDataModal: Modal {
         ///
         /// **Note:** This is file as long as this process kills the app, if it doesn't then we need an alternate mechanism to flag that
         /// the `JobRunner` is allowed to start it's queues again
-        dependencies[singleton: .jobRunner].stopAndClearPendingJobs(using: dependencies)
+        dependencies[singleton: .jobRunner].stopAndClearPendingJobs()
         
         // Clear the app badge and notifications
         dependencies[singleton: .notificationsManager].clearAllNotifications()
         UIApplication.shared.applicationIconBadgeNumber = 0
         
         // Clear out the user defaults
-        UserDefaults.removeAll()
+        UserDefaults.removeAll(using: dependencies)
         
         // Remove the cached key so it gets re-cached on next access
-        dependencies.mutate(cache: .general) {
-            $0.sessionId = nil
-            $0.recentReactionTimestamps = []
-        }
-        
-        // Clear the Snode pool
-        LibSession.clearSnodeCache()
+        dependencies.remove(cache: .general)    // TODO: Test that the deinit gets called
         
         // Stop any pollers
         (UIApplication.shared.delegate as? AppDelegate)?.stopPollers()
@@ -310,7 +304,7 @@ final class NukeDataModal: Modal {
         // profile storage
         let wasUnlinked: Bool = dependencies[defaults: .standard, key: .wasUnlinked]
         
-        SessionApp.resetAppData(using: dependencies) { [dependencies] in
+        dependencies[singleton: .app].resetData { [dependencies] in
             // Resetting the data clears the old user defaults. We need to restore the unlink default.
             dependencies[defaults: .standard, key: .wasUnlinked] = wasUnlinked
         }

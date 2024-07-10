@@ -65,7 +65,7 @@ internal extension LibSession {
                             roomToken: roomToken,
                             publicKey: Data(
                                 libSessionVal: community.pubkey,
-                                count: SessionUtil.sizeCommunityPubkeyBytes
+                                count: LibSession.sizeCommunityPubkeyBytes
                             ).toHexString()
                         ),
                         priority: community.priority
@@ -84,15 +84,13 @@ internal extension LibSession {
                             threadId: groupId,
                             publicKey: Data(
                                 libSessionVal: legacyGroup.enc_pubkey,
-                                count: SessionUtil.sizeLegacyGroupPubkeyBytes
+                                count: LibSession.sizeLegacyGroupPubkeyBytes
                             ),
                             secretKey: Data(
                                 libSessionVal: legacyGroup.enc_seckey,
-                                count: SessionUtil.sizeLegacyGroupSecretKeyBytes
+                                count: LibSession.sizeLegacyGroupSecretKeyBytes
                             ),
-                            receivedTimestamp: TimeInterval(
-                                (Double(SnodeAPI.currentOffsetTimestampMs(using: dependencies)) / 1000)
-                            )
+                            receivedTimestamp: (dependencies[cache: .snodeAPI].currentOffsetTimestampMs() / 1000)
                         ),
                         disappearingConfig: DisappearingMessagesConfiguration
                             .defaultWith(groupId)
@@ -137,7 +135,7 @@ internal extension LibSession {
                         groupIdentityPrivateKey: (!group.have_secretkey ? nil :
                             Data(
                                 libSessionVal: group.secretkey,
-                                count: SessionUtil.sizeGroupSecretKeyBytes,
+                                count: LibSession.sizeGroupSecretKeyBytes,
                                 nullIfEmpty: true
                             )
                         ),
@@ -145,7 +143,7 @@ internal extension LibSession {
                         authData: (!group.have_auth_data ? nil :
                             Data(
                                 libSessionVal: group.auth_data,
-                                count: SessionUtil.sizeGroupAuthDataBytes,
+                                count: LibSession.sizeGroupAuthDataBytes,
                                 nullIfEmpty: true
                             )
                         ),
@@ -183,27 +181,25 @@ internal extension LibSession {
         
         // Add any new communities (via the OpenGroupManager)
         communities.forEach { community in
-            let successfullyAddedGroup: Bool = OpenGroupManager.shared
-                .add(
-                    db,
-                    roomToken: community.data.roomToken,
-                    server: community.data.server,
-                    publicKey: community.data.publicKey,
-                    calledFromConfig: .userGroups,
-                    using: dependencies
-                )
+            let successfullyAddedGroup: Bool = dependencies[singleton: .openGroupManager].add(
+                db,
+                roomToken: community.data.roomToken,
+                server: community.data.server,
+                publicKey: community.data.publicKey,
+                calledFromConfig: .userGroups
+            )
             
             if successfullyAddedGroup {
                 db.afterNextTransactionNested { _ in
-                    OpenGroupManager.shared.performInitialRequestsAfterAdd(
+                    dependencies[singleton: .openGroupManager].performInitialRequestsAfterAdd(
+                        queue: DispatchQueue.global(qos: .userInitiated),
                         successfullyAddedGroup: successfullyAddedGroup,
                         roomToken: community.data.roomToken,
                         server: community.data.server,
                         publicKey: community.data.publicKey,
-                        calledFromConfig: nil,   // Happens after the transaction so don't provide
-                        using: dependencies
+                        calledFromConfig: nil   // Happens after the transaction so don't provide
                     )
-                    .subscribe(on: OpenGroupAPI.workQueue)
+                    .subscribe(on: DispatchQueue.global(qos: .userInitiated))
                     .sinkUntilComplete()
                 }
             }
@@ -427,7 +423,7 @@ internal extension LibSession {
         
         // MARK: -- Handle Group Changes
         
-        let userSessionId: SessionId = getUserSessionId(db, using: dependencies)
+        let userSessionId: SessionId = dependencies[cache: .general].sessionId
         let existingGroupSessionIds: Set<String> = Set(existingThreadInfo
             .filter { $0.value.variant == .group }
             .keys)
@@ -457,20 +453,22 @@ internal extension LibSession {
                     if existingGroups[group.groupSessionId] == nil || group.wasKickedFromGroup == true {
                         _ = try Interaction(
                             threadId: group.groupSessionId,
+                            threadVariant: .group,
                             authorId: group.groupSessionId,
                             variant: .infoGroupInfoInvited,
                             body: ClosedGroup.MessageInfo
                                 .invitedFallback(group.name ?? "GROUP_TITLE_FALLBACK".localized())
                                 .infoString(using: dependencies),
                             timestampMs: (group.joinedAt.map { Int64(Double($0 * 1000)) } ?? serverTimestampMs),
-                            wasRead: SessionUtil.timestampAlreadyRead(
+                            wasRead: LibSession.timestampAlreadyRead(
                                 threadId: group.groupSessionId,
                                 threadVariant: .group,
                                 timestampMs: (group.joinedAt.map { Int64(Double($0 * 1000)) } ?? serverTimestampMs),
                                 userSessionId: userSessionId,
                                 openGroup: nil,
                                 using: dependencies
-                            )
+                            ),
+                            using: dependencies
                         ).inserted(db)
                     }
                     
@@ -530,7 +528,7 @@ internal extension LibSession {
             .subtracting(groups.map { $0.groupSessionId })
         
         if !groupSessionIdsToRemove.isEmpty {
-            SessionUtil.kickFromConversationUIIfNeeded(removedThreadIds: Array(groupSessionIdsToRemove), using: dependencies)
+            LibSession.kickFromConversationUIIfNeeded(removedThreadIds: Array(groupSessionIdsToRemove), using: dependencies)
             
             try SessionThread
                 .deleteOrLeave(
@@ -538,11 +536,12 @@ internal extension LibSession {
                     threadIds: Array(groupSessionIdsToRemove),
                     threadVariant: .group,
                     groupLeaveType: .forced,
-                    calledFromConfig: .userGroups
+                    calledFromConfig: .userGroups,
+                    using: dependencies
                 )
             
             groupSessionIdsToRemove.forEach { groupSessionId in
-                SessionUtil.removeGroupStateIfNeeded(
+                LibSession.removeGroupStateIfNeeded(
                     db,
                     groupSessionId: SessionId(.group, hex: groupSessionId),
                     using: dependencies
@@ -580,12 +579,18 @@ internal extension LibSession {
         
         try legacyGroups
             .forEach { legacyGroup in
-                var cGroupId: [CChar] = legacyGroup.id.cArray.nullTerminated()
+                var cGroupId: [CChar] = try legacyGroup.id.cString(using: .utf8) ?? {
+                    throw LibSessionError.invalidCConversion
+                }()
+                
                 guard let userGroup: UnsafeMutablePointer<ugroups_legacy_group_info> = user_groups_get_or_construct_legacy_group(conf, &cGroupId) else {
                     /// It looks like there are some situations where this object might not get created correctly (and
                     /// will throw due to the implicit unwrapping) as a result we put it in a guard and throw instead
-                    SNLog("Unable to upsert legacy group conversation to LibSession: \(config.lastError)")
-                    throw LibSessionError.getOrConstructFailedUnexpectedly
+                    throw LibSessionError(
+                        conf,
+                        fallbackError: .getOrConstructFailedUnexpectedly,
+                        logMessage: "Unable to upsert legacy group conversation to LibSession"
+                    )
                 }
                 
                 // Assign all properties to match the updated group (if there is one)
@@ -594,6 +599,7 @@ internal extension LibSession {
                     
                     // Store the updated group (needs to happen before variables go out of scope)
                     user_groups_set_legacy_group(conf, userGroup)
+                    try LibSessionError.throwIfNeeded(conf) { ugroups_legacy_group_free(userGroup) }
                 }
                 
                 if let lastKeyPair: ClosedGroupKeyPair = legacyGroup.lastKeyPair {
@@ -603,6 +609,7 @@ internal extension LibSession {
                     
                     // Store the updated group (needs to happen before variables go out of scope)
                     user_groups_set_legacy_group(conf, userGroup)
+                    try LibSessionError.throwIfNeeded(conf) { ugroups_legacy_group_free(userGroup) }
                 }
                 
                 // Assign all properties to match the updated disappearing messages config (if there is one)
@@ -612,6 +619,7 @@ internal extension LibSession {
                     )
                     
                     user_groups_set_legacy_group(conf, userGroup)
+                    try LibSessionError.throwIfNeeded(conf) { ugroups_legacy_group_free(userGroup) }
                 }
                 
                 // Add/Remove the group members and admins
@@ -635,13 +643,13 @@ internal extension LibSession {
                     let membersIdsToAdd: Set<String> = memberIds.subtracting(existingMemberIds)
                     let membersIdsToRemove: Set<String> = existingMemberIds.subtracting(memberIds)
                     
-                    membersIdsToAdd.forEach { memberId in
-                        var cProfileId: [CChar] = memberId.cArray.nullTerminated()
+                    try membersIdsToAdd.forEach { memberId in
+                        var cProfileId: [CChar] = try memberId.cString(using: .utf8) ?? { throw LibSessionError.invalidCConversion }()
                         ugroups_legacy_member_add(userGroup, &cProfileId, false)
                     }
                     
-                    membersIdsToRemove.forEach { memberId in
-                        var cProfileId: [CChar] = memberId.cArray.nullTerminated()
+                    try membersIdsToRemove.forEach { memberId in
+                        var cProfileId: [CChar] = try memberId.cString(using: .utf8) ?? { throw LibSessionError.invalidCConversion }()
                         ugroups_legacy_member_remove(userGroup, &cProfileId)
                     }
                 }
@@ -655,13 +663,13 @@ internal extension LibSession {
                     let adminIdsToAdd: Set<String> = adminIds.subtracting(existingAdminIds)
                     let adminIdsToRemove: Set<String> = existingAdminIds.subtracting(adminIds)
                     
-                    adminIdsToAdd.forEach { adminId in
-                        var cProfileId: [CChar] = adminId.cArray.nullTerminated()
+                    try adminIdsToAdd.forEach { adminId in
+                        var cProfileId: [CChar] = try adminId.cString(using: .utf8) ?? { throw LibSessionError.invalidCConversion }()
                         ugroups_legacy_member_add(userGroup, &cProfileId, true)
                     }
                     
-                    adminIdsToRemove.forEach { adminId in
-                        var cProfileId: [CChar] = adminId.cArray.nullTerminated()
+                    try adminIdsToRemove.forEach { adminId in
+                        var cProfileId: [CChar] = try adminId.cString(using: .utf8) ?? { throw LibSessionError.invalidCConversion }()
                         ugroups_legacy_member_remove(userGroup, &cProfileId)
                     }
                 }
@@ -675,6 +683,7 @@ internal extension LibSession {
                 
                 // Note: Need to free the legacy group pointer
                 user_groups_set_free_legacy_group(conf, userGroup)
+                try LibSessionError.throwIfNeeded(conf)
             }
     }
     
@@ -688,14 +697,17 @@ internal extension LibSession {
         
         try groups
             .forEach { group in
-                var cGroupSessionId: [CChar] = group.groupSessionId.cArray.nullTerminated()
                 var userGroup: ugroups_group_info = ugroups_group_info()
+                var cGroupId: [CChar] = try group.groupSessionId.cString(using: .utf8) ?? { throw LibSessionError.invalidCConversion }()
                 
-                guard user_groups_get_or_construct_group(conf, &userGroup, &cGroupSessionId) else {
+                guard user_groups_get_or_construct_group(conf, &userGroup, &cGroupId) else {
                     /// It looks like there are some situations where this object might not get created correctly (and
                     /// will throw due to the implicit unwrapping) as a result we put it in a guard and throw instead
-                    SNLog("Unable to upsert group conversation to SessionUtil: \(String(describing: config.lastError))")
-                    throw SessionUtilError.getOrConstructFailedUnexpectedly
+                    throw LibSessionError(
+                        config,
+                        fallbackError: .getOrConstructFailedUnexpectedly,
+                        logMessage: "Unable to upsert group conversation to LibSession"
+                    )
                 }
                 
                 /// Assign the non-admin auth data (if it exists)
@@ -742,16 +754,25 @@ internal extension LibSession {
         
         try communities
             .forEach { community in
-                var cBaseUrl: [CChar] = community.urlInfo.server.cArray.nullTerminated()
-                var cRoom: [CChar] = community.urlInfo.roomToken.cArray.nullTerminated()
-                var cPubkey: [UInt8] = Data(hex: community.urlInfo.publicKey).cArray
+                guard
+                    var cBaseUrl: [CChar] = community.urlInfo.server.cString(using: .utf8),
+                    var cRoom: [CChar] = community.urlInfo.roomToken.cString(using: .utf8)
+                else {
+                    SNLog("Unable to upsert community conversation to LibSession: \(LibSessionError.invalidCConversion)")
+                    throw LibSessionError.invalidCConversion
+                }
+                
+                var cPubkey: [UInt8] = Array(Data(hex: community.urlInfo.publicKey))
                 var userCommunity: ugroups_community_info = ugroups_community_info()
                 
                 guard user_groups_get_or_construct_community(conf, &userCommunity, &cBaseUrl, &cRoom, &cPubkey) else {
                     /// It looks like there are some situations where this object might not get created correctly (and
                     /// will throw due to the implicit unwrapping) as a result we put it in a guard and throw instead
-                    SNLog("Unable to upsert community conversation to SessionUtil: \(config.lastError)")
-                    throw LibSessionError.getOrConstructFailedUnexpectedly
+                    throw LibSessionError(
+                        conf,
+                        fallbackError: .getOrConstructFailedUnexpectedly,
+                        logMessage: "Unable to upsert community conversation to LibSession"
+                    )
                 }
                 
                 userCommunity.priority = (community.priority ?? userCommunity.priority)
@@ -769,13 +790,13 @@ internal extension LibSession {
         // Exclude legacy groups as they aren't managed via SessionUtil
         let targetGroups: [ClosedGroup] = updatedGroups
             .filter { (try? SessionId(from: $0.id))?.prefix == .group }
-        let userSessionId: SessionId = getUserSessionId(db, using: dependencies)
+        let userSessionId: SessionId = dependencies[cache: .general].sessionId
         
         // If we only updated the current user contact then no need to continue
         guard !targetGroups.isEmpty else { return updated }
         
         // Apply the changes
-        try SessionUtil.performAndPushChange(
+        try LibSession.performAndPushChange(
             db,
             for: .userGroups,
             sessionId: userSessionId,
@@ -815,7 +836,7 @@ public extension LibSession {
         try LibSession.performAndPushChange(
             db,
             for: .userGroups,
-            sessionId: getUserSessionId(db, using: dependencies),
+            sessionId: dependencies[cache: .general].sessionId,
             using: dependencies
         ) { config in
             try LibSession.upsert(
@@ -844,13 +865,13 @@ public extension LibSession {
         try LibSession.performAndPushChange(
             db,
             for: .userGroups,
-            sessionId: getUserSessionId(db, using: dependencies),
+            sessionId: dependencies[cache: .general].sessionId,
             using: dependencies
         ) { config in
-            guard case .object(let conf) = config else { throw SessionUtilError.invalidConfigObject }
+            guard case .object(let conf) = config else { throw LibSessionError.invalidConfigObject }
             
-            var cBaseUrl: [CChar] = server.cArray.nullTerminated()
-            var cRoom: [CChar] = roomToken.cArray.nullTerminated()
+            var cBaseUrl: [CChar] = try server.cString(using: .utf8) ?? { throw LibSessionError.invalidCConversion }()
+            var cRoom: [CChar] = try roomToken.cString(using: .utf8) ?? { throw LibSessionError.invalidCConversion }()
             
             // Don't care if the community doesn't exist
             user_groups_erase_community(conf, &cBaseUrl, &cRoom)
@@ -889,19 +910,20 @@ public extension LibSession {
         try LibSession.performAndPushChange(
             db,
             for: .userGroups,
-            sessionId: getUserSessionId(db, using: dependencies),
+            sessionId: dependencies[cache: .general].sessionId,
             using: dependencies
         ) { config in
             guard case .object(let conf) = config else { throw LibSessionError.invalidConfigObject }
             
-            var cGroupSessionId: [CChar] = legacyGroupSessionId.cArray.nullTerminated()
-            let userGroup: UnsafeMutablePointer<ugroups_legacy_group_info>? = user_groups_get_legacy_group(conf, &cGroupSessionId)
+            var cGroupId: [CChar] = try legacyGroupSessionId.cString(using: .utf8) ?? { throw LibSessionError.invalidCConversion }()
+            let userGroup: UnsafeMutablePointer<ugroups_legacy_group_info>? = user_groups_get_legacy_group(conf, &cGroupId)
             
             // Need to make sure the group doesn't already exist (otherwise we will end up overriding the
             // content which could revert newer changes since this can be triggered from other 'NEW' messages
             // coming in from the legacy group swarm)
             guard userGroup == nil else {
                 ugroups_legacy_group_free(userGroup)
+                try LibSessionError.throwIfNeeded(conf)
                 return
             }
             
@@ -959,7 +981,7 @@ public extension LibSession {
         try LibSession.performAndPushChange(
             db,
             for: .userGroups,
-            sessionId: getUserSessionId(db, using: dependencies),
+            sessionId: dependencies[cache: .general].sessionId,
             using: dependencies
         ) { config in
             try LibSession.upsert(
@@ -1005,7 +1027,7 @@ public extension LibSession {
         try LibSession.performAndPushChange(
             db,
             for: .userGroups,
-            sessionId: getUserSessionId(db, using: dependencies),
+            sessionId: dependencies[cache: .general].sessionId,
             using: dependencies
         ) { config in
             try LibSession.upsert(
@@ -1031,13 +1053,13 @@ public extension LibSession {
         try LibSession.performAndPushChange(
             db,
             for: .userGroups,
-            sessionId: getUserSessionId(db, using: dependencies),
+            sessionId: dependencies[cache: .general].sessionId,
             using: dependencies
         ) { config in
-            guard case .object(let conf) = config else { throw SessionUtilError.invalidConfigObject }
+            guard case .object(let conf) = config else { throw LibSessionError.invalidConfigObject }
             
-            legacyGroupIds.forEach { threadId in
-                var cGroupId: [CChar] = threadId.cArray.nullTerminated()
+            legacyGroupIds.forEach { legacyGroupId in
+                guard var cGroupId: [CChar] = legacyGroupId.cString(using: .utf8) else { return }
                 
                 // Don't care if the group doesn't exist
                 user_groups_erase_legacy_group(conf, &cGroupId)
@@ -1060,13 +1082,13 @@ public extension LibSession {
         invited: Bool,
         using dependencies: Dependencies
     ) throws {
-        try SessionUtil.performAndPushChange(
+        try LibSession.performAndPushChange(
             db,
             for: .userGroups,
-            sessionId: getUserSessionId(db, using: dependencies),
+            sessionId: dependencies[cache: .general].sessionId,
             using: dependencies
         ) { config in
-            try SessionUtil.upsert(
+            try LibSession.upsert(
                 groups: [
                     GroupInfo(
                         groupSessionId: groupSessionId,
@@ -1092,13 +1114,13 @@ public extension LibSession {
         invited: Bool? = nil,
         using dependencies: Dependencies
     ) throws {
-        try SessionUtil.performAndPushChange(
+        try LibSession.performAndPushChange(
             db,
             for: .userGroups,
-            sessionId: getUserSessionId(db, using: dependencies),
+            sessionId: dependencies[cache: .general].sessionId,
             using: dependencies
         ) { config in
-            try SessionUtil.upsert(
+            try LibSession.upsert(
                 groups: [
                     GroupInfo(
                         groupSessionId: groupSessionId,
@@ -1121,19 +1143,19 @@ public extension LibSession {
     ) throws {
         guard !groupSessionIds.isEmpty else { return }
         
-        try SessionUtil.performAndPushChange(
+        try LibSession.performAndPushChange(
             db,
             for: .userGroups,
-            sessionId: getUserSessionId(db, using: dependencies),
+            sessionId: dependencies[cache: .general].sessionId,
             using: dependencies
         ) { config in
-            guard case .object(let conf) = config else { throw SessionUtilError.invalidConfigObject }
+            guard case .object(let conf) = config else { throw LibSessionError.invalidConfigObject }
             
-            groupSessionIds.forEach { groupSessionId in
-                var cGroupSessionId: [CChar] = groupSessionId.cArray.nullTerminated()
+            try groupSessionIds.forEach { groupId in
+                var cGroupId: [CChar] = try groupId.cString(using: .utf8) ?? { throw LibSessionError.invalidCConversion }()
                 var userGroup: ugroups_group_info = ugroups_group_info()
                 
-                guard user_groups_get_group(conf, &userGroup, &cGroupSessionId) else { return }
+                guard user_groups_get_group(conf, &userGroup, &cGroupId) else { return }
                 
                 ugroups_group_set_kicked(&userGroup)
                 user_groups_set_group(conf, &userGroup)
@@ -1143,15 +1165,15 @@ public extension LibSession {
     
     static func wasKickedFromGroup(
         groupSessionId: SessionId,
-        using dependencies: Dependencies = Dependencies()
+        using dependencies: Dependencies
     ) -> Bool {
-        return (try? dependencies[cache: .sessionUtil]
-            .config(for: .userGroups, sessionId: getUserSessionId(using: dependencies))
+        return (try? dependencies[cache: .libSession]
+            .config(for: .userGroups, sessionId: dependencies[cache: .general].sessionId)
             .wrappedValue
             .map { config in
-                guard case .object(let conf) = config else { throw SessionUtilError.invalidConfigObject }
+                guard case .object(let conf) = config else { throw LibSessionError.invalidConfigObject }
                 
-                var cGroupId: [CChar] = groupSessionId.hexString.cArray.nullTerminated()
+                var cGroupId: [CChar] = try groupSessionId.hexString.cString(using: .utf8) ?? { throw LibSessionError.invalidCConversion }()
                 var userGroup: ugroups_group_info = ugroups_group_info()
                 
                 // If the group doesn't exist then assume the user hasn't been kicked
@@ -1164,29 +1186,31 @@ public extension LibSession {
     
     static func remove(
         _ db: Database,
-        groupSessionIds: [String],
+        groupSessionIds: [SessionId],
         using dependencies: Dependencies
     ) throws {
         guard !groupSessionIds.isEmpty else { return }
         
-        try SessionUtil.performAndPushChange(
+        try LibSession.performAndPushChange(
             db,
             for: .userGroups,
-            sessionId: getUserSessionId(db, using: dependencies),
+            sessionId: dependencies[cache: .general].sessionId,
             using: dependencies
         ) { config in
-            guard case .object(let conf) = config else { throw SessionUtilError.invalidConfigObject }
+            guard case .object(let conf) = config else { throw LibSessionError.invalidConfigObject }
             
-            groupSessionIds.forEach { groupSessionId in
-                var cGroupSessionId: [CChar] = groupSessionId.cArray.nullTerminated()
+            try groupSessionIds.forEach { groupSessionId in
+                var cGroupId: [CChar] = try groupSessionId.hexString.cString(using: .utf8) ?? {
+                    throw LibSessionError.invalidCConversion
+                }()
 
                 // Don't care if the group doesn't exist
-                user_groups_erase_group(conf, &cGroupSessionId)
+                user_groups_erase_group(conf, &cGroupId)
             }
         }
         
         // Remove the volatile info as well
-        try SessionUtil.remove(db, volatileGroupSessionIds: groupSessionIds, using: dependencies)
+        try LibSession.remove(db, volatileGroupSessionIds: groupSessionIds, using: dependencies)
     }
 }
 

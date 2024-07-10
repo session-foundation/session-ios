@@ -1,12 +1,11 @@
 // Copyright © 2022 Rangeproof Pty Ltd. All rights reserved.
 
-import Foundation
-import SessionUtilitiesKit
 import UIKit
-import SignalCoreKit
+import SignalUtilitiesKit
+import SessionUtilitiesKit
 
 public extension UIApplication {
-    func frontmostViewController(
+    func frontMostViewController(
         ignoringAlerts: Bool = false,
         using dependencies: Dependencies
     ) -> UIViewController? {
@@ -16,10 +15,10 @@ public extension UIApplication {
         else { return nil }
         
         guard let viewController: UIViewController = window.rootViewController else {
-            owsFailDebug("Missing root view controller.")
+            Log.error("[UIApplication] Missing root view controller.")
             return nil
         }
-        return viewController.findFrontmostViewController(ignoringAlerts: ignoringAlerts)
+        return viewController.findFrontMostViewController(ignoringAlerts: ignoringAlerts)
     }
 
     func openSystemSettings() {

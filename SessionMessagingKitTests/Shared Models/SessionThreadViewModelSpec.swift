@@ -27,7 +27,8 @@ class SessionThreadViewModelSpec: QuickSpec {
                     
                     t.column(TestMessage.Columns.body.name)
                 }
-            }
+            },
+            using: Dependencies()
         )
         
         // MARK: - a SessionThreadViewModel

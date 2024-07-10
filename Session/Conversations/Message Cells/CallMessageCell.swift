@@ -181,7 +181,8 @@ final class CallMessageCell: MessageCell {
             
             timerView.configure(
                 expirationTimestampMs: expirationTimestampMs,
-                initialDurationSeconds: expiresInSeconds
+                initialDurationSeconds: expiresInSeconds,
+                using: dependencies
             )
             timerView.themeTintColor = .textSecondary
             timerViewContainer.isHidden = false
@@ -213,7 +214,7 @@ final class CallMessageCell: MessageCell {
             let cellViewModel: MessageViewModel = self.viewModel,
             cellViewModel.variant == .infoCall,
             let infoMessageData: Data = (cellViewModel.rawBody ?? "").data(using: .utf8),
-            let messageInfo: CallMessage.MessageInfo = try? JSONDecoder().decode(
+            let messageInfo: CallMessage.MessageInfo = try? JSONDecoder(using: dependencies).decode(
                 CallMessage.MessageInfo.self,
                 from: infoMessageData
             )

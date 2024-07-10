@@ -110,10 +110,10 @@ public extension Database {
             // If we changed a column that requires a config update then we may as well automatically
             // enqueue a new config sync job once the transaction completes (but only enqueue it once
             // per transaction - doing it more than once is pointless)
-            let userSessionId: SessionId = getUserSessionId(db, using: dependencies)
+            let userSessionId: SessionId = dependencies[cache: .general].sessionId
             
             db.afterNextTransactionNestedOnce(dedupeId: LibSession.syncDedupeId(userSessionId.hexString)) { db in
-                ConfigurationSyncJob.enqueue(db, sessionIdHexString: userSessionId.hexString, using: dependencies)
+                ConfigurationSyncJob.enqueue(db, swarmPublicKey: userSessionId.hexString, using: dependencies)
             }
         }
         

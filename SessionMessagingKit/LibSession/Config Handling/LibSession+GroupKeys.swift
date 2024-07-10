@@ -58,7 +58,7 @@ internal extension LibSession {
         groupSessionId: SessionId,
         using dependencies: Dependencies
     ) throws {
-        try SessionUtil.performAndPushChange(
+        try LibSession.performAndPushChange(
             db,
             for: .groupKeys,
             sessionId: groupSessionId,
@@ -85,15 +85,16 @@ internal extension LibSession {
         memberIds: Set<String>,
         using dependencies: Dependencies
     ) throws -> Data {
-        try dependencies[cache: .sessionUtil]
+        return try dependencies[cache: .libSession]
             .config(for: .groupKeys, sessionId: groupSessionId)
             .wrappedValue
-            .map { config -> Data in
+            .mapOrThrow(error: LibSessionError.invalidConfigObject) { config -> Data in
                 guard case .groupKeys(let conf, _, _) = config else { throw LibSessionError.invalidConfigObject }
                 
-                var cMemberIds: [UnsafePointer<CChar>?] = memberIds
-                    .map { id in id.cArray.nullTerminated() }
-                    .unsafeCopy()
+                var cMemberIds: [UnsafePointer<CChar>?] = ( try? (memberIds
+                    .map { id in id.cString(using: .utf8) }
+                    .unsafeCopyCStringArray()))
+                .defaulting(to: [])
                 
                 defer { cMemberIds.forEach { $0?.deallocate() } }
                 
@@ -117,7 +118,7 @@ internal extension LibSession {
                 cSupplementData.deallocate()
                 
                 return supplementData
-            } ?? { throw LibSessionError.invalidConfigObject }()
+            }
     }
     
     static func loadAdminKey(
@@ -126,7 +127,7 @@ internal extension LibSession {
         groupSessionId: SessionId,
         using dependencies: Dependencies
     ) throws {
-        try SessionUtil
+        try LibSession
             .performAndPushChange(
                 db,
                 for: .groupKeys,
@@ -138,9 +139,8 @@ internal extension LibSession {
                 }
                 
                 var identitySeed: [UInt8] = Array(groupIdentitySeed)
-                try CExceptionHelper.performSafely {
-                    groups_keys_load_admin_key(conf, &identitySeed, infoConf, membersConf)
-                }
+                groups_keys_load_admin_key(conf, &identitySeed, infoConf, membersConf)
+                try LibSessionError.throwIfNeeded(conf)
             }
     }
     
@@ -148,14 +148,14 @@ internal extension LibSession {
         groupSessionId: SessionId,
         using dependencies: Dependencies
     ) throws -> Int {
-        try dependencies[cache: .sessionUtil]
+        return try dependencies[cache: .libSession]
             .config(for: .groupKeys, sessionId: groupSessionId)
             .wrappedValue
-            .map { config -> Int in
+            .mapOrThrow(error: LibSessionError.invalidConfigObject) { config -> Int in
                 guard case .groupKeys(let conf, _, _) = config else { throw LibSessionError.invalidConfigObject }
                 
                 return Int(groups_keys_current_generation(conf))
-            } ?? { throw LibSessionError.invalidConfigObject }()
+            }
     }
     
     static func generateSubaccountToken(
@@ -163,9 +163,9 @@ internal extension LibSession {
         memberId: String,
         using dependencies: Dependencies
     ) throws -> [UInt8] {
-        try dependencies[singleton: .crypto].tryGenerate(
+        return try dependencies[singleton: .crypto].tryGenerate(
             .tokenSubaccount(
-                config: dependencies[cache: .sessionUtil]
+                config: dependencies[cache: .libSession]
                     .config(for: .groupKeys, sessionId: groupSessionId)
                     .wrappedValue,
                 groupSessionId: groupSessionId,
@@ -179,9 +179,9 @@ internal extension LibSession {
         memberId: String,
         using dependencies: Dependencies
     ) throws -> Authentication.Info {
-        try dependencies[singleton: .crypto].tryGenerate(
+        return try dependencies[singleton: .crypto].tryGenerate(
             .memberAuthData(
-                config: dependencies[cache: .sessionUtil]
+                config: dependencies[cache: .libSession]
                     .config(for: .groupKeys, sessionId: groupSessionId)
                     .wrappedValue,
                 groupSessionId: groupSessionId,
@@ -196,9 +196,9 @@ internal extension LibSession {
         memberAuthData: Data,
         using dependencies: Dependencies
     ) throws -> Authentication.Signature {
-        try dependencies[singleton: .crypto].tryGenerate(
+        return try dependencies[singleton: .crypto].tryGenerate(
             .signatureSubaccount(
-                config: dependencies[cache: .sessionUtil]
+                config: dependencies[cache: .libSession]
                     .config(for: .groupKeys, sessionId: groupSessionId)
                     .wrappedValue,
                 verificationBytes: verificationBytes,

@@ -3,6 +3,7 @@
 import Foundation
 import Combine
 import GRDB
+import SessionSnodeKit
 import SessionUtilitiesKit
 
 public enum SendReadReceiptsJob: JobExecutor {
@@ -14,28 +15,26 @@ public enum SendReadReceiptsJob: JobExecutor {
     public static func run(
         _ job: Job,
         queue: DispatchQueue,
-        success: @escaping (Job, Bool, Dependencies) -> (),
-        failure: @escaping (Job, Error?, Bool, Dependencies) -> (),
-        deferred: @escaping (Job, Dependencies) -> (),
+        success: @escaping (Job, Bool) -> Void,
+        failure: @escaping (Job, Error, Bool) -> Void,
+        deferred: @escaping (Job) -> Void,
         using dependencies: Dependencies
     ) {
         guard
             let threadId: String = job.threadId,
             let detailsData: Data = job.details,
             let details: Details = try? JSONDecoder(using: dependencies).decode(Details.self, from: detailsData)
-        else {
-            return failure(job, JobRunnerError.missingRequiredDetails, true, dependencies)
-        }
+        else { return failure(job, JobRunnerError.missingRequiredDetails, true) }
         
         // If there are no timestampMs values then the job can just complete (next time
         // something is marked as read we want to try and run immediately so don't scuedule
         // another run in this case)
         guard !details.timestampMsValues.isEmpty else {
-            return success(job, true, dependencies)
+            return success(job, true)
         }
         
         dependencies[singleton: .storage]
-            .writePublisher { db -> HTTP.PreparedRequest<Void> in
+            .writePublisher { db -> Network.PreparedRequest<Void> in
                 try MessageSender.preparedSend(
                     db,
                     message: ReadReceipt(
@@ -54,7 +53,7 @@ public enum SendReadReceiptsJob: JobExecutor {
             .sinkUntilComplete(
                 receiveCompletion: { result in
                     switch result {
-                        case .failure(let error): failure(job, error, false, dependencies)
+                        case .failure(let error): failure(job, error, false)
                         case .finished:
                             // When we complete the 'SendReadReceiptsJob' we want to immediately schedule
                             // another one for the same thread but with a 'nextRunTimestamp' set to the
@@ -87,7 +86,7 @@ public enum SendReadReceiptsJob: JobExecutor {
                                     .upserted(db)
                             }
                             
-                            success(updatedJob ?? job, shouldFinishCurrentJob, dependencies)
+                            success(updatedJob ?? job, shouldFinishCurrentJob)
                     }
                 }
             )

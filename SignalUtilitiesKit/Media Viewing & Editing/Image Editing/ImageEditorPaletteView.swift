@@ -2,7 +2,7 @@
 
 import UIKit
 import SessionUIKit
-import SignalCoreKit
+import SessionUtilitiesKit
 
 public protocol ImageEditorPaletteViewDelegate: AnyObject {
     func selectedColorDidChange()
@@ -118,7 +118,7 @@ private class PalettePreviewView: OWSLayerView {
 
     @available(*, unavailable, message: "use other init() instead.")
     required public init?(coder aDecoder: NSCoder) {
-        notImplemented()
+        fatalError("init(coder:) has not been implemented")
     }
 
     static func updateLayers(view: UIView,
@@ -190,7 +190,7 @@ public class ImageEditorPaletteView: UIView {
 
     @available(*, unavailable, message: "use other init() instead.")
     required public init?(coder aDecoder: NSCoder) {
-        notImplemented()
+        fatalError("init(coder:) has not been implemented")
     }
 
     // MARK: - Views
@@ -223,7 +223,7 @@ public class ImageEditorPaletteView: UIView {
             shadowView.layer.cornerRadius = imageRadius
             imageView.clipsToBounds = true
         } else {
-            owsFailDebug("Missing image.")
+            Log.error("[ImageEditorPaletteView] Missing image.")
         }
         addSubview(imageView)
         // We use an invisible margin to expand the hot area of this control.
@@ -310,12 +310,12 @@ public class ImageEditorPaletteView: UIView {
             }
         }
         guard let segment = bestSegment else {
-            owsFailDebug("Couldn't find matching segment.")
+            Log.error("[ImageEditorPaletteView] Couldn't find matching segment.")
             return ImageEditorColor.defaultColor()
         }
         guard palettePhase >= segment.palettePhase0,
             palettePhase <= segment.palettePhase1 else {
-            owsFailDebug("Invalid segment.")
+            Log.error("[ImageEditorPaletteView] Invalid segment.")
             return ImageEditorColor.defaultColor()
         }
         let segmentPhase = palettePhase.inverseLerp(segment.palettePhase0, segment.palettePhase1).clamp01()
@@ -330,14 +330,14 @@ public class ImageEditorPaletteView: UIView {
         previewView.selectedColor = selectedValue.color
 
         guard let selectionConstraint = selectionConstraint else {
-            owsFailDebug("Missing selectionConstraint.")
+            Log.error("[ImageEditorPaletteView] Missing selectionConstraint.")
             return
         }
         let selectionY = imageWrapper.bounds.height * selectedValue.palettePhase
         selectionConstraint.constant = selectionY
 
         guard let previewConstraint = previewConstraint else {
-            owsFailDebug("Missing previewConstraint.")
+            Log.error("[ImageEditorPaletteView] Missing previewConstraint.")
             return
         }
         previewConstraint.constant = selectionY

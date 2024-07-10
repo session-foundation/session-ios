@@ -18,6 +18,7 @@ final class ReactionListSheet: BaseVC {
         }
     }
     
+    fileprivate let dependencies: Dependencies
     private let interactionId: Int64
     private let onDismiss: (() -> ())?
     private var messageViewModel: MessageViewModel = MessageViewModel()
@@ -103,9 +104,10 @@ final class ReactionListSheet: BaseVC {
         return result
     }()
     
-    // MARK: - Lifecycle
+    // MARK: - Initialization
     
-    init(for interactionId: Int64, onDismiss: (() -> ())? = nil) {
+    init(for interactionId: Int64, using dependencies: Dependencies, onDismiss: (() -> ())? = nil) {
+        self.dependencies = dependencies
         self.interactionId = interactionId
         self.onDismiss = onDismiss
         
@@ -119,6 +121,8 @@ final class ReactionListSheet: BaseVC {
     required init?(coder: NSCoder) {
         preconditionFailure("Use init(for:) instead.")
     }
+    
+    // MARK: - Lifecycle
     
     override func viewDidLoad() {
         super.viewDidLoad()
@@ -452,7 +456,8 @@ extension ReactionListSheet: UITableViewDelegate, UITableViewDataSource {
                 ),
                 styling: SessionCell.StyleInfo(backgroundStyle: .edgeToEdge),
                 isEnabled: (authorId == self.messageViewModel.currentUserSessionId)
-            )
+            ),
+            using: dependencies
         )
         
         return cell

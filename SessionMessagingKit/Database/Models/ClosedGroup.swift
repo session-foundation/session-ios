@@ -187,7 +187,7 @@ public extension ClosedGroup {
         calledFromConfig configTriggeringChange: ConfigDump.Variant?,
         using dependencies: Dependencies
     ) throws -> Job? {
-        guard let userED25519KeyPair: KeyPair = Identity.fetchUserEd25519KeyPair(db, using: dependencies) else {
+        guard let userED25519KeyPair: KeyPair = Identity.fetchUserEd25519KeyPair(db) else {
             throw MessageReceiverError.noUserED25519KeyPair
         }
         
@@ -205,7 +205,7 @@ public extension ClosedGroup {
         }
         
         /// Create the libSession state for the group
-        try SessionUtil.createGroupState(
+        try LibSession.createGroupState(
             groupSessionId: SessionId(.group, hex: group.id),
             userED25519KeyPair: userED25519KeyPair,
             groupIdentityPrivateKey: group.groupIdentityPrivateKey,
@@ -215,7 +215,7 @@ public extension ClosedGroup {
         
         /// Update the `USER_GROUPS` config
         if configTriggeringChange != .userGroups {
-            try? SessionUtil.update(
+            try? LibSession.update(
                 db,
                 groupSessionId: group.id,
                 invited: false,
@@ -227,17 +227,21 @@ public extension ClosedGroup {
         let pollResponseJob: Job? = dependencies[singleton: .jobRunner].add(
             db,
             job: Job(variant: .manualResultJob),
-            canStartJob: true,
-            using: dependencies
+            canStartJob: true
         )
-        dependencies[singleton: .groupsPoller].afterNextPoll(for: group.id) { _ in
-            dependencies[singleton: .jobRunner].manuallyTriggerResult(
-                pollResponseJob,
-                result: .succeeded,
-                using: dependencies
-            )
-        }
-        dependencies[singleton: .groupsPoller].startIfNeeded(for: group.id, using: dependencies)
+        dependencies
+            .mutate(cache: .groupPollers) { cache in
+                let poller: PollerType = cache.getOrCreatePoller(for: group.id)
+                poller.afterNextPoll { _ in
+                    dependencies[singleton: .jobRunner].manuallyTriggerResult(
+                        pollResponseJob,
+                        result: .succeeded
+                    )
+                }
+                
+                return poller
+            }
+            .startIfNeeded()
         
         /// Subscribe for group push notifications
         if let token: String = dependencies[defaults: .standard, key: .deviceToken] {
@@ -271,7 +275,7 @@ public extension ClosedGroup {
         }
         
         // Remove the group from the database and unsubscribe from PNs
-        let userSessionId: SessionId = getUserSessionId(db, using: dependencies)
+        let userSessionId: SessionId = dependencies[cache: .general].sessionId
         let threadVariants: [ThreadIdVariant] = try {
             guard
                 dataToRemove.contains(.pushNotifications) ||
@@ -290,7 +294,7 @@ public extension ClosedGroup {
         if !dataToRemove.asSet().intersection([.poller, .pushNotifications, .libSessionState]).isEmpty {
             threadIds.forEach { threadId in
                 if dataToRemove.contains(.poller) {
-                    dependencies[singleton: .groupsPoller].stopPolling(for: threadId)
+                    dependencies.mutate(cache: .groupPollers) { $0.stopAndRemovePoller(for: threadId) }
                 }
                 
                 if dataToRemove.contains(.poller) {
@@ -331,7 +335,7 @@ public extension ClosedGroup {
                     threadVariants
                         .filter { $0.variant == .group }
                         .forEach { threadIdVariant in
-                            SessionUtil.removeGroupStateIfNeeded(
+                            LibSession.removeGroupStateIfNeeded(
                                 db,
                                 groupSessionId: SessionId(.group, hex: threadIdVariant.id),
                                 using: dependencies
@@ -361,7 +365,7 @@ public extension ClosedGroup {
                 )
             
             if configTriggeringChange != .userGroups {
-                try SessionUtil.markAsKicked(
+                try LibSession.markAsKicked(
                     db,
                     groupSessionIds: threadIds,
                     using: dependencies
@@ -440,7 +444,7 @@ public extension ClosedGroup {
                 db,
                 groupSessionIds: threadVariants
                     .filter { $0.variant == .group }
-                    .map { $0.id },
+                    .map { SessionId(.group, hex: $0.id) },
                 using: dependencies
             )
         }

@@ -29,6 +29,7 @@ struct QuoteView_SwiftUI: View {
     private static let cancelButtonSize: CGFloat = 33
     private static let cornerRadius: CGFloat = 4
     
+    private let dependencies: Dependencies
     private var info: Info
     private var onCancel: (() -> ())?
     
@@ -59,22 +60,27 @@ struct QuoteView_SwiftUI: View {
             // When we can't find the quoted message we want to hide the author label
             return Profile.displayNameNoFallback(
                 id: info.authorId,
-                threadVariant: info.threadVariant
+                threadVariant: info.threadVariant,
+                using: dependencies
             )
         }
         
         return Profile.displayName(
             id: info.authorId,
-            threadVariant: info.threadVariant
+            threadVariant: info.threadVariant,
+            using: dependencies
         )
     }
     
-    public init(info: Info, onCancel: (() -> ())? = nil) {
+    public init(info: Info, using dependencies: Dependencies, onCancel: (() -> ())? = nil) {
+        self.dependencies = dependencies
         self.info = info
         self.onCancel = onCancel
+        
         if let attachment = info.attachment, attachment.isVisualMedia {
             attachment.thumbnail(
                 size: .small,
+                using: dependencies,
                 success: { [self] image, _ in
                     self.thumbnail = image
                 },
@@ -169,7 +175,8 @@ struct QuoteView_SwiftUI: View {
                             attributes: [
                                 .foregroundColor: textColor,
                                 .font: UIFont.systemFont(ofSize: Values.smallFontSize)
-                            ]
+                            ],
+                            using: dependencies
                         )
                     )
                     .lineLimit(2)
@@ -220,7 +227,8 @@ struct QuoteView_SwiftUI_Previews: PreviewProvider {
                     authorId: "",
                     threadVariant: .contact,
                     direction: .outgoing
-                )
+                ),
+                using: Dependencies.createEmpty()
             )
             .frame(height: 40)
         }

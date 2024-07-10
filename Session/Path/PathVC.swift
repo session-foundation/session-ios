@@ -12,9 +12,10 @@ final class PathVC: BaseVC {
     public static let expandedDotSize: CGFloat = 16
     private static let rowHeight: CGFloat = (isIPhone5OrSmaller ? 52 : 75)
     
+    private let dependencies: Dependencies
     private var pathUpdateId: UUID?
     private var cacheUpdateId: UUID?
-    private var lastPath: Set<LibSession.Snode> = []
+    private var lastPath: [LibSession.Snode] = []
 
     // MARK: - Components
     
@@ -52,12 +53,24 @@ final class PathVC: BaseVC {
         return result
     }()
 
-    // MARK: - Lifecycle
+    // MARK: - Initialization
+    
+    init(using dependencies: Dependencies) {
+        self.dependencies = dependencies
+        
+        super.init(nibName: nil, bundle: nil)
+    }
+    
+    required init?(coder: NSCoder) {
+        fatalError("init(coder:) has not been implemented")
+    }
     
     deinit {
         LibSession.removeNetworkChangedCallback(callbackId: pathUpdateId)
-        IP2Country.removeCacheLoadedCallback(id: cacheUpdateId)
+        dependencies.mutate(cache: .ip2Country) { $0.removeCacheLoadedCallback(id: cacheUpdateId) }
     }
+    
+    // MARK: - Lifecycle
     
     override func viewDidLoad() {
         super.viewDidLoad()
@@ -127,17 +140,19 @@ final class PathVC: BaseVC {
         }
         
         // Register for path country updates
-        cacheUpdateId = IP2Country.onCacheLoaded { [weak self] in
-            DispatchQueue.main.async {
-                self?.update(paths: (self?.lastPath.map { [$0] } ?? []), force: true)
+        cacheUpdateId = dependencies.mutate(cache: .ip2Country) { cache in
+            cache.onCacheLoaded { [weak self] in
+                DispatchQueue.main.async {
+                    self?.update(paths: (self?.lastPath.map { [$0] } ?? []), force: true)
+                }
             }
         }
     }
 
     // MARK: - Updating
     
-    private func update(paths: [Set<LibSession.Snode>], force: Bool) {
-        guard let pathToDisplay: Set<LibSession.Snode> = paths.first else {
+    private func update(paths: [[LibSession.Snode]], force: Bool) {
+        guard let pathToDisplay: [LibSession.Snode] = paths.first else {
             pathStackView.arrangedSubviews.forEach { $0.removeFromSuperview() }
             spinner.startAnimating()
             
@@ -194,8 +209,7 @@ final class PathVC: BaseVC {
         let lineView = LineView(
             location: location,
             dotAnimationStartDelay: dotAnimationStartDelay,
-            dotAnimationRepeatInterval: dotAnimationRepeatInterval,
-            using: dependencies
+            dotAnimationRepeatInterval: dotAnimationRepeatInterval
         )
         lineView.set(.width, to: PathVC.expandedDotSize)
         lineView.set(.height, to: PathVC.rowHeight)
@@ -227,17 +241,12 @@ final class PathVC: BaseVC {
     }
 
     private func getPathRow(snode: LibSession.Snode, location: LineView.Location, dotAnimationStartDelay: Double, dotAnimationRepeatInterval: Double, isGuardSnode: Bool) -> UIStackView {
-        let country: String = (IP2Country.isInitialized.wrappedValue ?
-            IP2Country.countryNamesCache.wrappedValue[snode.ip].defaulting(to: "Resolving...") :
-            "Resolving..."
-        )
-        
         return getPathRow(
             title: (isGuardSnode ?
                 "vc_path_guard_node_row_title".localized() :
                 "vc_path_service_node_row_title".localized()
             ),
-            subtitle: country,
+            subtitle: dependencies[cache: .ip2Country].country(for: snode.ip),
             location: location,
             dotAnimationStartDelay: dotAnimationStartDelay,
             dotAnimationRepeatInterval: dotAnimationRepeatInterval

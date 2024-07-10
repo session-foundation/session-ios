@@ -12,14 +12,14 @@ public enum UpdateProfilePictureJob: JobExecutor {
     public static func run(
         _ job: Job,
         queue: DispatchQueue,
-        success: @escaping (Job, Bool, Dependencies) -> (),
-        failure: @escaping (Job, Error?, Bool, Dependencies) -> (),
-        deferred: @escaping (Job, Dependencies) -> (),
+        success: @escaping (Job, Bool) -> Void,
+        failure: @escaping (Job, Error, Bool) -> Void,
+        deferred: @escaping (Job) -> Void,
         using dependencies: Dependencies
     ) {
         // Don't run when inactive or not in main app
         guard dependencies[defaults: .appGroup, key: .isMainAppActive] else {
-            return deferred(job, dependencies) // Don't need to do anything if it's not the main app
+            return deferred(job) // Don't need to do anything if it's not the main app
         }
         
         // Only re-upload the profile picture if enough time has passed since the last upload
@@ -37,8 +37,8 @@ public enum UpdateProfilePictureJob: JobExecutor {
                 }
             }
 
-            SNLog("[UpdateProfilePictureJob] Deferred as not enough time has passed since the last update")
-            return deferred(job, dependencies)
+            Log.info("[UpdateProfilePictureJob] Deferred as not enough time has passed since the last update")
+            return deferred(job)
         }
         
         // Note: The user defaults flag is updated in DisplayPictureManager
@@ -55,14 +55,12 @@ public enum UpdateProfilePictureJob: JobExecutor {
                 // issue as it will write to the database and this closure is already called within
                 // another database write
                 queue.async {
-                    SNLog("[UpdateProfilePictureJob] Profile successfully updated")
-                    success(job, false, dependencies)
+                    Log.info("[UpdateProfilePictureJob] Profile successfully updated")
+                    success(job, false)
                 }
             },
-            failure: { error in
-                SNLog("[UpdateProfilePictureJob] Failed to update profile")
-                failure(job, error, false, dependencies)
-            }
+            failure: { error in failure(job, error, false) },
+            using: dependencies
         )
     }
 }

@@ -14,9 +14,13 @@ public extension Identity {
     /// resolve the invalid state
     static func userCompletedRequiredOnboarding(
         _ db: Database? = nil,
-        using dependencies: Dependencies = Dependencies()
+        using dependencies: Dependencies
     ) -> Bool {
-        Identity.userExists(db, using: dependencies) &&
-        !Profile.fetchOrCreateCurrentUser(db, using: dependencies).name.isEmpty
+        guard Identity.userExists(db, using: dependencies) else { return false }
+        
+        switch db {
+            case .none: return !Profile.fetchOrCreateCurrentUser(using: dependencies).name.isEmpty
+            case .some(let db): return !Profile.fetchOrCreateCurrentUser(db, using: dependencies).name.isEmpty
+        }
     }
 }

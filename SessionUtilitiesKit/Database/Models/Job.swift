@@ -130,11 +130,14 @@ public struct Job: Codable, Equatable, Hashable, Identifiable, FetchableRecord, 
         /// This is a job that runs once whenever a message is marked as read because of syncing from user config and
         /// needs to get expiration from network
         case getExpiration
+
+        /// This is a job that runs at most once every 24 hours in order to check if there is a new update available on GitHub
+        case checkForAppUpdates = 3011
         
         /// This is a job which downloads a display picture for a user, group or community (it's separate from the
         /// `attachmentDownloadJob` as these files are likely to be much smaller so we don't want them to be
         /// blocked by larger attachment downloads
-        case displayPictureDownload = 3011
+        case displayPictureDownload
         
         /// This is a job which sends an invitation to a member of a group asynchronously so the admin doesn't need to
         /// wait during group creation

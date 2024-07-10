@@ -22,26 +22,29 @@ extension MessageReceiver {
         
         let timestampMs: Int64 = (
             message.sentTimestamp.map { Int64($0) } ??
-            SnodeAPI.currentOffsetTimestampMs()
+            dependencies[cache: .snodeAPI].currentOffsetTimestampMs()
         )
         
         let wasRead: Bool = LibSession.timestampAlreadyRead(
             threadId: threadId,
             threadVariant: threadVariant,
             timestampMs: (timestampMs * 1000),
-            userSessionId: getUserSessionId(db, using: dependencies),
+            userSessionId: dependencies[cache: .general].sessionId,
             openGroup: nil,
             using: dependencies
         )
         let messageExpirationInfo: Message.MessageExpirationInfo = Message.getMessageExpirationInfo(
+            threadVariant: threadVariant,
             wasRead: wasRead,
             serverExpirationTimestamp: serverExpirationTimestamp,
             expiresInSeconds: message.expiresInSeconds,
-            expiresStartedAtMs: message.expiresStartedAtMs
+            expiresStartedAtMs: message.expiresStartedAtMs,
+            using: dependencies
         )
         _ = try Interaction(
             serverHash: message.serverHash,
             threadId: threadId,
+            threadVariant: threadVariant,
             authorId: sender,
             variant: {
                 switch messageKind {
@@ -52,7 +55,8 @@ extension MessageReceiver {
             timestampMs: timestampMs,
             wasRead: wasRead,
             expiresInSeconds: messageExpirationInfo.expiresInSeconds,
-            expiresStartedAtMs: messageExpirationInfo.expiresStartedAtMs
+            expiresStartedAtMs: messageExpirationInfo.expiresStartedAtMs,
+            using: dependencies
         )
         .inserted(db)
         
@@ -60,6 +64,7 @@ extension MessageReceiver {
             Message.updateExpiryForDisappearAfterReadMessages(
                 db,
                 threadId: threadId,
+                threadVariant: threadVariant,
                 serverHash: message.serverHash,
                 expiresInSeconds: messageExpirationInfo.expiresInSeconds,
                 expiresStartedAtMs: messageExpirationInfo.expiresStartedAtMs,

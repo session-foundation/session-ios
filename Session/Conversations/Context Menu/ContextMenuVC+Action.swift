@@ -170,7 +170,8 @@ extension ContextMenuVC {
         currentUserIsOpenGroupModerator: Bool,
         currentThreadIsMessageRequest: Bool,
         forMessageInfoScreen: Bool,
-        delegate: ContextMenuActionDelegate?
+        delegate: ContextMenuActionDelegate?,
+        using dependencies: Dependencies
     ) -> [Action]? {
         switch cellViewModel.variant {
             case .standardIncomingDeleted, .infoCall, .infoScreenshotNotification, .infoMediaSavedNotification,
@@ -236,7 +237,7 @@ extension ContextMenuVC {
         
         let shouldShowEmojiActions: Bool = {
             if cellViewModel.threadVariant == .community {
-                return OpenGroupManager.doesOpenGroupSupport(
+                return dependencies[singleton: .openGroupManager].doesOpenGroupSupport(
                     capability: .reactions,
                     on: cellViewModel.threadOpenGroupServer
                 )

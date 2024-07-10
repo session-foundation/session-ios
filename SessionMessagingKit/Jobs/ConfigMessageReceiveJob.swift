@@ -2,8 +2,8 @@
 
 import Foundation
 import GRDB
-import SessionUtilitiesKit
 import SessionSnodeKit
+import SessionUtilitiesKit
 
 public enum ConfigMessageReceiveJob: JobExecutor {
     public static var maxFailureCount: Int = 0
@@ -13,10 +13,10 @@ public enum ConfigMessageReceiveJob: JobExecutor {
     public static func run(
         _ job: Job,
         queue: DispatchQueue,
-        success: @escaping (Job, Bool, Dependencies) -> (),
-        failure: @escaping (Job, Error?, Bool, Dependencies) -> (),
-        deferred: @escaping (Job, Dependencies) -> (),
-        using dependencies: Dependencies = Dependencies()
+        success: @escaping (Job, Bool) -> Void,
+        failure: @escaping (Job, Error, Bool) -> Void,
+        deferred: @escaping (Job) -> Void,
+        using dependencies: Dependencies
     ) {
         /// When the `configMessageReceive` job fails we want to unblock any `messageReceive` jobs it was blocking
         /// to ensure the user isn't losing any messages - this generally _shouldn't_ happen but if it does then having a temporary
@@ -38,12 +38,12 @@ public enum ConfigMessageReceiveJob: JobExecutor {
         }
         
         guard
-            let sessionIdHexString: String = job.threadId,
+            let swarmPublicKey: String = job.threadId,
             let detailsData: Data = job.details,
             let details: Details = try? JSONDecoder(using: dependencies).decode(Details.self, from: detailsData)
         else {
             removeDependencyOnMessageReceiveJobs()
-            return failure(job, JobRunnerError.missingRequiredDetails, true, dependencies)
+            return failure(job, JobRunnerError.missingRequiredDetails, true)
         }
         
         var lastError: Error?
@@ -51,12 +51,13 @@ public enum ConfigMessageReceiveJob: JobExecutor {
         dependencies[singleton: .storage].write { db in
             // Send any SharedConfigMessages to the LibSession to handle it
             do {
-                try LibSession.handleConfigMessages(
-                    db,
-                    sessionIdHexString: sessionIdHexString,
-                    messages: details.messages,
-                    using: dependencies
-                )
+                try dependencies.mutate(cache: .libSession) { cache in
+                    try cache.handleConfigMessages(
+                        db,
+                        swarmPublicKey: swarmPublicKey,
+                        messages: details.messages
+                    )
+                }
             }
             catch { lastError = error }
         }
@@ -64,11 +65,11 @@ public enum ConfigMessageReceiveJob: JobExecutor {
         // Handle the result
         switch lastError {
             case .some(let error):
-                SNLog("[ConfigMessageReceiveJob] Couldn't receive config message due to error: \(error)")
+                Log.error("[ConfigMessageReceiveJob] Couldn't receive config message due to error: \(error)")
                 removeDependencyOnMessageReceiveJobs()
-                failure(job, error, true, dependencies)
+                failure(job, error, true)
 
-            case .none: success(job, false, dependencies)
+            case .none: success(job, false)
         }
     }
 }

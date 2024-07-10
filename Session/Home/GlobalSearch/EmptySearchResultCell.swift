@@ -4,7 +4,6 @@ import UIKit
 import SessionUIKit
 import SessionUtilitiesKit
 import NVActivityIndicatorView
-import SignalCoreKit
 
 class EmptySearchResultCell: UITableViewCell {
     private lazy var messageLabel: UILabel = {
@@ -57,13 +56,13 @@ class EmptySearchResultCell: UITableViewCell {
     }
 
     required init?(coder aDecoder: NSCoder) {
-        notImplemented()
+        fatalError("init(coder:) has not been implemented")
     }
 
     public func configure(isLoading: Bool) {
         if isLoading {
             // Calling stopAnimating() here is a workaround for
-            // the spinner won't change its colour as the theme changed.
+            // the spinner won't change its color as the theme changed.
             spinner.stopAnimating()
             spinner.startAnimating()
             messageLabel.isHidden = true

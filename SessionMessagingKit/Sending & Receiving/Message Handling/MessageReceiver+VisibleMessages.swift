@@ -67,13 +67,14 @@ extension MessageReceiver {
         }
         
         // Store the message variant so we can run variant-specific behaviours
-        let userSessionId: SessionId = getUserSessionId(db, using: dependencies)
+        let userSessionId: SessionId = dependencies[cache: .general].sessionId
         let thread: SessionThread = try SessionThread.fetchOrCreate(
             db,
             id: threadId,
             variant: threadVariant,
             shouldBeVisible: nil,
-            calledFromConfig: nil
+            calledFromConfig: nil,
+            using: dependencies
         )
         let maybeOpenGroup: OpenGroup? = {
             guard threadVariant == .community else { return nil }
@@ -151,15 +152,18 @@ extension MessageReceiver {
             )
         )
         let messageExpirationInfo: Message.MessageExpirationInfo = Message.getMessageExpirationInfo(
+            threadVariant: thread.variant,
             wasRead: wasRead,
             serverExpirationTimestamp: serverExpirationTimestamp,
             expiresInSeconds: message.expiresInSeconds,
-            expiresStartedAtMs: message.expiresStartedAtMs
+            expiresStartedAtMs: message.expiresStartedAtMs,
+            using: dependencies
         )
         do {
             interaction = try Interaction(
                 serverHash: message.serverHash, // Keep track of server hash
                 threadId: thread.id,
+                threadVariant: thread.variant,
                 authorId: sender,
                 variant: variant,
                 body: message.text,
@@ -186,7 +190,8 @@ extension MessageReceiver {
                     else { return nil }
                     
                     return recipientParts[2]
-                }()
+                }(),
+                using: dependencies
             ).inserted(db)
         }
         catch {
@@ -219,6 +224,7 @@ extension MessageReceiver {
                     Message.getExpirationForOutgoingDisappearingMessages(
                         db,
                         threadId: threadId,
+                        threadVariant: threadVariant,
                         variant: variant,
                         serverHash: message.serverHash,
                         expireInSeconds: message.expiresInSeconds,
@@ -248,6 +254,7 @@ extension MessageReceiver {
             Message.updateExpiryForDisappearAfterReadMessages(
                 db,
                 threadId: threadId,
+                threadVariant: threadVariant,
                 serverHash: message.serverHash,
                 expiresInSeconds: message.expiresInSeconds,
                 expiresStartedAtMs: message.expiresStartedAtMs,
@@ -258,6 +265,7 @@ extension MessageReceiver {
         Message.getExpirationForOutgoingDisappearingMessages(
             db,
             threadId: threadId,
+            threadVariant: threadVariant,
             variant: variant,
             serverHash: message.serverHash,
             expireInSeconds: message.expiresInSeconds,
@@ -313,7 +321,8 @@ extension MessageReceiver {
                 url: openGroupInvitationUrl,
                 timestamp: LinkPreview.timestampFor(sentTimestampMs: (messageSentTimestamp * 1000)),
                 variant: .openGroupInvitation,
-                title: openGroupInvitationName
+                title: openGroupInvitationName,
+                using: dependencies
             ).upsert(db)
         }
         
@@ -337,15 +346,14 @@ extension MessageReceiver {
                                 attachmentId: attachmentId
                             )
                         ),
-                        canStartJob: isMainAppActive,
-                        using: dependencies
+                        canStartJob: isMainAppActive
                     )
                 }
         }
         
         // Cancel any typing indicators if needed
         if isMainAppActive {
-            TypingIndicators.didStopTyping(db, threadId: thread.id, direction: .incoming)
+            dependencies[singleton: .typingIndicators].didStopTyping(db, threadId: thread.id, direction: .incoming)
         }
         
         // Update the contact's approval status of the current user if needed (if we are getting messages from
@@ -382,8 +390,7 @@ extension MessageReceiver {
             db,
             for: interaction,
             in: thread,
-            applicationState: (isMainAppActive ? .active : .background),
-            using: dependencies
+            applicationState: (isMainAppActive ? .active : .background)
         )
         
         return interactionId
@@ -429,7 +436,7 @@ extension MessageReceiver {
                 // requiring main-thread execution
                 let isMainAppActive: Bool = dependencies[defaults: .appGroup, key: .isMainAppActive]
                 let timestampMs: Int64 = Int64(messageSentTimestamp * 1000)
-                let userSessionId: SessionId = getUserSessionId(db, using: dependencies)
+                let userSessionId: SessionId = dependencies[cache: .general].sessionId
                 let reaction: Reaction = try Reaction(
                     interactionId: interactionId,
                     serverHash: message.serverHash,

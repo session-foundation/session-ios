@@ -50,7 +50,7 @@ public extension UIContextualAction {
         tableView: UITableView,
         threadViewModel: SessionThreadViewModel,
         viewController: UIViewController?,
-        using dependencies: Dependencies = Dependencies()
+        using dependencies: Dependencies
     ) -> [UIContextualAction]? {
         guard !actions.isEmpty else { return nil }
         
@@ -172,7 +172,8 @@ public extension UIContextualAction {
                                                         threadId: threadViewModel.threadId,
                                                         threadVariant: threadViewModel.threadVariant,
                                                         groupLeaveType: .silent,
-                                                        calledFromConfig: nil
+                                                        calledFromConfig: nil,
+                                                        using: dependencies
                                                     )
                                                 }
                                                 viewController?.dismiss(animated: true, completion: nil)
@@ -313,7 +314,7 @@ public extension UIContextualAction {
                                 (!threadIsMessageRequest ? nil : Contact.Columns.didApproveMe.set(to: true)),
                                 (!threadIsMessageRequest ? nil : Contact.Columns.isApproved.set(to: false))
                             ].compactMap { $0 }
-                            let profileInfo: (id: String, profile: Profile?)? = dependencies[singleton: .storage].read(using: dependencies) { db in
+                            let profileInfo: (id: String, profile: Profile?)? = dependencies[singleton: .storage].read { db in
                                 switch threadViewModel.threadVariant {
                                     case .contact:
                                         return (
@@ -355,7 +356,7 @@ public extension UIContextualAction {
                                             switch (threadViewModel.threadVariant, profileInfo?.id) {
                                                 case (.contact, _):
                                                     try Contact
-                                                        .fetchOrCreate(db, id: threadViewModel.threadId)
+                                                        .fetchOrCreate(db, id: threadViewModel.threadId, using: dependencies)
                                                         .upsert(db)
                                                     try Contact
                                                         .filter(id: threadViewModel.threadId)
@@ -368,7 +369,7 @@ public extension UIContextualAction {
                                                     
                                                 case (.group, .some(let contactId)):
                                                     try Contact
-                                                        .fetchOrCreate(db, id: contactId)
+                                                        .fetchOrCreate(db, id: contactId, using: dependencies)
                                                         .upsert(db)
                                                     try Contact
                                                         .filter(id: contactId)
@@ -389,7 +390,8 @@ public extension UIContextualAction {
                                                     threadId: threadViewModel.threadId,
                                                     threadVariant: threadViewModel.threadVariant,
                                                     groupLeaveType: .silent,
-                                                    calledFromConfig: nil
+                                                    calledFromConfig: nil,
+                                                    using: dependencies
                                                 )
                                             }
                                         }
@@ -501,7 +503,8 @@ public extension UIContextualAction {
                                                 threadId: threadViewModel.threadId,
                                                 threadVariant: threadViewModel.threadVariant,
                                                 groupLeaveType: .standard,
-                                                calledFromConfig: nil
+                                                calledFromConfig: nil,
+                                                using: dependencies
                                             )
                                         }
                                         viewController?.dismiss(animated: true, completion: nil)
@@ -608,7 +611,8 @@ public extension UIContextualAction {
                                                 threadId: threadViewModel.threadId,
                                                 threadVariant: threadViewModel.threadVariant,
                                                 groupLeaveType: (isMessageRequest ? .silent : .forced),
-                                                calledFromConfig: nil
+                                                calledFromConfig: nil,
+                                                using: dependencies
                                             )
                                         }
                                         viewController?.dismiss(animated: true, completion: nil)

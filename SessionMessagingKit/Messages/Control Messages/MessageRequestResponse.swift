@@ -50,7 +50,7 @@ public final class MessageRequestResponse: ControlMessage {
     
     // MARK: - Proto Conversion
 
-    public override class func fromProto(_ proto: SNProtoContent, sender: String) -> MessageRequestResponse? {
+    public override class func fromProto(_ proto: SNProtoContent, sender: String, using dependencies: Dependencies) -> MessageRequestResponse? {
         guard let messageRequestResponseProto = proto.messageRequestResponse else { return nil }
         
         return MessageRequestResponse(

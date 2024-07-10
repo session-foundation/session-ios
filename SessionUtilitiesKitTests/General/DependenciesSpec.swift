@@ -14,7 +14,7 @@ class DependenciesSpec: QuickSpec {
     override class func spec() {
         // MARK: Configuration
         
-        @TestState var dependencies: Dependencies! = Dependencies()
+        @TestState var dependencies: Dependencies! = Dependencies.createEmpty()
         
         // MARK: - Dependencies
         describe("Dependencies") {

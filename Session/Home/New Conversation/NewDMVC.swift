@@ -34,7 +34,7 @@ final class NewDMVC: BaseVC, UIPageViewControllerDataSource, UIPageViewControlle
     }()
     
     private lazy var enterPublicKeyVC: EnterPublicKeyVC = {
-        let result = EnterPublicKeyVC()
+        let result = EnterPublicKeyVC(using: dependencies)
         result.NewDMVC = self
         
         return result
@@ -201,9 +201,9 @@ final class NewDMVC: BaseVC, UIPageViewControllerDataSource, UIPageViewControlle
             case .failure:
                 // This could be an ONS name
                 ModalActivityIndicatorViewController
-                    .present(fromViewController: navigationController!, canCancel: false) { [weak self] modalActivityIndicator in
+                    .present(fromViewController: navigationController!, canCancel: false) { [weak self, dependencies] modalActivityIndicator in
                     SnodeAPI
-                        .getSessionID(for: onsNameOrPublicKey)
+                        .getSessionID(for: onsNameOrPublicKey, using: dependencies)
                         .subscribe(on: DispatchQueue.global(qos: .userInitiated))
                         .receive(on: DispatchQueue.main)
                         .sinkUntilComplete(
@@ -245,12 +245,11 @@ final class NewDMVC: BaseVC, UIPageViewControllerDataSource, UIPageViewControlle
     }
 
     private func startNewDM(with sessionId: String) {
-        SessionApp.presentConversationCreatingIfNeeded(
+        dependencies[singleton: .app].presentConversationCreatingIfNeeded(
             for: sessionId,
             variant: .contact,
             dismissing: presentingViewController,
-            animated: false,
-            using: dependencies
+            animated: false
         )
     }
 }
@@ -258,6 +257,7 @@ final class NewDMVC: BaseVC, UIPageViewControllerDataSource, UIPageViewControlle
 // MARK: - EnterPublicKeyVC
 
 private final class EnterPublicKeyVC: UIViewController {
+    private let dependencies: Dependencies
     weak var NewDMVC: NewDMVC!
     private var isKeyboardShowing = false
     private var simulatorWillResignFirstResponder = false
@@ -303,7 +303,7 @@ private final class EnterPublicKeyVC: UIViewController {
         
         let qrCodeImageView: UIImageView = UIImageView()
         qrCodeImageView.setContentCompressionResistancePriority(.defaultLow, for: .vertical)
-        qrCodeImageView.image = QRCode.generate(for: getUserSessionId().hexString, hasBackground: false)
+        qrCodeImageView.image = QRCode.generate(for: dependencies[cache: .general].sessionId.hexString, hasBackground: false)
             .withRenderingMode(.alwaysTemplate)
         qrCodeImageView.set(.width, to: .height, of: qrCodeImageView)
         qrCodeImageView.heightAnchor
@@ -355,7 +355,7 @@ private final class EnterPublicKeyVC: UIViewController {
         let result: SRCopyableLabel = SRCopyableLabel()
         result.setContentCompressionResistancePriority(.required, for: .vertical)
         result.font = Fonts.spaceMono(ofSize: Values.mediumFontSize)
-        result.text = getUserSessionId().hexString
+        result.text = dependencies[cache: .general].sessionId.hexString
         result.themeTextColor = .textPrimary
         result.textAlignment = .center
         result.lineBreakMode = .byCharWrapping
@@ -426,6 +426,18 @@ private final class EnterPublicKeyVC: UIViewController {
     private var viewWidth: NSLayoutConstraint?
     private var viewHeight: NSLayoutConstraint?
     
+    // MARK: - Initialization
+
+    init(using dependencies: Dependencies) {
+        self.dependencies = dependencies
+
+        super.init(nibName: nil, bundle: nil)
+    }
+
+    required init?(coder: NSCoder) {
+        fatalError("init(coder:) has not been implemented")
+    }
+
     // MARK: - Lifecycle
     
     override func viewDidLoad() {
@@ -624,7 +636,7 @@ private final class EnterPublicKeyVC: UIViewController {
     // MARK: - Interaction
     
     @objc private func copyPublicKey() {
-        UIPasteboard.general.string = getUserSessionId().hexString
+        UIPasteboard.general.string = dependencies[cache: .general].sessionId.hexString
         
         copyButton.isUserInteractionEnabled = false
         
@@ -635,7 +647,10 @@ private final class EnterPublicKeyVC: UIViewController {
     }
     
     @objc private func sharePublicKey() {
-        let shareVC = UIActivityViewController(activityItems: [ getUserSessionId().hexString ], applicationActivities: nil)
+        let shareVC = UIActivityViewController(
+            activityItems: [ dependencies[cache: .general].sessionId.hexString ],
+            applicationActivities: nil
+        )
         
         if UIDevice.current.isIPad {
             shareVC.excludedActivityTypes = []

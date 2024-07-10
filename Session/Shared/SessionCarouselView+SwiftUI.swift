@@ -2,15 +2,19 @@
 
 import SwiftUI
 import SessionMessagingKit
+import SessionUtilitiesKit
 
 public struct SessionCarouselView_SwiftUI: View {
     @Binding var index: Int
+    
+    private let dependencies: Dependencies
     let isOutgoing: Bool
     var contentInfos: [Attachment]
     let numberOfPages: Int
     
-    public init(index: Binding<Int>, isOutgoing: Bool, contentInfos: [Attachment]) {
+    public init(index: Binding<Int>, isOutgoing: Bool, contentInfos: [Attachment], using dependencies: Dependencies) {
         self._index = index
+        self.dependencies = dependencies
         self.isOutgoing = isOutgoing
         self.contentInfos = contentInfos
         self.numberOfPages = contentInfos.count
@@ -31,7 +35,8 @@ public struct SessionCarouselView_SwiftUI: View {
                     MediaView_SwiftUI(
                         attachment: attachment,
                         isOutgoing: self.isOutgoing,
-                        cornerRadius: 0
+                        cornerRadius: 0,
+                        using: dependencies
                     )
                 }
             }
@@ -222,7 +227,8 @@ struct SessionCarouselView_SwiftUI_Previews: PreviewProvider {
                         contentType: "jpeg",
                         byteCount: 100
                     )
-                ]
+                ],
+                using: Dependencies.createEmpty()
             )
         }
     }

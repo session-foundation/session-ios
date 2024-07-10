@@ -288,7 +288,8 @@ extension SessionCell {
             with accessory: Accessory?,
             tintColor: ThemeValue,
             isEnabled: Bool,
-            isManualReload: Bool
+            isManualReload: Bool,
+            using dependencies: Dependencies
         ) {
             guard let accessory: Accessory = accessory else { return }
             
@@ -534,7 +535,8 @@ extension SessionCell {
                         profile: accessory.profile,
                         profileIcon: accessory.profileIcon,
                         additionalProfile: accessory.additionalProfile,
-                        additionalProfileIcon: accessory.additionalProfileIcon
+                        additionalProfileIcon: accessory.additionalProfileIcon,
+                        using: dependencies
                     )
                     profilePictureView.isHidden = false
                     

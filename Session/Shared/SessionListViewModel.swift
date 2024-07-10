@@ -39,7 +39,7 @@ class SessionListViewModel<T: Listable>: SessionTableViewModel, NavigationItemSo
         title: String,
         options: [T],
         behaviour: Behaviour,
-        using dependencies: Dependencies = Dependencies()
+        using dependencies: Dependencies
     ) {
         self.title = title
         self.selectedOptionsSubject = {

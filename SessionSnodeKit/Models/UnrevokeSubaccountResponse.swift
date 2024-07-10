@@ -15,7 +15,7 @@ extension UnrevokeSubaccountResponse: ValidatableResponse {
     internal static var requiredSuccessfulResponses: Int { -1 }
     
     internal func validResultMap(
-        publicKey: String,
+        swarmPublicKey: String,
         validationData: (subaccountsToUnrevoke: [[UInt8]], timestampMs: UInt64),
         using dependencies: Dependencies
     ) throws -> [String: Bool] {
@@ -36,7 +36,7 @@ extension UnrevokeSubaccountResponse: ValidatableResponse {
             
             /// Signature of `( PUBKEY_HEX || timestamp || SUBACCOUNT_TOKEN_BYTES... )` where `SUBACCOUNT_TOKEN_BYTES` is the
             /// requested subaccount token for revocation
-            let verificationBytes: [UInt8] = publicKey.bytes
+            let verificationBytes: [UInt8] = swarmPublicKey.bytes
                 .appending(contentsOf: "\(validationData.timestampMs)".data(using: .ascii)?.bytes)
                 .appending(contentsOf: Array(validationData.subaccountsToUnrevoke.joined()))
             

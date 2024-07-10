@@ -3,7 +3,7 @@
 import Foundation
 import UIKit
 import SessionUIKit
-import SignalCoreKit
+import SessionUtilitiesKit
 
 protocol AttachmentApprovalInputAccessoryViewDelegate: AnyObject {
     func attachmentApprovalInputUpdateMediaRail()
@@ -93,7 +93,7 @@ class AttachmentApprovalInputAccessoryView: UIView {
         // We pin to the superview's _margin_.  Otherwise the notch breaks
         // the layout if you hide the keyboard in the simulator (or if the
         // user uses an external keyboard).
-        stackView.pin(.bottom, to: .bottom, of: self)
+        stackView.pin(.bottom, toMargin: .bottom, of: self)
         
         let galleryRailBlockingView: UIView = UIView()
         galleryRailBlockingView.themeBackgroundColor = .backgroundPrimary
@@ -200,7 +200,7 @@ class AttachmentApprovalInputAccessoryView: UIView {
 extension AttachmentApprovalInputAccessoryView: AttachmentCaptionToolbarDelegate {
     public func attachmentCaptionToolbarDidEdit(_ attachmentCaptionToolbar: AttachmentCaptionToolbar) {
         guard let currentAttachmentItem = currentAttachmentItem else {
-            owsFailDebug("Missing currentAttachmentItem.")
+            Log.error("[AttachmentApprovalInputAccessoryView] Missing currentAttachmentItem.")
             return
         }
 

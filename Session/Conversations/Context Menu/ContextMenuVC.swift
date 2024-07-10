@@ -3,6 +3,7 @@
 import UIKit
 import SessionUIKit
 import SessionMessagingKit
+import SessionUtilitiesKit
 
 final class ContextMenuVC: UIViewController {
     public static let dismissDurationPartOne: TimeInterval = 0.15
@@ -12,6 +13,7 @@ final class ContextMenuVC: UIViewController {
     private static let actionViewHeight: CGFloat = 40
     private static let menuCornerRadius: CGFloat = 8
     
+    private let dependencies: Dependencies
     private let snapshot: UIView
     private let frame: CGRect
     private var targetFrame: CGRect = .zero
@@ -92,8 +94,10 @@ final class ContextMenuVC: UIViewController {
         frame: CGRect,
         cellViewModel: MessageViewModel,
         actions: [Action],
+        using dependencies: Dependencies,
         dismiss: @escaping () -> Void
     ) {
+        self.dependencies = dependencies
         self.snapshot = snapshot
         self.frame = frame
         self.cellViewModel = cellViewModel
@@ -171,7 +175,7 @@ final class ContextMenuVC: UIViewController {
             arrangedSubviews: actions
                 .filter { !$0.isEmojiAction && !$0.isEmojiPlus && !$0.isDismissAction }
                 .map { action -> ActionView in
-                    ActionView(for: action, dismiss: snDismiss)
+                    ActionView(for: action, using: dependencies, dismiss: snDismiss)
                 }
         )
         menuStackView.axis = .vertical

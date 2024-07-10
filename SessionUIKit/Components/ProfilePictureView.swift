@@ -501,15 +501,21 @@ public final class ProfilePictureView: UIView {
         )
         
         // Populate the main imageView
-        switch info.imageData?.guessedImageFormat {
-            case .gif, .webp: animatedImageView.image = info.imageData.map { YYImage(data: $0) }
+        switch (info.imageData, info.imageData?.suiKitGuessedImageFormat) {
+            case (.some(let data), .gif), (.some(let data), .webp):
+                animatedImageView.image = YYImage(data: data)
+                
+            case (.some(let data), _):
+                switch info.renderingMode {
+                    case .automatic: imageView.image = UIImage(data: data)
+                    default:
+                        imageView.image = UIImage(data: data)?
+                            .withRenderingMode(info.renderingMode)
+                }
+                
             default:
-                imageView.image = info.imageData
-                    .map {
-                        guard info.renderingMode != .automatic else { return UIImage(data: $0) }
-                        
-                        return UIImage(data: $0)?.withRenderingMode(info.renderingMode)
-                    }
+                imageView.image = nil
+                animatedImageView.image = nil
         }
         
         imageView.themeTintColor = info.themeTintColor
@@ -550,15 +556,21 @@ public final class ProfilePictureView: UIView {
         )
         
         // Set the additional image content and reposition the image views correctly
-        switch additionalInfo.imageData?.guessedImageFormat {
-            case .gif, .webp: additionalAnimatedImageView.image = additionalInfo.imageData.map { YYImage(data: $0) }
+        switch (additionalInfo.imageData, additionalInfo.imageData?.suiKitGuessedImageFormat) {
+            case (.some(let data), .gif), (.some(let data), .webp):
+                additionalAnimatedImageView.image = YYImage(data: data)
+                
+            case (.some(let data), _):
+                switch additionalInfo.renderingMode {
+                    case .automatic: additionalImageView.image = UIImage(data: data)
+                    default:
+                        additionalImageView.image = UIImage(data: data)?
+                            .withRenderingMode(additionalInfo.renderingMode)
+                }
+                
             default:
-                additionalImageView.image = additionalInfo.imageData
-                    .map {
-                        guard additionalInfo.renderingMode != .automatic else { return UIImage(data: $0) }
-                        
-                        return UIImage(data: $0)?.withRenderingMode(additionalInfo.renderingMode)
-                    }
+                additionalImageView.image = nil
+                additionalAnimatedImageView.image = nil
         }
         
         additionalImageView.themeTintColor = additionalInfo.themeTintColor

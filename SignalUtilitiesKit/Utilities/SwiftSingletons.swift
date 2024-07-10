@@ -1,7 +1,6 @@
 //  Copyright (c) 2018 Open Whisper Systems. All rights reserved.
 
 import Foundation
-import SignalCoreKit
 import SessionUtilitiesKit
 
 public class SwiftSingletons {
@@ -14,10 +13,10 @@ public class SwiftSingletons {
         guard _isDebugAssertConfiguration() else { return }
         let singletonClassName = String(describing: type(of: singleton))
         guard !classSet.contains(singletonClassName) else {
-            owsFailDebug("Duplicate singleton: \(singletonClassName).")
+            Log.error("[SwiftSingletons] Duplicate singleton: \(singletonClassName).")
             return
         }
-        Logger.verbose("Registering singleton: \(singletonClassName).")
+        Log.verbose("[SwiftSingletons] Registering singleton: \(singletonClassName).")
         classSet.insert(singletonClassName)
     }
 

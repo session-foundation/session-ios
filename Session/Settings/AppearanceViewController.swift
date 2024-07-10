@@ -62,7 +62,7 @@ final class AppearanceViewController: BaseVC {
     private lazy var themeSelectionViews: [ThemeSelectionView] = Theme.allCases
         .map { theme in
             let result: ThemeSelectionView = ThemeSelectionView(theme: theme) { [weak self] theme in
-                ThemeManager.currentTheme = theme
+                ThemeManager.updateThemeState(theme: theme)
             }
             result.update(isSelected: (ThemeManager.currentTheme == theme))
             
@@ -128,7 +128,7 @@ final class AppearanceViewController: BaseVC {
     private lazy var primaryColorSelectionViews: [PrimaryColorSelectionView] = Theme.PrimaryColor.allCases
         .map { color in
             let result: PrimaryColorSelectionView = PrimaryColorSelectionView(color: color) { [weak self] color in
-                ThemeManager.primaryColor = color
+                ThemeManager.updateThemeState(primaryColor: color)
             }
             result.update(isSelected: (ThemeManager.primaryColor == color))
             
@@ -232,7 +232,7 @@ final class AppearanceViewController: BaseVC {
         nightModeToggleView.addSubview(nightModeToggleLabel)
         nightModeToggleView.addSubview(nightModeToggleSwitch)
         
-        // Register an observer so when the theme changes the selected theme and primary colour
+        // Register an observer so when the theme changes the selected theme and primary color
         // are both updated to match
         ThemeManager.onThemeChange(observer: self) { [weak self] theme, primaryColor in
             self?.themeSelectionViews.forEach { view in
@@ -295,6 +295,6 @@ final class AppearanceViewController: BaseVC {
     // MARK: - Actions
     
     @objc private func nightModeToggleChanged(sender: UISwitch) {
-        ThemeManager.matchSystemNightModeSetting = sender.isOn
+        ThemeManager.updateThemeState(matchSystemNightModeSetting: sender.isOn)
     }
 }

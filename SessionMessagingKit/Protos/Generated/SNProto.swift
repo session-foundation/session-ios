@@ -165,12 +165,12 @@ public enum SNProtoError: Error {
 
     fileprivate class func parseProto(_ proto: SessionProtos_Envelope) throws -> SNProtoEnvelope {
         guard proto.hasType else {
-            throw SNProtoError.invalidProtobuf(description: "\(String(describing: logTag)) missing required field: type")
+            throw SNProtoError.invalidProtobuf(description: "\(NSStringFromClass(self)) missing required field: type")
         }
         let type = SNProtoEnvelopeTypeWrap(proto.type)
 
         guard proto.hasTimestamp else {
-            throw SNProtoError.invalidProtobuf(description: "\(String(describing: logTag)) missing required field: timestamp")
+            throw SNProtoError.invalidProtobuf(description: "\(NSStringFromClass(self)) missing required field: timestamp")
         }
         let timestamp = proto.timestamp
 
@@ -298,12 +298,12 @@ extension SNProtoEnvelope.SNProtoEnvelopeBuilder {
 
     fileprivate class func parseProto(_ proto: SessionProtos_TypingMessage) throws -> SNProtoTypingMessage {
         guard proto.hasTimestamp else {
-            throw SNProtoError.invalidProtobuf(description: "\(String(describing: logTag)) missing required field: timestamp")
+            throw SNProtoError.invalidProtobuf(description: "\(NSStringFromClass(self)) missing required field: timestamp")
         }
         let timestamp = proto.timestamp
 
         guard proto.hasAction else {
-            throw SNProtoError.invalidProtobuf(description: "\(String(describing: logTag)) missing required field: action")
+            throw SNProtoError.invalidProtobuf(description: "\(NSStringFromClass(self)) missing required field: action")
         }
         let action = SNProtoTypingMessageActionWrap(proto.action)
 
@@ -410,12 +410,12 @@ extension SNProtoTypingMessage.SNProtoTypingMessageBuilder {
 
     fileprivate class func parseProto(_ proto: SessionProtos_UnsendRequest) throws -> SNProtoUnsendRequest {
         guard proto.hasTimestamp else {
-            throw SNProtoError.invalidProtobuf(description: "\(String(describing: logTag)) missing required field: timestamp")
+            throw SNProtoError.invalidProtobuf(description: "\(NSStringFromClass(self)) missing required field: timestamp")
         }
         let timestamp = proto.timestamp
 
         guard proto.hasAuthor else {
-            throw SNProtoError.invalidProtobuf(description: "\(String(describing: logTag)) missing required field: author")
+            throw SNProtoError.invalidProtobuf(description: "\(NSStringFromClass(self)) missing required field: author")
         }
         let author = proto.author
 
@@ -541,7 +541,7 @@ extension SNProtoUnsendRequest.SNProtoUnsendRequestBuilder {
 
     fileprivate class func parseProto(_ proto: SessionProtos_MessageRequestResponse) throws -> SNProtoMessageRequestResponse {
         guard proto.hasIsApproved else {
-            throw SNProtoError.invalidProtobuf(description: "\(String(describing: logTag)) missing required field: isApproved")
+            throw SNProtoError.invalidProtobuf(description: "\(NSStringFromClass(self)) missing required field: isApproved")
         }
         let isApproved = proto.isApproved
 
@@ -979,12 +979,12 @@ extension SNProtoContent.SNProtoContentBuilder {
 
     fileprivate class func parseProto(_ proto: SessionProtos_CallMessage) throws -> SNProtoCallMessage {
         guard proto.hasType else {
-            throw SNProtoError.invalidProtobuf(description: "\(String(describing: logTag)) missing required field: type")
+            throw SNProtoError.invalidProtobuf(description: "\(NSStringFromClass(self)) missing required field: type")
         }
         let type = SNProtoCallMessageTypeWrap(proto.type)
 
         guard proto.hasUuid else {
-            throw SNProtoError.invalidProtobuf(description: "\(String(describing: logTag)) missing required field: uuid")
+            throw SNProtoError.invalidProtobuf(description: "\(NSStringFromClass(self)) missing required field: uuid")
         }
         let uuid = proto.uuid
 
@@ -1091,12 +1091,12 @@ extension SNProtoCallMessage.SNProtoCallMessageBuilder {
 
     fileprivate class func parseProto(_ proto: SessionProtos_KeyPair) throws -> SNProtoKeyPair {
         guard proto.hasPublicKey else {
-            throw SNProtoError.invalidProtobuf(description: "\(String(describing: logTag)) missing required field: publicKey")
+            throw SNProtoError.invalidProtobuf(description: "\(NSStringFromClass(self)) missing required field: publicKey")
         }
         let publicKey = proto.publicKey
 
         guard proto.hasPrivateKey else {
-            throw SNProtoError.invalidProtobuf(description: "\(String(describing: logTag)) missing required field: privateKey")
+            throw SNProtoError.invalidProtobuf(description: "\(NSStringFromClass(self)) missing required field: privateKey")
         }
         let privateKey = proto.privateKey
 
@@ -1229,7 +1229,7 @@ extension SNProtoKeyPair.SNProtoKeyPairBuilder {
 
     fileprivate class func parseProto(_ proto: SessionProtos_DataExtractionNotification) throws -> SNProtoDataExtractionNotification {
         guard proto.hasType else {
-            throw SNProtoError.invalidProtobuf(description: "\(String(describing: logTag)) missing required field: type")
+            throw SNProtoError.invalidProtobuf(description: "\(NSStringFromClass(self)) missing required field: type")
         }
         let type = SNProtoDataExtractionNotificationTypeWrap(proto.type)
 
@@ -1638,12 +1638,12 @@ extension SNProtoDataMessageQuoteQuotedAttachment.SNProtoDataMessageQuoteQuotedA
 
     fileprivate class func parseProto(_ proto: SessionProtos_DataMessage.Quote) throws -> SNProtoDataMessageQuote {
         guard proto.hasID else {
-            throw SNProtoError.invalidProtobuf(description: "\(String(describing: logTag)) missing required field: id")
+            throw SNProtoError.invalidProtobuf(description: "\(NSStringFromClass(self)) missing required field: id")
         }
         let id = proto.id
 
         guard proto.hasAuthor else {
-            throw SNProtoError.invalidProtobuf(description: "\(String(describing: logTag)) missing required field: author")
+            throw SNProtoError.invalidProtobuf(description: "\(NSStringFromClass(self)) missing required field: author")
         }
         let author = proto.author
 
@@ -1773,7 +1773,7 @@ extension SNProtoDataMessageQuote.SNProtoDataMessageQuoteBuilder {
 
     fileprivate class func parseProto(_ proto: SessionProtos_DataMessage.Preview) throws -> SNProtoDataMessagePreview {
         guard proto.hasURL else {
-            throw SNProtoError.invalidProtobuf(description: "\(String(describing: logTag)) missing required field: url")
+            throw SNProtoError.invalidProtobuf(description: "\(NSStringFromClass(self)) missing required field: url")
         }
         let url = proto.url
 
@@ -1932,17 +1932,17 @@ extension SNProtoDataMessagePreview.SNProtoDataMessagePreviewBuilder {
 
     fileprivate class func parseProto(_ proto: SessionProtos_DataMessage.Reaction) throws -> SNProtoDataMessageReaction {
         guard proto.hasID else {
-            throw SNProtoError.invalidProtobuf(description: "\(String(describing: logTag)) missing required field: id")
+            throw SNProtoError.invalidProtobuf(description: "\(NSStringFromClass(self)) missing required field: id")
         }
         let id = proto.id
 
         guard proto.hasAuthor else {
-            throw SNProtoError.invalidProtobuf(description: "\(String(describing: logTag)) missing required field: author")
+            throw SNProtoError.invalidProtobuf(description: "\(NSStringFromClass(self)) missing required field: author")
         }
         let author = proto.author
 
         guard proto.hasAction else {
-            throw SNProtoError.invalidProtobuf(description: "\(String(describing: logTag)) missing required field: action")
+            throw SNProtoError.invalidProtobuf(description: "\(NSStringFromClass(self)) missing required field: action")
         }
         let action = SNProtoDataMessageReactionActionWrap(proto.action)
 
@@ -2050,12 +2050,12 @@ extension SNProtoDataMessageReaction.SNProtoDataMessageReactionBuilder {
 
     fileprivate class func parseProto(_ proto: SessionProtos_DataMessage.OpenGroupInvitation) throws -> SNProtoDataMessageOpenGroupInvitation {
         guard proto.hasURL else {
-            throw SNProtoError.invalidProtobuf(description: "\(String(describing: logTag)) missing required field: url")
+            throw SNProtoError.invalidProtobuf(description: "\(NSStringFromClass(self)) missing required field: url")
         }
         let url = proto.url
 
         guard proto.hasName else {
-            throw SNProtoError.invalidProtobuf(description: "\(String(describing: logTag)) missing required field: name")
+            throw SNProtoError.invalidProtobuf(description: "\(NSStringFromClass(self)) missing required field: name")
         }
         let name = proto.name
 
@@ -2162,12 +2162,12 @@ extension SNProtoDataMessageOpenGroupInvitation.SNProtoDataMessageOpenGroupInvit
 
     fileprivate class func parseProto(_ proto: SessionProtos_DataMessage.ClosedGroupControlMessage.KeyPairWrapper) throws -> SNProtoDataMessageClosedGroupControlMessageKeyPairWrapper {
         guard proto.hasPublicKey else {
-            throw SNProtoError.invalidProtobuf(description: "\(String(describing: logTag)) missing required field: publicKey")
+            throw SNProtoError.invalidProtobuf(description: "\(NSStringFromClass(self)) missing required field: publicKey")
         }
         let publicKey = proto.publicKey
 
         guard proto.hasEncryptedKeyPair else {
-            throw SNProtoError.invalidProtobuf(description: "\(String(describing: logTag)) missing required field: encryptedKeyPair")
+            throw SNProtoError.invalidProtobuf(description: "\(NSStringFromClass(self)) missing required field: encryptedKeyPair")
         }
         let encryptedKeyPair = proto.encryptedKeyPair
 
@@ -2405,7 +2405,7 @@ extension SNProtoDataMessageClosedGroupControlMessageKeyPairWrapper.SNProtoDataM
 
     fileprivate class func parseProto(_ proto: SessionProtos_DataMessage.ClosedGroupControlMessage) throws -> SNProtoDataMessageClosedGroupControlMessage {
         guard proto.hasType else {
-            throw SNProtoError.invalidProtobuf(description: "\(String(describing: logTag)) missing required field: type")
+            throw SNProtoError.invalidProtobuf(description: "\(NSStringFromClass(self)) missing required field: type")
         }
         let type = SNProtoDataMessageClosedGroupControlMessageTypeWrap(proto.type)
 
@@ -2890,7 +2890,7 @@ extension SNProtoDataMessage.SNProtoDataMessageBuilder {
 
     fileprivate class func parseProto(_ proto: SessionProtos_ReceiptMessage) throws -> SNProtoReceiptMessage {
         guard proto.hasType else {
-            throw SNProtoError.invalidProtobuf(description: "\(String(describing: logTag)) missing required field: type")
+            throw SNProtoError.invalidProtobuf(description: "\(NSStringFromClass(self)) missing required field: type")
         }
         let type = SNProtoReceiptMessageTypeWrap(proto.type)
 
@@ -3180,7 +3180,7 @@ extension SNProtoReceiptMessage.SNProtoReceiptMessageBuilder {
 
     fileprivate class func parseProto(_ proto: SessionProtos_AttachmentPointer) throws -> SNProtoAttachmentPointer {
         guard proto.hasID else {
-            throw SNProtoError.invalidProtobuf(description: "\(String(describing: logTag)) missing required field: id")
+            throw SNProtoError.invalidProtobuf(description: "\(NSStringFromClass(self)) missing required field: id")
         }
         let id = proto.id
 
@@ -3500,22 +3500,22 @@ extension SNProtoGroupUpdateMessage.SNProtoGroupUpdateMessageBuilder {
 
     fileprivate class func parseProto(_ proto: SessionProtos_GroupUpdateInviteMessage) throws -> SNProtoGroupUpdateInviteMessage {
         guard proto.hasGroupSessionID else {
-            throw SNProtoError.invalidProtobuf(description: "\(String(describing: logTag)) missing required field: groupSessionID")
+            throw SNProtoError.invalidProtobuf(description: "\(NSStringFromClass(self)) missing required field: groupSessionID")
         }
         let groupSessionID = proto.groupSessionID
 
         guard proto.hasName else {
-            throw SNProtoError.invalidProtobuf(description: "\(String(describing: logTag)) missing required field: name")
+            throw SNProtoError.invalidProtobuf(description: "\(NSStringFromClass(self)) missing required field: name")
         }
         let name = proto.name
 
         guard proto.hasMemberAuthData else {
-            throw SNProtoError.invalidProtobuf(description: "\(String(describing: logTag)) missing required field: memberAuthData")
+            throw SNProtoError.invalidProtobuf(description: "\(NSStringFromClass(self)) missing required field: memberAuthData")
         }
         let memberAuthData = proto.memberAuthData
 
         guard proto.hasAdminSignature else {
-            throw SNProtoError.invalidProtobuf(description: "\(String(describing: logTag)) missing required field: adminSignature")
+            throw SNProtoError.invalidProtobuf(description: "\(NSStringFromClass(self)) missing required field: adminSignature")
         }
         let adminSignature = proto.adminSignature
 
@@ -3615,7 +3615,7 @@ extension SNProtoGroupUpdateInviteMessage.SNProtoGroupUpdateInviteMessageBuilder
 
     fileprivate class func parseProto(_ proto: SessionProtos_GroupUpdatePromoteMessage) throws -> SNProtoGroupUpdatePromoteMessage {
         guard proto.hasGroupIdentitySeed else {
-            throw SNProtoError.invalidProtobuf(description: "\(String(describing: logTag)) missing required field: groupIdentitySeed")
+            throw SNProtoError.invalidProtobuf(description: "\(NSStringFromClass(self)) missing required field: groupIdentitySeed")
         }
         let groupIdentitySeed = proto.groupIdentitySeed
 
@@ -3776,12 +3776,12 @@ extension SNProtoGroupUpdatePromoteMessage.SNProtoGroupUpdatePromoteMessageBuild
 
     fileprivate class func parseProto(_ proto: SessionProtos_GroupUpdateInfoChangeMessage) throws -> SNProtoGroupUpdateInfoChangeMessage {
         guard proto.hasType else {
-            throw SNProtoError.invalidProtobuf(description: "\(String(describing: logTag)) missing required field: type")
+            throw SNProtoError.invalidProtobuf(description: "\(NSStringFromClass(self)) missing required field: type")
         }
         let type = SNProtoGroupUpdateInfoChangeMessageTypeWrap(proto.type)
 
         guard proto.hasAdminSignature else {
-            throw SNProtoError.invalidProtobuf(description: "\(String(describing: logTag)) missing required field: adminSignature")
+            throw SNProtoError.invalidProtobuf(description: "\(NSStringFromClass(self)) missing required field: adminSignature")
         }
         let adminSignature = proto.adminSignature
 
@@ -3941,12 +3941,12 @@ extension SNProtoGroupUpdateInfoChangeMessage.SNProtoGroupUpdateInfoChangeMessag
 
     fileprivate class func parseProto(_ proto: SessionProtos_GroupUpdateMemberChangeMessage) throws -> SNProtoGroupUpdateMemberChangeMessage {
         guard proto.hasType else {
-            throw SNProtoError.invalidProtobuf(description: "\(String(describing: logTag)) missing required field: type")
+            throw SNProtoError.invalidProtobuf(description: "\(NSStringFromClass(self)) missing required field: type")
         }
         let type = SNProtoGroupUpdateMemberChangeMessageTypeWrap(proto.type)
 
         guard proto.hasAdminSignature else {
-            throw SNProtoError.invalidProtobuf(description: "\(String(describing: logTag)) missing required field: adminSignature")
+            throw SNProtoError.invalidProtobuf(description: "\(NSStringFromClass(self)) missing required field: adminSignature")
         }
         let adminSignature = proto.adminSignature
 
@@ -4121,7 +4121,7 @@ extension SNProtoGroupUpdateMemberLeftMessage.SNProtoGroupUpdateMemberLeftMessag
 
     fileprivate class func parseProto(_ proto: SessionProtos_GroupUpdateInviteResponseMessage) throws -> SNProtoGroupUpdateInviteResponseMessage {
         guard proto.hasIsApproved else {
-            throw SNProtoError.invalidProtobuf(description: "\(String(describing: logTag)) missing required field: isApproved")
+            throw SNProtoError.invalidProtobuf(description: "\(NSStringFromClass(self)) missing required field: isApproved")
         }
         let isApproved = proto.isApproved
 

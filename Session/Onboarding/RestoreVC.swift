@@ -141,12 +141,6 @@ final class RestoreVC: BaseVC {
         notificationCenter.addObserver(self, selector: #selector(handleKeyboardWillHideNotification(_:)), name: UIResponder.keyboardWillHideNotification, object: nil)
     }
     
-    override func viewWillAppear(_ animated: Bool) {
-        super.viewWillAppear(animated)
-        
-        Onboarding.Flow.register.unregister(using: dependencies)
-    }
-    
     override func viewDidAppear(_ animated: Bool) {
         super.viewDidAppear(animated)
         
@@ -214,14 +208,10 @@ final class RestoreVC: BaseVC {
             present(modal, animated: true)
         }
         
-        let seed: Data
-        let keyPairs: (ed25519KeyPair: KeyPair, x25519KeyPair: KeyPair)
-        
         do {
             let mnemonic: String = (mnemonicTextView.text ?? "").lowercased()
             let hexEncodedSeed: String = try Mnemonic.decode(mnemonic: mnemonic)
-            seed = Data(hex: hexEncodedSeed)
-            keyPairs = try Identity.generate(from: seed, using: dependencies)
+            try dependencies.mutate(cache: .onboarding) { try $0.setSeedData(Data(hex: hexEncodedSeed)) }
         }
         catch let error {
             let error = error as? Mnemonic.DecodingError ?? Mnemonic.DecodingError.generic
@@ -229,16 +219,10 @@ final class RestoreVC: BaseVC {
             return
         }
         
-        // Load in the user config and progress to the next screen
+        // Progress to the next screen
         mnemonicTextView.resignFirstResponder()
         
-        Onboarding.Flow.recover
-            .preregister(
-                ed25519KeyPair: keyPairs.ed25519KeyPair,
-                x25519KeyPair: keyPairs.x25519KeyPair
-            )
-        
-        let pnModeVC: PNModeVC = PNModeVC(flow: .recover)
+        let pnModeVC: PNModeVC = PNModeVC(using: dependencies)
         self.navigationController?.pushViewController(pnModeVC, animated: true)
     }
     

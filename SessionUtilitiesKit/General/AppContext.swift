@@ -20,7 +20,7 @@ public protocol AppContext: AnyObject {
     var isShareExtension: Bool { get }
     var reportedApplicationState: UIApplication.State { get }
     var mainWindow: UIWindow? { get }
-    var frontmostViewController: UIViewController? { get }
+    var frontMostViewController: UIViewController? { get }
     
     static func determineDeviceRTL() -> Bool
     
@@ -28,6 +28,9 @@ public protocol AppContext: AnyObject {
     func ensureSleepBlocking(_ shouldBeBlocking: Bool, blockingObjects: [Any])
     func beginBackgroundTask(expirationHandler: @escaping () -> ()) -> UIBackgroundTaskIdentifier
     func endBackgroundTask(_ backgroundTaskIdentifier: UIBackgroundTaskIdentifier)
+    
+    var temporaryDirectory: String { get }
+    var temporaryDirectoryAccessibleAfterFirstAuth: String { get }
     
     /// **Note:** We need to call this method on launch _and_ every time the app becomes active,
     /// since file protection may prevent it from succeeding in the background.
@@ -41,33 +44,10 @@ public extension AppContext {
     var isMainAppAndActive: Bool { false }
     var isShareExtension: Bool { false }
     var mainWindow: UIWindow? { nil }
-    var frontmostViewController: UIViewController? { nil }
+    var frontMostViewController: UIViewController? { nil }
     
     var isInBackground: Bool { reportedApplicationState == .background }
     var isAppForegroundAndActive: Bool { reportedApplicationState == .active }
-    
-    // MARK: - Paths
-    
-    var temporaryDirectory: String {
-        if let dir: String = _temporaryDirectory { return dir }
-        
-        let dirName: String = "ows_temp_\(UUID().uuidString)"   // stringlint:disable
-        let dirPath: String = URL(fileURLWithPath: NSTemporaryDirectory())
-            .appendingPathComponent(dirName)
-            .path
-        _temporaryDirectory = dirPath
-        FileSystem.temporaryDirectory.mutate { $0 = dirPath }
-        try? FileSystem.ensureDirectoryExists(at: dirPath, fileProtectionType: .complete)
-        
-        return dirPath
-    }
-    
-    var temporaryDirectoryAccessibleAfterFirstAuth: String {
-        let dirPath: String = NSTemporaryDirectory()
-        try? FileSystem.ensureDirectoryExists(at: dirPath, fileProtectionType: .completeUntilFirstUserAuthentication)
-        
-        return dirPath;
-    }
     
     // MARK: - Functions
     
@@ -77,5 +57,30 @@ public extension AppContext {
     func endBackgroundTask(_ backgroundTaskIdentifier: UIBackgroundTaskIdentifier) {}
     
     func createTemporaryDirectory() { _ = temporaryDirectory }
+    func temporaryDirectory(using dependencies: Dependencies) -> String {
+        if let dir: String = _temporaryDirectory { return dir }
+        
+        let dirName: String = "ows_temp_\(UUID().uuidString)"   // stringlint:disable
+        let dirPath: String = URL(fileURLWithPath: NSTemporaryDirectory())
+            .appendingPathComponent(dirName)
+            .path
+        _temporaryDirectory = dirPath
+        FileSystem.temporaryDirectory.mutate { $0 = dirPath }
+        try? FileSystem.ensureDirectoryExists(at: dirPath, fileProtectionType: .complete, using: dependencies)
+        
+        return dirPath
+    }
+    
+    func temporaryDirectoryAccessibleAfterFirstAuth(using dependencies: Dependencies) -> String {
+        let dirPath: String = NSTemporaryDirectory()
+        try? FileSystem.ensureDirectoryExists(
+            at: dirPath,
+            fileProtectionType: .completeUntilFirstUserAuthentication,
+            using: dependencies
+        )
+        
+        return dirPath;
+    }
+    
     func clearOldTemporaryDirectories(using dependencies: Dependencies) {}
 }

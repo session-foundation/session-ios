@@ -3,7 +3,7 @@
 //
 
 import UIKit
-import SignalUtilitiesKit
+import SessionUtilitiesKit
 
 @objc class OWSImagePickerController: UIImagePickerController {
 

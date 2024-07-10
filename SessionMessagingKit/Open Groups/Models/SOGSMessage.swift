@@ -50,7 +50,7 @@ extension OpenGroupAPI {
             public let index: Int64
         }
         
-        public let reactions: [String:Reaction]?
+        public let reactions: [String: Reaction]?
     }
 }
 
@@ -73,11 +73,12 @@ extension OpenGroupAPI.Message {
             
             // Verify the signature based on the SessionId.Prefix type
             let maybeSenderSessionId: SessionId? = try? SessionId(from: sender)
+            let dependencies: Dependencies = try decoder.dependencies ?? { throw CryptoError.signatureVerificationFailed }()
             
             switch (maybeSenderSessionId, maybeSenderSessionId?.prefix) {
                 case (.some(let sessionId), .blinded15), (.some(let sessionId), .blinded25):
                     guard
-                        decoder.dependencies[singleton: .crypto].verify(
+                        dependencies[singleton: .crypto].verify(
                             .signature(message: data.bytes, publicKey: sessionId.publicKey, signature: signature.bytes)
                         )
                     else {
@@ -87,7 +88,7 @@ extension OpenGroupAPI.Message {
                     
                 case (.some(let sessionId), .standard), (.some(let sessionId), .unblinded):
                     guard
-                        decoder.dependencies[singleton: .crypto].verify(
+                        dependencies[singleton: .crypto].verify(
                             .signatureXed25519(signature, curve25519PublicKey: sessionId.publicKey, data: data)
                         )
                     else {

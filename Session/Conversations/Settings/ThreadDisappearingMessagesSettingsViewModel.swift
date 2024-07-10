@@ -10,8 +10,6 @@ import SessionUtilitiesKit
 import SessionSnodeKit
 
 class ThreadDisappearingMessagesSettingsViewModel: SessionTableViewModel, NavigationItemSource, NavigatableStateHolder, ObservableTableSource {
-    typealias TableItem = String
-    
     public let dependencies: Dependencies
     public let navigatableState: NavigatableState = NavigatableState()
     public let state: TableDataState<Section, TableItem> = TableDataState()
@@ -38,7 +36,7 @@ class ThreadDisappearingMessagesSettingsViewModel: SessionTableViewModel, Naviga
         self.dependencies = dependencies
         self.threadId = threadId
         self.threadVariant = threadVariant
-        self.isNoteToSelf = (threadId == getUserSessionId(using: dependencies).hexString)
+        self.isNoteToSelf = (threadId == dependencies[cache: .general].sessionId.hexString)
         self.currentUserIsClosedGroupMember = currentUserIsClosedGroupMember
         self.currentUserIsClosedGroupAdmin = currentUserIsClosedGroupAdmin
         self.originalConfig = config
@@ -81,6 +79,14 @@ class ThreadDisappearingMessagesSettingsViewModel: SessionTableViewModel, Naviga
         }
     }
     
+    public struct TableItem: Hashable, Differentiable {
+        private let title: String
+        
+        init(title: String) {
+            self.title = title
+        }
+    }
+    
     // MARK: - Content
     
     let title: String = "DISAPPEARING_MESSAGES".localized()
@@ -109,7 +115,7 @@ class ThreadDisappearingMessagesSettingsViewModel: SessionTableViewModel, Naviga
             )
         }
         .removeDuplicates()
-        .map { [weak self] shouldShowConfirmButton in
+        .map { [weak self] shouldShowConfirmButton -> SessionButton.Info? in
             guard shouldShowConfirmButton else { return nil }
             
             return SessionButton.Info(
@@ -141,7 +147,7 @@ class ThreadDisappearingMessagesSettingsViewModel: SessionTableViewModel, Naviga
                         model: .type,
                         elements: [
                             SessionCell.Info(
-                                id: "DISAPPEARING_MESSAGES_OFF".localized(),
+                                id: TableItem(title: "DISAPPEARING_MESSAGES_OFF".localized()),
                                 title: "DISAPPEARING_MESSAGES_OFF".localized(),
                                 trailingAccessory: .radio(
                                     isSelected: !currentConfig.isEnabled
@@ -161,7 +167,7 @@ class ThreadDisappearingMessagesSettingsViewModel: SessionTableViewModel, Naviga
                             ),
                             (dependencies[feature: .updatedDisappearingMessages] ? nil :
                                 SessionCell.Info(
-                                    id: "DISAPPEARING_MESSAGES_TYPE_LEGACY_TITLE".localized(),
+                                    id: TableItem(title: "DISAPPEARING_MESSAGES_TYPE_LEGACY_TITLE".localized()),
                                     title: "DISAPPEARING_MESSAGES_TYPE_LEGACY_TITLE".localized(),
                                     subtitle: "DISAPPEARING_MESSAGES_TYPE_LEGACY_DESCRIPTION".localized(),
                                     trailingAccessory: .radio(
@@ -185,7 +191,7 @@ class ThreadDisappearingMessagesSettingsViewModel: SessionTableViewModel, Naviga
                                 )
                             ),
                             SessionCell.Info(
-                                id: "DISAPPERING_MESSAGES_TYPE_AFTER_READ_TITLE".localized(),
+                                id: TableItem(title: "DISAPPERING_MESSAGES_TYPE_AFTER_READ_TITLE".localized()),
                                 title: "DISAPPERING_MESSAGES_TYPE_AFTER_READ_TITLE".localized(),
                                 subtitle: "DISAPPERING_MESSAGES_TYPE_AFTER_READ_DESCRIPTION".localized(),
                                 trailingAccessory: .radio(
@@ -220,7 +226,7 @@ class ThreadDisappearingMessagesSettingsViewModel: SessionTableViewModel, Naviga
                                 }
                             ),
                             SessionCell.Info(
-                                id: "DISAPPERING_MESSAGES_TYPE_AFTER_SEND_TITLE".localized(),
+                                id: TableItem(title: "DISAPPERING_MESSAGES_TYPE_AFTER_SEND_TITLE".localized()),
                                 title: "DISAPPERING_MESSAGES_TYPE_AFTER_SEND_TITLE".localized(),
                                 subtitle: "DISAPPERING_MESSAGES_TYPE_AFTER_SEND_DESCRIPTION".localized(),
                                 trailingAccessory: .radio(
@@ -278,7 +284,7 @@ class ThreadDisappearingMessagesSettingsViewModel: SessionTableViewModel, Naviga
                                     let title: String = duration.formatted(format: .long)
 
                                     return SessionCell.Info(
-                                        id: title,
+                                        id: TableItem(title: title),
                                         title: title,
                                         trailingAccessory: .radio(
                                             isSelected: (
@@ -309,7 +315,7 @@ class ThreadDisappearingMessagesSettingsViewModel: SessionTableViewModel, Naviga
                         model: .group,
                         elements: [
                             SessionCell.Info(
-                                id: "DISAPPEARING_MESSAGES_OFF".localized(),
+                                id: TableItem(title: "DISAPPEARING_MESSAGES_OFF".localized()),
                                 title: "DISAPPEARING_MESSAGES_OFF".localized(),
                                 trailingAccessory: .radio(
                                     isSelected: !currentConfig.isEnabled
@@ -336,7 +342,7 @@ class ThreadDisappearingMessagesSettingsViewModel: SessionTableViewModel, Naviga
                                     let title: String = duration.formatted(format: .long)
 
                                     return SessionCell.Info(
-                                        id: title,
+                                        id: TableItem(title: title),
                                         title: title,
                                         trailingAccessory: .radio(
                                             isSelected: (
@@ -375,7 +381,7 @@ class ThreadDisappearingMessagesSettingsViewModel: SessionTableViewModel, Naviga
                             model: .type,
                             elements: [
                                 SessionCell.Info(
-                                    id: "DISAPPEARING_MESSAGES_OFF".localized(),
+                                    id: TableItem(title: "DISAPPEARING_MESSAGES_OFF".localized()),
                                     title: "DISAPPEARING_MESSAGES_OFF".localized(),
                                     trailingAccessory: .radio(
                                         isSelected: !currentConfig.isEnabled
@@ -398,7 +404,7 @@ class ThreadDisappearingMessagesSettingsViewModel: SessionTableViewModel, Naviga
                                     }
                                 ),
                                 SessionCell.Info(
-                                    id: "DISAPPEARING_MESSAGES_TYPE_LEGACY_TITLE".localized(),
+                                    id: TableItem(title: "DISAPPEARING_MESSAGES_TYPE_LEGACY_TITLE".localized()),
                                     title: "DISAPPEARING_MESSAGES_TYPE_LEGACY_TITLE".localized(),
                                     subtitle: "DISAPPEARING_MESSAGES_TYPE_LEGACY_DESCRIPTION".localized(),
                                     trailingAccessory: .radio(
@@ -425,7 +431,7 @@ class ThreadDisappearingMessagesSettingsViewModel: SessionTableViewModel, Naviga
                                     }
                                 ),
                                 SessionCell.Info(
-                                    id: "DISAPPERING_MESSAGES_TYPE_AFTER_SEND_TITLE".localized(),
+                                    id: TableItem(title: "DISAPPERING_MESSAGES_TYPE_AFTER_SEND_TITLE".localized()),
                                     title: "DISAPPERING_MESSAGES_TYPE_AFTER_SEND_TITLE".localized(),
                                     subtitle: "DISAPPERING_MESSAGES_TYPE_AFTER_SEND_DESCRIPTION".localized(),
                                     trailingAccessory: .radio(isSelected: false),
@@ -454,7 +460,7 @@ class ThreadDisappearingMessagesSettingsViewModel: SessionTableViewModel, Naviga
                             elements: [
                                 (!dependencies[feature: .updatedDisappearingMessages] ? nil :
                                     SessionCell.Info(
-                                        id: "DISAPPEARING_MESSAGES_OFF".localized(),
+                                        id: TableItem(title: "DISAPPEARING_MESSAGES_OFF".localized()),
                                         title: "DISAPPEARING_MESSAGES_OFF".localized(),
                                         trailingAccessory: .radio(
                                             isSelected: !currentConfig.isEnabled
@@ -486,7 +492,7 @@ class ThreadDisappearingMessagesSettingsViewModel: SessionTableViewModel, Naviga
                                         let title: String = duration.formatted(format: .long)
 
                                         return SessionCell.Info(
-                                            id: title,
+                                            id: TableItem(title: title),
                                             title: title,
                                             trailingAccessory: .radio(
                                                 isSelected: (
@@ -544,16 +550,16 @@ class ThreadDisappearingMessagesSettingsViewModel: SessionTableViewModel, Naviga
 
         guard self.originalConfig != updatedConfig else { return }
 
-        dependencies[singleton: .storage].writeAsync(using: dependencies) { [threadId, threadVariant, dependencies] db in
+        dependencies[singleton: .storage].writeAsync { [threadId, threadVariant, dependencies] db in
             try updatedConfig.upserted(db)
             
-            let currentOffsetTimestampMs: Int64 = SnodeAPI.currentOffsetTimestampMs(using: dependencies)
+            let currentOffsetTimestampMs: Int64 = dependencies[cache: .snodeAPI].currentOffsetTimestampMs()
             let interactionId = try updatedConfig
                 .saved(db)
                 .insertControlMessage(
                     db,
                     threadVariant: threadVariant,
-                    authorId: getUserSessionId(db, using: dependencies).hexString,
+                    authorId: dependencies[cache: .general].sessionId.hexString,
                     timestampMs: currentOffsetTimestampMs,
                     serverHash: nil,
                     serverExpirationTimestamp: nil,
@@ -571,7 +577,7 @@ class ThreadDisappearingMessagesSettingsViewModel: SessionTableViewModel, Naviga
                             sentTimestamp: UInt64(currentOffsetTimestampMs),
                             authMethod: try Authentication.with(
                                 db,
-                                sessionIdHexString: threadId,
+                                swarmPublicKey: threadId,
                                 using: dependencies
                             ),
                             using: dependencies
@@ -603,7 +609,7 @@ class ThreadDisappearingMessagesSettingsViewModel: SessionTableViewModel, Naviga
         }
         
         // Contacts & legacy closed groups need to update the LibSession
-        dependencies[singleton: .storage].writeAsync(using: dependencies) { [threadId, threadVariant, dependencies] db in
+        dependencies[singleton: .storage].writeAsync { [threadId, threadVariant, dependencies] db in
             switch threadVariant {
                 case .contact:
                     try LibSession
@@ -624,7 +630,7 @@ class ThreadDisappearingMessagesSettingsViewModel: SessionTableViewModel, Naviga
                         )
                     
                 case .group:
-                    try SessionUtil
+                    try LibSession
                         .update(
                             db,
                             groupSessionId: SessionId(.group, hex: threadId),

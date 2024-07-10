@@ -7,7 +7,6 @@ import YYImage
 import NVActivityIndicatorView
 import SessionUIKit
 import SessionMessagingKit
-import SignalCoreKit
 import SessionUtilitiesKit
 
 public class MediaMessageView: UIView {
@@ -72,19 +71,19 @@ public class MediaMessageView: UIView {
 
     @available(*, unavailable, message:"use other constructor instead.")
     required public init?(coder aDecoder: NSCoder) {
-        notImplemented()
+        fatalError("init(coder:) has not been implemented")
     }
 
     // Currently we only use one mode (AttachmentApproval), so we could simplify this class, but it's kind
     // of nice that it's written in a flexible way in case we'd want to use it elsewhere again in the future.
     public required init(attachment: SignalAttachment, mode: MediaMessageView.Mode, using dependencies: Dependencies) {
-        if attachment.hasError { owsFailDebug(attachment.error.debugDescription) }
+        if attachment.hasError { Log.error("[MediaMessageView] \(attachment.error.debugDescription)") }
         
         self.attachment = attachment
         self.mode = mode
         
         // Set the linkPreviewUrl if it's a url
-        if attachment.isUrl, let linkPreviewURL: String = LinkPreview.previewUrl(for: attachment.text()) {
+        if attachment.isUrl, let linkPreviewURL: String = LinkPreview.previewUrl(for: attachment.text(), using: dependencies) {
             self.linkPreviewInfo = (url: linkPreviewURL, draft: nil)
         }
         

@@ -2,7 +2,6 @@
 
 import UIKit
 import SessionUIKit
-import SignalCoreKit
 import SessionUtilitiesKit
 
 public protocol ImageEditorCropViewControllerDelegate: AnyObject {
@@ -49,7 +48,7 @@ class ImageEditorCropViewController: OWSViewController {
 
         @available(*, unavailable, message: "use other init() instead.")
         required public init?(coder aDecoder: NSCoder) {
-            notImplemented()
+            fatalError("init(coder:) has not been implemented")
         }
     }
 
@@ -76,7 +75,7 @@ class ImageEditorCropViewController: OWSViewController {
 
     @available(*, unavailable, message: "use other init() instead.")
     required public init?(coder aDecoder: NSCoder) {
-        notImplemented()
+        fatalError("init(coder:) has not been implemented")
     }
 
     // MARK: - View Lifecycle
@@ -202,7 +201,7 @@ class ImageEditorCropViewController: OWSViewController {
             case .topRight, .bottomRight:
                 cropCornerView.pin(.right, to: .right, of: cropView)
             default:
-                owsFailDebug("Invalid crop region: \(String(describing: cropRegion))")
+                Log.error("[ImageEditorCropViewController] Invalid crop region: \(String(describing: cropRegion))")
             }
             switch cropCornerView.cropRegion {
             case .topLeft, .topRight:
@@ -210,7 +209,7 @@ class ImageEditorCropViewController: OWSViewController {
             case .bottomLeft, .bottomRight:
                 cropCornerView.pin(.bottom, to: .bottom, of: cropView)
             default:
-                owsFailDebug("Invalid crop region: \(String(describing: cropRegion))")
+                Log.error("[ImageEditorCropViewController] Invalid crop region: \(String(describing: cropRegion))")
             }
         }
 
@@ -239,7 +238,7 @@ class ImageEditorCropViewController: OWSViewController {
 
     private func updateCropLockButton() {
         guard let cropLockButton = cropLockButton else {
-            owsFailDebug("Missing cropLockButton")
+            Log.error("[ImageEditorCropViewController] Missing cropLockButton")
             return
         }
         cropLockButton.setImage(imageName: (isCropLocked
@@ -329,7 +328,7 @@ class ImageEditorCropViewController: OWSViewController {
                         CGPoint(x: shapeFrame.width, y: cornerThickness)
                         ])
                 default:
-                    owsFailDebug("Invalid crop region: \(cropCornerView.cropRegion)")
+                    Log.error("[ImageEditorCropViewController] Invalid crop region: \(cropCornerView.cropRegion)")
                 }
 
                 shapeLayer.path = bezierPath.cgPath
@@ -360,9 +359,7 @@ class ImageEditorCropViewController: OWSViewController {
     }
 
     internal func updateContent() {
-        AssertIsOnMainThread()
-
-        Logger.verbose("")
+        Log.assertOnMainThread()
 
         let viewSize = croppedContentView.bounds.size
         guard viewSize.width > 0,
@@ -444,9 +441,7 @@ class ImageEditorCropViewController: OWSViewController {
 
     @objc
     public func handlePinchGesture(_ gestureRecognizer: ImageEditorPinchGestureRecognizer) {
-        AssertIsOnMainThread()
-
-        Logger.verbose("")
+        Log.assertOnMainThread()
 
         // We could undo an in-progress pinch if the gesture is cancelled, but it seems gratuitous.
 
@@ -455,7 +450,7 @@ class ImageEditorCropViewController: OWSViewController {
             gestureStartTransform = transform
         case .changed, .ended:
             guard let gestureStartTransform = gestureStartTransform else {
-                owsFailDebug("Missing pinchTransform.")
+                Log.error("[ImageEditorCropViewController] Missing pinchTransform.")
                 return
             }
 
@@ -471,7 +466,7 @@ class ImageEditorCropViewController: OWSViewController {
             // NOTE: We use max(1, ...) to avoid divide-by-zero.
             //
             // TODO: The clamp limits are wrong.
-            let newScaling = 
+            let newScaling =
                 (gestureStartTransform.scaling * gestureRecognizer.pinchStateLast.distance / max(1.0, gestureRecognizer.pinchStateStart.distance))
                 .clamp(ImageEditorTextItem.kMinScaling, ImageEditorTextItem.kMaxScaling)
 
@@ -499,16 +494,14 @@ class ImageEditorCropViewController: OWSViewController {
 
     @objc
     public func handlePanGesture(_ gestureRecognizer: ImageEditorPanGestureRecognizer) {
-        AssertIsOnMainThread()
-
-        Logger.verbose("")
-
+        Log.assertOnMainThread()
+        
         // We could undo an in-progress pinch if the gesture is cancelled, but it seems gratuitous.
 
         // Handle the GR if necessary.
         switch gestureRecognizer.state {
         case .began:
-            Logger.verbose("began: \(transform.unitTranslation)")
+            Log.verbose("[ImageEditorCropViewController] began: \(transform.unitTranslation)")
             gestureStartTransform = transform
             // Pans that start near the crop rectangle should be treated as crop gestures.
             panCropRegion = cropRegion(forGestureRecognizer: gestureRecognizer)
@@ -542,14 +535,11 @@ class ImageEditorCropViewController: OWSViewController {
         }
     }
 
-    private func handleCropPanGesture(_ gestureRecognizer: ImageEditorPanGestureRecognizer,
-                                      panCropRegion: CropRegion) {
-        AssertIsOnMainThread()
-
-        Logger.verbose("")
+    private func handleCropPanGesture(_ gestureRecognizer: ImageEditorPanGestureRecognizer, panCropRegion: CropRegion) {
+        Log.assertOnMainThread()
 
         guard let locationStart = gestureRecognizer.locationFirst else {
-            owsFailDebug("Missing locationStart.")
+            Log.error("[ImageEditorCropViewController] Missing locationStart.")
             return
         }
         let locationNow = gestureRecognizer.location(in: self.clipView)
@@ -716,14 +706,14 @@ class ImageEditorCropViewController: OWSViewController {
     }
 
     private func handleNormalPanGesture(_ gestureRecognizer: ImageEditorPanGestureRecognizer) {
-        AssertIsOnMainThread()
+        Log.assertOnMainThread()
 
         guard let gestureStartTransform = gestureStartTransform else {
-            owsFailDebug("Missing pinchTransform.")
+            Log.error("[ImageEditorCropViewController] Missing pinchTransform.")
             return
         }
         guard let oldLocationView = gestureRecognizer.locationFirst else {
-            owsFailDebug("Missing locationStart.")
+            Log.error("[ImageEditorCropViewController] Missing locationStart.")
             return
         }
 
@@ -742,7 +732,7 @@ class ImageEditorCropViewController: OWSViewController {
 
     private func cropRegion(forGestureRecognizer gestureRecognizer: ImageEditorPanGestureRecognizer) -> CropRegion? {
         guard let location = gestureRecognizer.locationFirst else {
-            owsFailDebug("Missing locationStart.")
+            Log.error("[ImageEditorCropViewController] Missing locationStart.")
             return nil
         }
 
@@ -823,8 +813,6 @@ class ImageEditorCropViewController: OWSViewController {
     }
 
     @objc func didTapReset(sender: UIButton) {
-        Logger.verbose("")
-
         updateTransform(ImageEditorTransform.defaultTransform(srcImageSizePixels: model.srcImageSizePixels))
     }
 

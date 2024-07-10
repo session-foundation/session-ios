@@ -9,6 +9,7 @@ import SessionUIKit
 import SessionUtilitiesKit
 
 final class OpenGroupSuggestionGrid: UIView, UICollectionViewDataSource, UICollectionViewDelegateFlowLayout {
+    private let dependencies: Dependencies
     private let itemsPerSection: Int = (UIDevice.current.isIPad ? 4 : 2)
     private var maxWidth: CGFloat
     private var data: [OpenGroupManager.DefaultRoomInfo] = [] {
@@ -110,7 +111,8 @@ final class OpenGroupSuggestionGrid: UIView, UICollectionViewDataSource, UIColle
     
     // MARK: - Initialization
     
-    init(maxWidth: CGFloat) {
+    init(maxWidth: CGFloat, using dependencies: Dependencies) {
+        self.dependencies = dependencies
         self.maxWidth = maxWidth
         
         super.init(frame: CGRect.zero)
@@ -156,7 +158,7 @@ final class OpenGroupSuggestionGrid: UIView, UICollectionViewDataSource, UIColle
         heightConstraint = set(.height, to: OpenGroupSuggestionGrid.cellHeight)
         widthAnchor.constraint(greaterThanOrEqualToConstant: OpenGroupSuggestionGrid.cellHeight).isActive = true
         
-        OpenGroupManager.getDefaultRoomsIfNeeded()
+        dependencies[singleton: .openGroupManager].getDefaultRoomsIfNeeded()
             .subscribe(on: DispatchQueue.global(qos: .default))
             .receive(on: DispatchQueue.main)
             .sinkUntilComplete(
@@ -172,13 +174,10 @@ final class OpenGroupSuggestionGrid: UIView, UICollectionViewDataSource, UIColle
     
     // MARK: - Updating
     
-    private func startObservingRoomChanges(
-        for openGroupIds: Set<String>,
-        using dependenices: Dependencies = Dependencies()
-    ) {
+    private func startObservingRoomChanges(for openGroupIds: Set<String>) {
         // We don't actually care about the updated data as the 'update' function has the logic
         // to fetch any newly downloaded images
-        dataChangeObservable = dependenices[singleton: .storage].start(
+        dataChangeObservable = dependencies[singleton: .storage].start(
             ValueObservation
                 .tracking(
                     regions: [
@@ -246,7 +245,7 @@ final class OpenGroupSuggestionGrid: UIView, UICollectionViewDataSource, UIColle
     
     func collectionView(_ collectionView: UICollectionView, cellForItemAt indexPath: IndexPath) -> UICollectionViewCell {
         let cell: Cell = collectionView.dequeue(type: Cell.self, for: indexPath)
-        cell.update(with: data[indexPath.item].room, openGroup: data[indexPath.item].openGroup)
+        cell.update(with: data[indexPath.item].room, openGroup: data[indexPath.item].openGroup, using: dependencies)
         
         return cell
     }
@@ -354,10 +353,10 @@ extension OpenGroupSuggestionGrid {
             snContentView.pin(to: self)
         }
         
-        fileprivate func update(with room: OpenGroupAPI.Room, openGroup: OpenGroup) {
+        fileprivate func update(with room: OpenGroupAPI.Room, openGroup: OpenGroup, using dependencies: Dependencies) {
             label.text = room.name
             imageView.image = DisplayPictureManager
-                .displayPicture(owner: .community(openGroup))
+                .displayPicture(owner: .community(openGroup), using: dependencies)
                 .map { UIImage(data: $0) }
             imageView.isHidden = (imageView.image == nil)
         }

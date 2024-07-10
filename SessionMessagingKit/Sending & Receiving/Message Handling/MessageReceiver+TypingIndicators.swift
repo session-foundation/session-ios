@@ -16,7 +16,7 @@ extension MessageReceiver {
         
         switch message.kind {
             case .started:
-                let currentUserSessionId: SessionId = getUserSessionId(db, using: dependencies)
+                let currentUserSessionId: SessionId = dependencies[cache: .general].sessionId
                 let threadIsBlocked: Bool = (
                     threadVariant == .contact &&
                     (try? Contact
@@ -34,7 +34,7 @@ extension MessageReceiver {
                     ))
                     .isEmpty(db))
                     .defaulting(to: false)
-                let needsToStartTypingIndicator: Bool = TypingIndicators.didStartTypingNeedsToStart(
+                let needsToStartTypingIndicator: Bool = dependencies[singleton: .typingIndicators].didStartTypingNeedsToStart(
                     threadId: threadId,
                     threadVariant: threadVariant,
                     threadIsBlocked: threadIsBlocked,
@@ -44,11 +44,11 @@ extension MessageReceiver {
                 )
                 
                 if needsToStartTypingIndicator {
-                    TypingIndicators.start(db, threadId: threadId, direction: .incoming)
+                    dependencies[singleton: .typingIndicators].start(db, threadId: threadId, direction: .incoming)
                 }
                 
             case .stopped:
-                TypingIndicators.didStopTyping(db, threadId: threadId, direction: .incoming)
+                dependencies[singleton: .typingIndicators].didStopTyping(db, threadId: threadId, direction: .incoming)
             
             default:
                 SNLog("Unknown TypingIndicator Kind ignored")

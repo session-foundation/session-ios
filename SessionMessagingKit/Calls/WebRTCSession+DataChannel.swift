@@ -19,7 +19,7 @@ extension WebRTCSession: RTCDataChannelDelegate {
         return dataChannel
     }
     
-    public func sendJSON(_ json: JSON) {
+    public func sendJSON(_ json: [String: Any]) {
         if let dataChannel = self.dataChannel, let jsonAsData = try? JSONSerialization.data(withJSONObject: json, options: [ .fragmentsAllowed ]) {
             SNLog("[Calls] Send json to data channel")
             let dataBuffer = RTCDataBuffer(data: jsonAsData, isBinary: false)
@@ -36,7 +36,7 @@ extension WebRTCSession: RTCDataChannelDelegate {
     }
     
     public func dataChannel(_ dataChannel: RTCDataChannel, didReceiveMessageWith buffer: RTCDataBuffer) {
-        if let json = try? JSONSerialization.jsonObject(with: buffer.data, options: [ .fragmentsAllowed ]) as? JSON {
+        if let json: [String: Any] = try? JSONSerialization.jsonObject(with: buffer.data, options: [ .fragmentsAllowed ]) as? [String: Any] {
             SNLog("[Calls] Data channel did receive data: \(json)")
             if let isRemoteVideoEnabled = json["video"] as? Bool {
                 delegate?.isRemoteVideoDidChange(isEnabled: isRemoteVideoEnabled)

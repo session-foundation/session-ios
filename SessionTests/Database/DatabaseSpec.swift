@@ -30,7 +30,7 @@ class DatabaseSpec: QuickSpec {
                 cache.when { $0.sessionId }.thenReturn(SessionId(.standard, hex: TestConstants.publicKey))
             }
         )
-        @TestState(cache: .sessionUtil, in: dependencies) var sessionUtilCache: SessionUtil.Cache! = SessionUtil.Cache()
+        @TestState(cache: .libSession, in: dependencies) var libSessionCache: LibSession.Cache! = LibSession.Cache()
         @TestState var initialResult: Result<Void, Error>! = nil
         @TestState var finalResult: Result<Void, Error>! = nil
         
@@ -63,7 +63,7 @@ class DatabaseSpec: QuickSpec {
             beforeEach {
                 // FIXME: These should be mocked out instead of set this way
                 dependencies.caches.mutate(cache: .general) { $0.encodedPublicKey = "05\(TestConstants.publicKey)" }
-                LibSession.clearMemoryState()
+                LibSession.clearMemoryState(using: dependencies)
             }
             
             // MARK: -- can be created from an empty state
@@ -276,12 +276,24 @@ private class MigrationTest {
     
     static func handleRequirements(_ db: Database, requirement: MigrationRequirement, using dependencies: Dependencies) {
         switch requirement {
-            case .sessionUtilStateLoaded:
+            case .sessionIdCached:
+                guard Identity.userExists(db, using: dependencies) else { return }
+                
+                // Warm the general cache (will cache the users session id so we don't need to fetch it from
+                // the database every time)
+                dependencies.warmCache(cache: .general)
+            
+            case .libSessionStateLoaded:
                 guard Identity.userExists(db, using: dependencies) else { return }
                 
                 // After the migrations have run but before the migration completion we load the
                 // SessionUtil state
-                SessionUtil.loadState(db, using: dependencies)
+                let cache: LibSession.Cache = LibSession.Cache(
+                    userSessionId: dependencies[cache: .general].sessionId,
+                    using: dependencies
+                )
+                cache.loadState(db)
+                dependencies.set(cache: .libSession, to: cache)
         }
     }
     
@@ -341,10 +353,10 @@ private class MigrationTest {
                     // If there is an 'Identity' table then insert "proper" identity info (otherwise mock
                     // data might get deleted as invalid in libSession migrations)
                     try [
-                        Identity(variant: .x25519PublicKey, data: Data.data(fromHex: TestConstants.publicKey)!),
-                        Identity(variant: .x25519PrivateKey, data: Data.data(fromHex: TestConstants.privateKey)!),
-                        Identity(variant: .ed25519PublicKey, data: Data.data(fromHex: TestConstants.edPublicKey)!),
-                        Identity(variant: .ed25519SecretKey, data: Data.data(fromHex: TestConstants.edSecretKey)!)
+                        Identity(variant: .x25519PublicKey, data: Data(hex: TestConstants.publicKey)),
+                        Identity(variant: .x25519PrivateKey, data: Data(hex: TestConstants.privateKey)),
+                        Identity(variant: .ed25519PublicKey, data: Data(hex: TestConstants.edPublicKey)),
+                        Identity(variant: .ed25519SecretKey, data: Data(hex: TestConstants.edSecretKey))
                     ].forEach { try $0.insert(db) }
                     
                 case JobDependencies.databaseTableName:
