@@ -7,21 +7,6 @@ import Combine
 import SessionUtil
 import SessionUtilitiesKit
 
-public extension Network.RequestType {
-    // FIXME: Clean up the network/libSession injection interface
-    static func downloadFile(
-        from destination: Network.Destination
-    ) -> Network.RequestType<Data> {
-        return Network.RequestType(
-            id: "downloadFile",
-            url: "\(destination)",
-            args: [destination]
-        ) { _ in
-            LibSession.downloadFile(from: destination).eraseToAnyPublisher()
-        }
-    }
-}
-
 // MARK: - LibSession
 
 public extension LibSession {
@@ -84,6 +69,10 @@ public extension LibSession {
         
         public func addUnsafePointerToCleanup<T>(_ pointer: UnsafePointer<T>?) {
             pointersToDeallocate.append(UnsafeRawPointer(pointer))
+        }
+        
+        public func run(_ output: Output) {
+            resultPublisher.send(output)
         }
     }
     
@@ -216,7 +205,6 @@ public extension LibSession {
     static func sendRequest<T: Encodable>(
         to destination: Network.Destination,
         body: T?,
-        swarmPublicKey: String?,
         timeout: TimeInterval,
         using dependencies: Dependencies
     ) -> AnyPublisher<(ResponseInfoType, Data?), Error> {

@@ -16,6 +16,10 @@ internal struct NoopSessionCallManager: CallManagerProtocol {
     func endCall(_ call: CurrentCallProtocol?, completion: ((Error?) -> Void)?) {}
 
     func showCallUIForCall(caller: String, uuid: String, mode: CallMode, interactionId: Int64?) {}
+    func handleICECandidates(message: CallMessage, sdpMLineIndexes: [UInt32], sdpMids: [String]) {}
     func handleAnswerMessage(_ message: CallMessage) {}
+    
+    func currentWebRTCSessionMatches(callId: String) -> Bool { return false }
+    
     func dismissAllCallUI() {}
 }

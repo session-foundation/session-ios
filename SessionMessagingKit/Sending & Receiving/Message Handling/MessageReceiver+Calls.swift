@@ -24,19 +24,11 @@ extension MessageReceiver {
             case .provisionalAnswer: break // TODO: Implement
                 
             case let .iceCandidates(sdpMLineIndexes, sdpMids):
-                guard let currentWebRTCSession = WebRTCSession.current, currentWebRTCSession.uuid == message.uuid else {
-                    return
-                }
-                var candidates: [RTCIceCandidate] = []
-                let sdps = message.sdps
-                for i in 0..<sdps.count {
-                    let sdp = sdps[i]
-                    let sdpMLineIndex = sdpMLineIndexes[i]
-                    let sdpMid = sdpMids[i]
-                    let candidate = RTCIceCandidate(sdp: sdp, sdpMLineIndex: Int32(sdpMLineIndex), sdpMid: sdpMid)
-                    candidates.append(candidate)
-                }
-                currentWebRTCSession.handleICECandidates(candidates)
+                dependencies[singleton: .callManager].handleICECandidates(
+                    message: message,
+                    sdpMLineIndexes: sdpMLineIndexes,
+                    sdpMids: sdpMids
+                )
                 
             case .endCall: MessageReceiver.handleEndCallMessage(db, message: message, using: dependencies)
         }
@@ -165,8 +157,7 @@ extension MessageReceiver {
         SNLog("[Calls] Received answer message.")
         
         guard
-            let currentWebRTCSession: WebRTCSession = WebRTCSession.current,
-            currentWebRTCSession.uuid == message.uuid,
+            dependencies[singleton: .callManager].currentWebRTCSessionMatches(callId: message.uuid),
             var currentCall: CurrentCallProtocol = dependencies[singleton: .callManager].currentCall,
             currentCall.uuid == message.uuid,
             let sender: String = message.sender
@@ -195,8 +186,8 @@ extension MessageReceiver {
         SNLog("[Calls] Received end call message.")
         
         guard
-            WebRTCSession.current?.uuid == message.uuid,
-            let currentCall: CurrentCallProtocol = dependencies[singleton: .callManager].currentCall,
+            dependencies[singleton: .callManager].currentWebRTCSessionMatches(callId: message.uuid),
+            var currentCall: CurrentCallProtocol = dependencies[singleton: .callManager].currentCall,
             currentCall.uuid == message.uuid,
             let sender: String = message.sender
         else { return }

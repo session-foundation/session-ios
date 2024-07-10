@@ -74,6 +74,9 @@ public struct Request<T: Encodable, Endpoint: EndpointType> {
                 
             case let bodyBytes as [UInt8]:
                 return Data(bodyBytes)
+            
+            case let bodyDirectData as Data:
+                return bodyDirectData
                 
             case let bodyDirectData as Data:
                 return bodyDirectData

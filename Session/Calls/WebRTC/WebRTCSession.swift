@@ -4,8 +4,9 @@ import Foundation
 import Combine
 import GRDB
 import WebRTC
-import SessionUtilitiesKit
 import SessionSnodeKit
+import SessionMessagingKit
+import SessionUtilitiesKit
 
 public protocol WebRTCSessionDelegate: AnyObject {
     var videoCapturer: RTCVideoCapturer { get }
@@ -27,7 +28,7 @@ public final class WebRTCSession : NSObject, RTCPeerConnectionDelegate {
     private var iceCandidateSendTimer: Timer?
     
     private lazy var defaultICEServer: TurnServerInfo? = {
-        let url = Bundle.main.url(forResource: "Session-Turn-Server", withExtension: nil)!
+        let url = Bundle.main.url(forResource: "Session-Turn-Server", withExtension: nil)!  // stringlint:disable
         let data = try! Data(contentsOf: url)
         let json = try! JSONSerialization.jsonObject(with: data, options: [ .fragmentsAllowed ]) as! JSON
         return TurnServerInfo(attributes: json, random: 2)

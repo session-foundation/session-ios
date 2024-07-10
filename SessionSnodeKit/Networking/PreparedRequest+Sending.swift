@@ -7,7 +7,7 @@ import SessionUtilitiesKit
 public extension Network.PreparedRequest {
     func send(using dependencies: Dependencies) -> AnyPublisher<(ResponseInfoType, R), Error> {
         return dependencies[singleton: .network]
-            .send(body, to: destination, timeout: timeout, using: dependencies)
+            .send(body, to: destination, timeout: timeout)
             .decoded(with: self, using: dependencies)
             .retry(retryCount, using: dependencies)
             .handleEvents(

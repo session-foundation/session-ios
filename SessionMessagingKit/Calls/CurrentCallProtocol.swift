@@ -8,7 +8,6 @@ import SessionUtilitiesKit
 public protocol CurrentCallProtocol {
     var uuid: String { get }
     var callId: UUID { get }
-    var webRTCSession: WebRTCSession { get }
     var hasStartedConnecting: Bool { get set }
     var hasEnded: Bool { get set }
     

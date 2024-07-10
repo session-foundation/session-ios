@@ -3,6 +3,7 @@
 import UIKit
 import CallKit
 import GRDB
+import WebRTC
 import SessionUIKit
 import SessionMessagingKit
 import SignalUtilitiesKit
@@ -181,9 +182,16 @@ public final class SessionCallManager: NSObject, CallManagerProtocol {
             call.updateCallMessage(mode: .local, using: dependencies)
         }
         
-        call.webRTCSession.dropConnection()
+        (call as? SessionCall)?.webRTCSession.dropConnection()
         self.currentCall = nil
         handleCallEnded()
+    }
+    
+    public func currentWebRTCSessionMatches(callId: String) -> Bool {
+        return (
+            WebRTCSession.current != nil &&
+            WebRTCSession.current?.uuid == callId
+        )
     }
     
     // MARK: - Util
@@ -252,6 +260,24 @@ public final class SessionCallManager: NSObject, CallManagerProtocol {
                 }
             }
         }
+    }
+    
+    public func handleICECandidates(message: CallMessage, sdpMLineIndexes: [UInt32], sdpMids: [String]) {
+        guard
+            let currentWebRTCSession = WebRTCSession.current,
+            currentWebRTCSession.uuid == message.uuid
+        else { return }
+        
+        var candidates: [RTCIceCandidate] = []
+        let sdps = message.sdps
+        for i in 0..<sdps.count {
+            let sdp = sdps[i]
+            let sdpMLineIndex = sdpMLineIndexes[i]
+            let sdpMid = sdpMids[i]
+            let candidate = RTCIceCandidate(sdp: sdp, sdpMLineIndex: Int32(sdpMLineIndex), sdpMid: sdpMid)
+            candidates.append(candidate)
+        }
+        currentWebRTCSession.handleICECandidates(candidates)
     }
     
     public func handleAnswerMessage(_ message: CallMessage) {

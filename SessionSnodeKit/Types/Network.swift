@@ -66,7 +66,7 @@ public extension Network {
                 guard body != nil else { return Fail(error: NetworkError.invalidPreparedRequest).eraseToAnyPublisher() }
                 
                 return LibSession.getSwarm(for: swarmPublicKey, using: dependencies)
-                    .tryFlatMapWithRandomSnode(retry: retryCount, using: dependencies) { snode in
+                    .tryFlatMapWithRandomSnode(retry: retryCount, using: dependencies) { [dependencies] snode in
                         LibSession.sendRequest(
                             to: .snode(snode, swarmPublicKey: swarmPublicKey),
                             body: body,
@@ -79,7 +79,7 @@ public extension Network {
                 guard body != nil else { return Fail(error: NetworkError.invalidPreparedRequest).eraseToAnyPublisher() }
                 
                 return LibSession.getSwarm(for: swarmPublicKey, using: dependencies)
-                    .tryFlatMapWithRandomSnode(retry: retryCount, using: dependencies) { snode in
+                    .tryFlatMapWithRandomSnode(retry: retryCount, using: dependencies) { [dependencies] snode in
                         try SnodeAPI
                             .preparedGetNetworkTime(from: snode, using: dependencies)
                             .send(using: dependencies)
