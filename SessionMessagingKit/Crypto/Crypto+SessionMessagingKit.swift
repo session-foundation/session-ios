@@ -26,6 +26,9 @@ public extension Crypto.Generator {
             let destinationX25519PublicKey: Data = try {
                 switch destination {
                     case .contact(let publicKey): return Data(SessionId(.standard, hex: publicKey).publicKey)
+                    case .syncMessage:
+                        return Data(SessionId(.standard, hex: getUserHexEncodedPublicKey(using: dependencies)).publicKey)
+                    
                     case .closedGroup(let groupPublicKey):
                         return try ClosedGroupKeyPair.fetchLatestKeyPair(db, threadId: groupPublicKey)?.publicKey ?? {
                             throw MessageSenderError.noKeyPair
