@@ -162,7 +162,7 @@ public class SessionHostingViewController<Content>: UIHostingController<Modified
                 title: "warning".localized(),
                 body: .text("onboardingBackAccountCreation".localized()),
                 confirmTitle: "quitButton".localized(),
-                confirmAccessibility: Accessibility(identifier: "Confirm quit"),
+                confirmAccessibility: Accessibility(identifier: "Quit"),
                 confirmStyle: .danger,
                 cancelStyle: .textPrimary,
                 onConfirm: { [weak self] confirmationModal in
