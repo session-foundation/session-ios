@@ -143,8 +143,8 @@ struct EnterAccountIdScreen: View {
                 placeholder: "accountIdOrOnsEnter".localized(),
                 error: $error, 
                 accessibility: Accessibility(
-                    identifier: "Session ID input box",
-                    label: "Session ID input box"
+                    identifier: "Session id input box",
+                    label: "Session id input box"
                 )
             ) {
                 ZStack {
