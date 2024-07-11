@@ -2342,15 +2342,19 @@ extension ConversationVC:
                             receiveCompletion: { result in
                                 switch result {
                                     case .finished:
-                                        self?.viewModel.showToast(
-                                            text: "banUserBanned".localized(),
-                                            backgroundColor: .backgroundSecondary
-                                        )
+                                        DispatchQueue.main.async { [weak self] in
+                                            self?.viewModel.showToast(
+                                                text: "banUserBanned".localized(),
+                                                backgroundColor: .backgroundSecondary
+                                            )
+                                        }
                                     case .failure:
-                                        self?.viewModel.showToast(
-                                            text: "banErrorFailed".localized(),
-                                            backgroundColor: .backgroundSecondary
-                                        )
+                                        DispatchQueue.main.async { [weak self] in
+                                            self?.viewModel.showToast(
+                                                text: "banErrorFailed".localized(),
+                                                backgroundColor: .backgroundSecondary
+                                            )
+                                        }
                                 }
                             }
                         )
@@ -2397,15 +2401,19 @@ extension ConversationVC:
                             receiveCompletion: { result in
                                 switch result {
                                     case .finished:
-                                        self?.viewModel.showToast(
-                                            text: "banUserBanned".localized(),
-                                            backgroundColor: .backgroundSecondary
-                                        )
+                                        DispatchQueue.main.async { [weak self] in
+                                            self?.viewModel.showToast(
+                                                text: "banUserBanned".localized(),
+                                                backgroundColor: .backgroundSecondary
+                                            )
+                                        }
                                     case .failure:
-                                        self?.viewModel.showToast(
-                                            text: "banErrorFailed".localized(),
-                                            backgroundColor: .backgroundSecondary
-                                        )
+                                        DispatchQueue.main.async { [weak self] in
+                                            self?.viewModel.showToast(
+                                                text: "banErrorFailed".localized(),
+                                                backgroundColor: .backgroundSecondary
+                                            )
+                                        }
                                 }
                             }
                         )
