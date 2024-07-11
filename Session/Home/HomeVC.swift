@@ -488,8 +488,6 @@ public final class HomeVC: BaseVC, LibSessionRespondingViewController, UITableVi
     }
     
     private func updateNavBarButtons(userProfile: Profile) {
-        if let oldView: ProfilePictureView = navBarProfileView { viewModel.dependencies.removeFeatureObserver(oldView) }
-        
         // Profile picture view
         let profilePictureView = ProfilePictureView(size: .navigation)
         profilePictureView.accessibilityIdentifier = "User settings"
@@ -513,12 +511,36 @@ public final class HomeVC: BaseVC, LibSessionRespondingViewController, UITableVi
         profilePictureView.addGestureRecognizer(tapGestureRecognizer)
         
         // Path status indicator
-        let pathStatusView = PathStatusView()
+        let pathStatusView = PathStatusView(using: viewModel.dependencies)
         pathStatusView.accessibilityLabel = "Current onion routing path indicator"
         
-        viewModel.dependencies.addFeatureObserver(profilePictureView, for: .serviceNetwork) { [weak self] updatedValue, _ in
-            self?.updateNavBarButtons(userProfile: userProfile)
-        }
+        viewModel.dependencies.publisher(feature: .serviceNetwork)
+            .subscribe(on: DispatchQueue.global(qos: .background), using: viewModel.dependencies)
+            .receive(on: DispatchQueue.main, using: viewModel.dependencies)
+            .sink(
+                receiveCompletion: { [weak self] _ in
+                    /// If the stream completes it means the network cache was reset in which case we want to
+                    /// re-register for updates in the next run loop (as the new cache should be created by then)
+                    DispatchQueue.main.async {
+                        self?.updateNavBarButtons(userProfile: userProfile)
+                    }
+                },
+                receiveValue: { [weak profilePictureView, dependencies = viewModel.dependencies] value in
+                    profilePictureView?.update(
+                        publicKey: userProfile.id,
+                        threadVariant: .contact,
+                        displayPictureFilename: nil,
+                        profile: userProfile,
+                        profileIcon: (value == .testnet ?
+                            .letter("T") :     // stringlint:disable
+                            .none
+                        ),
+                        additionalProfile: nil,
+                        using: dependencies
+                    )
+                }
+            )
+            .store(in: &profilePictureView.disposables)
         
         // Container view
         let profilePictureViewContainer = UIView()

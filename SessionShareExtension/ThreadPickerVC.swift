@@ -110,8 +110,8 @@ final class ThreadPickerVC: UIViewController, UITableViewDataSource, UITableView
         
         // When the thread picker disappears it means the user has left the screen (this will be called
         // whether the user has sent the message or cancelled sending)
-        LibSession.suspendNetworkAccess()
-        Storage.suspendDatabaseAccess(using: viewModel.dependencies)
+        viewModel.dependencies.mutate(cache: .libSessionNetwork) { $0.suspendNetworkAccess() }
+        viewModel.dependencies[singleton: .storage].suspendDatabaseAccess()
         Log.flush()
     }
     
@@ -249,14 +249,14 @@ final class ThreadPickerVC: UIViewController, UITableViewDataSource, UITableView
         shareNavController?.dismiss(animated: true, completion: nil)
         
         ModalActivityIndicatorViewController.present(fromViewController: shareNavController!, canCancel: false, message: "vc_share_sending_message".localized()) { [dependencies = viewModel.dependencies] activityIndicator in
-            Storage.resumeDatabaseAccess(using: dependencies)
-            LibSession.resumeNetworkAccess()
+            dependencies[singleton: .storage].resumeDatabaseAccess()
+            dependencies.mutate(cache: .libSessionNetwork) { $0.resumeNetworkAccess() }
             
             /// When we prepare the message we set the timestamp to be the `dependencies[cache: .snodeAPI].currentOffsetTimestampMs()`
             /// but won't actually have a value because the share extension won't have talked to a service node yet which can cause
             /// issues with Disappearing Messages, as a result we need to explicitly `getNetworkTime` in order to ensure it's accurate
-            LibSession
-                .getSwarm(for: swarmPublicKey, using: dependencies)
+            dependencies[singleton: .network]
+                .getSwarm(for: swarmPublicKey)
                 .subscribe(on: DispatchQueue.global(qos: .userInitiated))
                 .tryMapWithRandomSnode(using: dependencies) { snode in
                     try SnodeAPI.preparedGetNetworkTime(from: snode, using: dependencies)
@@ -351,8 +351,8 @@ final class ThreadPickerVC: UIViewController, UITableViewDataSource, UITableView
                 .receive(on: DispatchQueue.main)
                 .sinkUntilComplete(
                     receiveCompletion: { [weak self] result in
-                        LibSession.suspendNetworkAccess()
-                        Storage.suspendDatabaseAccess(using: dependencies)
+                        dependencies.mutate(cache: .libSessionNetwork) { $0.suspendNetworkAccess() }
+                        dependencies[singleton: .storage].suspendDatabaseAccess()
                         Log.flush()
                         activityIndicator.dismiss { }
                         

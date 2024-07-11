@@ -31,7 +31,6 @@ public enum SnodeAPIError: Error, CustomStringConvertible {
     case onsValidationFailed
     
     // Quic
-    case invalidNetwork
     case invalidPayload
     case missingSecretKey
     case nodeNotFound(String)
@@ -71,7 +70,6 @@ public enum SnodeAPIError: Error, CustomStringConvertible {
             case .onsValidationFailed: return "ONS name validation failed (SnodeAPIError.onsValidationFailed)."
                 
             // Quic
-            case .invalidNetwork: return "Unable to create network (SnodeAPIError.invalidNetwork)."
             case .invalidPayload: return "Invalid payload (SnodeAPIError.invalidPayload)."
             case .missingSecretKey: return "Missing secret key (SnodeAPIError.missingSecretKey)."
             case .nodeNotFound(let nodePubkey): return "Next node was not found: \(nodePubkey) (SnodeAPIError.nodeNotFound)."

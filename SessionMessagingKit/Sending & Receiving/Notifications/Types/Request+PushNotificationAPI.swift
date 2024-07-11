@@ -8,7 +8,7 @@ import SessionUtilitiesKit
 
 public extension Request where Endpoint == PushNotificationAPI.Endpoint {
     init(
-        method: HTTPMethod = .get,
+        method: HTTPMethod,
         endpoint: Endpoint,
         queryParameters: [HTTPQueryParam: String] = [:],
         headers: [HTTPHeader: String] = [:],
@@ -16,7 +16,6 @@ public extension Request where Endpoint == PushNotificationAPI.Endpoint {
         using dependencies: Dependencies
     ) throws {
         self = Request(
-            method: method,
             endpoint: endpoint,
             destination: try .server(
                 method: method,

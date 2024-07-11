@@ -111,8 +111,10 @@ public class SessionApp: SessionAppType {
     public func resetData(onReset: (() -> ())) {
         homeViewController = nil
         LibSession.clearMemoryState(using: dependencies)
-        LibSession.clearSnodeCache()
-        LibSession.suspendNetworkAccess()
+        dependencies.mutate(cache: .libSessionNetwork) {
+            $0.clearSnodeCache()
+            $0.suspendNetworkAccess()
+        }
         PushNotificationAPI.deleteKeys(using: dependencies)
         Storage.resetAllStorage(using: dependencies)
         DisplayPictureManager.resetStorage(using: dependencies)

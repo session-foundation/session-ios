@@ -11,17 +11,28 @@ import SessionUtilitiesKit
 public extension Singleton {
     static let network: SingletonConfig<NetworkType> = Dependencies.create(
         identifier: "network",
-        createInstance: { dependencies in Network(using: dependencies) }
+        createInstance: { dependencies in LibSessionNetwork(using: dependencies) }
     )
 }
 
 // MARK: - NetworkType
 
 public protocol NetworkType {
-    func send(_ body: Data?, to destination: Network.Destination, timeout: TimeInterval) -> AnyPublisher<(ResponseInfoType, Data?), Error>
+    func getSwarm(for swarmPublicKey: String) -> AnyPublisher<Set<LibSession.Snode>, Error>
+    func getRandomNodes(count: Int) -> AnyPublisher<Set<LibSession.Snode>, Error>
+    
+    func send(
+        _ body: Data?,
+        to destination: Network.Destination,
+        timeout: TimeInterval
+    ) -> AnyPublisher<(ResponseInfoType, Data?), Error>
+    
+    func checkClientVersion(ed25519SecretKey: [UInt8]) -> AnyPublisher<(ResponseInfoType, AppVersionResponse), Error>
 }
 
-public class Network: NetworkType {
+// MARK: - Network Constants
+
+public class Network {
     public static let defaultTimeout: TimeInterval = 10
     public static let fileUploadTimeout: TimeInterval = 60
     public static let fileDownloadTimeout: TimeInterval = 30
@@ -29,87 +40,15 @@ public class Network: NetworkType {
     /// **Note:** The max file size is 10,000,000 bytes (rather than 10MiB which would be `(10 * 1024 * 1024)`), 10,000,000
     /// exactly will be fine but a single byte more will result in an error
     public static let maxFileSize: UInt = 10_000_000
-    
-    private let dependencies: Dependencies
-    
-    // MARK: - Initialization
-    
-    init(using dependencies: Dependencies) {
-        self.dependencies = dependencies
-    }
 }
 
-// MARK: - RequestType
+// MARK: - NetworkStatus
 
-public extension Network {
-    func send(_ body: Data?, to destination: Destination, timeout: TimeInterval) -> AnyPublisher<(ResponseInfoType, Data?), Error> {
-        switch destination {
-            case .server, .serverUpload, .serverDownload, .cached:
-                return LibSession.sendRequest(
-                    to: destination,
-                    body: body,
-                    timeout: timeout,
-                    using: dependencies
-                )
-            
-            case .snode:
-                guard body != nil else { return Fail(error: NetworkError.invalidPreparedRequest).eraseToAnyPublisher() }
-                
-                return LibSession.sendRequest(
-                    to: destination,
-                    body: body,
-                    timeout: timeout,
-                    using: dependencies
-                )
-                
-            case .randomSnode(let swarmPublicKey, let retryCount):
-                guard body != nil else { return Fail(error: NetworkError.invalidPreparedRequest).eraseToAnyPublisher() }
-                
-                return LibSession.getSwarm(for: swarmPublicKey, using: dependencies)
-                    .tryFlatMapWithRandomSnode(retry: retryCount, using: dependencies) { [dependencies] snode in
-                        LibSession.sendRequest(
-                            to: .snode(snode, swarmPublicKey: swarmPublicKey),
-                            body: body,
-                            timeout: timeout,
-                            using: dependencies
-                        )
-                    }
-                
-            case .randomSnodeLatestNetworkTimeTarget(let swarmPublicKey, let retryCount, let bodyWithUpdatedTimestampMs):
-                guard body != nil else { return Fail(error: NetworkError.invalidPreparedRequest).eraseToAnyPublisher() }
-                
-                return LibSession.getSwarm(for: swarmPublicKey, using: dependencies)
-                    .tryFlatMapWithRandomSnode(retry: retryCount, using: dependencies) { [dependencies] snode in
-                        try SnodeAPI
-                            .preparedGetNetworkTime(from: snode, using: dependencies)
-                            .send(using: dependencies)
-                            .tryFlatMap { _, timestampMs in
-                                guard
-                                    let updatedEncodable: Encodable = bodyWithUpdatedTimestampMs(timestampMs, dependencies),
-                                    let updatedBody: Data = try? JSONEncoder(using: dependencies).encode(updatedEncodable)
-                                else { throw NetworkError.invalidPreparedRequest }
-                                
-                                return LibSession
-                                    .sendRequest(
-                                        to: .snode(snode, swarmPublicKey: swarmPublicKey),
-                                        body: updatedBody,
-                                        timeout: timeout,
-                                        using: dependencies
-                                    )
-                                    .map { info, response -> (ResponseInfoType, Data?) in
-                                        (
-                                            SnodeAPI.LatestTimestampResponseInfo(
-                                                code: info.code,
-                                                headers: info.headers,
-                                                timestampMs: timestampMs
-                                            ),
-                                            response
-                                        )
-                                    }
-                            }
-                    }
-        }
-    }
+public enum NetworkStatus {
+    case unknown
+    case connecting
+    case connected
+    case disconnected
 }
 
 // MARK: - FileServer Convenience
@@ -124,6 +63,7 @@ public extension Network {
         public enum Endpoint: EndpointType {
             case file
             case fileIndividual(String)
+            case directUrl(URL)
             case sessionVersion
             
             public static var name: String { "FileServerAPI.Endpoint" }
@@ -132,6 +72,7 @@ public extension Network {
                 switch self {
                     case .file: return "file"
                     case .fileIndividual(let fileId): return "file/\(fileId)"
+                    case .directUrl(let url): return url.path
                     case .sessionVersion: return "session_version"
                 }
             }
@@ -155,7 +96,6 @@ public extension Network {
     ) throws -> PreparedRequest<FileUploadResponse> {
         return try PreparedRequest(
             request: Request(
-                method: .post,
                 endpoint: FileServer.Endpoint.file,
                 destination: .serverUpload(
                     server: FileServer.fileServer,
@@ -177,8 +117,7 @@ public extension Network {
     ) throws -> PreparedRequest<Data> {
         return try PreparedRequest(
             request: Request<NoBody, FileServer.Endpoint>(
-                method: .get,
-                endpoint: FileServer.Endpoint.fileIndividual(""),  // TODO: Is this needed????
+                endpoint: FileServer.Endpoint.directUrl(url),
                 destination: .serverDownload(
                     url: url,
                     x25519PublicKey: FileServer.fileServerPublicKey,

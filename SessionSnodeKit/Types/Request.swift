@@ -31,7 +31,6 @@ public extension EndpointType {
 // MARK: - Request
 
 public struct Request<T: Encodable, Endpoint: EndpointType> {
-    public let method: HTTPMethod
     public let endpoint: Endpoint
     public let destination: Network.Destination
     public let headers: [HTTPHeader: String]
@@ -45,13 +44,11 @@ public struct Request<T: Encodable, Endpoint: EndpointType> {
     // MARK: - Initialization
 
     public init(
-        method: HTTPMethod = .get,
         endpoint: Endpoint,
         destination: Network.Destination,
         headers: [HTTPHeader: String] = [:],
         body: T? = nil
     ) {
-        self.method = method
         self.endpoint = endpoint
         self.destination = destination
         self.headers = headers
@@ -75,9 +72,6 @@ public struct Request<T: Encodable, Endpoint: EndpointType> {
             case let bodyBytes as [UInt8]:
                 return Data(bodyBytes)
             
-            case let bodyDirectData as Data:
-                return bodyDirectData
-                
             case let bodyDirectData as Data:
                 return bodyDirectData
                 

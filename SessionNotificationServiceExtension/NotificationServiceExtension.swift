@@ -55,7 +55,7 @@ public final class NotificationServiceExtension: UNNotificationServiceExtension 
         let isCallOngoing: Bool = dependencies[defaults: .appGroup, key: .isCallOngoing]
 
         // Perform main setup
-        Storage.resumeDatabaseAccess(using: dependencies)
+        dependencies[singleton: .storage].resumeDatabaseAccess()
         DispatchQueue.main.sync { self.setUpIfNecessary() { } }
 
         // Handle the push notification
@@ -267,8 +267,8 @@ public final class NotificationServiceExtension: UNNotificationServiceExtension 
                 dependencies.set(singleton: .notificationsManager, to: NSENotificationPresenter(using: dependencies))
                 
                 // Setup LibSession
-                LibSession.addLogger()
-                LibSession.createNetworkIfNeeded(using: dependencies)
+                LibSession.setupLogger(using: dependencies)
+                dependencies.warmCache(cache: .libSessionNetwork)
                 
                 // Configure the different targets
                 SNUtilitiesKit.configure(maxFileSize: Network.maxFileSize, using: dependencies)
@@ -364,7 +364,7 @@ public final class NotificationServiceExtension: UNNotificationServiceExtension 
         
         Log.info("Complete silently.")
         if !dependencies[defaults: .appGroup, key: .isMainAppActive] {
-            Storage.suspendDatabaseAccess(using: dependencies)
+            dependencies[singleton: .storage].suspendDatabaseAccess()
         }
         Log.flush()
         
@@ -448,7 +448,7 @@ public final class NotificationServiceExtension: UNNotificationServiceExtension 
     private func handleFailure(for content: UNMutableNotificationContent, error: NotificationError) {
         Log.error("Show generic failure message due to error: \(error).")
         if !dependencies[defaults: .appGroup, key: .isMainAppActive] {
-            Storage.suspendDatabaseAccess(using: dependencies)
+            dependencies[singleton: .storage].suspendDatabaseAccess()
         }
         Log.flush()
         

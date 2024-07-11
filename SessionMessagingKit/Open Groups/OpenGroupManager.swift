@@ -15,6 +15,17 @@ public extension Singleton {
     )
 }
 
+// MARK: - Cache
+
+public extension Cache {
+    static let openGroupManager: CacheConfig<OGMCacheType, OGMImmutableCacheType> = Dependencies.create(
+        identifier: "openGroupManager",
+        createInstance: { _ in OpenGroupManager.Cache() },
+        mutableInstance: { $0 },
+        immutableInstance: { $0 }
+    )
+}
+
 // MARK: - OpenGroupManager
 
 public final class OpenGroupManager {
@@ -1127,15 +1138,6 @@ public extension OpenGroupManager {
         
         public var pendingChanges: [OpenGroupAPI.PendingChange] = []
     }
-}
-
-public extension Cache {
-    static let openGroupManager: CacheConfig<OGMCacheType, OGMImmutableCacheType> = Dependencies.create(
-        identifier: "openGroupManager",
-        createInstance: { _ in OpenGroupManager.Cache() },
-        mutableInstance: { $0 },
-        immutableInstance: { $0 }
-    )
 }
 
 // MARK: - OGMCacheType

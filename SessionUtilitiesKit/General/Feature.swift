@@ -62,8 +62,6 @@ public extension FeatureStorage {
 // MARK: - FeatureOption
 
 public protocol FeatureOption: RawRepresentable, CaseIterable, Equatable where RawValue == Int {
-    associatedtype Events: FeatureEvent
-    
     static var defaultOption: Self { get }
     
     var isValidOption: Bool { get }
@@ -73,12 +71,6 @@ public protocol FeatureOption: RawRepresentable, CaseIterable, Equatable where R
 
 public extension FeatureOption {
     var isValidOption: Bool { true }
-}
-
-// MARK: - FeatureEvent
-
-public protocol FeatureEvent: Equatable, Hashable {
-    static var updateValueEvent: Self { get }
 }
 
 // MARK: - FeatureType
@@ -209,12 +201,6 @@ public struct FeatureValue<R> {
 
 extension Bool: FeatureOption {
     public static let allCases: [Bool] = [false, true]
-    
-    public enum Events: FeatureEvent {
-        case updatedFlag
-        
-        public static var updateValueEvent: Events = .updatedFlag
-    }
     
     // MARK: - Initialization
     

@@ -87,6 +87,84 @@ public extension Crypto.Generator {
             )
         }
     }
+    
+    static func ciphertextForGroupMessage(
+        groupSessionId: SessionId,
+        message: [UInt8]
+    ) -> Crypto.Generator<Data> {
+        return Crypto.Generator(
+            id: "ciphertextForGroupMessage",
+            args: [groupSessionId, message]
+        ) { dependencies in
+            return try dependencies[cache: .libSession]
+                .config(for: .groupKeys, sessionId: groupSessionId)
+                .wrappedValue
+                .map { config in
+                    guard case .groupKeys(let conf, _, _) = config else { throw LibSessionError.invalidConfigObject }
+                    
+                    var maybeCiphertext: UnsafeMutablePointer<UInt8>? = nil
+                    var ciphertextLen: Int = 0
+                    groups_keys_encrypt_message(
+                        conf,
+                        message,
+                        message.count,
+                        &maybeCiphertext,
+                        &ciphertextLen
+                    )
+                    
+                    guard
+                        ciphertextLen > 0,
+                        let ciphertext: Data = maybeCiphertext
+                            .map({ Data(bytes: $0, count: ciphertextLen) })
+                    else { throw MessageSenderError.encryptionFailed }
+                    
+                    return ciphertext
+                } ?? { throw MessageSenderError.encryptionFailed }()
+        }
+    }
+    
+    static func plaintextForGroupMessage(
+        groupSessionId: SessionId,
+        ciphertext: [UInt8]
+    ) throws -> Crypto.Generator<(plaintext: Data, sender: String)> {
+        return Crypto.Generator(
+            id: "plaintextForGroupMessage",
+            args: [groupSessionId, ciphertext]
+        ) { dependencies in
+            return try dependencies[cache: .libSession]
+                .config(for: .groupKeys, sessionId: groupSessionId)
+                .wrappedValue
+                .map { config -> (Data, String) in
+                    guard case .groupKeys(let conf, _, _) = config else { throw LibSessionError.invalidConfigObject }
+                    
+                    var cSessionId: [CChar] = [CChar](repeating: 0, count: 67)
+                    var maybePlaintext: UnsafeMutablePointer<UInt8>? = nil
+                    var plaintextLen: Int = 0
+                    let didDecrypt: Bool = groups_keys_decrypt_message(
+                        conf,
+                        ciphertext,
+                        ciphertext.count,
+                        &cSessionId,
+                        &maybePlaintext,
+                        &plaintextLen
+                    )
+                    
+                    // If we got a reported failure then just stop here
+                    guard didDecrypt else { throw MessageReceiverError.decryptionFailed }
+                    
+                    // We need to manually free 'maybePlaintext' upon a successful decryption
+                    defer { maybePlaintext?.deallocate() }
+                    
+                    guard
+                        plaintextLen > 0,
+                        let plaintext: Data = maybePlaintext
+                            .map({ Data(bytes: $0, count: plaintextLen) })
+                    else { throw MessageReceiverError.decryptionFailed }
+                    
+                    return (plaintext, String(cString: cSessionId))
+                } ?? { throw MessageReceiverError.decryptionFailed }()
+        }
+    }
 }
 
 public extension Crypto.Verification {

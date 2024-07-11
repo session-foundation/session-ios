@@ -57,8 +57,8 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
                 dependencies.set(singleton: .callManager, to: SessionCallManager(using: dependencies))
                 
                 // Setup LibSession
-                LibSession.addLogger()
-                LibSession.createNetworkIfNeeded(using: dependencies)
+                LibSession.setupLogger(using: dependencies)
+                dependencies.warmCache(cache: .libSessionNetwork)
                 
                 // Configure the different targets
                 SNUtilitiesKit.configure(maxFileSize: Network.maxFileSize, using: dependencies)
@@ -164,8 +164,8 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
         /// Apple's documentation on the matter)
         UNUserNotificationCenter.current().delegate = self
         
-        Storage.resumeDatabaseAccess(using: dependencies)
-        LibSession.resumeNetworkAccess()
+        dependencies[singleton: .storage].resumeDatabaseAccess()
+        dependencies.mutate(cache: .libSessionNetwork) { $0.resumeNetworkAccess() }
         
         // Reset the 'startTime' (since it would be invalid from the last launch)
         startTime = CACurrentMediaTime()
@@ -229,8 +229,8 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
         // Stop all jobs except for message sending and when completed suspend the database
         dependencies[singleton: .jobRunner].stopAndClearPendingJobs(exceptForVariant: .messageSend) { [dependencies] in
             if !self.hasCallOngoing() {
-                LibSession.suspendNetworkAccess()
-                Storage.suspendDatabaseAccess(using: dependencies)
+                dependencies.mutate(cache: .libSessionNetwork) { $0.suspendNetworkAccess() }
+                dependencies[singleton: .storage].suspendDatabaseAccess()
                 Log.info("[AppDelegate] completed network and database shutdowns.")
                 Log.flush()
             }
@@ -300,8 +300,8 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
     func application(_ application: UIApplication, performFetchWithCompletionHandler completionHandler: @escaping (UIBackgroundFetchResult) -> Void) {
         Log.appResumedExecution()
         Log.info("Starting background fetch.")
-        Storage.resumeDatabaseAccess(using: dependencies)
-        LibSession.resumeNetworkAccess()
+        dependencies[singleton: .storage].resumeDatabaseAccess()
+        dependencies.mutate(cache: .libSessionNetwork) { $0.resumeNetworkAccess() }
         
         // Background tasks only last for a certain amount of time (which can result in a crash and a
         // prompt appearing for the user), we want to avoid this and need to make sure to suspend the
@@ -320,8 +320,8 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
             BackgroundPoller.isValid = false
             
             if dependencies.hasInitialised(singleton: .appContext) && dependencies[singleton: .appContext].isInBackground {
-                LibSession.suspendNetworkAccess()
-                Storage.suspendDatabaseAccess(using: dependencies)
+                dependencies.mutate(cache: .libSessionNetwork) { $0.suspendNetworkAccess() }
+                dependencies[singleton: .storage].suspendDatabaseAccess()
                 Log.flush()
             }
             
@@ -350,8 +350,8 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
                 BackgroundPoller.isValid = false
                 
                 if dependencies.hasInitialised(singleton: .appContext) && dependencies[singleton: .appContext].isInBackground {
-                    LibSession.suspendNetworkAccess()
-                    Storage.suspendDatabaseAccess(using: dependencies)
+                    dependencies.mutate(cache: .libSessionNetwork) { $0.suspendNetworkAccess() }
+                    dependencies[singleton: .storage].suspendDatabaseAccess()
                     Log.flush()
                 }
                 

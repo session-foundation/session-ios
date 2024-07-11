@@ -331,11 +331,11 @@ class SettingsViewModel: SessionTableViewModel, NavigationItemSource, Navigatabl
                 elements: [
                     SessionCell.Info(
                         id: .path,
-                        leadingAccessory: .customView(uniqueId: "PathStatusView") {   // stringlint:disable
+                        leadingAccessory: .customView(uniqueId: "PathStatusView") { [dependencies] in // stringlint:disable
                             // Need to ensure this view is the same size as the icons so
                             // wrap it in a larger view
                             let result: UIView = UIView()
-                            let pathView: PathStatusView = PathStatusView(size: .large)
+                            let pathView: PathStatusView = PathStatusView(size: .large, using: dependencies)
                             result.addSubview(pathView)
                             
                             result.set(.width, to: IconSize.medium.size)

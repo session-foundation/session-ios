@@ -99,10 +99,11 @@ public enum MessageReceiver {
                         
                     case .groupMessages:
                         let plaintextEnvelope: Data
-                        (plaintextEnvelope, sender) = try LibSession.decrypt(
-                            ciphertext: data,
-                            groupSessionId: SessionId(.group, hex: publicKey),
-                            using: dependencies
+                        (plaintextEnvelope, sender) = try dependencies[singleton: .crypto].tryGenerate(
+                            .plaintextForGroupMessage(
+                                groupSessionId: SessionId(.group, hex: publicKey),
+                                ciphertext: Array(data)
+                            )
                         )
                         
                         guard

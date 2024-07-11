@@ -17,6 +17,7 @@ class DeveloperSettingsViewModel: SessionTableViewModel, NavigatableStateHolder,
     public let state: TableDataState<Section, TableItem> = TableDataState()
     public let observableState: ObservableTableSourceState<Section, TableItem> = ObservableTableSourceState()
     
+    private var showAdvancedLogging: Bool = false
     private var databaseKeyEncryptionPassword: String = ""
     
     // MARK: - Initialization
@@ -29,6 +30,7 @@ class DeveloperSettingsViewModel: SessionTableViewModel, NavigatableStateHolder,
     
     public enum Section: SessionTableSection {
         case developerMode
+        case logging
         case network
         case disappearingMessages
         case groups
@@ -37,6 +39,7 @@ class DeveloperSettingsViewModel: SessionTableViewModel, NavigatableStateHolder,
         var title: String? {
             switch self {
                 case .developerMode: return nil
+                case .logging: return "Logging"
                 case .network: return "Network"
                 case .disappearingMessages: return "Disappearing Messages"
                 case .groups: return "Groups"
@@ -52,8 +55,12 @@ class DeveloperSettingsViewModel: SessionTableViewModel, NavigatableStateHolder,
         }
     }
     
-    public enum TableItem: Differentiable, CaseIterable {
+    public enum TableItem: Hashable, Differentiable, CaseIterable {
         case developerMode
+        
+        case defaultLogLevel
+        case advancedLogging
+        case loggingCategory(String)
         
         case serviceNetwork
         case resetSnodeCache
@@ -71,12 +78,80 @@ class DeveloperSettingsViewModel: SessionTableViewModel, NavigatableStateHolder,
         case updatedGroupsAllowInviteById
         
         case exportDatabase
+        
+        // MARK: - Conformance
+        
+        public typealias DifferenceIdentifier = String
+        
+        public var differenceIdentifier: String {
+            switch self {
+                case .developerMode: return "developerMode"
+                case .defaultLogLevel: return "defaultLogLevel"
+                case .advancedLogging: return "advancedLogging"
+                case .loggingCategory(let categoryIdentifier): return "loggingCategory-\(categoryIdentifier)"
+                
+                case .serviceNetwork: return "serviceNetwork"
+                case .resetSnodeCache: return "resetSnodeCache"
+                
+                case .updatedDisappearingMessages: return "updatedDisappearingMessages"
+                case .debugDisappearingMessageDurations: return "debugDisappearingMessageDurations"
+                
+                case .updatedGroups: return "updatedGroups"
+                case .updatedGroupsDisableAutoApprove: return "updatedGroupsDisableAutoApprove"
+                case .updatedGroupsRemoveMessagesOnKick: return "updatedGroupsRemoveMessagesOnKick"
+                case .updatedGroupsAllowHistoricAccessOnInvite: return "updatedGroupsAllowHistoricAccessOnInvite"
+                case .updatedGroupsAllowDisplayPicture: return "updatedGroupsAllowDisplayPicture"
+                case .updatedGroupsAllowDescriptionEditing: return "updatedGroupsAllowDescriptionEditing"
+                case .updatedGroupsAllowPromotions: return "updatedGroupsAllowPromotions"
+                case .updatedGroupsAllowInviteById: return "updatedGroupsAllowInviteById"
+                
+                case .exportDatabase: return "exportDatabase"
+            }
+        }
+        
+        public func isContentEqual(to source: TableItem) -> Bool {
+            self.differenceIdentifier == source.differenceIdentifier
+        }
+        
+        public static var allCases: [TableItem] {
+            var result: [TableItem] = []
+            switch TableItem.developerMode {
+                case .developerMode: result.append(.developerMode); fallthrough
+                case .defaultLogLevel: result.append(.defaultLogLevel); fallthrough
+                case .advancedLogging: result.append(.advancedLogging); fallthrough
+                case .loggingCategory: result.append(.loggingCategory("")); fallthrough
+                
+                case .serviceNetwork: result.append(.serviceNetwork); fallthrough
+                case .resetSnodeCache: result.append(.resetSnodeCache); fallthrough
+                
+                case .updatedDisappearingMessages: result.append(.updatedDisappearingMessages); fallthrough
+                case .debugDisappearingMessageDurations: result.append(.debugDisappearingMessageDurations); fallthrough
+                
+                case .updatedGroups: result.append(.updatedGroups); fallthrough
+                case .updatedGroupsDisableAutoApprove: result.append(.updatedGroupsDisableAutoApprove); fallthrough
+                case .updatedGroupsRemoveMessagesOnKick: result.append(.updatedGroupsRemoveMessagesOnKick); fallthrough
+                case .updatedGroupsAllowHistoricAccessOnInvite:
+                    result.append(.updatedGroupsAllowHistoricAccessOnInvite); fallthrough
+                case .updatedGroupsAllowDisplayPicture: result.append(.updatedGroupsAllowDisplayPicture); fallthrough
+                case .updatedGroupsAllowDescriptionEditing: result.append(.updatedGroupsAllowDescriptionEditing); fallthrough
+                case .updatedGroupsAllowPromotions: result.append(.updatedGroupsAllowPromotions); fallthrough
+                case .updatedGroupsAllowInviteById: result.append(.updatedGroupsAllowInviteById); fallthrough
+                
+                case .exportDatabase: result.append(.exportDatabase)
+            }
+            
+            return result
+        }
     }
     
     // MARK: - Content
     
     private struct State: Equatable {
         let developerMode: Bool
+        
+        let defaultLogLevel: Log.Level
+        let advancedLogging: Bool
+        let loggingCategories: [Log.Category: Log.Level]
         
         let serviceNetwork: ServiceNetwork
         
@@ -96,12 +171,19 @@ class DeveloperSettingsViewModel: SessionTableViewModel, NavigatableStateHolder,
     let title: String = "Developer Settings"
     
     lazy var observation: TargetObservation = ObservationBuilder
-        .refreshableData(self) { [dependencies] () -> State in
+        .refreshableData(self) { [weak self, dependencies] () -> State in
             State(
                 developerMode: dependencies[singleton: .storage, key: .developerModeEnabled],
+                
+                defaultLogLevel: dependencies[feature: .logLevel(cat: .default)],
+                advancedLogging: (self?.showAdvancedLogging == true),
+                loggingCategories: dependencies[feature: .allLogLevels].currentValues(using: dependencies),
+                
                 serviceNetwork: dependencies[feature: .serviceNetwork],
+                
                 debugDisappearingMessageDurations: dependencies[feature: .debugDisappearingMessageDurations],
                 updatedDisappearingMessages: dependencies[feature: .updatedDisappearingMessages],
+                
                 updatedGroups: dependencies[feature: .updatedGroups],
                 updatedGroupsDisableAutoApprove: dependencies[feature: .updatedGroupsDisableAutoApprove],
                 updatedGroupsRemoveMessagesOnKick: dependencies[feature: .updatedGroupsRemoveMessagesOnKick],
@@ -140,6 +222,77 @@ class DeveloperSettingsViewModel: SessionTableViewModel, NavigatableStateHolder,
                         }
                     )
                 ]
+            ),
+            SectionModel(
+                model: .logging,
+                elements: [
+                    SessionCell.Info(
+                        id: .defaultLogLevel,
+                        title: "Default Log Level",
+                        subtitle: """
+                        Sets the default log level
+                        
+                        All logging categories which don't have a custom level set below will use this value
+                        """,
+                        trailingAccessory: .dropDown { current.defaultLogLevel.title },
+                        onTap: { [weak self, dependencies] in
+                            self?.transitionToScreen(
+                                SessionTableViewController(
+                                    viewModel: SessionListViewModel<Log.Level>(
+                                        title: "Default Log Level",
+                                        options: Log.Level.allCases.filter { $0 != .default },
+                                        behaviour: .autoDismiss(
+                                            initialSelection: current.defaultLogLevel,
+                                            onOptionSelected: self?.updateDefaulLogLevel
+                                        ),
+                                        using: dependencies
+                                    )
+                                )
+                            )
+                        }
+                    ),
+                    SessionCell.Info(
+                        id: .advancedLogging,
+                        title: "Advanced Logging",
+                        subtitle: "Show per-category log levels",
+                        trailingAccessory: .toggle(
+                            current.advancedLogging,
+                            oldValue: previous?.advancedLogging
+                        ),
+                        onTap: { [weak self] in
+                            self?.setAdvancedLoggingVisibility(to: !current.advancedLogging)
+                        }
+                    )
+                ].appending(
+                    contentsOf: !current.advancedLogging ? nil : current.loggingCategories
+                        .sorted(by: { lhs, rhs in lhs.key.rawValue < rhs.key.rawValue })
+                        .map { category, level in
+                            SessionCell.Info(
+                                id: .loggingCategory(category.rawValue),
+                                title: category.rawValue,
+                                subtitle: "Sets the log level for the \(category.rawValue) category",
+                                trailingAccessory: .dropDown { level.title },
+                                onTap: { [weak self, dependencies] in
+                                    self?.transitionToScreen(
+                                        SessionTableViewController(
+                                            viewModel: SessionListViewModel<Log.Level>(
+                                                title: "\(category.rawValue) Log Level",
+                                                options: [Log.Level.default]    // Move 'default' to the top
+                                                    .appending(contentsOf: Log.Level.allCases.filter { $0 != .default }),
+                                                behaviour: .autoDismiss(
+                                                    initialSelection: level,
+                                                    onOptionSelected: { updatedLevel in
+                                                        self?.updateLogLevel(of: category, to: updatedLevel)
+                                                    }
+                                                ),
+                                                using: dependencies
+                                            )
+                                        )
+                                    )
+                                }
+                            )
+                        }
+                )
             ),
             SectionModel(
                 model: .network,
@@ -405,9 +558,13 @@ class DeveloperSettingsViewModel: SessionTableViewModel, NavigatableStateHolder,
         /// then we will get a compile error if it doesn't get resetting instructions added)
         TableItem.allCases.forEach { item in
             switch item {
-                case .developerMode: break  // Not a feature
-                case .resetSnodeCache: break  // Not a feature
-                case .exportDatabase: break  // Not a feature
+                case .developerMode: break      // Not a feature
+                case .resetSnodeCache: break    // Not a feature
+                case .exportDatabase: break     // Not a feature
+                case .advancedLogging: break    // Not a feature
+                    
+                case .defaultLogLevel: updateDefaulLogLevel(to: nil)
+                case .loggingCategory: resetLoggingCategories()
                 
                 case .serviceNetwork: updateServiceNetwork(to: nil)
                     
@@ -434,6 +591,31 @@ class DeveloperSettingsViewModel: SessionTableViewModel, NavigatableStateHolder,
         }
         
         self.dismissScreen(type: .pop)
+    }
+    
+    private func updateDefaulLogLevel(to updatedDefaultLogLevel: Log.Level?) {
+        dependencies.set(feature: .logLevel(cat: .default), to: updatedDefaultLogLevel)
+        forceRefresh(type: .databaseQuery)
+    }
+    
+    private func setAdvancedLoggingVisibility(to value: Bool) {
+        self.showAdvancedLogging = value
+        forceRefresh(type: .databaseQuery)
+    }
+    
+    private func updateLogLevel(of category: Log.Category, to level: Log.Level) {
+        switch (level, category.defaultLevel) {
+            case (.default, category.defaultLevel): dependencies.reset(feature: .logLevel(cat: category))
+            default: dependencies.set(feature: .logLevel(cat: category), to: level)
+        }
+        forceRefresh(type: .databaseQuery)
+    }
+    
+    private func resetLoggingCategories() {
+        dependencies[feature: .allLogLevels].currentValues(using: dependencies).forEach { category, _ in
+            dependencies.reset(feature: .logLevel(cat: category))
+        }
+        forceRefresh(type: .databaseQuery)
     }
     
     private func updateServiceNetwork(to updatedNetwork: ServiceNetwork?) {
@@ -471,19 +653,21 @@ class DeveloperSettingsViewModel: SessionTableViewModel, NavigatableStateHolder,
             })
         else { return }
         
-        SNLog("[DevSettings] Swapping to \(String(describing: updatedNetwork)), clearing data")
+        Log.info("[DevSettings] Swapping to \(String(describing: updatedNetwork)), clearing data")
         
         /// Stop all pollers
         dependencies[singleton: .currentUserPoller].stop()
         dependencies.remove(cache: .groupPollers)
         
-//        /// Cancel and remove all current network requests
-//        dependencies.mutate(cache: .network) { networkCache in
-//            networkCache.currentRequests.forEach { _, value in value.cancel() }
-//            networkCache.currentRequests = [:]
-//        }
+        /// Reset the network
+        dependencies.mutate(cache: .libSessionNetwork) {
+            $0.setPaths(paths: [])
+            $0.setNetworkStatus(status: .unknown)
+        }
+        dependencies.remove(cache: .libSessionNetwork)
         
-        /// Unsubscribe from push notifications (do this after cancelling pending network requests as we don't want these to be cancelled)
+        /// Unsubscribe from push notifications (do this after resetting the network as they are server requests so aren't dependant on a service
+        /// layer and we don't want these to be cancelled)
         if let existingToken: String = dependencies[singleton: .storage, key: .lastRecordedPushToken] {
             PushNotificationAPI
                 .unsubscribeAll(token: Data(hex: existingToken), using: dependencies)
@@ -491,7 +675,7 @@ class DeveloperSettingsViewModel: SessionTableViewModel, NavigatableStateHolder,
         }
         
         /// Clear the snodeAPI  caches
-        dependencies.remove(cache: .snodeAPI)   // TODO: Test this works
+        dependencies.remove(cache: .snodeAPI)
         
         /// Remove any network-specific data
         dependencies[singleton: .storage].write { [dependencies] db in
@@ -514,13 +698,16 @@ class DeveloperSettingsViewModel: SessionTableViewModel, NavigatableStateHolder,
             _ = try ConfigDump.deleteAll(db)
         }
         
-        SNLog("[DevSettings] Reloading state for \(String(describing: updatedNetwork))")
-        
-        /// Reload the libSession state
+        /// Remove the libSession state
         dependencies.remove(cache: .libSession)
+        
+        Log.info("[DevSettings] Reloading state for \(String(describing: updatedNetwork))")
         
         /// Update to the new `ServiceNetwork`
         dependencies.set(feature: .serviceNetwork, to: updatedNetwork)
+        
+        /// Start the new network cache
+        dependencies.warmCache(cache: .libSessionNetwork)
         
         /// Run the onboarding process as if we are recovering an account (will setup the device in it's proper state)
         Onboarding.Cache(
@@ -538,7 +725,7 @@ class DeveloperSettingsViewModel: SessionTableViewModel, NavigatableStateHolder,
             /// Re-sync the push tokens (if there are any)
             SyncPushTokensJob.run(uploadOnlyIfStale: false, using: dependencies)
             
-            SNLog("[DevSettings] Completed swap to \(String(describing: updatedNetwork))")
+            Log.info("[DevSettings] Completed swap to \(String(describing: updatedNetwork))")
         }
         
         forceRefresh(type: .databaseQuery)
@@ -564,7 +751,8 @@ class DeveloperSettingsViewModel: SessionTableViewModel, NavigatableStateHolder,
                         /// Clear the snodeAPI cache
                         dependencies.remove(cache: .snodeAPI)
                         
-                        
+                        /// Clear the snode cache
+                        dependencies.mutate(cache: .libSessionNetwork) { $0.clearSnodeCache() }
                     }
                 )
             ),
@@ -706,3 +894,4 @@ class DeveloperSettingsViewModel: SessionTableViewModel, NavigatableStateHolder,
 // MARK: - Listable Conformance
 
 extension ServiceNetwork: Listable {}
+extension Log.Level: Listable {}

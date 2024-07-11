@@ -266,12 +266,12 @@ public class PushRegistrationManager: NSObject, PKPushRegistryDelegate {
             let caller: String = payload["caller"] as? String,
             let timestampMs: Int64 = payload["timestamp"] as? Int64
         else {
-            SessionCallManager.reportFakeCall(info: "Missing payload data")
+            SessionCallManager.reportFakeCall(info: "Missing payload data", using: dependencies)
             return
         }
         
-        Storage.resumeDatabaseAccess(using: dependencies)
-        LibSession.resumeNetworkAccess()
+        dependencies[singleton: .storage].resumeDatabaseAccess()
+        dependencies.mutate(cache: .libSessionNetwork) { $0.resumeNetworkAccess() }
         
         let maybeCall: SessionCall? = dependencies[singleton: .storage].write { [dependencies] db in
             let messageInfo: CallMessage.MessageInfo = CallMessage.MessageInfo(
@@ -318,7 +318,7 @@ public class PushRegistrationManager: NSObject, PKPushRegistryDelegate {
         }
         
         guard let call: SessionCall = maybeCall else {
-            SessionCallManager.reportFakeCall(info: "Could not retrieve call from database")
+            SessionCallManager.reportFakeCall(info: "Could not retrieve call from database", using: dependencies)
             return
         }
         

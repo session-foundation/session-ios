@@ -26,10 +26,8 @@ public enum CheckForAppUpdatesJob: JobExecutor {
             .tryFlatMap { maybeEd25519SecretKey -> AnyPublisher<(ResponseInfoType, AppVersionResponse), Error> in
                 guard let ed25519SecretKey: [UInt8] = maybeEd25519SecretKey else { throw StorageError.objectNotFound }
                 
-                return LibSession.checkClientVersion(
-                    ed25519SecretKey: ed25519SecretKey,
-                    using: dependencies
-                )
+                return dependencies[singleton: .network]
+                    .checkClientVersion(ed25519SecretKey: ed25519SecretKey)
             }
             .sinkUntilComplete(
                 receiveCompletion: { _ in

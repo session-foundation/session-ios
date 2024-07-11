@@ -277,8 +277,8 @@ public final class SnodeAPI {
         // Ask 3 different snodes for the Session ID associated with the given name hash
         let base64EncodedNameHash = nameHash.toBase64()
         
-        return LibSession
-            .getRandomNodes(count: validationCount, using: dependencies)
+        return dependencies[singleton: .network]
+            .getRandomNodes(count: validationCount)
             .tryFlatMap { nodes in
                 Publishers.MergeMany(
                     try nodes.map { snode in

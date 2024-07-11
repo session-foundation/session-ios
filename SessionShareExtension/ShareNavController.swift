@@ -52,8 +52,8 @@ final class ShareNavController: UINavigationController, ShareViewDelegate {
                 ))
                 
                 // Setup LibSession
-                LibSession.addLogger()
-                LibSession.createNetworkIfNeeded(using: dependencies)
+                LibSession.setupLogger(using: dependencies)
+                dependencies.warmCache(cache: .libSessionNetwork)
                 
                 // Configure the different targets
                 SNUtilitiesKit.configure(maxFileSize: Network.maxFileSize, using: dependencies)
@@ -90,12 +90,6 @@ final class ShareNavController: UINavigationController, ShareViewDelegate {
             name: .sessionDidEnterBackground,
             object: nil
         )
-        
-        /// **Note:** If the user opens, dismisses and re-opens the share extension it'll actually use the same instance which
-        /// results in the `AppSetup` not actually running (and the UI not actually being loaded correctly) - in order to avoid this
-        /// we call `checkIsAppReady` explicitly here assuming that either the `AppSetup` _hasn't_ complete or won't ever
-        /// get run
-        checkIsAppReady(migrationsCompleted: versionMigrationsComplete.wrappedValue)
     }
     
     override func traitCollectionDidChange(_ previousTraitCollection: UITraitCollection?) {
@@ -127,18 +121,13 @@ final class ShareNavController: UINavigationController, ShareViewDelegate {
     func checkIsAppReady(migrationsCompleted: Bool) {
         Log.assertOnMainThread()
 
-        // App isn't ready until storage is ready AND all version migrations are complete.
-        guard migrationsCompleted else { return }
-        guard dependencies[singleton: .storage].isValid else {
-            // If the database is invalid then the UI will handle it
-            showLockScreenOrMainContent()
-            return
-        }
-        guard !dependencies[singleton: .appReadiness].isAppReady else {
-            // Only mark the app as ready once.
-            showLockScreenOrMainContent()
-            return
-        }
+        // If something went wrong during startup then show the UI still (it has custom UI for
+        // this case) but don't mark the app as ready or trigger the 'launchDidComplete' logic
+        guard
+            migrationsCompleted,
+            dependencies[singleton: .storage].isValid,
+            !dependencies[singleton: .appReadiness].isAppReady
+        else { return showLockScreenOrMainContent() }
 
         // Note that this does much more than set a flag;
         // it will also run all deferred blocks.
@@ -152,10 +141,6 @@ final class ShareNavController: UINavigationController, ShareViewDelegate {
         super.viewDidLoad()
         
         Log.appResumedExecution()
-        dependencies[singleton: .appReadiness].runNowOrWhenAppDidBecomeReady { [weak self] in
-            Log.assertOnMainThread()
-            self?.showLockScreenOrMainContent()
-        }
     }
 
     @objc

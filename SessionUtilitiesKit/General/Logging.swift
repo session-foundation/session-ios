@@ -5,6 +5,29 @@
 import Foundation
 import CocoaLumberjackSwift
 
+// MARK: - Log.Level Convenience
+
+public extension Log.Category {
+    static let `default`: Log.Category = .create("default", defaultLevel: .warn)
+}
+
+// MARK: - FeatureStorage
+
+public extension FeatureStorage {
+    static func logLevel(cat: Log.Category) -> FeatureConfig<Log.Level> {
+        return Dependencies.create(
+            identifier: cat.identifier,
+            groupIdentifier: "logging",
+            defaultOption: cat.defaultLevel
+        )
+    }
+    
+    static let allLogLevels: FeatureConfig<AllLoggingCategories> = Dependencies.create(
+        identifier: "allLogLevels",
+        groupIdentifier: "logging"
+    )
+}
+
 // MARK: - Log
 
 public enum Log {
@@ -18,7 +41,7 @@ public enum Log {
         line: UInt
     )
     
-    public enum Level {
+    public enum Level: CaseIterable {
         case verbose
         case debug
         case info
@@ -26,6 +49,43 @@ public enum Log {
         case error
         case critical
         case off
+        
+        case `default`
+    }
+    
+    public struct Category: Hashable {
+        public let rawValue: String
+        fileprivate let customPrefix: String
+        public let defaultLevel: Log.Level
+        
+        fileprivate static let identifierPrefix: String = "logLevel-"
+        fileprivate var identifier: String { "\(Category.identifierPrefix)\(rawValue)" }
+        
+        private init(rawValue: String, customPrefix: String, defaultLevel: Log.Level) {
+            self.rawValue = rawValue
+            self.customPrefix = customPrefix
+            self.defaultLevel = defaultLevel
+            
+            AllLoggingCategories.register(category: self)
+        }
+        
+        fileprivate init?(identifier: String) {
+            guard identifier.hasPrefix(Category.identifierPrefix) else { return nil }
+            
+            self.init(
+                rawValue: identifier.substring(from: Category.identifierPrefix.count),
+                customPrefix: "",
+                defaultLevel: .default
+            )
+        }
+        
+        public init(rawValue: String, customPrefix: String = "") {
+            self.init(rawValue: rawValue, customPrefix: customPrefix, defaultLevel: .default)
+        }
+        
+        @discardableResult public static func create(_ rawValue: String, customPrefix: String = "", defaultLevel: Log.Level) -> Log.Category {
+            return Log.Category(rawValue: rawValue, customPrefix: customPrefix, defaultLevel: defaultLevel)
+        }
     }
     
     private static var logger: Atomic<Logger?> = Atomic(nil)
@@ -132,7 +192,7 @@ public enum Log {
         function: StaticString = #function,
         line: UInt = #line
     ) {
-        custom(.verbose, message, withPrefixes: withPrefixes, silenceForTests: silenceForTests, file: file, function: function, line: line)
+        custom(.verbose, [], message, withPrefixes: withPrefixes, silenceForTests: silenceForTests, file: file, function: function, line: line)
     }
     
     public static func debug(
@@ -143,7 +203,7 @@ public enum Log {
         function: StaticString = #function,
         line: UInt = #line
     ) {
-        custom(.debug, message, withPrefixes: withPrefixes, silenceForTests: silenceForTests, file: file, function: function, line: line)
+        custom(.debug, [], message, withPrefixes: withPrefixes, silenceForTests: silenceForTests, file: file, function: function, line: line)
     }
     
     public static func info(
@@ -154,7 +214,7 @@ public enum Log {
         function: StaticString = #function,
         line: UInt = #line
     ) {
-        custom(.info, message, withPrefixes: withPrefixes, silenceForTests: silenceForTests, file: file, function: function, line: line)
+        custom(.info, [], message, withPrefixes: withPrefixes, silenceForTests: silenceForTests, file: file, function: function, line: line)
     }
     
     public static func warn(
@@ -165,7 +225,7 @@ public enum Log {
         function: StaticString = #function,
         line: UInt = #line
     ) {
-        custom(.warn, message, withPrefixes: withPrefixes, silenceForTests: silenceForTests, file: file, function: function, line: line)
+        custom(.warn, [], message, withPrefixes: withPrefixes, silenceForTests: silenceForTests, file: file, function: function, line: line)
     }
     
     public static func error(
@@ -176,7 +236,7 @@ public enum Log {
         function: StaticString = #function,
         line: UInt = #line
     ) {
-        custom(.error, message, withPrefixes: withPrefixes, silenceForTests: silenceForTests, file: file, function: function, line: line)
+        custom(.error, [], message, withPrefixes: withPrefixes, silenceForTests: silenceForTests, file: file, function: function, line: line)
     }
     
     public static func critical(
@@ -187,7 +247,7 @@ public enum Log {
         function: StaticString = #function,
         line: UInt = #line
     ) {
-        custom(.critical, message, withPrefixes: withPrefixes, silenceForTests: silenceForTests, file: file, function: function, line: line)
+        custom(.critical, [], message, withPrefixes: withPrefixes, silenceForTests: silenceForTests, file: file, function: function, line: line)
     }
     
     public static func assert(
@@ -203,7 +263,7 @@ public enum Log {
         let message: String = message()
         let logMessage: String = (message.isEmpty ? "Assertion failed." : message)
         let formattedMessage: String = "[\(filename):\(line) \(function)] \(logMessage)"
-        custom(.critical, formattedMessage, withPrefixes: true, silenceForTests: false, file: file, function: function, line: line)
+        custom(.critical, [], formattedMessage, withPrefixes: true, silenceForTests: false, file: file, function: function, line: line)
         assertionFailure(formattedMessage)
     }
     
@@ -216,12 +276,13 @@ public enum Log {
         
         let filename: String = URL(fileURLWithPath: "\(file)").lastPathComponent
         let formattedMessage: String = "[\(filename):\(line) \(function)] Must be on main thread."
-        custom(.critical, formattedMessage, withPrefixes: true, silenceForTests: false, file: file, function: function, line: line)
+        custom(.critical, [], formattedMessage, withPrefixes: true, silenceForTests: false, file: file, function: function, line: line)
         assertionFailure(formattedMessage)
     }
     
     public static func custom(
-        _ level: Log.Level,
+        _ level: Level,
+        _ categories: [Category],
         _ message: String,
         withPrefixes: Bool,
         silenceForTests: Bool,
@@ -238,7 +299,7 @@ public enum Log {
             }
         }
         
-        logger.log(level, message, withPrefixes: withPrefixes, silenceForTests: silenceForTests, file: file, function: function, line: line)
+        logger.log(level, categories, message, withPrefixes: withPrefixes, silenceForTests: silenceForTests, file: file, function: function, line: line)
     }
 }
 
@@ -384,7 +445,7 @@ public class Logger {
         // If we had an error loading the extension logs then actually log it
         if let error: String = error {
             Log.empty()
-            log(.error, error, withPrefixes: true, silenceForTests: false, file: #file, function: #function, line: #line)
+            log(.error, [], error, withPrefixes: true, silenceForTests: false, file: #file, function: #function, line: #line)
         }
         
         // After creating a new logger we want to log two empty lines to make it easier to read
@@ -393,12 +454,13 @@ public class Logger {
         
         // Add any logs that were pending during the startup process
         pendingLogs.forEach { level, message, withPrefixes, silenceForTests, file, function, line in
-            log(level, message, withPrefixes: withPrefixes, silenceForTests: silenceForTests, file: file, function: function, line: line)
+            log(level, [], message, withPrefixes: withPrefixes, silenceForTests: silenceForTests, file: file, function: function, line: line)
         }
     }
     
     fileprivate func log(
         _ level: Log.Level,
+        _ categories: [Log.Category],
         _ message: String,
         withPrefixes: Bool,
         silenceForTests: Bool,
@@ -418,6 +480,7 @@ public class Logger {
                 (DispatchQueue.isDBWriteQueue ? "DBWrite" : nil)
             ]
             .compactMap { $0 }
+            .appending(contentsOf: categories.map { "\($0.customPrefix)\($0.rawValue)" })
             .joined(separator: ", ")
             
             return "[\(prefixes)] "
@@ -432,7 +495,7 @@ public class Logger {
             .trimmingCharacters(in: .whitespacesAndNewlines)
         
         switch level {
-            case .off: return
+            case .off, .default: return
             case .verbose: DDLogVerbose("💙 \(logMessage)", file: file, function: function, line: line)
             case .debug: DDLogDebug("💚 \(logMessage)", file: file, function: function, line: line)
             case .info: DDLogInfo("💛 \(logMessage)", file: file, function: function, line: line)
@@ -485,4 +548,107 @@ private extension DispatchQueue {
 // FIXME: Remove this once everything has been updated to use the new `Log.x()` methods
 public func SNLog(_ message: String, forceNSLog: Bool = false) {
     Log.info(message)
+}
+
+// MARK: - Log.Level FeatureOption
+
+extension Log.Level: FeatureOption {
+    // MARK: - Initialization
+    
+    public var rawValue: Int {
+        switch self {
+            case .verbose: return 1
+            case .debug: return 2
+            case .info: return 3
+            case .warn: return 4
+            case .error: return 5
+            case .critical: return 6
+            case .off: return -1        // `0` is a protected value so can't use it
+            case .default: return -2    // `0` is a protected value so can't use it
+        }
+    }
+    
+    public init?(rawValue: Int) {
+        switch rawValue {
+            case -2: self = .default    // `0` is a protected value so can't use it
+            case 1: self = .verbose
+            case 2: self = .debug
+            case 3: self = .info
+            case 4: self = .warn
+            case 5: self = .error
+            case 6: self = .critical
+            default: self = .off
+        }
+    }
+    
+    // MARK: - Feature Option
+    
+    public static var defaultOption: Log.Level = .off
+    
+    public var title: String {
+        switch self {
+            case .verbose: return "Verbose"
+            case .debug: return "Debug"
+            case .info: return "Info"
+            case .warn: return "Warning"
+            case .error: return "Error"
+            case .critical: return "Critical"
+            case .off: return "Off"
+            case .default: return "Default"
+        }
+    }
+    
+    public var subtitle: String? {
+        switch self {
+            case .verbose: return "Show all logging."
+            case .debug, .info, .warn, .error: return "Show logs classed as \(title) or higher."
+            case .critical: return "Show logs classes as Critical."
+            case .off: return "Show no logs."
+            case .default: return "Use the default logging level."
+        }
+    }
+}
+
+// MARK: - AllLoggingCategories
+
+public struct AllLoggingCategories: FeatureOption {
+    public static let allCases: [AllLoggingCategories] = []
+    private static let registeredCategoryDefaults: Atomic<Set<Log.Category>> = Atomic([])
+    
+    // MARK: - Initialization
+
+    public let rawValue: Int
+
+    public init(rawValue: Int) {
+        self.rawValue = -1      // `0` is a protected value so can't use it
+    }
+    
+    fileprivate static func register(category: Log.Category) {
+        guard
+            !registeredCategoryDefaults.wrappedValue.contains(where: { cat in
+                /// **Note:** We only want to use the `rawValue` to distinguish between logging categories
+                /// as the `defaultLevel` can change via the dev settings and any additional metadata could
+                /// be file/class specific
+                category.rawValue != cat.rawValue
+            })
+        else { return }
+        
+        registeredCategoryDefaults.mutate { $0.insert(category) }
+    }
+    
+    public func currentValues(using dependencies: Dependencies) -> [Log.Category: Log.Level] {
+        return AllLoggingCategories.registeredCategoryDefaults.wrappedValue
+            .reduce(into: [:]) { result, cat in
+                guard cat != Log.Category.default else { return }
+                
+                result[cat] = dependencies[feature: .logLevel(cat: cat)]
+            }
+    }
+    
+    // MARK: - Feature Option
+    
+    public static var defaultOption: AllLoggingCategories = AllLoggingCategories(rawValue: -1)
+    
+    public var title: String = "AllLoggingCategories"
+    public let subtitle: String? = nil
 }

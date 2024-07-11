@@ -19,12 +19,6 @@ public enum ServiceNetwork: Int, FeatureOption {
     case mainnet = 1
     case testnet = 2
     
-    public enum Events: FeatureEvent {
-        case updatedServiceNetwork
-        
-        public static var updateValueEvent: Events = .updatedServiceNetwork
-    }
-    
     // MARK: - Feature Option
     
     public static var defaultOption: ServiceNetwork = .mainnet

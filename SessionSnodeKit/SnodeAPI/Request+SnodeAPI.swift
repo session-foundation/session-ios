@@ -4,6 +4,7 @@
 
 import Foundation
 import SessionUtilitiesKit
+
 // MARK: Request - SnodeAPI
 
 public extension Request where Endpoint == SnodeAPI.Endpoint {
@@ -14,7 +15,6 @@ public extension Request where Endpoint == SnodeAPI.Endpoint {
         body: B
     ) where T == SnodeRequest<B> {
         self = Request(
-            method: .post,
             endpoint: endpoint,
             destination: .snode(
                 snode,
@@ -34,7 +34,6 @@ public extension Request where Endpoint == SnodeAPI.Endpoint {
         snodeRetrievalRetryCount: Int = SnodeAPI.maxRetryCount
     ) where T == SnodeRequest<B> {
         self = Request(
-            method: .post,
             endpoint: endpoint,
             destination: .randomSnode(
                 swarmPublicKey: swarmPublicKey,
@@ -56,7 +55,6 @@ public extension Request where Endpoint == SnodeAPI.Endpoint {
         snodeRetrievalRetryCount: Int = SnodeAPI.maxRetryCount
     ) where T == SnodeRequest<B>, B: Encodable & UpdatableTimestamp {
         self = Request(
-            method: .post,
             endpoint: endpoint,
             destination: .randomSnodeLatestNetworkTimeTarget(
                 swarmPublicKey: swarmPublicKey,

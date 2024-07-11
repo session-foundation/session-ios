@@ -866,7 +866,6 @@ public enum OpenGroupAPI {
         
         return try Network.PreparedRequest(
             request: Request(
-                method: .post,
                 endpoint: Endpoint.roomFile(roomToken),
                 destination: .serverUpload(
                     server: server,

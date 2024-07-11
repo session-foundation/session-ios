@@ -16,6 +16,8 @@ public extension UserDefaultsStorage {
 // MARK: - UserDefaultsType
 
 public protocol UserDefaultsType: AnyObject {
+    var allKeys: [String] { get }
+    
     func object(forKey defaultName: String) -> Any?
     func string(forKey defaultName: String) -> String?
     func array(forKey defaultName: String) -> [Any]?
@@ -44,6 +46,8 @@ extension UserDefaults: UserDefaultsType {}
 
 public extension UserDefaults {
     static let applicationGroup: String = "group.com.loki-project.loki-messenger"
+    
+    var allKeys: [String] { Array(self.dictionaryRepresentation().keys) }
     
     static func removeAll(using dependencies: Dependencies) {
         UserDefaultsStorage.standard.createInstance(dependencies).removeAll()

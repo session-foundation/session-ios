@@ -30,7 +30,6 @@ public extension Network {
         public let cancelEventHandler: (() -> Void)?
         
         // The following types are needed for `BatchRequest` handling
-        public let method: HTTPMethod
         private let path: String
         public let endpoint: (any EndpointType)
         public let endpointName: String
@@ -222,7 +221,6 @@ public extension Network {
             }()
             
             // The following data is needed in this type for handling batch requests
-            self.method = request.method
             self.endpoint = request.endpoint
             self.endpointName = E.name
             self.path = request.destination.urlPathAndParamsString
@@ -279,7 +277,6 @@ public extension Network {
             outputEventHandler: ((CachedResponse) -> Void)?,
             completionEventHandler: ((Subscribers.Completion<Error>) -> Void)?,
             cancelEventHandler: (() -> Void)?,
-            method: HTTPMethod,
             endpoint: (any EndpointType),
             endpointName: String,
             headers: [HTTPHeader: String],
@@ -309,7 +306,6 @@ public extension Network {
             self.cancelEventHandler = cancelEventHandler
             
             // The following data is needed in this type for handling batch requests
-            self.method = method
             self.endpoint = endpoint
             self.endpointName = endpointName
             self.headers = headers
@@ -421,7 +417,7 @@ extension Network.PreparedRequest: ErasedPreparedRequest {
                     try container.encode(batchRequestHeaders, forKey: .headers)
                 }
                 
-                try container.encode(method, forKey: .method)
+                try container.encode(HTTPMethod.post, forKey: .method)  // Should always be POST
                 try container.encode(path, forKey: .path)
                 try jsonKeyedBodyEncoder?(&container, .json)
                 try container.encodeIfPresent(b64, forKey: .b64)
@@ -457,7 +453,6 @@ public extension Network.PreparedRequest {
             outputEventHandler: outputEventHandler,
             completionEventHandler: completionEventHandler,
             cancelEventHandler: cancelEventHandler,
-            method: method,
             endpoint: endpoint,
             endpointName: endpointName,
             headers: headers,
@@ -524,7 +519,6 @@ public extension Network.PreparedRequest {
             },
             completionEventHandler: completionEventHandler,
             cancelEventHandler: cancelEventHandler,
-            method: method,
             endpoint: endpoint,
             endpointName: endpointName,
             headers: headers,
@@ -614,7 +608,6 @@ public extension Network.PreparedRequest {
             outputEventHandler: outputEventHandler,
             completionEventHandler: completionEventHandler,
             cancelEventHandler: cancelEventHandler,
-            method: method,
             endpoint: endpoint,
             endpointName: endpointName,
             headers: headers,
@@ -661,7 +654,6 @@ public extension Network.PreparedRequest {
             outputEventHandler: nil,
             completionEventHandler: nil,
             cancelEventHandler: nil,
-            method: .get,
             endpoint: endpoint,
             endpointName: E.name,
             headers: [:],

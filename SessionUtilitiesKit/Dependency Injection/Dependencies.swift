@@ -3,7 +3,7 @@
 // stringlint:disable
 
 import Foundation
-import GRDB
+import Combine
 
 public class Dependencies {
     static let userInfoKey: CodingUserInfoKey = CodingUserInfoKey(rawValue: "io.oxen.dependencies.codingOptions")!
@@ -13,7 +13,7 @@ public class Dependencies {
     private static var cacheInstances: Atomic<[String: Atomic<MutableCacheType>]> = Atomic([:])
     private static var userDefaultsInstances: Atomic<[String: (any UserDefaultsType)]> = Atomic([:])
     private static var featureInstances: Atomic<[String: (any FeatureType)]> = Atomic([:])
-    private static var featureObservers: Atomic<[String: [FeatureObservationKey: [((any FeatureOption)?, any FeatureEvent) -> ()]]]> = Atomic([:])
+    private var featureChangeSubject: PassthroughSubject<(String, String?, Any?), Never> = PassthroughSubject()
     
     // MARK: - Subscript Access
     
@@ -189,65 +189,34 @@ public class Dependencies {
 // MARK: - Feature Management
 
 public extension Dependencies {
-    private struct FeatureObservationKey: Hashable {
-        let observerHashValue: Int
-        let events: [(any FeatureEvent)]?
-        
-        init(_ observer: AnyHashable) {
-            self.observerHashValue = observer.hashValue
-            self.events = []
-        }
-        
-        init<E: FeatureEvent>(_ observer: AnyHashable, _ events: [E]?) {
-            self.observerHashValue = observer.hashValue
-            self.events = events
-        }
-        
-        static func == (lhs: Dependencies.FeatureObservationKey, rhs: Dependencies.FeatureObservationKey) -> Bool {
-            return (lhs.observerHashValue == rhs.observerHashValue)
-        }
-        
-        func hash(into hasher: inout Hasher) {
-            observerHashValue.hash(into: &hasher)
-        }
-        
-        func contains<E: FeatureEvent>(event: E) -> Bool {
-            /// No events mean this observer watches for everything
-            guard let events: [(any FeatureEvent)] = self.events else { return true }
-            
-            return events.contains(where: { ($0 as? E) == event })
-        }
+    func publisher<T: FeatureOption>(feature: FeatureConfig<T>) -> AnyPublisher<T?, Never> {
+        return featureChangeSubject
+            .filter { identifier, _, _ in identifier == feature.identifier }
+            .compactMap { _, _, value in value as? T }
+            .prepend(self[feature: feature])    // Emit the current value first
+            .eraseToAnyPublisher()
     }
     
-    func addFeatureObserver<T: FeatureOption>(
-        _ observer: AnyHashable,
-        for feature: FeatureConfig<T>,
-        events: [T.Events]? = nil,
-        onChange: @escaping (T?, T.Events?) -> ()
-    ) {
-        Dependencies.featureObservers.mutate {
-            $0[feature.identifier] = ($0[feature.identifier] ?? [:]).appending(
-                { anyUpdate, anyEvent in onChange(anyUpdate as? T, anyEvent as? T.Events) },
-                toArrayOn: FeatureObservationKey(observer, events)
-            )
-        }
+    func publisher<T: FeatureOption>(featureGroupChanges feature: FeatureConfig<T>) -> AnyPublisher<Void, Never> {
+        return featureChangeSubject
+            .filter { _, groupIdentifier, _ in groupIdentifier == feature.groupIdentifier }
+            .map { _, _, _ in () }
+            .prepend(())            // Emit an initial value to behave similar to the above
+            .eraseToAnyPublisher()
     }
     
-    func removeFeatureObserver(_ observer: AnyHashable) {
-        Dependencies.featureObservers.mutate { featureObservers in
-            let observationKey: FeatureObservationKey = FeatureObservationKey(observer)
-            let featureIdentifiers: [String] = Array(featureObservers.keys)
-            
-            featureIdentifiers.forEach { featureIdentifier in
-                guard featureObservers[featureIdentifier]?[observationKey] != nil else { return }
-                
-                featureObservers[featureIdentifier]?.removeValue(forKey: observationKey)
-                
-                if featureObservers[featureIdentifier]?.isEmpty == true {
-                    featureObservers.removeValue(forKey: featureIdentifier)
-                }
-            }
-        }
+    func featureUpdated<T: FeatureOption>(for feature: FeatureConfig<T>) -> AnyPublisher<T?, Never> {
+        return featureChangeSubject
+            .filter { identifier, _, _ in identifier == feature.identifier }
+            .compactMap { _, _, value in value as? T }
+            .eraseToAnyPublisher()
+    }
+    
+    func featureGroupUpdated<T: FeatureOption>(for feature: FeatureConfig<T>) -> AnyPublisher<T?, Never> {
+        return featureChangeSubject
+            .filter { _, groupIdentifier, _ in groupIdentifier == feature.groupIdentifier }
+            .compactMap { _, _, value in value as? T }
+            .eraseToAnyPublisher()
     }
     
     func set<T: FeatureOption>(feature: FeatureConfig<T>, to updatedFeature: T?) {
@@ -262,26 +231,23 @@ public extension Dependencies {
         }()
         
         value.setValue(to: updatedFeature, using: self)
-        Dependencies.featureObservers.wrappedValue[feature.identifier]?
-            .filter { key, _ -> Bool in key.contains(event: T.Events.updateValueEvent) }
-            .forEach { _, callbacks in callbacks.forEach { $0(updatedFeature, T.Events.updateValueEvent) } }
+        featureChangeSubject.send((feature.identifier, feature.groupIdentifier, updatedFeature))
     }
     
-    func notifyObservers<T: FeatureOption>(for feature: FeatureConfig<T>, with event: T.Events) {
-        let value: Feature<T> = {
-            guard let value: Feature<T> = (Dependencies.featureInstances.wrappedValue[feature.identifier] as? Feature<T>) else {
-                let value: Feature<T> = feature.createInstance(self)
-                Dependencies.featureInstances.mutate { $0[feature.identifier] = value }
-                return value
-            }
-            
-            return value
-        }()
+    func reset<T: FeatureOption>(feature: FeatureConfig<T>) {
+        /// Reset the cached value
+        switch Dependencies.featureInstances.wrappedValue[feature.identifier] as? Feature<T> {
+            case .none: break
+            case .some(let value): value.setValue(to: nil, using: self)
+        }
         
-        let currentFeature: T = value.currentValue(using: self)
-        Dependencies.featureObservers.wrappedValue[feature.identifier]?
-            .filter { key, _ -> Bool in key.contains(event: event) }
-            .forEach { _, callbacks in callbacks.forEach { $0(currentFeature, event) } }
+        /// Reset the in-memory value
+        Dependencies.featureInstances.mutate {
+            $0[feature.identifier] = nil
+        }
+        
+        /// Notify observers
+        featureChangeSubject.send((feature.identifier, feature.groupIdentifier, nil))
     }
 }
 

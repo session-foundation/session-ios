@@ -286,7 +286,6 @@
 		C33FD9C4255A54EF00E217F9 /* SessionSnodeKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = C3C2A59F255385C100C340D1 /* SessionSnodeKit.framework */; };
 		C33FD9C5255A54EF00E217F9 /* SessionUtilitiesKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = C3C2A679255388CC00C340D1 /* SessionUtilitiesKit.framework */; };
 		C33FDC58255A582000E217F9 /* ReverseDispatchQueue.swift in Sources */ = {isa = PBXBuildFile; fileRef = C33FDA9E255A57FF00E217F9 /* ReverseDispatchQueue.swift */; };
-		C33FDC98255A582000E217F9 /* SwiftSingletons.swift in Sources */ = {isa = PBXBuildFile; fileRef = C33FDADE255A580400E217F9 /* SwiftSingletons.swift */; };
 		C33FDD49255A582000E217F9 /* ParamParser.swift in Sources */ = {isa = PBXBuildFile; fileRef = C33FDB8F255A581200E217F9 /* ParamParser.swift */; };
 		C33FDD8D255A582000E217F9 /* OWSSignalAddress.swift in Sources */ = {isa = PBXBuildFile; fileRef = C33FDBD3255A581800E217F9 /* OWSSignalAddress.swift */; };
 		C3402FE52559036600EA6424 /* SessionUIKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = C331FF1B2558F9D300070591 /* SessionUIKit.framework */; };
@@ -1533,7 +1532,6 @@
 		C33FDA7A255A57FB00E217F9 /* NSRegularExpression+SSK.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = "NSRegularExpression+SSK.swift"; sourceTree = "<group>"; };
 		C33FDA87255A57FC00E217F9 /* TypingIndicators.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = TypingIndicators.swift; sourceTree = "<group>"; };
 		C33FDA9E255A57FF00E217F9 /* ReverseDispatchQueue.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = ReverseDispatchQueue.swift; sourceTree = "<group>"; };
-		C33FDADE255A580400E217F9 /* SwiftSingletons.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = SwiftSingletons.swift; sourceTree = "<group>"; };
 		C33FDAF1255A580500E217F9 /* ThumbnailService.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = ThumbnailService.swift; sourceTree = "<group>"; };
 		C33FDAFD255A580600E217F9 /* LRUCache.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = LRUCache.swift; sourceTree = "<group>"; };
 		C33FDB22255A580900E217F9 /* MediaUtils.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = MediaUtils.swift; sourceTree = "<group>"; };
@@ -2244,7 +2242,6 @@
 		FDF848BB29405C5A007DCAE5 /* LegacySendMessageRequest.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = LegacySendMessageRequest.swift; sourceTree = "<group>"; };
 		FDF848E029405D6E007DCAE5 /* SnodeAPIError.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = SnodeAPIError.swift; sourceTree = "<group>"; };
 		FDF848E129405D6E007DCAE5 /* Destination.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = Destination.swift; sourceTree = "<group>"; };
-		FDF848E829405E4E007DCAE5 /* Network+OnionRequest.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = "Network+OnionRequest.swift"; sourceTree = "<group>"; };
 		FDF848F029406A30007DCAE5 /* Format.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; name = Format.swift; path = "SessionUIKit/Style Guide/Format.swift"; sourceTree = SOURCE_ROOT; };
 		FDF848F229413DB0007DCAE5 /* ImagePickerHandler.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = ImagePickerHandler.swift; sourceTree = "<group>"; };
 		FDF848F429413EEC007DCAE5 /* SessionCell+Styling.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = "SessionCell+Styling.swift"; sourceTree = "<group>"; };
@@ -3442,7 +3439,6 @@
 				FDF8489929405C5A007DCAE5 /* Models */,
 				FDF8488F29405C13007DCAE5 /* Types */,
 				FD2272842C33E28D004D8A6C /* SnodeAPI */,
-				FDF8489229405C1B007DCAE5 /* Networking */,
 				FD7F74682BAB8A5D006DDFD8 /* LibSession */,
 				C3C2A5CD255385F300C340D1 /* Utilities */,
 				C3C2A5B9255385ED00C340D1 /* Configuration.swift */,
@@ -3575,7 +3571,6 @@
 				C38EF3E4255B6DF4007E1867 /* CommonStrings.swift */,
 				C38EF304255B6DBE007E1867 /* ImageCache.swift */,
 				C33FDB8F255A581200E217F9 /* ParamParser.swift */,
-				C33FDADE255A580400E217F9 /* SwiftSingletons.swift */,
 				C33FDA9E255A57FF00E217F9 /* ReverseDispatchQueue.swift */,
 				C38EF241255B6D67007E1867 /* Collection+OWS.swift */,
 				C38EF3AE255B6DE5007E1867 /* OrderedDictionary.swift */,
@@ -4654,6 +4649,7 @@
 				FD2272A12C33E336004D8A6C /* BatchResponse.swift */,
 				FDD383702AFDD0E1001367F2 /* BencodeResponse.swift */,
 				FD2272952C33E335004D8A6C /* ContentProxy.swift */,
+				FDF848E129405D6E007DCAE5 /* Destination.swift */,
 				FD2272A62C33E337004D8A6C /* HTTPHeader.swift */,
 				FD2272A72C33E337004D8A6C /* HTTPMethod.swift */,
 				FD22729A2C33E336004D8A6C /* HTTPQueryParam.swift */,
@@ -4662,6 +4658,7 @@
 				FD2272992C33E336004D8A6C /* Network.swift */,
 				FD22729C2C33E336004D8A6C /* NetworkError.swift */,
 				FD22729E2C33E336004D8A6C /* PreparedRequest.swift */,
+				FDB5DAF22A96DD4F002C8721 /* PreparedRequest+Sending.swift */,
 				FD22729D2C33E336004D8A6C /* ProxiedContentDownloader.swift */,
 				FD2272A32C33E337004D8A6C /* Request.swift */,
 				FD2272A52C33E337004D8A6C /* ResponseInfo.swift */,
@@ -4670,16 +4667,6 @@
 				FD2272972C33E335004D8A6C /* ValidatableResponse.swift */,
 			);
 			path = Types;
-			sourceTree = "<group>";
-		};
-		FDF8489229405C1B007DCAE5 /* Networking */ = {
-			isa = PBXGroup;
-			children = (
-				FDF848E129405D6E007DCAE5 /* Destination.swift */,
-				FDB5DAF22A96DD4F002C8721 /* PreparedRequest+Sending.swift */,
-				FDF848E829405E4E007DCAE5 /* Network+OnionRequest.swift */,
-			);
-			path = Networking;
 			sourceTree = "<group>";
 		};
 		FDF8489929405C5A007DCAE5 /* Models */ = {
@@ -5837,7 +5824,6 @@
 				FD2272D52C34ED1E004D8A6C /* OWSViewController.swift in Sources */,
 				C38EF3B9255B6DE7007E1867 /* ImageEditorPinchGestureRecognizer.swift in Sources */,
 				FDB3487E2BE856C800B716C2 /* UIBezierPath+Utilities.swift in Sources */,
-				C33FDC98255A582000E217F9 /* SwiftSingletons.swift in Sources */,
 				C38EF3B8255B6DE7007E1867 /* ImageEditorTextViewController.swift in Sources */,
 				C38EF386255B6DD2007E1867 /* AttachmentApprovalInputAccessoryView.swift in Sources */,
 				B8C2B2C82563685C00551B4D /* CircleView.swift in Sources */,

@@ -107,21 +107,18 @@ public enum SyncPushTokensJob: JobExecutor {
         Log.info("[SyncPushTokensJob] Re-registering for remote notifications")
         dependencies[singleton: .pushRegistrationManager].requestPushTokens()
             .flatMap { (pushToken: String, voipToken: String) -> AnyPublisher<(String, String)?, Error> in
-                Deferred {
-                    Future<(String, String)?, Error> { resolver in
-                        _ = LibSession.onPathsChanged(skipInitialCallbackIfEmpty: true) { paths, pathsChangedId in
-                            // Only listen for the first callback
-                            LibSession.removePathsChangedCallback(callbackId: pathsChangedId)
-                            
-                            guard !paths.isEmpty else {
-                                SNLog("[SyncPushTokensJob] OS subscription completed, skipping server subscription due to lack of paths")
-                                return resolver(Result.success(nil))
-                            }
-                            
-                            resolver(Result.success((pushToken, voipToken)))
+                dependencies[cache: .libSessionNetwork].paths
+                    .first()    // Only listen for the first callback
+                    .map { paths in
+                        guard !paths.isEmpty else {
+                            Log.info("[SyncPushTokensJob] OS subscription completed, skipping server subscription due to lack of paths")
+                            return nil
                         }
+                        
+                        return (pushToken, voipToken)
                     }
-                }.eraseToAnyPublisher()
+                    .setFailureType(to: Error.self)
+                    .eraseToAnyPublisher()
             }
             .flatMap { (tokenInfo: (String, String)?) -> AnyPublisher<Void, Error> in
                 guard let (pushToken, voipToken): (String, String) = tokenInfo else {

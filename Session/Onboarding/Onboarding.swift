@@ -65,7 +65,7 @@ extension Onboarding {
         public var displayName: String
         public var _displayNamePublisher: AnyPublisher<String?, Error>?
         private var userProfileConfigMessage: ProcessedMessage?
-        private var cancelable: AnyCancellable?
+        private var disposables: Set<AnyCancellable> = Set()
         
         public var displayNamePublisher: AnyPublisher<String?, Error> {
             _displayNamePublisher ?? Fail(error: NetworkError.notFound).eraseToAnyPublisher()
@@ -164,22 +164,18 @@ extension Onboarding {
             self.useAPNS = dependencies[defaults: .standard, key: .isUsingFullAPNs]
             self.displayName = displayName
             self._displayNamePublisher = nil
-            self.cancelable = nil
             
             /// Don't trigger the `Identity.didRegister` notification in this case
             self.suppressDidRegisterNotification = true
-        }
-
-        deinit {
-            cancelable?.cancel()
         }
         
         // MARK: - Functions
         
         public func setSeedData(_ seedData: Data) throws {
-            cancelable?.cancel()
+            /// Reset the disposables in case this was called with different data/
+            disposables = Set()
             
-            // Generate the keys and store them
+            /// Generate the keys and store them
             let identity: (ed25519KeyPair: KeyPair, x25519KeyPair: KeyPair) = try Identity.generate(
                 from: seedData,
                 using: dependencies
@@ -265,13 +261,10 @@ extension Onboarding {
             
             /// Store the publisher and cancelable so we only make one request during onboarding
             _displayNamePublisher = publisher
-            cancelable = publisher
+            publisher
                 .subscribe(on: DispatchQueue.global(qos: .userInitiated), using: dependencies)
-                .sink(receiveCompletion: { _ in
-                    print("RAWR")
-                }, receiveValue: { _ in
-                    print("VDVDFV")
-                })
+                .sink(receiveCompletion: { _ in }, receiveValue: { _ in })
+                .store(in: &disposables)
         }
         
         func setUserAPNS(_ useAPNS: Bool) {

@@ -41,7 +41,8 @@ public enum RetrieveDefaultOpenGroupRoomsJob: JobExecutor {
             .upserted(db)
         }
         
-        dependencies[singleton: .openGroupManager].getDefaultRoomsIfNeeded()
+        dependencies[singleton: .openGroupManager]
+            .getDefaultRoomsIfNeeded()
             .subscribe(on: queue)
             .receive(on: queue)
             .sinkUntilComplete(

@@ -244,7 +244,8 @@ public class Poller: PollerType {
         ///
         /// **Note:**  We need a `writePublisher` here because we want to prune the `lastMessageHash` value when preparing
         /// the request
-        return LibSession.getSwarm(for: swarmPublicKey, using: dependencies)
+        return dependencies[singleton: .network]
+            .getSwarm(for: swarmPublicKey)
             .tryFlatMapWithRandomSnode(drainBehaviour: drainBehaviour, using: dependencies) { [swarmPublicKey, customAuthMethod, dependencies] snode -> AnyPublisher<Network.PreparedRequest<SnodeAPI.PollResponse>, Error> in
                 dependencies[singleton: .storage].writePublisher { db -> Network.PreparedRequest<SnodeAPI.PollResponse> in
                     let authMethod: AuthenticationMethod = try (customAuthMethod ?? Authentication.with(

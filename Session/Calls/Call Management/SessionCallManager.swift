@@ -8,6 +8,19 @@ import SessionUIKit
 import SessionMessagingKit
 import SignalUtilitiesKit
 import SessionUtilitiesKit
+ 
+// MARK: - Cache
+
+public extension Cache {
+    static let callManager: CacheConfig<CallManagerCacheType, CallManagerImmutableCacheType> = Dependencies.create(
+        identifier: "callManager",
+        createInstance: { _ in SessionCallManager.Cache() },
+        mutableInstance: { $0 },
+        immutableInstance: { $0 }
+    )
+}
+
+// MARK: - SessionCallManager
 
 public final class SessionCallManager: NSObject, CallManagerProtocol {
     let dependencies: Dependencies
@@ -29,42 +42,15 @@ public final class SessionCallManager: NSObject, CallManagerProtocol {
         }
     }
     
-    private static var _sharedProvider: CXProvider?
-    static func sharedProvider(useSystemCallLog: Bool) -> CXProvider {
-        let configuration = buildProviderConfiguration(useSystemCallLog: useSystemCallLog)
-
-        if let sharedProvider = self._sharedProvider {
-            sharedProvider.configuration = configuration
-            return sharedProvider
-        }
-        else {
-            SwiftSingletons.register(self)
-            let provider = CXProvider(configuration: configuration)
-            _sharedProvider = provider
-            return provider
-        }
-    }
-    
-    static func buildProviderConfiguration(useSystemCallLog: Bool) -> CXProviderConfiguration {
-        let providerConfiguration = CXProviderConfiguration(localizedName: "Session")
-        providerConfiguration.supportsVideo = true
-        providerConfiguration.maximumCallGroups = 1
-        providerConfiguration.maximumCallsPerCallGroup = 1
-        providerConfiguration.supportedHandleTypes = [.generic]
-        let iconMaskImage = #imageLiteral(resourceName: "SessionGreen32")
-        providerConfiguration.iconTemplateImageData = iconMaskImage.pngData()
-        providerConfiguration.includesCallsInRecents = useSystemCallLog
-
-        return providerConfiguration
-    }
-    
     // MARK: - Initialization
     
     init(useSystemCallLog: Bool = false, using dependencies: Dependencies) {
         self.dependencies = dependencies
         
         if Preferences.isCallKitSupported {
-            self.provider = SessionCallManager.sharedProvider(useSystemCallLog: useSystemCallLog)
+            self.provider = dependencies.mutate(cache: .callManager) {
+                $0.getOrCreateProvider(useSystemCallLog: useSystemCallLog)
+            }
             self.callController = CXCallController()
         }
         else {
@@ -80,9 +66,11 @@ public final class SessionCallManager: NSObject, CallManagerProtocol {
     
     // MARK: - Report calls
     
-    public static func reportFakeCall(info: String) {
+    public static func reportFakeCall(info: String, using dependencies: Dependencies) {
         let callId = UUID()
-        let provider = SessionCallManager.sharedProvider(useSystemCallLog: false)
+        let provider: CXProvider = dependencies.mutate(cache: .callManager) {
+            $0.getOrCreateProvider(useSystemCallLog: false)
+        }
         provider.reportNewIncomingCall(
             with: callId,
             update: CXCallUpdate()
@@ -121,7 +109,9 @@ public final class SessionCallManager: NSObject, CallManagerProtocol {
         callerName: String,
         completion: @escaping (Error?) -> Void
     ) {
-        let provider = provider ?? Self.sharedProvider(useSystemCallLog: false)
+        let provider: CXProvider = dependencies.mutate(cache: .callManager) {
+            $0.getOrCreateProvider(useSystemCallLog: false)
+        }
         // Construct a CXCallUpdate describing the incoming call, including the caller.
         let update = CXCallUpdate()
         update.localizedCallerName = callerName
@@ -213,8 +203,8 @@ public final class SessionCallManager: NSObject, CallManagerProtocol {
         if dependencies.hasInitialised(singleton: .appContext) && dependencies[singleton: .appContext].isInBackground {
             // Stop all jobs except for message sending and when completed suspend the database
             dependencies[singleton: .jobRunner].stopAndClearPendingJobs(exceptForVariant: .messageSend) { [dependencies] in
-                LibSession.suspendNetworkAccess()
-                Storage.suspendDatabaseAccess(using: dependencies)
+                dependencies.mutate(cache: .libSessionNetwork) { $0.suspendNetworkAccess() }
+                dependencies[singleton: .storage].suspendDatabaseAccess()
                 Log.flush()
             }
         }
@@ -305,4 +295,40 @@ public final class SessionCallManager: NSObject, CallManagerProtocol {
         (dependencies[singleton: .appContext].frontMostViewController as? CallVC)?.handleEndCallMessage()
         MiniCallView.current?.dismiss()
     }
+}
+
+// MARK: - SessionCallManager Cache
+
+public extension SessionCallManager {
+    class Cache: CallManagerCacheType {
+        public var provider: CXProvider?
+        
+        public func getOrCreateProvider(useSystemCallLog: Bool) -> CXProvider {
+            if let provider: CXProvider = self.provider {
+                return provider
+            }
+            
+            let iconMaskImage: UIImage = #imageLiteral(resourceName: "SessionGreen32")
+            let configuration = CXProviderConfiguration(localizedName: "Session")
+            configuration.supportsVideo = true
+            configuration.maximumCallGroups = 1
+            configuration.maximumCallsPerCallGroup = 1
+            configuration.supportedHandleTypes = [.generic]
+            configuration.iconTemplateImageData = iconMaskImage.pngData()
+            configuration.includesCallsInRecents = useSystemCallLog
+            
+            let provider: CXProvider = CXProvider(configuration: configuration)
+            self.provider = provider
+            return provider
+        }
+    }
+}
+
+// MARK: - OGMCacheType
+
+/// This is a read-only version of the Cache designed to avoid unintentionally mutating the instance in a non-thread-safe way
+public protocol CallManagerImmutableCacheType: ImmutableCacheType {}
+
+public protocol CallManagerCacheType: CallManagerImmutableCacheType, MutableCacheType {
+    func getOrCreateProvider(useSystemCallLog: Bool) -> CXProvider
 }

@@ -175,14 +175,14 @@ public final class MessageSender {
                     )
                     .mapError { MessageSenderError.other("Couldn't wrap message", $0) }
                     .successOrThrow()
-                    // TODO: Crypto?????
-                    return try LibSession
-                        .encrypt(
-                            message: messageData,
+                    
+                    let ciphertext: Data = try dependencies[singleton: .crypto].tryGenerate(
+                        .ciphertextForGroupMessage(
                             groupSessionId: SessionId(.group, hex: groupId),
-                            using: dependencies
+                            message: Array(messageData)
                         )
-                        .base64EncodedString()
+                    )
+                    return ciphertext.base64EncodedString()
                     
                 // revokedRetrievableGroupMessages should be sent in plaintext (their content has custom encryption)
                 case (.closedGroup(let groupId), .revokedRetrievableGroupMessages) where (try? SessionId.Prefix(from: groupId)) == .group:

@@ -475,17 +475,17 @@ open class Storage {
     /// The generally suggested approach is to avoid this entirely by not storing the database in an AppGroup folder and sharing it
     /// with extensions - this may be possible but will require significant refactoring and a potentially painful migration to move the
     /// database and other files into the App folder
-    public static func suspendDatabaseAccess(using dependencies: Dependencies) {
+    public func suspendDatabaseAccess() {
         Log.info("[Storage] suspendDatabaseAccess called.")
         NotificationCenter.default.post(name: Database.suspendNotification, object: self)
-        if Storage.hasCreatedValidInstance { dependencies[singleton: .storage].isSuspendedUnsafe = true }
+        if isValid { isSuspendedUnsafe = true }
     }
     
     /// This method reverses the database suspension used to prevent the `0xdead10cc` exception (see `suspendDatabaseAccess()`
     /// above for more information
-    public static func resumeDatabaseAccess(using dependencies: Dependencies) {
+    public func resumeDatabaseAccess() {
         NotificationCenter.default.post(name: Database.resumeNotification, object: self)
-        if Storage.hasCreatedValidInstance { dependencies[singleton: .storage].isSuspendedUnsafe = false }
+        if isValid { isSuspendedUnsafe = false }
         Log.info("[Storage] resumeDatabaseAccess called.")
     }
     

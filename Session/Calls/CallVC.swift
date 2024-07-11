@@ -630,7 +630,9 @@ final class CallVC: UIViewController, VideoPreviewDelegate {
             
             DispatchQueue.main.async {
                 self?.conversationVC?.showInputAccessoryView()
-                self?.presentingViewController?.dismiss(animated: true, completion: nil)
+                self?.presentingViewController?.dismiss(animated: true) {
+                    self?.conversationVC?.becomeFirstResponder()
+                }
             }
         }
     }

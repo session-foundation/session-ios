@@ -185,7 +185,7 @@ public final class SessionCall: CurrentCallProtocol, WebRTCSessionDelegate {
     
     func reportIncomingCallIfNeeded(completion: @escaping (Error?) -> Void) {
         guard case .answer = mode else {
-            SessionCallManager.reportFakeCall(info: "Call not in answer mode")
+            SessionCallManager.reportFakeCall(info: "Call not in answer mode", using: dependencies)
             return
         }
         
@@ -434,14 +434,16 @@ public final class SessionCall: CurrentCallProtocol, WebRTCSessionDelegate {
         
         // Register a callback to get the current network status then remove it immediately as we only
         // care about the current status
-        let networkStatusCallbackId: UUID = LibSession.onNetworkStatusChanged { [weak self, dependencies] status in
-            guard status != .connected else { return }
-            
-            self?.reconnectTimer = Timer.scheduledTimerOnMainThread(withTimeInterval: 5, repeats: false, using: dependencies) { _ in
-                self?.tryToReconnect()
-            }
-        }
-        LibSession.removeNetworkChangedCallback(callbackId: networkStatusCallbackId)
+        dependencies[cache: .libSessionNetwork].networkStatus
+            .sinkUntilComplete(
+                receiveValue: { [weak self, dependencies] status in
+                    guard status != .connected else { return }
+                    
+                    self?.reconnectTimer = Timer.scheduledTimerOnMainThread(withTimeInterval: 5, repeats: false, using: dependencies) { _ in
+                        self?.tryToReconnect()
+                    }
+                }
+            )
         
         let sessionId: String = self.sessionId
         let webRTCSession: WebRTCSession = self.webRTCSession

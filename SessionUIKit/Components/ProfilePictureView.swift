@@ -1,6 +1,7 @@
 // Copyright © 2022 Rangeproof Pty Ltd. All rights reserved.
 
 import UIKit
+import Combine
 import YYImage
 
 public final class ProfilePictureView: UIView {
@@ -96,6 +97,7 @@ public final class ProfilePictureView: UIView {
         }
     }
     
+    public var disposables: Set<AnyCancellable> = Set()
     public var size: Size {
         didSet {
             widthConstraint.constant = (customWidth ?? size.viewSize)
