@@ -53,6 +53,14 @@ extension MessageReceiver {
                     using: dependencies
                 )
                 
+            case (let message as GroupUpdateMemberLeftNotificationMessage, .some(let sessionId)) where sessionId.prefix == .group:
+                try MessageReceiver.handleGroupMemberLeftNotification(
+                    db,
+                    groupSessionId: sessionId,
+                    message: message,
+                    using: dependencies
+                )
+                
             case (let message as GroupUpdateInviteResponseMessage, .some(let sessionId)) where sessionId.prefix == .group:
                 try MessageReceiver.handleGroupInviteResponse(
                     db,
@@ -131,126 +139,30 @@ extension MessageReceiver {
             )
         }
         
-        /// With updated groups they should be considered message requests (`invited: true`) unless person sending the invitation is
-        /// an approved contact of the user, this is designed to reduce spam via groups getting around message requests if users are on old
-        /// or modified clients
-        let inviteSenderIsApproved: Bool = {
-            guard !dependencies[feature: .updatedGroupsDisableAutoApprove] else { return false }
-            
-            return ((try? Contact.fetchOne(db, id: sender))?.isApproved == true)
-        }()
-        let threadAlreadyExisted: Bool = ((try? SessionThread.exists(db, id: message.groupSessionId.hexString)) ?? false)
-        let wasKickedFromGroup: Bool = LibSession.wasKickedFromGroup(
-            groupSessionId: message.groupSessionId,
-            using: dependencies
-        )
-        let pollResponseJob: Job? = try MessageReceiver.handleNewGroup(
+        try processGroupInvite(
             db,
-            groupSessionId: message.groupSessionId.hexString,
+            sender: sender,
+            serverHash: message.serverHash,
+            sentTimestampMs: Int64(sentTimestampMs),
+            groupSessionId: message.groupSessionId,
+            groupName: message.groupName,
+            memberAuthData: message.memberAuthData,
             groupIdentityPrivateKey: nil,
-            name: message.groupName,
-            authData: message.memberAuthData,
-            joinedAt: TimeInterval(Double(sentTimestampMs) / 1000),
-            invited: !inviteSenderIsApproved,
-            calledFromConfig: nil,
             using: dependencies
         )
-        
-        /// Add the sender as a group admin (so we can retrieve their profile details for Group Message Request UI)
-        try GroupMember(
-            groupId: message.groupSessionId.hexString,
-            profileId: sender,
-            role: .admin,
-            roleStatus: .accepted,
-            isHidden: false
-        ).upsert(db)
-        
-        /// If the thread didn't already exist, or the user had previously been kicked but has since been re-added to the group, then insert
-        /// an 'invited' info message
-        guard !threadAlreadyExisted || wasKickedFromGroup else { return }
-        
-        /// Remove any existing `infoGroupInfoInvited` interactions from the group (don't want to have a duplicate one in case
-        /// the group was created via a `USER_GROUPS` config when syncing a new device)
-        _ = try Interaction
-            .filter(Interaction.Columns.threadId == message.groupSessionId.hexString)
-            .filter(Interaction.Columns.variant == Interaction.Variant.infoGroupInfoInvited)
-            .deleteAll(db)
-        
-        let interaction: Interaction = try Interaction(
-            threadId: message.groupSessionId.hexString,
-            threadVariant: .group,
-            authorId: sender,
-            variant: .infoGroupInfoInvited,
-            body: ClosedGroup.MessageInfo
-                .invited(
-                    (try? Profile.fetchOne(db, id: sender)?.displayName(for: .group))
-                        .defaulting(to: Profile.truncated(id: sender, threadVariant: .group)),
-                    message.groupName
-                )
-                .infoString(using: dependencies),
-            timestampMs: Int64(sentTimestampMs),
-            wasRead: LibSession.timestampAlreadyRead(
-                threadId: message.groupSessionId.hexString,
-                threadVariant: .group,
-                timestampMs: Int64(sentTimestampMs),
-                userSessionId: userSessionId,
-                openGroup: nil,
-                using: dependencies
-            ),
-            using: dependencies
-        ).inserted(db)
-        
-        /// Notify the user about the group message request if needed
-        switch inviteSenderIsApproved {
-            /// If the sender was approved then this group will be auto-accepted and we should send the
-            /// `GroupUpdateInviteResponseMessage` to the group
-            case true:
-                /// If we aren't creating a new thread (ie. sending a message request) then send a
-                /// `GroupUpdateInviteResponseMessage` to the group (this allows other members
-                /// to know that the user has joined the group)
-                try MessageSender.send(
-                    db,
-                    message: GroupUpdateInviteResponseMessage(
-                        isApproved: true,
-                        sentTimestamp: dependencies[cache: .snodeAPI].currentOffsetTimestampMs()
-                    ),
-                    interactionId: nil,
-                    threadId: message.groupSessionId.hexString,
-                    threadVariant: .group,
-                    after: pollResponseJob,
-                    using: dependencies
-                )
-                
-            /// If the sender wasn't approved this is a message request so we should notify the user about the invite
-            case false:
-                let isMainAppActive: Bool = dependencies[defaults: .appGroup, key: .isMainAppActive]
-                dependencies[singleton: .notificationsManager].notifyUser(
-                    db,
-                    for: interaction,
-                    in: try SessionThread.fetchOrCreate(
-                        db,
-                        id: message.groupSessionId.hexString,
-                        variant: .group,
-                        shouldBeVisible: nil,
-                        calledFromConfig: nil,
-                        using: dependencies
-                    ),
-                    applicationState: (isMainAppActive ? .active : .background)
-                )
-        }
     }
     
     @discardableResult internal static func handleNewGroup(
         _ db: Database,
         groupSessionId: String,
         groupIdentityPrivateKey: Data?,
-        name: String?,
+        name: String,
         authData: Data?,
         joinedAt: TimeInterval,
         invited: Bool,
         calledFromConfig configTriggeringChange: ConfigDump.Variant?,
         using dependencies: Dependencies
-    ) throws -> Job? {
+    ) throws -> AnyPublisher<Void, Never> {
         // Create the group
         try SessionThread.fetchOrCreate(
             db,
@@ -264,7 +176,7 @@ extension MessageReceiver {
         let groupInvitedState: Bool = (!groupAlreadyApproved && invited)
         let closedGroup: ClosedGroup = try ClosedGroup(
             threadId: groupSessionId,
-            name: (name ?? "GROUP_TITLE_FALLBACK".localized()),
+            name: name,
             formationTimestamp: joinedAt,
             shouldPoll: false,  // Always false here - will be updated in `approveGroup`
             groupIdentityPrivateKey: groupIdentityPrivateKey,
@@ -287,7 +199,7 @@ extension MessageReceiver {
         }
         
         // If the group wasn't already approved is not in the invite state then handle the approval process
-        guard !groupAlreadyApproved && !invited else { return nil }
+        guard !groupAlreadyApproved && !invited else { return Just(()).eraseToAnyPublisher() }
         
         return try ClosedGroup.approveGroup(
             db,
@@ -303,6 +215,8 @@ extension MessageReceiver {
         using dependencies: Dependencies
     ) throws {
         guard
+            let sender: String = message.sender,
+            let sentTimestampMs: UInt64 = message.sentTimestamp,
             let groupIdentityKeyPair: KeyPair = dependencies[singleton: .crypto].generate(
                 .ed25519KeyPair(seed: Array(message.groupIdentitySeed))
             )
@@ -311,68 +225,56 @@ extension MessageReceiver {
         let userSessionId: SessionId = dependencies[cache: .general].sessionId
         let groupSessionId: SessionId = SessionId(.group, publicKey: groupIdentityKeyPair.publicKey)
         
-        // Load the admin key into libSession
-        try LibSession
-            .loadAdminKey(
+        // Update profile if needed
+        if let profile = message.profile {
+            try Profile.updateIfNeeded(
                 db,
-                groupIdentitySeed: message.groupIdentitySeed,
-                groupSessionId: groupSessionId,
-                using: dependencies
-            )
-        
-        // Replace the member key with the admin key in the database
-        try ClosedGroup
-            .filter(id: groupSessionId.hexString)
-            .updateAllAndConfig(
-                db,
-                ClosedGroup.Columns.groupIdentityPrivateKey.set(to: Data(groupIdentityKeyPair.secretKey)),
-                ClosedGroup.Columns.authData.set(to: nil),
+                publicKey: sender,
+                name: profile.displayName,
+                blocksCommunityMessageRequests: profile.blocksCommunityMessageRequests,
+                displayPictureUpdate: {
+                    guard
+                        let profilePictureUrl: String = profile.profilePictureUrl,
+                        let profileKey: Data = profile.profileKey
+                    else { return .remove }
+                    
+                    return .updateTo(
+                        url: profilePictureUrl,
+                        key: profileKey,
+                        fileName: nil
+                    )
+                }(),
+                sentTimestamp: TimeInterval(Double(sentTimestampMs) / 1000),
                 calledFromConfig: nil,
                 using: dependencies
             )
-        
-        let existingMember: GroupMember? = try GroupMember
-            .filter(GroupMember.Columns.groupId == groupSessionId.hexString)
-            .filter(GroupMember.Columns.profileId == userSessionId.hexString)
-            .fetchOne(db)
-        
-        switch (existingMember?.role, existingMember?.roleStatus) {
-            case (.standard, _):
-                try GroupMember
-                    .filter(GroupMember.Columns.groupId == groupSessionId.hexString)
-                    .filter(GroupMember.Columns.profileId == userSessionId.hexString)
-                    .updateAllAndConfig(
-                        db,
-                        GroupMember.Columns.role.set(to: GroupMember.Role.admin),
-                        GroupMember.Columns.roleStatus.set(to: GroupMember.RoleStatus.accepted),
-                        calledFromConfig: nil,
-                        using: dependencies
-                    )
-                
-            case (.admin, .failed), (.admin, .pending), (.admin, .sending):
-                try GroupMember
-                    .filter(GroupMember.Columns.groupId == groupSessionId.hexString)
-                    .filter(GroupMember.Columns.profileId == userSessionId.hexString)
-                    .updateAllAndConfig(
-                        db,
-                        GroupMember.Columns.roleStatus.set(to: GroupMember.RoleStatus.accepted),
-                        calledFromConfig: nil,
-                        using: dependencies
-                    )
-                
-            default:
-                // If there is no value in the database then just update libSession directly (this
-                // will trigger an updated `GROUP_MEMBERS` message if there are changes which will
-                // result in the database getting updated to the correct state)
-                try LibSession.updateMemberStatus(
-                    db,
-                    groupSessionId: groupSessionId,
-                    memberId: userSessionId.hexString,
-                    role: .admin,
-                    status: .accepted,
-                    using: dependencies
-                )
         }
+        
+        // Process the promotion as a group invite (if needed)
+        try processGroupInvite(
+            db,
+            sender: sender,
+            serverHash: message.serverHash,
+            sentTimestampMs: Int64(sentTimestampMs),
+            groupSessionId: groupSessionId,
+            groupName: message.groupName,
+            memberAuthData: nil,
+            groupIdentityPrivateKey: Data(groupIdentityKeyPair.secretKey),
+            using: dependencies
+        )
+        
+        let groupInInvitedState: Bool = (try? ClosedGroup
+            .filter(id: groupSessionId.hexString)
+            .select(ClosedGroup.Columns.invited)
+            .fetchOne(db))
+            .defaulting(to: true)
+        
+        // If the group is in it's invited state then the admin won't be able to update their admin status
+        // so don't bother trying
+        guard !groupInInvitedState else { return }
+        
+        // Actually update the group state to indicate the promotion was accepted
+        try processGroupPromotion(db, groupSessionId: groupSessionId, using: dependencies)
     }
     
     private static func handleGroupInfoChanged(
@@ -544,6 +446,40 @@ extension MessageReceiver {
         message: GroupUpdateMemberLeftMessage,
         using dependencies: Dependencies
     ) throws {
+        // If the user is a group admin then we need to remove the member from the group, we already have a
+        // "member left" message so `sendMemberChangedMessage` should be `false`
+        guard
+            let sender: String = message.sender,
+            let sentTimestampMs: UInt64 = message.sentTimestamp,
+            (try? ClosedGroup
+                .filter(id: groupSessionId.hexString)
+                .select(.groupIdentityPrivateKey)
+                .asRequest(of: Data.self)
+                .fetchOne(db)) != nil
+        else { throw MessageReceiverError.invalidMessage }
+        
+        // Trigger this removal in a separate process because it requires a number of requests to be made
+        db.afterNextTransactionNested { _ in
+            MessageSender
+                .removeGroupMembers(
+                    groupSessionId: groupSessionId.hexString,
+                    memberIds: [sender],
+                    removeTheirMessages: false,
+                    sendMemberChangedMessage: false,
+                    changeTimestampMs: Int64(sentTimestampMs),
+                    using: dependencies
+                )
+                .subscribe(on: DispatchQueue.global(qos: .background), using: dependencies)
+                .sinkUntilComplete()
+        }
+    }
+    
+    private static func handleGroupMemberLeftNotification(
+        _ db: Database,
+        groupSessionId: SessionId,
+        message: GroupUpdateMemberLeftNotificationMessage,
+        using dependencies: Dependencies
+    ) throws {
         guard
             let sender: String = message.sender,
             let sentTimestampMs: UInt64 = message.sentTimestamp
@@ -567,31 +503,6 @@ extension MessageReceiver {
             timestampMs: Int64(sentTimestampMs),
             using: dependencies
         ).inserted(db)
-        
-        // If the user is a group admin then we need to remove the member from the group, we already have a
-        // "member left" message so `sendMemberChangedMessage` should be `false`
-        guard
-            (try? ClosedGroup
-                .filter(id: groupSessionId.hexString)
-                .select(.groupIdentityPrivateKey)
-                .asRequest(of: Data.self)
-                .fetchOne(db)) != nil
-        else { return }
-        
-        // Trigger this removal in a separate process because it requires a number of requests to be made
-        db.afterNextTransactionNested { _ in
-            MessageSender
-                .removeGroupMembers(
-                    groupSessionId: groupSessionId.hexString,
-                    memberIds: [sender],
-                    removeTheirMessages: false,
-                    sendMemberChangedMessage: false,
-                    changeTimestampMs: Int64(sentTimestampMs),
-                    using: dependencies
-                )
-                .subscribe(on: DispatchQueue.global(qos: .background), using: dependencies)
-                .sinkUntilComplete()
-        }
     }
     
     private static func handleGroupInviteResponse(
@@ -789,7 +700,243 @@ extension MessageReceiver {
         )
     }
     
-    // MARK: - Convenience
+    // MARK: - Shared
+    
+    internal static func processGroupInvite(
+        _ db: Database,
+        sender: String,
+        serverHash: String?,
+        sentTimestampMs: Int64,
+        groupSessionId: SessionId,
+        groupName: String,
+        memberAuthData: Data?,
+        groupIdentityPrivateKey: Data?,
+        using dependencies: Dependencies
+    ) throws {
+        let userSessionId: SessionId = dependencies[cache: .general].sessionId
+        
+        /// With updated groups they should be considered message requests (`invited: true`) unless person sending the invitation is
+        /// an approved contact of the user, this is designed to reduce spam via groups getting around message requests if users are on old
+        /// or modified clients
+        let inviteSenderIsApproved: Bool = {
+            guard !dependencies[feature: .updatedGroupsDisableAutoApprove] else { return false }
+            
+            return ((try? Contact.fetchOne(db, id: sender))?.isApproved == true)
+        }()
+        let threadAlreadyExisted: Bool = ((try? SessionThread.exists(db, id: groupSessionId.hexString)) ?? false)
+        let wasKickedFromGroup: Bool = LibSession.wasKickedFromGroup(
+            groupSessionId: groupSessionId,
+            using: dependencies
+        )
+        let initialPollPublisher: AnyPublisher<Void, Never> = try MessageReceiver.handleNewGroup(
+            db,
+            groupSessionId: groupSessionId.hexString,
+            groupIdentityPrivateKey: groupIdentityPrivateKey,
+            name: groupName,
+            authData: memberAuthData,
+            joinedAt: TimeInterval(Double(sentTimestampMs) / 1000),
+            invited: !inviteSenderIsApproved,
+            calledFromConfig: nil,
+            using: dependencies
+        )
+        
+        /// Add the sender as a group admin (so we can retrieve their profile details for Group Message Request UI)
+        try GroupMember(
+            groupId: groupSessionId.hexString,
+            profileId: sender,
+            role: .admin,
+            roleStatus: .accepted,
+            isHidden: false
+        ).upsert(db)
+        
+        /// Now that we've added the group info into the `USER_GROUPS` config we should try to delete the original invitation/promotion
+        /// from the swarm so we don't need to worry about it being reprocessed on another device if the user happens to leave or get
+        /// removed from the group before another device has received it (ie. stop the group from incorrectly reappearing)
+        switch serverHash {
+            case .none: break
+            case .some(let serverHash):
+                try? SnodeAPI
+                    .preparedDeleteMessages(
+                        serverHashes: [serverHash],
+                        requireSuccessfulDeletion: false,
+                        authMethod: try Authentication.with(
+                            db,
+                            swarmPublicKey: userSessionId.hexString,
+                            using: dependencies
+                        ),
+                        using: dependencies
+                    )
+                    .send(using: dependencies)
+                    .subscribe(on: DispatchQueue.global(qos: .background), using: dependencies)
+                    .sinkUntilComplete()
+        }
+        
+        /// If the thread didn't already exist, or the user had previously been kicked but has since been re-added to the group, then insert
+        /// an 'invited' info message
+        guard !threadAlreadyExisted || wasKickedFromGroup else { return }
+        
+        /// Remove any existing `infoGroupInfoInvited` interactions from the group (don't want to have a duplicate one in case
+        /// the group was created via a `USER_GROUPS` config when syncing a new device)
+        _ = try Interaction
+            .filter(Interaction.Columns.threadId == groupSessionId.hexString)
+            .filter(Interaction.Columns.variant == Interaction.Variant.infoGroupInfoInvited)
+            .deleteAll(db)
+        
+        let interaction: Interaction = try Interaction(
+            threadId: groupSessionId.hexString,
+            threadVariant: .group,
+            authorId: sender,
+            variant: .infoGroupInfoInvited,
+            body: {
+                switch groupIdentityPrivateKey {
+                    case .none:
+                        return ClosedGroup.MessageInfo
+                            .invited(
+                                (try? Profile.fetchOne(db, id: sender)?.displayName(for: .group))
+                                    .defaulting(to: Profile.truncated(id: sender, threadVariant: .group)),
+                                groupName
+                            )
+                            .infoString(using: dependencies)
+                    
+                    case .some:
+                        return ClosedGroup.MessageInfo
+                            .invitedAdmin(
+                                (try? Profile.fetchOne(db, id: sender)?.displayName(for: .group))
+                                    .defaulting(to: Profile.truncated(id: sender, threadVariant: .group)),
+                                groupName
+                            )
+                            .infoString(using: dependencies)
+                }
+            }(),
+            timestampMs: sentTimestampMs,
+            wasRead: LibSession.timestampAlreadyRead(
+                threadId: groupSessionId.hexString,
+                threadVariant: .group,
+                timestampMs: sentTimestampMs,
+                userSessionId: userSessionId,
+                openGroup: nil,
+                using: dependencies
+            ),
+            using: dependencies
+        ).inserted(db)
+        
+        /// Notify the user about the group message request if needed
+        switch (inviteSenderIsApproved, groupIdentityPrivateKey == nil) {
+            /// If the sender was approved then this group will be auto-accepted and we should send the
+            /// `GroupUpdateInviteResponseMessage` to the group
+            case (true, true):
+                /// If we aren't creating a new thread (ie. sending a message request) then send a
+                /// `GroupUpdateInviteResponseMessage` to the group (this allows other members
+                /// to know that the user has joined the group)
+                db.afterNextTransactionNested { _ in
+                    initialPollPublisher
+                        .first()
+                        .subscribe(on: DispatchQueue.global(qos: .background), using: dependencies)
+                        .sinkUntilComplete(
+                            receiveCompletion: { _ in
+                                dependencies[singleton: .storage].write { db in
+                                    try MessageSender.send(
+                                        db,
+                                        message: GroupUpdateInviteResponseMessage(
+                                            isApproved: true,
+                                            sentTimestamp: dependencies[cache: .snodeAPI].currentOffsetTimestampMs()
+                                        ),
+                                        interactionId: nil,
+                                        threadId: groupSessionId.hexString,
+                                        threadVariant: .group,
+                                        using: dependencies
+                                    )
+                                }
+                            }
+                        )
+                }
+                
+            /// If the sender wasn't approved this is a message request so we should notify the user about the invite
+            case (false, _):
+                let isMainAppActive: Bool = dependencies[defaults: .appGroup, key: .isMainAppActive]
+                dependencies[singleton: .notificationsManager].notifyUser(
+                    db,
+                    for: interaction,
+                    in: try SessionThread.fetchOrCreate(
+                        db,
+                        id: groupSessionId.hexString,
+                        variant: .group,
+                        shouldBeVisible: nil,
+                        calledFromConfig: nil,
+                        using: dependencies
+                    ),
+                    applicationState: (isMainAppActive ? .active : .background)
+                )
+            
+            /// If the sender is approved and this was an admin invitation then do nothing
+            case (true, false): break
+        }
+    }
+    
+    public static func processGroupPromotion(
+        _ db: Database,
+        groupSessionId: SessionId,
+        using dependencies: Dependencies
+    ) throws {
+        guard
+            let group: ClosedGroup = try ClosedGroup.fetchOne(db, id: groupSessionId.hexString),
+            let groupIdentityPrivateKey: Data = group.groupIdentityPrivateKey
+        else { return }
+        
+        let userSessionId: SessionId = dependencies[cache: .general].sessionId
+        
+        // Load the admin key into libSession
+        try LibSession
+            .loadAdminKey(
+                db,
+                groupIdentitySeed: groupIdentityPrivateKey, // The first 32 bytes of the private key are the seed
+                groupSessionId: groupSessionId,
+                using: dependencies
+            )
+        
+        /// Update the current users member status in both the database and `GROUP_MEMBERS`
+        let existingMember: GroupMember? = try GroupMember
+            .filter(GroupMember.Columns.groupId == groupSessionId.hexString)
+            .filter(GroupMember.Columns.profileId == userSessionId.hexString)
+            .fetchOne(db)
+        switch (existingMember?.role, existingMember?.roleStatus) {
+            case (.standard, _):
+                try GroupMember
+                    .filter(GroupMember.Columns.groupId == groupSessionId.hexString)
+                    .filter(GroupMember.Columns.profileId == userSessionId.hexString)
+                    .updateAllAndConfig(
+                        db,
+                        GroupMember.Columns.role.set(to: GroupMember.Role.admin),
+                        GroupMember.Columns.roleStatus.set(to: GroupMember.RoleStatus.accepted),
+                        calledFromConfig: nil,
+                        using: dependencies
+                    )
+                
+            case (.admin, .failed), (.admin, .pending), (.admin, .sending):
+                try GroupMember
+                    .filter(GroupMember.Columns.groupId == groupSessionId.hexString)
+                    .filter(GroupMember.Columns.profileId == userSessionId.hexString)
+                    .updateAllAndConfig(
+                        db,
+                        GroupMember.Columns.roleStatus.set(to: GroupMember.RoleStatus.accepted),
+                        calledFromConfig: nil,
+                        using: dependencies
+                    )
+                
+            default:
+                /// If there is no value in the database then just update libSession directly (this will trigger an updated
+                /// `GROUP_MEMBERS` message if there are changes which will result in the database getting updated
+                /// to the correct state)
+                try LibSession.updateMemberStatus(
+                    db,
+                    groupSessionId: groupSessionId,
+                    memberId: userSessionId.hexString,
+                    role: .admin,
+                    status: .accepted,
+                    using: dependencies
+                )
+        }
+    }
     
     internal static func updateMemberApprovalStatusIfNeeded(
         _ db: Database,

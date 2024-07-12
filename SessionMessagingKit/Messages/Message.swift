@@ -159,6 +159,7 @@ public extension Message {
         case groupUpdateInfoChange
         case groupUpdateMemberChange
         case groupUpdateMemberLeft
+        case groupUpdateMemberLeftNotification
         case groupUpdateInviteResponse
         case groupUpdateDeleteMemberContent
         case libSessionMessage
@@ -179,6 +180,7 @@ public extension Message {
                 case is GroupUpdateInfoChangeMessage: self = .groupUpdateInfoChange
                 case is GroupUpdateMemberChangeMessage: self = .groupUpdateMemberChange
                 case is GroupUpdateMemberLeftMessage: self = .groupUpdateMemberLeft
+                case is GroupUpdateMemberLeftNotificationMessage: self = .groupUpdateMemberLeftNotification
                 case is GroupUpdateInviteResponseMessage: self = .groupUpdateInviteResponse
                 case is GroupUpdateDeleteMemberContentMessage: self = .groupUpdateDeleteMemberContent
                 case is LibSessionMessage: self = .libSessionMessage
@@ -202,6 +204,7 @@ public extension Message {
                 case .groupUpdateInfoChange: return GroupUpdateInfoChangeMessage.self
                 case .groupUpdateMemberChange: return GroupUpdateMemberChangeMessage.self
                 case .groupUpdateMemberLeft: return GroupUpdateMemberLeftMessage.self
+                case .groupUpdateMemberLeftNotification: return GroupUpdateMemberLeftNotificationMessage.self
                 case .groupUpdateInviteResponse: return GroupUpdateInviteResponseMessage.self
                 case .groupUpdateDeleteMemberContent: return GroupUpdateDeleteMemberContentMessage.self
                 case .libSessionMessage: return LibSessionMessage.self
@@ -211,25 +214,28 @@ public extension Message {
         /// This value ensures the variants can be ordered to ensure the correct types are processed and aren't parsed as the wrong type
         /// due to the structures being close enough matches
         var protoPriority: Int {
-            switch self {
-                case .readReceipt: return 0
-                case .typingIndicator: return 1
-                case .closedGroupControlMessage: return 2
-                case .dataExtractionNotification: return 10
-                case .expirationTimerUpdate: return 11
-                case .unsendRequest: return 12
-                case .messageRequestResponse: return 13
-                case .visibleMessage: return 14
-                case .callMessage: return 15
-                case .groupUpdateInvite: return 3
-                case .groupUpdatePromote: return 4
-                case .groupUpdateInfoChange: return 5
-                case .groupUpdateMemberChange: return 6
-                case .groupUpdateMemberLeft: return 7
-                case .groupUpdateInviteResponse: return 8
-                case .groupUpdateDeleteMemberContent: return 9
-                case .libSessionMessage: return 16
-            }
+            let priorities: [Variant] = [
+                .readReceipt,
+                .typingIndicator,
+                .closedGroupControlMessage,
+                .groupUpdateInvite,
+                .groupUpdatePromote,
+                .groupUpdateInfoChange,
+                .groupUpdateMemberChange,
+                .groupUpdateMemberLeft,
+                .groupUpdateMemberLeftNotification,
+                .groupUpdateInviteResponse,
+                .groupUpdateDeleteMemberContent,
+                .dataExtractionNotification,
+                .expirationTimerUpdate,
+                .unsendRequest,
+                .messageRequestResponse,
+                .visibleMessage,
+                .callMessage,
+                .libSessionMessage
+            ]
+            
+            return (priorities.firstIndex(of: self) ?? priorities.count)
         }
         
         var isProtoConvetible: Bool {
@@ -264,6 +270,9 @@ public extension Message {
                 
                 case .groupUpdateMemberLeft:
                     return try container.decode(GroupUpdateMemberLeftMessage.self, forKey: key)
+                
+                case .groupUpdateMemberLeftNotification:
+                    return try container.decode(GroupUpdateMemberLeftNotificationMessage.self, forKey: key)
                 
                 case .groupUpdateInviteResponse:
                     return try container.decode(GroupUpdateInviteResponseMessage.self, forKey: key)
@@ -697,7 +706,14 @@ public extension Message {
         switch (destination, message) {
             // Disappear after sent messages with exceptions
             case (_, is UnsendRequest): return message.ttl
+                
+            // FIXME: Remove these two cases once legacy groups are deprecated
             case (.closedGroup, is ClosedGroupControlMessage), (.closedGroup, is ExpirationTimerUpdate):
+                return message.ttl
+                
+            case (.closedGroup, is GroupUpdateInviteMessage), (.closedGroup, is GroupUpdateInviteResponseMessage),
+                (.closedGroup, is GroupUpdatePromoteMessage), (.closedGroup, is GroupUpdateMemberLeftMessage),
+                (.closedGroup, is GroupUpdateDeleteMemberContentMessage):
                 return message.ttl
 
             default:

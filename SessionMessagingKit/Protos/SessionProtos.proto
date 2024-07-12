@@ -259,13 +259,14 @@ message AttachmentPointer {
 // Group Update Messages
 
 message GroupUpdateMessage {
-  optional GroupUpdateInviteMessage               inviteMessage          = 1;
-  optional GroupUpdateInfoChangeMessage           infoChangeMessage      = 2;
-  optional GroupUpdateMemberChangeMessage         memberChangeMessage    = 3;
-  optional GroupUpdatePromoteMessage              promoteMessage         = 4;
-  optional GroupUpdateMemberLeftMessage           memberLeftMessage      = 5;
-  optional GroupUpdateInviteResponseMessage       inviteResponse         = 6;
-  optional GroupUpdateDeleteMemberContentMessage  deleteMemberContent    = 7;
+  optional GroupUpdateInviteMessage                  inviteMessage                 = 1;
+  optional GroupUpdateInfoChangeMessage              infoChangeMessage             = 2;
+  optional GroupUpdateMemberChangeMessage            memberChangeMessage           = 3;
+  optional GroupUpdatePromoteMessage                 promoteMessage                = 4;
+  optional GroupUpdateMemberLeftMessage              memberLeftMessage             = 5;
+  optional GroupUpdateInviteResponseMessage          inviteResponse                = 6;
+  optional GroupUpdateDeleteMemberContentMessage     deleteMemberContent           = 7;
+  optional GroupUpdateMemberLeftNotificationMessage  memberLeftNotificationMessage = 8;
 }
 
 message GroupUpdateInviteMessage {
@@ -282,6 +283,8 @@ message GroupUpdateInviteMessage {
 message GroupUpdatePromoteMessage {
   // @required
   required bytes          groupIdentitySeed       = 1;
+  // @required
+  required string         name                    = 2;
 }
 
 message GroupUpdateInfoChangeMessage {
@@ -315,6 +318,10 @@ message GroupUpdateMemberChangeMessage {
 }
 
 message GroupUpdateMemberLeftMessage {
+  // the pubkey of the member left is included as part of the closed group encryption logic (senderIdentity on desktop)
+}
+
+message GroupUpdateMemberLeftNotificationMessage {
   // the pubkey of the member left is included as part of the closed group encryption logic (senderIdentity on desktop)
 }
 

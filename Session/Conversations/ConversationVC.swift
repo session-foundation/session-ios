@@ -747,6 +747,8 @@ final class ConversationVC: BaseVC, LibSessionRespondingViewController, Conversa
             viewModel.threadData.threadVariant != updatedThreadData.threadVariant ||
             viewModel.threadData.threadIsNoteToSelf != updatedThreadData.threadIsNoteToSelf ||
             viewModel.threadData.threadIsBlocked != updatedThreadData.threadIsBlocked ||
+            viewModel.threadData.threadIsMessageRequest != updatedThreadData.threadIsMessageRequest ||
+            viewModel.threadData.threadRequiresApproval != updatedThreadData.threadRequiresApproval ||
             viewModel.threadData.profile != updatedThreadData.profile
         {
             updateNavBarButtons(

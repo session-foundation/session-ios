@@ -1,6 +1,7 @@
 // Copyright © 2022 Rangeproof Pty Ltd. All rights reserved.
 
 import Foundation
+import Combine
 import GRDB
 import DifferenceKit
 import SessionUIKit
@@ -186,7 +187,7 @@ public extension ClosedGroup {
         group: ClosedGroup,
         calledFromConfig configTriggeringChange: ConfigDump.Variant?,
         using dependencies: Dependencies
-    ) throws -> Job? {
+    ) throws -> AnyPublisher<Void, Never> {
         guard let userED25519KeyPair: KeyPair = Identity.fetchUserEd25519KeyPair(db) else {
             throw MessageReceiverError.noUserED25519KeyPair
         }
@@ -223,25 +224,9 @@ public extension ClosedGroup {
             )
         }
         
-        /// Schedule a `pollResponseJob` to be triggered once the first poll completes the start polling
-        let pollResponseJob: Job? = dependencies[singleton: .jobRunner].add(
-            db,
-            job: Job(variant: .manualResultJob),
-            canStartJob: true
-        )
-        dependencies
-            .mutate(cache: .groupPollers) { cache in
-                let poller: PollerType = cache.getOrCreatePoller(for: group.id)
-                poller.afterNextPoll { _ in
-                    dependencies[singleton: .jobRunner].manuallyTriggerResult(
-                        pollResponseJob,
-                        result: .succeeded
-                    )
-                }
-                
-                return poller
-            }
-            .startIfNeeded()
+        /// Start the poller
+        let poller: PollerType = dependencies.mutate(cache: .groupPollers) { $0.getOrCreatePoller(for: group.id) }
+        poller.startIfNeeded()
         
         /// Subscribe for group push notifications
         if let token: String = dependencies[defaults: .standard, key: .deviceToken] {
@@ -257,7 +242,10 @@ public extension ClosedGroup {
                 .sinkUntilComplete()
         }
         
-        return pollResponseJob
+        /// Return a publisher for the pollers poll results
+        return poller.receivedPollResult
+            .map { _ in () }
+            .eraseToAnyPublisher()
     }
     
     static func removeData(
@@ -374,13 +362,6 @@ public extension ClosedGroup {
         }
         
         if dataToRemove.contains(.messages) {
-            let messageHashes: Set<String> = try Interaction
-                .filter(threadIds.contains(Interaction.Columns.threadId))
-                .filter(Interaction.Columns.serverHash != nil)
-                .select(.serverHash)
-                .asRequest(of: String.self)
-                .fetchSet(db)
-            
             try Interaction
                 .filter(threadIds.contains(Interaction.Columns.threadId))
                 .deleteAll(db)
@@ -400,9 +381,11 @@ public extension ClosedGroup {
             
             /// Also want to delete the `SnodeReceivedMessageInfo` so if the member gets re-invited to the group with
             /// historic access they can re-download and process all of the old messages
-            try SnodeReceivedMessageInfo
-                .filter(messageHashes.contains(SnodeReceivedMessageInfo.Columns.hash))
-                .deleteAll(db)
+            try threadIds.forEach { threadId in
+                try SnodeReceivedMessageInfo
+                    .filter(SnodeReceivedMessageInfo.Columns.key.like("%\(threadId)%"))
+                    .deleteAll(db)
+            }
         }
         
         if dataToRemove.contains(.members) {
@@ -457,6 +440,8 @@ public extension ClosedGroup {
     enum MessageInfo: Codable {
         case invited(String, String)
         case invitedFallback(String)
+        case invitedAdmin(String, String)
+        case invitedAdminFallback(String)
         case updatedName(String)
         case updatedNameFallback
         case updatedDisplayPicture
@@ -480,6 +465,19 @@ public extension ClosedGroup {
                 case .invitedFallback(let groupName):
                     return NSAttributedString(
                         format: "GROUP_MESSAGE_INFO_INVITED_FALLBACK".localized(),
+                        .font(groupName, .boldSystemFont(ofSize: Values.verySmallFontSize))
+                    )
+                
+                case .invitedAdmin(let adminName, let groupName):
+                    return NSAttributedString(
+                        format: "GROUP_MESSAGE_INFO_INVITED_ADMIN".localized(),
+                        .font(adminName, .boldSystemFont(ofSize: Values.verySmallFontSize)),
+                        .font(groupName, .boldSystemFont(ofSize: Values.verySmallFontSize))
+                    )
+                    
+                case .invitedAdminFallback(let groupName):
+                    return NSAttributedString(
+                        format: "GROUP_MESSAGE_INFO_INVITED_ADMIN_FALLBACK".localized(),
                         .font(groupName, .boldSystemFont(ofSize: Values.verySmallFontSize))
                     )
                     

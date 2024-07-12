@@ -53,8 +53,9 @@ public struct ControlMessageProcessRecord: Codable, FetchableRecord, Persistable
         case groupUpdateInfoChange = 13
         case groupUpdateMemberChange = 14
         case groupUpdateMemberLeft = 15
-        case groupUpdateInviteResponse = 16
-        case groupUpdateDeleteMemberContent = 17
+        case groupUpdateMemberLeftNotification = 16
+        case groupUpdateInviteResponse = 17
+        case groupUpdateDeleteMemberContent = 18
     }
     
     /// The id for the thread the control message is associated to
@@ -129,6 +130,7 @@ public struct ControlMessageProcessRecord: Codable, FetchableRecord, Persistable
                 case is GroupUpdateInfoChangeMessage: return .groupUpdateInfoChange
                 case is GroupUpdateMemberChangeMessage: return .groupUpdateMemberChange
                 case is GroupUpdateMemberLeftMessage: return .groupUpdateMemberLeft
+                case is GroupUpdateMemberLeftNotificationMessage: return .groupUpdateMemberLeftNotification
                 case is GroupUpdateInviteResponseMessage: return .groupUpdateInviteResponse
                 case is GroupUpdateDeleteMemberContentMessage: return .groupUpdateDeleteMemberContent
                     

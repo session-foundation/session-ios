@@ -152,4 +152,5 @@ public protocol MessageWithProfile {
 extension VisibleMessage: MessageWithProfile {}
 extension MessageRequestResponse: MessageWithProfile {}
 extension GroupUpdateInviteMessage: MessageWithProfile {}
+extension GroupUpdatePromoteMessage: MessageWithProfile {}
 extension GroupUpdateInviteResponseMessage: MessageWithProfile {}

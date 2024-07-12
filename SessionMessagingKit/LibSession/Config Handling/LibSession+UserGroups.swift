@@ -442,8 +442,8 @@ internal extension LibSession {
                         groupIdentityPrivateKey: group.groupIdentityPrivateKey,
                         name: group.name,
                         authData: group.authData,
-                        joinedAt: TimeInterval(group.joinedAt ?? (Double(serverTimestampMs) / 1000)),
-                        invited: (group.invited == true),
+                        joinedAt: group.joinedAt,
+                        invited: group.invited,
                         calledFromConfig: .userGroups,
                         using: dependencies
                     )
@@ -456,14 +456,24 @@ internal extension LibSession {
                             threadVariant: .group,
                             authorId: group.groupSessionId,
                             variant: .infoGroupInfoInvited,
-                            body: ClosedGroup.MessageInfo
-                                .invitedFallback(group.name ?? "GROUP_TITLE_FALLBACK".localized())
-                                .infoString(using: dependencies),
-                            timestampMs: (group.joinedAt.map { Int64(Double($0 * 1000)) } ?? serverTimestampMs),
+                            body: {
+                                switch group.groupIdentityPrivateKey {
+                                    case .none:
+                                        return ClosedGroup.MessageInfo
+                                            .invitedFallback(group.name)
+                                            .infoString(using: dependencies)
+                                    
+                                    case .some:
+                                        return ClosedGroup.MessageInfo
+                                            .invitedAdminFallback(group.name)
+                                            .infoString(using: dependencies)
+                                }
+                            }(),
+                            timestampMs: Int64(group.joinedAt * 1000),
                             wasRead: LibSession.timestampAlreadyRead(
                                 threadId: group.groupSessionId,
                                 threadVariant: .group,
-                                timestampMs: (group.joinedAt.map { Int64(Double($0 * 1000)) } ?? serverTimestampMs),
+                                timestampMs: Int64(group.joinedAt * 1000),
                                 userSessionId: userSessionId,
                                 openGroup: nil,
                                 using: dependencies
@@ -473,18 +483,13 @@ internal extension LibSession {
                     }
                     
                 case (.some(let existingGroup), _):
-                    let joinedAt: TimeInterval = (
-                        group.joinedAt.map { TimeInterval($0) } ??
-                        existingGroup.formationTimestamp
-                    )
-                    
                     /// Otherwise update the existing group
                     ///
                     /// **Note:** We ignore the `name` value here as if it's an existing group then assume we will get the
                     /// proper name by polling for the `GROUP_INFO` instead of via syncing the `USER_GROUPS` data
                     let groupChanges: [ConfigColumnAssignment] = [
-                        (existingGroup.formationTimestamp == joinedAt ? nil :
-                            ClosedGroup.Columns.formationTimestamp.set(to: TimeInterval(joinedAt))
+                        (existingGroup.formationTimestamp == group.joinedAt ? nil :
+                            ClosedGroup.Columns.formationTimestamp.set(to: TimeInterval(group.joinedAt))
                         ),
                         (existingGroup.authData == group.authData ? nil :
                             ClosedGroup.Columns.authData.set(to: group.authData)
@@ -493,7 +498,7 @@ internal extension LibSession {
                             ClosedGroup.Columns.groupIdentityPrivateKey.set(to: group.groupIdentityPrivateKey)
                         ),
                         (existingGroup.invited == group.invited ? nil :
-                            ClosedGroup.Columns.invited.set(to: (group.invited ?? false))
+                            ClosedGroup.Columns.invited.set(to: group.invited)
                         )
                     ].compactMap { $0 }
 
@@ -688,7 +693,7 @@ internal extension LibSession {
     }
     
     static func upsert(
-        groups: [GroupInfo],
+        groups: [GroupUpdateInfo],
         in config: Config?,
         using dependencies: Dependencies
     ) throws {
@@ -803,8 +808,8 @@ internal extension LibSession {
             using: dependencies
         ) { config in
             try upsert(
-                groups: targetGroups.map { group -> GroupInfo in
-                    GroupInfo(
+                groups: targetGroups.map { group -> GroupUpdateInfo in
+                    GroupUpdateInfo(
                         groupSessionId: group.threadId,
                         groupIdentityPrivateKey: group.groupIdentityPrivateKey,
                         name: group.name,
@@ -1090,7 +1095,7 @@ public extension LibSession {
         ) { config in
             try LibSession.upsert(
                 groups: [
-                    GroupInfo(
+                    GroupUpdateInfo(
                         groupSessionId: groupSessionId,
                         groupIdentityPrivateKey: groupIdentityPrivateKey,
                         name: name,
@@ -1122,7 +1127,7 @@ public extension LibSession {
         ) { config in
             try LibSession.upsert(
                 groups: [
-                    GroupInfo(
+                    GroupUpdateInfo(
                         groupSessionId: groupSessionId,
                         groupIdentityPrivateKey: groupIdentityPrivateKey,
                         name: name,
@@ -1343,6 +1348,17 @@ extension LibSession {
 
 extension LibSession {
     struct GroupInfo {
+        let groupSessionId: String
+        let groupIdentityPrivateKey: Data?
+        let name: String
+        let authData: Data?
+        let priority: Int32
+        let joinedAt: TimeInterval
+        let invited: Bool
+        let wasKickedFromGroup: Bool
+    }
+    
+    struct GroupUpdateInfo {
         let groupSessionId: String
         let groupIdentityPrivateKey: Data?
         let name: String?

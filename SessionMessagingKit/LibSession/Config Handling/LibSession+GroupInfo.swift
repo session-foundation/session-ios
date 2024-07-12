@@ -450,3 +450,19 @@ public extension LibSession {
             .defaulting(to: false)
     }
 }
+
+// MARK: - Direct Values
+
+extension LibSession {
+    static func groupDeleteBefore(in config: Config?) throws -> TimeInterval {
+        guard case .object(let conf) = config else { throw LibSessionError.invalidConfigObject }
+        
+        return TimeInterval(groups_info_get_delete_before(conf))
+    }
+    
+    static func groupAttachmentDeleteBefore(in config: Config?) throws -> TimeInterval {
+        guard case .object(let conf) = config else { throw LibSessionError.invalidConfigObject }
+        
+        return TimeInterval(groups_info_get_attach_delete_before(conf))
+    }
+}

@@ -75,15 +75,33 @@ public enum GroupLeavingJob: JobExecutor {
                     
                     case (.group, .leave, false):
                         return .leave(
-                            try MessageSender.preparedSend(
-                                db,
-                                message: GroupUpdateMemberLeftMessage(),
-                                to: destination,
-                                namespace: destination.defaultNamespace,
-                                interactionId: job.interactionId,
-                                fileIds: [],
-                                using: dependencies
-                            )
+                            try SnodeAPI
+                                .preparedBatch(
+                                    requests: [
+                                        try MessageSender.preparedSend(
+                                            db,
+                                            message: GroupUpdateMemberLeftMessage(),
+                                            to: destination,
+                                            namespace: destination.defaultNamespace,
+                                            interactionId: job.interactionId,
+                                            fileIds: [],
+                                            using: dependencies
+                                        ),
+                                        try MessageSender.preparedSend(
+                                            db,
+                                            message: GroupUpdateMemberLeftNotificationMessage(),
+                                            to: destination,
+                                            namespace: destination.defaultNamespace,
+                                            interactionId: nil,
+                                            fileIds: [],
+                                            using: dependencies
+                                        )
+                                    ],
+                                    requireAllBatchResponses: false,
+                                    swarmPublicKey: threadId,
+                                    using: dependencies
+                                )
+                                .map { _, _ in () }
                         )
                         
                     case (.group, .delete, _), (.group, .leave, true):

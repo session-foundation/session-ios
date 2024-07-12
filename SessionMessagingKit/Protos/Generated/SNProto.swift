@@ -3248,6 +3248,9 @@ extension SNProtoAttachmentPointer.SNProtoAttachmentPointerBuilder {
         if let _value = deleteMemberContent {
             builder.setDeleteMemberContent(_value)
         }
+        if let _value = memberLeftNotificationMessage {
+            builder.setMemberLeftNotificationMessage(_value)
+        }
         return builder
     }
 
@@ -3285,6 +3288,10 @@ extension SNProtoAttachmentPointer.SNProtoAttachmentPointerBuilder {
             proto.deleteMemberContent = valueParam.proto
         }
 
+        @objc public func setMemberLeftNotificationMessage(_ valueParam: SNProtoGroupUpdateMemberLeftNotificationMessage) {
+            proto.memberLeftNotificationMessage = valueParam.proto
+        }
+
         @objc public func build() throws -> SNProtoGroupUpdateMessage {
             return try SNProtoGroupUpdateMessage.parseProto(proto)
         }
@@ -3310,6 +3317,8 @@ extension SNProtoAttachmentPointer.SNProtoAttachmentPointerBuilder {
 
     @objc public let deleteMemberContent: SNProtoGroupUpdateDeleteMemberContentMessage?
 
+    @objc public let memberLeftNotificationMessage: SNProtoGroupUpdateMemberLeftNotificationMessage?
+
     private init(proto: SessionProtos_GroupUpdateMessage,
                  inviteMessage: SNProtoGroupUpdateInviteMessage?,
                  infoChangeMessage: SNProtoGroupUpdateInfoChangeMessage?,
@@ -3317,7 +3326,8 @@ extension SNProtoAttachmentPointer.SNProtoAttachmentPointerBuilder {
                  promoteMessage: SNProtoGroupUpdatePromoteMessage?,
                  memberLeftMessage: SNProtoGroupUpdateMemberLeftMessage?,
                  inviteResponse: SNProtoGroupUpdateInviteResponseMessage?,
-                 deleteMemberContent: SNProtoGroupUpdateDeleteMemberContentMessage?) {
+                 deleteMemberContent: SNProtoGroupUpdateDeleteMemberContentMessage?,
+                 memberLeftNotificationMessage: SNProtoGroupUpdateMemberLeftNotificationMessage?) {
         self.proto = proto
         self.inviteMessage = inviteMessage
         self.infoChangeMessage = infoChangeMessage
@@ -3326,6 +3336,7 @@ extension SNProtoAttachmentPointer.SNProtoAttachmentPointerBuilder {
         self.memberLeftMessage = memberLeftMessage
         self.inviteResponse = inviteResponse
         self.deleteMemberContent = deleteMemberContent
+        self.memberLeftNotificationMessage = memberLeftNotificationMessage
     }
 
     @objc
@@ -3374,6 +3385,11 @@ extension SNProtoAttachmentPointer.SNProtoAttachmentPointerBuilder {
             deleteMemberContent = try SNProtoGroupUpdateDeleteMemberContentMessage.parseProto(proto.deleteMemberContent)
         }
 
+        var memberLeftNotificationMessage: SNProtoGroupUpdateMemberLeftNotificationMessage? = nil
+        if proto.hasMemberLeftNotificationMessage {
+            memberLeftNotificationMessage = try SNProtoGroupUpdateMemberLeftNotificationMessage.parseProto(proto.memberLeftNotificationMessage)
+        }
+
         // MARK: - Begin Validation Logic for SNProtoGroupUpdateMessage -
 
         // MARK: - End Validation Logic for SNProtoGroupUpdateMessage -
@@ -3385,7 +3401,8 @@ extension SNProtoAttachmentPointer.SNProtoAttachmentPointerBuilder {
                                                promoteMessage: promoteMessage,
                                                memberLeftMessage: memberLeftMessage,
                                                inviteResponse: inviteResponse,
-                                               deleteMemberContent: deleteMemberContent)
+                                               deleteMemberContent: deleteMemberContent,
+                                               memberLeftNotificationMessage: memberLeftNotificationMessage)
         return result
     }
 
@@ -3558,13 +3575,13 @@ extension SNProtoGroupUpdateInviteMessage.SNProtoGroupUpdateInviteMessageBuilder
 
     // MARK: - SNProtoGroupUpdatePromoteMessageBuilder
 
-    @objc public class func builder(groupIdentitySeed: Data) -> SNProtoGroupUpdatePromoteMessageBuilder {
-        return SNProtoGroupUpdatePromoteMessageBuilder(groupIdentitySeed: groupIdentitySeed)
+    @objc public class func builder(groupIdentitySeed: Data, name: String) -> SNProtoGroupUpdatePromoteMessageBuilder {
+        return SNProtoGroupUpdatePromoteMessageBuilder(groupIdentitySeed: groupIdentitySeed, name: name)
     }
 
     // asBuilder() constructs a builder that reflects the proto's contents.
     @objc public func asBuilder() -> SNProtoGroupUpdatePromoteMessageBuilder {
-        let builder = SNProtoGroupUpdatePromoteMessageBuilder(groupIdentitySeed: groupIdentitySeed)
+        let builder = SNProtoGroupUpdatePromoteMessageBuilder(groupIdentitySeed: groupIdentitySeed, name: name)
         return builder
     }
 
@@ -3574,14 +3591,19 @@ extension SNProtoGroupUpdateInviteMessage.SNProtoGroupUpdateInviteMessageBuilder
 
         @objc fileprivate override init() {}
 
-        @objc fileprivate init(groupIdentitySeed: Data) {
+        @objc fileprivate init(groupIdentitySeed: Data, name: String) {
             super.init()
 
             setGroupIdentitySeed(groupIdentitySeed)
+            setName(name)
         }
 
         @objc public func setGroupIdentitySeed(_ valueParam: Data) {
             proto.groupIdentitySeed = valueParam
+        }
+
+        @objc public func setName(_ valueParam: String) {
+            proto.name = valueParam
         }
 
         @objc public func build() throws -> SNProtoGroupUpdatePromoteMessage {
@@ -3597,10 +3619,14 @@ extension SNProtoGroupUpdateInviteMessage.SNProtoGroupUpdateInviteMessageBuilder
 
     @objc public let groupIdentitySeed: Data
 
+    @objc public let name: String
+
     private init(proto: SessionProtos_GroupUpdatePromoteMessage,
-                 groupIdentitySeed: Data) {
+                 groupIdentitySeed: Data,
+                 name: String) {
         self.proto = proto
         self.groupIdentitySeed = groupIdentitySeed
+        self.name = name
     }
 
     @objc
@@ -3619,12 +3645,18 @@ extension SNProtoGroupUpdateInviteMessage.SNProtoGroupUpdateInviteMessageBuilder
         }
         let groupIdentitySeed = proto.groupIdentitySeed
 
+        guard proto.hasName else {
+            throw SNProtoError.invalidProtobuf(description: "\(NSStringFromClass(self)) missing required field: name")
+        }
+        let name = proto.name
+
         // MARK: - Begin Validation Logic for SNProtoGroupUpdatePromoteMessage -
 
         // MARK: - End Validation Logic for SNProtoGroupUpdatePromoteMessage -
 
         let result = SNProtoGroupUpdatePromoteMessage(proto: proto,
-                                                      groupIdentitySeed: groupIdentitySeed)
+                                                      groupIdentitySeed: groupIdentitySeed,
+                                                      name: name)
         return result
     }
 
@@ -4052,6 +4084,83 @@ extension SNProtoGroupUpdateMemberLeftMessage {
 
 extension SNProtoGroupUpdateMemberLeftMessage.SNProtoGroupUpdateMemberLeftMessageBuilder {
     @objc public func buildIgnoringErrors() -> SNProtoGroupUpdateMemberLeftMessage? {
+        return try! self.build()
+    }
+}
+
+#endif
+
+// MARK: - SNProtoGroupUpdateMemberLeftNotificationMessage
+
+@objc public class SNProtoGroupUpdateMemberLeftNotificationMessage: NSObject {
+
+    // MARK: - SNProtoGroupUpdateMemberLeftNotificationMessageBuilder
+
+    @objc public class func builder() -> SNProtoGroupUpdateMemberLeftNotificationMessageBuilder {
+        return SNProtoGroupUpdateMemberLeftNotificationMessageBuilder()
+    }
+
+    // asBuilder() constructs a builder that reflects the proto's contents.
+    @objc public func asBuilder() -> SNProtoGroupUpdateMemberLeftNotificationMessageBuilder {
+        let builder = SNProtoGroupUpdateMemberLeftNotificationMessageBuilder()
+        return builder
+    }
+
+    @objc public class SNProtoGroupUpdateMemberLeftNotificationMessageBuilder: NSObject {
+
+        private var proto = SessionProtos_GroupUpdateMemberLeftNotificationMessage()
+
+        @objc fileprivate override init() {}
+
+        @objc public func build() throws -> SNProtoGroupUpdateMemberLeftNotificationMessage {
+            return try SNProtoGroupUpdateMemberLeftNotificationMessage.parseProto(proto)
+        }
+
+        @objc public func buildSerializedData() throws -> Data {
+            return try SNProtoGroupUpdateMemberLeftNotificationMessage.parseProto(proto).serializedData()
+        }
+    }
+
+    fileprivate let proto: SessionProtos_GroupUpdateMemberLeftNotificationMessage
+
+    private init(proto: SessionProtos_GroupUpdateMemberLeftNotificationMessage) {
+        self.proto = proto
+    }
+
+    @objc
+    public func serializedData() throws -> Data {
+        return try self.proto.serializedData()
+    }
+
+    @objc public class func parseData(_ serializedData: Data) throws -> SNProtoGroupUpdateMemberLeftNotificationMessage {
+        let proto = try SessionProtos_GroupUpdateMemberLeftNotificationMessage(serializedData: serializedData)
+        return try parseProto(proto)
+    }
+
+    fileprivate class func parseProto(_ proto: SessionProtos_GroupUpdateMemberLeftNotificationMessage) throws -> SNProtoGroupUpdateMemberLeftNotificationMessage {
+        // MARK: - Begin Validation Logic for SNProtoGroupUpdateMemberLeftNotificationMessage -
+
+        // MARK: - End Validation Logic for SNProtoGroupUpdateMemberLeftNotificationMessage -
+
+        let result = SNProtoGroupUpdateMemberLeftNotificationMessage(proto: proto)
+        return result
+    }
+
+    @objc public override var debugDescription: String {
+        return "\(proto)"
+    }
+}
+
+#if DEBUG
+
+extension SNProtoGroupUpdateMemberLeftNotificationMessage {
+    @objc public func serializedDataIgnoringErrors() -> Data? {
+        return try! self.serializedData()
+    }
+}
+
+extension SNProtoGroupUpdateMemberLeftNotificationMessage.SNProtoGroupUpdateMemberLeftNotificationMessageBuilder {
+    @objc public func buildIgnoringErrors() -> SNProtoGroupUpdateMemberLeftNotificationMessage? {
         return try! self.build()
     }
 }

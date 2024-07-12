@@ -92,7 +92,7 @@ public final class GroupUpdateInviteMessage: ControlMessage {
         groupSessionId = SessionId(.group, publicKey: Array(try container.decode(Data.self, forKey: .groupSessionId)))
         groupName = try container.decode(String.self, forKey: .groupName)
         memberAuthData = try container.decode(Data.self, forKey: .memberAuthData)
-        profile = try? container.decode(VisibleMessage.VMProfile.self, forKey: .profile)
+        profile = try container.decodeIfPresent(VisibleMessage.VMProfile.self, forKey: .profile)
         adminSignature = Authentication.Signature.standard(
             signature: try container.decode([UInt8].self, forKey: .adminSignature)
         )

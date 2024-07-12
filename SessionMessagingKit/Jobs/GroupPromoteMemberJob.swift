@@ -24,14 +24,19 @@ public enum GroupPromoteMemberJob: JobExecutor {
         deferred: @escaping (Job) -> Void,
         using dependencies: Dependencies
     ) {
+        struct GroupInfo: Codable, FetchableRecord {
+            let name: String
+            let groupIdentityPrivateKey: Data
+        }
+        
         guard
             let threadId: String = job.threadId,
             let detailsData: Data = job.details,
-            let groupIdentityPrivateKey: Data = dependencies[singleton: .storage].read({ db in
+            let groupInfo: GroupInfo = dependencies[singleton: .storage].read({ db in
                 try ClosedGroup
                     .filter(id: threadId)
-                    .select(.groupIdentityPrivateKey)
-                    .asRequest(of: Data.self)
+                    .select(.name, .groupIdentityPrivateKey)
+                    .asRequest(of: GroupInfo.self)
                     .fetchOne(db)
             }),
             let details: Details = try? JSONDecoder(using: dependencies).decode(Details.self, from: detailsData)
@@ -41,7 +46,8 @@ public enum GroupPromoteMemberJob: JobExecutor {
         // to generate the KeyPair so extract those and send along with the promotion message
         let sentTimestamp: Int64 = dependencies[cache: .snodeAPI].currentOffsetTimestampMs()
         let message: GroupUpdatePromoteMessage = GroupUpdatePromoteMessage(
-            groupIdentitySeed: groupIdentityPrivateKey.prefix(32),
+            groupIdentitySeed: groupInfo.groupIdentityPrivateKey.prefix(32),
+            groupName: groupInfo.name,
             sentTimestamp: UInt64(sentTimestamp)
         )
         

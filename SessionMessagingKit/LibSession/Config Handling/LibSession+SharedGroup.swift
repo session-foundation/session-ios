@@ -50,14 +50,12 @@ internal extension LibSession {
             groupSessionId: groupSessionId,
             userED25519KeyPair: userED25519KeyPair,
             groupIdentityPrivateKey: Data(groupIdentityKeyPair.secretKey),
-            initialMembers: members.filter { $0.id != userSessionId.hexString },
-            initialAdmin: (userSessionId.hexString, currentUserProfile),
             shouldLoadState: false, // We manually load the state after populating the configs
             using: dependencies
         )
         
         // Extract the conf objects from the state to load in the initial data
-        guard case .groupKeys(_, let groupInfoConf, _) = groupState[.groupKeys] else {
+        guard case .groupKeys(let groupKeysConf, let groupInfoConf, let groupMembersConf) = groupState[.groupKeys] else {
             SNLog("[LibSession] Group config objects were null")
             throw LibSessionError.unableToCreateConfigObject
         }
@@ -80,6 +78,56 @@ internal extension LibSession {
             displayPic.url = displayPictureUrl.toLibSession()
             displayPic.key = displayPictureEncryptionKey.toLibSession()
             groups_info_set_pic(groupInfoConf, displayPic)
+        }
+        
+        // Throw if there was an error setting up the group info
+        try LibSessionError.throwIfNeeded(groupInfoConf)
+        
+        // Load in the initial admin & members
+        struct MemberInfo: Hashable {
+            let id: String
+            let isAdmin: Bool
+            let profile: Profile?
+        }
+        
+        try members
+            .filter { $0.id != userSessionId.hexString }
+            .map { id, profile in MemberInfo(id: id, isAdmin: false, profile: profile) }
+            .appending(MemberInfo(id: userSessionId.hexString, isAdmin: true, profile: currentUserProfile))
+            .asSet()
+            .forEach { memberInfo in
+                var profilePic: user_profile_pic = user_profile_pic()
+                
+                if
+                    let picUrl: String = memberInfo.profile?.profilePictureUrl,
+                    let picKey: Data = memberInfo.profile?.profileEncryptionKey,
+                    !picUrl.isEmpty,
+                    picKey.count == DisplayPictureManager.aes256KeyByteLength
+                {
+                    profilePic.url = picUrl.toLibSession()
+                    profilePic.key = picKey.toLibSession()
+                }
+                
+                var member: config_group_member = config_group_member(
+                    session_id: memberInfo.id.toLibSession(),
+                    name: (memberInfo.profile?.name ?? "").toLibSession(),
+                    profile_pic: profilePic,
+                    admin: memberInfo.isAdmin,
+                    invited: (memberInfo.isAdmin ? 0 : 1),  // The current user (admin) isn't invited
+                    promoted: 0,
+                    removed: 0,
+                    supplement: false
+                )
+                
+                groups_members_set(groupMembersConf, &member)
+                try LibSessionError.throwIfNeeded(groupMembersConf)
+            }
+        
+        // Now that the members have been loaded we need to trigger the initial key generation for the group
+        var pushResult: UnsafePointer<UInt8>? = nil
+        var pushResultLen: Int = 0
+        guard groups_keys_rekey(groupKeysConf, groupInfoConf, groupMembersConf, &pushResult, &pushResultLen) else {
+            throw LibSessionError.failedToRekeyGroup
         }
         
         // Now that everything has been populated correctly we can load the state into memory
@@ -178,8 +226,6 @@ internal extension LibSession {
         groupSessionId: SessionId,
         userED25519KeyPair: KeyPair,
         groupIdentityPrivateKey: Data?,
-        initialMembers: [(id: String, profile: Profile?)] = [],
-        initialAdmin: (id: String, profile: Profile?)? = nil,
         shouldLoadState: Bool,
         using dependencies: Dependencies
     ) throws -> [ConfigDump.Variant: Config] {
@@ -191,82 +237,6 @@ internal extension LibSession {
         var groupInfoConf: UnsafeMutablePointer<config_object>? = nil
         var groupMembersConf: UnsafeMutablePointer<config_object>? = nil
         var error: [CChar] = [CChar](repeating: 0, count: 256)
-        
-        func loading(
-            admin: (id: String, profile: Profile?)?,
-            members: [(id: String, profile: Profile?)],
-            into membersConf: UnsafeMutablePointer<config_object>?
-        ) throws {
-            guard !members.isEmpty else { return }
-            
-            /// Store the admin data first
-            switch admin {
-                case .none: break
-                case .some((let id, let profile)):
-                    var profilePic: user_profile_pic = user_profile_pic()
-                    
-                    if
-                        let picUrl: String = profile?.profilePictureUrl,
-                        let picKey: Data = profile?.profileEncryptionKey,
-                        !picUrl.isEmpty,
-                        picKey.count == DisplayPictureManager.aes256KeyByteLength
-                    {
-                        profilePic.url = picUrl.toLibSession()
-                        profilePic.key = picKey.toLibSession()
-                    }
-                    
-                    var member: config_group_member = config_group_member(
-                        session_id: id.toLibSession(),
-                        name: (profile?.name ?? "").toLibSession(),
-                        profile_pic: profilePic,
-                        admin: true,
-                        invited: 0,
-                        promoted: 0,
-                        removed: 0,
-                        supplement: false
-                    )
-                    
-                    groups_members_set(membersConf, &member)
-                    try LibSessionError.throwIfNeeded(membersConf)
-            }
-            
-            /// Then store the initial members
-            struct MemberInfo: Hashable {
-                let id: String
-                let profile: Profile?
-            }
-            
-            try members
-                .map { MemberInfo(id: $0.id, profile: $0.profile) }
-                .asSet()
-                .forEach { memberInfo in
-                    var profilePic: user_profile_pic = user_profile_pic()
-                    
-                    if
-                        let picUrl: String = memberInfo.profile?.profilePictureUrl,
-                        let picKey: Data = memberInfo.profile?.profileEncryptionKey,
-                        !picUrl.isEmpty,
-                        picKey.count == DisplayPictureManager.aes256KeyByteLength
-                    {
-                        profilePic.url = picUrl.toLibSession()
-                        profilePic.key = picKey.toLibSession()
-                    }
-                    
-                    var member: config_group_member = config_group_member(
-                        session_id: memberInfo.id.toLibSession(),
-                        name: (memberInfo.profile?.name ?? "").toLibSession(),
-                        profile_pic: profilePic,
-                        admin: false,
-                        invited: 1,
-                        promoted: 0,
-                        removed: 0,
-                        supplement: false
-                    )
-                    
-                    groups_members_set(membersConf, &member)
-                    try LibSessionError.throwIfNeeded(membersConf)
-                }
-        }
         
         // It looks like C doesn't deal will passing pointers to null variables well so we need
         // to explicitly pass 'nil' for the admin key in this case
@@ -290,7 +260,6 @@ internal extension LibSession {
                     0,
                     &error
                 ).orThrow(error: error)
-                try loading(admin: initialAdmin, members: initialMembers, into: groupMembersConf)
                 
                 try groups_keys_init(
                     &groupKeysConf,
@@ -321,7 +290,6 @@ internal extension LibSession {
                     0,
                     &error
                 ).orThrow(error: error)
-                try loading(admin: initialAdmin, members: initialMembers, into: groupMembersConf)
                 
                 try groups_keys_init(
                     &groupKeysConf,

@@ -245,7 +245,7 @@ internal extension LibSession {
                         try LibSession.upsert(
                             groups: threads
                                 .map { thread in
-                                    GroupInfo(
+                                    GroupUpdateInfo(
                                         groupSessionId: thread.id,
                                         priority: thread.pinnedPriority
                                             .map { Int32($0 == 0 ? LibSession.visiblePriority : max($0, 1)) }

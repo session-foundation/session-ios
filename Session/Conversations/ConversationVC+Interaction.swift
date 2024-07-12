@@ -565,14 +565,6 @@ extension ConversationVC:
         let oldThreadShouldBeVisible: Bool = (self.viewModel.threadData.threadShouldBeVisible == true)
         let sentTimestampMs: Int64 = viewModel.dependencies[cache: .snodeAPI].currentOffsetTimestampMs()
 
-        // If this was a message request then approve it
-        let approvalBlockingJob: Job? = approveMessageRequestIfNeeded(
-            for: self.viewModel.threadData.threadId,
-            threadVariant: self.viewModel.threadData.threadVariant,
-            isNewThread: !oldThreadShouldBeVisible,
-            timestampMs: (sentTimestampMs - 1)  // Set 1ms earlier as this is used for sorting
-        )
-        
         // Optimistically insert the outgoing message (this will trigger a UI update)
         self.viewModel.sentMessageBeforeUpdate = true
         let optimisticData: ConversationViewModel.OptimisticMessageData = self.viewModel.optimisticallyAppendOutgoingMessage(
@@ -583,13 +575,20 @@ extension ConversationVC:
             quoteModel: quoteModel
         )
         
-        sendMessage(optimisticData: optimisticData, after: approvalBlockingJob)
+        // If this was a message request then approve it
+        approveMessageRequestIfNeeded(
+            for: self.viewModel.threadData.threadId,
+            threadVariant: self.viewModel.threadData.threadVariant,
+            isNewThread: !oldThreadShouldBeVisible,
+            timestampMs: (sentTimestampMs - 1)  // Set 1ms earlier as this is used for sorting
+        ).sinkUntilComplete(
+            receiveCompletion: { [weak self] _ in
+                self?.sendMessage(optimisticData: optimisticData)
+            }
+        )
     }
     
-    private func sendMessage(
-        optimisticData: ConversationViewModel.OptimisticMessageData,
-        after approvalBlockingJob: Job? = nil
-    ) {
+    private func sendMessage(optimisticData: ConversationViewModel.OptimisticMessageData) {
         let threadId: String = self.viewModel.threadData.threadId
         let threadVariant: SessionThread.Variant = self.viewModel.threadData.threadVariant
         
@@ -673,7 +672,6 @@ extension ConversationVC:
                         interaction: insertedInteraction,
                         threadId: threadId,
                         threadVariant: threadVariant,
-                        after: approvalBlockingJob,
                         using: dependencies
                     )
                 }
@@ -2551,12 +2549,12 @@ extension ConversationVC: UIDocumentInteractionControllerDelegate {
 // MARK: - Message Request Actions
 
 extension ConversationVC {
-    @discardableResult fileprivate func approveMessageRequestIfNeeded(
+    fileprivate func approveMessageRequestIfNeeded(
         for threadId: String,
         threadVariant: SessionThread.Variant,
         isNewThread: Bool,
         timestampMs: Int64
-    ) -> Job? {
+    ) -> AnyPublisher<Void, Never> {
         let updateNavigationBackStack: () -> Void = {
             // Remove the 'SessionTableViewController<MessageRequestsViewModel>' from the nav hierarchy if present
             DispatchQueue.main.async { [weak self] in
@@ -2585,9 +2583,9 @@ extension ConversationVC {
                         Contact.fetchOrCreate(db, id: threadId, using: dependencies)
                     }),
                     !contact.isApproved
-                else { return nil }
+                else { return Just(()).eraseToAnyPublisher() }
                 
-                viewModel.dependencies[singleton: .storage]
+                return viewModel.dependencies[singleton: .storage]
                     .writePublisher { [dependencies = viewModel.dependencies] db in
                         // If we aren't creating a new thread (ie. sending a message request) then send a
                         // messageRequestResponse back to the sender (this allows the sender to know that
@@ -2619,14 +2617,15 @@ extension ConversationVC {
                                 using: dependencies
                             )
                     }
-                    .subscribe(on: DispatchQueue.global(qos: .userInitiated))
-                    .receive(on: DispatchQueue.main)
-                    .sinkUntilComplete(
-                        receiveCompletion: { _ in
+                    .map { _ in () }
+                    .catch { _ in Just(()).eraseToAnyPublisher() }
+                    .handleEvents(
+                        receiveOutput: { _ in
                             // Update the UI
                             updateNavigationBackStack()
                         }
                     )
+                    .eraseToAnyPublisher()
                 
             case .group:
                 // If the group is not in the invited state then don't bother doing anything
@@ -2635,36 +2634,10 @@ extension ConversationVC {
                         try ClosedGroup.fetchOne(db, id: threadId)
                     }),
                     group.invited == true
-                else { return nil }
+                else { return Just(()).eraseToAnyPublisher() }
                 
-                let pollResponseJob: Job? = viewModel.dependencies[singleton: .storage].write { [dependencies = viewModel.dependencies] db in
-                    dependencies[singleton: .jobRunner].add(
-                        db,
-                        job: Job(variant: .manualResultJob),
-                        canStartJob: true
-                    )
-                }
-                
-                viewModel.dependencies[singleton: .storage]
-                    .writePublisher { [dependencies = viewModel.dependencies] db in
-                        /// If we aren't creating a new thread (ie. sending a message request) then send a
-                        /// `GroupUpdateInviteResponseMessage` to the group (this allows other members
-                        /// to know that the user has joined the group)
-                        if !isNewThread {
-                            try MessageSender.send(
-                                db,
-                                message: GroupUpdateInviteResponseMessage(
-                                    isApproved: true,
-                                    sentTimestamp: UInt64(timestampMs)
-                                ),
-                                interactionId: nil,
-                                threadId: threadId,
-                                threadVariant: threadVariant,
-                                after: pollResponseJob,
-                                using: dependencies
-                            )
-                        }
-                        
+                return viewModel.dependencies[singleton: .storage]
+                    .writePublisher { [dependencies = viewModel.dependencies] db -> AnyPublisher<Void, Never> in
                         /// Optimistically insert a `standard` member for the current user in this group (it'll be update to the correct
                         /// one once we receive the first `GROUP_MEMBERS` config message but adding it here means the `canWrite`
                         /// state of the group will continue to be `true` while we wait on the initial poll to get back)
@@ -2677,47 +2650,72 @@ extension ConversationVC {
                         ).upsert(db)
                         
                         /// Actually trigger the approval
-                        try ClosedGroup.approveGroup(
+                        return try ClosedGroup.approveGroup(
                             db,
                             group: group,
                             calledFromConfig: nil,
                             using: dependencies
                         )
                     }
-                    .subscribe(on: DispatchQueue.global(qos: .userInitiated), using: viewModel.dependencies)
-                    .receive(on: DispatchQueue.main, using: viewModel.dependencies)
-                    .sinkUntilComplete(
-                        receiveCompletion: { [dependencies = viewModel.dependencies] _ in
-                            // Complete the `pollResponseJob` once the next group poll completes
-                            dependencies
-                                .mutate(cache: .groupPollers) { $0.getOrCreatePoller(for: threadId) }
-                                .afterNextPoll { _ in
-                                    dependencies[singleton: .jobRunner].manuallyTriggerResult(
-                                        pollResponseJob,
-                                        result: .succeeded
-                                    )
-                                }
-                            
+                    .handleEvents(
+                        receiveOutput: { _ in
                             // Update the UI
                             updateNavigationBackStack()
                         }
                     )
+                    .flatMap { [dependencies = viewModel.dependencies] pollPublisher in
+                        pollPublisher
+                            .first()
+                            .handleEvents(
+                                receiveOutput: { _ in
+                                    /// If we aren't creating a new thread (ie. sending a message request) then send a
+                                    /// `GroupUpdateInviteResponseMessage` to the group (this allows other members
+                                    /// to know that the user has joined the group)
+                                    guard !isNewThread else { return }
+                                    
+                                    dependencies[singleton: .storage].write { db in
+                                        switch group.groupIdentityPrivateKey {
+                                            /// The user is not an admin so send a invite response
+                                            case .none:
+                                                try MessageSender.send(
+                                                    db,
+                                                    message: GroupUpdateInviteResponseMessage(
+                                                        isApproved: true,
+                                                        sentTimestamp: UInt64(timestampMs)
+                                                    ),
+                                                    interactionId: nil,
+                                                    threadId: threadId,
+                                                    threadVariant: threadVariant,
+                                                    using: dependencies
+                                                )
+                                            
+                                            // Actually update the group state to indicate the promotion was accepted
+                                            case .some:
+                                                try MessageReceiver.processGroupPromotion(
+                                                    db,
+                                                    groupSessionId: SessionId(.group, hex: threadId),
+                                                    using: dependencies
+                                                )
+                                        }
+                                    }
+                                }
+                            )
+                            .eraseToAnyPublisher()
+                    }
+                    .catch { _ in Just(()).eraseToAnyPublisher() }
+                    .eraseToAnyPublisher()
                 
-                return pollResponseJob
-                
-            default: break
+            default: return Just(()).eraseToAnyPublisher()
         }
-        
-        return nil
     }
 
     func acceptMessageRequest() {
-        self.approveMessageRequestIfNeeded(
+        approveMessageRequestIfNeeded(
             for: self.viewModel.threadData.threadId,
             threadVariant: self.viewModel.threadData.threadVariant,
             isNewThread: false,
             timestampMs: viewModel.dependencies[cache: .snodeAPI].currentOffsetTimestampMs()
-        )
+        ).sinkUntilComplete()
     }
 
     func declineMessageRequest() {

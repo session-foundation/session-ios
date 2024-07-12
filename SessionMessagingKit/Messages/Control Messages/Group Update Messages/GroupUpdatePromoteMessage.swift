@@ -7,9 +7,13 @@ import SessionUtilitiesKit
 public final class GroupUpdatePromoteMessage: ControlMessage {
     private enum CodingKeys: String, CodingKey {
         case groupIdentitySeed
+        case groupName
+        case profile
     }
     
     public var groupIdentitySeed: Data
+    public var groupName: String
+    public var profile: VisibleMessage.VMProfile?
     
     override public var processWithBlockedSender: Bool { true }
     
@@ -17,9 +21,13 @@ public final class GroupUpdatePromoteMessage: ControlMessage {
     
     public init(
         groupIdentitySeed: Data,
+        groupName: String,
+        profile: VisibleMessage.VMProfile? = nil,   // Added when sending via the `MessageWithProfile` protocol
         sentTimestamp: UInt64? = nil
     ) {
         self.groupIdentitySeed = groupIdentitySeed
+        self.groupName = groupName
+        self.profile = profile
         
         super.init(
             sentTimestamp: sentTimestamp
@@ -32,6 +40,8 @@ public final class GroupUpdatePromoteMessage: ControlMessage {
         let container: KeyedDecodingContainer<CodingKeys> = try decoder.container(keyedBy: CodingKeys.self)
         
         groupIdentitySeed = try container.decode(Data.self, forKey: .groupIdentitySeed)
+        groupName = try container.decode(String.self, forKey: .groupName)
+        profile = try container.decodeIfPresent(VisibleMessage.VMProfile.self, forKey: .profile)
         
         try super.init(from: decoder)
     }
@@ -42,28 +52,42 @@ public final class GroupUpdatePromoteMessage: ControlMessage {
         var container: KeyedEncodingContainer<CodingKeys> = encoder.container(keyedBy: CodingKeys.self)
         
         try container.encode(groupIdentitySeed, forKey: .groupIdentitySeed)
+        try container.encode(groupName, forKey: .groupName)
+        try container.encodeIfPresent(profile, forKey: .profile)
     }
 
     // MARK: - Proto Conversion
     
     public override class func fromProto(_ proto: SNProtoContent, sender: String, using dependencies: Dependencies) -> GroupUpdatePromoteMessage? {
-        guard let groupPromoteMessage = proto.dataMessage?.groupUpdateMessage?.promoteMessage else { return nil }
+        guard
+            let dataMessage: SNProtoDataMessage = proto.dataMessage,
+            let groupPromoteMessage = proto.dataMessage?.groupUpdateMessage?.promoteMessage
+        else { return nil }
         
         return GroupUpdatePromoteMessage(
-            groupIdentitySeed: groupPromoteMessage.groupIdentitySeed
+            groupIdentitySeed: groupPromoteMessage.groupIdentitySeed,
+            groupName: groupPromoteMessage.name,
+            profile: VisibleMessage.VMProfile.fromProto(dataMessage)
         )
     }
 
     public override func toProto(_ db: Database, threadId: String) -> SNProtoContent? {
         do {
             let promoteMessageBuilder: SNProtoGroupUpdatePromoteMessage.SNProtoGroupUpdatePromoteMessageBuilder = SNProtoGroupUpdatePromoteMessage.builder(
-                groupIdentitySeed: groupIdentitySeed
+                groupIdentitySeed: groupIdentitySeed,
+                name: groupName
             )
             
             let groupUpdateMessage = SNProtoGroupUpdateMessage.builder()
             groupUpdateMessage.setPromoteMessage(try promoteMessageBuilder.build())
             
-            let dataMessage = SNProtoDataMessage.builder()
+            let dataMessage: SNProtoDataMessage.SNProtoDataMessageBuilder = try {
+                guard let profile: VisibleMessage.VMProfile = profile else {
+                    return SNProtoDataMessage.builder()
+                }
+                
+                return try profile.toProtoBuilder()
+            }()
             dataMessage.setGroupUpdateMessage(try groupUpdateMessage.build())
             
             let contentProto = SNProtoContent.builder()
@@ -80,7 +104,9 @@ public final class GroupUpdatePromoteMessage: ControlMessage {
     public var description: String {
         """
         GroupUpdatePromoteMessage(
-            groupIdentitySeed: \(groupIdentitySeed.toHexString())
+            groupIdentitySeed: \(groupIdentitySeed.toHexString()),
+            groupName: \(groupName),
+            profile: \(profile?.description ?? "null")
         )
         """
     }

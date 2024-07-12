@@ -313,7 +313,8 @@ public enum MessageReceiver {
                 
             case is GroupUpdateInviteMessage, is GroupUpdateInfoChangeMessage,
                 is GroupUpdateMemberChangeMessage, is GroupUpdatePromoteMessage, is GroupUpdateMemberLeftMessage,
-                is GroupUpdateInviteResponseMessage, is GroupUpdateDeleteMemberContentMessage:
+                is GroupUpdateMemberLeftNotificationMessage, is GroupUpdateInviteResponseMessage,
+                is GroupUpdateDeleteMemberContentMessage:
                 try MessageReceiver.handleGroupUpdateMessage(
                     db,
                     threadId: threadId,
@@ -438,8 +439,8 @@ public enum MessageReceiver {
                 /// These are sent to the group conversation but we have logic so you can only ever "leave" a group, you can't "hide" it
                 /// so that it re-appears when a new message is received so the thread shouldn't become visible for any of them
                 case is GroupUpdateInfoChangeMessage, is GroupUpdateMemberChangeMessage,
-                    is GroupUpdateMemberLeftMessage, is GroupUpdateInviteResponseMessage,
-                    is GroupUpdateDeleteMemberContentMessage:
+                    is GroupUpdateMemberLeftMessage, is GroupUpdateMemberLeftNotificationMessage,
+                    is GroupUpdateInviteResponseMessage, is GroupUpdateDeleteMemberContentMessage:
                     return false
                 
                 /// Currently this is just for handling the `groupKicked` message which is sent to a group so the same rules as above apply
@@ -521,14 +522,65 @@ public enum MessageReceiver {
         threadVariant: SessionThread.Variant,
         using dependencies: Dependencies
     ) throws {
+        let userSessionId: SessionId = dependencies[cache: .general].sessionId
+        
         switch message {
             case is ReadReceipt: return // No visible artifact created so better to keep for more reliable read states
             case is UnsendRequest: return // We should always process the removal of messages just in case
             default: break
         }
         
-        // Determine the state of the conversation and the validity of the message
-        let userSessionId: SessionId = dependencies[cache: .general].sessionId
+        // If the destination is a group conversation that has been destroyed then the message is outdated
+        guard
+            threadVariant != .group ||
+            !LibSession.groupIsDestroyed(
+                groupSessionId: SessionId(.group, hex: threadId),
+                using: dependencies
+            )
+        else { throw MessageReceiverError.outdatedMessage }
+        
+        // Determine if it's a group conversation that received a deletion instruction after this
+        // message was sent (if so then it's outdated)
+        let deletionInstructionSentAfterThisMessage: Bool = {
+            guard threadVariant == .group else { return false }
+            
+            // These group update messages update the group state so should be processed even
+            // if they were old
+            switch message {
+                case is GroupUpdateInviteResponseMessage: return false
+                case is GroupUpdateDeleteMemberContentMessage: return false
+                    // TODO: Add the 'memberLeft' (non UI based one) here
+                default: break
+            }
+            
+            // Note: 'sentTimestamp' is in milliseconds so convert it
+            let messageSentTimestamp: TimeInterval = TimeInterval((message.sentTimestamp ?? 0) * 1000)
+            let deleteBefore: TimeInterval = (try? LibSession
+                .groupDeleteBefore(
+                    in: dependencies[cache: .libSession]
+                        .config(for: .groupInfo, sessionId: SessionId(.group, hex: threadId))
+                        .wrappedValue
+                )).defaulting(to: 0)
+            let deleteAttachmentsBefore: TimeInterval = (try? LibSession
+                .groupAttachmentDeleteBefore(
+                    in: dependencies[cache: .libSession]
+                        .config(for: .groupInfo, sessionId: SessionId(.group, hex: threadId))
+                        .wrappedValue
+                )).defaulting(to: 0)
+            
+            return (
+                deleteBefore > messageSentTimestamp || (
+                    (message as? VisibleMessage)?.dataMessageHasAttachments == true &&
+                    deleteAttachmentsBefore > messageSentTimestamp
+                )
+            )
+        }()
+        
+        guard !deletionInstructionSentAfterThisMessage else { throw MessageReceiverError.outdatedMessage }
+        
+        // If the conversation is not visible in the config and the message was sent before the last config
+        // update (minus a buffer period) then we can assume that the user has hidden/deleted the conversation
+        // and it shouldn't be reshown by this (old) message
         let conversationVisibleInConfig: Bool = LibSession.conversationInConfig(
             db,
             threadId: threadId,
@@ -550,20 +602,10 @@ public enum MessageReceiver {
                 .defaulting(to: dependencies[cache: .snodeAPI].currentOffsetTimestampMs()),
             using: dependencies
         )
-        let conversationIsDestroyed: Bool = {
-            guard threadVariant == .group else { return false }
-            
-            return LibSession.groupIsDestroyed(
-                groupSessionId: SessionId(.group, hex: threadId),
-                using: dependencies
-            )
-        }()
         
-        // If the thread is not destroyed, visible or the message was sent more recently than the last config
-        // message (minus buffer period) then we should process the message, if not then throw as the message
-        // is outdated
-        guard conversationIsDestroyed || (!conversationVisibleInConfig && !canPerformChange) else { return }
-        
-        throw MessageReceiverError.outdatedMessage
+        switch (conversationVisibleInConfig, canPerformChange) {
+            case (false, false): throw MessageReceiverError.outdatedMessage
+            default: break  // Message not outdated
+        }
     }
 }

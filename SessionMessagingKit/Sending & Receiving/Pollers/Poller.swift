@@ -12,6 +12,7 @@ import SessionUtilitiesKit
 
 public protocol PollerType {
     var swarmPublicKey: String { get }
+    var receivedPollResult: AnyPublisher<[ProcessedMessage], Never> { get }
     
     init(
         swarmPublicKey: String,
@@ -30,7 +31,6 @@ public protocol PollerType {
         calledFromBackgroundPoller: Bool,
         isBackgroundPollValid: @escaping () -> Bool
     ) -> AnyPublisher<Poller.PollResponse, Error>
-    func afterNextPoll(perform closure: @escaping ([ProcessedMessage]) -> ())
 }
 
 public extension PollerType {
@@ -63,13 +63,16 @@ public class Poller: PollerType {
     private let customAuthMethod: AuthenticationMethod?
     private let shouldStoreMessages: Bool
     private let logStartAndStopCalls: Bool
+    private let receivedPollResultSubject: PassthroughSubject<[ProcessedMessage], Never> = PassthroughSubject()
     internal var drainBehaviour: Atomic<SwarmDrainBehaviour>
     internal var cancellable: AnyCancellable?
     internal var pollCount: Int = 0
     internal var failureCount: Int = 0
     public var swarmPublicKey: String
     public var isPolling: Bool = false
-    private var pollResultCallbacks: Atomic<[([ProcessedMessage]) -> ()]> = Atomic([])
+    public var receivedPollResult: AnyPublisher<[ProcessedMessage], Never> {
+        receivedPollResultSubject.eraseToAnyPublisher()
+    }
 
     // MARK: - Initialization
     
@@ -546,22 +549,10 @@ public class Poller: PollerType {
             }
             .handleEvents(
                 receiveOutput: { [weak self] (pollResponse: Poller.PollResponse) in
-                    /// Run any poll result callbacks we registered
-                    let callbacks: [([ProcessedMessage]) -> ()] = (self?.pollResultCallbacks
-                        .mutate { callbacks in
-                            let result: [([ProcessedMessage]) -> ()] = callbacks
-                            callbacks = []
-                            return result
-                        })
-                        .defaulting(to: [])
-                    
-                    callbacks.forEach { $0(pollResponse.messages) }
+                    /// Notify any observers that we got a result
+                    self?.receivedPollResultSubject.send(pollResponse.messages)
                 }
             )
             .eraseToAnyPublisher()
-    }
-    
-    public func afterNextPoll(perform closure: @escaping ([ProcessedMessage]) -> ()) {
-        pollResultCallbacks.mutate { $0.appending(closure) }
     }
 }

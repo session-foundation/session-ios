@@ -14,7 +14,6 @@ extension MessageSender {
         interaction: Interaction,
         threadId: String,
         threadVariant: SessionThread.Variant,
-        after blockingJob: Job? = nil,
         isSyncMessage: Bool = false,
         using dependencies: Dependencies
     ) throws {
@@ -28,7 +27,6 @@ extension MessageSender {
             threadId: threadId,
             interactionId: interactionId,
             to: try Message.Destination.from(db, threadId: threadId, threadVariant: threadVariant),
-            after: blockingJob,
             isSyncMessage: isSyncMessage,
             using: dependencies
         )
@@ -50,7 +48,6 @@ extension MessageSender {
             threadId: threadId,
             interactionId: interactionId,
             to: try Message.Destination.from(db, threadId: threadId, threadVariant: threadVariant),
-            after: blockingJob,
             isSyncMessage: isSyncMessage,
             using: dependencies
         )
@@ -62,7 +59,6 @@ extension MessageSender {
         threadId: String?,
         interactionId: Int64?,
         to destination: Message.Destination,
-        after blockingJob: Job? = nil,
         isSyncMessage: Bool = false,
         using dependencies: Dependencies
     ) {
@@ -75,7 +71,6 @@ extension MessageSender {
                 destination: destination,
                 threadId: threadId,
                 interactionId: interactionId,
-                after: blockingJob,
                 using: dependencies
             )
             return
@@ -92,7 +87,6 @@ extension MessageSender {
                     message: message
                 )
             ),
-            dependantJob: blockingJob,
             canStartJob: true
         )
     }

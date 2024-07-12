@@ -1515,6 +1515,15 @@ struct SessionProtos_GroupUpdateMessage {
   /// Clears the value of `deleteMemberContent`. Subsequent reads from it will return its default value.
   mutating func clearDeleteMemberContent() {_uniqueStorage()._deleteMemberContent = nil}
 
+  var memberLeftNotificationMessage: SessionProtos_GroupUpdateMemberLeftNotificationMessage {
+    get {return _storage._memberLeftNotificationMessage ?? SessionProtos_GroupUpdateMemberLeftNotificationMessage()}
+    set {_uniqueStorage()._memberLeftNotificationMessage = newValue}
+  }
+  /// Returns true if `memberLeftNotificationMessage` has been explicitly set.
+  var hasMemberLeftNotificationMessage: Bool {return _storage._memberLeftNotificationMessage != nil}
+  /// Clears the value of `memberLeftNotificationMessage`. Subsequent reads from it will return its default value.
+  mutating func clearMemberLeftNotificationMessage() {_uniqueStorage()._memberLeftNotificationMessage = nil}
+
   var unknownFields = SwiftProtobuf.UnknownStorage()
 
   init() {}
@@ -1592,11 +1601,22 @@ struct SessionProtos_GroupUpdatePromoteMessage {
   /// Clears the value of `groupIdentitySeed`. Subsequent reads from it will return its default value.
   mutating func clearGroupIdentitySeed() {self._groupIdentitySeed = nil}
 
+  /// @required
+  var name: String {
+    get {return _name ?? String()}
+    set {_name = newValue}
+  }
+  /// Returns true if `name` has been explicitly set.
+  var hasName: Bool {return self._name != nil}
+  /// Clears the value of `name`. Subsequent reads from it will return its default value.
+  mutating func clearName() {self._name = nil}
+
   var unknownFields = SwiftProtobuf.UnknownStorage()
 
   init() {}
 
   fileprivate var _groupIdentitySeed: Data? = nil
+  fileprivate var _name: String? = nil
 }
 
 struct SessionProtos_GroupUpdateInfoChangeMessage {
@@ -1782,6 +1802,17 @@ struct SessionProtos_GroupUpdateMemberLeftMessage {
   init() {}
 }
 
+/// the pubkey of the member left is included as part of the closed group encryption logic (senderIdentity on desktop)
+struct SessionProtos_GroupUpdateMemberLeftNotificationMessage {
+  // SwiftProtobuf.Message conformance is added in an extension below. See the
+  // `Message` and `Message+*Additions` files in the SwiftProtobuf library for
+  // methods supported on all messages.
+
+  var unknownFields = SwiftProtobuf.UnknownStorage()
+
+  init() {}
+}
+
 struct SessionProtos_GroupUpdateInviteResponseMessage {
   // SwiftProtobuf.Message conformance is added in an extension below. See the
   // `Message` and `Message+*Additions` files in the SwiftProtobuf library for
@@ -1868,6 +1899,7 @@ extension SessionProtos_GroupUpdateInfoChangeMessage.TypeEnum: @unchecked Sendab
 extension SessionProtos_GroupUpdateMemberChangeMessage: @unchecked Sendable {}
 extension SessionProtos_GroupUpdateMemberChangeMessage.TypeEnum: @unchecked Sendable {}
 extension SessionProtos_GroupUpdateMemberLeftMessage: @unchecked Sendable {}
+extension SessionProtos_GroupUpdateMemberLeftNotificationMessage: @unchecked Sendable {}
 extension SessionProtos_GroupUpdateInviteResponseMessage: @unchecked Sendable {}
 extension SessionProtos_GroupUpdateDeleteMemberContentMessage: @unchecked Sendable {}
 #endif  // swift(>=5.5) && canImport(_Concurrency)
@@ -3302,6 +3334,7 @@ extension SessionProtos_GroupUpdateMessage: SwiftProtobuf.Message, SwiftProtobuf
     5: .same(proto: "memberLeftMessage"),
     6: .same(proto: "inviteResponse"),
     7: .same(proto: "deleteMemberContent"),
+    8: .same(proto: "memberLeftNotificationMessage"),
   ]
 
   fileprivate class _StorageClass {
@@ -3312,6 +3345,7 @@ extension SessionProtos_GroupUpdateMessage: SwiftProtobuf.Message, SwiftProtobuf
     var _memberLeftMessage: SessionProtos_GroupUpdateMemberLeftMessage? = nil
     var _inviteResponse: SessionProtos_GroupUpdateInviteResponseMessage? = nil
     var _deleteMemberContent: SessionProtos_GroupUpdateDeleteMemberContentMessage? = nil
+    var _memberLeftNotificationMessage: SessionProtos_GroupUpdateMemberLeftNotificationMessage? = nil
 
     static let defaultInstance = _StorageClass()
 
@@ -3325,6 +3359,7 @@ extension SessionProtos_GroupUpdateMessage: SwiftProtobuf.Message, SwiftProtobuf
       _memberLeftMessage = source._memberLeftMessage
       _inviteResponse = source._inviteResponse
       _deleteMemberContent = source._deleteMemberContent
+      _memberLeftNotificationMessage = source._memberLeftNotificationMessage
     }
   }
 
@@ -3361,6 +3396,7 @@ extension SessionProtos_GroupUpdateMessage: SwiftProtobuf.Message, SwiftProtobuf
         case 5: try { try decoder.decodeSingularMessageField(value: &_storage._memberLeftMessage) }()
         case 6: try { try decoder.decodeSingularMessageField(value: &_storage._inviteResponse) }()
         case 7: try { try decoder.decodeSingularMessageField(value: &_storage._deleteMemberContent) }()
+        case 8: try { try decoder.decodeSingularMessageField(value: &_storage._memberLeftNotificationMessage) }()
         default: break
         }
       }
@@ -3394,6 +3430,9 @@ extension SessionProtos_GroupUpdateMessage: SwiftProtobuf.Message, SwiftProtobuf
       try { if let v = _storage._deleteMemberContent {
         try visitor.visitSingularMessageField(value: v, fieldNumber: 7)
       } }()
+      try { if let v = _storage._memberLeftNotificationMessage {
+        try visitor.visitSingularMessageField(value: v, fieldNumber: 8)
+      } }()
     }
     try unknownFields.traverse(visitor: &visitor)
   }
@@ -3410,6 +3449,7 @@ extension SessionProtos_GroupUpdateMessage: SwiftProtobuf.Message, SwiftProtobuf
         if _storage._memberLeftMessage != rhs_storage._memberLeftMessage {return false}
         if _storage._inviteResponse != rhs_storage._inviteResponse {return false}
         if _storage._deleteMemberContent != rhs_storage._deleteMemberContent {return false}
+        if _storage._memberLeftNotificationMessage != rhs_storage._memberLeftNotificationMessage {return false}
         return true
       }
       if !storagesAreEqual {return false}
@@ -3485,10 +3525,12 @@ extension SessionProtos_GroupUpdatePromoteMessage: SwiftProtobuf.Message, SwiftP
   static let protoMessageName: String = _protobuf_package + ".GroupUpdatePromoteMessage"
   static let _protobuf_nameMap: SwiftProtobuf._NameMap = [
     1: .same(proto: "groupIdentitySeed"),
+    2: .same(proto: "name"),
   ]
 
   public var isInitialized: Bool {
     if self._groupIdentitySeed == nil {return false}
+    if self._name == nil {return false}
     return true
   }
 
@@ -3499,6 +3541,7 @@ extension SessionProtos_GroupUpdatePromoteMessage: SwiftProtobuf.Message, SwiftP
       // enabled. https://github.com/apple/swift-protobuf/issues/1034
       switch fieldNumber {
       case 1: try { try decoder.decodeSingularBytesField(value: &self._groupIdentitySeed) }()
+      case 2: try { try decoder.decodeSingularStringField(value: &self._name) }()
       default: break
       }
     }
@@ -3512,11 +3555,15 @@ extension SessionProtos_GroupUpdatePromoteMessage: SwiftProtobuf.Message, SwiftP
     try { if let v = self._groupIdentitySeed {
       try visitor.visitSingularBytesField(value: v, fieldNumber: 1)
     } }()
+    try { if let v = self._name {
+      try visitor.visitSingularStringField(value: v, fieldNumber: 2)
+    } }()
     try unknownFields.traverse(visitor: &visitor)
   }
 
   static func ==(lhs: SessionProtos_GroupUpdatePromoteMessage, rhs: SessionProtos_GroupUpdatePromoteMessage) -> Bool {
     if lhs._groupIdentitySeed != rhs._groupIdentitySeed {return false}
+    if lhs._name != rhs._name {return false}
     if lhs.unknownFields != rhs.unknownFields {return false}
     return true
   }
@@ -3672,6 +3719,25 @@ extension SessionProtos_GroupUpdateMemberLeftMessage: SwiftProtobuf.Message, Swi
   }
 
   static func ==(lhs: SessionProtos_GroupUpdateMemberLeftMessage, rhs: SessionProtos_GroupUpdateMemberLeftMessage) -> Bool {
+    if lhs.unknownFields != rhs.unknownFields {return false}
+    return true
+  }
+}
+
+extension SessionProtos_GroupUpdateMemberLeftNotificationMessage: SwiftProtobuf.Message, SwiftProtobuf._MessageImplementationBase, SwiftProtobuf._ProtoNameProviding {
+  static let protoMessageName: String = _protobuf_package + ".GroupUpdateMemberLeftNotificationMessage"
+  static let _protobuf_nameMap = SwiftProtobuf._NameMap()
+
+  mutating func decodeMessage<D: SwiftProtobuf.Decoder>(decoder: inout D) throws {
+    while let _ = try decoder.nextFieldNumber() {
+    }
+  }
+
+  func traverse<V: SwiftProtobuf.Visitor>(visitor: inout V) throws {
+    try unknownFields.traverse(visitor: &visitor)
+  }
+
+  static func ==(lhs: SessionProtos_GroupUpdateMemberLeftNotificationMessage, rhs: SessionProtos_GroupUpdateMemberLeftNotificationMessage) -> Bool {
     if lhs.unknownFields != rhs.unknownFields {return false}
     return true
   }

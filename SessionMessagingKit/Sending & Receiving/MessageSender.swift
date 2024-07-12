@@ -726,7 +726,6 @@ public final class MessageSender {
             destination: destination,
             threadId: threadId,
             interactionId: interactionId,
-            after: nil,
             using: dependencies
         )
     }
@@ -835,7 +834,6 @@ public final class MessageSender {
         destination: Message.Destination,
         threadId: String?,
         interactionId: Int64?,
-        after blockingJob: Job?,
         using dependencies: Dependencies
     ) {
         // Sync the message if it's not a sync message, wasn't already sent to the current user and
@@ -861,7 +859,6 @@ public final class MessageSender {
                         message: message
                     )
                 ),
-                dependantJob: blockingJob,
                 canStartJob: true
             )
         }
