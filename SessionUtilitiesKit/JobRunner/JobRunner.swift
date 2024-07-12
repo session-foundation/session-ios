@@ -491,7 +491,14 @@ public final class JobRunner: JobRunnerType {
         
         // Add and start any blocking jobs
         blockingQueue.wrappedValue?.appDidFinishLaunching(
-            with: jobsToRun.blocking,
+            with: jobsToRun.blocking.map { job -> Job in
+                guard job.behaviour == .recurringOnLaunch else { return job }
+                
+                // If the job is a `recurringOnLaunch` job then we reset the `nextRunTimestamp`
+                // value on the instance because the assumption is that `recurringOnLaunch` will
+                // run a job regardless of how many times it previously failed
+                return job.with(nextRunTimestamp: 0)
+            },
             canStart: true,
             using: dependencies
         )
@@ -503,7 +510,14 @@ public final class JobRunner: JobRunnerType {
         
         jobsByVariant.forEach { variant, jobs in
             jobQueues[variant]?.appDidFinishLaunching(
-                with: jobs,
+                with: jobs.map { job -> Job in
+                    guard job.behaviour == .recurringOnLaunch else { return job }
+                    
+                    // If the job is a `recurringOnLaunch` job then we reset the `nextRunTimestamp`
+                    // value on the instance because the assumption is that `recurringOnLaunch` will
+                    // run a job regardless of how many times it previously failed
+                    return job.with(nextRunTimestamp: 0)
+                },
                 canStart: false,
                 using: dependencies
             )
@@ -562,7 +576,12 @@ public final class JobRunner: JobRunnerType {
             }
             .forEach { queue, jobs in
                 queue.appDidBecomeActive(
-                    with: jobs,
+                    with: jobs.map { job -> Job in
+                        // We reset the `nextRunTimestamp` value on the instance because the
+                        // assumption is that `recurringOnActive` will run a job regardless
+                        // of how many times it previously failed
+                        job.with(nextRunTimestamp: 0)
+                    },
                     canStart: !blockingQueueIsRunning,
                     using: dependencies
                 )

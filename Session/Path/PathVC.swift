@@ -129,7 +129,10 @@ final class PathVC: BaseVC {
         // Register for path country updates
         cacheUpdateId = IP2Country.onCacheLoaded { [weak self] in
             DispatchQueue.main.async {
-                self?.update(paths: (self?.lastPath.map { [$0] } ?? []), force: true)
+                switch (self?.lastPath, self?.lastPath.isEmpty == true) {
+                    case (.none, _), (_, true): self?.update(paths: [], force: true)
+                    case (.some(let lastPath), _): self?.update(paths: [lastPath], force: true)
+                }
             }
         }
     }

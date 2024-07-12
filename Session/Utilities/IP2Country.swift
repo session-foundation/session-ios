@@ -46,6 +46,10 @@ public enum IP2Country {
 
     static func populateCacheIfNeededAsync() {
         DispatchQueue.global(qos: .utility).async {
+            // Ensure the caches get loaded in the background
+            _ = ipv4Table
+            _ = countryNamesCache
+            
             pathsChangedCallbackId.mutate { pathsChangedCallbackId in
                 guard pathsChangedCallbackId == nil else { return }
                 

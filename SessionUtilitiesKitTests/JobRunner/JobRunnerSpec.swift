@@ -749,6 +749,33 @@ class JobRunnerSpec: QuickSpec {
                         jobRunner.appDidFinishLaunching(using: dependencies)
                         expect(jobRunner.allJobInfo()).to(beEmpty())
                     }
+                    
+                    // MARK: -------- runs the job regardless of the nextRunTimestamp value it has
+                    it("runs the job regardless of the nextRunTimestamp value it has") {
+                        job1 = Job(
+                            id: 100,
+                            failureCount: 0,
+                            variant: .messageSend,
+                            behaviour: .recurringOnLaunch,
+                            shouldBlock: false,
+                            shouldBeUnique: false,
+                            shouldSkipLaunchBecomeActive: false,
+                            nextRunTimestamp: Date.distantFuture.timeIntervalSince1970,
+                            threadId: nil,
+                            interactionId: nil,
+                            details: try? JSONEncoder()
+                                .with(outputFormatting: .sortedKeys)
+                                .encode(TestDetails(completeTime: 1))
+                        )
+                        
+                        mockStorage.write { db in
+                            try job1.upsert(db)
+                        }
+                        
+                        jobRunner.appDidFinishLaunching(using: dependencies)
+                        jobRunner.appDidBecomeActive(using: dependencies)
+                        expect(jobRunner.isCurrentlyRunning(job1)).to(beTrue())
+                    }
                 }
                 
                 // MARK: ------ by being notified of app becoming active
@@ -1057,6 +1084,33 @@ class JobRunnerSpec: QuickSpec {
                         
                         expect(jobRunner.isCurrentlyRunning(job1)).to(beTrue())
                         expect(jobRunner.isCurrentlyRunning(job2)).to(beTrue())
+                    }
+                    
+                    // MARK: -------- runs the job regardless of the nextRunTimestamp value it has
+                    it("runs the job regardless of the nextRunTimestamp value it has") {
+                        job1 = Job(
+                            id: 100,
+                            failureCount: 0,
+                            variant: .messageSend,
+                            behaviour: .recurringOnActive,
+                            shouldBlock: false,
+                            shouldBeUnique: false,
+                            shouldSkipLaunchBecomeActive: false,
+                            nextRunTimestamp: Date.distantFuture.timeIntervalSince1970,
+                            threadId: nil,
+                            interactionId: nil,
+                            details: try? JSONEncoder()
+                                .with(outputFormatting: .sortedKeys)
+                                .encode(TestDetails(completeTime: 1))
+                        )
+                        
+                        mockStorage.write { db in
+                            try job1.upsert(db)
+                        }
+                        
+                        jobRunner.appDidFinishLaunching(using: dependencies)
+                        jobRunner.appDidBecomeActive(using: dependencies)
+                        expect(jobRunner.isCurrentlyRunning(job1)).to(beTrue())
                     }
                 }
                 
