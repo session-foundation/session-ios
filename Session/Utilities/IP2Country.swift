@@ -171,8 +171,6 @@ public enum IP2Country {
         
         guard _cacheLoaded.value else { return fallback }
         
-        //return (countryNamesCache.wrappedValue["\(ip)-\(currentLocale)"] ?? fallback)
-        let val = (countryNamesCache.wrappedValue["\(ip)-\(currentLocale)"] ?? fallback)
-        return "\(val) (TEST: \(ip))"
+        return (countryNamesCache.wrappedValue["\(ip)-\(currentLocale)"] ?? fallback)
     }
 }
