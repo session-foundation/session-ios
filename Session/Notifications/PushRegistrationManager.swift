@@ -169,7 +169,15 @@ public enum PushRegistrationError: Error {
                                     .eraseToAnyPublisher()
                             }
                             
+                            // Give the original publisher another 10 seconds to complete before we timeout (we
+                            // don't want this to run forever as it could block other jobs)
                             return originalPublisher
+                                .timeout(
+                                    .seconds(10),
+                                    scheduler: DispatchQueue.global(qos: .default),
+                                    customError: { PushRegistrationError.timeout }
+                                )
+                                .eraseToAnyPublisher()
                         }
                         
                         // If we've timed out on a device known to be susceptible to failures, quit trying

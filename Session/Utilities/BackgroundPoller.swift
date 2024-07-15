@@ -44,7 +44,7 @@ public final class BackgroundPoller {
             }
             .defaulting(to: ([], []))
         
-        Log.info("[BackgroundPoller] Fetching 1 User, \(groupIds.count) \("group", number: groupIds.count), \(servers.count) \("communit", number: servers.count, singular: "y", plural: "ies").")
+        Log.info("[BackgroundPoller] Fetching Users: 1, Groups: \(groupIds.count), Communities: \(servers.count).")
         Publishers
             .MergeMany(
                 [pollForMessages(using: dependencies)]
@@ -89,7 +89,7 @@ public final class BackgroundPoller {
         )
         .handleEvents(
             receiveOutput: { _, _, validMessageCount, _ in
-                Log.info("[BackgroundPoller] Received \(validMessageCount) valid \("message", number: validMessageCount).")
+                Log.info("[BackgroundPoller] Received \(validMessageCount) valid message(s).")
             }
         )
         .map { _ in () }
@@ -114,7 +114,7 @@ public final class BackgroundPoller {
                 )
                 .handleEvents(
                     receiveOutput: { _, _, validMessageCount, _ in
-                        Log.info("[BackgroundPoller] Received \(validMessageCount) valid \("message", number: validMessageCount) for group: \(groupPublicKey).")
+                        Log.info("[BackgroundPoller] Received \(validMessageCount) valid message(s) for group: \(groupPublicKey).")
                     }
                 )
                 .map { _ in () }

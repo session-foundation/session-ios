@@ -271,8 +271,6 @@
 		B8F5F71A25F1B35C003BF8D4 /* MediaPlaceholderView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B8F5F71925F1B35C003BF8D4 /* MediaPlaceholderView.swift */; };
 		B8FF8DAE25C0D00F004D1F22 /* SessionMessagingKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = C3C2A6F025539DE700C340D1 /* SessionMessagingKit.framework */; };
 		B8FF8DAF25C0D00F004D1F22 /* SessionUtilitiesKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = C3C2A679255388CC00C340D1 /* SessionUtilitiesKit.framework */; };
-		B8FF8E6225C10DA5004D1F22 /* GeoLite2-Country-Blocks-IPv4 in Resources */ = {isa = PBXBuildFile; fileRef = B8FF8E6125C10DA5004D1F22 /* GeoLite2-Country-Blocks-IPv4 */; };
-		B8FF8E7425C10FC3004D1F22 /* GeoLite2-Country-Locations-English in Resources */ = {isa = PBXBuildFile; fileRef = B8FF8E7325C10FC3004D1F22 /* GeoLite2-Country-Locations-English */; };
 		B8FF8EA625C11FEF004D1F22 /* IPv4.swift in Sources */ = {isa = PBXBuildFile; fileRef = B8FF8EA525C11FEF004D1F22 /* IPv4.swift */; };
 		B9EB5ABD1884C002007CBB57 /* MessageUI.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = B9EB5ABC1884C002007CBB57 /* MessageUI.framework */; };
 		C300A5D32554B05A00555489 /* TypingIndicator.swift in Sources */ = {isa = PBXBuildFile; fileRef = C300A5D22554B05A00555489 /* TypingIndicator.swift */; };
@@ -883,6 +881,7 @@
 		FDE6E99829F8E63A00F93C5D /* Accessibility.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDE6E99729F8E63A00F93C5D /* Accessibility.swift */; };
 		FDE77F6B280FEB28002CFC5D /* ControlMessageProcessRecord.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDE77F6A280FEB28002CFC5D /* ControlMessageProcessRecord.swift */; };
 		FDED2E3C282E1B5D00B2CD2A /* UICollectionView+ReusableView.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDED2E3B282E1B5D00B2CD2A /* UICollectionView+ReusableView.swift */; };
+		FDEF57712C44D2D300131302 /* GeoLite2-Country-Blocks-IPv4 in Resources */ = {isa = PBXBuildFile; fileRef = FDEF57702C44D2D300131302 /* GeoLite2-Country-Blocks-IPv4 */; };
 		FDF0B73C27FFD3D6004C14C5 /* LinkPreview.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDF0B73B27FFD3D6004C14C5 /* LinkPreview.swift */; };
 		FDF0B7422804EA4F004C14C5 /* _002_SetupStandardJobs.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDF0B7412804EA4F004C14C5 /* _002_SetupStandardJobs.swift */; };
 		FDF0B7472804F0CE004C14C5 /* DisappearingMessagesJob.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDF0B7462804F0CE004C14C5 /* DisappearingMessagesJob.swift */; };
@@ -1462,8 +1461,6 @@
 		B8F5F58225EC94A6003BF8D4 /* Collection+Utilities.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Collection+Utilities.swift"; sourceTree = "<group>"; };
 		B8F5F60225EDE16F003BF8D4 /* DataExtractionNotification.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DataExtractionNotification.swift; sourceTree = "<group>"; };
 		B8F5F71925F1B35C003BF8D4 /* MediaPlaceholderView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MediaPlaceholderView.swift; sourceTree = "<group>"; };
-		B8FF8E6125C10DA5004D1F22 /* GeoLite2-Country-Blocks-IPv4 */ = {isa = PBXFileReference; lastKnownFileType = file.bplist; name = "GeoLite2-Country-Blocks-IPv4"; path = "Countries/GeoLite2-Country-Blocks-IPv4"; sourceTree = "<group>"; };
-		B8FF8E7325C10FC3004D1F22 /* GeoLite2-Country-Locations-English */ = {isa = PBXFileReference; lastKnownFileType = file.bplist; name = "GeoLite2-Country-Locations-English"; path = "Countries/GeoLite2-Country-Locations-English"; sourceTree = "<group>"; };
 		B8FF8EA525C11FEF004D1F22 /* IPv4.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IPv4.swift; sourceTree = "<group>"; };
 		B9EB5ABC1884C002007CBB57 /* MessageUI.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = MessageUI.framework; path = System/Library/Frameworks/MessageUI.framework; sourceTree = SDKROOT; };
 		BC81172C437DC7DEF6735D0C /* Pods_GlobalDependencies_FrameworkAndExtensionDependencies_SessionSnodeKit.framework */ = {isa = PBXFileReference; explicitFileType = wrapper.framework; includeInIndex = 0; path = Pods_GlobalDependencies_FrameworkAndExtensionDependencies_SessionSnodeKit.framework; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -2085,6 +2082,17 @@
 		FDE77F68280F9EDA002CFC5D /* JobRunnerError.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = JobRunnerError.swift; sourceTree = "<group>"; };
 		FDE77F6A280FEB28002CFC5D /* ControlMessageProcessRecord.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ControlMessageProcessRecord.swift; sourceTree = "<group>"; };
 		FDED2E3B282E1B5D00B2CD2A /* UICollectionView+ReusableView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "UICollectionView+ReusableView.swift"; sourceTree = "<group>"; };
+		FDEF57642C44B8C200131302 /* ProcessIP2CountryData.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProcessIP2CountryData.swift; sourceTree = "<group>"; };
+		FDEF57662C44C1DF00131302 /* GeoLite2-Country-Blocks-IPv4.csv */ = {isa = PBXFileReference; lastKnownFileType = text; path = "GeoLite2-Country-Blocks-IPv4.csv"; sourceTree = "<group>"; };
+		FDEF57672C44C1DF00131302 /* GeoLite2-Country-Locations-de.csv */ = {isa = PBXFileReference; lastKnownFileType = text; path = "GeoLite2-Country-Locations-de.csv"; sourceTree = "<group>"; };
+		FDEF57682C44C1DF00131302 /* GeoLite2-Country-Locations-en.csv */ = {isa = PBXFileReference; lastKnownFileType = text; path = "GeoLite2-Country-Locations-en.csv"; sourceTree = "<group>"; };
+		FDEF57692C44C1DF00131302 /* GeoLite2-Country-Locations-es.csv */ = {isa = PBXFileReference; lastKnownFileType = text; path = "GeoLite2-Country-Locations-es.csv"; sourceTree = "<group>"; };
+		FDEF576A2C44C1DF00131302 /* GeoLite2-Country-Locations-fr.csv */ = {isa = PBXFileReference; lastKnownFileType = text; path = "GeoLite2-Country-Locations-fr.csv"; sourceTree = "<group>"; };
+		FDEF576B2C44C1DF00131302 /* GeoLite2-Country-Locations-ja.csv */ = {isa = PBXFileReference; lastKnownFileType = text; path = "GeoLite2-Country-Locations-ja.csv"; sourceTree = "<group>"; };
+		FDEF576C2C44C1DF00131302 /* GeoLite2-Country-Locations-pt-BR.csv */ = {isa = PBXFileReference; lastKnownFileType = text; path = "GeoLite2-Country-Locations-pt-BR.csv"; sourceTree = "<group>"; };
+		FDEF576D2C44C1DF00131302 /* GeoLite2-Country-Locations-ru.csv */ = {isa = PBXFileReference; lastKnownFileType = text; path = "GeoLite2-Country-Locations-ru.csv"; sourceTree = "<group>"; };
+		FDEF576E2C44C1DF00131302 /* GeoLite2-Country-Locations-zh-CN.csv */ = {isa = PBXFileReference; lastKnownFileType = text; path = "GeoLite2-Country-Locations-zh-CN.csv"; sourceTree = "<group>"; };
+		FDEF57702C44D2D300131302 /* GeoLite2-Country-Blocks-IPv4 */ = {isa = PBXFileReference; lastKnownFileType = file; name = "GeoLite2-Country-Blocks-IPv4"; path = "Countries/GeoLite2-Country-Blocks-IPv4"; sourceTree = "<group>"; };
 		FDF0B73B27FFD3D6004C14C5 /* LinkPreview.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LinkPreview.swift; sourceTree = "<group>"; };
 		FDF0B73F280402C4004C14C5 /* Job.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Job.swift; sourceTree = "<group>"; };
 		FDF0B7412804EA4F004C14C5 /* _002_SetupStandardJobs.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = _002_SetupStandardJobs.swift; sourceTree = "<group>"; };
@@ -2859,8 +2867,8 @@
 		B8FF8E6025C10D8B004D1F22 /* Countries */ = {
 			isa = PBXGroup;
 			children = (
-				B8FF8E6125C10DA5004D1F22 /* GeoLite2-Country-Blocks-IPv4 */,
-				B8FF8E7325C10FC3004D1F22 /* GeoLite2-Country-Locations-English */,
+				FDEF576F2C44C1DF00131302 /* SourceData */,
+				FDEF57702C44D2D300131302 /* GeoLite2-Country-Blocks-IPv4 */,
 			);
 			name = Countries;
 			sourceTree = "<group>";
@@ -4450,8 +4458,26 @@
 				FDCCC6E82ABA7402002BBEF5 /* EmojiGenerator.swift */,
 				FDE72150287E50D50093DF33 /* LintLocalizableStrings.swift */,
 				FD5CE3442A3C5D96001A6DE3 /* DecryptExportedKey.swift */,
+				FDEF57642C44B8C200131302 /* ProcessIP2CountryData.swift */,
 			);
 			path = Scripts;
+			sourceTree = "<group>";
+		};
+		FDEF576F2C44C1DF00131302 /* SourceData */ = {
+			isa = PBXGroup;
+			children = (
+				FDEF57662C44C1DF00131302 /* GeoLite2-Country-Blocks-IPv4.csv */,
+				FDEF57672C44C1DF00131302 /* GeoLite2-Country-Locations-de.csv */,
+				FDEF57682C44C1DF00131302 /* GeoLite2-Country-Locations-en.csv */,
+				FDEF57692C44C1DF00131302 /* GeoLite2-Country-Locations-es.csv */,
+				FDEF576A2C44C1DF00131302 /* GeoLite2-Country-Locations-fr.csv */,
+				FDEF576B2C44C1DF00131302 /* GeoLite2-Country-Locations-ja.csv */,
+				FDEF576C2C44C1DF00131302 /* GeoLite2-Country-Locations-pt-BR.csv */,
+				FDEF576D2C44C1DF00131302 /* GeoLite2-Country-Locations-ru.csv */,
+				FDEF576E2C44C1DF00131302 /* GeoLite2-Country-Locations-zh-CN.csv */,
+			);
+			name = SourceData;
+			path = Countries/SourceData;
 			sourceTree = "<group>";
 		};
 		FDF0B7452804F0A8004C14C5 /* Types */ = {
@@ -5199,10 +5225,10 @@
 				45B74A892044AAB600CD42F8 /* circles-quiet.aifc in Resources */,
 				C34C8F7423A7830B00D82669 /* SpaceMono-Bold.ttf in Resources */,
 				4503F1BF20470A5B00CEE724 /* classic.aifc in Resources */,
+				FDEF57712C44D2D300131302 /* GeoLite2-Country-Blocks-IPv4 in Resources */,
 				B8D07405265C683300F77E07 /* ElegantIcons.ttf in Resources */,
 				4503F1BE20470A5B00CEE724 /* classic-quiet.aifc in Resources */,
 				45B74A7E2044AAB600CD42F8 /* complete.aifc in Resources */,
-				B8FF8E7425C10FC3004D1F22 /* GeoLite2-Country-Locations-English in Resources */,
 				B8CCF6352396005F0091D419 /* SpaceMono-Regular.ttf in Resources */,
 				45B74A872044AAB600CD42F8 /* complete-quiet.aifc in Resources */,
 				45B74A772044AAB600CD42F8 /* hello.aifc in Resources */,
@@ -5219,7 +5245,6 @@
 				45B74A7D2044AAB600CD42F8 /* popcorn-quiet.aifc in Resources */,
 				45B74A822044AAB600CD42F8 /* pulse.aifc in Resources */,
 				C3CA3AC8255CDB2900F4C6D4 /* spanish.txt in Resources */,
-				B8FF8E6225C10DA5004D1F22 /* GeoLite2-Country-Blocks-IPv4 in Resources */,
 				45B74A802044AAB600CD42F8 /* pulse-quiet.aifc in Resources */,
 				45B74A8B2044AAB600CD42F8 /* synth.aifc in Resources */,
 				45B74A752044AAB600CD42F8 /* synth-quiet.aifc in Resources */,

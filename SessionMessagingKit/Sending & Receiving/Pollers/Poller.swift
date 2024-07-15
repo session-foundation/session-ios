@@ -157,10 +157,10 @@ public class Poller {
                                         Log.info("Received no new messages in \(pollerName) after \(duration, unit: .s).")
                                         
                                     case (_, 0, false):
-                                        Log.info("Received \(response.rawMessageCount) new message\(plural: response.rawMessageCount) in \(pollerName) after \(duration, unit: .s), all duplicates - marked the hash we polled with as invalid")
+                                        Log.info("Received \(response.rawMessageCount) new message(s) in \(pollerName) after \(duration, unit: .s), all duplicates - marked the hash we polled with as invalid")
                                         
                                     default:
-                                        Log.info("Received \(response.validMessageCount) new message\(plural: response.validMessageCount) in \(pollerName) after \(duration, unit: .s) (duplicates: \(response.rawMessageCount - response.validMessageCount))")
+                                        Log.info("Received \(response.validMessageCount) new message(s) in \(pollerName) after \(duration, unit: .s) (duplicates: \(response.rawMessageCount - response.validMessageCount))")
                                 }
                         }
                         
