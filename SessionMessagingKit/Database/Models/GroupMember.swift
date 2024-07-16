@@ -34,20 +34,10 @@ public struct GroupMember: Codable, Equatable, Hashable, FetchableRecord, Persis
     }
     
     public enum RoleStatus: Int, Codable, DatabaseValueConvertible {
-        case accepted = 0   // Matching libSession
-        case pending = 1    // Matching libSession
-        case failed = 2     // Matching libSession
-        
-        case sending
-        
-        var libSessionValue: Int32 {
-            switch self {
-                case .accepted, .pending, .failed: return Int32(self.rawValue)
-                    
-                /// libSession doens't have a `sending` status (it's a local-only thing) so register it as the standard `pending` status
-                case .sending: return Int32(RoleStatus.pending.rawValue)
-            }
-        }
+        case accepted
+        case pending
+        case failed
+        case notSentYet
     }
 
     public let groupId: String
@@ -112,10 +102,10 @@ public extension GroupMember {
         switch (role, roleStatus) {
             case (_, .accepted): return nil                 // Nothing for "final" state
             case (.zombie, _), (.moderator, _): return nil  // Unused cases
-            case (.standard, .sending): return "GROUP_MEMBER_STATUS_SENDING".localized()
+            case (.standard, .notSentYet): return "GROUP_MEMBER_STATUS_SENDING".localized()
             case (.standard, .pending): return "GROUP_MEMBER_STATUS_SENT".localized()
             case (.standard, .failed): return "GROUP_MEMBER_STATUS_FAILED".localized()
-            case (.admin, .sending): return "GROUP_ADMIN_STATUS_SENDING".localized()
+            case (.admin, .notSentYet): return "GROUP_ADMIN_STATUS_SENDING".localized()
             case (.admin, .pending): return "GROUP_ADMIN_STATUS_SENT".localized()
             case (.admin, .failed): return "GROUP_ADMIN_STATUS_FAILED".localized()
         }
@@ -188,18 +178,18 @@ extension GroupMember: ProfileAssociated {
         
         switch (lhs.value.role, lhs.value.roleStatus, rhs.value.role, rhs.value.roleStatus) {
             /// Non-accepted standard before admin
-            case (.standard, .failed, .admin, _), (.standard, .sending, .admin, _), (.standard, .pending, .admin, _):
+            case (.standard, .failed, .admin, _), (.standard, .notSentYet, .admin, _), (.standard, .pending, .admin, _):
                 return true
             
             /// Non-accepted admin before accepted standard
-            case (.standard, _, .admin, .failed), (.standard, _, .admin, .sending), (.standard, _, .admin, .pending):
+            case (.standard, _, .admin, .failed), (.standard, _, .admin, .notSentYet), (.standard, _, .admin, .pending):
                 return true
             
             /// Failed before sending, sending before pending
-            case (_, .failed, _, .sending), (_, .failed, _, .pending), (_, .sending, _, .pending): return true
+            case (_, .failed, _, .notSentYet), (_, .failed, _, .pending), (_, .notSentYet, _, .pending): return true
                 
             /// Other statuses before accepted
-            case (_, .failed, _, .accepted), (_, .sending, _, .accepted), (_, .pending, _, .accepted): return true
+            case (_, .failed, _, .accepted), (_, .notSentYet, _, .accepted), (_, .pending, _, .accepted): return true
             
             /// Accepted admin before accepted standard
             case (.admin, .accepted, .standard, .accepted): return true

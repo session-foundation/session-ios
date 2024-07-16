@@ -115,6 +115,7 @@ extension MessageReceiver {
                     threadVariant: .contact,
                     groupLeaveType: .forced,
                     calledFromConfig: nil,
+                    cacheToRemoveStateFrom: nil,
                     using: dependencies
                 )
         }

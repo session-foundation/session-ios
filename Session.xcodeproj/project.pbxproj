@@ -627,7 +627,6 @@
 		FD3C906727E416AF00CD579F /* BlindedIdLookupSpec.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD3C906627E416AF00CD579F /* BlindedIdLookupSpec.swift */; };
 		FD3E0C84283B5835002A425C /* SessionThreadViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD3E0C83283B5835002A425C /* SessionThreadViewModel.swift */; };
 		FD3FAB592ADF906300DC5421 /* Profile+CurrentUser.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD3FAB582ADF906300DC5421 /* Profile+CurrentUser.swift */; };
-		FD3FAB5D2AE89A8400DC5421 /* ManualResultJob.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD3FAB5C2AE89A8400DC5421 /* ManualResultJob.swift */; };
 		FD3FAB5F2AE9BC2200DC5421 /* EditGroupViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD3FAB5E2AE9BC2200DC5421 /* EditGroupViewModel.swift */; };
 		FD3FAB612AEA194E00DC5421 /* UserListViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD3FAB602AEA194E00DC5421 /* UserListViewModel.swift */; };
 		FD3FAB632AEB9A1500DC5421 /* ToastController.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD3FAB622AEB9A1500DC5421 /* ToastController.swift */; };
@@ -1855,7 +1854,6 @@
 		FD3C906627E416AF00CD579F /* BlindedIdLookupSpec.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BlindedIdLookupSpec.swift; sourceTree = "<group>"; };
 		FD3E0C83283B5835002A425C /* SessionThreadViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SessionThreadViewModel.swift; sourceTree = "<group>"; };
 		FD3FAB582ADF906300DC5421 /* Profile+CurrentUser.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Profile+CurrentUser.swift"; sourceTree = "<group>"; };
-		FD3FAB5C2AE89A8400DC5421 /* ManualResultJob.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ManualResultJob.swift; sourceTree = "<group>"; };
 		FD3FAB5E2AE9BC2200DC5421 /* EditGroupViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EditGroupViewModel.swift; sourceTree = "<group>"; };
 		FD3FAB602AEA194E00DC5421 /* UserListViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UserListViewModel.swift; sourceTree = "<group>"; };
 		FD3FAB622AEB9A1500DC5421 /* ToastController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ToastController.swift; sourceTree = "<group>"; };
@@ -3479,7 +3477,6 @@
 				B8A582AB258C64E800AFD84C /* Database */,
 				FDF01FAE2A9ED0C800CAF969 /* Dependency Injection */,
 				B8A582B0258C66C900AFD84C /* General */,
-				FD3FAB5B2AE89A7400DC5421 /* Jobs */,
 				FD9004102818ABB000ABAAF6 /* JobRunner */,
 				B8A582AF258C665E00AFD84C /* Media */,
 				B8A582AE258C65D000AFD84C /* Networking */,
@@ -4055,14 +4052,6 @@
 				FD71161B28D194FB00B47552 /* MentionInfo.swift */,
 			);
 			path = "Shared Models";
-			sourceTree = "<group>";
-		};
-		FD3FAB5B2AE89A7400DC5421 /* Jobs */ = {
-			isa = PBXGroup;
-			children = (
-				FD3FAB5C2AE89A8400DC5421 /* ManualResultJob.swift */,
-			);
-			path = Jobs;
 			sourceTree = "<group>";
 		};
 		FD66CB2D2BF5EB0C00268FAB /* Types */ = {
@@ -5959,7 +5948,6 @@
 				FD2272EA2C351CA7004D8A6C /* Threading.swift in Sources */,
 				FD7115FE28C8202D00B47552 /* ReplaySubject.swift in Sources */,
 				FDB3487A2BE846B000B716C2 /* UINavigationController+Utilities.swift in Sources */,
-				FD3FAB5D2AE89A8400DC5421 /* ManualResultJob.swift in Sources */,
 				FD0E353C2AB9880B006A81F7 /* AppVersion.swift in Sources */,
 				FD7F745F2BAAA3B4006DDFD8 /* TypeConversion+Utilities.swift in Sources */,
 				C32C5DD2256DD9E5003C73A2 /* LRUCache.swift in Sources */,

@@ -236,13 +236,12 @@ extension MessageReceiver {
             variant: .infoCall,
             body: String(data: messageInfoData, encoding: .utf8),
             timestampMs: messageSentTimestamp,
-            wasRead: LibSession.timestampAlreadyRead(
+            wasRead: dependencies[cache: .libSession].timestampAlreadyRead(
                 threadId: thread.id,
                 threadVariant: thread.variant,
                 timestampMs: (messageSentTimestamp * 1000),
                 userSessionId: dependencies[cache: .general].sessionId,
-                openGroup: nil,
-                using: dependencies
+                openGroup: nil
             ),
             expiresInSeconds: message.expiresInSeconds,
             expiresStartedAtMs: message.expiresStartedAtMs,
@@ -324,13 +323,12 @@ extension MessageReceiver {
             variant: .infoCall,
             body: String(data: messageInfoData, encoding: .utf8),
             timestampMs: timestampMs,
-            wasRead: LibSession.timestampAlreadyRead(
+            wasRead: dependencies[cache: .libSession].timestampAlreadyRead(
                 threadId: thread.id,
                 threadVariant: thread.variant,
                 timestampMs: (timestampMs * 1000),
                 userSessionId: userSessionId,
-                openGroup: nil,
-                using: dependencies
+                openGroup: nil
             ),
             expiresInSeconds: message.expiresInSeconds,
             expiresStartedAtMs: message.expiresStartedAtMs,

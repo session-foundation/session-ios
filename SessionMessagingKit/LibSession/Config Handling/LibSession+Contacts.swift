@@ -28,12 +28,14 @@ internal extension LibSession {
         DisappearingMessagesConfiguration.Columns.type,
         DisappearingMessagesConfiguration.Columns.durationSeconds
     ]
-    
-    // MARK: - Incoming Changes
-    
-    static func handleContactsUpdate(
+}
+
+// MARK: - Incoming Changes
+
+internal extension LibSessionCacheType {
+    func handleContactsUpdate(
         _ db: Database,
-        in config: Config?,
+        in config: LibSession.Config?,
         serverTimestampMs: Int64,
         using dependencies: Dependencies
     ) throws {
@@ -43,7 +45,7 @@ internal extension LibSession {
         // The current users contact data is handled separately so exclude it if it's present (as that's
         // actually a bug)
         let userSessionId: SessionId = dependencies[cache: .general].sessionId
-        let targetContactData: [String: ContactData] = try extractContacts(
+        let targetContactData: [String: ContactData] = try LibSession.extractContacts(
             from: conf,
             serverTimestampMs: serverTimestampMs,
             using: dependencies
@@ -138,10 +140,10 @@ internal extension LibSession {
                 
                 /// If the contact's `hidden` flag doesn't match the visibility of their conversation then create/delete the
                 /// associated contact conversation accordingly
-                let threadInfo: PriorityVisibilityInfo? = try? SessionThread
+                let threadInfo: LibSession.PriorityVisibilityInfo? = try? SessionThread
                     .filter(id: sessionId)
                     .select(.id, .variant, .pinnedPriority, .shouldBeVisible)
-                    .asRequest(of: PriorityVisibilityInfo.self)
+                    .asRequest(of: LibSession.PriorityVisibilityInfo.self)
                     .fetchOne(db)
                 let threadExists: Bool = (threadInfo != nil)
                 let updatedShouldBeVisible: Bool = LibSession.shouldBeVisible(priority: data.priority)
@@ -267,15 +269,18 @@ internal extension LibSession {
                     threadVariant: .contact,
                     groupLeaveType: .forced,
                     calledFromConfig: .contacts,
+                    cacheToRemoveStateFrom: self,
                     using: dependencies
                 )
             
             try LibSession.remove(db, volatileContactIds: combinedIds, using: dependencies)
         }
     }
-    
-    // MARK: - Outgoing Changes
-    
+}
+
+// MARK: - Outgoing Changes
+
+internal extension LibSession {
     static func upsert(
         contactData: [SyncedContactInfo],
         in config: Config?,

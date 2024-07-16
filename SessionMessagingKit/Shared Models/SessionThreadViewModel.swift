@@ -115,14 +115,27 @@ public struct SessionThreadViewModel: FetchableRecordWithRowId, Decodable, Equat
     public let threadUnreadMentionCount: UInt?
     public let threadHasUnreadMessagesOfAnyKind: Bool?
     
-    public var canWrite: Bool {
+    public func canWrite(using dependencies: Dependencies) -> Bool {
         switch threadVariant {
             case .contact:
                 guard threadIsMessageRequest == true else { return true }
                 
                 return (profile?.blocksCommunityMessageRequests != true)
                 
-            case .legacyGroup, .group:
+            case .legacyGroup:
+                guard threadIsMessageRequest == false else { return true }
+                
+                return (
+                    currentUserIsClosedGroupMember == true &&
+                    interactionVariant?.isGroupLeavingStatus != true
+                )
+                
+            case .group:
+                let groupSessionId: SessionId = SessionId(.group, hex: threadId)
+                
+                guard !LibSession.wasKickedFromGroup(groupSessionId: groupSessionId, using: dependencies) else {
+                    return false
+                }
                 guard threadIsMessageRequest == false else { return true }
                 
                 return (
@@ -183,7 +196,7 @@ public struct SessionThreadViewModel: FetchableRecordWithRowId, Decodable, Equat
     public func emptyStateText(using dependencies: Dependencies) -> String {
         return String(
             format: {
-                switch (threadVariant, threadIsNoteToSelf, canWrite, profile?.blocksCommunityMessageRequests) {
+                switch (threadVariant, threadIsNoteToSelf, canWrite(using: dependencies), profile?.blocksCommunityMessageRequests) {
                     case (_, true, _, _): return "CONVERSATION_EMPTY_STATE_NOTE_TO_SELF".localized()
                     case (.contact, _, false, true):
                         return "COMMUNITY_MESSAGE_REQUEST_DISABLED_EMPTY_STATE".localized()

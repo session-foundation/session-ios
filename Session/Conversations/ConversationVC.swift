@@ -74,7 +74,7 @@ final class ConversationVC: BaseVC, LibSessionRespondingViewController, Conversa
     }
     
     override var inputAccessoryView: UIView? {
-        guard viewModel.threadData.canWrite else { return nil }
+        guard viewModel.threadData.canWrite(using: viewModel.dependencies) else { return nil }
         
         return (isShowingSearchUI ? searchController.resultsBar : snInputView)
     }
@@ -146,7 +146,7 @@ final class ConversationVC: BaseVC, LibSessionRespondingViewController, Conversa
         result.contentInset = UIEdgeInsets(
             top: 0,
             leading: 0,
-            bottom: (viewModel.threadData.canWrite ?
+            bottom: (viewModel.threadData.canWrite(using: viewModel.dependencies) ?
                 Values.mediumSpacing :
                 (Values.mediumSpacing + (UIApplication.shared.keyWindow?.safeAreaInsets.bottom ?? 0))
             ),
@@ -347,7 +347,7 @@ final class ConversationVC: BaseVC, LibSessionRespondingViewController, Conversa
     
     lazy var messageRequestFooterView: MessageRequestFooterView = MessageRequestFooterView(
         threadVariant: self.viewModel.threadData.threadVariant,
-        canWrite: self.viewModel.threadData.canWrite,
+        canWrite: self.viewModel.threadData.canWrite(using: self.viewModel.dependencies),
         threadIsMessageRequest: (self.viewModel.threadData.threadIsMessageRequest == true),
         threadRequiresApproval: (self.viewModel.threadData.threadRequiresApproval == true),
         onBlock: { [weak self] in self?.blockMessageRequest() },
@@ -761,17 +761,17 @@ final class ConversationVC: BaseVC, LibSessionRespondingViewController, Conversa
         
         if
             initialLoad ||
-            viewModel.threadData.canWrite != updatedThreadData.canWrite ||
+            viewModel.threadData.canWrite(using: viewModel.dependencies) != updatedThreadData.canWrite(using: viewModel.dependencies) ||
             viewModel.threadData.threadVariant != updatedThreadData.threadVariant ||
             viewModel.threadData.threadIsMessageRequest != updatedThreadData.threadIsMessageRequest ||
             viewModel.threadData.threadRequiresApproval != updatedThreadData.threadRequiresApproval
         {
             let messageRequestsViewWasVisible: Bool = (self.messageRequestFooterView.isHidden == false)
             
-            UIView.animate(withDuration: 0.3) { [weak self] in
+            UIView.animate(withDuration: 0.3) { [weak self, dependencies = viewModel.dependencies] in
                 self?.messageRequestFooterView.update(
                     threadVariant: updatedThreadData.threadVariant,
-                    canWrite: updatedThreadData.canWrite,
+                    canWrite: updatedThreadData.canWrite(using: dependencies),
                     threadIsMessageRequest: (updatedThreadData.threadIsMessageRequest == true),
                     threadRequiresApproval: (updatedThreadData.threadRequiresApproval == true)
                 )
@@ -829,12 +829,12 @@ final class ConversationVC: BaseVC, LibSessionRespondingViewController, Conversa
         }
         
         // Now we have done all the needed diffs update the viewModel with the latest data
-        let oldCanWrite: Bool = viewModel.threadData.canWrite
+        let oldCanWrite: Bool = viewModel.threadData.canWrite(using: viewModel.dependencies)
         self.viewModel.updateThreadData(updatedThreadData)
         
         /// **Note:** This needs to happen **after** we have update the viewModel's thread data (otherwise the `inputAccessoryView`
         /// won't be generated correctly)
-        if initialLoad || oldCanWrite != updatedThreadData.canWrite {
+        if initialLoad || oldCanWrite != updatedThreadData.canWrite(using: viewModel.dependencies) {
             if !self.isFirstResponder {
                 self.becomeFirstResponder()
             }

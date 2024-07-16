@@ -29,12 +29,14 @@ internal extension LibSession {
     static let syncedSettings: [String] = [
         Setting.BoolKey.checkForCommunityMessageRequests.rawValue
     ]
-    
-    // MARK: - Incoming Changes
-    
-    static func handleUserProfileUpdate(
+}
+
+// MARK: - Incoming Changes
+
+internal extension LibSessionCacheType {
+    func handleUserProfileUpdate(
         _ db: Database,
-        in config: Config?,
+        in config: LibSession.Config?,
         serverTimestampMs: Int64,
         using dependencies: Dependencies
     ) throws {
@@ -74,15 +76,15 @@ internal extension LibSession {
         )
         
         // Update the 'Note to Self' visibility and priority
-        let threadInfo: PriorityVisibilityInfo? = try? SessionThread
+        let threadInfo: LibSession.PriorityVisibilityInfo? = try? SessionThread
             .filter(id: userSessionId.hexString)
             .select(.id, .variant, .pinnedPriority, .shouldBeVisible)
-            .asRequest(of: PriorityVisibilityInfo.self)
+            .asRequest(of: LibSession.PriorityVisibilityInfo.self)
             .fetchOne(db)
         let targetPriority: Int32 = user_profile_get_nts_priority(conf)
         
         // Create the 'Note to Self' thread if it doesn't exist
-        if let threadInfo: PriorityVisibilityInfo = threadInfo {
+        if let threadInfo: LibSession.PriorityVisibilityInfo = threadInfo {
             let threadChanges: [ConfigColumnAssignment] = [
                 ((threadInfo.shouldBeVisible == LibSession.shouldBeVisible(priority: targetPriority)) ? nil :
                     SessionThread.Columns.shouldBeVisible.set(to: LibSession.shouldBeVisible(priority: targetPriority))
@@ -134,6 +136,7 @@ internal extension LibSession {
                         threadVariant: .contact,
                         groupLeaveType: .silent,
                         calledFromConfig: .userProfile,
+                        cacheToRemoveStateFrom: self,
                         using: dependencies
                     )
             }
@@ -191,9 +194,11 @@ internal extension LibSession {
                 )
         }
     }
-    
-    // MARK: - Outgoing Changes
-    
+}
+
+// MARK: - Outgoing Changes
+
+internal extension LibSession {
     static func update(
         profile: Profile,
         in config: Config?

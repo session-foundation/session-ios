@@ -127,13 +127,12 @@ extension MessageReceiver {
                 using: dependencies
             ),
             timestampMs: timestampMs,
-            wasRead: LibSession.timestampAlreadyRead(
+            wasRead: dependencies[cache: .libSession].timestampAlreadyRead(
                 threadId: threadId,
                 threadVariant: threadVariant,
                 timestampMs: (timestampMs * 1000),
                 userSessionId: userSessionId,
-                openGroup: nil,
-                using: dependencies
+                openGroup: nil
             ),
             using: dependencies
         ).inserted(db)

@@ -33,6 +33,7 @@ internal extension LibSession {
         guard case .object(let conf) = config else { throw LibSessionError.invalidConfigObject }
         
         // Get the two member sets
+        let userSessionId: SessionId = dependencies[cache: .general].sessionId
         let updatedMembers: Set<GroupMember> = try extractMembers(from: conf, groupSessionId: groupSessionId)
         let existingMembers: Set<GroupMember> = (try? GroupMember
             .filter(GroupMember.Columns.groupId == groupSessionId.hexString)
@@ -77,6 +78,30 @@ internal extension LibSession {
                     )
                 ),
                 canStartJob: true
+            )
+        }
+        
+        // If the current user is an admin but doesn't have the 'accepted' status then update it now
+        let currentMemberIsNewAdmin: Bool = updatedMembers.contains { member in
+            member.profileId == userSessionId.hexString &&
+            member.role == .admin &&
+            member.roleStatus != .accepted
+        }
+        if currentMemberIsNewAdmin {
+            try GroupMember
+                .filter(GroupMember.Columns.profileId == userSessionId.hexString)
+                .filter(GroupMember.Columns.groupId == groupSessionId.hexString)
+                .updateAllAndConfig(
+                    db,
+                    GroupMember.Columns.roleStatus.set(to: GroupMember.RoleStatus.accepted),
+                    calledFromConfig: .groupMembers,
+                    using: dependencies
+                )
+            try updateMemberStatus(
+                memberId: userSessionId.hexString,
+                role: .admin,
+                status: .accepted,
+                in: config
             )
         }
         
@@ -196,7 +221,6 @@ internal extension LibSession {
                     member.name = memberName.toLibSession()
                 }
                 member.profile_pic = profilePic
-                member.invited = 1
                 member.supplement = allowAccessToHistoricMessages
                 groups_members_set(conf, &member)
                 try LibSessionError.throwIfNeeded(conf)
@@ -218,35 +242,36 @@ internal extension LibSession {
             sessionId: groupSessionId,
             using: dependencies
         ) { config in
-            guard case .object(let conf) = config else { throw LibSessionError.invalidConfigObject }
-            
-            // Only update members if they already exist in the group
-            var cMemberId: [CChar] = try memberId.cString(using: .utf8) ?? { throw LibSessionError.invalidCConversion }()
-            var groupMember: config_group_member = config_group_member()
-            
-            // If the member doesn't exist or the role status is already "accepted" then do nothing
-            guard
-                groups_members_get(conf, &groupMember, &cMemberId) && (
-                    (role == .standard && groupMember.invited != Int32(GroupMember.RoleStatus.accepted.rawValue)) ||
-                    (role == .admin && (
-                        !groupMember.admin ||
-                        groupMember.promoted != Int32(GroupMember.RoleStatus.accepted.rawValue)
-                    ))
-                )
-            else { return }
-            
-            switch role {
-                case .standard: groupMember.invited = Int32(status.rawValue)
-                case .admin:
-                    groupMember.admin = (status == .accepted)
-                    groupMember.promoted = Int32(status.rawValue)
-                    
-                default: break
-            }
-            
-            groups_members_set(conf, &groupMember)
-            try LibSessionError.throwIfNeeded(conf)
+            try LibSession.updateMemberStatus(memberId: memberId, role: role, status: status, in: config)
         }
+    }
+    
+    static func updateMemberStatus(
+        memberId: String,
+        role: GroupMember.Role,
+        status: GroupMember.RoleStatus,
+        in config: Config?
+    ) throws {
+        guard case .object(let conf) = config else { throw LibSessionError.invalidConfigObject }
+        
+        // Only update members if they already exist in the group
+        var cMemberId: [CChar] = try memberId.cString(using: .utf8) ?? { throw LibSessionError.invalidCConversion }()
+        var groupMember: config_group_member = config_group_member()
+        
+        // If the member doesn't exist then do nothing
+        guard groups_members_get(conf, &groupMember, &cMemberId) else { return }
+        
+        switch role {
+            case .standard: groupMember.invited = status.libSessionValue
+            case .admin:
+                groupMember.admin = (groupMember.admin || status == .accepted)
+                groupMember.promoted = status.libSessionValue
+                
+            default: break
+        }
+        
+        groups_members_set(conf, &groupMember)
+        try LibSessionError.throwIfNeeded(conf)
     }
     
     static func flagMembersForRemoval(
@@ -400,8 +425,8 @@ internal extension LibSession {
                     role: (member.admin || (member.promoted > 0) ? .admin : .standard),
                     roleStatus: {
                         switch (member.invited, member.promoted, member.admin) {
-                            case (2, _, _), (_, 2, false): return .failed           // Explicitly failed
-                            case (1..., _, _), (_, 1..., false): return .pending    // Pending if not accepted
+                            case (2, _, _), (_, 2, _): return .failed               // Explicitly failed
+                            case (1..., _, _), (_, 1..., _): return .pending        // Pending if not accepted
                             default: return .accepted                               // Otherwise it's accepted
                         }
                     }(),
@@ -491,5 +516,16 @@ internal extension LibSession {
         groups_members_iterator_free(membersIterator) // Need to free the iterator
         
         return result.asSet()
+    }
+}
+
+fileprivate extension GroupMember.RoleStatus {
+    var libSessionValue: Int32 {
+        switch self {
+            case .accepted: return 0
+            case .pending: return Int32(INVITE_SENT.rawValue)
+            case .failed: return Int32(INVITE_FAILED.rawValue)
+            case .notSentYet: return Int32(INVITE_NOT_SENT.rawValue)
+        }
     }
 }

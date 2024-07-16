@@ -39,7 +39,9 @@ public class ThreadPickerViewModel {
                 .shareQuery(userSessionId: userSessionId)
                 .fetchAll(db)
         }
-        .map { threads -> [SessionThreadViewModel] in threads.filter { $0.canWrite } }   // Exclude unwritable threads
+        .map { [dependencies] threads -> [SessionThreadViewModel] in
+            threads.filter { $0.canWrite(using: dependencies) }   // Exclude unwritable threads
+        }
         .removeDuplicates()
         .handleEvents(didFail: { SNLog("[ThreadPickerViewModel] Observation failed with error: \($0)") })
     

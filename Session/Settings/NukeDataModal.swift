@@ -303,10 +303,15 @@ final class NukeDataModal: Modal {
         // Call through to the SessionApp's "resetAppData" which will wipe out logs, database and
         // profile storage
         let wasUnlinked: Bool = dependencies[defaults: .standard, key: .wasUnlinked]
+        let serviceNetwork: ServiceNetwork = dependencies[feature: .serviceNetwork]
         
         dependencies[singleton: .app].resetData { [dependencies] in
             // Resetting the data clears the old user defaults. We need to restore the unlink default.
             dependencies[defaults: .standard, key: .wasUnlinked] = wasUnlinked
+            
+            // We also want to keep the `ServiceNetwork` setting (so someone testing can delete and restore
+            // accounts on Testnet without issue
+            dependencies.set(feature: .serviceNetwork, to: serviceNetwork)
         }
     }
 }

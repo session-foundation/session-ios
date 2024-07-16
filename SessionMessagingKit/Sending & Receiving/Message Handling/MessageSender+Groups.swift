@@ -485,7 +485,7 @@ extension MessageSender {
                         groupId: sessionId.hexString,
                         profileId: id,
                         role: .standard,
-                        roleStatus: .sending,
+                        roleStatus: .notSentYet,
                         isHidden: false
                     ).upsert(db)
                     
@@ -599,7 +599,7 @@ extension MessageSender {
                 groupSessionId: SessionId(.group, hex: groupSessionId),
                 memberId: memberId,
                 role: .standard,
-                status: .sending,
+                status: .notSentYet,
                 using: dependencies
             )
             
@@ -616,7 +616,7 @@ extension MessageSender {
                         .filter(GroupMember.Columns.profileId == memberId)
                         .updateAllAndConfig(
                             db,
-                            GroupMember.Columns.roleStatus.set(to: GroupMember.RoleStatus.sending),
+                            GroupMember.Columns.roleStatus.set(to: GroupMember.RoleStatus.notSentYet),
                             calledFromConfig: nil,
                             using: dependencies
                         )
@@ -762,7 +762,7 @@ extension MessageSender {
                     groupSessionId: groupSessionId,
                     memberId: memberId,
                     role: .admin,
-                    status: .sending,
+                    status: .notSentYet,
                     using: dependencies
                 )
                 
@@ -780,7 +780,7 @@ extension MessageSender {
                             .updateAllAndConfig(
                                 db,
                                 GroupMember.Columns.role.set(to: GroupMember.Role.admin),
-                                GroupMember.Columns.roleStatus.set(to: GroupMember.RoleStatus.sending),
+                                GroupMember.Columns.roleStatus.set(to: GroupMember.RoleStatus.notSentYet),
                                 calledFromConfig: nil,
                                 using: dependencies
                             )
@@ -791,7 +791,7 @@ extension MessageSender {
                             .filter(GroupMember.Columns.profileId == memberId)
                             .updateAllAndConfig(
                                 db,
-                                GroupMember.Columns.roleStatus.set(to: GroupMember.RoleStatus.sending),
+                                GroupMember.Columns.roleStatus.set(to: GroupMember.RoleStatus.notSentYet),
                                 calledFromConfig: nil,
                                 using: dependencies
                             )

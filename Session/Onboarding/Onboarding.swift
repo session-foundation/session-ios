@@ -206,7 +206,7 @@ extension Onboarding {
                     calledFromBackgroundPoller: true,
                     isBackgroundPollValid: { true }
                 )
-                .tryMap { [userSessionId, dependencies] messages, _, _, _ -> PollResult? in
+                .tryMap { [userSessionId, dependencies] messages, _, _, _, _ -> PollResult? in
                     guard
                         let targetMessage: ProcessedMessage = messages.last, /// Just in case there are multiple
                         case let .config(_, _, serverHash, serverTimestampMs, data) = targetMessage

@@ -291,6 +291,7 @@ public extension SessionThread {
         threadVariant: Variant,
         groupLeaveType: ClosedGroup.LeaveType,
         calledFromConfig configTriggeringChange: ConfigDump.Variant?,
+        cacheToRemoveStateFrom: LibSessionCacheType?,
         using dependencies: Dependencies
     ) throws {
         try deleteOrLeave(
@@ -299,6 +300,7 @@ public extension SessionThread {
             threadVariant: threadVariant,
             groupLeaveType: groupLeaveType,
             calledFromConfig: configTriggeringChange,
+            cacheToRemoveStateFrom: cacheToRemoveStateFrom,
             using: dependencies
         )
     }
@@ -309,6 +311,7 @@ public extension SessionThread {
         threadVariant: Variant,
         groupLeaveType: ClosedGroup.LeaveType,
         calledFromConfig configTriggeringChange: ConfigDump.Variant?,
+        cacheToRemoveStateFrom: LibSessionCacheType?,
         using dependencies: Dependencies
     ) throws {
         let userSessionId: SessionId = dependencies[cache: .general].sessionId
@@ -369,6 +372,7 @@ public extension SessionThread {
                     threadIds: threadIds,
                     dataToRemove: .allData,
                     calledFromConfig: configTriggeringChange,
+                    cacheToRemoveStateFrom: cacheToRemoveStateFrom,
                     using: dependencies
                 )
                 

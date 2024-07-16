@@ -51,6 +51,7 @@ internal extension LibSession {
             userED25519KeyPair: userED25519KeyPair,
             groupIdentityPrivateKey: Data(groupIdentityKeyPair.secretKey),
             shouldLoadState: false, // We manually load the state after populating the configs
+            cacheToLoadStateInto: nil,
             using: dependencies
         )
         
@@ -227,6 +228,7 @@ internal extension LibSession {
         userED25519KeyPair: KeyPair,
         groupIdentityPrivateKey: Data?,
         shouldLoadState: Bool,
+        cacheToLoadStateInto: LibSessionCacheType?,
         using dependencies: Dependencies
     ) throws -> [ConfigDump.Variant: Config] {
         var secretKey: [UInt8] = userED25519KeyPair.secretKey
@@ -324,10 +326,21 @@ internal extension LibSession {
         // load the state after populating the different configs incase invalid data
         // was provided)
         if shouldLoadState {
-            dependencies.mutate(cache: .libSession) { cache in
-                groupState.forEach { variant, config in
-                    cache.setConfig(for: variant, sessionId: groupSessionId, to: config)
-                }
+            // We can't mutate a cache if it's already being mutated (which would be happening
+            // when merging a config) so in that case we need to pass the mutable cache along
+            // and modify it directly
+            switch cacheToLoadStateInto {
+                case .some(let cache):
+                    groupState.forEach { variant, config in
+                        cache.setConfig(for: variant, sessionId: groupSessionId, to: config)
+                    }
+                
+                case .none:
+                    dependencies.mutate(cache: .libSession) { cache in
+                        groupState.forEach { variant, config in
+                            cache.setConfig(for: variant, sessionId: groupSessionId, to: config)
+                        }
+                    }
             }
         }
         
@@ -347,6 +360,21 @@ internal extension LibSession {
                 return groups_keys_is_admin(conf)
             })
             .defaulting(to: false)
+    }
+}
+
+internal extension LibSessionCacheType {
+    func removeGroupStateIfNeeded(
+        _ db: Database,
+        groupSessionId: SessionId
+    ) {
+        setConfig(for: .groupKeys, sessionId: groupSessionId, to: nil)
+        setConfig(for: .groupInfo, sessionId: groupSessionId, to: nil)
+        setConfig(for: .groupMembers, sessionId: groupSessionId, to: nil)
+        
+        _ = try? ConfigDump
+            .filter(ConfigDump.Columns.sessionId == groupSessionId.hexString)
+            .deleteAll(db)
     }
 }
 

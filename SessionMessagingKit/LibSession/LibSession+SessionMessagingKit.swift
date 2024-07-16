@@ -408,6 +408,7 @@ public extension LibSession {
                         userED25519KeyPair: userEd25519KeyPair,
                         groupIdentityPrivateKey: group.groupIdentityPrivateKey,
                         shouldLoadState: true,
+                        cacheToLoadStateInto: nil,
                         using: dependencies
                     )
                 }
@@ -595,7 +596,7 @@ public extension LibSession {
                             // Apply the updated states to the database
                             switch variant {
                                 case .userProfile:
-                                    try LibSession.handleUserProfileUpdate(
+                                    try handleUserProfileUpdate(
                                         db,
                                         in: config,
                                         serverTimestampMs: latestServerTimestampMs,
@@ -603,7 +604,7 @@ public extension LibSession {
                                     )
                                     
                                 case .contacts:
-                                    try LibSession.handleContactsUpdate(
+                                    try handleContactsUpdate(
                                         db,
                                         in: config,
                                         serverTimestampMs: latestServerTimestampMs,
@@ -618,7 +619,7 @@ public extension LibSession {
                                     )
                                     
                                 case .userGroups:
-                                    try LibSession.handleUserGroupsUpdate(
+                                    try handleUserGroupsUpdate(
                                         db,
                                         in: config,
                                         serverTimestampMs: latestServerTimestampMs,
@@ -626,7 +627,7 @@ public extension LibSession {
                                     )
                                     
                                 case .groupInfo:
-                                    try LibSession.handleGroupInfoUpdate(
+                                    try handleGroupInfoUpdate(
                                         db,
                                         in: config,
                                         groupSessionId: sessionId,

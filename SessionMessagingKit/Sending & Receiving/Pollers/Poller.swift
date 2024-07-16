@@ -12,7 +12,7 @@ import SessionUtilitiesKit
 
 public protocol PollerType {
     var swarmPublicKey: String { get }
-    var receivedPollResult: AnyPublisher<[ProcessedMessage], Never> { get }
+    var receivedPollResult: AnyPublisher<Poller.PollResult, Never> { get }
     
     init(
         swarmPublicKey: String,
@@ -48,9 +48,14 @@ public extension PollerType {
 public class Poller: PollerType {
     public typealias PollResponse = (
         messages: [ProcessedMessage],
+        processingJobs: [Job],
         rawMessageCount: Int,
         validMessageCount: Int,
         hadValidHashUpdate: Bool
+    )
+    public typealias PollResult = (
+        messages: [ProcessedMessage],
+        processingJobs: [Job]
     )
     
     internal enum PollerErrorResponse {
@@ -63,14 +68,14 @@ public class Poller: PollerType {
     private let customAuthMethod: AuthenticationMethod?
     private let shouldStoreMessages: Bool
     private let logStartAndStopCalls: Bool
-    private let receivedPollResultSubject: PassthroughSubject<[ProcessedMessage], Never> = PassthroughSubject()
+    private let receivedPollResultSubject: PassthroughSubject<PollResult, Never> = PassthroughSubject()
     internal var drainBehaviour: Atomic<SwarmDrainBehaviour>
     internal var cancellable: AnyCancellable?
     internal var pollCount: Int = 0
     internal var failureCount: Int = 0
     public var swarmPublicKey: String
     public var isPolling: Bool = false
-    public var receivedPollResult: AnyPublisher<[ProcessedMessage], Never> {
+    public var receivedPollResult: AnyPublisher<PollResult, Never> {
         receivedPollResultSubject.eraseToAnyPublisher()
     }
 
@@ -235,7 +240,7 @@ public class Poller: PollerType {
             (calledFromBackgroundPoller && isBackgroundPollValid()) ||
             isPolling
         else {
-            return Just(([], 0, 0, false))
+            return Just(([], [], 0, 0, false))
                 .setFailureType(to: Error.self)
                 .eraseToAnyPublisher()
         }
@@ -273,7 +278,7 @@ public class Poller: PollerType {
                     (calledFromBackgroundPoller && isBackgroundPollValid()) ||
                     self?.isPolling == true
                 else {
-                    return Just(([], 0, 0, false))
+                    return Just(([], [], 0, 0, false))
                         .setFailureType(to: Error.self)
                         .eraseToAnyPublisher()
                 }
@@ -286,7 +291,7 @@ public class Poller: PollerType {
                 
                 // No need to do anything if there are no messages
                 guard rawMessageCount > 0 else {
-                    return Just(([], 0, 0, false))
+                    return Just(([], [], 0, 0, false))
                         .setFailureType(to: Error.self)
                         .eraseToAnyPublisher()
                 }
@@ -423,7 +428,6 @@ public class Poller: PollerType {
                                     calledFromBackgroundPoller: calledFromBackgroundPoller
                                 )
                             )
-                            configMessageJobsToRun = configMessageJobsToRun.appending(jobToRun)
                             
                             // If we are force-polling then add to the JobRunner so they are
                             // persistent and will retry on the next app run if they fail but
@@ -434,6 +438,9 @@ public class Poller: PollerType {
                                 canStartJob: !calledFromBackgroundPoller
                             )
                             
+                            // Add to the array after it's been added to the JobRunner (as that's
+                            // where the id gets set)
+                            configMessageJobsToRun = configMessageJobsToRun.appending(updatedJob)
                             return updatedJob?.id
                         }
                     
@@ -455,7 +462,6 @@ public class Poller: PollerType {
                                     calledFromBackgroundPoller: calledFromBackgroundPoller
                                 )
                             )
-                            standardMessageJobsToRun = standardMessageJobsToRun.appending(jobToRun)
                             
                             // If we are force-polling then add to the JobRunner so they are
                             // persistent and will retry on the next app run if they fail but
@@ -466,7 +472,12 @@ public class Poller: PollerType {
                                 canStartJob: !calledFromBackgroundPoller
                             )
                             
-                            // Create the dependency between the jobs
+                            // Add to the array after it's been added to the JobRunner (as that's
+                            // where the id gets set)
+                            standardMessageJobsToRun = standardMessageJobsToRun.appending(jobToRun)
+                            
+                            // Create the dependency between the jobs (config processing should happen before
+                            // standard message processing)
                             if let updatedJobId: Int64 = updatedJob?.id {
                                 do {
                                     try configJobIds.forEach { configJobId in
@@ -496,7 +507,7 @@ public class Poller: PollerType {
                 
                 // If we aren't runing in a background poller then just finish immediately
                 guard calledFromBackgroundPoller else {
-                    return Just((processedMessages, rawMessageCount, messageCount, hadValidHashUpdate))
+                    return Just((processedMessages, (configMessageJobsToRun + standardMessageJobsToRun), rawMessageCount, messageCount, hadValidHashUpdate))
                         .setFailureType(to: Error.self)
                         .eraseToAnyPublisher()
                 }
@@ -544,13 +555,13 @@ public class Poller: PollerType {
                             )
                             .collect()
                     }
-                    .map { _ in (processedMessages, rawMessageCount, messageCount, hadValidHashUpdate) }
+                    .map { _ in (processedMessages, [], rawMessageCount, messageCount, hadValidHashUpdate) }
                     .eraseToAnyPublisher()
             }
             .handleEvents(
                 receiveOutput: { [weak self] (pollResponse: Poller.PollResponse) in
                     /// Notify any observers that we got a result
-                    self?.receivedPollResultSubject.send(pollResponse.messages)
+                    self?.receivedPollResultSubject.send((pollResponse.messages, pollResponse.processingJobs))
                 }
             )
             .eraseToAnyPublisher()

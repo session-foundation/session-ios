@@ -310,13 +310,12 @@ public extension DisappearingMessagesConfiguration {
         let userSessionId: SessionId = dependencies[cache: .general].sessionId
         let wasRead: Bool = (
             authorId == userSessionId.hexString ||
-            LibSession.timestampAlreadyRead(
+            dependencies[cache: .libSession].timestampAlreadyRead(
                 threadId: threadId,
                 threadVariant: threadVariant,
                 timestampMs: timestampMs,
                 userSessionId: userSessionId,
-                openGroup: nil,
-                using: dependencies
+                openGroup: nil
             )
         )
         let messageExpirationInfo: Message.MessageExpirationInfo = Message.getMessageExpirationInfo(

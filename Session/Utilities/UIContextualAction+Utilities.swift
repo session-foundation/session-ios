@@ -173,6 +173,7 @@ public extension UIContextualAction {
                                                         threadVariant: threadViewModel.threadVariant,
                                                         groupLeaveType: .silent,
                                                         calledFromConfig: nil,
+                                                        cacheToRemoveStateFrom: nil,
                                                         using: dependencies
                                                     )
                                                 }
@@ -391,6 +392,7 @@ public extension UIContextualAction {
                                                     threadVariant: threadViewModel.threadVariant,
                                                     groupLeaveType: .silent,
                                                     calledFromConfig: nil,
+                                                    cacheToRemoveStateFrom: nil,
                                                     using: dependencies
                                                 )
                                             }
@@ -504,6 +506,7 @@ public extension UIContextualAction {
                                                 threadVariant: threadViewModel.threadVariant,
                                                 groupLeaveType: .standard,
                                                 calledFromConfig: nil,
+                                                cacheToRemoveStateFrom: nil,
                                                 using: dependencies
                                             )
                                         }
@@ -612,6 +615,7 @@ public extension UIContextualAction {
                                                 threadVariant: threadViewModel.threadVariant,
                                                 groupLeaveType: (isMessageRequest ? .silent : .forced),
                                                 calledFromConfig: nil,
+                                                cacheToRemoveStateFrom: nil,
                                                 using: dependencies
                                             )
                                         }

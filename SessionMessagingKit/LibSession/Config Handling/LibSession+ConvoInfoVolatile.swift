@@ -421,17 +421,17 @@ public extension LibSession {
             )
         }
     }
-    
-    static func timestampAlreadyRead(
+}
+
+public extension LibSessionImmutableCacheType {
+    func timestampAlreadyRead(
         threadId: String,
         threadVariant: SessionThread.Variant,
         timestampMs: Int64,
         userSessionId: SessionId,
-        openGroup: OpenGroup?,
-        using dependencies: Dependencies
+        openGroup: OpenGroup?
     ) -> Bool {
-        return dependencies[cache: .libSession]
-            .config(for: .convoInfoVolatile, sessionId: userSessionId)
+        return config(for: .convoInfoVolatile, sessionId: userSessionId)
             .wrappedValue
             .map { config in
                 guard case .object(let conf) = config else { return false }

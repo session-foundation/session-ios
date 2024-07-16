@@ -142,13 +142,12 @@ extension MessageReceiver {
         // Auto-mark sent messages or messages older than the 'lastReadTimestampMs' as read
         let wasRead: Bool = (
             variant == .standardOutgoing ||
-            LibSession.timestampAlreadyRead(
+            dependencies[cache: .libSession].timestampAlreadyRead(
                 threadId: thread.id,
                 threadVariant: thread.variant,
                 timestampMs: Int64(messageSentTimestamp * 1000),
                 userSessionId: userSessionId,
-                openGroup: maybeOpenGroup,
-                using: dependencies
+                openGroup: maybeOpenGroup
             )
         )
         let messageExpirationInfo: Message.MessageExpirationInfo = Message.getMessageExpirationInfo(
@@ -446,13 +445,12 @@ extension MessageReceiver {
                     count: 1,
                     sortId: sortId
                 ).inserted(db)
-                let timestampAlreadyRead: Bool = LibSession.timestampAlreadyRead(
+                let timestampAlreadyRead: Bool = dependencies[cache: .libSession].timestampAlreadyRead(
                     threadId: thread.id,
                     threadVariant: thread.variant,
                     timestampMs: timestampMs,
                     userSessionId: userSessionId,
-                    openGroup: openGroup,
-                    using: dependencies
+                    openGroup: openGroup
                 )
                 
                 // Don't notify if the reaction was added before the lastest read timestamp for

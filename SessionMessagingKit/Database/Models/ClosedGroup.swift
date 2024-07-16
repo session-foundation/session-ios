@@ -182,12 +182,14 @@ public extension ClosedGroup {
         case userGroup
     }
     
+    /// Approves the group and returns the `Poller.receivedPollResult` publisher for the group
     @discardableResult static func approveGroup(
         _ db: Database,
         group: ClosedGroup,
         calledFromConfig configTriggeringChange: ConfigDump.Variant?,
+        cacheToLoadStateInto: LibSessionCacheType?,
         using dependencies: Dependencies
-    ) throws -> AnyPublisher<Void, Never> {
+    ) throws -> AnyPublisher<Poller.PollResult, Never> {
         guard let userED25519KeyPair: KeyPair = Identity.fetchUserEd25519KeyPair(db) else {
             throw MessageReceiverError.noUserED25519KeyPair
         }
@@ -211,6 +213,7 @@ public extension ClosedGroup {
             userED25519KeyPair: userED25519KeyPair,
             groupIdentityPrivateKey: group.groupIdentityPrivateKey,
             shouldLoadState: true,
+            cacheToLoadStateInto: cacheToLoadStateInto,
             using: dependencies
         )
         
@@ -244,8 +247,6 @@ public extension ClosedGroup {
         
         /// Return a publisher for the pollers poll results
         return poller.receivedPollResult
-            .map { _ in () }
-            .eraseToAnyPublisher()
     }
     
     static func removeData(
@@ -253,6 +254,7 @@ public extension ClosedGroup {
         threadIds: [String],
         dataToRemove: [RemovableGroupData],
         calledFromConfig configTriggeringChange: ConfigDump.Variant?,
+        cacheToRemoveStateFrom: LibSessionCacheType?,
         using dependencies: Dependencies
     ) throws {
         guard !threadIds.isEmpty && !dataToRemove.isEmpty else { return }
@@ -323,11 +325,20 @@ public extension ClosedGroup {
                     threadVariants
                         .filter { $0.variant == .group }
                         .forEach { threadIdVariant in
-                            LibSession.removeGroupStateIfNeeded(
-                                db,
-                                groupSessionId: SessionId(.group, hex: threadIdVariant.id),
-                                using: dependencies
-                            )
+                            let groupSessionId: SessionId = SessionId(.group, hex: threadIdVariant.id)
+                            
+                            // We can't mutate a cache if it's already being mutated (which would be happening
+                            // when merging a config) so in that case we need to pass the mutable cache along
+                            // and modify it directly
+                            switch cacheToRemoveStateFrom {
+                                case .some(let cache): cache.removeGroupStateIfNeeded(db, groupSessionId: groupSessionId)
+                                case .none:
+                                    LibSession.removeGroupStateIfNeeded(
+                                        db,
+                                        groupSessionId: groupSessionId,
+                                        using: dependencies
+                                    )
+                            }
                         }
                 }
             }

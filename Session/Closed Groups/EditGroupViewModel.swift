@@ -365,7 +365,7 @@ class EditGroupViewModel: SessionTableViewModel, NavigatableStateHolder, Editabl
                             trailingAccessory: {
                                 switch (memberInfo.value.role, memberInfo.value.roleStatus) {
                                     case (.admin, _), (.moderator, _): return nil
-                                    case (.standard, .failed), (.standard, .sending), (.standard, .pending):
+                                    case (.standard, .failed), (.standard, .notSentYet), (.standard, .pending):
                                         return .highlightingBackgroundLabelAndRadio(
                                             title: "context_menu_resend".localized(),
                                             isSelected: selectedIdsSubject.value.contains(memberInfo.profileId),
@@ -405,10 +405,10 @@ class EditGroupViewModel: SessionTableViewModel, NavigatableStateHolder, Editabl
                                             backgroundColor: .backgroundSecondary
                                         )
                                         
-                                    case (.standard, .failed, true), (.standard, .sending, true), (.standard, .pending, true):
+                                    case (.standard, .failed, true), (.standard, .notSentYet, true), (.standard, .pending, true):
                                         self?.resendInvitation(memberId: memberInfo.profileId)
 
-                                    case (.standard, .failed, _), (.standard, .sending, _), (.standard, .pending, _),
+                                    case (.standard, .failed, _), (.standard, .notSentYet, _), (.standard, .pending, _),
                                         (.standard, .accepted, _), (.zombie, _, _):
                                         if !selectedIdsSubject.value.contains(memberInfo.profileId) {
                                             selectedIdsSubject.send(selectedIdsSubject.value.inserting(memberInfo.profileId))

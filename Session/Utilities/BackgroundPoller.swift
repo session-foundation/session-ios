@@ -84,7 +84,7 @@ public final class BackgroundPoller {
             isBackgroundPollValid: { BackgroundPoller.isValid }
         )
         .handleEvents(
-            receiveOutput: { _, _, validMessageCount, _ in
+            receiveOutput: { _, _, _, validMessageCount, _ in
                 Log.info("[BackgroundPoller] Received \(validMessageCount) valid \("message", number: validMessageCount).")
             }
         )
@@ -107,7 +107,7 @@ public final class BackgroundPoller {
                     isBackgroundPollValid: { BackgroundPoller.isValid }
                 )
                 .handleEvents(
-                    receiveOutput: { _, _, validMessageCount, _ in
+                    receiveOutput: { _, _, _, validMessageCount, _ in
                         Log.info("[BackgroundPoller] Received \(validMessageCount) valid \("message", number: validMessageCount) for group: \(poller.swarmPublicKey).")
                     }
                 )

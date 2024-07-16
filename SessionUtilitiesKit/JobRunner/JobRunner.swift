@@ -484,12 +484,6 @@ public final class JobRunner: JobRunnerType {
     }
     
     public func appDidFinishLaunching() {
-        // Clear any 'manualResultJob' entries in the database (don't want them build up due to crashes
-        // or unhandled code paths)
-        dependencies[singleton: .storage].writeAsync { db in
-            try Job.filter(Job.Columns.variant == Job.Variant.manualResultJob).deleteAll(db)
-        }
-        
         // Flag that the JobRunner can start it's queues
         appReadyToStartQueues.mutate { $0 = true }
         

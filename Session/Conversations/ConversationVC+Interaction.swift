@@ -1301,7 +1301,7 @@ extension ConversationVC:
         openGroupServer: String?,
         openGroupPublicKey: String?
     ) {
-        guard viewModel.threadData.canWrite else { return }
+        guard viewModel.threadData.canWrite(using: viewModel.dependencies) else { return }
         // FIXME: Add in support for starting a thread with a 'blinded25' id (disabled until we support this decoding)
         guard (try? SessionId.Prefix(from: sessionId)) != .blinded25 else { return }
         guard (try? SessionId.Prefix(from: sessionId)) == .blinded15 else {
@@ -2650,12 +2650,16 @@ extension ConversationVC {
                         ).upsert(db)
                         
                         /// Actually trigger the approval
-                        return try ClosedGroup.approveGroup(
-                            db,
-                            group: group,
-                            calledFromConfig: nil,
-                            using: dependencies
-                        )
+                        return try ClosedGroup
+                            .approveGroup(
+                                db,
+                                group: group,
+                                calledFromConfig: nil,
+                                cacheToLoadStateInto: nil,
+                                using: dependencies
+                            )
+                            .map { _ in () }
+                            .eraseToAnyPublisher()
                     }
                     .handleEvents(
                         receiveOutput: { _ in
@@ -2668,35 +2672,24 @@ extension ConversationVC {
                             .first()
                             .handleEvents(
                                 receiveOutput: { _ in
-                                    /// If we aren't creating a new thread (ie. sending a message request) then send a
-                                    /// `GroupUpdateInviteResponseMessage` to the group (this allows other members
+                                    /// If we aren't creating a new thread (ie. sending a message request) and the user is not an admin
+                                    /// then send a `GroupUpdateInviteResponseMessage` to the group (this allows other members
                                     /// to know that the user has joined the group)
-                                    guard !isNewThread else { return }
+                                    guard !isNewThread && group.groupIdentityPrivateKey == nil else { return }
                                     
                                     dependencies[singleton: .storage].write { db in
-                                        switch group.groupIdentityPrivateKey {
-                                            /// The user is not an admin so send a invite response
-                                            case .none:
-                                                try MessageSender.send(
-                                                    db,
-                                                    message: GroupUpdateInviteResponseMessage(
-                                                        isApproved: true,
-                                                        sentTimestamp: UInt64(timestampMs)
-                                                    ),
-                                                    interactionId: nil,
-                                                    threadId: threadId,
-                                                    threadVariant: threadVariant,
-                                                    using: dependencies
-                                                )
-                                            
-                                            // Actually update the group state to indicate the promotion was accepted
-                                            case .some:
-                                                try MessageReceiver.processGroupPromotion(
-                                                    db,
-                                                    groupSessionId: SessionId(.group, hex: threadId),
-                                                    using: dependencies
-                                                )
-                                        }
+                                        /// The user is not an admin so send a invite response
+                                        try MessageSender.send(
+                                            db,
+                                            message: GroupUpdateInviteResponseMessage(
+                                                isApproved: true,
+                                                sentTimestamp: UInt64(timestampMs)
+                                            ),
+                                            interactionId: nil,
+                                            threadId: threadId,
+                                            threadVariant: threadVariant,
+                                            using: dependencies
+                                        )
                                     }
                                 }
                             )

@@ -28,12 +28,14 @@ internal extension LibSession {
         DisappearingMessagesConfiguration.Columns.type,
         DisappearingMessagesConfiguration.Columns.durationSeconds
     ]
-    
-    // MARK: - Incoming Changes
-    
-    static func handleGroupInfoUpdate(
+}
+
+// MARK: - Incoming Changes
+
+internal extension LibSessionCacheType {
+    func handleGroupInfoUpdate(
         _ db: Database,
-        in config: Config?,
+        in config: LibSession.Config?,
         groupSessionId: SessionId,
         serverTimestampMs: Int64,
         using dependencies: Dependencies
@@ -53,6 +55,7 @@ internal extension LibSession {
                     .encryptionKeys, .authDetails, .libSessionState
                 ],
                 calledFromConfig: .groupInfo,
+                cacheToRemoveStateFrom: self,
                 using: dependencies
             )
             return
@@ -454,6 +457,15 @@ public extension LibSession {
 // MARK: - Direct Values
 
 extension LibSession {
+    static func groupName(in config: Config?) throws -> String {
+        guard
+            case .object(let conf) = config,
+            let groupNamePtr: UnsafePointer<CChar> = groups_info_get_name(conf)
+        else { throw LibSessionError.invalidConfigObject }
+        
+        return String(cString: groupNamePtr)
+    }
+    
     static func groupDeleteBefore(in config: Config?) throws -> TimeInterval {
         guard case .object(let conf) = config else { throw LibSessionError.invalidConfigObject }
         
