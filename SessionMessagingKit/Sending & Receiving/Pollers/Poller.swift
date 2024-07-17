@@ -112,6 +112,7 @@ public class Poller {
         let namespaces: [SnodeAPI.Namespace] = self.namespaces
         let pollerQueue: DispatchQueue = self.pollerQueue
         let lastPollStart: TimeInterval = dependencies.dateNow.timeIntervalSince1970
+        let fallbackPollDelay: TimeInterval = self.nextPollDelay(for: swarmPublicKey, using: dependencies)
         
         // Store the publisher intp the cancellables dictionary
         cancellables.mutate { [weak self] cancellables in
@@ -134,49 +135,57 @@ public class Poller {
                         // If the polling has been cancelled then don't continue
                         guard self?.isPolling.wrappedValue[swarmPublicKey] == true else { return }
                         
-                        let endTime: TimeInterval = dependencies.dateNow.timeIntervalSince1970
+                        // Increment or reset the failureCount
+                        let failureCount: Int
+                        
+                        switch result {
+                            case .failure:
+                                failureCount = (self?.failureCount
+                                    .mutate {
+                                        let updatedFailureCount: Int = (($0[swarmPublicKey] ?? 0) + 1)
+                                        $0[swarmPublicKey] = updatedFailureCount
+                                        return updatedFailureCount
+                                    })
+                                    .defaulting(to: -1)
+                                
+                            case .success:
+                                failureCount = 0
+                                self?.failureCount.mutate { $0.removeValue(forKey: swarmPublicKey) }
+                        }
                         
                         // Log information about the poll
+                        let endTime: TimeInterval = dependencies.dateNow.timeIntervalSince1970
+                        let duration: TimeUnit = .seconds(endTime - lastPollStart)
+                        let nextPollInterval: TimeUnit = .seconds((self?.nextPollDelay(for: swarmPublicKey, using: dependencies))
+                            .defaulting(to: fallbackPollDelay))
+                        
                         switch result {
                             case .failure(let error):
                                 // Determine if the error should stop us from polling anymore
                                 switch self?.handlePollError(error, for: swarmPublicKey, using: dependencies) {
                                     case .stopPolling: return
                                     case .continuePollingInfo(let info):
-                                        Log.error("\(pollerName) failed to process any messages due to error: \(error). \(info)")
+                                        Log.error("\(pollerName) failed to process any messages after \(duration, unit: .s) due to error: \(error). \(info). Setting failure count to \(failureCount). Next poll in \(nextPollInterval, unit: .s).")
                                         
                                     case .continuePolling, .none:
-                                        Log.error("\(pollerName) failed to process any messages due to error: \(error).")
+                                        Log.error("\(pollerName) failed to process any messages after \(duration, unit: .s) due to error: \(error). Setting failure count to \(failureCount). Next poll in \(nextPollInterval, unit: .s).")
                                 }
                                 
                             case .success(let response):
-                                let duration: TimeUnit = .seconds(endTime - lastPollStart)
-                                
                                 switch (response.rawMessageCount, response.validMessageCount, response.hadValidHashUpdate) {
                                     case (0, _, _):
-                                        Log.info("Received no new messages in \(pollerName) after \(duration, unit: .s).")
+                                        Log.info("Received no new messages in \(pollerName) after \(duration, unit: .s). Next poll in \(nextPollInterval, unit: .s).")
                                         
                                     case (_, 0, false):
-                                        Log.info("Received \(response.rawMessageCount) new message(s) in \(pollerName) after \(duration, unit: .s), all duplicates - marked the hash we polled with as invalid")
+                                        Log.info("Received \(response.rawMessageCount) new message(s) in \(pollerName) after \(duration, unit: .s), all duplicates - marked the hash we polled with as invalid. Next poll in \(nextPollInterval, unit: .s).")
                                         
                                     default:
-                                        Log.info("Received \(response.validMessageCount) new message(s) in \(pollerName) after \(duration, unit: .s) (duplicates: \(response.rawMessageCount - response.validMessageCount))")
+                                        Log.info("Received \(response.validMessageCount) new message(s) in \(pollerName) after \(duration, unit: .s) (duplicates: \(response.rawMessageCount - response.validMessageCount)). Next poll in \(nextPollInterval, unit: .s).")
                                 }
                         }
                         
-                        // Calculate the remaining poll delay and schedule the next poll
-                        guard
-                            self != nil,
-                            let remainingInterval: TimeInterval = (self?.nextPollDelay(for: swarmPublicKey, using: dependencies))
-                                .map({ nextPollInterval in max(0, nextPollInterval - (endTime - lastPollStart)) }),
-                            remainingInterval > 0
-                        else {
-                            return pollerQueue.async(using: dependencies) {
-                                self?.pollRecursively(for: swarmPublicKey, drainBehaviour: drainBehaviour, using: dependencies)
-                            }
-                        }
-                        
-                        pollerQueue.asyncAfter(deadline: .now() + .milliseconds(Int(remainingInterval * 1000)), qos: .default, using: dependencies) {
+                        // Schedule the next poll
+                        pollerQueue.asyncAfter(deadline: .now() + .milliseconds(Int(nextPollInterval.timeInterval * 1000)), qos: .default, using: dependencies) {
                             self?.pollRecursively(for: swarmPublicKey, drainBehaviour: drainBehaviour, using: dependencies)
                         }
                     }
