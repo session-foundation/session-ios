@@ -73,7 +73,7 @@ class HelpViewModel: SessionTableViewModel, NavigatableStateHolder, ObservableTa
                         size: .small
                     ),
                     onTap: {
-                        guard let url: URL = URL(string: "https://crowdin.com/project/session-ios") else {
+                        guard let url: URL = URL(string: "https://getsession.org/translate") else {
                             return
                         }
                         
