@@ -44,19 +44,6 @@ final class PathVC: BaseVC {
         
         return result
     }()
-    
-    private let attributionLabel: UILabel = {
-        let result = UILabel()
-        result.font = .systemFont(ofSize: Values.verySmallFontSize)
-        result.text = "Path location data provided by MaxMind"
-        result.themeTextColor = .textSecondary
-        result.textAlignment = .center
-        result.lineBreakMode = .byWordWrapping
-        result.numberOfLines = 0
-        result.isHidden = true
-        
-        return result
-    }()
 
     private lazy var learnMoreButton: SessionButton = {
         let result = SessionButton(style: .bordered, size: .large)
@@ -116,7 +103,7 @@ final class PathVC: BaseVC {
         let bottomSpacer = UIView.vStretchingSpacer()
         
         // Set up main stack view
-        let mainStackView = UIStackView(arrangedSubviews: [ explanationLabel, topSpacer, pathStackViewContainer, attributionLabel, bottomSpacer, learnMoreButtonContainer ])
+        let mainStackView = UIStackView(arrangedSubviews: [ explanationLabel, topSpacer, pathStackViewContainer, bottomSpacer, learnMoreButtonContainer ])
         mainStackView.axis = .vertical
         mainStackView.alignment = .fill
         mainStackView.layoutMargins = UIEdgeInsets(
@@ -156,7 +143,6 @@ final class PathVC: BaseVC {
     private func update(paths: [[LibSession.Snode]], force: Bool) {
         guard let pathToDisplay: [LibSession.Snode] = paths.first else {
             pathStackView.arrangedSubviews.forEach { $0.removeFromSuperview() }
-            attributionLabel.isHidden = true
             spinner.startAnimating()
             
             UIView.animate(withDuration: 0.25) {
@@ -199,7 +185,6 @@ final class PathVC: BaseVC {
         )
         let rows = [ youRow ] + snodeRows + [ destinationRow ]
         rows.forEach { pathStackView.addArrangedSubview($0) }
-        attributionLabel.isHidden = false
         spinner.stopAnimating()
         
         UIView.animate(withDuration: 0.25) {
