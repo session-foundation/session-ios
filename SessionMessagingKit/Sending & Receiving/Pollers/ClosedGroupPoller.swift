@@ -48,7 +48,7 @@ public final class ClosedGroupPoller: Poller {
 
     // MARK: - Abstract Methods
     
-    override func pollerName(for publicKey: String) -> String {
+    override public func pollerName(for publicKey: String) -> String {
         return "Closed group poller with public key: \(publicKey)"
     }
 

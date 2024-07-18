@@ -68,7 +68,7 @@ public class Poller {
     // MARK: - Abstract Methods
     
     /// The name for this poller to appear in the logs
-    internal func pollerName(for publicKey: String) -> String {
+    public func pollerName(for publicKey: String) -> String {
         preconditionFailure("abstract class - override in subclass")
     }
     
@@ -227,6 +227,8 @@ public class Poller {
                     refreshingConfigHashes: configHashes,
                     from: snode,
                     swarmPublicKey: swarmPublicKey,
+                    calledFromBackgroundPoller: calledFromBackgroundPoller,
+                    isBackgroundPollValid: isBackgroundPollValid,
                     using: dependencies
                 )
             }

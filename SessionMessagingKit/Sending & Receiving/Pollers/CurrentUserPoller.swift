@@ -47,7 +47,7 @@ public final class CurrentUserPoller: Poller {
     
     // MARK: - Abstract Methods
     
-    override func pollerName(for publicKey: String) -> String {
+    override public func pollerName(for publicKey: String) -> String {
         return "Main Poller"
     }
     
