@@ -643,14 +643,19 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
         switch Onboarding.State.current {
             case .newUser:
                 DispatchQueue.main.async { [dependencies] in
-                    let viewController: LandingVC = LandingVC(using: dependencies)
+                    let viewController = SessionHostingViewController(rootView: LandingScreen(using: dependencies))
+                    viewController.setUpNavBarSessionIcon()
                     populateHomeScreenTimer.invalidate()
                     rootViewControllerSetupComplete(viewController)
                 }
                 
             case .missingName:
-                DispatchQueue.main.async {
-                    let viewController: DisplayNameVC = DisplayNameVC(flow: .register)
+                DispatchQueue.main.async { [dependencies] in
+                    let viewController = SessionHostingViewController(
+                        rootView: DisplayNameScreen(flow: .register, using: dependencies)
+                    )
+                    viewController.setUpNavBarSessionIcon()
+                    viewController.setUpClearDataBackButton(flow: .register)
                     populateHomeScreenTimer.invalidate()
                     rootViewControllerSetupComplete(viewController)
                 }
