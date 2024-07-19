@@ -14,7 +14,7 @@ public enum TimeUnit: Equatable, CustomStringConvertible {
     case days(Double)
     case weeks(Double)
     
-    var timeInterval: TimeInterval {
+    public var timeInterval: TimeInterval {
         switch self {
             case .nanoseconds(let value): return (value * 1e-9)
             case .microseconds(let value): return (value * 1e-6)

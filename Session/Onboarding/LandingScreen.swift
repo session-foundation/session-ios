@@ -8,6 +8,11 @@ import SessionUtilitiesKit
 
 struct LandingScreen: View {
     @EnvironmentObject var host: HostWrapper
+    private let dependencies: Dependencies
+    
+    public init(using dependencies: Dependencies) {
+        self.dependencies = dependencies
+    }
 
     var body: some View {
         ZStack(alignment: .center) {
@@ -129,19 +134,24 @@ struct LandingScreen: View {
             .preregister(
                 with: seed,
                 ed25519KeyPair: ed25519KeyPair,
-                x25519KeyPair: x25519KeyPair
+                x25519KeyPair: x25519KeyPair,
+                using: dependencies
             )
         
-        let viewController: SessionHostingViewController = SessionHostingViewController(rootView: DisplayNameScreen(flow: .register))
+        let viewController: SessionHostingViewController = SessionHostingViewController(
+            rootView: DisplayNameScreen(flow: .register, using: dependencies)
+        )
         viewController.setUpNavBarSessionIcon()
         viewController.setUpClearDataBackButton(flow: .register)
         self.host.controller?.navigationController?.setViewControllers([viewController], animated: true)
     }
     
     private func restore() {
-        Onboarding.Flow.register.unregister()
+        Onboarding.Flow.register.unregister(using: dependencies)
         
-        let viewController: SessionHostingViewController = SessionHostingViewController(rootView: LoadAccountScreen())
+        let viewController: SessionHostingViewController = SessionHostingViewController(
+            rootView: LoadAccountScreen(using: dependencies)
+        )
         viewController.setNavBarTitle("onboarding_load_account_title".localized())
         self.host.controller?.navigationController?.pushViewController(viewController, animated: true)
     }
@@ -265,6 +275,6 @@ struct FakeChat: View {
 
 struct LandingView_Previews: PreviewProvider {
     static var previews: some View {
-        LandingScreen()
+        LandingScreen(using: Dependencies())
     }
 }

@@ -77,15 +77,15 @@ public extension String {
 
 // MARK: - Formatting
 
+public extension String {
+    var noPeriod: String {
+        guard self.hasSuffix(".") && !self.hasSuffix("...") else { return self }
+        
+        return String(self.prefix(count - 1))
+    }
+}
+
 public extension String.StringInterpolation {
-    mutating func appendInterpolation(plural value: Int) {
-        appendInterpolation(value == 1 ? "" : "s") // stringlint:disable
-    }
-    
-    mutating func appendInterpolation(_ value: String, number: Int, singular: String = "", plural: String = "s") {
-        appendInterpolation("\(value)\(number == 1 ? singular : plural)") // stringlint:disable
-    }
-    
     mutating func appendInterpolation(_ value: TimeUnit, unit: TimeUnit.Unit, resolution: Int = 2) {
         appendLiteral("\(TimeUnit(value, unit: unit, resolution: resolution))") // stringlint:disable
     }

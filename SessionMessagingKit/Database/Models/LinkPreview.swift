@@ -299,7 +299,10 @@ public extension LinkPreview {
             return Fail(error: LinkPreviewError.featureDisabled)
                 .eraseToAnyPublisher()
         }
-        guard let previewUrl: String = previewUrl else {
+        
+        // Force the url to lowercase to ensure we casing doesn't result in redownloading the
+        // details
+        guard let previewUrl: String = previewUrl?.lowercased() else {
             return Fail(error: LinkPreviewError.invalidInput)
                 .eraseToAnyPublisher()
         }

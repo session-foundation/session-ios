@@ -4,6 +4,7 @@ import SwiftUI
 import SessionUIKit
 import SessionMessagingKit
 import SignalUtilitiesKit
+import SessionUtilitiesKit
 
 struct LoadingScreen: View {
     @EnvironmentObject var host: HostWrapper
@@ -11,10 +12,12 @@ struct LoadingScreen: View {
     @State var percentage: Double = 0.0
     @State var animationTimer: Timer?
     
+    private let dependencies: Dependencies
     private let flow: Onboarding.Flow
     private let preview: Bool
     
-    public init(flow: Onboarding.Flow, preview: Bool = false) {
+    public init(flow: Onboarding.Flow, preview: Bool = false, using dependencies: Dependencies) {
+        self.dependencies = dependencies
         self.flow = flow
         self.preview = preview
     }
@@ -92,7 +95,9 @@ struct LoadingScreen: View {
     
     private func finishLoading(success: Bool) {
         guard success else {
-            let viewController: SessionHostingViewController = SessionHostingViewController(rootView: DisplayNameScreen(flow: flow))
+            let viewController: SessionHostingViewController = SessionHostingViewController(
+                rootView: DisplayNameScreen(flow: flow, using: dependencies)
+            )
             viewController.setUpNavBarSessionIcon()
             if let navigationController = self.host.controller?.navigationController {
                 let index = navigationController.viewControllers.count - 1
@@ -175,6 +180,6 @@ struct CircularProgressView: View {
 
 struct LoadingView_Previews: PreviewProvider {
     static var previews: some View {
-        LoadingScreen(flow: .recover, preview: true)
+        LoadingScreen(flow: .recover, preview: true, using: Dependencies())
     }
 }

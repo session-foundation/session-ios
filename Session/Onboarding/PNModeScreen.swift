@@ -17,9 +17,11 @@ struct PNModeScreen: View {
     
     @State private var currentSelection: PNMode = .fast
     
+    private let dependencies: Dependencies
     private let flow: Onboarding.Flow
     
-    public init(flow: Onboarding.Flow) {
+    public init(flow: Onboarding.Flow, using dependencies: Dependencies) {
+        self.dependencies = dependencies
         self.flow = flow
     }
     
@@ -156,7 +158,9 @@ struct PNModeScreen: View {
         }
         
         // If we don't have one then show a loading indicator and try to retrieve the existing name
-        let viewController: SessionHostingViewController = SessionHostingViewController(rootView: LoadingScreen(flow: flow))
+        let viewController: SessionHostingViewController = SessionHostingViewController(
+            rootView: LoadingScreen(flow: flow, using: dependencies)
+        )
         viewController.setUpNavBarSessionIcon()
         self.host.controller?.navigationController?.pushViewController(viewController, animated: true)
     }
@@ -257,6 +261,6 @@ struct PNOptionView: View {
 
 struct PNModeView_Previews: PreviewProvider {
     static var previews: some View {
-        PNModeScreen(flow: .register)
+        PNModeScreen(flow: .register, using: Dependencies())
     }
 }
