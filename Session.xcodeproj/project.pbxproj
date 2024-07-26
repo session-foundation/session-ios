@@ -5667,7 +5667,7 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
-			shellScript = "INFO_PLIST=\"${TARGET_BUILD_DIR}\"/\"${INFOPLIST_PATH}\"\nENTITLEMENTS_FILE=\"${SRCROOT}/${CODE_SIGN_ENTITLEMENTS}\"\n\n# Query and save the value; suppress any error message, if key not found.\nvalue=$(/usr/libexec/PlistBuddy -c 'print :AppGroupsId' \"${INFO_PLIST}\" 2>/dev/null)\n\n# Check if value is empty\nif [ -z \"$value\" ] \nthen\n   /usr/libexec/PlistBuddy -c \"Add :AppGroupsId string\" \"${INFO_PLIST}\"\nfi\n\napp_group_id=$(xmllint --xpath 'string(//key[.=\"com.apple.security.application-groups\"]/following-sibling::array/string)' \"$ENTITLEMENTS_FILE\")\n\n/usr/libexec/PlistBuddy -c \"Set :AppGroupsId ${app_group_id}\" \"${INFO_PLIST}\"\n";
+			shellScript = "INFO_PLIST=\"${TARGET_BUILD_DIR}\"/\"${INFOPLIST_PATH}\"\nENTITLEMENTS_FILE=\"${SRCROOT}/${CODE_SIGN_ENTITLEMENTS}\"\n\n# Wait for Info.plist to be processed\nwhile [[ ! -f \"${INFO_PLIST}\" ]] && [[ ! -f \"${ENTITLEMENTS_FILE}\" ]]; do\n    echo \"Waiting for plist and entitlements to be copied\"\n    sleep 1\ndone\n\n# Query and save the value; suppress any error message, if key not found.\nvalue=$(/usr/libexec/PlistBuddy -c 'print :AppGroupsId' \"${INFO_PLIST}\" 2>/dev/null)\n\n# Check if value is empty\nif [ -z \"$value\" ] \nthen\n   /usr/libexec/PlistBuddy -c \"Add :AppGroupsId string\" \"${INFO_PLIST}\"\nfi\n\napp_group_id=$(xmllint --xpath 'string(//key[.=\"com.apple.security.application-groups\"]/following-sibling::array/string)' \"$ENTITLEMENTS_FILE\")\n\n/usr/libexec/PlistBuddy -c \"Set :AppGroupsId ${app_group_id}\" \"${INFO_PLIST}\"\n";
 		};
 		FD5E93D42C12D3CB0038C25A /* Add Commit Hash To Build Info Plist */ = {
 			isa = PBXShellScriptBuildPhase;
@@ -5685,7 +5685,7 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
-			shellScript = "INFO_PLIST=\"${TARGET_BUILD_DIR}\"/\"${INFOPLIST_PATH}\"\n\n# Query and save the value; suppress any error message, if key not found.\nvalue=$(/usr/libexec/PlistBuddy -c 'print :GitCommitHash' \"${INFO_PLIST}\" 2>/dev/null)\n\n# Check if value is empty\nif [ -z \"$value\" ] \nthen\n   /usr/libexec/PlistBuddy -c \"Add :GitCommitHash string\" \"${INFO_PLIST}\"\nfi\n\n/usr/libexec/PlistBuddy -c \"Set :GitCommitHash `git rev-parse --short=7 HEAD`\" \"${INFO_PLIST}\"\n";
+			shellScript = "INFO_PLIST=\"${TARGET_BUILD_DIR}\"/\"${INFOPLIST_PATH}\"\n\n# Wait for Info.plist to be processed\nwhile [[ ! -f \"${INFO_PLIST}\" ]]; do\n    echo \"Waiting for plist to be copied\"\n    sleep 1\ndone\n\n# Query and save the value; suppress any error message, if key not found.\nvalue=$(/usr/libexec/PlistBuddy -c 'print :GitCommitHash' \"${INFO_PLIST}\" 2>/dev/null)\n\n# Check if value is empty\nif [ -z \"$value\" ] \nthen\n   /usr/libexec/PlistBuddy -c \"Add :GitCommitHash string\" \"${INFO_PLIST}\"\nfi\n\n/usr/libexec/PlistBuddy -c \"Set :GitCommitHash `git rev-parse --short=7 HEAD`\" \"${INFO_PLIST}\"\n";
 			showEnvVarsInLog = 0;
 		};
 		FD5E93D52C12D8120038C25A /* Add Commit Hash To Build Info Plist */ = {
@@ -5704,7 +5704,7 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
-			shellScript = "INFO_PLIST=\"${TARGET_BUILD_DIR}\"/\"${INFOPLIST_PATH}\"\n\n# Query and save the value; suppress any error message, if key not found.\nvalue=$(/usr/libexec/PlistBuddy -c 'print :GitCommitHash' \"${INFO_PLIST}\" 2>/dev/null)\n\n# Check if value is empty\nif [ -z \"$value\" ] \nthen\n   /usr/libexec/PlistBuddy -c \"Add :GitCommitHash string\" \"${INFO_PLIST}\"\nfi\n\n/usr/libexec/PlistBuddy -c \"Set :GitCommitHash `git rev-parse --short=7 HEAD`\" \"${INFO_PLIST}\"\n";
+			shellScript = "INFO_PLIST=\"${TARGET_BUILD_DIR}\"/\"${INFOPLIST_PATH}\"\n\n# Wait for Info.plist to be processed\nwhile [[ ! -f \"${INFO_PLIST}\" ]]; do\n    echo \"Waiting for plist to be copied\"\n    sleep 1\ndone\n\n# Query and save the value; suppress any error message, if key not found.\nvalue=$(/usr/libexec/PlistBuddy -c 'print :GitCommitHash' \"${INFO_PLIST}\" 2>/dev/null)\n\n# Check if value is empty\nif [ -z \"$value\" ] \nthen\n   /usr/libexec/PlistBuddy -c \"Add :GitCommitHash string\" \"${INFO_PLIST}\"\nfi\n\n/usr/libexec/PlistBuddy -c \"Set :GitCommitHash `git rev-parse --short=7 HEAD`\" \"${INFO_PLIST}\"\n";
 			showEnvVarsInLog = 0;
 		};
 		FD5E93D62C12D8270038C25A /* Add App Group To Build Info Plist */ = {
@@ -5723,7 +5723,7 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
-			shellScript = "INFO_PLIST=\"${TARGET_BUILD_DIR}\"/\"${INFOPLIST_PATH}\"\nENTITLEMENTS_FILE=\"${SRCROOT}/${CODE_SIGN_ENTITLEMENTS}\"\n\n# Query and save the value; suppress any error message, if key not found.\nvalue=$(/usr/libexec/PlistBuddy -c 'print :AppGroupsId' \"${INFO_PLIST}\" 2>/dev/null)\n\n# Check if value is empty\nif [ -z \"$value\" ] \nthen\n   /usr/libexec/PlistBuddy -c \"Add :AppGroupsId string\" \"${INFO_PLIST}\"\nfi\n\napp_group_id=$(xmllint --xpath 'string(//key[.=\"com.apple.security.application-groups\"]/following-sibling::array/string)' \"$ENTITLEMENTS_FILE\")\n\n/usr/libexec/PlistBuddy -c \"Set :AppGroupsId ${app_group_id}\" \"${INFO_PLIST}\"\n";
+			shellScript = "INFO_PLIST=\"${TARGET_BUILD_DIR}\"/\"${INFOPLIST_PATH}\"\nENTITLEMENTS_FILE=\"${SRCROOT}/${CODE_SIGN_ENTITLEMENTS}\"\n\n# Wait for Info.plist to be processed\nwhile [[ ! -f \"${INFO_PLIST}\" ]] && [[ ! -f \"${ENTITLEMENTS_FILE}\" ]]; do\n    echo \"Waiting for plist and entitlements to be copied\"\n    sleep 1\ndone\n\n# Query and save the value; suppress any error message, if key not found.\nvalue=$(/usr/libexec/PlistBuddy -c 'print :AppGroupsId' \"${INFO_PLIST}\" 2>/dev/null)\n\n# Check if value is empty\nif [ -z \"$value\" ] \nthen\n   /usr/libexec/PlistBuddy -c \"Add :AppGroupsId string\" \"${INFO_PLIST}\"\nfi\n\napp_group_id=$(xmllint --xpath 'string(//key[.=\"com.apple.security.application-groups\"]/following-sibling::array/string)' \"$ENTITLEMENTS_FILE\")\n\n/usr/libexec/PlistBuddy -c \"Set :AppGroupsId ${app_group_id}\" \"${INFO_PLIST}\"\n";
 		};
 		FD5E93D72C12DA400038C25A /* Add App Group To Build Info Plist */ = {
 			isa = PBXShellScriptBuildPhase;
@@ -5741,7 +5741,7 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
-			shellScript = "INFO_PLIST=\"${TARGET_BUILD_DIR}\"/\"${INFOPLIST_PATH}\"\nENTITLEMENTS_FILE=\"${SRCROOT}/${CODE_SIGN_ENTITLEMENTS}\"\n\n# Query and save the value; suppress any error message, if key not found.\nvalue=$(/usr/libexec/PlistBuddy -c 'print :AppGroupsId' \"${INFO_PLIST}\" 2>/dev/null)\n\n# Check if value is empty\nif [ -z \"$value\" ] \nthen\n   /usr/libexec/PlistBuddy -c \"Add :AppGroupsId string\" \"${INFO_PLIST}\"\nfi\n\napp_group_id=$(xmllint --xpath 'string(//key[.=\"com.apple.security.application-groups\"]/following-sibling::array/string)' \"$ENTITLEMENTS_FILE\")\n\n/usr/libexec/PlistBuddy -c \"Set :AppGroupsId ${app_group_id}\" \"${INFO_PLIST}\"\n";
+			shellScript = "INFO_PLIST=\"${TARGET_BUILD_DIR}\"/\"${INFOPLIST_PATH}\"\nENTITLEMENTS_FILE=\"${SRCROOT}/${CODE_SIGN_ENTITLEMENTS}\"\n\n# Wait for Info.plist to be processed\nwhile [[ ! -f \"${INFO_PLIST}\" ]] && [[ ! -f \"${ENTITLEMENTS_FILE}\" ]]; do\n    echo \"Waiting for plist and entitlements to be copied\"\n    sleep 1\ndone\n\n# Query and save the value; suppress any error message, if key not found.\nvalue=$(/usr/libexec/PlistBuddy -c 'print :AppGroupsId' \"${INFO_PLIST}\" 2>/dev/null)\n\n# Check if value is empty\nif [ -z \"$value\" ] \nthen\n   /usr/libexec/PlistBuddy -c \"Add :AppGroupsId string\" \"${INFO_PLIST}\"\nfi\n\napp_group_id=$(xmllint --xpath 'string(//key[.=\"com.apple.security.application-groups\"]/following-sibling::array/string)' \"$ENTITLEMENTS_FILE\")\n\n/usr/libexec/PlistBuddy -c \"Set :AppGroupsId ${app_group_id}\" \"${INFO_PLIST}\"\n";
 			showEnvVarsInLog = 0;
 		};
 		FD9BDDFF2A5D229B005F1EBC /* Build libSessionUtil if Needed */ = {
@@ -5843,7 +5843,7 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
-			shellScript = "INFO_PLIST=\"${TARGET_BUILD_DIR}\"/\"${INFOPLIST_PATH}\"\n\n# Query and save the value; suppress any error message, if key not found.\nvalue=$(/usr/libexec/PlistBuddy -c 'print :GitCommitHash' \"${INFO_PLIST}\" 2>/dev/null)\n\n# Check if value is empty\nif [ -z \"$value\" ] \nthen\n   /usr/libexec/PlistBuddy -c \"Add :GitCommitHash string\" \"${INFO_PLIST}\"\nfi\n\n/usr/libexec/PlistBuddy -c \"Set :GitCommitHash `git rev-parse --short=7 HEAD`\" \"${INFO_PLIST}\"\n";
+			shellScript = "INFO_PLIST=\"${TARGET_BUILD_DIR}\"/\"${INFOPLIST_PATH}\"\n\n# Wait for Info.plist to be processed\nwhile [[ ! -f \"${INFO_PLIST}\" ]]; do\n    echo \"Waiting for plist to be copied\"\n    sleep 1\ndone\n\n# Query and save the value; suppress any error message, if key not found.\nvalue=$(/usr/libexec/PlistBuddy -c 'print :GitCommitHash' \"${INFO_PLIST}\" 2>/dev/null)\n\n# Check if value is empty\nif [ -z \"$value\" ] \nthen\n   /usr/libexec/PlistBuddy -c \"Add :GitCommitHash string\" \"${INFO_PLIST}\"\nfi\n\n/usr/libexec/PlistBuddy -c \"Set :GitCommitHash `git rev-parse --short=7 HEAD`\" \"${INFO_PLIST}\"\n";
 		};
 		FDE7214D287E50820093DF33 /* Lint Localizable.strings */ = {
 			isa = PBXShellScriptBuildPhase;

@@ -865,6 +865,16 @@ public enum OpenGroupAPI {
         .signed(db, server: openGroup.server, data: data, using: dependencies)
     }
     
+    public static func isInvalidOpenGroupFileUrl(url: URL, openGroup: OpenGroup) -> Bool {
+        // If the url doesn't end with a fileId then it's invalid
+        guard let fileId: String = Attachment.fileId(for: url.absoluteString) else { return true }
+        
+        return (
+            !url.absoluteString.starts(with: openGroup.server) ||
+            url != (try? downloadUrlFor(fileId: fileId, server: openGroup.server, roomToken: openGroup.roomToken))
+        )
+    }
+    
     public static func downloadUrlFor(
         fileId: String,
         server: String,
@@ -900,7 +910,10 @@ public enum OpenGroupAPI {
             url: try {
                 // FIXME: Remove this logic once the 'downloadUrl' for SOGS is being set correctly
                 guard
-                    Network.isFileServerUrl(url: url),
+                    (
+                        isInvalidOpenGroupFileUrl(url: url, openGroup: openGroup) ||
+                        Network.isFileServerUrl(url: url)
+                    ),
                     let fileId: String = Attachment.fileId(for: url.absoluteString)
                 else { return url }
                 
