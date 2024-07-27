@@ -193,7 +193,7 @@ public extension LibSession {
                             guard
                                 nodesSize > 0,
                                 let cSwarm: UnsafeMutablePointer<network_service_node> = nodesPtr
-                            else { return CallbackWrapper<Output>.run(ctx, .failure(SnodeAPIError.unableToRetrieveSwarm)) }
+                            else { return CallbackWrapper<Output>.run(ctx, .failure(SnodeAPIError.ranOutOfRandomSnodes(nil))) }
                             
                             var nodes: Set<Snode> = []
                             (0..<nodesSize).forEach { index in nodes.insert(Snode(cSwarm[index])) }
@@ -202,9 +202,9 @@ public extension LibSession {
                     }
                     .tryMap { result in
                         switch result {
-                            case .failure(let error): throw error
+                            case .failure(let error): throw SnodeAPIError.ranOutOfRandomSnodes(error)
                             case .success(let nodes):
-                                guard nodes.count >= count else { throw SnodeAPIError.unableToRetrieveSwarm }
+                                guard nodes.count >= count else { throw SnodeAPIError.ranOutOfRandomSnodes(nil) }
                                 
                                 return nodes
                         }
@@ -399,6 +399,10 @@ public extension LibSession {
     private static func getOrCreateNetwork() -> AnyPublisher<UnsafeMutablePointer<network_object>?, Error> {
         guard !isSuspended.wrappedValue else {
             Log.warn("[LibSession] Attempted to access suspended network.")
+            return Fail(error: NetworkError.suspended).eraseToAnyPublisher()
+        }
+        guard Singleton.hasAppContext && (Singleton.appContext.isMainApp || Singleton.appContext.isShareExtension) else {
+            Log.warn("[LibSession] Attempted to create network in invalid extension.")
             return Fail(error: NetworkError.suspended).eraseToAnyPublisher()
         }
         
