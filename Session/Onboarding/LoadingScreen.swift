@@ -112,6 +112,8 @@ struct LoadingScreen: View {
             self.percentage = 1
         }
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
+            self.flow.completeRegistration()
+            
             let homeVC: HomeVC = HomeVC(flow: self.flow)
             self.host.controller?.navigationController?.setViewControllers([ homeVC ], animated: true)
         }

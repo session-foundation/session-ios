@@ -77,14 +77,6 @@ public extension String {
 
 // MARK: - Formatting
 
-public extension String {
-    var noPeriod: String {
-        guard self.hasSuffix(".") && !self.hasSuffix("...") else { return self }
-        
-        return String(self.prefix(count - 1))
-    }
-}
-
 public extension String.StringInterpolation {
     mutating func appendInterpolation(_ value: TimeUnit, unit: TimeUnit.Unit, resolution: Int = 2) {
         appendLiteral("\(TimeUnit(value, unit: unit, resolution: resolution))") // stringlint:disable
