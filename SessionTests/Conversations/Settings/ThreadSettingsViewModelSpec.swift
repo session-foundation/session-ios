@@ -41,7 +41,7 @@ class ThreadSettingsViewModelSpec: QuickSpec {
                         data: Data(hex: TestConstants.publicKey)
                     ).insert(db)
                     
-                    try SessionThread(id: "TestId",variant: .contact).insert(db)
+                    try SessionThread(id: "TestId",variant: .contact, creationDateTimestamp: 0).insert(db)
                     try Profile(id: "05\(TestConstants.publicKey)", name: "TestMe").insert(db)
                     try Profile(id: "TestId", name: "TestUser").insert(db)
                 },
@@ -142,7 +142,8 @@ class ThreadSettingsViewModelSpec: QuickSpec {
                         
                         try SessionThread(
                             id: "05\(TestConstants.publicKey)",
-                            variant: .contact
+                            variant: .contact,
+                            creationDateTimestamp: 0
                         ).insert(db)
                     }
                     
@@ -306,7 +307,8 @@ class ThreadSettingsViewModelSpec: QuickSpec {
                         
                         try SessionThread(
                             id: "TestId",
-                            variant: .contact
+                            variant: .contact,
+                            creationDateTimestamp: 0
                         ).insert(db)
                     }
                 }
@@ -439,7 +441,8 @@ class ThreadSettingsViewModelSpec: QuickSpec {
                         
                         try SessionThread(
                             id: "TestId",
-                            variant: .legacyGroup
+                            variant: .legacyGroup,
+                            creationDateTimestamp: 0
                         ).insert(db)
                     }
                     
@@ -484,7 +487,8 @@ class ThreadSettingsViewModelSpec: QuickSpec {
                         
                         try SessionThread(
                             id: "TestId",
-                            variant: .community
+                            variant: .community,
+                            creationDateTimestamp: 0
                         ).insert(db)
                     }
                     

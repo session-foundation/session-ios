@@ -249,13 +249,20 @@ final class ThreadPickerVC: UIViewController, UITableViewDataSource, UITableView
                 .subscribe(on: DispatchQueue.global(qos: .userInitiated))
                 .flatMap { _ in
                     dependencies.storage.writePublisher { db -> MessageSender.PreparedSendData in
-                        guard
-                            let threadVariant: SessionThread.Variant = try SessionThread
+                        guard let thread: SessionThread = try SessionThread.fetchOne(db, id: threadId) else {
+                            throw MessageSenderError.noThread
+                        }
+                        
+                        // Update the thread to be visible (if it isn't already)
+                        if !thread.shouldBeVisible || thread.pinnedPriority == LibSession.hiddenPriority {
+                            _ = try SessionThread
                                 .filter(id: threadId)
-                                .select(.variant)
-                                .asRequest(of: SessionThread.Variant.self)
-                                .fetchOne(db)
-                        else { throw MessageSenderError.noThread }
+                                .updateAllAndConfig(
+                                    db,
+                                    SessionThread.Columns.shouldBeVisible.set(to: true),
+                                    SessionThread.Columns.pinnedPriority.set(to: LibSession.visiblePriority)
+                                )
+                        }
                         
                         // Create the interaction
                         let interaction: Interaction = try Interaction(

@@ -409,7 +409,6 @@ public class PagedDatabaseObserver<ObservedTable, T>: TransactionObserver where 
                         updatedPageInfo.totalCount +
                         changesToQuery
                             .filter { $0.kind == .insert }
-                            .filter { validChangeRowIds.contains($0.rowId) }
                             .count
                     )
                 )

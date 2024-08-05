@@ -15,7 +15,7 @@ public final class MessageSender {
         let destination: Message.Destination
         let namespace: SnodeAPI.Namespace?
         
-        let message: Message?
+        let message: Message
         let interactionId: Int64?
         let totalAttachmentsUploaded: Int
         
@@ -25,7 +25,7 @@ public final class MessageSender {
         
         private init(
             shouldSend: Bool,
-            message: Message?,
+            message: Message,
             destination: Message.Destination,
             namespace: SnodeAPI.Namespace?,
             interactionId: Int64?,
@@ -621,17 +621,15 @@ public final class MessageSender {
                 guard expectedAttachmentUploadCount == data.totalAttachmentsUploaded else {
                     // Make sure to actually handle this as a failure (if we don't then the message
                     // won't go into an error state correctly)
-                    if let message: Message = data.message {
-                        dependencies.storage.read { db in
-                            MessageSender.handleFailedMessageSend(
-                                db,
-                                message: message,
-                                destination: data.destination,
-                                with: .attachmentsNotUploaded,
-                                interactionId: data.interactionId,
-                                using: dependencies
-                            )
-                        }
+                    dependencies.storage.read { db in
+                        MessageSender.handleFailedMessageSend(
+                            db,
+                            message: data.message,
+                            destination: data.destination,
+                            with: .attachmentsNotUploaded,
+                            interactionId: data.interactionId,
+                            using: dependencies
+                        )
                     }
                     
                     return Fail(error: MessageSenderError.attachmentsNotUploaded)
@@ -657,7 +655,6 @@ public final class MessageSender {
         using dependencies: Dependencies
     ) -> AnyPublisher<Void, Error> {
         guard
-            let message: Message = data.message,
             let namespace: SnodeAPI.Namespace = data.namespace,
             let snodeMessage: SnodeMessage = data.snodeMessage
         else {
@@ -668,7 +665,7 @@ public final class MessageSender {
         return dependencies.network
             .send(.message(snodeMessage, in: namespace), using: dependencies)
             .flatMap { info, response -> AnyPublisher<Void, Error> in
-                let updatedMessage: Message = message
+                let updatedMessage: Message = data.message
                 updatedMessage.serverHash = response.hash
 
                 // Only legacy groups need to manually trigger push notifications now so only create the job
@@ -744,7 +741,7 @@ public final class MessageSender {
                             dependencies.storage.read { db in
                                 MessageSender.handleFailedMessageSend(
                                     db,
-                                    message: message,
+                                    message: data.message,
                                     destination: data.destination,
                                     with: .other(error),
                                     interactionId: data.interactionId,
@@ -765,7 +762,6 @@ public final class MessageSender {
         using dependencies: Dependencies
     ) -> AnyPublisher<Void, Error> {
         guard
-            let message: Message = data.message,
             case .openGroup(let roomToken, let server, let whisperTo, let whisperMods, let fileIds) = data.destination,
             let plaintext: Data = data.plaintext
         else {
@@ -791,7 +787,7 @@ public final class MessageSender {
             .flatMap { $0.send(using: dependencies) }
             .flatMap { (responseInfo, responseData) -> AnyPublisher<Void, Error> in
                 let serverTimestampMs: UInt64? = responseData.posted.map { UInt64(floor($0 * 1000)) }
-                let updatedMessage: Message = message
+                let updatedMessage: Message = data.message
                 updatedMessage.openGroupServerMessageId = UInt64(responseData.id)
                 
                 return dependencies.storage.writePublisher { db in
@@ -816,7 +812,7 @@ public final class MessageSender {
                             dependencies.storage.read { db in
                                 MessageSender.handleFailedMessageSend(
                                     db,
-                                    message: message,
+                                    message: data.message,
                                     destination: data.destination,
                                     with: .other(error),
                                     interactionId: data.interactionId,
@@ -834,7 +830,6 @@ public final class MessageSender {
         using dependencies: Dependencies
     ) -> AnyPublisher<Void, Error> {
         guard
-            let message: Message = data.message,
             case .openGroupInbox(let server, _, let recipientBlindedPublicKey) = data.destination,
             let ciphertext: Data = data.ciphertext
         else {
@@ -856,7 +851,7 @@ public final class MessageSender {
             }
             .flatMap { $0.send(using: dependencies) }
             .flatMap { (responseInfo, responseData) -> AnyPublisher<Void, Error> in
-                let updatedMessage: Message = message
+                let updatedMessage: Message = data.message
                 updatedMessage.openGroupServerMessageId = UInt64(responseData.id)
                 
                 return dependencies.storage.writePublisher { db in
@@ -881,7 +876,7 @@ public final class MessageSender {
                             dependencies.storage.read { db in
                                 MessageSender.handleFailedMessageSend(
                                     db,
-                                    message: message,
+                                    message: data.message,
                                     destination: data.destination,
                                     with: .other(error),
                                     interactionId: data.interactionId,

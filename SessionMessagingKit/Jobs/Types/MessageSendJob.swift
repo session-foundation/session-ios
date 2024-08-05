@@ -272,12 +272,9 @@ extension MessageSendJob {
                 throw StorageError.decodingFailed
             }
             
-            let message: Message = try variant.decode(from: container, forKey: .message)
-            var destination: Message.Destination = try container.decode(Message.Destination.self, forKey: .destination)
-            
             self = Details(
-                destination: destination,
-                message: message
+                destination: try container.decode(Message.Destination.self, forKey: .destination),
+                message: try variant.decode(from: container, forKey: .message)
             )
         }
         

@@ -37,7 +37,8 @@ class OpenGroupManagerSpec: QuickSpec {
         )
         @TestState var testGroupThread: SessionThread! = SessionThread(
             id: OpenGroup.idFor(roomToken: "testRoom", server: "testServer"),
-            variant: .community
+            variant: .community,
+            creationDateTimestamp: 0
         )
         @TestState var testOpenGroup: OpenGroup! = OpenGroup(
             server: "testServer",
