@@ -742,7 +742,7 @@ public final class JobRunner: JobRunnerType {
     ) -> (Int64, Job)? {
         switch job?.behaviour {
             case .recurringOnActive, .recurringOnLaunch, .runOnceNextLaunch:
-                SNLog("[JobRunner] Attempted to insert \(job?.variant) job before the current one even though it's behaviour is \(job?.behaviour)")
+                SNLog("[JobRunner] Attempted to insert \(job) before the current one even though it's behaviour is \(job?.behaviour)")
                 return nil
                 
             default: break
@@ -843,7 +843,7 @@ public final class JobRunner: JobRunnerType {
             case (.enqueueOnly, .some(let uniqueHashValue)):
                 // Nothing currently running or sitting in a JobQueue
                 guard !allJobInfo().contains(where: { _, info -> Bool in info.uniqueHashValue == uniqueHashValue }) else {
-                    SNLog("[JobRunner] Unable to add \(job.variant) job due to unique constraint")
+                    SNLog("[JobRunner] Unable to add \(job) due to unique constraint")
                     return nil
                 }
                 
@@ -856,7 +856,7 @@ public final class JobRunner: JobRunnerType {
                     // Nothing in the database
                     !Job.filter(Job.Columns.uniqueHashValue == uniqueHashValue).isNotEmpty(db)
                 else {
-                    SNLog("[JobRunner] Unable to add \(job.variant) job due to unique constraint")
+                    SNLog("[JobRunner] Unable to add \(job) due to unique constraint")
                     return nil
                 }
                 
@@ -864,7 +864,7 @@ public final class JobRunner: JobRunnerType {
                 
             case (.persist, .none):
                 guard let updatedJob: Job = try? job.inserted(db), updatedJob.id != nil else {
-                    SNLog("[JobRunner] Unable to add \(job.variant) job\(job.id == nil ? " due to missing id" : "")")
+                    SNLog("[JobRunner] Unable to add \(job)\(job.id == nil ? " due to missing id" : "")")
                     return nil
                 }
                 
@@ -1062,7 +1062,7 @@ public final class JobQueue: Hashable {
             job.nextRunTimestamp <= dependencies.dateNow.timeIntervalSince1970
         else { return }
         guard job.id != nil else {
-            SNLog("[JobRunner] Prevented attempt to add \(job.variant) job without id to queue")
+            SNLog("[JobRunner] Prevented attempt to add \(job) without id to queue")
             return
         }
         
@@ -1090,7 +1090,7 @@ public final class JobQueue: Hashable {
         using dependencies: Dependencies
     ) {
         guard let jobId: Int64 = job.id else {
-            SNLog("[JobRunner] Prevented attempt to upsert \(job.variant) job without id to queue")
+            SNLog("[JobRunner] Prevented attempt to upsert \(job) without id to queue")
             return
         }
         
@@ -1116,7 +1116,7 @@ public final class JobQueue: Hashable {
     
     fileprivate func insert(_ job: Job, before otherJob: Job) {
         guard job.id != nil else {
-            SNLog("[JobRunner] Prevented attempt to insert \(job.variant) job without id to queue")
+            SNLog("[JobRunner] Prevented attempt to insert \(job) without id to queue")
             return
         }
         
@@ -1323,7 +1323,7 @@ public final class JobQueue: Hashable {
         
         // Run the first job in the pendingJobsQueue
         if !wasAlreadyRunning {
-            Log.info("[JobRunner] Starting \(queueContext) with (\(jobCount) job\(jobCount != 1 ? "s" : ""))")
+            Log.info("[JobRunner] Starting \(queueContext) with \(jobCount) jobs")
         }
         runNextJob(using: dependencies)
     }
@@ -1360,7 +1360,7 @@ public final class JobQueue: Hashable {
             return
         }
         guard let jobExecutor: JobExecutor.Type = executorMap.wrappedValue[nextJob.variant] else {
-            SNLog("[JobRunner] \(queueContext) Unable to run \(nextJob.variant) job due to missing executor")
+            SNLog("[JobRunner] \(queueContext) Unable to run \(nextJob) due to missing executor")
             handleJobFailed(
                 nextJob,
                 error: JobRunnerError.executorMissing,
@@ -1370,7 +1370,7 @@ public final class JobQueue: Hashable {
             return
         }
         guard !jobExecutor.requiresThreadId || nextJob.threadId != nil else {
-            SNLog("[JobRunner] \(queueContext) Unable to run \(nextJob.variant) job due to missing required threadId")
+            SNLog("[JobRunner] \(queueContext) Unable to run \(nextJob) due to missing required threadId")
             handleJobFailed(
                 nextJob,
                 error: JobRunnerError.requiredThreadIdMissing,
@@ -1380,7 +1380,7 @@ public final class JobQueue: Hashable {
             return
         }
         guard !jobExecutor.requiresInteractionId || nextJob.interactionId != nil else {
-            SNLog("[JobRunner] \(queueContext) Unable to run \(nextJob.variant) job due to missing required interactionId")
+            SNLog("[JobRunner] \(queueContext) Unable to run \(nextJob) due to missing required interactionId")
             handleJobFailed(
                 nextJob,
                 error: JobRunnerError.requiredInteractionIdMissing,
@@ -1390,7 +1390,7 @@ public final class JobQueue: Hashable {
             return
         }
         guard nextJob.id != nil else {
-            SNLog("[JobRunner] \(queueContext) Unable to run \(nextJob.variant) job due to missing id")
+            SNLog("[JobRunner] \(queueContext) Unable to run \(nextJob) due to missing id")
             handleJobFailed(
                 nextJob,
                 error: JobRunnerError.jobIdMissing,
@@ -1420,7 +1420,7 @@ public final class JobQueue: Hashable {
         .defaulting(to: (0, []))
         
         guard dependencyInfo.jobs.count == dependencyInfo.expectedCount else {
-            SNLog("[JobRunner] \(queueContext) Removing \(nextJob.variant) job due to missing dependencies")
+            SNLog("[JobRunner] \(queueContext) Removing \(nextJob) due to missing dependencies")
             handleJobFailed(
                 nextJob,
                 error: JobRunnerError.missingDependencies,
@@ -1430,7 +1430,7 @@ public final class JobQueue: Hashable {
             return
         }
         guard dependencyInfo.jobs.isEmpty else {
-            SNLog("[JobRunner] \(queueContext) Deferring \(nextJob.variant) job until \(dependencyInfo.jobs.count) dependenc\(dependencyInfo.jobs.count == 1 ? "y" : "ies") are completed")
+            SNLog("[JobRunner] \(queueContext) Deferring \(nextJob) until \(dependencyInfo.jobs.count) dependencies are completed")
                         
             // Enqueue the dependencies then defer the current job
             dependencies.jobRunner.enqueueDependenciesIfNeeded(
@@ -1467,7 +1467,7 @@ public final class JobQueue: Hashable {
                 )
             )
         }
-        SNLog("[JobRunner] \(queueContext) started \(nextJob.variant) job (\(executionType == .concurrent ? "\(numJobsRunning) currently running, " : "")\(numJobsRemaining) remaining)")
+        SNLog("[JobRunner] \(queueContext) started \(nextJob) (\(executionType == .concurrent ? "\(numJobsRunning) currently running, " : "")\(numJobsRemaining) remaining)")
         
         jobExecutor.run(
             nextJob,
@@ -1642,7 +1642,7 @@ public final class JobQueue: Hashable {
         using dependencies: Dependencies
     ) {
         guard dependencies.storage.read(using: dependencies, { db in try Job.exists(db, id: job.id ?? -1) }) == true else {
-            SNLog("[JobRunner] \(queueContext) \(job.variant) job canceled")
+            SNLog("[JobRunner] \(queueContext) \(job) canceled")
             performCleanUp(for: job, result: .failed(error, permanentFailure), using: dependencies)
             
             internalQueue.async(using: dependencies) { [weak self] in
@@ -1655,7 +1655,7 @@ public final class JobQueue: Hashable {
         // immediately (in this case we don't trigger any job callbacks because the
         // job isn't actually done, it's going to try again immediately)
         if self.type == .blocking && job.shouldBlock {
-            SNLog("[JobRunner] \(queueContext) \(job.variant) job failed due to error: \("\(error ?? JobRunnerError.unknown)".noPeriod); retrying immediately")
+            SNLog("[JobRunner] \(queueContext) \(job) failed due to error: \(error ?? JobRunnerError.unknown); retrying immediately")
             
             // If it was a possible deferral loop then we don't actually want to
             // retry the job (even if it's a blocking one, this gives a small chance
@@ -1747,7 +1747,7 @@ public final class JobQueue: Hashable {
             }
         }
         
-        SNLog("[JobRunner] \(queueContext) \(job.variant) job \(failureText)")
+        SNLog("[JobRunner] \(queueContext) \(job) \(failureText)")
         performCleanUp(for: job, result: .failed(error, permanentFailure), using: dependencies)
         internalQueue.async(using: dependencies) { [weak self] in
             self?.runNextJob(using: dependencies)
@@ -1839,6 +1839,19 @@ public final class JobQueue: Hashable {
 }
 
 // MARK: - Formatting
+
+private extension String.StringInterpolation {
+    mutating func appendInterpolation(_ job: Job) {
+        appendLiteral("\(job.variant) job (id: \(job.id ?? -1))") // stringlint:disable
+    }
+    
+    mutating func appendInterpolation(_ job: Job?) {
+        switch job {
+            case .some(let job): appendInterpolation(job)
+            case .none: appendLiteral("null job") // stringlint:disable
+        }
+    }
+}
 
 extension String.StringInterpolation {
     mutating func appendInterpolation(_ variant: Job.Variant?) {

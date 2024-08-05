@@ -115,7 +115,7 @@ public struct SessionThread: Codable, Identifiable, Equatable, FetchableRecord, 
     public init(
         id: String,
         variant: Variant,
-        creationDateTimestamp: TimeInterval = (TimeInterval(SnodeAPI.currentOffsetTimestampMs()) / 1000),
+        creationDateTimestamp: TimeInterval,
         shouldBeVisible: Bool = false,
         isPinned: Bool = false,
         messageDraft: String? = nil,
@@ -158,12 +158,14 @@ public extension SessionThread {
         _ db: Database,
         id: ID,
         variant: Variant,
+        creationDateTimestamp: TimeInterval = (TimeInterval(SnodeAPI.currentOffsetTimestampMs()) / 1000),
         shouldBeVisible: Bool?
     ) throws -> SessionThread {
         guard let existingThread: SessionThread = try? fetchOne(db, id: id) else {
             return try SessionThread(
                 id: id,
                 variant: variant,
+                creationDateTimestamp: creationDateTimestamp,
                 shouldBeVisible: (shouldBeVisible ?? false)
             ).saved(db)
         }
@@ -187,8 +189,12 @@ public extension SessionThread {
         // would result in an infinite loop)
         return (try fetchOne(db, id: id))
             .defaulting(
-                to: try SessionThread(id: id, variant: variant, shouldBeVisible: desiredVisibility)
-                    .saved(db)
+                to: try SessionThread(
+                    id: id,
+                    variant: variant,
+                    creationDateTimestamp: creationDateTimestamp,
+                    shouldBeVisible: desiredVisibility
+                ).saved(db)
             )
     }
     

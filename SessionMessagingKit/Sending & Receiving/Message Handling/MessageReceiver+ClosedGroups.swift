@@ -153,7 +153,13 @@ extension MessageReceiver {
         
         // Create the group
         let thread: SessionThread = try SessionThread
-            .fetchOrCreate(db, id: groupPublicKey, variant: .legacyGroup, shouldBeVisible: true)
+            .fetchOrCreate(
+                db,
+                id: groupPublicKey,
+                variant: .legacyGroup,
+                creationDateTimestamp: (TimeInterval(formationTimestampMs) / 1000),
+                shouldBeVisible: true
+            )
         let closedGroup: ClosedGroup = try ClosedGroup(
             threadId: groupPublicKey,
             name: name,

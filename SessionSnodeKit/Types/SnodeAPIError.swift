@@ -57,9 +57,7 @@ public enum SnodeAPIError: Error, CustomStringConvertible {
             case .ranOutOfRandomSnodes(let maybeError):
                 switch maybeError {
                     case .none: return "Ran out of random snodes (SnodeAPIError.ranOutOfRandomSnodes(nil))."
-                    case .some(let error):
-                        let errorDesc = "\(error)".trimmingCharacters(in: CharacterSet(["."]))
-                        return "Ran out of random snodes (SnodeAPIError.ranOutOfRandomSnodes(\(errorDesc))."
+                    case .some(let error): return "Ran out of random snodes (SnodeAPIError.ranOutOfRandomSnodes(\(error))."
                 }
                 
             // ONS
