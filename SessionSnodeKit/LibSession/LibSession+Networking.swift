@@ -36,11 +36,16 @@ public extension LibSession {
     static var hasPaths: Bool { !lastPaths.wrappedValue.isEmpty }
     static var pathsDescription: String { lastPaths.wrappedValue.prettifiedDescription }
     
-    fileprivate class CallbackWrapper<Output> {
+    internal class CallbackWrapper<Output> {
         public let resultPublisher: CurrentValueSubject<Output?, Error> = CurrentValueSubject(nil)
+        private let callback: ((Output) -> Void)?
         private var pointersToDeallocate: [UnsafeRawPointer?] = []
         
         // MARK: - Initialization
+        
+        init(_ callback: ((Output) -> Void)? = nil) {
+            self.callback = callback
+        }
         
         deinit {
             pointersToDeallocate.forEach { $0?.deallocate() }
@@ -75,9 +80,17 @@ public extension LibSession {
                 return Log.error("[LibSession] CallbackWrapper called with null context.")
             }
             
-            // Dispatch async so we don't block libSession's internals with Swift logic (which can block other requests)
             let wrapper: CallbackWrapper<Output> = Unmanaged<CallbackWrapper<Output>>.fromOpaque(ctx).takeRetainedValue()
-            DispatchQueue.global(qos: .default).async { [wrapper] in wrapper.resultPublisher.send(output) }
+            
+            switch wrapper.callback {
+                case .none:
+                    // Dispatch async so we don't block libSession's internals with Swift logic (which can block other requests)
+                    DispatchQueue.global(qos: .default).async { [wrapper] in wrapper.resultPublisher.send(output) }
+                    
+                case .some(let callback):
+                    // We generally shouldn't use the `callback` method but it's useful for tests
+                    callback(output)
+            }
         }
         
         public func unsafePointer() -> UnsafeMutableRawPointer { Unmanaged.passRetained(self).toOpaque() }
@@ -193,7 +206,7 @@ public extension LibSession {
                             guard
                                 nodesSize > 0,
                                 let cSwarm: UnsafeMutablePointer<network_service_node> = nodesPtr
-                            else { return CallbackWrapper<Output>.run(ctx, .failure(SnodeAPIError.unableToRetrieveSwarm)) }
+                            else { return CallbackWrapper<Output>.run(ctx, .failure(SnodeAPIError.ranOutOfRandomSnodes(nil))) }
                             
                             var nodes: Set<Snode> = []
                             (0..<nodesSize).forEach { index in nodes.insert(Snode(cSwarm[index])) }
@@ -202,9 +215,9 @@ public extension LibSession {
                     }
                     .tryMap { result in
                         switch result {
-                            case .failure(let error): throw error
+                            case .failure(let error): throw SnodeAPIError.ranOutOfRandomSnodes(error)
                             case .success(let nodes):
-                                guard nodes.count >= count else { throw SnodeAPIError.unableToRetrieveSwarm }
+                                guard nodes.count >= count else { throw SnodeAPIError.ranOutOfRandomSnodes(nil) }
                                 
                                 return nodes
                         }
@@ -399,6 +412,10 @@ public extension LibSession {
     private static func getOrCreateNetwork() -> AnyPublisher<UnsafeMutablePointer<network_object>?, Error> {
         guard !isSuspended.wrappedValue else {
             Log.warn("[LibSession] Attempted to access suspended network.")
+            return Fail(error: NetworkError.suspended).eraseToAnyPublisher()
+        }
+        guard Singleton.hasAppContext && (Singleton.appContext.isMainApp || Singleton.appContext.isShareExtension) else {
+            Log.warn("[LibSession] Attempted to create network in invalid extension.")
             return Fail(error: NetworkError.suspended).eraseToAnyPublisher()
         }
         
@@ -606,6 +623,19 @@ extension LibSession {
             ed25519PubkeyHex = String(libSessionVal: cSnode.ed25519_pubkey_hex)
         }
         
+        internal init?(nodeString: String) {
+            let parts: [String] = nodeString.components(separatedBy: "|")
+            
+            guard
+                parts.count == 4,
+                let port: UInt16 = UInt16(parts[1])
+            else { return nil }
+            
+            ip = parts[0]
+            quicPort = port
+            ed25519PubkeyHex = parts[3]
+        }
+        
         public func hash(into hasher: inout Hasher) {
             ip.hash(into: &hasher)
             quicPort.hash(into: &hasher)
@@ -642,7 +672,7 @@ public extension Network.Destination {
     }
 }
 
-private extension LibSession.CallbackWrapper {
+internal extension LibSession.CallbackWrapper {
     func cServerDestination(_ destination: Network.Destination) throws -> network_server_destination {
         guard
             case .server(let url, let method, let headers, let x25519PublicKey) = destination,

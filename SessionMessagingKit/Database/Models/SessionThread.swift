@@ -115,7 +115,7 @@ public struct SessionThread: Codable, Identifiable, Equatable, FetchableRecord, 
     public init(
         id: String,
         variant: Variant,
-        creationDateTimestamp: TimeInterval = (TimeInterval(SnodeAPI.currentOffsetTimestampMs()) / 1000),
+        creationDateTimestamp: TimeInterval,
         shouldBeVisible: Bool = false,
         isPinned: Bool = false,
         messageDraft: String? = nil,
@@ -158,12 +158,14 @@ public extension SessionThread {
         _ db: Database,
         id: ID,
         variant: Variant,
+        creationDateTimestamp: TimeInterval = (TimeInterval(SnodeAPI.currentOffsetTimestampMs()) / 1000),
         shouldBeVisible: Bool?
     ) throws -> SessionThread {
         guard let existingThread: SessionThread = try? fetchOne(db, id: id) else {
             return try SessionThread(
                 id: id,
                 variant: variant,
+                creationDateTimestamp: creationDateTimestamp,
                 shouldBeVisible: (shouldBeVisible ?? false)
             ).saved(db)
         }
@@ -187,8 +189,12 @@ public extension SessionThread {
         // would result in an infinite loop)
         return (try fetchOne(db, id: id))
             .defaulting(
-                to: try SessionThread(id: id, variant: variant, shouldBeVisible: desiredVisibility)
-                    .saved(db)
+                to: try SessionThread(
+                    id: id,
+                    variant: variant,
+                    creationDateTimestamp: creationDateTimestamp,
+                    shouldBeVisible: desiredVisibility
+                ).saved(db)
             )
     }
     
@@ -488,24 +494,11 @@ public extension SessionThread {
         
         // If the thread is a message request then we only want to notify for the first message
         if self.variant == .contact && isMessageRequest {
-            let hasHiddenMessageRequests: Bool = db[.hasHiddenMessageRequests]
-            
-            // If the user hasn't hidden the message requests section then only show the notification if
-            // all the other message request threads have been read
-            if !hasHiddenMessageRequests {
-                let numUnreadMessageRequestThreads: Int = (try? SessionThread
-                    .unreadMessageRequestsCountQuery(userPublicKey: userPublicKey, includeNonVisible: true)
-                    .fetchOne(db))
-                    .defaulting(to: 1)
-                
-                guard numUnreadMessageRequestThreads == 1 else { return false }
-            }
-            
             // We only want to show a notification for the first interaction in the thread
             guard ((try? self.interactions.fetchCount(db)) ?? 0) <= 1 else { return false }
             
             // Need to re-show the message requests section if it had been hidden
-            if hasHiddenMessageRequests {
+            if db[.hasHiddenMessageRequests] {
                 db[.hasHiddenMessageRequests] = false
             }
         }

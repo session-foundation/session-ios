@@ -44,7 +44,8 @@ public final class BackgroundPoller {
             }
             .defaulting(to: ([], []))
         
-        Log.info("[BackgroundPoller] Fetching 1 User, \(groupIds.count) \("group", number: groupIds.count), \(servers.count) \("communit", number: servers.count, singular: "y", plural: "ies").")
+        let pollStart: TimeInterval = dependencies.dateNow.timeIntervalSince1970
+        Log.info("[BackgroundPoller] Fetching Users: 1, Groups: \(groupIds.count), Communities: \(servers.count).")
         Publishers
             .MergeMany(
                 [pollForMessages(using: dependencies)]
@@ -56,7 +57,9 @@ public final class BackgroundPoller {
             .collect()
             .handleEvents(
                 receiveOutput: { _ in
-                    Log.info("[BackgroundPoller] Finished polling.")
+                    let endTime: TimeInterval = dependencies.dateNow.timeIntervalSince1970
+                    let duration: TimeUnit = .seconds(endTime - pollStart)
+                    Log.info("[BackgroundPoller] Finished polling after \(duration, unit: .s).")
                 }
             )
             .sinkUntilComplete(
@@ -67,7 +70,9 @@ public final class BackgroundPoller {
                     switch result {
                         case .finished: completionHandler(.newData)
                         case .failure(let error):
-                            Log.error("[BackgroundPoller] Failed due to error: \(error).")
+                            let endTime: TimeInterval = dependencies.dateNow.timeIntervalSince1970
+                            let duration: TimeUnit = .seconds(endTime - pollStart)
+                            Log.error("[BackgroundPoller] Failed due to error: \(error) after \(duration, unit: .s).")
                             completionHandler(.failed)
                     }
                 }
@@ -76,10 +81,14 @@ public final class BackgroundPoller {
     
     private static func pollForMessages(
         using dependencies: Dependencies
-    ) -> AnyPublisher<Void, Error> {
+    ) -> AnyPublisher<Void, Never> {
         let userPublicKey: String = getUserHexEncodedPublicKey(using: dependencies)
-
-        return CurrentUserPoller().poll(
+        
+        let poller: Poller = CurrentUserPoller()
+        let pollerName: String = poller.pollerName(for: userPublicKey)
+        let pollStart: TimeInterval = dependencies.dateNow.timeIntervalSince1970
+        
+        return poller.poll(
             namespaces: CurrentUserPoller.namespaces,
             for: userPublicKey,
             calledFromBackgroundPoller: true,
@@ -89,21 +98,37 @@ public final class BackgroundPoller {
         )
         .handleEvents(
             receiveOutput: { _, _, validMessageCount, _ in
-                Log.info("[BackgroundPoller] Received \(validMessageCount) valid \("message", number: validMessageCount).")
+                let endTime: TimeInterval = dependencies.dateNow.timeIntervalSince1970
+                let duration: TimeUnit = .seconds(endTime - pollStart)
+                Log.info("[BackgroundPoller] \(pollerName) received \(validMessageCount) valid message(s) after \(duration, unit: .s).")
+            },
+            receiveCompletion: { result in
+                switch result {
+                    case .finished: break
+                    case .failure(let error):
+                        let endTime: TimeInterval = dependencies.dateNow.timeIntervalSince1970
+                        let duration: TimeUnit = .seconds(endTime - pollStart)
+                        Log.error("[BackgroundPoller] \(pollerName) failed after \(duration, unit: .s) due to error: \(error).")
+                }
             }
         )
         .map { _ in () }
+        .catch { _ in Just(()).eraseToAnyPublisher() }
         .eraseToAnyPublisher()
     }
     
     private static func pollForClosedGroupMessages(
         groupIds: Set<String>,
         using dependencies: Dependencies
-    ) -> [AnyPublisher<Void, Error>] {
+    ) -> [AnyPublisher<Void, Never>] {
         // Fetch all closed groups (excluding any don't contain the current user as a
         // GroupMemeber as the user is no longer a member of those)
         return groupIds.map { groupPublicKey in
-            return ClosedGroupPoller()
+            let poller: Poller = ClosedGroupPoller()
+            let pollerName: String = poller.pollerName(for: groupPublicKey)
+            let pollStart: TimeInterval = dependencies.dateNow.timeIntervalSince1970
+            
+            return poller
                 .poll(
                     namespaces: ClosedGroupPoller.namespaces,
                     for: groupPublicKey,
@@ -114,10 +139,22 @@ public final class BackgroundPoller {
                 )
                 .handleEvents(
                     receiveOutput: { _, _, validMessageCount, _ in
-                        Log.info("[BackgroundPoller] Received \(validMessageCount) valid \("message", number: validMessageCount) for group: \(groupPublicKey).")
+                        let endTime: TimeInterval = dependencies.dateNow.timeIntervalSince1970
+                        let duration: TimeUnit = .seconds(endTime - pollStart)
+                        Log.info("[BackgroundPoller] \(pollerName) received \(validMessageCount) valid message(s) after \(duration, unit: .s).")
+                    },
+                    receiveCompletion: { result in
+                        switch result {
+                            case .finished: break
+                            case .failure(let error):
+                                let endTime: TimeInterval = dependencies.dateNow.timeIntervalSince1970
+                                let duration: TimeUnit = .seconds(endTime - pollStart)
+                                Log.error("[BackgroundPoller] \(pollerName) failed after \(duration, unit: .s) due to error: \(error).")
+                        }
                     }
                 )
                 .map { _ in () }
+                .catch { _ in Just(()).eraseToAnyPublisher() }
                 .eraseToAnyPublisher()
         }
     }
@@ -125,9 +162,11 @@ public final class BackgroundPoller {
     private static func pollForCommunityMessages(
         servers: Set<String>,
         using dependencies: Dependencies
-    ) -> [AnyPublisher<Void, Error>] {
-        return servers.map { server -> AnyPublisher<Void, Error> in
+    ) -> [AnyPublisher<Void, Never>] {
+        return servers.map { server -> AnyPublisher<Void, Never> in
             let poller: OpenGroupAPI.Poller = OpenGroupAPI.Poller(for: server)
+            let pollerName: String = "Community poller for server: \(server)"
+            let pollStart: TimeInterval = dependencies.dateNow.timeIntervalSince1970
             poller.stop()
             
             return poller.poll(
@@ -136,6 +175,25 @@ public final class BackgroundPoller {
                 isPostCapabilitiesRetry: false,
                 using: dependencies
             )
+            .handleEvents(
+                receiveOutput: { _ in
+                    let endTime: TimeInterval = dependencies.dateNow.timeIntervalSince1970
+                    let duration: TimeUnit = .seconds(endTime - pollStart)
+                    Log.info("[BackgroundPoller] \(pollerName) succeeded after \(duration, unit: .s).")
+                },
+                receiveCompletion: { result in
+                    switch result {
+                        case .finished: break
+                        case .failure(let error):
+                            let endTime: TimeInterval = dependencies.dateNow.timeIntervalSince1970
+                            let duration: TimeUnit = .seconds(endTime - pollStart)
+                            Log.error("[BackgroundPoller] \(pollerName) failed after \(duration, unit: .s) due to error: \(error).")
+                    }
+                }
+            )
+            .map { _ in () }
+            .catch { _ in Just(()).eraseToAnyPublisher() }
+            .eraseToAnyPublisher()
         }
     }
 }

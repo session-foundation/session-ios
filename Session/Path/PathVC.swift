@@ -1,6 +1,7 @@
 // Copyright © 2022 Rangeproof Pty Ltd. All rights reserved.
 
 import UIKit
+import Combine
 import NVActivityIndicatorView
 import SessionMessagingKit
 import SessionUIKit
@@ -13,8 +14,8 @@ final class PathVC: BaseVC {
     private static let rowHeight: CGFloat = (isIPhone5OrSmaller ? 52 : 75)
     
     private var pathUpdateId: UUID?
-    private var cacheUpdateId: UUID?
     private var lastPath: [LibSession.Snode] = []
+    private var disposables: Set<AnyCancellable> = Set()
 
     // MARK: - Components
     
@@ -56,7 +57,6 @@ final class PathVC: BaseVC {
     
     deinit {
         LibSession.removeNetworkChangedCallback(callbackId: pathUpdateId)
-        IP2Country.removeCacheLoadedCallback(id: cacheUpdateId)
     }
     
     override func viewDidLoad() {
@@ -127,11 +127,15 @@ final class PathVC: BaseVC {
         }
         
         // Register for path country updates
-        cacheUpdateId = IP2Country.onCacheLoaded { [weak self] in
-            DispatchQueue.main.async {
-                self?.update(paths: (self?.lastPath.map { [$0] } ?? []), force: true)
-            }
-        }
+        IP2Country.cacheLoaded
+            .receive(on: DispatchQueue.main)
+            .sink(receiveValue: { [weak self] _ in
+                switch (self?.lastPath, self?.lastPath.isEmpty == true) {
+                    case (.none, _), (_, true): self?.update(paths: [], force: true)
+                    case (.some(let lastPath), _): self?.update(paths: [lastPath], force: true)
+                }
+            })
+            .store(in: &disposables)
     }
 
     // MARK: - Updating
@@ -226,17 +230,12 @@ final class PathVC: BaseVC {
     }
 
     private func getPathRow(snode: LibSession.Snode, location: LineView.Location, dotAnimationStartDelay: Double, dotAnimationRepeatInterval: Double, isGuardSnode: Bool) -> UIStackView {
-        let country: String = (IP2Country.isInitialized.wrappedValue ?
-            IP2Country.countryNamesCache.wrappedValue[snode.ip].defaulting(to: "Resolving...") :
-            "Resolving..."
-        )
-        
         return getPathRow(
             title: (isGuardSnode ?
                 "vc_path_guard_node_row_title".localized() :
                 "vc_path_service_node_row_title".localized()
             ),
-            subtitle: country,
+            subtitle: IP2Country.country(for: snode.ip),
             location: location,
             dotAnimationStartDelay: dotAnimationStartDelay,
             dotAnimationRepeatInterval: dotAnimationRepeatInterval

@@ -203,6 +203,11 @@ public class SessionCell: UITableViewCell {
         botSeparatorLeftConstraint = botSeparator.pin(.left, to: .left, of: cellBackgroundView)
         botSeparatorRightConstraint = botSeparator.pin(.right, to: .right, of: cellBackgroundView)
         botSeparator.pin(.bottom, to: .bottom, of: cellBackgroundView)
+        
+        // Explicitly call this to ensure we have initialised the constraints before we initially
+        // layout (if we don't do this then some constraints get created for the first time when
+        // updating the cell before the `isActive` value gets set, resulting in breaking constriants)
+        prepareForReuse()
     }
     
     public override func layoutSubviews() {

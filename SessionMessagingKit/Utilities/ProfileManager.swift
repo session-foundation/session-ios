@@ -28,11 +28,15 @@ public struct ProfileManager {
     
     // MARK: - Functions
     
-    public static func isToLong(profileName: String) -> Bool {
-        return (profileName.utf8CString.count > LibSession.libSessionMaxNameByteLength)
+    public static func isTooLong(profileName: String) -> Bool {
+        ///String.utf8CString will include the null terminator (Int8)0 as the end of string buffer.
+        ///When the string is exactly 100 bytes String.utf8CString.count will be 101.
+        ///However in LibSession, the Contact C API supports 101 characters in order to account for
+        ///the null terminator - char name[101]. So it is OK to use String.utf8.count
+        return (profileName.utf8.count > LibSession.libSessionMaxNameByteLength)
     }
     
-    public static func isToLong(profileUrl: String) -> Bool {
+    public static func isTooLong(profileUrl: String) -> Bool {
         return (profileUrl.utf8CString.count > LibSession.libSessionMaxProfileUrlByteLength)
     }
     
@@ -210,7 +214,7 @@ public struct ProfileManager {
         let filePath: String = ProfileManager.profileAvatarFilepath(filename: fileName)
         var backgroundTask: OWSBackgroundTask? = OWSBackgroundTask(label: funcName)
         
-        Log.trace("downloading profile avatar: \(profile.id)")
+        Log.verbose("downloading profile avatar: \(profile.id)")
         currentAvatarDownloads.mutate { $0.insert(profile.id) }
         
         LibSession
@@ -578,7 +582,8 @@ public struct ProfileManager {
         }
         
         // Download the profile picture if needed
-        guard avatarNeedsDownload else { return }
+        // FIXME: We don't want to trigger the download within the notification extension, as part of the groups rebuild this has been moved into a Job which won't be run so this logic can be removed
+        guard avatarNeedsDownload && Singleton.hasAppContext && Singleton.appContext.isMainApp else { return }
         
         let dedupeIdentifier: String = "AvatarDownload-\(publicKey)-\(targetAvatarUrl ?? "remove")" // stringlint:disable
         

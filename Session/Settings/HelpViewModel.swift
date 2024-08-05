@@ -73,7 +73,7 @@ class HelpViewModel: SessionTableViewModel, NavigatableStateHolder, ObservableTa
                         size: .small
                     ),
                     onTap: {
-                        guard let url: URL = URL(string: "https://crowdin.com/project/session-ios") else {
+                        guard let url: URL = URL(string: "https://getsession.org/translate") else {
                             return
                         }
                         
@@ -174,6 +174,50 @@ class HelpViewModel: SessionTableViewModel, NavigatableStateHolder, ObservableTa
     // MARK: - Functions
     
     public static func shareLogs(
+        viewControllerToDismiss: UIViewController? = nil,
+        targetView: UIView? = nil,
+        animated: Bool = true,
+        onShareComplete: (() -> ())? = nil
+    ) {
+        guard
+            let latestLogFilePath: String = Log.logFilePath(),
+            Singleton.hasAppContext,
+            let viewController: UIViewController = Singleton.appContext.frontmostViewController
+        else { return }
+        
+        #if targetEnvironment(simulator)
+        let modal: ConfirmationModal = ConfirmationModal(
+            info: ConfirmationModal.Info(
+                title: "Export Logs",      // stringlint:disable
+                body: .text(
+                    "How would you like to export the logs?\n\n(This modal only appears on the Simulator)" // stringlint:disable
+                ),
+                confirmTitle: "Copy Path", // stringlint:disable
+                cancelTitle: "Share",      // stringlint:disable
+                cancelStyle: .alert_text,
+                onConfirm: { _ in UIPasteboard.general.string = latestLogFilePath },
+                onCancel: { _ in
+                    HelpViewModel.shareLogsInternal(
+                        viewControllerToDismiss: viewControllerToDismiss,
+                        targetView: targetView,
+                        animated: animated,
+                        onShareComplete: onShareComplete
+                    )
+                }
+            )
+        )
+        viewController.present(modal, animated: animated, completion: nil)
+        #else
+        HelpViewModel.shareLogsInternal(
+            viewControllerToDismiss: viewControllerToDismiss,
+            targetView: targetView,
+            animated: animated,
+            onShareComplete: onShareComplete
+        )
+        #endif
+    }
+    
+    private static func shareLogsInternal(
         viewControllerToDismiss: UIViewController? = nil,
         targetView: UIView? = nil,
         animated: Bool = true,

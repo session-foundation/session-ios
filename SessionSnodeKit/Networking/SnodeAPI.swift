@@ -51,6 +51,8 @@ public final class SnodeAPI {
         refreshingConfigHashes: [String] = [],
         from snode: LibSession.Snode,
         swarmPublicKey: String,
+        calledFromBackgroundPoller: Bool,
+        isBackgroundPollValid: @escaping (() -> Bool),
         using dependencies: Dependencies
     ) -> AnyPublisher<[SnodeAPI.Namespace: (info: ResponseInfoType, data: (messages: [SnodeReceivedMessage], lastHash: String?)?)], Error> {
         guard let userED25519KeyPair = Identity.fetchUserEd25519KeyPair() else {
@@ -184,7 +186,11 @@ public final class SnodeAPI {
                         /// Since we have extended the TTL for a number of messages we need to make sure we update the local
                         /// `SnodeReceivedMessageInfo.expirationDateMs` values so we don't end up deleting them
                         /// incorrectly before they actually expire on the swarm
+                        ///
+                        /// **Note:** If this was triggered from a background poll which is no longer valid then don't bother trying
+                        /// to write the changes (the database will be suspended)
                         if
+                            (!calledFromBackgroundPoller || isBackgroundPollValid()),
                             !refreshingConfigHashes.isEmpty,
                             let refreshTTLSubReponse: Network.BatchSubResponse<UpdateExpiryResponse> = batchResponse
                                 .first(where: { $0 is Network.BatchSubResponse<UpdateExpiryResponse> })
@@ -414,7 +420,6 @@ public final class SnodeAPI {
                                 )
                             }
                             .send(using: dependencies)
-                            .retry(4)
                             .map { _, sessionId in sessionId }
                             .eraseToAnyPublisher()
                     }
