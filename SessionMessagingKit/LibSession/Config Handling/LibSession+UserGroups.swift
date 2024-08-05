@@ -226,9 +226,9 @@ internal extension LibSession {
             let joinedAt: TimeInterval = {
                 guard let value: Int64 = group.joinedAt else { return 0 }
                 
-                if value > 9_000_000_000_000 {  // Microseconds (after May 1973)
+                if value > 9_000_000_000_000 {  // Microseconds
                     return (Double(value) / 1_000_000)
-                } else if value > 9_000_000_000 {  // Milliseconds (after September 2001)
+                } else if value > 9_000_000_000 {  // Milliseconds
                     return (Double(value) / 1000)
                 }
                 

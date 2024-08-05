@@ -1084,10 +1084,7 @@ public enum PagedData {
             // No need to do anything if there were no changes
             guard !changeset.isEmpty else { return }
             
-            // Need to send an event with the changes and then a second event to clear out the `StagedChangeset`
-            // value otherwise resubscribing will result with the changes coming through a second time
             valueSubject?.send((updatedData, changeset))
-            valueSubject?.send((updatedData, StagedChangeset()))
         }
         
         // No need to dispatch to the next run loop if we are already on the main thread

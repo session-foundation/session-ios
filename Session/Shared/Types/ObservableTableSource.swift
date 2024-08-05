@@ -186,14 +186,17 @@ public enum ObservationBuilder {
         return TableObservation { viewModel, dependencies in
             subject
                 .withPrevious(([], StagedChangeset()))
-                .filter { prev, next in
-                    /// Suppress events with no changes (these will be sent in order to clear out the `StagedChangeset` value as if we
-                    /// don't do so then resubscribing will result in an attempt to apply an invalid changeset to the `tableView` resulting
-                    /// in a crash)
-                    !next.1.isEmpty
-                }
+                .handleEvents(
+                    receiveCancel: {
+                        /// When we unsubscribe we send through the existing data but clear out the `StagedChangeset` value
+                        /// so that resubscribing doesn't result in the UI trying to reapply the same changeset (which would cause a
+                        /// crash due to invalid table view changes)
+                        subject.send((subject.value.0, StagedChangeset()))
+                    }
+                )
                 .map { _, current -> ([T], StagedChangeset<[T]>) in current }
                 .setFailureType(to: Error.self)
+                .shareReplay(1)
                 .eraseToAnyPublisher()
         }
     }
