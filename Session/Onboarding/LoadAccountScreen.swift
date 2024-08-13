@@ -13,6 +13,12 @@ struct LoadAccountScreen: View {
     @State private var recoveryPassword: String = ""
     @State private var hexEncodedSeed: String = ""
     @State private var errorString: String? = nil
+    
+    private let dependencies: Dependencies
+    
+    public init(using dependencies: Dependencies) {
+        self.dependencies = dependencies
+    }
         
     var body: some View {
         ZStack(alignment: .topLeading) {
@@ -61,7 +67,8 @@ struct LoadAccountScreen: View {
             .preregister(
                 with: seed,
                 ed25519KeyPair: ed25519KeyPair,
-                x25519KeyPair: x25519KeyPair
+                x25519KeyPair: x25519KeyPair,
+                using: dependencies
             )
         
         DispatchQueue.main.asyncAfter(deadline: .now() + 1) {
@@ -69,7 +76,9 @@ struct LoadAccountScreen: View {
         }
         
         // Otherwise continue on to request push notifications permissions
-        let viewController: SessionHostingViewController = SessionHostingViewController(rootView: PNModeScreen(flow: .recover))
+        let viewController: SessionHostingViewController = SessionHostingViewController(
+            rootView: PNModeScreen(flow: .recover, using: dependencies)
+        )
         viewController.setUpNavBarSessionIcon()
         viewController.setUpClearDataBackButton(flow: .recover)
         self.host.controller?.navigationController?.setViewControllers([viewController], animated: true)
@@ -211,6 +220,6 @@ struct EnterRecoveryPasswordScreen: View{
 
 struct LoadAccountView_Previews: PreviewProvider {
     static var previews: some View {
-        LoadAccountScreen()
+        LoadAccountScreen(using: Dependencies())
     }
 }

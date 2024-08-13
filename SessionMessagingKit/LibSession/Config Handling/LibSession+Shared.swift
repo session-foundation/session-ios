@@ -9,6 +9,14 @@ import SessionUtilitiesKit
 
 // MARK: - Convenience
 
+public extension LibSession {
+    /// A `0` `priority` value indicates visible, but not pinned
+    static let visiblePriority: Int32 = 0
+    
+    /// A negative `priority` value indicates hidden
+    static let hiddenPriority: Int32 = -1
+}
+
 internal extension LibSession {
     /// This is a buffer period within which we will process messages which would result in a config change, any message which would normally
     /// result in a config change which was sent before `lastConfigMessage.timestamp - configChangeBufferPeriod` will not
@@ -33,12 +41,6 @@ internal extension LibSession {
         
         return !allColumnsThatTriggerConfigUpdate.isDisjoint(with: targetColumns)
     }
-    
-    /// A `0` `priority` value indicates visible, but not pinned
-    static let visiblePriority: Int32 = 0
-    
-    /// A negative `priority` value indicates hidden
-    static let hiddenPriority: Int32 = -1
     
     static func shouldBeVisible(priority: Int32) -> Bool {
         return (priority >= LibSession.visiblePriority)

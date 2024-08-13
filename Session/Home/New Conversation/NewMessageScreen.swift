@@ -96,20 +96,11 @@ struct NewMessageScreen: View {
                                 modalActivityIndicator.dismiss {
                                     let message: String = {
                                         switch error {
-                                            case SnodeAPIError.onsDecryptionFailed, SnodeAPIError.onsHashingFailed,
-                                                SnodeAPIError.onsValidationFailed:
-                                                return "onsErrorUnableToSearch".localized()
                                             case SnodeAPIError.onsNotFound:
                                                 return "onsErrorNotRecognized".localized()
-                                            case is NetworkError:
+                                            default:
                                                 return "onsErrorUnableToSearch".localized()
-                                            default: break
                                         }
-                                        
-                                        return (maybeSessionId?.prefix == .blinded15 || maybeSessionId?.prefix == .blinded25 ?
-                                            "accountIdErrorInvalid".localized() :
-                                            "onsErrorNotRecognized".localized()
-                                        )
                                     }()
                                     
                                     errorString = message
@@ -152,8 +143,8 @@ struct EnterAccountIdScreen: View {
                 placeholder: "accountIdOrOnsEnter".localized(),
                 error: $error, 
                 accessibility: Accessibility(
-                    identifier: "Session ID input box",
-                    label: "Session ID input box"
+                    identifier: "Session id input box",
+                    label: "Session id input box"
                 )
             ) {
                 ZStack {

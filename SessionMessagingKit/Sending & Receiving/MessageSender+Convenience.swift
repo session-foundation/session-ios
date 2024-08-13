@@ -170,24 +170,32 @@ extension MessageSender {
                         attachments
                             .map { attachment -> AnyPublisher<String?, Error> in
                                 attachment
-                                    .upload(
-                                        to: (
-                                            openGroup.map { Attachment.Destination.openGroup($0) } ??
-                                            .fileServer
-                                        ),
-                                        using: dependencies
-                                    )
+                                    .upload(to: (openGroup.map { .openGroup($0) } ?? .fileServer), using: dependencies)
                             }
                     )
                     .collect()
                     .eraseToAnyPublisher()
             }
-            .map { results -> PreparedSendData in
+            .flatMap { results -> AnyPublisher<PreparedSendData, Error> in
                 // Once the attachments are processed then update the PreparedSendData with
                 // the fileIds associated to the message
                 let fileIds: [String] = results.compactMap { result -> String? in Attachment.fileId(for: result) }
                 
-                return preparedSendData.with(fileIds: fileIds)
+                // We need to regenerate the 'PreparedSendData' because otherwise the `SnodeMessage` won't
+                // contain the attachment data
+                return dependencies.storage
+                    .writePublisher { db in
+                        try MessageSender.preparedSendData(
+                            db,
+                            message: preparedSendData.message,
+                            to: preparedSendData.destination,
+                            namespace: preparedSendData.destination.defaultNamespace,
+                            interactionId: preparedSendData.interactionId,
+                            using: dependencies
+                        )
+                    }
+                    .map { updatedData -> PreparedSendData in updatedData.with(fileIds: fileIds) }
+                    .eraseToAnyPublisher()
             }
             .eraseToAnyPublisher()
     }

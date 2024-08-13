@@ -541,7 +541,11 @@ extension ConversationVC:
                     if self?.viewModel.threadData.threadShouldBeVisible == false {
                         _ = try SessionThread
                             .filter(id: threadId)
-                            .updateAllAndConfig(db, SessionThread.Columns.shouldBeVisible.set(to: true))
+                            .updateAllAndConfig(
+                                db,
+                                SessionThread.Columns.shouldBeVisible.set(to: true),
+                                SessionThread.Columns.pinnedPriority.set(to: LibSession.visiblePriority)
+                            )
                     }
                     
                     // Insert the interaction and associated it with the optimistically inserted message so
@@ -1092,7 +1096,9 @@ extension ConversationVC:
                     attachment.isMicrosoftDoc ||
                     attachment.contentType == OWSMimeTypeApplicationPdf
                 {
-                    
+                    // FIXME: If given an invalid text file (eg with binary data) this hangs forever
+                    // Note: I tried dispatching after a short delay, detecting that the new UI is invalid and dismissing it
+                    // if so but the dismissal didn't work (we may have to wait on Apple to handle this one)
                     let interactionController: UIDocumentInteractionController = UIDocumentInteractionController(url: fileUrl)
                     interactionController.delegate = self
                     interactionController.presentPreview(animated: true)

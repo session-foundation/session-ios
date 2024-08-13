@@ -60,7 +60,6 @@ extension OpenGroupAPI {
             
             let server: String = self.server
             let originalRecursiveLoopId: UUID = self.recursiveLoopId
-            let lastPollStart: TimeInterval = dependencies.dateNow.timeIntervalSince1970
             
             poll(using: dependencies)
                 .subscribe(on: Threading.communityPollerQueue, using: dependencies)
@@ -77,27 +76,15 @@ extension OpenGroupAPI {
                             }
                             .defaulting(to: 0)
                         
-                        // Calculate the remaining poll delay
-                        let currentTime: TimeInterval = dependencies.dateNow.timeIntervalSince1970
+                        // Calculate the next poll delay
                         let nextPollInterval: TimeInterval = Poller.getInterval(
                             for: TimeInterval(minPollFailureCount),
                             minInterval: Poller.minPollInterval,
                             maxInterval: Poller.maxPollInterval
                         )
-                        let remainingInterval: TimeInterval = max(0, nextPollInterval - (currentTime - lastPollStart))
                         
                         // Schedule the next poll
-                        guard remainingInterval > 0 else {
-                            return Threading.communityPollerQueue.async(using: dependencies) {
-                                // If we started a new recursive loop then we don't want to double up so just let this
-                                // one stop looping
-                                guard originalRecursiveLoopId == self?.recursiveLoopId else { return }
-                                
-                                self?.pollRecursively(using: dependencies)
-                            }
-                        }
-                        
-                        Threading.communityPollerQueue.asyncAfter(deadline: .now() + .milliseconds(Int(remainingInterval * 1000)), qos: .default, using: dependencies) {
+                        Threading.communityPollerQueue.asyncAfter(deadline: .now() + .milliseconds(Int(nextPollInterval * 1000)), qos: .default, using: dependencies) {
                             // If we started a new recursive loop then we don't want to double up so just let this
                             // one stop looping
                             guard originalRecursiveLoopId == self?.recursiveLoopId else { return }

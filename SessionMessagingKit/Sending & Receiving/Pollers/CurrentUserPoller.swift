@@ -47,20 +47,15 @@ public final class CurrentUserPoller: Poller {
     
     // MARK: - Abstract Methods
     
-    override func pollerName(for publicKey: String) -> String {
+    override public func pollerName(for publicKey: String) -> String {
         return "Main Poller" // stringlint:disable
     }
     
     override func nextPollDelay(for publicKey: String, using dependencies: Dependencies) -> TimeInterval {
         let failureCount: TimeInterval = TimeInterval(failureCount.wrappedValue[publicKey] ?? 0)
         
-        // If there have been no failures then just use the 'minPollInterval'
-        guard failureCount > 0 else { return pollInterval }
-        
-        // Otherwise use a simple back-off with the 'retryInterval'
-        let nextDelay: TimeInterval = (retryInterval * (failureCount * 1.2))
-                                       
-        return min(maxRetryInterval, nextDelay)
+        // Scale the poll delay based on the number of failures
+        return min(maxRetryInterval, pollInterval + (retryInterval * (failureCount * 1.2)))
     }
     
     override func handlePollError(_ error: Error, for publicKey: String, using dependencies: Dependencies) -> PollerErrorResponse {

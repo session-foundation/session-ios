@@ -37,7 +37,8 @@ class OpenGroupManagerSpec: QuickSpec {
         )
         @TestState var testGroupThread: SessionThread! = SessionThread(
             id: OpenGroup.idFor(roomToken: "testRoom", server: "testServer"),
-            variant: .community
+            variant: .community,
+            creationDateTimestamp: 0
         )
         @TestState var testOpenGroup: OpenGroup! = OpenGroup(
             server: "testServer",
@@ -96,23 +97,6 @@ class OpenGroupManagerSpec: QuickSpec {
             ).base64EncodedString()
         )
         
-        @TestState var mockStorage: Storage! = SynchronousStorage(
-            customWriter: try! DatabaseQueue(),
-            migrationTargets: [
-                SNUtilitiesKit.self,
-                SNMessagingKit.self
-            ],
-            initialData: { db in
-                try Identity(variant: .x25519PublicKey, data: Data.data(fromHex: TestConstants.publicKey)!).insert(db)
-                try Identity(variant: .x25519PrivateKey, data: Data.data(fromHex: TestConstants.privateKey)!).insert(db)
-                try Identity(variant: .ed25519PublicKey, data: Data.data(fromHex: TestConstants.edPublicKey)!).insert(db)
-                try Identity(variant: .ed25519SecretKey, data: Data.data(fromHex: TestConstants.edSecretKey)!).insert(db)
-                
-                try testGroupThread.insert(db)
-                try testOpenGroup.insert(db)
-                try Capability(openGroupServer: testOpenGroup.server, variant: .sogs, isMissing: false).insert(db)
-            }
-        )
         @TestState var mockNetwork: MockNetwork! = MockNetwork()
         @TestState var mockCrypto: MockCrypto! = MockCrypto(
             initialSetup: { crypto in
@@ -206,7 +190,7 @@ class OpenGroupManagerSpec: QuickSpec {
             .setting(cache: .general, to: mockGeneralCache)
             .setting(cache: .openGroupManager, to: mockOGMCache)
         @TestState var dependencies: Dependencies! = Dependencies(
-            storage: mockStorage,
+            storage: nil,
             network: mockNetwork,
             crypto: mockCrypto,
             standardUserDefaults: mockUserDefaults,
@@ -214,6 +198,29 @@ class OpenGroupManagerSpec: QuickSpec {
             dateNow: Date(timeIntervalSince1970: 1234567890),
             forceSynchronous: true
         )
+        @TestState var mockStorage: Storage! = {
+            let result = SynchronousStorage(
+                customWriter: try! DatabaseQueue(),
+                migrationTargets: [
+                    SNUtilitiesKit.self,
+                    SNMessagingKit.self
+                ],
+                initialData: { db in
+                    try Identity(variant: .x25519PublicKey, data: Data.data(fromHex: TestConstants.publicKey)!).insert(db)
+                    try Identity(variant: .x25519PrivateKey, data: Data.data(fromHex: TestConstants.privateKey)!).insert(db)
+                    try Identity(variant: .ed25519PublicKey, data: Data.data(fromHex: TestConstants.edPublicKey)!).insert(db)
+                    try Identity(variant: .ed25519SecretKey, data: Data.data(fromHex: TestConstants.edSecretKey)!).insert(db)
+                    
+                    try testGroupThread.insert(db)
+                    try testOpenGroup.insert(db)
+                    try Capability(openGroupServer: testOpenGroup.server, variant: .sogs, isMissing: false).insert(db)
+                },
+                using: dependencies
+            )
+            dependencies.storage = result
+            
+            return result
+        }()
         @TestState var disposables: [AnyCancellable]! = []
         
         @TestState var cache: OpenGroupManager.Cache! = OpenGroupManager.Cache()
