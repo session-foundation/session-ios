@@ -63,6 +63,7 @@ final class JoinOpenGroupVC: BaseVC, UIPageViewControllerDataSource, UIPageViewC
         
         setNavBarTitle("communityJoin".localized())
         view.themeBackgroundColor = .newConversation_background
+        let navBarHeight: CGFloat = (navigationController?.navigationBar.frame.size.height ?? 0)
         
         let closeButton = UIBarButtonItem(image: #imageLiteral(resourceName: "X"), style: .plain, target: self, action: #selector(close))
         closeButton.themeTintColor = .textPrimary
@@ -78,7 +79,7 @@ final class JoinOpenGroupVC: BaseVC, UIPageViewControllerDataSource, UIPageViewC
         // Tab bar
         view.addSubview(tabBar)
         tabBar.pin(.leading, to: .leading, of: view)
-        tabBar.pin(.top, to: .top, of: view)
+        tabBar.pin(.top, to: .top, of: view, withInset: navBarHeight)
         tabBar.pin(.trailing, to: .trailing, of: view)
         
         // Page VC constraints
@@ -89,7 +90,6 @@ final class JoinOpenGroupVC: BaseVC, UIPageViewControllerDataSource, UIPageViewC
         pageVCView.pin(.trailing, to: .trailing, of: view)
         pageVCView.pin(.bottom, to: .bottom, of: view)
         
-        let navBarHeight: CGFloat = (navigationController?.navigationBar.frame.size.height ?? 0)
         let statusBarHeight: CGFloat = UIApplication.shared.statusBarFrame.size.height
         let height: CGFloat = ((navigationController?.view.bounds.height ?? 0) - navBarHeight - TabBar.snHeight - statusBarHeight)
         let size: CGSize = CGSize(width: UIScreen.main.bounds.width, height: height)

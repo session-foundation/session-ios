@@ -11,14 +11,6 @@ final class ScanQRCodeWrapperVC: BaseVC {
     
     // MARK: - Lifecycle
     
-    required init?(coder: NSCoder) {
-        preconditionFailure("Use init(message:) instead.")
-    }
-    
-    override init(nibName: String?, bundle: Bundle?) {
-        preconditionFailure("Use init(message:) instead.")
-    }
-    
     override func viewDidLoad() {
         super.viewDidLoad()
         
