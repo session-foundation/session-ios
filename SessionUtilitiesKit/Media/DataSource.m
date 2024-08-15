@@ -124,6 +124,7 @@ NS_ASSUME_NONNULL_BEGIN
     instance.dataValue = data;
     instance.fileExtension = fileExtension;
     instance.shouldDeleteOnDeallocation = YES;
+    instance.uniqueId = [NSUUID UUID];
     return instance;
 }
 
@@ -246,6 +247,7 @@ NS_ASSUME_NONNULL_BEGIN
     DataSourcePath *instance = [DataSourcePath new];
     instance.filePath = fileUrl.path;
     instance.shouldDeleteOnDeallocation = shouldDeleteOnDeallocation;
+    instance.uniqueId = [NSUUID UUID];
     return instance;
 }
 
@@ -259,6 +261,7 @@ NS_ASSUME_NONNULL_BEGIN
     DataSourcePath *instance = [DataSourcePath new];
     instance.filePath = filePath;
     instance.shouldDeleteOnDeallocation = shouldDeleteOnDeallocation;
+    instance.uniqueId = [NSUUID UUID];
     return instance;
 }
 
