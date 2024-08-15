@@ -935,19 +935,13 @@ extension ConversationVC:
         
         // If it's an incoming media message and the thread isn't trusted then show the placeholder view
         if cellViewModel.cellType != .textOnlyMessage && cellViewModel.variant == .standardIncoming && !cellViewModel.threadIsTrusted {
-            let message: String = "attachmentsAutoDownloadModalDescription"
+            let message: NSAttributedString = "attachmentsAutoDownloadModalDescription"
                 .put(key: "conversation_name", value: cellViewModel.authorName)
-                .localized()
+                .localizedFormatted(baseFont: .systemFont(ofSize: Values.smallFontSize))
             let confirmationModal: ConfirmationModal = ConfirmationModal(
                 info: ConfirmationModal.Info(
                     title: "attachmentsAutoDownloadModalTitle".localized(),
-                    body: .attributedText(
-                        NSAttributedString(string: message)
-                            .adding(
-                                attributes: [ .font: UIFont.boldSystemFont(ofSize: Values.smallFontSize) ],
-                                range: (message as NSString).range(of: cellViewModel.authorName)
-                            )
-                    ),
+                    body: .attributedText(message),
                     confirmTitle: "download".localized(),
                     confirmAccessibility: Accessibility(identifier: "Download media"),
                     cancelAccessibility: Accessibility(identifier: "Don't download media"),
