@@ -49,18 +49,7 @@ public extension LibSession {
         }
     }
     
-    // MARK: - Configs
-    
-    // FIXME: This is a temporary work-around for fixing the database unit tests (it's done properly in the Groups Rebuild branch but would require too many changes to pull across properly)
-    static func config(for variant: ConfigDump.Variant, publicKey: String) -> Atomic<UnsafeMutablePointer<config_object>?> {
-        return LibSession.dependencies.wrappedValue.caches[.libSession]
-            .config(for: variant, publicKey: publicKey)
-    }
-    
     // MARK: - Variables
-    
-    // FIXME: This is a temporary work-around for fixing the database unit tests (it's done properly in the Groups Rebuild branch but would require too many changes to pull across properly)
-    private static var dependencies: Atomic<Dependencies> = Atomic(Dependencies())
     
     internal static func syncDedupeId(_ publicKey: String) -> String {
         return "EnqueueConfigurationSyncJob-\(publicKey)"   // stringlint:disable
@@ -80,15 +69,6 @@ public extension LibSession {
         ed25519SecretKey: [UInt8]?,
         using dependencies: Dependencies
     ) {
-        // FIXME: Replace this with the proper dependency injection (added in Groups Rebuild)
-        let dependencies: Dependencies = {
-            guard let dependencies: Dependencies = dependencies else { return LibSession.dependencies.wrappedValue }
-            
-            // Store the provided dependencies so we are using the correct cache when running
-            LibSession.dependencies.mutate { $0 = dependencies }
-            return dependencies
-        }()
-        
         // Ensure we have the ed25519 key and that we haven't already loaded the state before
         // we continue
         guard
@@ -103,9 +83,6 @@ public extension LibSession {
             }
             return
         }
-        
-        // FIXME: This is a temporary work-around for fixing the database unit tests (it's done properly in the Groups Rebuild branch but would require too many changes to pull across properly)
-        LibSession.dependencies = Atomic(dependencies)
         
         // Retrieve the existing dumps from the database
         let existingDumps: Set<ConfigDump> = ((try? ConfigDump.fetchSet(db)) ?? [])
@@ -228,7 +205,8 @@ public extension LibSession {
     
     static func pendingChanges(
         _ db: Database,
-        publicKey: String
+        publicKey: String,
+        using dependencies: Dependencies
     ) throws -> PendingChanges {
         guard Identity.userExists(db) else { throw LibSessionError.userDoesNotExist }
         
@@ -251,70 +229,70 @@ public extension LibSession {
         /// config while we are reading (which could result in crashes)
         return try existingDumpVariants
             .reduce(into: PendingChanges()) { result, variant in
-                try LibSession
-                    .config(for: variant, publicKey: publicKey)
-                    .mutate { conf in
-                        guard conf != nil else { return }
-                        
-                        // Check if the config needs to be pushed
-                        guard config_needs_push(conf) else {
-                            // If not then try retrieve any obsolete hashes to be removed
-                            guard let cObsoletePtr: UnsafeMutablePointer<config_string_list> = config_old_hashes(conf) else {
-                                return
-                            }
-                            
-                            let obsoleteHashes: [String] = [String](
-                                pointer: cObsoletePtr.pointee.value,
-                                count: cObsoletePtr.pointee.len,
-                                defaultValue: []
-                            )
-                            
-                            // If there are no obsolete hashes then no need to return anything
-                            guard !obsoleteHashes.isEmpty else { return }
-                            
-                            result.append(hashes: obsoleteHashes)
-                            return
-                        }
-                        
-                        guard let cPushData: UnsafeMutablePointer<config_push_data> = config_push(conf) else {
-                            let configCountInfo: String = {
-                                switch variant {
-                                    case .userProfile: return "1 profile"  // stringlint:disable
-                                    case .contacts: return "\(contacts_size(conf)) contacts"  // stringlint:disable
-                                    case .userGroups: return "\(user_groups_size(conf)) group conversations"  // stringlint:disable
-                                    case .convoInfoVolatile: return "\(convo_info_volatile_size(conf)) volatile conversations"  // stringlint:disable
-                                    case .invalid: return "Invalid"  // stringlint:disable
-                                }
-                            }()
-                            
-                            throw LibSessionError(
-                                conf,
-                                fallbackError: .unableToGeneratePushData,
-                                logMessage: "[LibSession] Failed to generate push data for \(variant) config data, size: \(configCountInfo), error"
-                            )
-                        }
+                guard
+                    let conf = dependencies.caches[.libSession]
+                        .config(for: variant, publicKey: publicKey)
+                        .wrappedValue
+                else { return }
                     
-                        let pushData: Data = Data(
-                            bytes: cPushData.pointee.config,
-                            count: cPushData.pointee.config_len
-                        )
-                        let obsoleteHashes: [String] = [String](
-                            pointer: cPushData.pointee.obsolete,
-                            count: cPushData.pointee.obsolete_len,
-                            defaultValue: []
-                        )
-                        let seqNo: Int64 = cPushData.pointee.seqno
-                        cPushData.deallocate()
-                        
-                        result.append(
-                            data: PendingChanges.PushData(
-                                data: pushData,
-                                seqNo: seqNo,
-                                variant: variant
-                            ),
-                            hashes: obsoleteHashes
-                        )
+                // Check if the config needs to be pushed
+                guard config_needs_push(conf) else {
+                    // If not then try retrieve any obsolete hashes to be removed
+                    guard let cObsoletePtr: UnsafeMutablePointer<config_string_list> = config_old_hashes(conf) else {
+                        return
                     }
+                    
+                    let obsoleteHashes: [String] = [String](
+                        pointer: cObsoletePtr.pointee.value,
+                        count: cObsoletePtr.pointee.len,
+                        defaultValue: []
+                    )
+                    
+                    // If there are no obsolete hashes then no need to return anything
+                    guard !obsoleteHashes.isEmpty else { return }
+                    
+                    result.append(hashes: obsoleteHashes)
+                    return
+                }
+                
+                guard let cPushData: UnsafeMutablePointer<config_push_data> = config_push(conf) else {
+                    let configCountInfo: String = {
+                        switch variant {
+                            case .userProfile: return "1 profile"  // stringlint:disable
+                            case .contacts: return "\(contacts_size(conf)) contacts"  // stringlint:disable
+                            case .userGroups: return "\(user_groups_size(conf)) group conversations"  // stringlint:disable
+                            case .convoInfoVolatile: return "\(convo_info_volatile_size(conf)) volatile conversations"  // stringlint:disable
+                            case .invalid: return "Invalid"  // stringlint:disable
+                        }
+                    }()
+                    
+                    throw LibSessionError(
+                        conf,
+                        fallbackError: .unableToGeneratePushData,
+                        logMessage: "[LibSession] Failed to generate push data for \(variant) config data, size: \(configCountInfo), error"
+                    )
+                }
+            
+                let pushData: Data = Data(
+                    bytes: cPushData.pointee.config,
+                    count: cPushData.pointee.config_len
+                )
+                let obsoleteHashes: [String] = [String](
+                    pointer: cPushData.pointee.obsolete,
+                    count: cPushData.pointee.obsolete_len,
+                    defaultValue: []
+                )
+                let seqNo: Int64 = cPushData.pointee.seqno
+                cPushData.deallocate()
+                
+                result.append(
+                    data: PendingChanges.PushData(
+                        data: pushData,
+                        seqNo: seqNo,
+                        variant: variant
+                    ),
+                    hashes: obsoleteHashes
+                )
             }
     }
     
@@ -323,9 +301,10 @@ public extension LibSession {
         serverHash: String,
         sentTimestamp: Int64,
         variant: ConfigDump.Variant,
-        publicKey: String
+        publicKey: String,
+        using dependencies: Dependencies
     ) -> ConfigDump? {
-        return LibSession
+        return dependencies.caches[.libSession]
             .config(for: variant, publicKey: publicKey)
             .mutate { conf in
                 guard
@@ -348,7 +327,10 @@ public extension LibSession {
             }
     }
     
-    static func configHashes(for publicKey: String) -> [String] {
+    static func configHashes(
+        for publicKey: String,
+        using dependencies: Dependencies
+    ) -> [String] {
         return Storage.shared
             .read { db -> Set<ConfigDump.Variant> in
                 guard Identity.userExists(db) else { return [] }
@@ -363,7 +345,7 @@ public extension LibSession {
             .map { variant -> [String] in
                 /// Extract all existing hashes for any dumps associated with the given `publicKey`
                 guard
-                    let conf = LibSession
+                    let conf = dependencies.caches[.libSession]
                         .config(for: variant, publicKey: publicKey)
                         .wrappedValue,
                     let hashList: UnsafeMutablePointer<config_string_list> = config_current_hashes(conf)
@@ -386,7 +368,8 @@ public extension LibSession {
     static func handleConfigMessages(
         _ db: Database,
         messages: [ConfigMessageReceiveJob.Details.MessageInfo],
-        publicKey: String
+        publicKey: String,
+        using dependencies: Dependencies
     ) throws {
         guard !messages.isEmpty else { return }
         guard !publicKey.isEmpty else { throw MessageReceiverError.noThread }
@@ -397,7 +380,7 @@ public extension LibSession {
         try groupedMessages
             .sorted { lhs, rhs in lhs.key.namespace.processingOrder < rhs.key.namespace.processingOrder }
             .forEach { key, value in
-                try LibSession
+                try dependencies.caches[.libSession]
                     .config(for: key, publicKey: publicKey)
                     .mutate { conf in
                         // Merge the messages

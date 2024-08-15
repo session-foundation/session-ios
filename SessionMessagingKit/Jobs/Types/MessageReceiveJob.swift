@@ -53,7 +53,8 @@ public enum MessageReceiveJob: JobExecutor {
                         threadVariant: messageInfo.threadVariant,
                         message: messageInfo.message,
                         serverExpirationTimestamp: messageInfo.serverExpirationTimestamp,
-                        associatedWithProto: protoContent
+                        associatedWithProto: protoContent,
+                        using: dependencies
                     )
                 }
                 catch {

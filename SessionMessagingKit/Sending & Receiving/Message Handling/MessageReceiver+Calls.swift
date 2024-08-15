@@ -11,13 +11,14 @@ extension MessageReceiver {
         _ db: Database,
         threadId: String,
         threadVariant: SessionThread.Variant,
-        message: CallMessage
+        message: CallMessage,
+        using dependencies: Dependencies
     ) throws {
         // Only support calls from contact threads
         guard threadVariant == .contact else { return }
         
         switch message.kind {
-            case .preOffer: try MessageReceiver.handleNewCallMessage(db, message: message)
+            case .preOffer: try MessageReceiver.handleNewCallMessage(db, message: message, using: dependencies)
             case .offer: MessageReceiver.handleOfferCallMessage(db, message: message)
             case .answer: MessageReceiver.handleAnswerCallMessage(db, message: message)
             case .provisionalAnswer: break // TODO: Implement
@@ -35,7 +36,7 @@ extension MessageReceiver {
     
     // MARK: - Specific Handling
     
-    private static func handleNewCallMessage(_ db: Database, message: CallMessage) throws {
+    private static func handleNewCallMessage(_ db: Database, message: CallMessage, using dependencies: Dependencies) throws {
         SNLog("[Calls] Received pre-offer message.")
         
         // Determine whether the app is active based on the prefs rather than the UIApplication state to avoid
@@ -57,7 +58,7 @@ extension MessageReceiver {
         else { return }
         guard let timestamp = message.sentTimestamp, TimestampUtils.isWithinOneMinute(timestampMs: timestamp) else {
             // Add missed call message for call offer messages from more than one minute
-            if let interaction: Interaction = try MessageReceiver.insertCallInfoMessage(db, for: message, state: .missed) {
+            if let interaction: Interaction = try MessageReceiver.insertCallInfoMessage(db, for: message, state: .missed, using: dependencies) {
                 let thread: SessionThread = try SessionThread
                     .fetchOrCreate(db, id: sender, variant: .contact, shouldBeVisible: nil)
                 
@@ -75,7 +76,7 @@ extension MessageReceiver {
         }
         
         guard db[.areCallsEnabled] else {
-            if let interaction: Interaction = try MessageReceiver.insertCallInfoMessage(db, for: message, state: .permissionDenied) {
+            if let interaction: Interaction = try MessageReceiver.insertCallInfoMessage(db, for: message, state: .permissionDenied, using: dependencies) {
                 let thread: SessionThread = try SessionThread
                     .fetchOrCreate(db, id: sender, variant: .contact, shouldBeVisible: nil)
                 
@@ -112,7 +113,7 @@ extension MessageReceiver {
             return
         }
         
-        let interaction: Interaction? = try MessageReceiver.insertCallInfoMessage(db, for: message)
+        let interaction: Interaction? = try MessageReceiver.insertCallInfoMessage(db, for: message, using: dependencies)
         
         // Handle UI
         callManager.showCallUIForCall(
@@ -220,7 +221,8 @@ extension MessageReceiver {
                 threadVariant: thread.variant,
                 timestampMs: (messageSentTimestamp * 1000),
                 userPublicKey: getUserHexEncodedPublicKey(db),
-                openGroup: nil
+                openGroup: nil,
+                using: dependencies
             ),
             expiresInSeconds: message.expiresInSeconds,
             expiresStartedAtMs: message.expiresStartedAtMs
@@ -257,7 +259,8 @@ extension MessageReceiver {
     @discardableResult public static func insertCallInfoMessage(
         _ db: Database,
         for message: CallMessage,
-        state: CallMessage.MessageInfo.State? = nil
+        state: CallMessage.MessageInfo.State? = nil,
+        using dependencies: Dependencies
     ) throws -> Interaction? {
         guard
             (try? Interaction
@@ -300,7 +303,8 @@ extension MessageReceiver {
                 threadVariant: thread.variant,
                 timestampMs: (timestampMs * 1000),
                 userPublicKey: currentUserPublicKey,
-                openGroup: nil
+                openGroup: nil,
+                using: dependencies
             ),
             expiresInSeconds: message.expiresInSeconds,
             expiresStartedAtMs: message.expiresStartedAtMs

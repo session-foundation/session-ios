@@ -126,7 +126,8 @@ public final class NotificationServiceExtension: UNNotificationServiceExtension 
                                     data: data
                                 )
                             ],
-                            publicKey: publicKey
+                            publicKey: publicKey,
+                            using: dependencies
                         )
                         
                     /// Due to the way the `CallMessage` works we need to custom handle it's behaviour within the notification
@@ -149,7 +150,8 @@ public final class NotificationServiceExtension: UNNotificationServiceExtension 
                             db,
                             threadId: threadId,
                             threadVariant: threadVariant,
-                            message: callMessage
+                            message: callMessage,
+                            using: dependencies
                         )
                         
                         guard case .preOffer = callMessage.kind else {
@@ -163,7 +165,8 @@ public final class NotificationServiceExtension: UNNotificationServiceExtension 
                                     let interaction: Interaction = try MessageReceiver.insertCallInfoMessage(
                                         db,
                                         for: callMessage,
-                                        state: .permissionDenied
+                                        state: .permissionDenied,
+                                        using: dependencies
                                     )
                                 {
                                     let thread: SessionThread = try SessionThread
@@ -193,7 +196,7 @@ public final class NotificationServiceExtension: UNNotificationServiceExtension 
                                 )
                                 
                             case (true, false):
-                                try MessageReceiver.insertCallInfoMessage(db, for: callMessage)
+                                try MessageReceiver.insertCallInfoMessage(db, for: callMessage, using: dependencies)
                                 
                                 // Perform any required post-handling logic
                                 try MessageReceiver.postHandleMessage(
@@ -274,7 +277,7 @@ public final class NotificationServiceExtension: UNNotificationServiceExtension 
 
     // MARK: Setup
 
-    private func setUpIfNecessary(using dependencies: Dependencies, completion: @escaping () -> Void) {
+    private func setUpIfNecessary(completion: @escaping () -> Void) {
         Log.assertOnMainThread()
 
         // The NSE will often re-use the same process, so if we're
@@ -366,7 +369,7 @@ public final class NotificationServiceExtension: UNNotificationServiceExtension 
     /// to somehow still have some form of access to the old one
     private func forceResetup(_ notificationContent: UNMutableNotificationContent) {
         Storage.reconfigureDatabase()
-        LibSession.clearMemoryState()
+        LibSession.clearMemoryState(using: dependencies)
         dependencies.caches.mutate(cache: .general) { $0.clearCachedUserPublicKey() }
         
         self.setUpIfNecessary() { [weak self, dependencies] in

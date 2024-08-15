@@ -11,7 +11,8 @@ extension MessageReceiver {
         _ db: Database,
         threadId: String,
         threadVariant: SessionThread.Variant,
-        message: ExpirationTimerUpdate
+        message: ExpirationTimerUpdate,
+        using dependencies: Dependencies
     ) throws {
         guard !Features.useNewDisappearingMessagesConfig else { return }
         guard
@@ -127,7 +128,8 @@ extension MessageReceiver {
                 threadVariant: threadVariant,
                 timestampMs: (timestampMs * 1000),
                 userPublicKey: currentUserPublicKey,
-                openGroup: nil
+                openGroup: nil,
+                using: dependencies
             )
         ).inserted(db)
     }

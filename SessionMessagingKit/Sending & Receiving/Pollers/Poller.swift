@@ -216,7 +216,7 @@ public class Poller {
         }
         
         let pollerQueue: DispatchQueue = self.pollerQueue
-        let configHashes: [String] = LibSession.configHashes(for: swarmPublicKey)
+        let configHashes: [String] = LibSession.configHashes(for: swarmPublicKey, using: dependencies)
         
         // Fetch the messages
         return LibSession.getSwarm(swarmPublicKey: swarmPublicKey)
@@ -324,7 +324,8 @@ public class Poller {
                                                 calledFromBackgroundPoller: false
                                             )
                                             .messages,
-                                        publicKey: swarmPublicKey
+                                        publicKey: swarmPublicKey,
+                                        using: dependencies
                                     )
                                 }
                                 catch { Log.error("Failed to handle processed config message due to error: \(error).") }
@@ -343,7 +344,8 @@ public class Poller {
                                             threadVariant: threadVariant,
                                             message: messageInfo.message,
                                             serverExpirationTimestamp: messageInfo.serverExpirationTimestamp,
-                                            associatedWithProto: proto
+                                            associatedWithProto: proto,
+                                            using: dependencies
                                         )
                                     }
                                     catch { Log.error("Failed to handle processed message due to error: \(error).") }

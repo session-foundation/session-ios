@@ -120,7 +120,8 @@ extension MessageReceiver {
             associatedWithProto: proto,
             sender: sender,
             messageSentTimestamp: messageSentTimestamp,
-            openGroup: maybeOpenGroup
+            openGroup: maybeOpenGroup,
+            using: dependencies
         ) {
             return interactionId
         }
@@ -138,7 +139,8 @@ extension MessageReceiver {
                 threadVariant: thread.variant,
                 timestampMs: Int64(messageSentTimestamp * 1000),
                 userPublicKey: currentUserPublicKey,
-                openGroup: maybeOpenGroup
+                openGroup: maybeOpenGroup,
+                using: dependencies
             )
         )
         let messageExpirationInfo: Message.MessageExpirationInfo = Message.getMessageExpirationInfo(
@@ -375,7 +377,8 @@ extension MessageReceiver {
         associatedWithProto proto: SNProtoContent,
         sender: String,
         messageSentTimestamp: TimeInterval,
-        openGroup: OpenGroup?
+        openGroup: OpenGroup?,
+        using dependencies: Dependencies
     ) throws -> Int64? {
         guard
             let reaction: VisibleMessage.VMReaction = message.reaction,
@@ -422,7 +425,8 @@ extension MessageReceiver {
                     threadVariant: thread.variant,
                     timestampMs: timestampMs,
                     userPublicKey: currentUserPublicKey,
-                    openGroup: openGroup
+                    openGroup: openGroup,
+                    using: dependencies
                 )
                 
                 // Don't notify if the reaction was added before the lastest read timestamp for

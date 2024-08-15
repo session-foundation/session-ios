@@ -164,7 +164,6 @@
 		7BFA8AE32831D0D4001876F3 /* ContextMenuVC+EmojiReactsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7BFA8AE22831D0D4001876F3 /* ContextMenuVC+EmojiReactsView.swift */; };
 		7BFD1A8A2745C4F000FB91B9 /* Permissions.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7BFD1A892745C4F000FB91B9 /* Permissions.swift */; };
 		7BFD1A972747689000FB91B9 /* Session-Turn-Server in Resources */ = {isa = PBXBuildFile; fileRef = 7BFD1A962747689000FB91B9 /* Session-Turn-Server */; };
-		88C614F4223F9BE0CB94E4E5 /* Pods_GlobalDependencies_FrameworkAndExtensionDependencies_ExtendedDependencies_SessionUtilitiesKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 35C5EF2AACD4A39D6E0E2C49 /* Pods_GlobalDependencies_FrameworkAndExtensionDependencies_ExtendedDependencies_SessionUtilitiesKit.framework */; };
 		942256802C23F8BB00C0FDBF /* StartConversationScreen.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9422567D2C23F8BB00C0FDBF /* StartConversationScreen.swift */; };
 		942256812C23F8BB00C0FDBF /* NewMessageScreen.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9422567E2C23F8BB00C0FDBF /* NewMessageScreen.swift */; };
 		942256822C23F8BB00C0FDBF /* InviteAFriendScreen.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9422567F2C23F8BB00C0FDBF /* InviteAFriendScreen.swift */; };
@@ -227,7 +226,6 @@
 		B8856D72256F1421001CE70E /* OWSWindowManager.h in Headers */ = {isa = PBXBuildFile; fileRef = C38EF2FB255B6DBD007E1867 /* OWSWindowManager.h */; settings = {ATTRIBUTES = (Public, ); }; };
 		B8856DE6256F15F2001CE70E /* String+SSK.swift in Sources */ = {isa = PBXBuildFile; fileRef = C33FDB3F255A580C00E217F9 /* String+SSK.swift */; };
 		B8856E09256F1676001CE70E /* UIDevice+featureSupport.swift in Sources */ = {isa = PBXBuildFile; fileRef = C38EF237255B6D65007E1867 /* UIDevice+featureSupport.swift */; };
-		B886B4A72398B23E00211ABE /* QRCodeVC.swift in Sources */ = {isa = PBXBuildFile; fileRef = B886B4A62398B23E00211ABE /* QRCodeVC.swift */; };
 		B886B4A92398BA1500211ABE /* QRCode.swift in Sources */ = {isa = PBXBuildFile; fileRef = B886B4A82398BA1500211ABE /* QRCode.swift */; };
 		B88FA7F2260C3EB10049422F /* OpenGroupSuggestionGrid.swift in Sources */ = {isa = PBXBuildFile; fileRef = B88FA7F1260C3EB10049422F /* OpenGroupSuggestionGrid.swift */; };
 		B88FA7FB26114EA70049422F /* Hex.swift in Sources */ = {isa = PBXBuildFile; fileRef = B88FA7FA26114EA70049422F /* Hex.swift */; };
@@ -494,7 +492,6 @@
 		FD1D732E2A86114600E3F410 /* _015_BlockCommunityMessageRequests.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD1D732D2A86114600E3F410 /* _015_BlockCommunityMessageRequests.swift */; };
 		FD1F9C9F2A862BE60050F671 /* MigrationRequirement.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD1F9C9E2A862BE60050F671 /* MigrationRequirement.swift */; };
 		FD22724B2C326E75004D8A6C /* CustomArgSummaryDescribable+SMK.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD22724A2C326E75004D8A6C /* CustomArgSummaryDescribable+SMK.swift */; };
-		FD22724E2C327BA5004D8A6C /* SSKMockedExtensions.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD22724D2C327BA5004D8A6C /* SSKMockedExtensions.swift */; };
 		FD22724F2C327BCA004D8A6C /* SSKMockedExtensions.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD22724D2C327BA5004D8A6C /* SSKMockedExtensions.swift */; };
 		FD22866F2C38D42300BC06F7 /* DifferenceKit in Frameworks */ = {isa = PBXBuildFile; productRef = FD22866E2C38D42300BC06F7 /* DifferenceKit */; };
 		FD2286712C38D43000BC06F7 /* DifferenceKit in Frameworks */ = {isa = PBXBuildFile; productRef = FD2286702C38D43000BC06F7 /* DifferenceKit */; };
@@ -554,6 +551,8 @@
 		FD2B4AFD294688D000AB4848 /* LibSession+Contacts.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD2B4AFC294688D000AB4848 /* LibSession+Contacts.swift */; };
 		FD2B4AFF2946C93200AB4848 /* ConfigurationSyncJob.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD2B4AFE2946C93200AB4848 /* ConfigurationSyncJob.swift */; };
 		FD2B4B042949887A00AB4848 /* QueryInterfaceRequest+Utilities.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD2B4B032949887A00AB4848 /* QueryInterfaceRequest+Utilities.swift */; };
+		FD2DD58E2C6DBEBF0073D9BE /* SSKMockedExtensions.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD22724D2C327BA5004D8A6C /* SSKMockedExtensions.swift */; };
+		FD2DD5902C6DD13C0073D9BE /* DifferenceKit in Frameworks */ = {isa = PBXBuildFile; productRef = FD2DD58F2C6DD13C0073D9BE /* DifferenceKit */; };
 		FD3003662A25D5B300B5A5FB /* ConfigMessageReceiveJob.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD3003652A25D5B300B5A5FB /* ConfigMessageReceiveJob.swift */; };
 		FD368A6829DE8F9C000DBF1E /* _012_AddFTSIfNeeded.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD368A6729DE8F9B000DBF1E /* _012_AddFTSIfNeeded.swift */; };
 		FD368A6A29DE9E30000DBF1E /* UIContextualAction+Utilities.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD368A6929DE9E30000DBF1E /* UIContextualAction+Utilities.swift */; };
@@ -674,8 +673,6 @@
 		FD6A39722C2E3F5800762359 /* GRDBExtensions.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD6A39702C2E3F5800762359 /* GRDBExtensions.swift */; };
 		FD6A39732C2E3F5800762359 /* GRDBExtensions.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD6A39702C2E3F5800762359 /* GRDBExtensions.swift */; };
 		FD6A39742C2E3F5800762359 /* GRDBExtensions.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD6A39702C2E3F5800762359 /* GRDBExtensions.swift */; };
-		FD6A39772C2E885600762359 /* SSKMockedExtensions.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD6A39762C2E885600762359 /* SSKMockedExtensions.swift */; };
-		FD6A397A2C2E88EB00762359 /* SSKMockedExtensions.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD6A39762C2E885600762359 /* SSKMockedExtensions.swift */; };
 		FD6A7A692818BE7300035AC1 /* RetrieveDefaultOpenGroupRoomsJob.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD6A7A682818BE7300035AC1 /* RetrieveDefaultOpenGroupRoomsJob.swift */; };
 		FD6A7A6B2818C17C00035AC1 /* UpdateProfilePictureJob.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD6A7A6A2818C17C00035AC1 /* UpdateProfilePictureJob.swift */; };
 		FD6A7A6D2818C61500035AC1 /* _002_SetupStandardJobs.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD6A7A6C2818C61500035AC1 /* _002_SetupStandardJobs.swift */; };
@@ -897,7 +894,6 @@
 		FDE6E99829F8E63A00F93C5D /* Accessibility.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDE6E99729F8E63A00F93C5D /* Accessibility.swift */; };
 		FDE77F6B280FEB28002CFC5D /* ControlMessageProcessRecord.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDE77F6A280FEB28002CFC5D /* ControlMessageProcessRecord.swift */; };
 		FDED2E3C282E1B5D00B2CD2A /* UICollectionView+ReusableView.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDED2E3B282E1B5D00B2CD2A /* UICollectionView+ReusableView.swift */; };
-		FDEF57712C44D2D300131302 /* GeoLite2-Country-Blocks-IPv4 in Resources */ = {isa = PBXBuildFile; fileRef = FDEF57702C44D2D300131302 /* GeoLite2-Country-Blocks-IPv4 */; };
 		FDEF57212C3CF03A00131302 /* WebRTCSession.swift in Sources */ = {isa = PBXBuildFile; fileRef = B8DE1FB326C22F2F0079C9CE /* WebRTCSession.swift */; };
 		FDEF57222C3CF03D00131302 /* WebRTCSession+UI.swift in Sources */ = {isa = PBXBuildFile; fileRef = B806ECA026C4A7E4008BDA44 /* WebRTCSession+UI.swift */; };
 		FDEF57232C3CF04300131302 /* WebRTCSession+MessageHandling.swift in Sources */ = {isa = PBXBuildFile; fileRef = B8B558FE26C4E05E00693325 /* WebRTCSession+MessageHandling.swift */; };
@@ -905,6 +901,7 @@
 		FDEF57252C3CF04C00131302 /* WebRTCSession+DataChannel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7BCD116B27016062006330F1 /* WebRTCSession+DataChannel.swift */; };
 		FDEF57262C3CF05F00131302 /* TurnServerInfo.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7BFD1A8B2747150E00FB91B9 /* TurnServerInfo.swift */; };
 		FDEF572A2C3CF50B00131302 /* WebRTC in Frameworks */ = {isa = PBXBuildFile; productRef = FDEF57292C3CF50B00131302 /* WebRTC */; };
+		FDEF57712C44D2D300131302 /* GeoLite2-Country-Blocks-IPv4 in Resources */ = {isa = PBXBuildFile; fileRef = FDEF57702C44D2D300131302 /* GeoLite2-Country-Blocks-IPv4 */; };
 		FDF0B73C27FFD3D6004C14C5 /* LinkPreview.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDF0B73B27FFD3D6004C14C5 /* LinkPreview.swift */; };
 		FDF0B7422804EA4F004C14C5 /* _002_SetupStandardJobs.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDF0B7412804EA4F004C14C5 /* _002_SetupStandardJobs.swift */; };
 		FDF0B7472804F0CE004C14C5 /* DisappearingMessagesJob.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDF0B7462804F0CE004C14C5 /* DisappearingMessagesJob.swift */; };
@@ -1355,11 +1352,6 @@
 		7BFD1A892745C4F000FB91B9 /* Permissions.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Permissions.swift; sourceTree = "<group>"; };
 		7BFD1A8B2747150E00FB91B9 /* TurnServerInfo.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TurnServerInfo.swift; sourceTree = "<group>"; };
 		7BFD1A962747689000FB91B9 /* Session-Turn-Server */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = "Session-Turn-Server"; sourceTree = "<group>"; };
-		7C0E07EB26851D7BB4CF060E /* Pods-GlobalDependencies-FrameworkAndExtensionDependencies-ExtendedDependencies-SessionUtilitiesKit.app store release.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-GlobalDependencies-FrameworkAndExtensionDependencies-ExtendedDependencies-SessionUtilitiesKit.app store release.xcconfig"; path = "Target Support Files/Pods-GlobalDependencies-FrameworkAndExtensionDependencies-ExtendedDependencies-SessionUtilitiesKit/Pods-GlobalDependencies-FrameworkAndExtensionDependencies-ExtendedDependencies-SessionUtilitiesKit.app store release.xcconfig"; sourceTree = "<group>"; };
-		7FE80FEC012334C282A6C8CB /* Pods-GlobalDependencies-FrameworkAndExtensionDependencies-ExtendedDependencies-SessionUtilitiesKit-SessionUtilitiesKitTests.debug.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-GlobalDependencies-FrameworkAndExtensionDependencies-ExtendedDependencies-SessionUtilitiesKit-SessionUtilitiesKitTests.debug.xcconfig"; path = "Target Support Files/Pods-GlobalDependencies-FrameworkAndExtensionDependencies-ExtendedDependencies-SessionUtilitiesKit-SessionUtilitiesKitTests/Pods-GlobalDependencies-FrameworkAndExtensionDependencies-ExtendedDependencies-SessionUtilitiesKit-SessionUtilitiesKitTests.debug.xcconfig"; sourceTree = "<group>"; };
-		81B86106CE32C944E6A3A8F2 /* Pods-GlobalDependencies-FrameworkAndExtensionDependencies-ExtendedDependencies-SessionShareExtension.app_store_release.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-GlobalDependencies-FrameworkAndExtensionDependencies-ExtendedDependencies-SessionShareExtension.app_store_release.xcconfig"; path = "Target Support Files/Pods-GlobalDependencies-FrameworkAndExtensionDependencies-ExtendedDependencies-SessionShareExtension/Pods-GlobalDependencies-FrameworkAndExtensionDependencies-ExtendedDependencies-SessionShareExtension.app_store_release.xcconfig"; sourceTree = "<group>"; };
-		89EE44A6174C653D2F4DB573 /* Pods-GlobalDependencies-FrameworkAndExtensionDependencies-ExtendedDependencies-SignalUtilitiesKit.debug.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-GlobalDependencies-FrameworkAndExtensionDependencies-ExtendedDependencies-SignalUtilitiesKit.debug.xcconfig"; path = "Target Support Files/Pods-GlobalDependencies-FrameworkAndExtensionDependencies-ExtendedDependencies-SignalUtilitiesKit/Pods-GlobalDependencies-FrameworkAndExtensionDependencies-ExtendedDependencies-SignalUtilitiesKit.debug.xcconfig"; sourceTree = "<group>"; };
-		91271A534D1D4AB949B1319E /* Pods-GlobalDependencies-FrameworkAndExtensionDependencies-SessionNotificationServiceExtension.app store release.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-GlobalDependencies-FrameworkAndExtensionDependencies-SessionNotificationServiceExtension.app store release.xcconfig"; path = "Target Support Files/Pods-GlobalDependencies-FrameworkAndExtensionDependencies-SessionNotificationServiceExtension/Pods-GlobalDependencies-FrameworkAndExtensionDependencies-SessionNotificationServiceExtension.app store release.xcconfig"; sourceTree = "<group>"; };
 		9422567D2C23F8BB00C0FDBF /* StartConversationScreen.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = StartConversationScreen.swift; sourceTree = "<group>"; };
 		9422567E2C23F8BB00C0FDBF /* NewMessageScreen.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = NewMessageScreen.swift; sourceTree = "<group>"; };
 		9422567F2C23F8BB00C0FDBF /* InviteAFriendScreen.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = InviteAFriendScreen.swift; sourceTree = "<group>"; };
@@ -2295,6 +2287,7 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				FD2DD5902C6DD13C0073D9BE /* DifferenceKit in Frameworks */,
 				FD6A39322C2AD33E00762359 /* Quick in Frameworks */,
 				FD6A393B2C2AD3A300762359 /* Nimble in Frameworks */,
 			);
@@ -3546,6 +3539,7 @@
 				FDE7214E287E50D50093DF33 /* Scripts */,
 				D221A08C169C9E5E00537ABF /* Frameworks */,
 				D221A08A169C9E5E00537ABF /* Products */,
+				FD2DD58D2C6DB8A70073D9BE /* Recovered References */,
 			);
 			sourceTree = "<group>";
 		};
@@ -3844,6 +3838,14 @@
 			path = Database;
 			sourceTree = "<group>";
 		};
+		FD2DD58D2C6DB8A70073D9BE /* Recovered References */ = {
+			isa = PBXGroup;
+			children = (
+				FD6A39762C2E885600762359 /* SSKMockedExtensions.swift */,
+			);
+			name = "Recovered References";
+			sourceTree = "<group>";
+		};
 		FD37E9C428A1C701003AE748 /* Themes */ = {
 			isa = PBXGroup;
 			children = (
@@ -3945,14 +3947,6 @@
 				FD23CE232A675C440000B97C /* Crypto+SessionMessagingKit.swift */,
 			);
 			path = Crypto;
-			sourceTree = "<group>";
-		};
-		FD6A39752C2E884500762359 /* _TestUtilities */ = {
-			isa = PBXGroup;
-			children = (
-				FD6A39762C2E885600762359 /* SSKMockedExtensions.swift */,
-			);
-			path = _TestUtilities;
 			sourceTree = "<group>";
 		};
 		FD7115F528C8150600B47552 /* Combine */ = {
@@ -4420,6 +4414,19 @@
 			path = Scripts;
 			sourceTree = "<group>";
 		};
+		FDEF57202C3CF02000131302 /* WebRTC */ = {
+			isa = PBXGroup;
+			children = (
+				7BFD1A8B2747150E00FB91B9 /* TurnServerInfo.swift */,
+				B8DE1FB326C22F2F0079C9CE /* WebRTCSession.swift */,
+				B806ECA026C4A7E4008BDA44 /* WebRTCSession+UI.swift */,
+				B8B558FE26C4E05E00693325 /* WebRTCSession+MessageHandling.swift */,
+				B8BF43B926CC95FB007828D1 /* WebRTC+Utilities.swift */,
+				7BCD116B27016062006330F1 /* WebRTCSession+DataChannel.swift */,
+			);
+			path = WebRTC;
+			sourceTree = "<group>";
+		};
 		FDEF576F2C44C1DF00131302 /* SourceData */ = {
 			isa = PBXGroup;
 			children = (
@@ -4435,19 +4442,6 @@
 			);
 			name = SourceData;
 			path = Countries/SourceData;
-			sourceTree = "<group>";
-		};
-		FDEF57202C3CF02000131302 /* WebRTC */ = {
-			isa = PBXGroup;
-			children = (
-				7BFD1A8B2747150E00FB91B9 /* TurnServerInfo.swift */,
-				B8DE1FB326C22F2F0079C9CE /* WebRTCSession.swift */,
-				B806ECA026C4A7E4008BDA44 /* WebRTCSession+UI.swift */,
-				B8B558FE26C4E05E00693325 /* WebRTCSession+MessageHandling.swift */,
-				B8BF43B926CC95FB007828D1 /* WebRTC+Utilities.swift */,
-				7BCD116B27016062006330F1 /* WebRTCSession+DataChannel.swift */,
-			);
-			path = WebRTC;
 			sourceTree = "<group>";
 		};
 		FDF0B7452804F0A8004C14C5 /* Types */ = {
@@ -4844,6 +4838,7 @@
 			packageProductDependencies = (
 				FD6A39312C2AD33E00762359 /* Quick */,
 				FD6A393A2C2AD3A300762359 /* Nimble */,
+				FD2DD58F2C6DD13C0073D9BE /* DifferenceKit */,
 			);
 			productName = SessionTests;
 			productReference = FD71160928D00BAE00B47552 /* SessionTests.xctest */;
@@ -6324,10 +6319,9 @@
 				FD7C37BE2BBB8BBD009DEEA7 /* SnodeRequestSpec.swift in Sources */,
 				FD7C37C02BBB8BE1009DEEA7 /* Mocked.swift in Sources */,
 				FD7C37BF2BBB8BDF009DEEA7 /* Mock.swift in Sources */,
-				FD6A39772C2E885600762359 /* SSKMockedExtensions.swift in Sources */,
+				FD2DD58E2C6DBEBF0073D9BE /* SSKMockedExtensions.swift in Sources */,
 				FD7C37C22BBB8BED009DEEA7 /* MockCaches.swift in Sources */,
 				FD7C37C62BBB8C08009DEEA7 /* TestConstants.swift in Sources */,
-				FD22724E2C327BA5004D8A6C /* SSKMockedExtensions.swift in Sources */,
 				FD7C37C82BBB8C11009DEEA7 /* NimbleExtensions.swift in Sources */,
 				FD7C37C52BBB8C01009DEEA7 /* MockJobRunner.swift in Sources */,
 				FD7C37CB2BBB8D36009DEEA7 /* MockUserDefaults.swift in Sources */,
@@ -8705,6 +8699,11 @@
 			productName = DifferenceKit;
 		};
 		FD2286782C38D4FF00BC06F7 /* DifferenceKit */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = FD6A38ED2C2A641200762359 /* XCRemoteSwiftPackageReference "DifferenceKit" */;
+			productName = DifferenceKit;
+		};
+		FD2DD58F2C6DD13C0073D9BE /* DifferenceKit */ = {
 			isa = XCSwiftPackageProductDependency;
 			package = FD6A38ED2C2A641200762359 /* XCRemoteSwiftPackageReference "DifferenceKit" */;
 			productName = DifferenceKit;

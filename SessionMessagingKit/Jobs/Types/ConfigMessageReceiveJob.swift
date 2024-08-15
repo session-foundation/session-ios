@@ -53,7 +53,8 @@ public enum ConfigMessageReceiveJob: JobExecutor {
                 try LibSession.handleConfigMessages(
                     db,
                     messages: details.messages,
-                    publicKey: (job.threadId ?? "")
+                    publicKey: (job.threadId ?? ""),
+                    using: dependencies
                 )
             }
             catch { lastError = error }

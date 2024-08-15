@@ -227,13 +227,19 @@ public enum MessageReceiver {
         message: Message,
         serverExpirationTimestamp: TimeInterval?,
         associatedWithProto proto: SNProtoContent,
-        using dependencies: Dependencies = Dependencies()
+        using dependencies: Dependencies
     ) throws {
         // Check if the message requires an existing conversation (if it does and the conversation isn't in
         // the config then the message will be dropped)
         guard
             !Message.requiresExistingConversation(message: message, threadVariant: threadVariant) ||
-            LibSession.conversationInConfig(db, threadId: threadId, threadVariant: threadVariant, visibleOnly: false)
+            LibSession.conversationInConfig(
+                db,
+                threadId: threadId,
+                threadVariant: threadVariant,
+                visibleOnly: false,
+                using: dependencies
+            )
         else { throw MessageReceiverError.requiredThreadNotInConfig }
         
         // Throw if the message is outdated and shouldn't be processed
@@ -286,7 +292,8 @@ public enum MessageReceiver {
                     threadId: threadId,
                     threadVariant: threadVariant,
                     message: message,
-                    serverExpirationTimestamp: serverExpirationTimestamp
+                    serverExpirationTimestamp: serverExpirationTimestamp,
+                    using: dependencies
                 )
                 
             case let message as ExpirationTimerUpdate:
@@ -294,7 +301,8 @@ public enum MessageReceiver {
                     db,
                     threadId: threadId,
                     threadVariant: threadVariant,
-                    message: message
+                    message: message,
+                    using: dependencies
                 )
             
                 try MessageReceiver.handleExpirationTimerUpdate(
@@ -319,7 +327,8 @@ public enum MessageReceiver {
                     db,
                     threadId: threadId,
                     threadVariant: threadVariant,
-                    message: message
+                    message: message,
+                    using: dependencies
                 )
                 
             case let message as MessageRequestResponse:
@@ -434,7 +443,7 @@ public enum MessageReceiver {
         message: Message,
         threadId: String,
         threadVariant: SessionThread.Variant,
-        using dependencies: Dependencies = Dependencies()
+        using dependencies: Dependencies
     ) throws {
         switch message {
             case is ReadReceipt: return // No visible artifact created so better to keep for more reliable read states
@@ -448,7 +457,8 @@ public enum MessageReceiver {
             db,
             threadId: threadId,
             threadVariant: threadVariant,
-            visibleOnly: true
+            visibleOnly: true,
+            using: dependencies
         )
         let canPerformChange: Bool = LibSession.canPerformChange(
             db,

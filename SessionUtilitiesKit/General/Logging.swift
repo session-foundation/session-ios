@@ -278,7 +278,7 @@ public enum Log {
         let message: String = message()
         let logMessage: String = (message.isEmpty ? "Assertion failed." : message)
         let formattedMessage: String = "[\(filename):\(line) \(function)] \(logMessage)"
-        custom(.critical, formattedMessage, withPrefixes: true, silenceForTests: false, file: file, function: function, line: line)
+        custom(.critical, [], formattedMessage, file: file, function: function, line: line)
         assertionFailure(formattedMessage)
     }
     
@@ -291,7 +291,7 @@ public enum Log {
         
         let filename: String = URL(fileURLWithPath: "\(file)").lastPathComponent
         let formattedMessage: String = "[\(filename):\(line) \(function)] Must be on main thread."
-        custom(.critical, formattedMessage, withPrefixes: true, silenceForTests: false, file: file, function: function, line: line)
+        custom(.critical, [], formattedMessage, file: file, function: function, line: line)
         assertionFailure(formattedMessage)
     }
     

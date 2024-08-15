@@ -336,9 +336,10 @@ public extension LibSession {
         threadVariant: SessionThread.Variant,
         timestampMs: Int64,
         userPublicKey: String,
-        openGroup: OpenGroup?
+        openGroup: OpenGroup?,
+        using dependencies: Dependencies
     ) -> Bool {
-        return LibSession
+        return dependencies.caches[.libSession]
             .config(for: .convoInfoVolatile, publicKey: userPublicKey)
             .wrappedValue
             .map { conf in

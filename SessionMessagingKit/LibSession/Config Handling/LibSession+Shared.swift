@@ -217,13 +217,17 @@ internal extension LibSession {
         return updated
     }
     
-    static func hasSetting(_ db: Database, forKey key: String) throws -> Bool {
+    static func hasSetting(
+        _ db: Database,
+        forKey key: String,
+        using dependencies: Dependencies
+    ) throws -> Bool {
         let userPublicKey: String = getUserHexEncodedPublicKey(db)
         
         // Currently the only synced setting is 'checkForCommunityMessageRequests'
         switch key {
             case Setting.BoolKey.checkForCommunityMessageRequests.rawValue:
-                return try LibSession
+                return try dependencies.caches[.libSession]
                     .config(for: .userProfile, publicKey: userPublicKey)
                     .wrappedValue
                     .map { conf -> Bool in (try LibSession.rawBlindedMessageRequestValue(in: conf) >= 0) }
@@ -389,7 +393,8 @@ public extension LibSession {
         _ db: Database? = nil,
         threadId: String,
         threadVariant: SessionThread.Variant,
-        visibleOnly: Bool
+        visibleOnly: Bool,
+        using dependencies: Dependencies
     ) -> Bool {
         // Currently blinded conversations cannot be contained in the config, so there is no point checking (it'll always be
         // false)
@@ -408,7 +413,7 @@ public extension LibSession {
             }
         }()
         
-        return LibSession
+        return dependencies.caches[.libSession]
             .config(for: configVariant, publicKey: userPublicKey)
             .wrappedValue
             .map { conf in
