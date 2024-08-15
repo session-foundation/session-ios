@@ -5743,7 +5743,7 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
-			shellScript = "# \"${SRCROOT}/Scripts/LintLocalizableStrings.swift\" validate\n";
+			shellScript = "\"${SRCROOT}/Scripts/LintLocalizableStrings.swift\" validate\n";
 			showEnvVarsInLog = 0;
 		};
 		FDC498C02AC1774500EDD897 /* Ensure Localizable.strings included */ = {
