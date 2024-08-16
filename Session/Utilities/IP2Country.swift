@@ -8,6 +8,10 @@ import GRDB
 import SessionSnodeKit
 import SessionUtilitiesKit
 
+private extension Log.Category {
+    static var ip2Country: Log.Category = "IP2Country"
+}
+
 public enum IP2Country {
     public static var isInitialized: Atomic<Bool> = Atomic(false)
     private static var countryNamesCache: Atomic<[String: String]> = Atomic([:])
@@ -46,7 +50,7 @@ public enum IP2Country {
     /// (or `en` as default), then find the `geonameId` index from `countryLocationsGeonameId` using the same range, and that index
     /// should be retrieved from `countryLocationsCountryName` in order to get the country name
     struct IP2CountryCache {
-        var countryBlocksIPInt: [Int] = []
+        var countryBlocksIPInt: [Int64] = []
         var countryBlocksGeonameId: [String] = []
         
         var countryLocationsLocaleCode: [String] = []
@@ -70,7 +74,14 @@ public enum IP2Country {
         var remainingData: Data = data.advanced(by: MemoryLayout<Int32>.size)
         
         /// Extract the IPs
-        var countryBlockIpInts: [Int] = [Int](repeating: 0, count: Int(countryBlockIPCount))
+        var countryBlockIpInts: [Int64] = [Int64](repeating: 0, count: Int(countryBlockIPCount))
+        remainingData.withUnsafeBytes { buffer in
+            _ = countryBlockIpInts.withUnsafeMutableBytes { ipBuffer in
+                memcpy(ipBuffer.baseAddress, buffer.baseAddress, Int(countryBlockIPCount) * MemoryLayout<Int64>.size)
+            }
+        }
+        
+        var countryBlockIpInts2: [Int] = [Int](repeating: 0, count: Int(countryBlockIPCount))
         remainingData.withUnsafeBytes { buffer in
             _ = countryBlockIpInts.withUnsafeMutableBytes { ipBuffer in
                 memcpy(ipBuffer.baseAddress, buffer.baseAddress, Int(countryBlockIPCount) * MemoryLayout<Int>.size)
@@ -78,7 +89,13 @@ public enum IP2Country {
         }
         
         /// Extract arrays from the parts
-        func consumeStringArray(from targetData: inout Data) -> [String] {
+        func consumeStringArray(_ name: String, from targetData: inout Data) -> [String] {
+            /// The data should have a count, followed by actual data (so should have more data than an Int32 would take
+            guard targetData.count > MemoryLayout<Int32>.size else {
+                Log.error(.ip2Country, "\(name) doesn't have enough data after the count.")
+                return []
+            }
+            
             var targetCount: Int32 = 0
             _ = withUnsafeMutableBytes(of: &targetCount) { countBuffer in
                 targetData.copyBytes(to: countBuffer, from: ..<MemoryLayout<Int32>.size)
@@ -90,7 +107,10 @@ public enum IP2Country {
             guard
                 targetData.count >= targetCount,
                 let contentString: String = String(data: Data(targetData[..<targetCount]), encoding: .utf8)
-            else { return [] }
+            else {
+                Log.error(.ip2Country, "\(name) failed to convert the content to a string.")
+                return []
+            }
             
             /// Move past the data and return the result
             targetData = targetData.advanced(by: Int(targetCount))
@@ -98,11 +118,11 @@ public enum IP2Country {
         }
         
         /// Move past the IP data
-        remainingData = remainingData.advanced(by: (Int(countryBlockIPCount) * MemoryLayout<Int>.size))
-        let countryBlocksGeonameIds: [String] = consumeStringArray(from: &remainingData)
-        let countryLocaleCodes: [String] = consumeStringArray(from: &remainingData)
-        let countryGeonameIds: [String] = consumeStringArray(from: &remainingData)
-        let countryNames: [String] = consumeStringArray(from: &remainingData)
+        remainingData = remainingData.advanced(by: (Int(countryBlockIPCount) * MemoryLayout<Int64>.size))
+        let countryBlocksGeonameIds: [String] = consumeStringArray("CountryBlocks", from: &remainingData)
+        let countryLocaleCodes: [String] = consumeStringArray("LocaleCodes", from: &remainingData)
+        let countryGeonameIds: [String] = consumeStringArray("Geonames", from: &remainingData)
+        let countryNames: [String] = consumeStringArray("CountryNames", from: &remainingData)
 
         return IP2CountryCache(
             countryBlocksIPInt: countryBlockIpInts,
@@ -151,7 +171,7 @@ public enum IP2Country {
         guard nameCache["\(ip)-\(currentLocale)"] == nil else { return }
         
         guard
-            let ipAsInt: Int = IPv4.toInt(ip),
+            let ipAsInt: Int64 = IPv4.toInt(ip),
             let countryBlockGeonameIdIndex: Int = cache.countryBlocksIPInt.firstIndex(where: { $0 > ipAsInt }).map({ $0 - 1 }),
             let localeStartIndex: Int = cache.countryLocationsLocaleCode.firstIndex(where: { $0 == currentLocale }),
             let countryNameIndex: Int = Array(cache.countryLocationsGeonameId[localeStartIndex...]).firstIndex(where: { geonameId in

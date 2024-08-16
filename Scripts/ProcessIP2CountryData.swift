@@ -26,7 +26,7 @@ let destinationFileName: String = "GeoLite2-Country-Blocks-IPv4"
 // Types
 
 struct IP2CountryCache {
-    var countryBlocksIPInt: [Int] = []
+    var countryBlocksIPInt: [Int64] = []
     var countryBlocksGeonameId: [String] = []
     
     var countryLocationsLocaleCode: [String] = []
@@ -35,11 +35,11 @@ struct IP2CountryCache {
 }
 
 public enum IPv4 {
-    public static func toInt(_ ip: String) -> Int? {
-        let octets: [Int] = ip.split(separator: ".").compactMap { Int($0) }
+    public static func toInt(_ ip: String) -> Int64? {
+        let octets: [Int64] = ip.split(separator: ".").compactMap { Int64($0) }
         guard octets.count > 1 else { return nil }
         
-        var result: Int = 0
+        var result: Int64 = 0
         for i in stride(from: 3, through: 0, by: -1) {
             result += octets[ 3 - i ] << (i * 8)
         }
@@ -152,7 +152,7 @@ class Processor {
             guard
                 values.count == 2,
                 let ipNoSubnetMask: String = values[0].components(separatedBy: "/").first,
-                let ipAsInt: Int = IPv4.toInt(ipNoSubnetMask)
+                let ipAsInt: Int64 = IPv4.toInt(ipNoSubnetMask)
             else { return }
             
             cache.countryBlocksIPInt.append(ipAsInt)
@@ -198,7 +198,7 @@ class Processor {
         var outputData: Data = Data()
         var ipCount = Int32(cache.countryBlocksIPInt.count)
         outputData.append(Data(bytes: &ipCount, count: MemoryLayout<Int32>.size))
-        outputData.append(Data(bytes: cache.countryBlocksIPInt, count: cache.countryBlocksIPInt.count * MemoryLayout<Int>.size))
+        outputData.append(Data(bytes: cache.countryBlocksIPInt, count: cache.countryBlocksIPInt.count * MemoryLayout<Int64>.size))
         
         let geonameIdData: Data = cache.countryBlocksGeonameId.joined(separator: "\0\0").data(using: .utf8)!
         var geonameIdCount = Int32(geonameIdData.count)
