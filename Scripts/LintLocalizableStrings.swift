@@ -185,65 +185,57 @@ enum ScriptAction: String {
                 break
                 
             case .lintStrings:
+                guard !projectState.localizationFile.strings.isEmpty else {
+                    return print("------------ Nothing to lint ------------")
+                }
+                
+                var allKeys: [String] = []
+                var duplicates: [String] = []
+                projectState.localizationFile.strings.forEach { key, value in
+                    if allKeys.contains(key) {
+                        duplicates.append(key)
+                    } else {
+                        allKeys.append(key)
+                    }
+                    
+                    // Add warning for probably faulty translation
+                    if let localizations: JSON = (value as? JSON)?["localizations"] as? JSON {
+                        if let original: String = ((localizations["en"] as? JSON)?["stringUnit"] as? JSON)?["value"] as? String {
+                            localizations.forEach { locale, translation in
+                                if let phrase: String = ((translation as? JSON)?["stringUnit"] as? JSON)?["value"] as? String {
+                                    let numberOfVarablesOrignal = Regex.matches("\\{.*\\}", content: original).count
+                                    let numberOfVarablesPhrase = Regex.matches("\\{.*\\}", content: phrase).count
+                                    if numberOfVarablesPhrase != numberOfVarablesOrignal {
+                                        Output.warning("\(key) in \(locale) may be faulty")
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            
+                // Add warnings for any duplicate keys
+                duplicates.forEach { Output.duplicate(key: $0) }
+
+                // Process the source code
+                print("------------ Processing \(projectState.sourceFiles.count) Source File(s) ------------")
+  
+                projectState.sourceFiles.forEach { file in
+                    // Add logs for unlocalised strings
+                    file.unlocalizedPhrases.forEach { phrase in
+                        Output.warning(phrase, "Found unlocalized string '\(phrase.key)'")
+                    }
+                    
+                    // Add errors for missing localised strings
+                    let missingKeys: Set<String> = Set(file.keyPhrase.keys).subtracting(Set(allKeys))
+                    missingKeys.forEach { key in
+                        switch file.keyPhrase[key] {
+                            case .some(let phrase): Output.error(phrase, "Localized phrase '\(key)' missing from strings files")
+                            case .none: Output.error(file, "Localized phrase '\(key)' missing from strings files")
+                        }
+                    }
+                }
                 break
-//                guard !projectState.localizationFiles.isEmpty else {
-//                    return print("------------ Nothing to lint ------------")
-//                }
-//                
-//                // Add warnings for any duplicate keys
-//                projectState.localizationFiles.forEach { file in
-//                    // Show errors for any duplicates
-//                    file.duplicates.forEach { phrase, original in Output.duplicate(phrase, original: original) }
-//                    
-//                    // Show warnings for any phrases missing from the file
-//                    let allKeys: Set<String> = Set(file.keyPhrase.keys)
-//                    let missingKeysFromOtherFiles: [String: [String]] = projectState.localizationFiles.reduce(into: [:]) { result, otherFile in
-//                        guard otherFile.path != file.path else { return }
-//                        
-//                        let missingKeys: Set<String> = Set(otherFile.keyPhrase.keys)
-//                            .subtracting(allKeys)
-//                        
-//                        missingKeys.forEach { missingKey in
-//                            result[missingKey] = ((result[missingKey] ?? []) + [otherFile.name])
-//                        }
-//                    }
-//                    
-//                    missingKeysFromOtherFiles.forEach { missingKey, namesOfFilesItWasFound in
-//                        Output.warning(file, "Phrase '\(missingKey)' is missing (found in: \(namesOfFilesItWasFound.joined(separator: ", ")))")
-//                    }
-//                    
-//                    var maybeFaulty: [String] = []
-//                    file.keyPhrase.forEach { key, phrase in
-//                        guard let original = projectState.primaryLocalizationFile.keyPhrase[key] else { return }
-//                        let numberOfVarablesOrignal = Regex.matches("\\{.*\\}", content: original.value).count
-//                        let numberOfVarablesPhrase = Regex.matches("\\{.*\\}", content: phrase.value).count
-//                        if numberOfVarablesPhrase != numberOfVarablesOrignal {
-//                            maybeFaulty.append(key)
-//                        }
-//                    }
-//                    maybeFaulty.forEach { key in Output.warning(file, "\(key) may be faulty.") }
-//                }
-//                
-//                // Process the source code
-//                print("------------ Processing \(projectState.sourceFiles.count) Source File(s) ------------")
-//                let allKeys: Set<String> = Set(projectState.primaryLocalizationFile.keyPhrase.keys)
-//                
-//                projectState.sourceFiles.forEach { file in
-//                    // Add logs for unlocalised strings
-//                    file.unlocalizedPhrases.forEach { phrase in
-//                        Output.warning(phrase, "Found unlocalized string '\(phrase.key)'")
-//                    }
-//                    
-//                    // Add errors for missing localised strings
-//                    let missingKeys: Set<String> = Set(file.keyPhrase.keys).subtracting(allKeys)
-//                    missingKeys.forEach { key in
-//                        switch file.keyPhrase[key] {
-//                            case .some(let phrase): Output.error(phrase, "Localized phrase '\(key)' missing from strings files")
-//                            case .none: Output.error(file, "Localized phrase '\(key)' missing from strings files")
-//                        }
-//                    }
-//                }
-//                break
             case .updatePermissionStrings:
                 break
 //                print("------------ Updating permission strings ------------")
@@ -325,6 +317,10 @@ enum Output {
         print("\(location.location): error: \(error)")
     }
     
+    static func warning(_ warning: String) {
+        print("warning: \(warning)")
+    }
+    
     static func warning(_ location: Locatable, _ warning: String) {
         print("\(location.location): warning: \(warning)")
     }
@@ -338,6 +334,10 @@ enum Output {
         // Looks like the `note:` doesn't work the same as when XCode does it unfortunately so we can't
         // currently include the reference to the original entry
         // print("\(original.location): note: previously found here")
+    }
+    
+    static func duplicate(key: String) {
+        print("Error: duplicate key '\(key)'")
     }
 }
 

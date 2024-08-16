@@ -5763,7 +5763,7 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
-			shellScript = "# \"${SRCROOT}/Scripts/LintLocalizableStrings.swift\" validate\n";
+			shellScript = "\"${SRCROOT}/Scripts/LintLocalizableStrings.swift\" validate\n";
 			showEnvVarsInLog = 0;
 		};
 		FDC498C12AC1775400EDD897 /* Ensure Localizable.strings included */ = {
@@ -5783,7 +5783,7 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
-			shellScript = "# \"${SRCROOT}/Scripts/LintLocalizableStrings.swift\" validate\n";
+			shellScript = "\"${SRCROOT}/Scripts/LintLocalizableStrings.swift\" validate\n";
 			showEnvVarsInLog = 0;
 		};
 		FDD82C422A2085B900425F05 /* Add Commit Hash To Build Info Plist */ = {
@@ -5824,7 +5824,7 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
-			shellScript = "# \"${SRCROOT}/Scripts/LintLocalizableStrings.swift\" lint update\n";
+			shellScript = "\"${SRCROOT}/Scripts/LintLocalizableStrings.swift\" lint\n";
 			showEnvVarsInLog = 0;
 		};
 /* End PBXShellScriptBuildPhase section */
