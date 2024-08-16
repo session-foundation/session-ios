@@ -96,24 +96,39 @@ public enum IP2Country {
                 return []
             }
             
-            var targetCount: Int32 = 0
-            _ = withUnsafeMutableBytes(of: &targetCount) { countBuffer in
-                targetData.copyBytes(to: countBuffer, from: ..<MemoryLayout<Int32>.size)
-            }
+            var targetCount: Int32 = targetData
+                .prefix(MemoryLayout<Int32>.size)
+                .withUnsafeBytes { bytes -> Int32 in
+                    guard
+                        bytes.count >= MemoryLayout<Int32>.size,
+                        let baseAddress: UnsafePointer<Int32> = bytes
+                            .bindMemory(to: Int32.self)
+                            .baseAddress
+                    else { return 0 }
+                    
+                    return baseAddress.pointee
+                }
             
-            /// Move past the count
-            targetData = targetData.advanced(by: MemoryLayout<Int32>.size)
+            /// Move past the count and extract the content data
+            targetData = targetData.dropFirst(MemoryLayout<Int32>.size)
+            let contentData: Data = targetData.prefix(Int(targetCount))
             
             guard
-                targetData.count >= targetCount,
-                let contentString: String = String(data: Data(targetData[..<targetCount]), encoding: .utf8)
+                !contentData.isEmpty,
+                let contentString: String = String(data: contentData, encoding: .utf8)
             else {
                 Log.error(.ip2Country, "\(name) failed to convert the content to a string.")
                 return []
             }
             
+            /// There was a crash related to advancing the data in an invalid way in `2.7.0`, if this does occur then
+            /// we want to know about it so add a log
+            if targetCount > targetData.count {
+                Log.error(.ip2Country, "\(name) suggested it had mare data then was actually available (\(targetCount) vs. \(targetData.count)).")
+            }
+            
             /// Move past the data and return the result
-            targetData = targetData.advanced(by: Int(targetCount))
+            targetData = targetData.dropFirst(Int(targetCount))
             return contentString.components(separatedBy: "\0\0")
         }
         
