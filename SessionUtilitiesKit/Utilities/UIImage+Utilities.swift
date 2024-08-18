@@ -4,10 +4,7 @@ import UIKit.UIImage
 
 public extension UIImage {
     func normalizedImage() -> UIImage {
-        guard
-            let imgRef: CGImage = self.cgImage,
-            imageOrientation != .up
-        else { return self }
+        guard imageOrientation != .up else { return self }
         
         // The actual resize: draw the image on a new context, applying a transform matrix
         let bounds: CGRect = CGRect(x: 0, y: 0, width: size.width, height: size.height)
@@ -15,10 +12,10 @@ public extension UIImage {
         format.scale = self.scale
         format.opaque = false
         
-        let renderer: UIGraphicsImageRenderer = UIGraphicsImageRenderer(bounds: bounds, format: format)
-
-        return renderer.image { rendererContext in
-            rendererContext.cgContext.draw(imgRef, in: bounds, byTiling: false)
+        // Note: We use the UIImage.draw function here instead of using the CGContext because UIImage
+        // automatically deals with orientations so we don't have to
+        return UIGraphicsImageRenderer(bounds: bounds, format: format).image { _ in
+            self.draw(in: bounds)
         }
     }
     
