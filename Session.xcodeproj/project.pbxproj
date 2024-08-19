@@ -4680,6 +4680,7 @@
 				FD5E93D52C12D8120038C25A /* Add Commit Hash To Build Info Plist */,
 				FD5E93D72C12DA400038C25A /* Add App Group To Build Info Plist */,
 				FDC498C12AC1775400EDD897 /* Ensure Localizable.strings included */,
+				943BC5A02C6F26370066A56A /* Ensure InfoPlist.xcstrings updated */,
 			);
 			buildRules = (
 			);
@@ -5433,6 +5434,26 @@
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
 			shellScript = "diff \"${PODS_PODFILE_DIR_PATH}/Podfile.lock\" \"${PODS_ROOT}/Manifest.lock\" > /dev/null\nif [ $? != 0 ] ; then\n    # print error to STDERR\n    echo \"error: The sandbox is not in sync with the Podfile.lock. Run 'pod install' or update your CocoaPods installation.\" >&2\n    exit 1\nfi\n# This output is used by Xcode 'outputs' to avoid re-running this script phase.\necho \"SUCCESS\" > \"${SCRIPT_OUTPUT_FILE_0}\"\n";
+			showEnvVarsInLog = 0;
+		};
+		943BC5A02C6F26370066A56A /* Ensure InfoPlist.xcstrings updated */ = {
+			isa = PBXShellScriptBuildPhase;
+			alwaysOutOfDate = 1;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputFileListPaths = (
+			);
+			inputPaths = (
+			);
+			name = "Ensure InfoPlist.xcstrings updated";
+			outputFileListPaths = (
+			);
+			outputPaths = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "\"${SRCROOT}/Scripts/LintLocalizableStrings.swift\" update\n";
 			showEnvVarsInLog = 0;
 		};
 		9CD244FBE60C4042B0E01930 /* [CP] Embed Pods Frameworks */ = {

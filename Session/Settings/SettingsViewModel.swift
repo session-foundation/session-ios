@@ -620,7 +620,7 @@ class SettingsViewModel: SessionTableViewModel, NavigationItemSource, Navigatabl
                                 switch (avatarUpdate, error) {
                                     case (.remove, _): return "profileDisplayPictureRemoveError".localized()
                                     case (_, .avatarUploadMaxFileSizeExceeded):
-                                        return "update_profile_modal_max_size_error_title".localized()
+                                        return "attachmentsErrorSize".localized()
                                     
                                     default: return "profileErrorUpdate".localized()
                                 }

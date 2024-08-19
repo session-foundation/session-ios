@@ -237,43 +237,41 @@ enum ScriptAction: String {
                 }
                 break
             case .updatePermissionStrings:
+                print("------------ Updating permission strings ------------")
+                var strings: JSON = projectState.infoPlistLocalizationFile.strings
+                var updatedInfoPlistJSON: JSON = projectState.infoPlistLocalizationFile.json
+                ProjectState.permissionStrings.forEach { key in
+                    guard let nsKey: String = ProjectState.permissionStringsMap[key] else { return }
+                    var updatedStrings: JSON = projectState.localizationFile.strings[key] as! JSON
+                    if let localizations: JSON = updatedStrings["localizations"] as? JSON {
+                        var updatedLocalizations: JSON = localizations
+                        localizations.forEach { locale , stringUint in
+                            var updatedStringUnit: JSON = stringUint as! JSON
+                            if let translation: JSON = updatedStringUnit["stringUnit"] as? JSON,
+                               let value: String = translation["value"] as? String
+                            {
+                                var updatedTranslation: JSON = translation
+                                let updatedValue: String = value.replacingOccurrences(of: "{app_name}", with: "Session")
+                                updatedTranslation["value"] = updatedValue
+                                updatedStringUnit["stringUnit"] = updatedTranslation
+                                updatedLocalizations[locale] = updatedStringUnit
+                            }
+                            
+                        }
+                        updatedStrings["localizations"] = updatedLocalizations
+                    }
+                    strings[nsKey] = updatedStrings
+                }
+                updatedInfoPlistJSON["strings"] = strings
+                
+                if let data: Data = try? JSONSerialization.data(withJSONObject: updatedInfoPlistJSON, options: [ .fragmentsAllowed ]) {
+                    do {
+                        try data.write(to: URL(fileURLWithPath: projectState.infoPlistLocalizationFile.path), options: [.atomic])
+                    } catch {
+                        fatalError("Could not write to InfoPlist.xcstrings, error: \(error)")
+                    }
+                }
                 break
-//                print("------------ Updating permission strings ------------")
-//                var updatedInfoPlistJSON: JSON = projectState.infoPlistLocalizationFile.json
-//                var strings: JSON = updatedInfoPlistJSON["strings"] as! JSON
-//                projectState.localizationFiles.forEach { file in
-//                    ProjectState.permissionStrings.forEach { key in
-//                        guard let nsKey: String = ProjectState.permissionStringsMap[key] else { return }
-//                        var keyPhrases: JSON = strings[nsKey] as! JSON
-//                        var localizations: JSON = keyPhrases["localizations"] as! JSON
-//                        if let phrase: String = file.keyPhrase[key]?.value {
-//                            if let translations: JSON = localizations[file.name] as? JSON {
-//                                var stringUnit: JSON = translations["stringUnit"] as! JSON
-//                                if (stringUnit["value"] as! String) != phrase {
-//                                    stringUnit["state"] = "translated"
-//                                    stringUnit["value"] = phrase
-//                                }
-//                            } else {
-//                                let stringUnit: JSON = [
-//                                    "state": "translated",
-//                                    "value": phrase.replacingOccurrences(of: "\"", with: "")
-//                                ]
-//                                localizations[file.name] = ["stringUnit": stringUnit]
-//                            }
-//                        }
-//                        keyPhrases["localizations"] = localizations
-//                        strings[nsKey] = keyPhrases
-//                    }
-//                }
-//                updatedInfoPlistJSON["strings"] = strings
-//                
-//            if let data: Data = try? JSONSerialization.data(withJSONObject: updatedInfoPlistJSON, options: [ .fragmentsAllowed ]) {
-//                do {
-//                    try data.write(to: URL(fileURLWithPath: projectState.infoPlistLocalizationFile.path), options: [.atomic])
-//                } catch {
-//                    fatalError("Could not write to InfoPlist.xcstrings, error: \(error)")
-//                }
-//            }
         }
         
         print("------------ Complete ------------")
@@ -402,6 +400,7 @@ extension ProjectState {
     struct XCStringsFile: Locatable {
         let name: String
         let path: String
+        var json: JSON
         var strings: JSON
         var locales: Set<String> = Set()
         
@@ -413,7 +412,8 @@ extension ProjectState {
                 .components(separatedBy: "/")
                 .last ?? "Unknown")
             self.path = path
-            self.strings = XCStringsFile.parse(path)["strings"] as! JSON
+            self.json = XCStringsFile.parse(path)
+            self.strings = self.json["strings"] as! JSON
             self.strings.values.forEach { value in
                 if let localizations: JSON = (value as? JSON)?["localizations"] as? JSON {
                     self.locales.formUnion(localizations.map{ $0.key })
