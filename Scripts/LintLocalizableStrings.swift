@@ -12,7 +12,7 @@
 
 import Foundation
 
-typealias JSON = [String:Any]
+typealias JSON = [String:AnyHashable]
 
 extension ProjectState {
     /// Adding `// stringlint:disable` to the top of a source file (before imports) or after a string will mean that file/line gets
@@ -242,27 +242,25 @@ enum ScriptAction: String {
                 var updatedInfoPlistJSON: JSON = projectState.infoPlistLocalizationFile.json
                 ProjectState.permissionStrings.forEach { key in
                     guard let nsKey: String = ProjectState.permissionStringsMap[key] else { return }
-                    var updatedStrings: JSON = projectState.localizationFile.strings[key] as! JSON
-                    if let localizations: JSON = updatedStrings["localizations"] as? JSON {
-                        var updatedLocalizations: JSON = localizations
-                        localizations.forEach { locale , stringUint in
-                            var updatedStringUnit: JSON = stringUint as! JSON
-                            if let translation: JSON = updatedStringUnit["stringUnit"] as? JSON,
-                               let value: String = translation["value"] as? String
-                            {
-                                var updatedTranslation: JSON = translation
-                                let updatedValue: String = value.replacingOccurrences(of: "{app_name}", with: "Session")
-                                updatedTranslation["value"] = updatedValue
-                                updatedStringUnit["stringUnit"] = updatedTranslation
-                                updatedLocalizations[locale] = updatedStringUnit
-                            }
-                            
+                    if
+                        let stringsData: Data = try? JSONSerialization.data(withJSONObject: (projectState.localizationFile.strings[key] as! JSON), options: [ .fragmentsAllowed ]),
+                        let stringsJSONString: String = String(data: stringsData, encoding: .utf8)
+                    {
+                        let updatedStringsJSONString = stringsJSONString.replacingOccurrences(of: "{app_name}", with: "Session")
+                        
+                        if 
+                            let updatedStringsData: Data = updatedStringsJSONString.data(using: .utf8),
+                            let updatedStrings: JSON = try? JSONSerialization.jsonObject(with: updatedStringsData, options: [ .fragmentsAllowed ]) as? JSON
+                        {
+                            strings[nsKey] = updatedStrings
                         }
-                        updatedStrings["localizations"] = updatedLocalizations
                     }
-                    strings[nsKey] = updatedStrings
                 }
                 updatedInfoPlistJSON["strings"] = strings
+            
+                guard updatedInfoPlistJSON != projectState.infoPlistLocalizationFile.json else {
+                    return
+                }
                 
                 if let data: Data = try? JSONSerialization.data(withJSONObject: updatedInfoPlistJSON, options: [ .fragmentsAllowed ]) {
                     do {
