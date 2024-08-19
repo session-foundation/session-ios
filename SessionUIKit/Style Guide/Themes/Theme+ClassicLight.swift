@@ -65,7 +65,7 @@ internal enum Theme_ClassicLight: ThemeColors {
         .sessionButton_destructiveBackground: .clear,
         .sessionButton_destructiveHighlight: .dangerLight.withAlphaComponent(0.3),
         .sessionButton_destructiveBorder: .dangerLight,
-        .sessionButton_primaryFilledText: .classicLight0,
+        .sessionButton_primaryFilledText: .black,
         .sessionButton_primaryFilledBackground: .primary,
         
         // SolidButton
@@ -186,7 +186,7 @@ internal enum Theme_ClassicLight: ThemeColors {
         .sessionButton_destructiveBackground: .clear,
         .sessionButton_destructiveHighlight: .dangerLight.opacity(0.3),
         .sessionButton_destructiveBorder: .dangerLight,
-        .sessionButton_primaryFilledText: .classicLight0,
+        .sessionButton_primaryFilledText: .black,
         .sessionButton_primaryFilledBackground: .primary,
         
         // SolidButton
