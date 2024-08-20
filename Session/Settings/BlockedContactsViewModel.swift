@@ -184,7 +184,7 @@ public class BlockedContactsViewModel: SessionTableViewModel, NavigatableStateHo
             let name: String = contactNames.first ?? ""
             switch contactNames.count {
             case 1:
-                return "blockUnblockDescription"
+                return "blockUnblockName"
                     .put(key: "name", value: name)
                     .localized()
             case 2:

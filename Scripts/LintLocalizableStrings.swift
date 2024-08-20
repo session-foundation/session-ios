@@ -6,9 +6,9 @@
 //
 /// This script is based on https://github.com/ginowu7/CleanSwiftLocalizableExample
 /// The main differences are:
-/// 1. Changes to the localised usage regex
-/// 2. Addition to excluded unlocalised cases
-/// 3. Functionality to update and copy localised permission requirement strings to infoPlist.xcstrings
+/// 1. Changes to the localized usage regex
+/// 2. Addition to excluded unlocalized cases
+/// 3. Functionality to update and copy localized permission requirement strings to infoPlist.xcstrings
 
 import Foundation
 
@@ -48,7 +48,7 @@ extension ProjectState {
         "external/"                 // External dependencies
     ]
     static let excludedPhrases: Set<String> = [ "", " ", "  ", ",", ", ", "null", "\"", "@[0-9a-fA-F]{66}", "^[0-9A-Fa-f]+$", "/" ]
-    static let excludedUnlocalisedStringLineMatching: Set<MatchType> = [
+    static let excludedUnlocalizedStringLineMatching: Set<MatchType> = [
         .contains(ProjectState.lintSuppression, caseSensitive: false),
         .prefix("#import", caseSensitive: false),
         .prefix("@available(", caseSensitive: false),
@@ -221,12 +221,12 @@ enum ScriptAction: String {
                 print("------------ Processing \(projectState.sourceFiles.count) Source File(s) ------------")
   
                 projectState.sourceFiles.forEach { file in
-                    // Add logs for unlocalised strings
+                    // Add logs for unlocalized strings
                     file.unlocalizedPhrases.forEach { phrase in
                         Output.warning(phrase, "Found unlocalized string '\(phrase.key)'")
                     }
                     
-                    // Add errors for missing localised strings
+                    // Add errors for missing localized strings
                     let missingKeys: Set<String> = Set(file.keyPhrase.keys).subtracting(Set(allKeys))
                     missingKeys.forEach { key in
                         switch file.keyPhrase[key] {
@@ -487,7 +487,7 @@ extension ProjectState {
                 // been suppressed or it's explicitly excluded due to the rules at the top of the file
                 guard
                     trimmedLine.contains("\"") &&
-                    !ProjectState.excludedUnlocalisedStringLineMatching
+                    !ProjectState.excludedUnlocalizedStringLineMatching
                         .contains(where: { $0.matches(trimmedLine, lineNumber, lines) })
                 else { return }
                 
@@ -500,7 +500,7 @@ extension ProjectState {
                     line.components(separatedBy: commentMatches[0])[0]
                 )
                 
-                // Use regex to find `NSLocalizedString("", "")`, `"".localised()` and any other `""`
+                // Use regex to find `NSLocalizedString("", "")`, `"".localized()` and any other `""`
                 // values in the source code
                 //
                 // Note: It's more complex because we need to exclude escaped quotation marks from
@@ -545,7 +545,7 @@ extension ProjectState {
                 /// **Note:** While it'd be nice to have the regex automatically exclude the quotes doing so makes it _far_ less
                 /// efficient (approx. by a factor of 8 times) so we remove those ourselves)
                 if allMatches.isEmpty {
-                    // Find strings which are just not localised
+                    // Find strings which are just not localized
                     let potentialUnlocalizedStrings: [String] = Regex
                         .matches("\\\"[^\\\"\\\\]*(?:\\\\.[^\\\"\\\\]*)*(?:\\\")", content: targetLine)
                         // Remove the leading and trailing quotation marks

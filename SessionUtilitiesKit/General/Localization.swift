@@ -245,7 +245,7 @@ final public class LocalizationHelper: CustomStringConvertible {
     // MARK: - CustomStringConvertible
 
     public var description: String {
-        // Fallback to the localised
+        // Fallback to the localized
         return self.localized()
     }
 }

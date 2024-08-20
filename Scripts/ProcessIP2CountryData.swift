@@ -106,7 +106,7 @@ class Processor {
         guard keepRunning else { return }
 
         /// Filter down the files to find the country name files
-        let localisedCountryNameFileUrls: [URL] = fileUrls.filter { fileUrl in
+        let localizedCountryNameFileUrls: [URL] = fileUrls.filter { fileUrl in
             ((try? fileUrl.resourceValues(forKeys: [.isDirectoryKey]))?.isDirectory == false) &&
             fileUrl.lastPathComponent.lowercased().hasPrefix(countryNameFilePrefix.lowercased()) &&
             fileUrl.lastPathComponent.lowercased().hasSuffix(".csv")
@@ -114,11 +114,11 @@ class Processor {
 
         guard keepRunning else { return }
         
-        let languageCodes: String = localisedCountryNameFileUrls
+        let languageCodes: String = localizedCountryNameFileUrls
             .map { url in String(url.lastPathComponent.dropFirst(countryNameFilePrefix.count).dropLast(".csv".count)) }
             .sorted()
             .joined(separator: ", ")
-        print("Found \(localisedCountryNameFileUrls.count) language files ✅ (\(languageCodes))")
+        print("Found \(localizedCountryNameFileUrls.count) language files ✅ (\(languageCodes))")
         
         guard keepRunning else { return }
 
@@ -166,16 +166,16 @@ class Processor {
         
         /// Structure of the data should be `geoname_id,locale_code,continent_code,continent_name,country_iso_code,country_name,is_in_european_union`
         let languagesPrefix: String = "Processing languages: "
-        localisedCountryNameFileUrls.enumerated().forEach { fileIndex, fileUrl in
+        localizedCountryNameFileUrls.enumerated().forEach { fileIndex, fileUrl in
             guard keepRunning else { return }
             guard
-                let localisedData: Data = try? Data(contentsOf: fileUrl),
-                let localisedDataString: String = String(data: localisedData, encoding: .utf8)
-            else { fatalError("Could not load localised country name file") }
+                let localizedData: Data = try? Data(contentsOf: fileUrl),
+                let localizedDataString: String = String(data: localizedData, encoding: .utf8)
+            else { fatalError("Could not load localized country name file") }
 
             /// Header line plus at least one line of content
-            let lines: [String] = localisedDataString.components(separatedBy: "\n")
-            guard lines.count > 1 else { fatalError("Localised country file had no content") }
+            let lines: [String] = localizedDataString.components(separatedBy: "\n")
+            guard lines.count > 1 else { fatalError("localized country file had no content") }
             
             lines[1...].enumerated().forEach { index, line in
                 let values: [String] = line
@@ -187,7 +187,7 @@ class Processor {
                 cache.countryLocationsGeonameId.append(values[0])
                 cache.countryLocationsCountryName.append(values[5].trimmingCharacters(in: CharacterSet(charactersIn: "\"")))
                 
-                let progress = (Double((fileIndex * lines.count) + index) / Double(localisedCountryNameFileUrls.count * lines.count))
+                let progress = (Double((fileIndex * lines.count) + index) / Double(localizedCountryNameFileUrls.count * lines.count))
                 printProgressBar(prefix: languagesPrefix, progress: progress, total: (terminalWidth - 10))
             }
         }
