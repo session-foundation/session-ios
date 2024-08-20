@@ -43,7 +43,10 @@ public class NSENotificationPresenter: NSObject, NotificationsProtocol {
         let snippet: String = (interaction.previewText(db)
             .filterForDisplay?
             .replacingMentions(for: thread.id))
-            .defaulting(to: "messageNewYouveGotA".localized())
+            .defaulting(to: "messageNewYouveGot"
+                .putNumber(1)
+                .localized()
+            )
         
         let userInfo: [String: Any] = [
             NotificationServiceExtension.isFromRemoteKey: true,
@@ -71,11 +74,15 @@ public class NSENotificationPresenter: NSObject, NotificationsProtocol {
         
             case .nameNoPreview:
                 notificationContent.title = notificationTitle
-                notificationContent.body = "messageNewYouveGotA".localized()
+                notificationContent.body = "messageNewYouveGot"
+                    .putNumber(1)
+                    .localized()
                 
             case .noNameNoPreview:
                 notificationContent.title = Singleton.appName
-                notificationContent.body = "messageNewYouveGotA".localized()
+                notificationContent.body = "messageNewYouveGot"
+                    .putNumber(1)
+                    .localized()
         }
         
         // If it's a message request then overwrite the body to be something generic (only show a notification
@@ -110,8 +117,8 @@ public class NSENotificationPresenter: NSObject, NotificationsProtocol {
                     notificationContent.title :
                     groupName
                 )
-                notificationContent.body = "messageNewYouveGotMany"
-                    .put(key: "count", value: numberOfNotifications)
+                notificationContent.body = "messageNewYouveGot"
+                    .putNumber(numberOfNotifications)
                     .localized()
             }
             
@@ -203,7 +210,9 @@ public class NSENotificationPresenter: NSObject, NotificationsProtocol {
         
         switch previewType {
             case .nameAndPreview: break
-            default: notificationBody = "messageNewYouveGotA".localized()
+            default: notificationBody = "messageNewYouveGot"
+                .putNumber(1)
+                .localized()
         }
 
         let userInfo: [String: Any] = [

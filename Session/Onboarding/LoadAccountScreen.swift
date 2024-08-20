@@ -162,7 +162,7 @@ struct EnterRecoveryPasswordScreen: View{
                 Spacer(minLength: 0)
                     .frame(maxHeight: 2 * Values.mediumSpacing)
                 
-                Text("onboardingRecoveryPassword".localized())
+                Text("recoveryPasswordRestoreDescription".localized())
                     .font(.system(size: Values.smallFontSize))
                     .foregroundColor(themeColor: .textPrimary)
                     .fixedSize(horizontal: false, vertical: true)

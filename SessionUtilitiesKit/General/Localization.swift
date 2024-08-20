@@ -181,6 +181,7 @@ private extension Collection where Element == NSAttributedString.HTMLTag {
 final public class LocalizationHelper: CustomStringConvertible {
     private let template: String
     private var replacements: [String : String] = [:]
+    private var numbers: [Int] = []
 
     // MARK: - Initialization
 
@@ -194,17 +195,31 @@ final public class LocalizationHelper: CustomStringConvertible {
         replacements[key] = value.description
         return self
     }
+    
+    public func putNumber(_ number: Int, index: Int) -> LocalizationHelper {
+        self.numbers.insert(number, at: index)
+        return self
+    }
 
     public func localized() -> String {
         // If the localized string matches the key provided then the localisation failed
         var localizedString: String = NSLocalizedString(template, comment: "")
-
+        
         for (key, value) in replacements {
             localizedString = localizedString.replacingOccurrences(of: tokenize(key), with: value)
         }
         
         // Replace html tag "<br/>" with "\n"
         localizedString = localizedString.replacingOccurrences(of: "<br/>", with: "\n")
+
+        // Deal with plurals
+        if !self.numbers.isEmpty {
+            localizedString = String(
+                format: localizedString,
+                locale: .current,
+                arguments: self.numbers
+            )
+        }
 
         return localizedString
     }
@@ -259,6 +274,10 @@ extension UITextView: DirectFontAccessible {}
 public extension String {
     func put(key: String, value: CustomStringConvertible) -> LocalizationHelper {
         return LocalizationHelper(template: self).put(key: key, value: value)
+    }
+    
+    func putNumber(_ number: Int, index: Int = 0) -> LocalizationHelper {
+        return LocalizationHelper(template: self).putNumber(number, index: index)
     }
 
     func localized() -> String {

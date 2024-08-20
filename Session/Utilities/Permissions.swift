@@ -69,7 +69,9 @@ public enum Permissions {
                     info: ConfirmationModal.Info(
                         title: "permissionsRequired".localized(),
                         body: .text(
-                            "permissionsMicrophoneAccessRequired".localized()
+                            "permissionsMicrophoneAccessRequiredDesktop"
+                                .put(key: "app_name", value: Singleton.appName)
+                                .localized()
                         ),
                         confirmTitle: "sessionSettings".localized(),
                         dismissOnConfirm: false,

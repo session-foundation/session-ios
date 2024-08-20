@@ -153,8 +153,8 @@ extension UserNotificationPresenterAdaptee: NotificationPresenterAdaptee {
                         content.title :
                         threadName
                     )
-                    content.body = "messageNewYouveGotMany"
-                        .put(key: "count", value: numberOfNotifications)
+                    content.body = "messageNewYouveGot"
+                        .putNumber(numberOfNotifications)
                         .localized()
                 }
                 

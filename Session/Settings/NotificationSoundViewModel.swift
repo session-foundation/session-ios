@@ -108,10 +108,7 @@ class NotificationSoundViewModel: SessionTableViewModel, NavigationItemSource, N
                                 id: sound,
                                 title: {
                                     guard sound != .note else {
-                                        return String(
-                                            format: "SETTINGS_AUDIO_DEFAULT_TONE_LABEL_FORMAT".localized(),
-                                            sound.displayName
-                                        )
+                                        return "\(sound.displayName) (default)"
                                     }
                                     
                                     return sound.displayName

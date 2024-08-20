@@ -198,7 +198,7 @@ final class ConversationTitleView: UIView {
                         labelInfos.append(
                             SessionLabelCarouselView.LabelInfo(
                                 attributedText: "members"
-                                    .put(key: "count", value: userCount)
+                                    .putNumber(userCount)
                                     .localizedFormatted(baseFont: .systemFont(ofSize: Values.miniFontSize)),
                                 accessibility: nil, // TODO: Add accessibility
                                 type: .userCount
@@ -209,7 +209,7 @@ final class ConversationTitleView: UIView {
                         labelInfos.append(
                             SessionLabelCarouselView.LabelInfo(
                                 attributedText: "membersActive"
-                                    .put(key: "count", value: userCount)
+                                    .putNumber(userCount)
                                     .localizedFormatted(baseFont: .systemFont(ofSize: Values.miniFontSize)),
                                 accessibility: nil, // TODO: Add accessibility
                                 type: .userCount

@@ -50,7 +50,7 @@ final class HomeVC: BaseVC, LibSessionRespondingViewController, UITableViewDataS
     private lazy var seedReminderView: SeedReminderView = {
         let result = SeedReminderView()
         result.accessibilityLabel = "Recovery phrase reminder"
-        result.title = NSAttributedString(string: "recoveryPasswordBannerTittle".localized())
+        result.title = NSAttributedString(string: "recoveryPasswordBannerTitle".localized())
         result.subtitle = "recoveryPasswordBannerDescription".localized()
         result.setProgress(1, animated: false)
         result.delegate = self

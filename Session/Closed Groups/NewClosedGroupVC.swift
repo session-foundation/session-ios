@@ -328,7 +328,7 @@ final class NewClosedGroupVC: BaseVC, UITableViewDataSource, UITableViewDelegate
             return showError(title: "groupAddMemberMaximum".localized())
         }
         let selectedContacts = self.selectedContacts
-        let message: String? = (selectedContacts.count > 20 ? "GROUP_CREATION_PLEASE_WAIT".localized() : nil)
+        let message: String? = (selectedContacts.count > 20 ? "deleteAfterLegacyGroupsGroupCreation".localized() : nil)
         ModalActivityIndicatorViewController.present(fromViewController: navigationController!, message: message) { [weak self] _ in
             MessageSender
                 .createClosedGroup(name: name, members: selectedContacts)

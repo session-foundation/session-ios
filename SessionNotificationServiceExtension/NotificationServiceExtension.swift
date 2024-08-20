@@ -501,7 +501,9 @@ public final class NotificationServiceExtension: UNNotificationServiceExtension 
         Log.flush()
         
         content.title = Singleton.appName
-        content.body = "messageNewYouveGotA".localized()
+        content.body = "messageNewYouveGot"
+            .putNumber(1)
+            .localized()
         let userInfo: [String: Any] = [ NotificationServiceExtension.isFromRemoteKey: true ]
         content.userInfo = userInfo
         contentHandler!(content)

@@ -148,7 +148,7 @@ struct EnterAccountIdScreen: View {
                 )
             ) {
                 ZStack {
-                    Text("\("messageNewDescription".localized())\(Image(systemName: "questionmark.circle"))")
+                    Text("\("messageNewDescriptionMobile".localized())\(Image(systemName: "questionmark.circle"))")
                         .font(.system(size: Values.verySmallFontSize))
                         .foregroundColor(themeColor: .textSecondary)
                         .multilineTextAlignment(.center)

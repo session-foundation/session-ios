@@ -174,12 +174,14 @@ public class BlockedContactsViewModel: SessionTableViewModel, NavigatableStateHo
                         .first(where: { section in section.model == .contacts }),
                     let info: SessionCell.Info<TableItem> = section.elements
                         .first(where: { info in info.id.id == contactId })
-                else { return contactId }
+                else {
+                    return Profile.truncated(id: contactId, truncating: .middle)
+                }
                 
                 return info.title?.text
             }
         let confirmationTitle: String = {
-            let name: String = contactNames.first ?? "CONVERSATION_SETTINGS_BLOCKED_CONTACTS_UNBLOCK_CONFIRMATION_TITLE_FALLBACK".localized()
+            let name: String = contactNames.first ?? ""
             switch contactNames.count {
             case 1:
                 return "blockUnblockDescription"

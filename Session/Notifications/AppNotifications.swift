@@ -153,7 +153,9 @@ public class NotificationPresenter: NotificationsProtocol {
         }
         
         switch previewType {
-            case .noNameNoPreview, .nameNoPreview: notificationBody = "messageNewYouveGotA".localized()
+            case .noNameNoPreview, .nameNoPreview: notificationBody = "messageNewYouveGot"
+                .putNumber(1)
+                .localized()
             case .nameAndPreview: notificationBody = messageText
         }
         
@@ -324,7 +326,9 @@ public class NotificationPresenter: NotificationsProtocol {
         
         switch previewType {
             case .nameAndPreview: break
-            default: notificationBody = "messageNewYouveGotA".localized()
+            default: notificationBody = "messageNewYouveGot"
+                .putNumber(1)
+                .localized()
         }
         
         let category = AppNotificationCategory.incomingMessage
