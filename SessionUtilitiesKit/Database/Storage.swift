@@ -342,6 +342,11 @@ open class Storage {
     // MARK: - Security
     
     private static func getDatabaseCipherKeySpec() throws -> Data {
+        try Singleton.keychain.migrateLegacyKeyIfNeeded(
+            legacyKey: "GRDBDatabaseCipherKeySpec",
+            legacyService: "TSKeyChainService",
+            toKey: .dbCipherKeySpec
+        )
         return try Singleton.keychain.data(forKey: .dbCipherKeySpec)
     }
     

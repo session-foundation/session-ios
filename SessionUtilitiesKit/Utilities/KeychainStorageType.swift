@@ -35,6 +35,8 @@ public protocol KeychainStorageType {
     func remove(key: KeychainStorage.DataKey) throws
     
     func removeAll() throws
+    
+    func migrateLegacyKeyIfNeeded(legacyKey: String, legacyService: String?, toKey key: KeychainStorage.DataKey) throws
 }
 
 // MARK: - KeychainStorage
@@ -111,6 +113,47 @@ public class KeychainStorage: KeychainStorageType {
                 description: "[KeychainStorage] Error clearing data, OSStatusCode: \(keychain.lastResultCode)"
             )
         }
+    }
+    
+    public func migrateLegacyKeyIfNeeded(legacyKey: String, legacyService: String?, toKey key: KeychainStorage.DataKey) throws {
+        // If we already have a value for the given key then do nothing (assume the existing
+        // value is correct)
+        guard (try? data(forKey: key)) == nil else { return }
+        
+        var query: [String: Any] = [
+          KeychainSwiftConstants.klass       : kSecClassGenericPassword,
+          KeychainSwiftConstants.attrAccount : legacyKey,
+          KeychainSwiftConstants.matchLimit  : kSecMatchLimitOne
+        ]
+        query[KeychainSwiftConstants.returnData] = kCFBooleanTrue
+        
+        if let legacyService: String = legacyService {
+            query[(kSecAttrService as String)] = legacyService
+        }
+        
+        if let accessGroup: String = keychain.accessGroup {
+            query[KeychainSwiftConstants.accessGroup] = accessGroup
+        }
+        
+        if keychain.synchronizable {
+            query[KeychainSwiftConstants.attrSynchronizable] = kSecAttrSynchronizableAny
+        }
+        
+        var result: AnyObject?
+        let lastResultCode = withUnsafeMutablePointer(to: &result) {
+          SecItemCopyMatching(query as CFDictionary, UnsafeMutablePointer($0))
+        }
+        
+        guard
+            lastResultCode == noErr,
+            let resultData: Data = result as? Data
+        else { return }
+        
+        // Store the data in the new location
+        try set(data: resultData, forKey: key)
+        
+        // Remove the data from the old location
+        SecItemDelete(query as CFDictionary)
     }
 }
 

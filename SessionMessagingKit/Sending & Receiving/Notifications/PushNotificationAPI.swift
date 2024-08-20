@@ -439,6 +439,11 @@ public enum PushNotificationAPI {
     
     @discardableResult private static func getOrGenerateEncryptionKey(using dependencies: Dependencies) throws -> Data {
         do {
+            try Singleton.keychain.migrateLegacyKeyIfNeeded(
+                legacyKey: "PNEncryptionKeyKey",
+                legacyService: "PNKeyChainService",
+                toKey: .pushNotificationEncryptionKey
+            )
             var encryptionKey: Data = try Singleton.keychain.data(forKey: .pushNotificationEncryptionKey)
             defer { encryptionKey.resetBytes(in: 0..<encryptionKey.count) }
             
