@@ -2226,6 +2226,7 @@ extension ConversationVC:
                 let actionSheet: UIAlertController = UIAlertController(title: nil, message: nil, preferredStyle: .actionSheet)
                 actionSheet.addAction(UIAlertAction(
                     title: "delete_message_for_me".localized(),
+                    accessibilityIdentifier: "Delete for me",
                     style: .destructive
                 ) { [weak self] _ in
                     Storage.shared.writeAsync { db in
@@ -2260,6 +2261,7 @@ extension ConversationVC:
                                 )
                         }
                     }(),
+                    accessibilityIdentifier: "Delete for everyone",
                     style: .destructive
                 ) { [weak self] _ in
                     let completeServerDeletion = { [weak self] in
