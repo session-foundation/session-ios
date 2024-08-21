@@ -10,6 +10,7 @@ NS_ASSUME_NONNULL_BEGIN
 @interface DataSource : NSObject
 
 @property (nonatomic, nullable) NSString *sourceFilename;
+@property (nonatomic) NSUUID *uniqueId;
 
 // Should not be called unless necessary as it can involve an expensive read.
 - (NSData *)data;
