@@ -806,8 +806,10 @@ extension ConversationVC:
     }
     
     func hideInputAccessoryView() {
-        self.inputAccessoryView?.isHidden = true
-        self.inputAccessoryView?.alpha = 0
+        DispatchQueue.main.async {
+            self.inputAccessoryView?.isHidden = true
+            self.inputAccessoryView?.alpha = 0
+        }
     }
     
     func showInputAccessoryView() {
@@ -1822,7 +1824,7 @@ extension ConversationVC:
                                         let errorModal: ConfirmationModal = ConfirmationModal(
                                             info: ConfirmationModal.Info(
                                                 title: "COMMUNITY_ERROR_GENERIC".localized(),
-                                                body: .text(error.localizedDescription),
+                                                body: .text("\(error)"),
                                                 cancelTitle: "BUTTON_OK".localized(),
                                                 cancelStyle: .alert_text
                                             )

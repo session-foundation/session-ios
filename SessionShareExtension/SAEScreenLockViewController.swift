@@ -119,7 +119,7 @@ final class SAEScreenLockViewController: ScreenLockViewController {
                 
                 self?.isShowingAuthUI = false
                 self?.ensureUI()
-                self?.showScreenLockFailureAlert(message: error.localizedDescription)
+                self?.showScreenLockFailureAlert(message: "\(error)")
             },
             unexpectedFailure: { [weak self] error in
                 Log.assertOnMainThread()

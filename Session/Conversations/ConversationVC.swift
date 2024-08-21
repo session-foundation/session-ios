@@ -74,9 +74,11 @@ final class ConversationVC: BaseVC, LibSessionRespondingViewController, Conversa
     }
     
     override var inputAccessoryView: UIView? {
-        guard viewModel.threadData.canWrite else { return nil }
-        
-        return (isShowingSearchUI ? searchController.resultsBar : snInputView)
+        return (
+            (viewModel.threadData.canWrite && isShowingSearchUI) ?
+            searchController.resultsBar :
+            snInputView
+        )
     }
 
     /// The height of the visible part of the table view, i.e. the distance from the navigation bar (where the table view's origin is)
@@ -756,6 +758,12 @@ final class ConversationVC: BaseVC, LibSessionRespondingViewController, Conversa
             viewModel.threadData.threadIsMessageRequest != updatedThreadData.threadIsMessageRequest ||
             viewModel.threadData.threadRequiresApproval != updatedThreadData.threadRequiresApproval
         {
+            if updatedThreadData.canWrite {
+                self.showInputAccessoryView()
+            } else {
+                self.hideInputAccessoryView()
+            }
+           
             let messageRequestsViewWasVisible: Bool = (self.messageRequestFooterView.isHidden == false)
             
             UIView.animate(withDuration: 0.3) { [weak self] in
@@ -1449,10 +1457,7 @@ final class ConversationVC: BaseVC, LibSessionRespondingViewController, Conversa
     ) {
         let currentDisappearingMessagesConfiguration: DisappearingMessagesConfiguration? = disappearingMessagesConfiguration ?? self.viewModel.threadData.disappearingMessagesConfiguration
         // Do not show the banner until the new disappearing messages is enabled
-        guard 
-            Features.useNewDisappearingMessagesConfig &&
-            currentDisappearingMessagesConfiguration?.isEnabled == true
-        else {
+        guard currentDisappearingMessagesConfiguration?.isEnabled == true else {
             self.outdatedClientBanner.isHidden = true
             self.emptyStateLabelTopConstraint?.constant = Values.largeSpacing
             return

@@ -714,6 +714,7 @@ private class DoneButton: UIView {
     func updateCount() {
         guard let delegate = delegate else { return }
 
+        badge.themeBackgroundColor = (delegate.doneButtonCount > 0 ? .primary : .disabled)
         badgeLabel.text = numberFormatter.string(for: delegate.doneButtonCount)
     }
     
@@ -752,11 +753,14 @@ private class DoneButton: UIView {
     }
 
     @objc func didTap(tapGesture: UITapGestureRecognizer) {
+        guard (delegate?.doneButtonCount ?? 0) > 0 else { return }
+        
         delegate?.doneButtonWasTapped(self)
     }
     
     override func touchesBegan(_ touches: Set<UITouch>, with event: UIEvent?) {
         guard
+            (delegate?.doneButtonCount ?? 0) > 0,
             isUserInteractionEnabled,
             let location: CGPoint = touches.first?.location(in: self),
             bounds.contains(location)
