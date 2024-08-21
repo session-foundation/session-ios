@@ -264,7 +264,7 @@ public class NotificationPresenter: NotificationsProtocol {
                 case .permissionDenied:
                     return "callsYouMissedCallPermissions"
                         .put(key: "name", value: senderName)
-                        .localized()
+                        .localizedDeformatted()
                 case .missed:
                     return "callsMissedCallFrom"
                         .put(key: "name", value: senderName)
@@ -313,10 +313,8 @@ public class NotificationPresenter: NotificationsProtocol {
         else { return }
         guard !isMessageRequest else { return }
         
-        let senderName: String = Profile.displayName(db, id: reaction.authorId, threadVariant: thread.variant)
-        let notificationTitle = Singleton.appName
-        var notificationBody = "emojiReactsHoverName"
-            .put(key: "name", value: senderName)
+        let notificationTitle = Profile.displayName(db, id: reaction.authorId, threadVariant: thread.variant)
+        var notificationBody = "emojiReactsNotification"
             .put(key: "emoji", value: reaction.emoji)
             .localized()
         

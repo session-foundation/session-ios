@@ -111,6 +111,7 @@ extension ProjectState {
         .contains("separator:", caseSensitive: false),
         .contains("separatedBy:", caseSensitive: false),
         .nextLine(.contains(".put(key:", caseSensitive: false)),
+        .nextLine(.contains(".putNumber(", caseSensitive: false)),
         .nextLine(.contains(".localized()", caseSensitive: false)),
         .regex(".*static var databaseTableName: String"),
         .regex("case .* = "),

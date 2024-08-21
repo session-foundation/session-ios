@@ -149,7 +149,7 @@ struct LandingScreen: View {
         let modal: ConfirmationModal = ConfirmationModal(
             info: ConfirmationModal.Info(
                 title: "urlOpen".localized(),
-                body: .text("urlOpenBrowswer".localized()),
+                body: .text("urlOpenBrowser".localized()),
                 confirmTitle: "onboardingTos".localized(),
                 confirmAccessibility: Accessibility(
                     identifier: "Terms of service button",

@@ -329,7 +329,7 @@ extension SendMediaNavigationController: ImagePickerGridControllerDelegate {
                                     let modal: ConfirmationModal = ConfirmationModal(
                                         targetView: self?.view,
                                         info: ConfirmationModal.Info(
-                                            title: "IMAGE_PICKER_FAILED_TO_PROCESS_ATTACHMENTS".localized(),
+                                            title: "attachmentsErrorMediaSelection".localized(),
                                             cancelTitle: "okay".localized(),
                                             cancelStyle: .alert_text
                                         )
@@ -386,7 +386,7 @@ extension SendMediaNavigationController: ImagePickerGridControllerDelegate {
         let modal: ConfirmationModal = ConfirmationModal(
             targetView: self.view,
             info: ConfirmationModal.Info(
-                title: "IMAGE_PICKER_FAILED_TO_PROCESS_ATTACHMENTS".localized(),
+                title: "attachmentsErrorMediaSelection".localized(),
                 cancelTitle: "okay".localized(),
                 cancelStyle: .alert_text
             )

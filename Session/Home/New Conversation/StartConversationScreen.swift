@@ -104,7 +104,7 @@ struct StartConversationScreen: View {
                     QRCodeView(
                         string: getUserHexEncodedPublicKey(),
                         hasBackground: false,
-                        logo: "SessionWhite40",
+                        logo: "SessionWhite40", // stringlint:disable
                         themeStyle: ThemeManager.currentTheme.interfaceStyle
                     )
                     .aspectRatio(1, contentMode: .fit)

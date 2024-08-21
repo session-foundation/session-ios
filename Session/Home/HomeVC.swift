@@ -837,7 +837,7 @@ final class HomeVC: BaseVC, LibSessionRespondingViewController, UITableViewDataS
             let targetViewController: UIViewController = ConfirmationModal(
                 info: ConfirmationModal.Info(
                     title: "theError".localized(),
-                    body: .text("LOAD_RECOVERY_PASSWORD_ERROR".localized()),
+                    body: .text("recoveryPasswordErrorLoad".localized()),
                     cancelTitle: "okay".localized(),
                     cancelStyle: .alert_text
                 )

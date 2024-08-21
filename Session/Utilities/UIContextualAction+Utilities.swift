@@ -342,7 +342,7 @@ public extension UIContextualAction {
                                         info: ConfirmationModal.Info(
                                             title: "blockDescription"
                                                 .put(key: "name", value: threadViewModel.displayName)
-                                                .localized(),
+                                                .localizedDeformatted(),
                                             confirmTitle: "block".localized(),
                                             confirmAccessibility: Accessibility(
                                                 identifier: "Block"

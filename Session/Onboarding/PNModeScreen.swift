@@ -66,7 +66,7 @@ struct PNModeScreen: View {
                     .foregroundColor(themeColor: .textPrimary)
                 
                 Text(
-                    "onboardingMessageNotificationExplaination"
+                    "onboardingMessageNotificationExplanation"
                         .put(key: "app_name", value: Singleton.appName)
                         .localized()
                 )

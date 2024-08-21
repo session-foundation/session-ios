@@ -201,6 +201,7 @@
 		9473386E2BDF5F3E00B9E169 /* InfoPlist.xcstrings in Resources */ = {isa = PBXBuildFile; fileRef = 9473386D2BDF5F3E00B9E169 /* InfoPlist.xcstrings */; };
 		94B3DC172AF8592200C88531 /* QuoteView_SwiftUI.swift in Sources */ = {isa = PBXBuildFile; fileRef = 94B3DC162AF8592200C88531 /* QuoteView_SwiftUI.swift */; };
 		94C5DCB02BE88170003AA8C5 /* BezierPathView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 94C5DCAF2BE88170003AA8C5 /* BezierPathView.swift */; };
+		94FC7A8E2C759805004A8146 /* Constants.swift in Sources */ = {isa = PBXBuildFile; fileRef = 94FC7A8D2C759805004A8146 /* Constants.swift */; };
 		A11CD70D17FA230600A2D1B1 /* QuartzCore.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = A11CD70C17FA230600A2D1B1 /* QuartzCore.framework */; };
 		A163E8AB16F3F6AA0094D68B /* Security.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = A163E8AA16F3F6A90094D68B /* Security.framework */; };
 		A1C32D5017A06538000A904E /* AddressBookUI.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = A1C32D4F17A06537000A904E /* AddressBookUI.framework */; };
@@ -1391,6 +1392,7 @@
 		9473386D2BDF5F3E00B9E169 /* InfoPlist.xcstrings */ = {isa = PBXFileReference; lastKnownFileType = text.json.xcstrings; path = InfoPlist.xcstrings; sourceTree = "<group>"; };
 		94B3DC162AF8592200C88531 /* QuoteView_SwiftUI.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = QuoteView_SwiftUI.swift; sourceTree = "<group>"; };
 		94C5DCAF2BE88170003AA8C5 /* BezierPathView.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = BezierPathView.swift; sourceTree = "<group>"; };
+		94FC7A8D2C759805004A8146 /* Constants.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = Constants.swift; sourceTree = "<group>"; };
 		987AE169AEA3246E4C0897B1 /* Pods_GlobalDependencies_FrameworkAndExtensionDependencies_ExtendedDependencies_SessionShareExtension.framework */ = {isa = PBXFileReference; explicitFileType = wrapper.framework; includeInIndex = 0; path = Pods_GlobalDependencies_FrameworkAndExtensionDependencies_ExtendedDependencies_SessionShareExtension.framework; sourceTree = BUILT_PRODUCTS_DIR; };
 		998762BFD08C2415FE71186C /* Pods-GlobalDependencies-FrameworkAndExtensionDependencies-ExtendedDependencies-SessionUtilitiesKit.debug.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-GlobalDependencies-FrameworkAndExtensionDependencies-ExtendedDependencies-SessionUtilitiesKit.debug.xcconfig"; path = "Target Support Files/Pods-GlobalDependencies-FrameworkAndExtensionDependencies-ExtendedDependencies-SessionUtilitiesKit/Pods-GlobalDependencies-FrameworkAndExtensionDependencies-ExtendedDependencies-SessionUtilitiesKit.debug.xcconfig"; sourceTree = "<group>"; };
 		9DE2662E4E5838CD8E1AF35F /* Pods-GlobalDependencies-FrameworkAndExtensionDependencies-ExtendedDependencies-SessionShareExtension.app store release.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-GlobalDependencies-FrameworkAndExtensionDependencies-ExtendedDependencies-SessionShareExtension.app store release.xcconfig"; path = "Target Support Files/Pods-GlobalDependencies-FrameworkAndExtensionDependencies-ExtendedDependencies-SessionShareExtension/Pods-GlobalDependencies-FrameworkAndExtensionDependencies-ExtendedDependencies-SessionShareExtension.app store release.xcconfig"; sourceTree = "<group>"; };
@@ -3541,6 +3543,7 @@
 			children = (
 				C3AAFFF125AE99710089E6DD /* AppDelegate.swift */,
 				34D99CE3217509C1000AFB39 /* AppEnvironment.swift */,
+				94FC7A8D2C759805004A8146 /* Constants.swift */,
 				7BFD1A952747689000FB91B9 /* TurnServers */,
 				B8FF8E6025C10D8B004D1F22 /* Countries */,
 				34330A581E7875FB00DF2FB9 /* Fonts */,
@@ -6502,6 +6505,7 @@
 				FD716E7128505E5200C96BF4 /* MessageRequestsCell.swift in Sources */,
 				FDF848F329413DB0007DCAE5 /* ImagePickerHandler.swift in Sources */,
 				B88FA7F2260C3EB10049422F /* OpenGroupSuggestionGrid.swift in Sources */,
+				94FC7A8E2C759805004A8146 /* Constants.swift in Sources */,
 				9422569F2C23F8FE00C0FDBF /* ScanQRCodeScreen.swift in Sources */,
 				FD71160428C95B5600B47552 /* PhotoCollectionPickerViewModel.swift in Sources */,
 				FD37EA1928AC5CCA003AE748 /* NotificationSoundViewModel.swift in Sources */,

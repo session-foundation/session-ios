@@ -24,7 +24,7 @@ final class CallMissedTipsModal: Modal {
     private lazy var titleLabel: UILabel = {
         let result: UILabel = UILabel()
         result.font = .boldSystemFont(ofSize: Values.mediumFontSize)
-        result.text = "callsMissed"
+        result.text = "callsMissedCallFrom"
             .put(key: "name", value: caller)
             .localized()
         result.themeTextColor = .textPrimary

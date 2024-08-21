@@ -69,7 +69,7 @@ public enum Permissions {
                     info: ConfirmationModal.Info(
                         title: "permissionsRequired".localized(),
                         body: .text(
-                            "permissionsMicrophoneAccessRequiredDesktop"
+                            "permissionsMicrophoneAccessRequiredIos"
                                 .put(key: "app_name", value: Singleton.appName)
                                 .localized()
                         ),

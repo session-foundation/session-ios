@@ -496,7 +496,7 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
             default: break
         }
         
-        alert.addAction(UIAlertAction(title: "quit".localized(), style: .default) { _ in
+        alert.addAction(UIAlertAction(title: "quit".put(key: "app_name", value: Singleton.appName).localized(), style: .default) { _ in
             Log.flush()
             exit(0)
         })
@@ -942,7 +942,9 @@ private enum StartupError: Error {
                 return "databaseErrorGeneric".localized()
 
             case .databaseError(StorageError.migrationNoLongerSupported):
-                return "databaseErrorUpdate".localized()
+                return "databaseErrorUpdate"
+                    .put(key: "app_name", value: Singleton.appName)
+                    .localized()
             
             case .startupTimeout: 
                 return "databaseErrorTimeout"

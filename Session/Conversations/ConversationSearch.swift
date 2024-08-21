@@ -328,31 +328,17 @@ public final class SearchResultsBar: UIView {
             stopLoading()
             return
         }
-
-        switch results.count {
-            case 0:
-                // Keyboard toolbar label when no messages match the search string
-            label.text = "searchMatchesNone".localized()
-            
-            case 1:
-                // Keyboard toolbar label when exactly 1 message matches the search string
-                label.text = "searchMatches"
-                    .put(key: "count", value: 1)
-                    .put(key: "total_count", value: results.count)
-                    .localized()
         
-            default:
-                // Keyboard toolbar label when more than 1 message matches the search string
-                //
-                // Embeds {{number/position of the 'currently viewed' result}} and
-                // the {{total number of results}}
-                guard let currentIndex: Int = currentIndex else { return }
-                
-                label.text = "searchMatches"
-                    .put(key: "count", value: currentIndex + 1)
-                    .put(key: "total_count", value: results.count)
-                    .localized()
+        label.text = {
+            guard results.count > 0 else {
+                return "searchMatchesNone".localized()
             }
+            
+            return "searchMatches"
+                .putNumber(results.count)
+                .put(key: "found_count", value: (currentIndex ?? 0) + 1)
+                .localized()
+        }()
 
         if let currentIndex: Int = currentIndex {
             downButton.isEnabled = currentIndex > 0

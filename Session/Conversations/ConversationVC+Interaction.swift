@@ -875,12 +875,6 @@ extension ConversationVC:
         cellLocation: CGPoint,
         using dependencies: Dependencies = Dependencies()
     ) {
-        guard cellViewModel.variant != .standardOutgoing || (cellViewModel.state != .failed && cellViewModel.state != .failedToSync) else {
-            // Show the failed message sheet
-            showFailedMessageSheet(for: cellViewModel, using: dependencies)
-            return
-        }
-        
         // For call info messages show the "call missed" modal
         guard cellViewModel.variant != .infoCall else {
             let callMissedTipsModal: CallMissedTipsModal = CallMissedTipsModal(caller: cellViewModel.authorName)
@@ -1655,54 +1649,6 @@ extension ConversationVC:
     }
     
     // MARK: --action handling
-    
-    private func showFailedMessageSheet(for cellViewModel: MessageViewModel, using dependencies: Dependencies) {
-        let sheet = UIAlertController(
-            title: (cellViewModel.state == .failedToSync ?
-                "MESSAGE_DELIVERY_FAILED_SYNC_TITLE".localized() :
-                "messageStatusFailedToSend".localized()
-            ),
-            message: cellViewModel.mostRecentFailureText,
-            preferredStyle: .actionSheet
-        )
-        sheet.addAction(UIAlertAction(title: "cancel".localized(), style: .cancel, handler: nil))
-        
-        if cellViewModel.state != .failedToSync {
-            sheet.addAction(UIAlertAction(title: "delete".localized(), style: .destructive, handler: { _ in
-                Storage.shared.writeAsync { db in
-                    try Interaction
-                        .filter(id: cellViewModel.id)
-                        .deleteAll(db)
-                }
-            }))
-        }
-        
-        sheet.addAction(UIAlertAction(
-            title: (cellViewModel.state == .failedToSync ?
-                "resync".localized() :
-                "resend".localized()
-            ),
-            style: .default,
-            handler: { [weak self] _ in self?.retry(cellViewModel, using: dependencies) }
-        ))
-        
-        // HACK: Extracting this info from the error string is pretty dodgy
-        let prefix: String = "HTTP request failed at destination (Service node " // stringlint:disable
-        if let mostRecentFailureText: String = cellViewModel.mostRecentFailureText, mostRecentFailureText.hasPrefix(prefix) {
-            let rest = mostRecentFailureText.substring(from: prefix.count)
-            
-            if let index = rest.firstIndex(of: ")") { // stringlint:disable
-                let snodeAddress = String(rest[rest.startIndex..<index])
-                
-                sheet.addAction(UIAlertAction(title: "Copy Service Node Info", style: .default) { _ in // stringlint:disable
-                    UIPasteboard.general.string = snodeAddress
-                })
-            }
-        }
-        
-        Modal.setupForIPadIfNeeded(sheet, targetView: self.view)
-        present(sheet, animated: true, completion: nil)
-    }
     
     func joinOpenGroup(name: String?, url: String) {
         // Open groups can be unsafe, so always ask the user whether they want to join one
