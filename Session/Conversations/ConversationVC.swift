@@ -142,7 +142,6 @@ final class ConversationVC: BaseVC, LibSessionRespondingViewController, Conversa
         result.separatorStyle = .none
         result.themeBackgroundColor = .clear
         result.showsVerticalScrollIndicator = false
-        result.contentInsetAdjustmentBehavior = .never
         result.keyboardDismissMode = .interactive
         result.contentInset = UIEdgeInsets(
             top: 0,
