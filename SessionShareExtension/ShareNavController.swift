@@ -7,7 +7,6 @@ import SignalUtilitiesKit
 import SessionUIKit
 import SessionUtilitiesKit
 import SessionMessagingKit
-import SignalCoreKit
 
 final class ShareNavController: UINavigationController, ShareViewDelegate {
     public static var attachmentPrepPublisher: AnyPublisher<[SignalAttachment], Error>?
@@ -15,7 +14,6 @@ final class ShareNavController: UINavigationController, ShareViewDelegate {
     /// The `ShareNavController` is initialized from a storyboard so we need to manually initialize this
     private let dependencies: Dependencies = Dependencies()
     private let versionMigrationsComplete: Atomic<Bool> = Atomic(false)
-    private var fileLogger: DDFileLogger?
     
     // MARK: - Error
     
@@ -40,9 +38,7 @@ final class ShareNavController: UINavigationController, ShareViewDelegate {
             Singleton.setup(appContext: ShareAppExtensionContext(rootViewController: self))
         }
 
-        _ = AppVersion.sharedInstance()
-
-        Cryptography.seedRandom()
+        _ = AppVersion.shared
 
         // We don't need to use DeviceSleepManager in the SAE.
 
@@ -58,7 +54,7 @@ final class ShareNavController: UINavigationController, ShareViewDelegate {
                 Log.setup(with: Logger(
                     primaryPrefix: "SessionShareExtension",                                              // stringlint:disable
                     level: .info,
-                    customDirectory: "\(OWSFileSystem.appSharedDataDirectoryPath())/Logs/ShareExtension" // stringlint:disable
+                    customDirectory: "\(FileManager.default.appSharedDataDirectoryPath)/Logs/ShareExtension" // stringlint:disable
                 ))
                 
                 SessionEnvironment.shared?.notificationsManager.mutate {
@@ -112,7 +108,7 @@ final class ShareNavController: UINavigationController, ShareViewDelegate {
     }
 
     func versionMigrationsDidComplete(needsConfigSync: Bool) {
-        AssertIsOnMainThread()
+        Log.assertOnMainThread()
 
         // If we need a config sync then trigger it now
         if needsConfigSync {
@@ -126,7 +122,7 @@ final class ShareNavController: UINavigationController, ShareViewDelegate {
     }
 
     func checkIsAppReady(migrationsCompleted: Bool) {
-        AssertIsOnMainThread()
+        Log.assertOnMainThread()
 
         // App isn't ready until storage is ready AND all version migrations are complete.
         guard migrationsCompleted else { return }
@@ -151,7 +147,7 @@ final class ShareNavController: UINavigationController, ShareViewDelegate {
         // We don't need to use SyncPushTokensJob in the SAE.
         // We don't need to use DeviceSleepManager in the SAE.
 
-        AppVersion.sharedInstance().saeLaunchDidComplete()
+        AppVersion.shared.saeLaunchDidComplete()
 
         showLockScreenOrMainContent()
 
@@ -165,19 +161,19 @@ final class ShareNavController: UINavigationController, ShareViewDelegate {
         
         Log.appResumedExecution()
         Singleton.appReadiness.runNowOrWhenAppDidBecomeReady { [weak self] in
-            AssertIsOnMainThread()
+            Log.assertOnMainThread()
             self?.showLockScreenOrMainContent()
         }
     }
 
     @objc
     public func applicationDidEnterBackground() {
-        AssertIsOnMainThread()
+        Log.assertOnMainThread()
         Log.flush()
 
         if Storage.shared[.isScreenLockEnabled] {
             self.dismiss(animated: false) { [weak self] in
-                AssertIsOnMainThread()
+                Log.assertOnMainThread()
                 self?.extensionContext?.completeRequest(returningItems: [], completionHandler: nil)
             }
         }
@@ -210,7 +206,7 @@ final class ShareNavController: UINavigationController, ShareViewDelegate {
     }
     
     private func showMainContent() {
-        let threadPickerVC: ThreadPickerVC = ThreadPickerVC()
+        let threadPickerVC: ThreadPickerVC = ThreadPickerVC(using: dependencies)
         threadPickerVC.shareNavController = self
         
         setViewControllers([ threadPickerVC ], animated: false)
@@ -301,7 +297,7 @@ final class ShareNavController: UINavigationController, ShareViewDelegate {
     }
 
     private class func utiType(itemProvider: NSItemProvider) -> String? {
-        Logger.info("utiTypeForItem: \(itemProvider.registeredTypeIdentifiers)")
+        Log.info("utiTypeForItem: \(itemProvider.registeredTypeIdentifiers)")
 
         if isUrlItem(itemProvider: itemProvider) {
             return kUTTypeURL as String
@@ -317,23 +313,20 @@ final class ShareNavController: UINavigationController, ShareViewDelegate {
         return matchingUtiType
     }
 
-    private class func createDataSource(utiType: String, url: URL, customFileName: String?) -> DataSource? {
+    private class func createDataSource(utiType: String, url: URL, customFileName: String?) -> (any DataSource)? {
         if utiType == (kUTTypeURL as String) {
             // Share URLs as text messages whose text content is the URL
-            return DataSourceValue.dataSource(withText: url.absoluteString)
+            return DataSourceValue(text: url.absoluteString)
         }
         else if UTTypeConformsTo(utiType as CFString, kUTTypeText) {
             // Share text as oversize text messages.
             //
             // NOTE: SharingThreadPickerViewController will try to unpack them
             //       and send them as normal text messages if possible.
-            return DataSourcePath.dataSource(
-                with: url,
-                shouldDeleteOnDeallocation: false
-            )
+            return DataSourcePath(fileUrl: url, shouldDeleteOnDeinit: false)
         }
         
-        guard let dataSource = DataSourcePath.dataSource(with: url, shouldDeleteOnDeallocation: false) else {
+        guard let dataSource = DataSourcePath(fileUrl: url, shouldDeleteOnDeinit: false) else {
             return nil
         }
 
@@ -388,7 +381,7 @@ final class ShareNavController: UINavigationController, ShareViewDelegate {
             return [itemProvider]
         }
         else {
-            owsFailDebug("Missing attachment.")
+            Log.error("Missing attachment.")
         }
         
         return []
@@ -403,7 +396,7 @@ final class ShareNavController: UINavigationController, ShareViewDelegate {
 
         for inputItemRaw in inputItems {
             guard let inputItem = inputItemRaw as? NSExtensionItem else {
-                Logger.error("invalid inputItem \(inputItemRaw)")
+                Log.error("invalid inputItem \(inputItemRaw)")
                 continue
             }
             
@@ -446,7 +439,7 @@ final class ShareNavController: UINavigationController, ShareViewDelegate {
     }
     
     private func loadItemProvider(itemProvider: NSItemProvider) -> AnyPublisher<LoadedItem, Error> {
-        Logger.info("attachment: \(itemProvider)")
+        Log.info("attachment: \(itemProvider)")
 
         // We need to be very careful about which UTI type we use.
         //
@@ -462,7 +455,7 @@ final class ShareNavController: UINavigationController, ShareViewDelegate {
             return Fail(error: error)
                 .eraseToAnyPublisher()
         }
-        Logger.debug("matched utiType: \(srcUtiType)")
+        Log.debug("matched utiType: \(srcUtiType)")
 
         return Deferred {
             Future<LoadedItem, Error> { resolver in
@@ -480,14 +473,14 @@ final class ShareNavController: UINavigationController, ShareViewDelegate {
                         return
                     }
                     
-                    Logger.info("value type: \(type(of: value))")
+                    Log.info("value type: \(type(of: value))")
                     
                     switch value {
                         case let data as Data:
                             let customFileName = "Contact.vcf"
+                            let customFileExtension = MimeTypeUtil.fileExtension(forUtiType: srcUtiType)
                             
-                            let customFileExtension = MIMETypeUtil.fileExtension(forUTIType: srcUtiType)
-                            guard let tempFilePath = OWSFileSystem.writeData(toTemporaryFile: data, fileExtension: customFileExtension) else {
+                            guard let tempFilePath = try? FileSystem.write(data: data, toTemporaryFileWithExtension: customFileExtension) else {
                                 resolver(
                                     Result.failure(ShareViewControllerError.assertionError(description: "Error writing item data: \(String(describing: error))"))
                                 )
@@ -508,14 +501,14 @@ final class ShareNavController: UINavigationController, ShareViewDelegate {
                             )
                             
                         case let string as String:
-                            Logger.debug("string provider: \(string)")
-                            guard let data = string.filterStringForDisplay().data(using: String.Encoding.utf8) else {
+                            Log.debug("string provider: \(string)")
+                            guard let data = string.filteredForDisplay.data(using: String.Encoding.utf8) else {
                                 resolver(
                                     Result.failure(ShareViewControllerError.assertionError(description: "Error writing item data: \(String(describing: error))"))
                                 )
                                 return
                             }
-                            guard let tempFilePath = OWSFileSystem.writeData(toTemporaryFile: data, fileExtension: "txt") else {
+                            guard let tempFilePath: String = try? FileSystem.write(data: data, toTemporaryFileWithExtension: "txt") else {
                                 resolver(
                                     Result.failure(ShareViewControllerError.assertionError(description: "Error writing item data: \(String(describing: error))"))
                                 )
@@ -585,7 +578,7 @@ final class ShareNavController: UINavigationController, ShareViewDelegate {
                             
                         case let image as UIImage:
                             if let data = image.pngData() {
-                                let tempFilePath = OWSFileSystem.temporaryFilePath(withFileExtension: "png")
+                                let tempFilePath: String = FileSystem.temporaryFilePath(fileExtension: "png")
                                 do {
                                     let url = NSURL.fileURL(withPath: tempFilePath)
                                     try data.write(to: url)
@@ -643,7 +636,7 @@ final class ShareNavController: UINavigationController, ShareViewDelegate {
                 .eraseToAnyPublisher()
         }
 
-        Logger.debug("building DataSource with url: \(url), utiType: \(utiType)")
+        Log.debug("building DataSource with url: \(url), utiType: \(utiType)")
 
         guard let dataSource = ShareNavController.createDataSource(utiType: utiType, url: url, customFileName: loadedItem.customFileName) else {
             let error = ShareViewControllerError.assertionError(description: "Unable to read attachment data")
@@ -659,24 +652,24 @@ final class ShareNavController: UINavigationController, ShareViewDelegate {
             // Use kUTTypeText for text.
         } else if url.pathExtension.count > 0 {
             // Determine a more specific utiType based on file extension
-            if let typeExtension = MIMETypeUtil.utiType(forFileExtension: url.pathExtension) {
-                Logger.debug("utiType based on extension: \(typeExtension)")
+            if let typeExtension = MimeTypeUtil.utiType(forFileExtension: url.pathExtension) {
+                Log.debug("utiType based on extension: \(typeExtension)")
                 specificUTIType = typeExtension
             }
         }
 
         guard !SignalAttachment.isInvalidVideo(dataSource: dataSource, dataUTI: specificUTIType) else {
             // This can happen, e.g. when sharing a quicktime-video from iCloud drive.
-            let (publisher, _) = SignalAttachment.compressVideoAsMp4(dataSource: dataSource, dataUTI: specificUTIType)
+            let (publisher, _) = SignalAttachment.compressVideoAsMp4(dataSource: dataSource, dataUTI: specificUTIType, using: Dependencies())
             return publisher
         }
 
         let attachment = SignalAttachment.attachment(dataSource: dataSource, dataUTI: specificUTIType, imageQuality: .medium)
         if loadedItem.isConvertibleToContactShare {
-            Logger.info("isConvertibleToContactShare")
+            Log.info("isConvertibleToContactShare")
             attachment.isConvertibleToContactShare = true
         } else if loadedItem.isConvertibleToTextMessage {
-            Logger.info("isConvertibleToTextMessage")
+            Log.info("isConvertibleToTextMessage")
             attachment.isConvertibleToTextMessage = true
         }
         return Just(attachment)
@@ -742,14 +735,14 @@ final class ShareNavController: UINavigationController, ShareViewDelegate {
     private func isVideoNeedingRelocation(itemProvider: NSItemProvider, itemUrl: URL) -> Bool {
         let pathExtension = itemUrl.pathExtension
         guard pathExtension.count > 0 else {
-            Logger.verbose("item URL has no file extension: \(itemUrl).")
+            Log.verbose("item URL has no file extension: \(itemUrl).")
             return false
         }
-        guard let utiTypeForURL = MIMETypeUtil.utiType(forFileExtension: pathExtension) else {
-            Logger.verbose("item has unknown UTI type: \(itemUrl).")
+        guard let utiTypeForURL = MimeTypeUtil.utiType(forFileExtension: pathExtension) else {
+            Log.verbose("item has unknown UTI type: \(itemUrl).")
             return false
         }
-        Logger.verbose("utiTypeForURL: \(utiTypeForURL)")
+        Log.verbose("utiTypeForURL: \(utiTypeForURL)")
         guard utiTypeForURL == kUTTypeMPEG4 as String else {
             // Either it's not a video or it was a video which was not auto-converted to mp4.
             // Not affected by the issue.

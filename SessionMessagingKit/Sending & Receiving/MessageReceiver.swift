@@ -2,7 +2,6 @@
 
 import Foundation
 import GRDB
-import Sodium
 import SessionUIKit
 import SessionUtilitiesKit
 import SessionSnodeKit
@@ -50,18 +49,20 @@ public enum MessageReceiver {
                     return openGroupId
                 }
                 
-            case (_, .openGroupInbox(let timestamp, let messageServerId, let serverPublicKey, let blindedPublicKey, let isOutgoing)):
+            case (_, .openGroupInbox(let timestamp, let messageServerId, let serverPublicKey, let senderId, let recipientId)):
                 guard let userEd25519KeyPair: KeyPair = Identity.fetchUserEd25519KeyPair(db) else {
                     throw MessageReceiverError.noUserED25519KeyPair
                 }
                 
-                (plaintext, sender) = try decryptWithSessionBlindingProtocol(
-                    data: data,
-                    isOutgoing: isOutgoing,
-                    otherBlindedPublicKey: blindedPublicKey,
-                    with: serverPublicKey,
-                    userEd25519KeyPair: userEd25519KeyPair,
-                    using: dependencies
+                (plaintext, sender) = try dependencies.crypto.tryGenerate(
+                    .plaintextWithSessionBlindingProtocol(
+                        db,
+                        ciphertext: data,
+                        senderId: senderId,
+                        recipientId: recipientId,
+                        serverPublicKey: serverPublicKey,
+                        using: dependencies
+                    )
                 )
                 
                 plaintext = plaintext.removePadding()   // Remove the padding
@@ -84,9 +85,12 @@ public enum MessageReceiver {
                             throw MessageReceiverError.noUserX25519KeyPair
                         }
                         
-                        (plaintext, sender) = try decryptWithSessionProtocol(
-                            ciphertext: ciphertext,
-                            using: userX25519KeyPair
+                        (plaintext, sender) = try dependencies.crypto.tryGenerate(
+                            .plaintextWithSessionProtocol(
+                                db,
+                                ciphertext: ciphertext,
+                                using: dependencies
+                            )
                         )
                         plaintext = plaintext.removePadding()   // Remove the padding
                         sentTimestamp = envelope.timestamp
@@ -125,11 +129,14 @@ public enum MessageReceiver {
                             }
                             
                             do {
-                                return try decryptWithSessionProtocol(
-                                    ciphertext: ciphertext,
-                                    using: KeyPair(
-                                        publicKey: keyPair.publicKey.bytes,
-                                        secretKey: keyPair.secretKey.bytes
+                                return try dependencies.crypto.tryGenerate(
+                                    .plaintextWithSessionProtocolLegacyGroup(
+                                        ciphertext: ciphertext,
+                                        keyPair: KeyPair(
+                                            publicKey: keyPair.publicKey.bytes,
+                                            secretKey: keyPair.secretKey.bytes
+                                        ),
+                                        using: dependencies
                                     )
                                 )
                             }
@@ -219,13 +226,19 @@ public enum MessageReceiver {
         message: Message,
         serverExpirationTimestamp: TimeInterval?,
         associatedWithProto proto: SNProtoContent,
-        using dependencies: Dependencies = Dependencies()
+        using dependencies: Dependencies
     ) throws {
         // Check if the message requires an existing conversation (if it does and the conversation isn't in
         // the config then the message will be dropped)
         guard
             !Message.requiresExistingConversation(message: message, threadVariant: threadVariant) ||
-            LibSession.conversationInConfig(db, threadId: threadId, threadVariant: threadVariant, visibleOnly: false)
+            LibSession.conversationInConfig(
+                db,
+                threadId: threadId,
+                threadVariant: threadVariant,
+                visibleOnly: false,
+                using: dependencies
+            )
         else { throw MessageReceiverError.requiredThreadNotInConfig }
         
         // Throw if the message is outdated and shouldn't be processed
@@ -278,7 +291,8 @@ public enum MessageReceiver {
                     threadId: threadId,
                     threadVariant: threadVariant,
                     message: message,
-                    serverExpirationTimestamp: serverExpirationTimestamp
+                    serverExpirationTimestamp: serverExpirationTimestamp,
+                    using: dependencies
                 )
                 
             case let message as ExpirationTimerUpdate:
@@ -304,7 +318,8 @@ public enum MessageReceiver {
                     db,
                     threadId: threadId,
                     threadVariant: threadVariant,
-                    message: message
+                    message: message,
+                    using: dependencies
                 )
                 
             case let message as MessageRequestResponse:
@@ -419,7 +434,7 @@ public enum MessageReceiver {
         message: Message,
         threadId: String,
         threadVariant: SessionThread.Variant,
-        using dependencies: Dependencies = Dependencies()
+        using dependencies: Dependencies
     ) throws {
         switch message {
             case is ReadReceipt: return // No visible artifact created so better to keep for more reliable read states
@@ -433,7 +448,8 @@ public enum MessageReceiver {
             db,
             threadId: threadId,
             threadVariant: threadVariant,
-            visibleOnly: true
+            visibleOnly: true,
+            using: dependencies
         )
         let canPerformChange: Bool = LibSession.canPerformChange(
             db,

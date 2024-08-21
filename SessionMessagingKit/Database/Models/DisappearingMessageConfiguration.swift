@@ -267,7 +267,8 @@ public extension DisappearingMessagesConfiguration {
                 threadVariant: threadVariant,
                 timestampMs: timestampMs,
                 userPublicKey: getUserHexEncodedPublicKey(db),
-                openGroup: nil
+                openGroup: nil,
+                using: dependencies
             )
         )
         let messageExpirationInfo: Message.MessageExpirationInfo = Message.getMessageExpirationInfo(

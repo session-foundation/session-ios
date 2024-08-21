@@ -4,7 +4,6 @@
 
 import Foundation
 import Combine
-import Sodium
 import GRDB
 import SessionUtilitiesKit
 
@@ -20,8 +19,6 @@ public extension Network.RequestType {
 }
 
 public final class SnodeAPI {
-    internal static let sodium: Atomic<Sodium> = Atomic(Sodium())
-    
     /// The offset between the user's clock and the Service Node's clock. Used in cases where the
     /// user's clock is incorrect.
     ///
@@ -168,9 +165,6 @@ public final class SnodeAPI {
                 /// Since we have extended the TTL for a number of messages we need to make sure we update the local
                 /// `SnodeReceivedMessageInfo.expirationDateMs` values so we don't end up deleting them
                 /// incorrectly before they actually expire on the swarm
-                ///
-                /// **Note:** If this was triggered from a background poll which is no longer valid then don't bother trying
-                /// to write the changes (the database will be suspended)
                 if
                     !refreshingConfigHashes.isEmpty,
                     let refreshTTLSubReponse: Network.BatchSubResponse<UpdateExpiryResponse> = batchResponse
@@ -178,9 +172,9 @@ public final class SnodeAPI {
                         .asType(Network.BatchSubResponse<UpdateExpiryResponse>.self),
                     let refreshTTLResponse: UpdateExpiryResponse = refreshTTLSubReponse.body,
                     let validResults: [String: UpdateExpiryResponseResult] = try? refreshTTLResponse.validResultMap(
-                        sodium: sodium.wrappedValue,
-                        userX25519PublicKey: getUserHexEncodedPublicKey(),
-                        validationData: refreshingConfigHashes
+                        swarmPublicKey: getUserHexEncodedPublicKey(),
+                        validationData: refreshingConfigHashes,
+                        using: dependencies
                     ),
                     let targetResult: UpdateExpiryResponseResult = validResults[snode.ed25519PubkeyHex],
                     let groupedExpiryResult: [UInt64: [String]] = targetResult.changed
@@ -353,9 +347,10 @@ public final class SnodeAPI {
         let onsName = onsName.lowercased()
         
         // Hash the ONS name using BLAKE2b
-        let nameAsData = [UInt8](onsName.data(using: String.Encoding.utf8)!)
-        
-        guard let nameHash = sodium.wrappedValue.genericHash.hash(message: nameAsData) else {
+        guard
+            let nameAsData: [UInt8] = onsName.data(using: .utf8).map({ Array($0) }),
+            let nameHash = dependencies.crypto.generate(.hash(message: nameAsData))
+        else {
             return Fail(error: SnodeAPIError.onsHashingFailed)
                 .eraseToAnyPublisher()
         }
@@ -385,10 +380,8 @@ public final class SnodeAPI {
                                 using: dependencies
                             )
                             .tryMap { _, response -> String in
-                                try response.sessionId(
-                                    sodium: sodium.wrappedValue,
-                                    nameBytes: nameAsData,
-                                    nameHashBytes: nameHash
+                                try dependencies.crypto.tryGenerate(
+                                    .sessionId(name: onsName, response: response)
                                 )
                             }
                             .send(using: dependencies)
@@ -498,9 +491,9 @@ public final class SnodeAPI {
         
         return request
             .tryMap { _, response -> SendMessagesResponse in
-                try response.validateResultMap(
-                    sodium: sodium.wrappedValue,
-                    userX25519PublicKey: userX25519PublicKey
+                try response.validResultMap(
+                    swarmPublicKey: userX25519PublicKey,
+                    using: dependencies
                 )
                 
                 return response
@@ -557,9 +550,9 @@ public final class SnodeAPI {
             
             return request
                 .tryMap { info, response -> SendMessagesResponse in
-                    try response.validateResultMap(
-                        sodium: sodium.wrappedValue,
-                        userX25519PublicKey: userX25519PublicKey
+                    try response.validResultMap(
+                        swarmPublicKey: userX25519PublicKey,
+                        using: dependencies
                     )
                     
                     return response
@@ -709,9 +702,9 @@ public final class SnodeAPI {
                 .send(using: dependencies)
                 .tryMap { _, response -> [String: UpdateExpiryResponseResult] in
                     try response.validResultMap(
-                        sodium: sodium.wrappedValue,
-                        userX25519PublicKey: getUserHexEncodedPublicKey(),
-                        validationData: serverHashes
+                        swarmPublicKey: getUserHexEncodedPublicKey(),
+                        validationData: serverHashes,
+                        using: dependencies
                     )
                 }
                 .eraseToAnyPublisher()
@@ -747,10 +740,10 @@ public final class SnodeAPI {
                 )
                 .send(using: dependencies)
                 .tryMap { _, response -> Void in
-                    try response.validateResultMap(
-                        sodium: sodium.wrappedValue,
-                        userX25519PublicKey: getUserHexEncodedPublicKey(),
-                        validationData: subkeyToRevoke
+                    try response.validResultMap(
+                        swarmPublicKey: getUserHexEncodedPublicKey(),
+                        validationData: subkeyToRevoke,
+                        using: dependencies
                     )
                     
                     return ()
@@ -789,9 +782,9 @@ public final class SnodeAPI {
             )
             .tryMap { _, response -> [String: Bool] in
                 let validResultMap: [String: Bool] = try response.validResultMap(
-                    sodium: sodium.wrappedValue,
-                    userX25519PublicKey: swarmPublicKey,
-                    validationData: serverHashes
+                    swarmPublicKey: swarmPublicKey,
+                    validationData: serverHashes,
+                    using: dependencies
                 )
                 
                 // If `validResultMap` didn't throw then at least one service node
@@ -841,9 +834,9 @@ public final class SnodeAPI {
                 .send(using: dependencies)
                 .tryMap { _, response -> [String: Bool] in
                     let validResultMap: [String: Bool] = try response.validResultMap(
-                        sodium: sodium.wrappedValue,
-                        userX25519PublicKey: userX25519PublicKey,
-                        validationData: serverHashes
+                        swarmPublicKey: userX25519PublicKey,
+                        validationData: serverHashes,
+                        using: dependencies
                     )
                     
                     // If `validResultMap` didn't throw then at least one service node
@@ -901,9 +894,9 @@ public final class SnodeAPI {
                     }
                     
                     return try response.validResultMap(
-                        sodium: sodium.wrappedValue,
-                        userX25519PublicKey: userX25519PublicKey,
-                        validationData: targetInfo.timestampMs
+                        swarmPublicKey: userX25519PublicKey,
+                        validationData: targetInfo.timestampMs,
+                        using: dependencies
                     )
                 }
                 .eraseToAnyPublisher()
@@ -946,9 +939,9 @@ public final class SnodeAPI {
                 .send(using: dependencies)
                 .tryMap { _, response -> [String: Bool] in
                     try response.validResultMap(
-                        sodium: sodium.wrappedValue,
-                        userX25519PublicKey: userX25519PublicKey,
-                        validationData: beforeMs
+                        swarmPublicKey: userX25519PublicKey,
+                        validationData: beforeMs,
+                        using: dependencies
                     )
                 }
                 .eraseToAnyPublisher()

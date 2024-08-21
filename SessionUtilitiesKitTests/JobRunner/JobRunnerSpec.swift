@@ -39,7 +39,6 @@ class JobRunnerSpec: QuickSpec {
             details: nil
         )
         @TestState var dependencies: Dependencies! = Dependencies(
-            storage: nil,
             dateNow: Date(timeIntervalSince1970: 0),
             forceSynchronous: true
         )

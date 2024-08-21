@@ -29,7 +29,7 @@ enum _015_BlockCommunityMessageRequests: Migration {
             Identity.userExists(db),
             (try Setting.exists(db, id: Setting.BoolKey.checkForCommunityMessageRequests.rawValue)) == false
         {
-            let rawBlindedMessageRequestValue: Int32 = try LibSession
+            let rawBlindedMessageRequestValue: Int32 = try dependencies.caches[.libSession]
                 .config(for: .userProfile, publicKey: getUserHexEncodedPublicKey(db))
                 .wrappedValue
                 .map { conf -> Int32 in try LibSession.rawBlindedMessageRequestValue(in: conf) }

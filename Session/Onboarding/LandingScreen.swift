@@ -1,7 +1,6 @@
 // Copyright © 2023 Rangeproof Pty Ltd. All rights reserved.
 
 import SwiftUI
-import Sodium
 import SessionUIKit
 import SignalUtilitiesKit
 import SessionUtilitiesKit

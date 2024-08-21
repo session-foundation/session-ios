@@ -11,7 +11,8 @@ extension MessageReceiver {
         threadId: String,
         threadVariant: SessionThread.Variant,
         message: DataExtractionNotification,
-        serverExpirationTimestamp: TimeInterval?
+        serverExpirationTimestamp: TimeInterval?,
+        using dependencies: Dependencies
     ) throws {
         guard
             threadVariant == .contact,
@@ -29,7 +30,8 @@ extension MessageReceiver {
             threadVariant: threadVariant,
             timestampMs: (timestampMs * 1000),
             userPublicKey: getUserHexEncodedPublicKey(db),
-            openGroup: nil
+            openGroup: nil,
+            using: dependencies
         )
         let messageExpirationInfo: Message.MessageExpirationInfo = Message.getMessageExpirationInfo(
             threadVariant: threadVariant,

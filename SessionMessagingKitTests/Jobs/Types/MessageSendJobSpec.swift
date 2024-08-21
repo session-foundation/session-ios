@@ -161,7 +161,7 @@ class MessageSendJobSpec: QuickSpec {
                     
                     mockStorage.write { db in
                         try interaction.insert(db)
-                        try job.insert(db)
+                        try job.insert(db, withRowId: 54321)
                     }
                 }
                 
@@ -240,7 +240,7 @@ class MessageSendJobSpec: QuickSpec {
                             )
                         )
                     )
-                    mockStorage.write { db in try job.insert(db) }
+                    mockStorage.write { db in try job.insert(db, withRowId: 54321) }
                     
                     var error: Error? = nil
                     var permanentFailure: Bool = false
@@ -386,7 +386,7 @@ class MessageSendJobSpec: QuickSpec {
                                             shouldSkipLaunchBecomeActive: false,
                                             interactionId: 100,
                                             details: AttachmentUploadJob.Details(
-                                                messageSendJobId: 10,
+                                                messageSendJobId: 54321,
                                                 attachmentId: "200"
                                             )
                                         ),
@@ -407,7 +407,7 @@ class MessageSendJobSpec: QuickSpec {
                             )
                             
                             expect(mockStorage.read { db in try JobDependencies.fetchOne(db) })
-                                .to(equal(JobDependencies(jobId: 10, dependantId: 1000)))
+                                .to(equal(JobDependencies(jobId: 54321, dependantId: 1000)))
                         }
                     }
                 }
