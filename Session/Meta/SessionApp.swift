@@ -112,6 +112,7 @@ public struct SessionApp {
         using dependencies: Dependencies,
         onReset: (() -> ())? = nil
     ) {
+        LibSession.clearLoggers()
         LibSession.clearMemoryState(using: dependencies)
         LibSession.clearSnodeCache()
         LibSession.suspendNetworkAccess()

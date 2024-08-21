@@ -52,6 +52,10 @@ extension LibSession {
         })
     }
     
+    public static func clearLoggers() {
+        session_clear_loggers()
+    }
+    
     // MARK: - Internal
     
     fileprivate enum LogCategory: String {
