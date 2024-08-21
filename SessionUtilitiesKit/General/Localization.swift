@@ -2,7 +2,7 @@
 
 // stringlint:disable
 
-import Foundation
+import UIKit
 
 public extension NSAttributedString {
     /// These are the tags we current support formatting for

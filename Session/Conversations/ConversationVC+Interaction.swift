@@ -2175,7 +2175,7 @@ extension ConversationVC:
                     }(),
                     style: .destructive
                 ) { [weak self] _ in
-                    let completeServerDeletion = { [weak self] in
+                    let completeServerDeletion = {
                         Storage.shared.writeAsync { db in
                             try MessageSender
                                 .send(
@@ -2187,24 +2187,24 @@ extension ConversationVC:
                                     using: dependencies
                                 )
                         }
+                    }
                         
-                        // We can only delete messages on the server for `contact` and `group` conversations
-                        guard cellViewModel.threadVariant == .contact || cellViewModel.threadVariant == .group else {
-                            return completeServerDeletion()
-                        }
-                        
-                        deleteRemotely(
-                            from: self,
-                            request: SnodeAPI
-                                .deleteMessages(
-                                    swarmPublicKey: targetPublicKey,
-                                    serverHashes: [serverHash]
-                                )
-                                .map { _ in () }
-                                .eraseToAnyPublisher()
-                        ) { completeServerDeletion() }
-                    })
-                }
+                    // We can only delete messages on the server for `contact` and `group` conversations
+                    guard cellViewModel.threadVariant == .contact || cellViewModel.threadVariant == .group else {
+                        return completeServerDeletion()
+                    }
+                    
+                    deleteRemotely(
+                        from: self,
+                        request: SnodeAPI
+                            .deleteMessages(
+                                swarmPublicKey: targetPublicKey,
+                                serverHashes: [serverHash]
+                            )
+                            .map { _ in () }
+                            .eraseToAnyPublisher()
+                    ) { completeServerDeletion() }
+                })
 
                 actionSheet.addAction(UIAlertAction.init(title: "cancel".localized(), style: .cancel) { [weak self] _ in
                     self?.showInputAccessoryView()
