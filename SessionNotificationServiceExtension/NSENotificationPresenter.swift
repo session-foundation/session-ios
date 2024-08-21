@@ -79,7 +79,7 @@ public class NSENotificationPresenter: NSObject, NotificationsProtocol {
                     .localized()
                 
             case .noNameNoPreview:
-                notificationContent.title = Singleton.appName
+                notificationContent.title = Constants.app_name
                 notificationContent.body = "messageNewYouveGot"
                     .putNumber(1)
                     .localized()
@@ -88,7 +88,7 @@ public class NSENotificationPresenter: NSObject, NotificationsProtocol {
         // If it's a message request then overwrite the body to be something generic (only show a notification
         // when receiving a new message request if there aren't any others or the user had hidden them)
         if isMessageRequest {
-            notificationContent.title = Singleton.appName
+            notificationContent.title = Constants.app_name
             notificationContent.body = "messageRequestsNew".localized()
         }
         
@@ -167,7 +167,7 @@ public class NSENotificationPresenter: NSObject, NotificationsProtocol {
             .map { NSNumber(value: $0) }
             .defaulting(to: NSNumber(value: 0))
         
-        notificationContent.title = Singleton.appName
+        notificationContent.title = Constants.app_name
         notificationContent.body = ""
         
         let senderName: String = Profile.displayName(db, id: interaction.authorId, threadVariant: thread.variant)

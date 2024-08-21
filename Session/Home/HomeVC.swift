@@ -248,7 +248,7 @@ final class HomeVC: BaseVC, LibSessionRespondingViewController, UITableViewDataS
         let welcomeLabel = UILabel()
         welcomeLabel.font = .systemFont(ofSize: Values.smallFontSize)
         welcomeLabel.text = "onboardingBubbleWelcomeToSession"
-            .put(key: "app_name", value: Singleton.appName)
+            .put(key: "app_name", value: Constants.app_name)
             .localized()
         welcomeLabel.themeTextColor = .sessionButton_text
         welcomeLabel.textAlignment = .center

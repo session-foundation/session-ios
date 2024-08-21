@@ -44,7 +44,7 @@ struct ScanQRCodeScreen: View {
                     
                     Text(
                         "cameraGrantAccessQr"
-                            .put(key: "app_name", value: Singleton.appName)
+                            .put(key: "app_name", value: Constants.app_name)
                             .localized()
                     )
                     .font(.system(size: Values.smallFontSize))

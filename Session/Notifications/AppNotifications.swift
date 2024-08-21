@@ -137,12 +137,12 @@ public class NotificationPresenter: NotificationsProtocol {
         
         switch previewType {
             case .noNameNoPreview:
-                notificationTitle = Singleton.appName
+                notificationTitle = Constants.app_name
                 
             case .nameNoPreview, .nameAndPreview:
                 switch thread.variant {
                     case .contact:
-                        notificationTitle = (isMessageRequest ? Singleton.appName : senderName)
+                        notificationTitle = (isMessageRequest ? Constants.app_name : senderName)
                         
                     case .legacyGroup, .group, .community:
                         notificationTitle = "notificationsIosGroup"
@@ -257,7 +257,7 @@ public class NotificationPresenter: NotificationsProtocol {
             AppNotificationUserInfoKey.threadVariantRaw: thread.variant.rawValue
         ]
         
-        let notificationTitle: String = Singleton.appName
+        let notificationTitle: String = Constants.app_name
         let senderName: String = Profile.displayName(db, id: interaction.authorId, threadVariant: thread.variant)
         let notificationBody: String? = {
             switch messageInfo.state {

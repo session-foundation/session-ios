@@ -53,7 +53,7 @@ public class ScreenLock {
             // Description of how and why Signal iOS uses Touch ID/Face ID/Phone Passcode to
             // unlock 'screen lock'.
             localizedReason: "authenticateToOpen"
-                .put(key: "app_name", value: Singleton.appName)
+                .put(key: "app_name", value:  Constants.app_name)
                 .localized()
         ) { outcome in
             AssertIsOnMainThread()

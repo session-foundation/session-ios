@@ -31,7 +31,7 @@ final class ThreadPickerVC: UIViewController, UITableViewDataSource, UITableView
         let titleLabel: UILabel = UILabel()
         titleLabel.font = .boldSystemFont(ofSize: Values.veryLargeFontSize)
         titleLabel.text = "shareToSession"
-            .put(key: "app_name", value: Singleton.appName)
+            .put(key: "app_name", value: Constants.app_name)
             .localized()
         titleLabel.themeTextColor = .textPrimary
         

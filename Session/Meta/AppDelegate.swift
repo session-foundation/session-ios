@@ -439,7 +439,7 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
         /// This **must** be a standard `UIAlertController` instead of a `ConfirmationModal` because we may not
         /// have access to the database when displaying this so can't extract theme information for styling purposes
         let alert: UIAlertController = UIAlertController(
-            title: Singleton.appName,
+            title: Constants.app_name,
             message: error.message,
             preferredStyle: .alert
         )
@@ -496,7 +496,7 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
             default: break
         }
         
-        alert.addAction(UIAlertAction(title: "quit".put(key: "app_name", value: Singleton.appName).localized(), style: .default) { _ in
+        alert.addAction(UIAlertAction(title: "quit".put(key: "app_name", value: Constants.app_name).localized(), style: .default) { _ in
             Log.flush()
             exit(0)
         })
@@ -943,12 +943,12 @@ private enum StartupError: Error {
 
             case .databaseError(StorageError.migrationNoLongerSupported):
                 return "databaseErrorUpdate"
-                    .put(key: "app_name", value: Singleton.appName)
+                    .put(key: "app_name", value: Constants.app_name)
                     .localized()
             
             case .startupTimeout: 
                 return "databaseErrorTimeout"
-                    .put(key: "app_name", value: Singleton.appName)
+                    .put(key: "app_name", value: Constants.app_name)
                     .localized()
         }
     }

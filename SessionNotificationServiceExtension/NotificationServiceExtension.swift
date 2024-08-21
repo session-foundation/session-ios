@@ -461,7 +461,7 @@ public final class NotificationServiceExtension: UNNotificationServiceExtension 
     private func handleFailureForVoIP(_ db: Database, for callMessage: CallMessage) {
         let notificationContent = UNMutableNotificationContent()
         notificationContent.userInfo = [ NotificationServiceExtension.isFromRemoteKey : true ]
-        notificationContent.title = Singleton.appName
+        notificationContent.title = Constants.app_name
         notificationContent.badge = (try? Interaction.fetchUnreadCount(db))
             .map { NSNumber(value: $0) }
             .defaulting(to: NSNumber(value: 0))
@@ -500,7 +500,7 @@ public final class NotificationServiceExtension: UNNotificationServiceExtension 
         Storage.suspendDatabaseAccess()
         Log.flush()
         
-        content.title = Singleton.appName
+        content.title = Constants.app_name
         content.body = "messageNewYouveGot"
             .putNumber(1)
             .localized()

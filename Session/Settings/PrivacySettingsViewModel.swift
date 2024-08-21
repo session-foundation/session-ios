@@ -109,7 +109,7 @@ class PrivacySettingsViewModel: SessionTableViewModel, NavigationItemSource, Nav
                             id: .screenLock,
                             title: "lockApp".localized(),
                             subtitle: "lockAppDescriptionIos"
-                                .put(key: "app_name", value: Singleton.appName)
+                                .put(key: "app_name", value: Constants.app_name)
                                 .localized(),
                             rightAccessory: .toggle(
                                 .boolValue(
