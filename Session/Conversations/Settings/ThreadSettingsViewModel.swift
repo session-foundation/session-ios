@@ -452,12 +452,6 @@ class ThreadSettingsViewModel: SessionTableViewModel, NavigationItemSource, Navi
                                 guard current.disappearingMessagesConfig.isEnabled else {
                                     return "off".localized()
                                 }
-                                guard Features.useNewDisappearingMessagesConfig else {
-                                    return "disappearingMessagesDisappear"
-                                        .put(key: "disappearing_messages_type", value: "")
-                                        .put(key: "time", value: current.disappearingMessagesConfig.durationString)
-                                        .localized()
-                                }
                                 
                                 return "disappearingMessagesDisappear"
                                     .put(key: "disappearing_messages_type", value: (current.disappearingMessagesConfig.type?.localizedName ?? ""))

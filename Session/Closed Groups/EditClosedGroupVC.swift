@@ -496,7 +496,7 @@ final class EditClosedGroupVC: BaseVC, UITableViewDataSource, UITableViewDelegat
                             case .failure(let error):
                                 self?.showError(
                                     title: "deleteAfterLegacyGroupsGroupUpdateErrorTitle".localized(),
-                                    message: error.localizedDescription
+                                    message: "\(error)"
                                 )
                         }
                     }

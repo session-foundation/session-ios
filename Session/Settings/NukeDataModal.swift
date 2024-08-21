@@ -225,7 +225,7 @@ final class NukeDataModal: Modal {
                                         targetView: self?.view,
                                         info: ConfirmationModal.Info(
                                             title: "clearDataError".localized(),
-                                            body: .text(error.localizedDescription),
+                                            body: .text("\(error)"),
                                             cancelTitle: "okay".localized(),
                                             cancelStyle: .alert_text
                                         )
@@ -301,7 +301,7 @@ final class NukeDataModal: Modal {
         // profile storage
         let wasUnlinked: Bool = UserDefaults.standard[.wasUnlinked]
         
-        SessionApp.resetAppData {
+        SessionApp.resetAppData(using: dependencies) {
             // Resetting the data clears the old user defaults. We need to restore the unlink default.
             UserDefaults.standard[.wasUnlinked] = wasUnlinked
         }

@@ -8,7 +8,6 @@ import UserNotifications
 import BackgroundTasks
 import SessionMessagingKit
 import SignalUtilitiesKit
-import SignalCoreKit
 import SessionUtilitiesKit
 
 public final class NotificationServiceExtension: UNNotificationServiceExtension {
@@ -127,7 +126,8 @@ public final class NotificationServiceExtension: UNNotificationServiceExtension 
                                     data: data
                                 )
                             ],
-                            publicKey: publicKey
+                            publicKey: publicKey,
+                            using: dependencies
                         )
                         
                     /// Due to the way the `CallMessage` works we need to custom handle it's behaviour within the notification
@@ -150,7 +150,8 @@ public final class NotificationServiceExtension: UNNotificationServiceExtension 
                             db,
                             threadId: threadId,
                             threadVariant: threadVariant,
-                            message: callMessage
+                            message: callMessage,
+                            using: dependencies
                         )
                         
                         guard case .preOffer = callMessage.kind else {
@@ -164,7 +165,8 @@ public final class NotificationServiceExtension: UNNotificationServiceExtension 
                                     let interaction: Interaction = try MessageReceiver.insertCallInfoMessage(
                                         db,
                                         for: callMessage,
-                                        state: .permissionDenied
+                                        state: .permissionDenied,
+                                        using: dependencies
                                     )
                                 {
                                     let thread: SessionThread = try SessionThread
@@ -194,7 +196,7 @@ public final class NotificationServiceExtension: UNNotificationServiceExtension 
                                 )
                                 
                             case (true, false):
-                                try MessageReceiver.insertCallInfoMessage(db, for: callMessage)
+                                try MessageReceiver.insertCallInfoMessage(db, for: callMessage, using: dependencies)
                                 
                                 // Perform any required post-handling logic
                                 try MessageReceiver.postHandleMessage(
@@ -276,7 +278,7 @@ public final class NotificationServiceExtension: UNNotificationServiceExtension 
     // MARK: Setup
 
     private func setUpIfNecessary(completion: @escaping () -> Void) {
-        AssertIsOnMainThread()
+        Log.assertOnMainThread()
 
         // The NSE will often re-use the same process, so if we're
         // already set up we want to do nothing; we're already ready
@@ -286,9 +288,7 @@ public final class NotificationServiceExtension: UNNotificationServiceExtension 
         Log.info("Performing setup.")
         didPerformSetup = true
 
-        _ = AppVersion.sharedInstance()
-
-        Cryptography.seedRandom()
+        _ = AppVersion.shared
 
         AppSetup.setupEnvironment(
             retrySetupIfDatabaseInvalid: true,
@@ -296,7 +296,7 @@ public final class NotificationServiceExtension: UNNotificationServiceExtension 
                 Log.setup(with: Logger(
                     primaryPrefix: "NotificationServiceExtension",                                               // stringlint:disable
                     level: .info,
-                    customDirectory: "\(OWSFileSystem.appSharedDataDirectoryPath())/Logs/NotificationExtension", // stringlint:disable
+                    customDirectory: "\(FileManager.default.appSharedDataDirectoryPath)/Logs/NotificationExtension", // stringlint:disable
                     forceNSLog: true
                 ))
                 
@@ -335,15 +335,15 @@ public final class NotificationServiceExtension: UNNotificationServiceExtension 
     }
     
     private func versionMigrationsDidComplete(needsConfigSync: Bool, completion: @escaping () -> Void) {
-        AssertIsOnMainThread()
-        
+        Log.assertOnMainThread()
+
         // If we need a config sync then trigger it now
         if needsConfigSync {
             Storage.shared.write { db in
                 ConfigurationSyncJob.enqueue(db, publicKey: getUserHexEncodedPublicKey(db))
             }
         }
-        
+
         // App isn't ready until storage is ready AND all version migrations are complete.
         guard Storage.shared.isValid else {
             Log.error("Storage invalid.")
@@ -369,7 +369,7 @@ public final class NotificationServiceExtension: UNNotificationServiceExtension 
     /// to somehow still have some form of access to the old one
     private func forceResetup(_ notificationContent: UNMutableNotificationContent) {
         Storage.reconfigureDatabase()
-        LibSession.clearMemoryState()
+        LibSession.clearMemoryState(using: dependencies)
         dependencies.caches.mutate(cache: .general) { $0.clearCachedUserPublicKey() }
         
         self.setUpIfNecessary() { [weak self, dependencies] in

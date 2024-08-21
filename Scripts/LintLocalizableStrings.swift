@@ -115,7 +115,8 @@ extension ProjectState {
         .nextLine(.contains(".localized()", caseSensitive: false)),
         .regex(".*static var databaseTableName: String"),
         .regex("case .* = "),
-        .regex("Error.*\\(")
+        .regex("Error.*\\("),
+        .belowLineContaining("PreviewProvider")
     ]
 }
 
@@ -594,6 +595,7 @@ indirect enum MatchType: Hashable {
     case regex(String)
     case previousLine(numEarlier: Int, MatchType)
     case nextLine(MatchType)
+    case belowLineContaining(String)
     
     func matches(_ value: String, _ index: Int, _ lines: [String]) -> Bool {
         switch self {
@@ -631,6 +633,9 @@ indirect enum MatchType: Hashable {
             case .nextLine(let type):
                 guard index + 1 < lines.count else { return false }
                 return type.matches(lines[index + 1], index + 1, lines)
+            
+            case .belowLineContaining(let other):
+                return lines[0..<index].contains(where: { $0.lowercased().contains(other.lowercased()) })
         }
     }
 }

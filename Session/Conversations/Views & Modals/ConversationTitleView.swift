@@ -228,31 +228,16 @@ final class ConversationTitleView: UIView {
                     height: Values.miniFontSize
                 )
                 
-                let disappearingMessageSettingLabelString: NSAttributedString = {
-                    guard Features.useNewDisappearingMessagesConfig else {
-                        return NSAttributedString(attachment: imageAttachment)
+                labelInfos.append(
+                    SessionLabelCarouselView.LabelInfo(
+                        attributedText: NSAttributedString(attachment: imageAttachment)
                             .appending(string: " ")
                             .appending(
                                 string: "disappearingMessagesDisappear"
-                                    .put(key: "disappearing_messages_type", value: "")
+                                    .put(key: "disappearing_messages_type", value: (config.type?.localizedName ?? ""))
                                     .put(key: "time", value: floor(config.durationSeconds).formatted(format: .short))
                                     .localized()
-                            )
-                    }
-                    
-                    return NSAttributedString(attachment: imageAttachment)
-                        .appending(string: " ")
-                        .appending(
-                            string: "disappearingMessagesDisappear"
-                                .put(key: "disappearing_messages_type", value: (config.type?.localizedName ?? ""))
-                                .put(key: "time", value: floor(config.durationSeconds).formatted(format: .short))
-                                .localized()
-                        )
-                }()
-                
-                labelInfos.append(
-                    SessionLabelCarouselView.LabelInfo(
-                        attributedText: disappearingMessageSettingLabelString,
+                            ),
                         accessibility: Accessibility(
                             identifier: "Disappearing messages type and time",
                             label: "Disappearing messages type and time"

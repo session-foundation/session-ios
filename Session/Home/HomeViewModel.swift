@@ -31,9 +31,11 @@ public class HomeViewModel: NavigatableStateHolder {
         let userProfile: Profile
     }
     
+    public let dependencies: Dependencies
+    
     // MARK: - Initialization
     
-    init() {
+    init(using dependencies: Dependencies) {
         typealias InitialData = (
             showViewedSeedBanner: Bool,
             hasHiddenMessageRequests: Bool,
@@ -48,6 +50,7 @@ public class HomeViewModel: NavigatableStateHolder {
             )
         }
         
+        self.dependencies = dependencies
         self.state = State(
             showViewedSeedBanner: (initialData?.showViewedSeedBanner ?? true),
             hasHiddenMessageRequests: (initialData?.hasHiddenMessageRequests ?? false),
@@ -210,11 +213,8 @@ public class HomeViewModel: NavigatableStateHolder {
                     updatedData: self?.process(data: updatedData, for: updatedPageInfo),
                     currentDataRetriever: { self?.threadData },
                     onDataChangeRetriever: { self?.onThreadChange },
-                    onUnobservedDataChange: { updatedData, changeset in
-                        self?.unobservedThreadDataChanges = (changeset.isEmpty ?
-                            nil :
-                            (updatedData, changeset)
-                        )
+                    onUnobservedDataChange: { updatedData in
+                        self?.unobservedThreadDataChanges = updatedData
                     }
                 )
                 
@@ -279,7 +279,7 @@ public class HomeViewModel: NavigatableStateHolder {
         else { return }
         
         /// **MUST** have the same logic as in the 'PagedDataObserver.onChangeUnsorted' above
-        let currentData: [SectionModel] = (self.unobservedThreadDataChanges?.0 ?? self.threadData)
+        let currentData: [SectionModel] = (self.unobservedThreadDataChanges ?? self.threadData)
         let updatedThreadData: [SectionModel] = self.process(
             data: (currentData.first(where: { $0.model == .threads })?.elements ?? []),
             for: currentPageInfo
@@ -287,13 +287,10 @@ public class HomeViewModel: NavigatableStateHolder {
         
         PagedData.processAndTriggerUpdates(
             updatedData: updatedThreadData,
-            currentDataRetriever: { [weak self] in (self?.unobservedThreadDataChanges?.0 ?? self?.threadData) },
+            currentDataRetriever: { [weak self] in (self?.unobservedThreadDataChanges ?? self?.threadData) },
             onDataChangeRetriever: { [weak self] in self?.onThreadChange },
-            onUnobservedDataChange: { [weak self] updatedData, changeset in
-                self?.unobservedThreadDataChanges = (changeset.isEmpty ?
-                    nil :
-                    (updatedData, changeset)
-                )
+            onUnobservedDataChange: { [weak self] updatedData in
+                self?.unobservedThreadDataChanges = updatedData
             }
         )
     }
@@ -301,22 +298,25 @@ public class HomeViewModel: NavigatableStateHolder {
     // MARK: - Thread Data
     
     private var hasReceivedInitialThreadData: Bool = false
-    public private(set) var unobservedThreadDataChanges: ([SectionModel], StagedChangeset<[SectionModel]>)?
+    public private(set) var unobservedThreadDataChanges: [SectionModel]?
     public private(set) var threadData: [SectionModel] = []
     public private(set) var pagedDataObserver: PagedDatabaseObserver<SessionThread, SessionThreadViewModel>?
     
     public var onThreadChange: (([SectionModel], StagedChangeset<[SectionModel]>) -> ())? {
         didSet {
+            guard onThreadChange != nil else { return }
+            
             // When starting to observe interaction changes we want to trigger a UI update just in case the
             // data was changed while we weren't observing
-            if let changes: ([SectionModel], StagedChangeset<[SectionModel]>) = self.unobservedThreadDataChanges {
-                let performChange: (([SectionModel], StagedChangeset<[SectionModel]>) -> ())? = onThreadChange
-                
-                switch Thread.isMainThread {
-                    case true: performChange?(changes.0, changes.1)
-                    case false: DispatchQueue.main.async { performChange?(changes.0, changes.1) }
-                }
-                
+            if let changes: [SectionModel] = self.unobservedThreadDataChanges {
+                PagedData.processAndTriggerUpdates(
+                    updatedData: changes,
+                    currentDataRetriever: { [weak self] in self?.threadData },
+                    onDataChangeRetriever: { [weak self] in self?.onThreadChange },
+                    onUnobservedDataChange: { [weak self] updatedData in
+                        self?.unobservedThreadDataChanges = updatedData
+                    }
+                )
                 self.unobservedThreadDataChanges = nil
             }
         }

@@ -54,8 +54,13 @@ public enum ConfigurationSyncJob: JobExecutor {
         // fresh install due to the migrations getting run)
         guard
             let publicKey: String = job.threadId,
-            let pendingChanges: LibSession.PendingChanges = dependencies.storage
-                .read(using: dependencies, { db in try LibSession.pendingChanges(db, publicKey: publicKey) })
+            let pendingChanges: LibSession.PendingChanges = dependencies.storage.read(using: dependencies, { db in
+                try LibSession.pendingChanges(
+                    db,
+                    publicKey: publicKey,
+                    using: dependencies
+                )
+            })
         else {
             SNLog("[ConfigurationSyncJob] For \(job.threadId ?? "UnknownId") failed due to invalid data")
             return failure(job, StorageError.generic, false, dependencies)
@@ -130,7 +135,8 @@ public enum ConfigurationSyncJob: JobExecutor {
                             serverHash: sendMessageResponse.hash,
                             sentTimestamp: messageSendTimestamp,
                             variant: pushData.variant,
-                            publicKey: publicKey
+                            publicKey: publicKey,
+                            using: dependencies
                         )
                     }
             }

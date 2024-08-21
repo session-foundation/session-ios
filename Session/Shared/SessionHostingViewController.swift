@@ -217,7 +217,7 @@ public class SessionHostingViewController<Content>: UIHostingController<Modified
         // profile storage
         let wasUnlinked: Bool = UserDefaults.standard[.wasUnlinked]
         
-        SessionApp.resetAppData {
+        SessionApp.resetAppData(using: dependencies) {
             // Resetting the data clears the old user defaults. We need to restore the unlink default.
             UserDefaults.standard[.wasUnlinked] = wasUnlinked
         }

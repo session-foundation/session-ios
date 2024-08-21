@@ -68,7 +68,7 @@ struct NewMessageScreen: View {
     }
     
     func continueWithAccountIdOrONS() {
-        let maybeSessionId: SessionId? = SessionId(from: accountIdOrONS)
+        let maybeSessionId: SessionId? = try? SessionId(from: accountIdOrONS)
         
         if KeyPair.isValidHexEncodedPublicKey(candidate: accountIdOrONS) {
             switch maybeSessionId?.prefix {
