@@ -489,19 +489,4 @@ extension GlobalSearchViewController {
                 return cell
         }
     }
-    
-    public func tableView(_ tableView: UITableView, trailingSwipeActionsConfigurationForRowAt indexPath: IndexPath) -> UISwipeActionsConfiguration? {
-        guard self.searchResultSet.state == .defaultContacts else { return nil }
-        
-        return UIContextualAction.configuration(
-            for: UIContextualAction.generateSwipeActions(
-                [ .block, .delete ],
-                for: .trailing,
-                indexPath: indexPath,
-                tableView: tableView,
-                threadViewModel: self.searchResultSet.data[indexPath.section].elements[indexPath.row],
-                viewController: self
-            )
-        )
-    }
 }
