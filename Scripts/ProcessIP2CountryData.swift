@@ -142,6 +142,7 @@ class Processor {
 
         /// Structure of the data should be `network,registered_country_geoname_id`
         let countryBlockPrefix: String = "Processing country blocks: "
+        var prevId: String? = nil
         lines[1...].enumerated().forEach { index, line in
             guard keepRunning else { return }
             
@@ -149,14 +150,22 @@ class Processor {
                 .trimmingCharacters(in: .whitespacesAndNewlines)
                 .components(separatedBy: ",")
             
+            let currId = values[1]
+            
             guard
                 values.count == 2,
                 let ipNoSubnetMask: String = values[0].components(separatedBy: "/").first,
                 let ipAsInt: Int64 = IPv4.toInt(ipNoSubnetMask)
             else { return }
             
-            cache.countryBlocksIPInt.append(ipAsInt)
-            cache.countryBlocksGeonameId.append(values[1])
+            if prevId == currId {
+                cache.countryBlocksIPInt[cache.countryBlocksIPInt.count - 1] = ipAsInt
+            } else {
+                cache.countryBlocksIPInt.append(ipAsInt)
+                cache.countryBlocksGeonameId.append(currId)
+            }
+            
+            prevId = currId
             
             let progress = (Double(index) / Double(lines.count))
             printProgressBar(prefix: countryBlockPrefix, progress: progress, total: (terminalWidth - 10))
