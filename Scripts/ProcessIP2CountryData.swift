@@ -67,6 +67,26 @@ class Processor {
         print("\r\(prefix)[\(bar)] \(Int(progress * 100))%", terminator: "")
         fflush(stdout)
     }
+    
+    static func parseCsvLine(_ line: String) -> [String] {
+        var result: [String] = []
+        var currentField: String = ""
+        var inQuotedField: Bool = false
+
+        for char in line {
+            if char == "," && !inQuotedField {
+                result.append(currentField)
+                currentField = ""
+            } else if char == "\"" {
+                inQuotedField.toggle()
+            } else {
+                currentField.append(char)
+            }
+        }
+
+        result.append(currentField)
+        return result
+    }
 
     static func processFiles() {
         print("Searching For files")
@@ -142,33 +162,22 @@ class Processor {
 
         /// Structure of the data should be `network,registered_country_geoname_id`
         let countryBlockPrefix: String = "Processing country blocks: "
-        var prevId: String? = nil
         lines[1...].enumerated().forEach { index, line in
             guard keepRunning else { return }
             
-            let values: [String] = line
-                .trimmingCharacters(in: .whitespacesAndNewlines)
-                .components(separatedBy: ",")
-            
-            let currId = values[1]
+            let values: [String] = parseCsvLine(line.trimmingCharacters(in: .whitespacesAndNewlines))
+            let progress = (Double(index) / Double(lines.count))
+            printProgressBar(prefix: countryBlockPrefix, progress: progress, total: (terminalWidth - 10))
             
             guard
                 values.count == 2,
                 let ipNoSubnetMask: String = values[0].components(separatedBy: "/").first,
-                let ipAsInt: Int64 = IPv4.toInt(ipNoSubnetMask)
+                let ipAsInt: Int64 = IPv4.toInt(ipNoSubnetMask),
+                cache.countryBlocksGeonameId.last != values[1]
             else { return }
             
-            if prevId == currId {
-                cache.countryBlocksIPInt[cache.countryBlocksIPInt.count - 1] = ipAsInt
-            } else {
-                cache.countryBlocksIPInt.append(ipAsInt)
-                cache.countryBlocksGeonameId.append(currId)
-            }
-            
-            prevId = currId
-            
-            let progress = (Double(index) / Double(lines.count))
-            printProgressBar(prefix: countryBlockPrefix, progress: progress, total: (terminalWidth - 10))
+            cache.countryBlocksIPInt.append(ipAsInt)
+            cache.countryBlocksGeonameId.append(values[1])
         }
         guard keepRunning else { return }
         print("\r\u{1B}[2KProcessing country blocks completed ✅")
@@ -187,9 +196,7 @@ class Processor {
             guard lines.count > 1 else { fatalError("Localised country file had no content") }
             
             lines[1...].enumerated().forEach { index, line in
-                let values: [String] = line
-                    .trimmingCharacters(in: .whitespacesAndNewlines)
-                    .components(separatedBy: ",")
+                let values: [String] = parseCsvLine(line.trimmingCharacters(in: .whitespacesAndNewlines))
                 guard values.count == 7 else { return }
                 
                 cache.countryLocationsLocaleCode.append(values[1])
