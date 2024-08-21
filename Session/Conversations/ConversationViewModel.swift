@@ -264,7 +264,7 @@ public class ConversationViewModel: OWSAudioPlayerDelegate {
     
     private var lastInteractionIdMarkedAsRead: Int64? = nil
     private var lastInteractionTimestampMsMarkedAsRead: Int64 = 0
-    public private(set) var unobservedInteractionDataChanges: ([SectionModel], StagedChangeset<[SectionModel]>)?
+    public private(set) var unobservedInteractionDataChanges: [SectionModel]?
     public private(set) var interactionData: [SectionModel] = []
     public private(set) var reactionExpandedInteractionIds: Set<Int64> = []
     public private(set) var pagedDataObserver: PagedDatabaseObserver<Interaction, MessageViewModel>?
@@ -273,14 +273,15 @@ public class ConversationViewModel: OWSAudioPlayerDelegate {
         didSet {
             // When starting to observe interaction changes we want to trigger a UI update just in case the
             // data was changed while we weren't observing
-            if let changes: ([SectionModel], StagedChangeset<[SectionModel]>) = self.unobservedInteractionDataChanges {
-                let performChange: (([SectionModel], StagedChangeset<[SectionModel]>) -> ())? = onInteractionChange
-                
-                switch Thread.isMainThread {
-                    case true: performChange?(changes.0, changes.1)
-                    case false: DispatchQueue.main.async { performChange?(changes.0, changes.1) }
-                }
-                
+            if let changes: [SectionModel] = self.unobservedInteractionDataChanges {
+                PagedData.processAndTriggerUpdates(
+                    updatedData: changes,
+                    currentDataRetriever: { [weak self] in self?.interactionData },
+                    onDataChangeRetriever: { [weak self] in self?.onInteractionChange },
+                    onUnobservedDataChange: { [weak self] updatedData in
+                        self?.unobservedInteractionDataChanges = updatedData
+                    }
+                )
                 self.unobservedInteractionDataChanges = nil
             }
         }
@@ -424,11 +425,8 @@ public class ConversationViewModel: OWSAudioPlayerDelegate {
                     ),
                     currentDataRetriever: { self?.interactionData },
                     onDataChangeRetriever: { self?.onInteractionChange },
-                    onUnobservedDataChange: { updatedData, changeset in
-                        self?.unobservedInteractionDataChanges = (changeset.isEmpty ?
-                            nil :
-                            (updatedData, changeset)
-                        )
+                    onUnobservedDataChange: { updatedData in
+                        self?.unobservedInteractionDataChanges = updatedData
                     }
                 )
             }
@@ -688,7 +686,7 @@ public class ConversationViewModel: OWSAudioPlayerDelegate {
         guard let currentPageInfo: PagedData.PageInfo = self.pagedDataObserver?.pageInfo.wrappedValue else { return }
         
         /// **MUST** have the same logic as in the 'PagedDataObserver.onChangeUnsorted' above
-        let currentData: [SectionModel] = (unobservedInteractionDataChanges?.0 ?? interactionData)
+        let currentData: [SectionModel] = (unobservedInteractionDataChanges ?? interactionData)
         
         PagedData.processAndTriggerUpdates(
             updatedData: process(
@@ -699,11 +697,8 @@ public class ConversationViewModel: OWSAudioPlayerDelegate {
             ),
             currentDataRetriever: { [weak self] in self?.interactionData },
             onDataChangeRetriever: { [weak self] in self?.onInteractionChange },
-            onUnobservedDataChange: { [weak self] updatedData, changeset in
-                self?.unobservedInteractionDataChanges = (changeset.isEmpty ?
-                    nil :
-                    (updatedData, changeset)
-                )
+            onUnobservedDataChange: { [weak self] updatedData in
+                self?.unobservedInteractionDataChanges = updatedData
             }
         )
     }

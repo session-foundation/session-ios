@@ -1017,9 +1017,20 @@ public enum PagedData {
         updatedData: [SectionModel]?,
         currentDataRetriever: @escaping (() -> [SectionModel]?),
         onDataChangeRetriever: @escaping (() -> (([SectionModel], StagedChangeset<[SectionModel]>) -> ())?),
-        onUnobservedDataChange: @escaping (([SectionModel], StagedChangeset<[SectionModel]>) -> Void)
+        onUnobservedDataChange: @escaping (([SectionModel]) -> Void)
     ) {
         guard let updatedData: [SectionModel] = updatedData else { return }
+        
+        /// If we don't have a callback then store the changes to be sent back through this function if we ever start
+        /// observing again (when we have the callback it needs to do the data updating as it's tied to UI updates
+        /// and can cause crashes if not updated in the correct order)
+        ///
+        /// **Note:** We do this even if the 'changeset' is empty because if this change reverts a previous change we
+        /// need to ensure the `onUnobservedDataChange` gets cleared so it doesn't end up in an invalid state
+        guard let onDataChange: (([SectionModel], StagedChangeset<[SectionModel]>) -> ()) = onDataChangeRetriever() else {
+            onUnobservedDataChange(updatedData)
+            return
+        }
         
         // Note: While it would be nice to generate the changeset on a background thread it introduces
         // a multi-threading issue where a data change can come in while the table is processing multiple
@@ -1032,17 +1043,6 @@ public enum PagedData {
                 source: currentData,
                 target: updatedData
             )
-            
-            /// If we have the callback then trigger it, otherwise just store the changes to be sent to the callback if we ever
-            /// start observing again (when we have the callback it needs to do the data updating as it's tied to UI updates
-            /// and can cause crashes if not updated in the correct order)
-            ///
-            /// **Note:** We do this even if the 'changeset' is empty because if this change reverts a previous change we
-            /// need to ensure the `onUnobservedDataChange` gets cleared so it doesn't end up in an invalid state
-            guard let onDataChange: (([SectionModel], StagedChangeset<[SectionModel]>) -> ()) = onDataChangeRetriever() else {
-                onUnobservedDataChange(updatedData, changeset)
-                return
-            }
             
             // No need to do anything if there were no changes
             guard !changeset.isEmpty else { return }
