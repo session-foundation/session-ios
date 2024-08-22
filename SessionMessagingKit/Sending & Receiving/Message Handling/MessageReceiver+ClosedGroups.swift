@@ -225,6 +225,7 @@ extension MessageReceiver {
                 db,
                 groupPublicKey: groupPublicKey,
                 name: name,
+                joinedAt: (TimeInterval(formationTimestampMs) / 1000),
                 latestKeyPairPublicKey: Data(encryptionKeyPair.publicKey),
                 latestKeyPairSecretKey: Data(encryptionKeyPair.secretKey),
                 latestKeyPairReceivedTimestamp: receivedTimestamp,

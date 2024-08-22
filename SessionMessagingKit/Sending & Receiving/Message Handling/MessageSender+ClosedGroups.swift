@@ -76,6 +76,7 @@ extension MessageSender {
                     db,
                     groupPublicKey: groupPublicKey,
                     name: name,
+                    joinedAt: formationTimestamp,
                     latestKeyPairPublicKey: Data(encryptionKeyPair.publicKey),
                     latestKeyPairSecretKey: Data(encryptionKeyPair.secretKey),
                     latestKeyPairReceivedTimestamp: latestKeyPairReceivedTimestamp,
