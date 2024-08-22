@@ -1183,28 +1183,31 @@ extension ConversationVC:
     func openUrl(_ urlString: String) {
         guard let url: URL = URL(string: urlString) else { return }
         
-        // URLs can be unsafe, so always ask the user whether they want to open one
-        let actionSheet: UIAlertController = UIAlertController(
-            title: "urlOpen".localized(),
-            message: "urlOpenDescription"
-                .put(key: "url", value: url.absoluteString)
-                .localized(),
-            preferredStyle: .actionSheet
+        let modal: ConfirmationModal = ConfirmationModal(
+            targetView: self.view,
+            info: ConfirmationModal.Info(
+                title: "urlOpen".localized(),
+                body: .text(
+                    "urlOpenDescription"
+                        .put(key: "url", value: url.absoluteString)
+                        .localized()
+                ),
+                confirmTitle: "open".localized(),
+                confirmStyle: .danger,
+                cancelTitle: "urlCopy".localized(),
+                cancelStyle: .alert_text,
+                onConfirm:  { [weak self] _ in
+                    UIApplication.shared.open(url, options: [:], completionHandler: nil)
+                    self?.showInputAccessoryView()
+                },
+                onCancel: { [weak self] _ in
+                    UIPasteboard.general.string = url.absoluteString
+                    self?.showInputAccessoryView()
+                }
+            )
         )
-        actionSheet.addAction(UIAlertAction(title: "open".localized(), style: .default) { [weak self] _ in
-            UIApplication.shared.open(url, options: [:], completionHandler: nil)
-            self?.showInputAccessoryView()
-        })
-        actionSheet.addAction(UIAlertAction(title: "urlCopy".localized(), style: .default) { [weak self] _ in
-            UIPasteboard.general.string = url.absoluteString
-            self?.showInputAccessoryView()
-        })
-        actionSheet.addAction(UIAlertAction(title: "cancel".localized(), style: .cancel) { [weak self] _ in
-            self?.showInputAccessoryView()
-        })
         
-        Modal.setupForIPadIfNeeded(actionSheet, targetView: self.view)
-        self.present(actionSheet, animated: true)
+        self.present(modal, animated: true)
     }
     
     func handleReplyButtonTapped(for cellViewModel: MessageViewModel, using dependencies: Dependencies) {

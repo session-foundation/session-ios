@@ -47,6 +47,15 @@ public class ConfirmationModal: Modal, UITextFieldDelegate {
         return result
     }()
     
+    private lazy var explanationLabelContainer: UIScrollView = {
+        let result: UIScrollView = UIScrollView()
+        result.isHidden = true
+        
+        return result
+    }()
+    
+    private lazy var explanationLabelContainerHeightConstraint = explanationLabelContainer.set(.height, to: 0)
+    
     private lazy var explanationLabel: UILabel = {
         let result: UILabel = UILabel()
         result.font = .systemFont(ofSize: Values.smallFontSize)
@@ -54,7 +63,6 @@ public class ConfirmationModal: Modal, UITextFieldDelegate {
         result.textAlignment = .center
         result.lineBreakMode = .byWordWrapping
         result.numberOfLines = 0
-        result.isHidden = true
         
         return result
     }()
@@ -107,7 +115,7 @@ public class ConfirmationModal: Modal, UITextFieldDelegate {
     }()
     
     private lazy var contentStackView: UIStackView = {
-        let result = UIStackView(arrangedSubviews: [ titleLabel, explanationLabel, textFieldContainer, imageViewContainer ])
+        let result = UIStackView(arrangedSubviews: [ titleLabel, explanationLabelContainer, textFieldContainer, imageViewContainer ])
         result.axis = .vertical
         result.spacing = Values.smallSpacing
         result.isLayoutMarginsRelativeArrangement = true
@@ -178,6 +186,10 @@ public class ConfirmationModal: Modal, UITextFieldDelegate {
         contentView.addSubview(mainStackView)
         contentView.addSubview(closeButton)
         
+        explanationLabelContainer.addSubview(explanationLabel)
+        explanationLabel.pin(to: explanationLabelContainer)
+        explanationLabel.set(.width, to: .width, of: explanationLabelContainer)
+        
         textFieldContainer.addSubview(textField)
         textField.pin(to: textFieldContainer, withInset: 12)
         
@@ -189,6 +201,14 @@ public class ConfirmationModal: Modal, UITextFieldDelegate {
         mainStackView.pin(to: contentView)
         closeButton.pin(.top, to: .top, of: contentView, withInset: 8)
         closeButton.pin(.right, to: .right, of: contentView, withInset: -8)
+    }
+    
+    private func layoutExplanationLabel() {
+        let labelWidth = view.frame.width - 2 * Values.veryLargeSpacing
+        let maxLabelSize = CGSize(width: labelWidth, height: CGFloat.greatestFiniteMagnitude)
+        let expectedLabelSize = explanationLabel.sizeThatFits(maxLabelSize)
+        let lineHeight = explanationLabel.font.lineHeight
+        explanationLabelContainerHeightConstraint.constant = min(expectedLabelSize.height, lineHeight * 5)
     }
     
     // MARK: - Content
@@ -221,16 +241,18 @@ public class ConfirmationModal: Modal, UITextFieldDelegate {
             case .text(let text):
                 mainStackView.spacing = Values.smallSpacing
                 explanationLabel.text = text
-                explanationLabel.isHidden = false
+                explanationLabelContainer.isHidden = false
+                self.layoutExplanationLabel()
                 
             case .attributedText(let attributedText):
                 mainStackView.spacing = Values.smallSpacing
                 explanationLabel.attributedText = attributedText
-                explanationLabel.isHidden = false
+                explanationLabelContainer.isHidden = false
+                self.layoutExplanationLabel()
                 
             case .input(let explanation, let placeholder, let value, let clearButton, let onTextChanged):
                 explanationLabel.attributedText = explanation
-                explanationLabel.isHidden = (explanation == nil)
+                explanationLabelContainer.isHidden = (explanation == nil)
                 textField.placeholder = placeholder
                 textField.text = (value ?? "")
                 textField.clearButtonMode = (clearButton ? .always : .never)
