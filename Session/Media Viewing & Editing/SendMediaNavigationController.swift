@@ -293,8 +293,8 @@ extension SendMediaNavigationController: PhotoCaptureViewControllerDelegate {
             if !pushApprovalViewController() {
                 let modal: ConfirmationModal = ConfirmationModal(
                     info: ConfirmationModal.Info(
-                        title: "IMAGE_PICKER_FAILED_TO_PROCESS_ATTACHMENTS".localized(),
-                        cancelTitle: "BUTTON_OK".localized(),
+                        title: "attachmentsErrorMediaSelection".localized(),
+                        cancelTitle: "okay".localized(),
                         cancelStyle: .alert_text
                     )
                 )

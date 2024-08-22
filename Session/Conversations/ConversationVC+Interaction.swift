@@ -358,8 +358,8 @@ extension ConversationVC:
                 let modal: ConfirmationModal = ConfirmationModal(
                     targetView: self?.view,
                     info: ConfirmationModal.Info(
-                        title: "attachmentsErrorNotSupported".localized(),
-                        body: .text("attachmentsErrorSize".localized()),
+                        title: "attachmentsErrorLoad".localized(),
+                        body: .text("attachmentsErrorNotSupported".localized()),
                         cancelTitle: "okay".localized(),
                         cancelStyle: .alert_text
                     )
@@ -2564,16 +2564,18 @@ extension ConversationVC:
     // MARK: - Convenience
     
     func showErrorAlert(for attachment: SignalAttachment) {
-        let modal: ConfirmationModal = ConfirmationModal(
-            targetView: self.view,
-            info: ConfirmationModal.Info(
-                title: "attachmentsErrorSending".localized(),
-                body: .text(attachment.localizedErrorDescription ?? SignalAttachment.missingDataErrorMessage),
-                cancelTitle: "okay".localized(),
-                cancelStyle: .alert_text
+        DispatchQueue.main.async { [weak self] in
+            let modal: ConfirmationModal = ConfirmationModal(
+                targetView: self?.view,
+                info: ConfirmationModal.Info(
+                    title: "attachmentsErrorSending".localized(),
+                    body: .text(attachment.localizedErrorDescription ?? SignalAttachment.missingDataErrorMessage),
+                    cancelTitle: "okay".localized(),
+                    cancelStyle: .alert_text
+                )
             )
-        )
-        self.present(modal, animated: true)
+            self?.present(modal, animated: true)
+        }
     }
 }
 

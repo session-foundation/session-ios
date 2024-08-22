@@ -40,14 +40,14 @@ extension String {
 extension SignalAttachmentError: LocalizedError {
     public var errorDescription: String? {
         switch self {
-        case .fileSizeTooLarge:
-            return "attachmentsErrorSize".localized()
-        case .invalidData, .missingData, .invalidFileFormat:
-            return "attachmentsErrorNotSupported".localized()
-        case .couldNotConvertToJpeg, .couldNotParseImage, .couldNotConvertToMpeg4, .couldNotResizeImage:
-            return "attachmentsErrorOpen".localized()
-        case .couldNotRemoveMetadata:
-            return "attachmentsImageErrorMetadata".localized()
+            case .fileSizeTooLarge:
+                return "attachmentsErrorSize".localized()
+            case .invalidData, .missingData, .invalidFileFormat:
+                return "attachmentsErrorNotSupported".localized()
+            case .couldNotConvertToJpeg, .couldNotParseImage, .couldNotConvertToMpeg4, .couldNotResizeImage:
+                return "attachmentsErrorOpen".localized()
+            case .couldNotRemoveMetadata:
+                return "attachmentsImageErrorMetadata".localized()
         }
     }
 }
