@@ -11,31 +11,24 @@ extension MessageReceiver {
         _ db: Database,
         threadId: String,
         threadVariant: SessionThread.Variant,
-        message: CallMessage
+        message: CallMessage,
+        using dependencies: Dependencies
     ) throws {
         // Only support calls from contact threads
         guard threadVariant == .contact else { return }
         
         switch message.kind {
-            case .preOffer: try MessageReceiver.handleNewCallMessage(db, message: message)
+            case .preOffer: try MessageReceiver.handleNewCallMessage(db, message: message, using: dependencies)
             case .offer: MessageReceiver.handleOfferCallMessage(db, message: message)
             case .answer: MessageReceiver.handleAnswerCallMessage(db, message: message)
             case .provisionalAnswer: break // TODO: Implement
                 
             case let .iceCandidates(sdpMLineIndexes, sdpMids):
-                guard let currentWebRTCSession = WebRTCSession.current, currentWebRTCSession.uuid == message.uuid else {
-                    return
-                }
-                var candidates: [RTCIceCandidate] = []
-                let sdps = message.sdps
-                for i in 0..<sdps.count {
-                    let sdp = sdps[i]
-                    let sdpMLineIndex = sdpMLineIndexes[i]
-                    let sdpMid = sdpMids[i]
-                    let candidate = RTCIceCandidate(sdp: sdp, sdpMLineIndex: Int32(sdpMLineIndex), sdpMid: sdpMid)
-                    candidates.append(candidate)
-                }
-                currentWebRTCSession.handleICECandidates(candidates)
+                SessionEnvironment.shared?.callManager.wrappedValue?.handleICECandidates(
+                    message: message,
+                    sdpMLineIndexes: sdpMLineIndexes,
+                    sdpMids: sdpMids
+                )
                 
             case .endCall: MessageReceiver.handleEndCallMessage(db, message: message)
         }
@@ -43,7 +36,7 @@ extension MessageReceiver {
     
     // MARK: - Specific Handling
     
-    private static func handleNewCallMessage(_ db: Database, message: CallMessage) throws {
+    private static func handleNewCallMessage(_ db: Database, message: CallMessage, using dependencies: Dependencies) throws {
         SNLog("[Calls] Received pre-offer message.")
         
         // Determine whether the app is active based on the prefs rather than the UIApplication state to avoid
@@ -63,9 +56,9 @@ extension MessageReceiver {
                 .fetchOne(db))
                 .defaulting(to: false)
         else { return }
-        guard let timestamp = message.sentTimestamp, TimestampUtils.isWithinOneMinute(timestamp: timestamp) else {
+        guard let timestamp = message.sentTimestamp, TimestampUtils.isWithinOneMinute(timestampMs: timestamp) else {
             // Add missed call message for call offer messages from more than one minute
-            if let interaction: Interaction = try MessageReceiver.insertCallInfoMessage(db, for: message, state: .missed) {
+            if let interaction: Interaction = try MessageReceiver.insertCallInfoMessage(db, for: message, state: .missed, using: dependencies) {
                 let thread: SessionThread = try SessionThread
                     .fetchOrCreate(db, id: sender, variant: .contact, shouldBeVisible: nil)
                 
@@ -83,7 +76,7 @@ extension MessageReceiver {
         }
         
         guard db[.areCallsEnabled] else {
-            if let interaction: Interaction = try MessageReceiver.insertCallInfoMessage(db, for: message, state: .permissionDenied) {
+            if let interaction: Interaction = try MessageReceiver.insertCallInfoMessage(db, for: message, state: .permissionDenied, using: dependencies) {
                 let thread: SessionThread = try SessionThread
                     .fetchOrCreate(db, id: sender, variant: .contact, shouldBeVisible: nil)
                 
@@ -120,7 +113,7 @@ extension MessageReceiver {
             return
         }
         
-        let interaction: Interaction? = try MessageReceiver.insertCallInfoMessage(db, for: message)
+        let interaction: Interaction? = try MessageReceiver.insertCallInfoMessage(db, for: message, using: dependencies)
         
         // Handle UI
         callManager.showCallUIForCall(
@@ -150,9 +143,8 @@ extension MessageReceiver {
         SNLog("[Calls] Received answer message.")
         
         guard
-            let currentWebRTCSession: WebRTCSession = WebRTCSession.current,
-            currentWebRTCSession.uuid == message.uuid,
             let callManager: CallManagerProtocol = SessionEnvironment.shared?.callManager.wrappedValue,
+            callManager.currentWebRTCSessionMatches(callId: message.uuid),
             var currentCall: CurrentCallProtocol = callManager.currentCall,
             currentCall.uuid == message.uuid,
             let sender: String = message.sender
@@ -177,8 +169,8 @@ extension MessageReceiver {
         SNLog("[Calls] Received end call message.")
         
         guard
-            WebRTCSession.current?.uuid == message.uuid,
             let callManager: CallManagerProtocol = SessionEnvironment.shared?.callManager.wrappedValue,
+            callManager.currentWebRTCSessionMatches(callId: message.uuid),
             let currentCall: CurrentCallProtocol = callManager.currentCall,
             currentCall.uuid == message.uuid,
             let sender: String = message.sender
@@ -229,7 +221,8 @@ extension MessageReceiver {
                 threadVariant: thread.variant,
                 timestampMs: (messageSentTimestamp * 1000),
                 userPublicKey: getUserHexEncodedPublicKey(db),
-                openGroup: nil
+                openGroup: nil,
+                using: dependencies
             ),
             expiresInSeconds: message.expiresInSeconds,
             expiresStartedAtMs: message.expiresStartedAtMs
@@ -266,7 +259,8 @@ extension MessageReceiver {
     @discardableResult public static func insertCallInfoMessage(
         _ db: Database,
         for message: CallMessage,
-        state: CallMessage.MessageInfo.State? = nil
+        state: CallMessage.MessageInfo.State? = nil,
+        using dependencies: Dependencies
     ) throws -> Interaction? {
         guard
             (try? Interaction
@@ -309,7 +303,8 @@ extension MessageReceiver {
                 threadVariant: thread.variant,
                 timestampMs: (timestampMs * 1000),
                 userPublicKey: currentUserPublicKey,
-                openGroup: nil
+                openGroup: nil,
+                using: dependencies
             ),
             expiresInSeconds: message.expiresInSeconds,
             expiresStartedAtMs: message.expiresStartedAtMs

@@ -5,7 +5,6 @@ import SessionUIKit
 import SessionMessagingKit
 import SessionUtilitiesKit
 import SignalUtilitiesKit
-import SignalCoreKit
 
 class ScreenLockUI {
     public static let shared: ScreenLockUI = ScreenLockUI()
@@ -242,7 +241,7 @@ class ScreenLockUI {
                 Log.info("unlock screen lock failed.")
                 self?.clearAuthUIWhenActive()
                 self?.didLastUnlockAttemptFail = true
-                self?.showScreenLockFailureAlert(message: error.localizedDescription)
+                self?.showScreenLockFailureAlert(message: "\(error)")
             },
             unexpectedFailure: { [weak self] error in
                 Log.info("unlock screen lock unexpectedly failed.")

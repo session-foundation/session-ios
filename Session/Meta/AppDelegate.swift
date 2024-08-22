@@ -8,7 +8,6 @@ import SessionUIKit
 import SessionMessagingKit
 import SessionUtilitiesKit
 import SignalUtilitiesKit
-import SignalCoreKit
 import SessionSnodeKit
 
 @UIApplicationMain
@@ -38,8 +37,7 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
         Singleton.setup(appContext: MainAppContext())
         verifyDBKeysAvailableBeforeBackgroundLaunch()
 
-        Cryptography.seedRandom()
-        AppVersion.sharedInstance()
+        _ = AppVersion.shared
         AppEnvironment.shared.pushRegistrationManager.createVoipRegistryIfNecessary()
 
         // Prevent the device from sleeping during database view async registration
@@ -210,9 +208,6 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
         // but answers the call on another device
         stopPollers(shouldStopUserPoller: !self.hasCallOngoing())
         
-        // FIXME: Move this to be initialised as part of `AppDelegate`
-        let dependencies: Dependencies = Dependencies()
-        
         // Stop all jobs except for message sending and when completed suspend the database
         JobRunner.stopAndClearPendingJobs(exceptForVariant: .messageSend, using: dependencies) { neededBackgroundProcessing in
             if !self.hasCallOngoing() && (!neededBackgroundProcessing || Singleton.hasAppContext && Singleton.appContext.isInBackground) {
@@ -241,6 +236,10 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
         
         Log.info("[AppDelegate] Setting 'isMainAppActive' to true.")
         UserDefaults.sharedLokiProject?[.isMainAppActive] = true
+        
+        // FIXME: Seems like there are some discrepancies between the expectations of how the iOS lifecycle methods work, we should look into them and ensure the code behaves as expected (in this case there were situations where these two wouldn't get called when returning from the background)
+        Storage.resumeDatabaseAccess()
+        LibSession.resumeNetworkAccess()
         
         ensureRootViewController(calledFrom: .didBecomeActive)
 
@@ -292,20 +291,24 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
         Storage.resumeDatabaseAccess()
         LibSession.resumeNetworkAccess()
         
+        let queue: DispatchQueue = .global(qos: .userInitiated)
+        let poller: BackgroundPoller = BackgroundPoller()
+        var cancellable: AnyCancellable?
+        
         // Background tasks only last for a certain amount of time (which can result in a crash and a
         // prompt appearing for the user), we want to avoid this and need to make sure to suspend the
         // database again before the background task ends so we start a timer that expires 1 second
         // before the background task is due to expire in order to do so
         let cancelTimer: Timer = Timer.scheduledTimerOnMainThread(
-            withTimeInterval: (application.backgroundTimeRemaining - 1),
+            withTimeInterval: (application.backgroundTimeRemaining - 5),
             repeats: false
-        ) { timer in
+        ) { [poller] timer in
             timer.invalidate()
             
-            guard BackgroundPoller.isValid else { return }
+            guard cancellable != nil else { return }
             
             Log.info("Background poll failed due to manual timeout.")
-            BackgroundPoller.isValid = false
+            cancellable?.cancel()
             
             if Singleton.hasAppContext && Singleton.appContext.isInBackground {
                 LibSession.suspendNetworkAccess()
@@ -313,39 +316,42 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
                 Log.flush()
             }
             
+            _ = poller // Capture poller to ensure it doesn't go out of scope
             completionHandler(.failed)
         }
         
-        // Flag the background poller as valid first and then trigger it to poll once the app is
-        // ready (we do this here rather than in `BackgroundPoller.poll` to avoid the rare edge-case
-        // that could happen when the timeout triggers before the app becomes ready which would have
-        // incorrectly set this 'isValid' flag to true after it should have timed out)
-        BackgroundPoller.isValid = true
-        
-        Singleton.appReadiness.runNowOrWhenAppDidBecomeReady {
+        Singleton.appReadiness.runNowOrWhenAppDidBecomeReady { [dependencies, poller] in
             // If the 'AppReadiness' process takes too long then it's possible for the user to open
             // the app after this closure is registered but before it's actually triggered - this can
             // result in the `BackgroundPoller` incorrectly getting called in the foreground, this check
             // is here to prevent that
-            guard Singleton.hasAppContext && Singleton.appContext.isInBackground else {
-                BackgroundPoller.isValid = false
-                return
-            }
+            guard Singleton.hasAppContext && Singleton.appContext.isInBackground else { return }
             
-            BackgroundPoller.poll { result in
-                guard BackgroundPoller.isValid else { return }
-                
-                BackgroundPoller.isValid = false
-                
-                if Singleton.hasAppContext && Singleton.appContext.isInBackground {
-                    LibSession.suspendNetworkAccess()
-                    Storage.suspendDatabaseAccess()
-                    Log.flush()
-                }
-                
-                cancelTimer.invalidate()
-                completionHandler(result)
-            }
+            cancellable = poller
+                .poll(using: dependencies)
+                .subscribe(on: queue, using: dependencies)
+                .receive(on: DispatchQueue.main, using: dependencies)
+                .sink(
+                    receiveCompletion: { [poller] result in
+                        // Ensure we haven't timed out yet
+                        guard cancelTimer.isValid else { return }
+                        
+                        if Singleton.hasAppContext && Singleton.appContext.isInBackground {
+                            LibSession.suspendNetworkAccess()
+                            Storage.suspendDatabaseAccess()
+                            Log.flush()
+                        }
+                        
+                        cancelTimer.invalidate()
+                        _ = poller // Capture poller to ensure it doesn't go out of scope
+                        
+                        switch result {
+                            case .failure: completionHandler(.failed)
+                            case .finished: completionHandler(.newData)
+                        }
+                    },
+                    receiveValue: { _ in }
+                )
         }
     }
     
@@ -393,7 +399,7 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
             DeviceSleepManager.sharedInstance.removeBlock(blockObject: self)
             
             /// App launch hasn't really completed until the main screen is loaded so wait until then to register it
-            AppVersion.sharedInstance().mainAppLaunchDidComplete()
+            AppVersion.shared.mainAppLaunchDidComplete()
             
             /// App won't be ready for extensions and no need to enqueue a config sync unless we successfully completed startup
             Storage.shared.writeAsync { db in
@@ -406,7 +412,7 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
                 db[.isReadyForAppExtensions] = true
                 
                 if Identity.userCompletedRequiredOnboarding(db) {
-                    let appVersion: AppVersion = AppVersion.sharedInstance()
+                    let appVersion: AppVersion = AppVersion.shared
                     
                     // If the device needs to sync config or the user updated to a new version
                     if
@@ -660,8 +666,8 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
                 }
                 
             case .completed:
-                DispatchQueue.main.async {
-                    let viewController: HomeVC = HomeVC()
+                DispatchQueue.main.async { [dependencies] in
+                    let viewController: HomeVC = HomeVC(using: dependencies)
                     
                     /// We want to start observing the changes for the 'HomeVC' and want to wait until we actually get data back before we
                     /// continue as we don't want to show a blank home screen
@@ -751,8 +757,8 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
     /// the notification or choosing a UNNotificationAction. The delegate must be set before the application returns from
     /// application:didFinishLaunchingWithOptions:.
     func userNotificationCenter(_ center: UNUserNotificationCenter, didReceive response: UNNotificationResponse, withCompletionHandler completionHandler: @escaping () -> Void) {
-        Singleton.appReadiness.runNowOrWhenAppDidBecomeReady {
-            AppEnvironment.shared.userNotificationActionHandler.handleNotificationResponse(response, completionHandler: completionHandler)
+        Singleton.appReadiness.runNowOrWhenAppDidBecomeReady { [dependencies] in
+            AppEnvironment.shared.userNotificationActionHandler.handleNotificationResponse(response, completionHandler: completionHandler, using: dependencies)
         }
     }
 

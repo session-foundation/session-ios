@@ -144,8 +144,6 @@ public extension DisappearingMessagesConfiguration {
         public let type: DisappearingMessageType?
         
         var previewText: String {
-            guard Features.useNewDisappearingMessagesConfig && self.threadVariant != nil else { return legacyPreviewText }
-            
             guard let senderName: String = senderName else {
                 guard isEnabled, durationSeconds > 0 else {
                     return "disappearingMessagesTurnedOffYou".localized()
@@ -167,30 +165,6 @@ public extension DisappearingMessagesConfiguration {
                 .put(key: "name", value: senderName)
                 .put(key: "time", value: floor(durationSeconds).formatted(format: .long))
                 .put(key: "disappearing_messages_type", value: (type?.localizedName ?? ""))
-                .localized()
-        }
-        
-        // TODO: Remove me
-        private var legacyPreviewText: String {
-            guard let senderName: String = senderName else {
-                // Changed by this device or via synced transcript
-                guard isEnabled, durationSeconds > 0 else { return "disappearingMessagesTurnedOffYou".localized() }
-                
-                return "disappearingMessagesSetYou"
-                    .put(key: "time", value: floor(durationSeconds).formatted(format: .long))
-                    .put(key: "disappearing_messages_type", value: (type?.localizedName ?? ""))
-                    .localized()
-            }
-            
-            guard isEnabled, durationSeconds > 0 else {
-                return "disappearingMessagesTurnedOff"
-                    .put(key: "name", value: senderName)
-                    .localized()
-            }
-            
-            return "deleteAfterLegacyDisappearingMessagesTheyChangedTimer"
-                .put(key: "name", value: senderName)
-                .put(key: "time", value: floor(durationSeconds).formatted(format: .long))
                 .localized()
         }
     }
@@ -280,22 +254,20 @@ public extension DisappearingMessagesConfiguration {
         serverExpirationTimestamp: TimeInterval?,
         using dependencies: Dependencies = Dependencies()
     ) throws -> Int64? {
-        if Features.useNewDisappearingMessagesConfig {
-            switch threadVariant {
-                case .contact:
-                    _ = try Interaction
-                        .filter(Interaction.Columns.threadId == threadId)
-                        .filter(Interaction.Columns.variant == Interaction.Variant.infoDisappearingMessagesUpdate)
-                        .filter(Interaction.Columns.authorId == authorId)
-                        .deleteAll(db)
-                case .legacyGroup:
-                    _ = try Interaction
-                        .filter(Interaction.Columns.threadId == threadId)
-                        .filter(Interaction.Columns.variant == Interaction.Variant.infoDisappearingMessagesUpdate)
-                        .deleteAll(db)
-                default:
-                    break
-            }
+        switch threadVariant {
+            case .contact:
+                _ = try Interaction
+                    .filter(Interaction.Columns.threadId == threadId)
+                    .filter(Interaction.Columns.variant == Interaction.Variant.infoDisappearingMessagesUpdate)
+                    .filter(Interaction.Columns.authorId == authorId)
+                    .deleteAll(db)
+            case .legacyGroup:
+                _ = try Interaction
+                    .filter(Interaction.Columns.threadId == threadId)
+                    .filter(Interaction.Columns.variant == Interaction.Variant.infoDisappearingMessagesUpdate)
+                    .deleteAll(db)
+            default:
+                break
         }
         
         let currentUserPublicKey: String = getUserHexEncodedPublicKey(db, using: dependencies)
@@ -306,7 +278,8 @@ public extension DisappearingMessagesConfiguration {
                 threadVariant: threadVariant,
                 timestampMs: timestampMs,
                 userPublicKey: getUserHexEncodedPublicKey(db),
-                openGroup: nil
+                openGroup: nil,
+                using: dependencies
             )
         )
         let messageExpirationInfo: Message.MessageExpirationInfo = Message.getMessageExpirationInfo(
@@ -350,29 +323,7 @@ public extension DisappearingMessagesConfiguration {
 // MARK: - UI Constraints
 
 extension DisappearingMessagesConfiguration {
-    // TODO: Remove this when disappearing messages V2 is up and running
-    public static var validDurationsSeconds: [TimeInterval] {
-        return [
-            5,
-            10,
-            30,
-            (1 * 60),
-            (5 * 60),
-            (30 * 60),
-            (1 * 60 * 60),
-            (6 * 60 * 60),
-            (12 * 60 * 60),
-            (24 * 60 * 60),
-            (7 * 24 * 60 * 60)
-        ]
-    }
-    
-    public static var maxDurationSeconds: TimeInterval = {
-        return (validDurationsSeconds.max() ?? 0)
-    }()
-    
     public static func validDurationsSeconds(_ type: DisappearingMessageType) -> [TimeInterval] {
-        
         switch type {
             case .disappearAfterRead:
                 var result =  [

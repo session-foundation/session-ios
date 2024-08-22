@@ -74,9 +74,11 @@ final class ConversationVC: BaseVC, LibSessionRespondingViewController, Conversa
     }
     
     override var inputAccessoryView: UIView? {
-        guard viewModel.threadData.canWrite else { return nil }
-        
-        return (isShowingSearchUI ? searchController.resultsBar : snInputView)
+        return (
+            (viewModel.threadData.canWrite && isShowingSearchUI) ?
+            searchController.resultsBar :
+            snInputView
+        )
     }
 
     /// The height of the visible part of the table view, i.e. the distance from the navigation bar (where the table view's origin is)
@@ -330,8 +332,13 @@ final class ConversationVC: BaseVC, LibSessionRespondingViewController, Conversa
 
     // MARK: - Initialization
     
-    init(threadId: String, threadVariant: SessionThread.Variant, focusedInteractionInfo: Interaction.TimestampInfo? = nil) {
-        self.viewModel = ConversationViewModel(threadId: threadId, threadVariant: threadVariant, focusedInteractionInfo: focusedInteractionInfo)
+    init(
+        threadId: String,
+        threadVariant: SessionThread.Variant,
+        focusedInteractionInfo: Interaction.TimestampInfo? = nil,
+        using dependencies: Dependencies
+    ) {
+        self.viewModel = ConversationViewModel(threadId: threadId, threadVariant: threadVariant, focusedInteractionInfo: focusedInteractionInfo, using: dependencies)
         
         Storage.shared.addObserver(viewModel.pagedDataObserver)
         
@@ -544,7 +551,8 @@ final class ConversationVC: BaseVC, LibSessionRespondingViewController, Conversa
             !LibSession.conversationInConfig(
                 threadId: threadId,
                 threadVariant: viewModel.threadData.threadVariant,
-                visibleOnly: false
+                visibleOnly: false,
+                using: viewModel.dependencies
             )
         {
             Storage.shared.writeAsync { db in
@@ -592,8 +600,8 @@ final class ConversationVC: BaseVC, LibSessionRespondingViewController, Conversa
                     guard
                         let sessionId: String = self?.viewModel.threadData.threadId,
                         (
-                            SessionId.Prefix(from: sessionId) == .blinded15 ||
-                            SessionId.Prefix(from: sessionId) == .blinded25
+                            (try? SessionId.Prefix(from: sessionId)) == .blinded15 ||
+                            (try? SessionId.Prefix(from: sessionId)) == .blinded25
                         ),
                         let blindedLookup: BlindedIdLookup = Storage.shared.read({ db in
                             try BlindedIdLookup
@@ -750,6 +758,12 @@ final class ConversationVC: BaseVC, LibSessionRespondingViewController, Conversa
             viewModel.threadData.threadIsMessageRequest != updatedThreadData.threadIsMessageRequest ||
             viewModel.threadData.threadRequiresApproval != updatedThreadData.threadRequiresApproval
         {
+            if updatedThreadData.canWrite {
+                self.showInputAccessoryView()
+            } else {
+                self.hideInputAccessoryView()
+            }
+           
             let messageRequestsViewWasVisible: Bool = (self.messageRequestFooterView.isHidden == false)
             
             UIView.animate(withDuration: 0.3) { [weak self] in
@@ -1443,10 +1457,7 @@ final class ConversationVC: BaseVC, LibSessionRespondingViewController, Conversa
     ) {
         let currentDisappearingMessagesConfiguration: DisappearingMessagesConfiguration? = disappearingMessagesConfiguration ?? self.viewModel.threadData.disappearingMessagesConfiguration
         // Do not show the banner until the new disappearing messages is enabled
-        guard 
-            Features.useNewDisappearingMessagesConfig &&
-            currentDisappearingMessagesConfiguration?.isEnabled == true
-        else {
+        guard currentDisappearingMessagesConfiguration?.isEnabled == true else {
             self.outdatedClientBanner.isHidden = true
             self.emptyStateLabelTopConstraint?.constant = Values.largeSpacing
             return
@@ -1782,12 +1793,14 @@ final class ConversationVC: BaseVC, LibSessionRespondingViewController, Conversa
             ipadCancelButton.setThemeTitleColor(.textPrimary, for: .normal)
             searchBarContainer.addSubview(ipadCancelButton)
             ipadCancelButton.pin(.trailing, to: .trailing, of: searchBarContainer)
-            ipadCancelButton.autoVCenterInSuperview()
-            searchBar.autoPinEdgesToSuperviewEdges(with: UIEdgeInsets.zero, excludingEdge: .trailing)
+            ipadCancelButton.center(.vertical, in: searchBarContainer)
+            searchBar.pin(.top, to: .top, of: searchBar)
+            searchBar.pin(.leading, to: .leading, of: searchBar)
             searchBar.pin(.trailing, to: .leading, of: ipadCancelButton, withInset: -Values.smallSpacing)
+            searchBar.pin(.bottom, to: .bottom, of: searchBar)
         }
         else {
-            searchBar.autoPinEdgesToSuperviewMargins()
+            searchBar.pin(toMarginsOf: searchBarContainer)
         }
         
         // Nav bar buttons

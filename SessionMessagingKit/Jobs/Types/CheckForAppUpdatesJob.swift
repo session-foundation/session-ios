@@ -19,6 +19,26 @@ public enum CheckForAppUpdatesJob: JobExecutor {
         deferred: @escaping (Job, Dependencies) -> (),
         using dependencies: Dependencies
     ) {
+        // Just defer the update check when running tests or in the simulator
+#if targetEnvironment(simulator)
+        let shouldCheckForUpdates: Bool = false
+#else
+        let shouldCheckForUpdates: Bool = !SNUtilitiesKit.isRunningTests
+#endif
+        
+        guard shouldCheckForUpdates else {
+            var updatedJob: Job = job.with(
+                failureCount: 0,
+                nextRunTimestamp: (dependencies.dateNow.timeIntervalSince1970 + updateCheckFrequency)
+            )
+            dependencies.storage.write(using: dependencies) { db in
+                try updatedJob.save(db)
+            }
+            
+            Log.info("[CheckForAppUpdatesJob] Deferred due to test/simulator build.")
+            return deferred(updatedJob, dependencies)
+        }
+        
         dependencies.storage
             .readPublisher(using: dependencies) { db -> [UInt8]? in Identity.fetchUserEd25519KeyPair(db)?.secretKey }
             .subscribe(on: queue)

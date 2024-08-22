@@ -4,7 +4,6 @@
 
 import Foundation
 import SessionUtil
-import SignalCoreKit
 
 // MARK: - LibSession
 
@@ -51,6 +50,10 @@ extension LibSession {
             
             Log.custom(Log.Level(lvl), [LogCategory(catPtr, catLen).logCat], processedMessage)
         })
+    }
+    
+    public static func clearLoggers() {
+        session_clear_loggers()
     }
     
     // MARK: - Internal

@@ -2,7 +2,6 @@
 
 import Foundation
 import Combine
-import Sodium
 import GRDB
 import SessionUtilitiesKit
 import SessionMessagingKit
@@ -36,11 +35,8 @@ enum Onboarding {
             .poll(
                 namespaces: [.configUserProfile],
                 for: userPublicKey,
-                // Note: These values mean the received messages will be
-                // processed immediately rather than async as part of a Job
-                calledFromBackgroundPoller: true,
-                isBackgroundPollValid: { true },
                 drainBehaviour: .alwaysRandom,
+                forceSynchronousProcessing: true,
                 using: dependencies
             )
             .map { _ -> String? in
@@ -106,7 +102,7 @@ enum Onboarding {
         /// account (eg. returning from the PN setting screen to the seed entry screen when linking a device)
         func unregister(using dependencies: Dependencies) {
             // Clear the in-memory state from LibSession
-            LibSession.clearMemoryState()
+            LibSession.clearMemoryState(using: dependencies)
             
             // Clear any data which gets set during Onboarding
             Storage.shared.write { db in

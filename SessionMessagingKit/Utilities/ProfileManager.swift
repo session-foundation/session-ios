@@ -4,7 +4,6 @@ import UIKit
 import CryptoKit
 import Combine
 import GRDB
-import SignalCoreKit
 import SessionUtilitiesKit
 
 public struct ProfileManager {
@@ -153,17 +152,17 @@ public struct ProfileManager {
     // MARK: - File Paths
     
     public static let sharedDataProfileAvatarsDirPath: String = {
-        let path: String = URL(fileURLWithPath: OWSFileSystem.appSharedDataDirectoryPath())
+        let path: String = URL(fileURLWithPath: FileManager.default.appSharedDataDirectoryPath)
             .appendingPathComponent("ProfileAvatars")   // stringlint:disable
             .path
-        OWSFileSystem.ensureDirectoryExists(path)
+        try? FileSystem.ensureDirectoryExists(at: path)
         
         return path
     }()
     
     private static let profileAvatarsDirPath: String = {
         let path: String = ProfileManager.sharedDataProfileAvatarsDirPath
-        OWSFileSystem.ensureDirectoryExists(path)
+        try? FileSystem.ensureDirectoryExists(at: path)
         
         return path
     }()
@@ -212,7 +211,7 @@ public struct ProfileManager {
         
         let fileName: String = UUID().uuidString.appendingFileExtension("jpg")  // stringlint:disable
         let filePath: String = ProfileManager.profileAvatarFilepath(filename: fileName)
-        var backgroundTask: OWSBackgroundTask? = OWSBackgroundTask(label: funcName)
+        var backgroundTask: SessionBackgroundTask? = SessionBackgroundTask(label: #function)
         
         Log.verbose("downloading profile avatar: \(profile.id)")
         currentAvatarDownloads.mutate { $0.insert(profile.id) }
@@ -401,7 +400,7 @@ public struct ProfileManager {
                         // To help ensure the user is being shown the same cropping of their avatar as
                         // everyone else will see, we want to be sure that the image was resized before this point.
                         SNLog("Avatar image should have been resized before trying to upload")
-                        image = image.resizedImage(toFillPixelSize: CGSize(width: maxAvatarDiameter, height: maxAvatarDiameter))
+                        image = image.resized(toFillPixelSize: CGSize(width: maxAvatarDiameter, height: maxAvatarDiameter))
                     }
                     
                     guard let data: Data = image.jpegData(compressionQuality: 0.95) else {

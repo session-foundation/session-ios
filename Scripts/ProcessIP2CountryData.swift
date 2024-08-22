@@ -26,7 +26,7 @@ let destinationFileName: String = "GeoLite2-Country-Blocks-IPv4"
 // Types
 
 struct IP2CountryCache {
-    var countryBlocksIPInt: [Int] = []
+    var countryBlocksIPInt: [Int64] = []
     var countryBlocksGeonameId: [String] = []
     
     var countryLocationsLocaleCode: [String] = []
@@ -35,11 +35,11 @@ struct IP2CountryCache {
 }
 
 public enum IPv4 {
-    public static func toInt(_ ip: String) -> Int? {
-        let octets: [Int] = ip.split(separator: ".").compactMap { Int($0) }
+    public static func toInt(_ ip: String) -> Int64? {
+        let octets: [Int64] = ip.split(separator: ".").compactMap { Int64($0) }
         guard octets.count > 1 else { return nil }
         
-        var result: Int = 0
+        var result: Int64 = 0
         for i in stride(from: 3, through: 0, by: -1) {
             result += octets[ 3 - i ] << (i * 8)
         }
@@ -66,6 +66,26 @@ class Processor {
         let bar = String(repeating: "=", count: filledLength) + String(repeating: " ", count: barLength - filledLength)
         print("\r\(prefix)[\(bar)] \(Int(progress * 100))%", terminator: "")
         fflush(stdout)
+    }
+    
+    static func parseCsvLine(_ line: String) -> [String] {
+        var result: [String] = []
+        var currentField: String = ""
+        var inQuotedField: Bool = false
+
+        for char in line {
+            if char == "," && !inQuotedField {
+                result.append(currentField)
+                currentField = ""
+            } else if char == "\"" {
+                inQuotedField.toggle()
+            } else {
+                currentField.append(char)
+            }
+        }
+
+        result.append(currentField)
+        return result
     }
 
     static func processFiles() {
@@ -145,21 +165,19 @@ class Processor {
         lines[1...].enumerated().forEach { index, line in
             guard keepRunning else { return }
             
-            let values: [String] = line
-                .trimmingCharacters(in: .whitespacesAndNewlines)
-                .components(separatedBy: ",")
+            let values: [String] = parseCsvLine(line.trimmingCharacters(in: .whitespacesAndNewlines))
+            let progress = (Double(index) / Double(lines.count))
+            printProgressBar(prefix: countryBlockPrefix, progress: progress, total: (terminalWidth - 10))
             
             guard
                 values.count == 2,
                 let ipNoSubnetMask: String = values[0].components(separatedBy: "/").first,
-                let ipAsInt: Int = IPv4.toInt(ipNoSubnetMask)
+                let ipAsInt: Int64 = IPv4.toInt(ipNoSubnetMask),
+                cache.countryBlocksGeonameId.last != values[1]
             else { return }
             
             cache.countryBlocksIPInt.append(ipAsInt)
             cache.countryBlocksGeonameId.append(values[1])
-            
-            let progress = (Double(index) / Double(lines.count))
-            printProgressBar(prefix: countryBlockPrefix, progress: progress, total: (terminalWidth - 10))
         }
         guard keepRunning else { return }
         print("\r\u{1B}[2KProcessing country blocks completed ✅")
@@ -178,9 +196,7 @@ class Processor {
             guard lines.count > 1 else { fatalError("localized country file had no content") }
             
             lines[1...].enumerated().forEach { index, line in
-                let values: [String] = line
-                    .trimmingCharacters(in: .whitespacesAndNewlines)
-                    .components(separatedBy: ",")
+                let values: [String] = parseCsvLine(line.trimmingCharacters(in: .whitespacesAndNewlines))
                 guard values.count == 7 else { return }
                 
                 cache.countryLocationsLocaleCode.append(values[1])
@@ -198,7 +214,7 @@ class Processor {
         var outputData: Data = Data()
         var ipCount = Int32(cache.countryBlocksIPInt.count)
         outputData.append(Data(bytes: &ipCount, count: MemoryLayout<Int32>.size))
-        outputData.append(Data(bytes: cache.countryBlocksIPInt, count: cache.countryBlocksIPInt.count * MemoryLayout<Int>.size))
+        outputData.append(Data(bytes: cache.countryBlocksIPInt, count: cache.countryBlocksIPInt.count * MemoryLayout<Int64>.size))
         
         let geonameIdData: Data = cache.countryBlocksGeonameId.joined(separator: "\0\0").data(using: .utf8)!
         var geonameIdCount = Int32(geonameIdData.count)

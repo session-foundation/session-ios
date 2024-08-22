@@ -6,7 +6,6 @@ import Photos
 import PhotosUI
 import SessionUIKit
 import SignalUtilitiesKit
-import SignalCoreKit
 import SessionUtilitiesKit
 
 protocol ImagePickerGridControllerDelegate: AnyObject {
@@ -30,6 +29,7 @@ class ImagePickerGridController: UICollectionViewController, PhotoLibraryDelegat
     private var photoCollection: PhotoCollection
     private var photoCollectionContents: PhotoCollectionContents
     private let photoMediaSize = PhotoMediaSize()
+    private var firstSelectedIndexPath: IndexPath?
 
     var collectionViewFlowLayout: UICollectionViewFlowLayout
     var titleView: TitleView!
@@ -57,7 +57,7 @@ class ImagePickerGridController: UICollectionViewController, PhotoLibraryDelegat
         library.add(delegate: self)
 
         guard let collectionView = collectionView else {
-            owsFailDebug("collectionView was unexpectedly nil")
+            Log.error("[ImagePickerGridController] collectionView was unexpectedly nil")
             return
         }
 
@@ -112,12 +112,12 @@ class ImagePickerGridController: UICollectionViewController, PhotoLibraryDelegat
     @objc
     func didPanSelection(_ selectionPanGesture: UIPanGestureRecognizer) {
         guard let collectionView = collectionView else {
-            owsFailDebug("collectionView was unexpectedly nil")
+            Log.error("[ImagePickerGridController] collectionView was unexpectedly nil")
             return
         }
 
         guard let delegate = delegate else {
-            owsFailDebug("delegate was unexpectedly nil")
+            Log.error("[ImagePickerGridController] delegate was unexpectedly nil")
             return
         }
 
@@ -160,17 +160,17 @@ class ImagePickerGridController: UICollectionViewController, PhotoLibraryDelegat
 
     func tryToToggleBatchSelect(at indexPath: IndexPath) {
         guard let collectionView = collectionView else {
-            owsFailDebug("collectionView was unexpectedly nil")
+            Log.error("[ImagePickerGridController] collectionView was unexpectedly nil")
             return
         }
 
         guard let delegate = delegate else {
-            owsFailDebug("delegate was unexpectedly nil")
+            Log.error("[ImagePickerGridController] delegate was unexpectedly nil")
             return
         }
 
         guard delegate.isInBatchSelectMode else {
-            owsFailDebug("isInBatchSelectMode was unexpectedly false")
+            Log.error("[ImagePickerGridController] isInBatchSelectMode was unexpectedly false")
             return
         }
 
@@ -208,6 +208,12 @@ class ImagePickerGridController: UICollectionViewController, PhotoLibraryDelegat
         let cellSize = collectionViewFlowLayout.itemSize
         photoMediaSize.thumbnailSize = CGSize(width: cellSize.width * scale, height: cellSize.height * scale)
  
+        // When we select the first item we immediately deselect it so it doesn't look odd when pushing to the
+        // next screen, but this in turn looks odd if the user returns and the item is deselected
+        if let firstSelectedIndexPath: IndexPath = firstSelectedIndexPath {
+            collectionView.cellForItem(at: firstSelectedIndexPath)?.isSelected = true
+        }
+        
         if !hasEverAppeared {
             scrollToBottom(animated: false)
         }
@@ -245,6 +251,13 @@ class ImagePickerGridController: UICollectionViewController, PhotoLibraryDelegat
         DispatchQueue.main.async {
             // pre-layout collectionPicker for snappier response
             self.collectionPickerController.view.layoutIfNeeded()
+            
+            // We also need to actually inform the collectionView that the item should be selected (if we don't
+            // then the user won't be able to deselect it)
+            if let firstSelectedIndexPath: IndexPath = self.firstSelectedIndexPath {
+                self.collectionView.selectItem(at: firstSelectedIndexPath, animated: false, scrollPosition: .centeredHorizontally)
+                self.collectionView.cellForItem(at: firstSelectedIndexPath)?.isSelected = true
+            }
         }
     }
 
@@ -252,7 +265,6 @@ class ImagePickerGridController: UICollectionViewController, PhotoLibraryDelegat
     // If the app is backgrounded and then foregrounded, when OWSWindowManager calls mainWindow.makeKeyAndVisible
     // the ConversationVC's inputAccessoryView will appear *above* us unless we'd previously become first responder.
     override public var canBecomeFirstResponder: Bool {
-        Logger.debug("")
         return true
     }
 
@@ -266,7 +278,7 @@ class ImagePickerGridController: UICollectionViewController, PhotoLibraryDelegat
         self.view.layoutIfNeeded()
 
         guard let collectionView = collectionView else {
-            owsFailDebug("collectionView was unexpectedly nil")
+            Log.error("[ImagePickerGridController] collectionView was unexpectedly nil")
             return
         }
 
@@ -289,7 +301,7 @@ class ImagePickerGridController: UICollectionViewController, PhotoLibraryDelegat
             // causing the content to adjust *after* viewWillAppear and viewSafeAreaInsetsDidChange.
             // Because that something results in `scrollViewDidScroll` we re-adjust the content
             // insets to the bottom.
-            Logger.debug("adjusting scroll offset back to bottom")
+            Log.debug("[ImagePickerGridController] Adjusting scroll offset back to bottom")
             scrollToBottom(animated: false)
         }
     }
@@ -339,7 +351,7 @@ class ImagePickerGridController: UICollectionViewController, PhotoLibraryDelegat
         guard let delegate = delegate else { return }
 
         guard let collectionView = collectionView else {
-            owsFailDebug("collectionView was unexpectedly nil")
+            Log.error("[ImagePickerGridController] collectionView was unexpectedly nil")
             return
         }
 
@@ -348,7 +360,7 @@ class ImagePickerGridController: UICollectionViewController, PhotoLibraryDelegat
 
     func clearCollectionViewSelection() {
         guard let collectionView = self.collectionView else {
-            owsFailDebug("collectionView was unexpectedly nil")
+            Log.error("[ImagePickerGridController] collectionView was unexpectedly nil")
             return
         }
 
@@ -356,10 +368,8 @@ class ImagePickerGridController: UICollectionViewController, PhotoLibraryDelegat
     }
 
     func showTooManySelectedToast() {
-        Logger.info("")
-
         guard let  collectionView  = collectionView else {
-            owsFailDebug("collectionView was unexpectedly nil")
+            Log.error("[ImagePickerGridController] collectionView was unexpectedly nil")
             return
         }
 
@@ -406,10 +416,8 @@ class ImagePickerGridController: UICollectionViewController, PhotoLibraryDelegat
     )
 
     func showCollectionPicker() {
-        Logger.debug("")
-
         guard let collectionPickerView = collectionPickerController.view else {
-            owsFailDebug("collectionView was unexpectedly nil")
+            Log.error("[ImagePickerGridController] collectionView was unexpectedly nil")
             return
         }
 
@@ -418,8 +426,10 @@ class ImagePickerGridController: UICollectionViewController, PhotoLibraryDelegat
         addChild(collectionPickerController)
 
         view.addSubview(collectionPickerView)
-        collectionPickerView.autoPinEdgesToSuperviewEdges(with: .zero, excludingEdge: .top)
-        collectionPickerView.autoPinEdge(toSuperviewSafeArea: .top)
+        collectionPickerView.pin(.top, to: .top, of: view.safeAreaLayoutGuide)
+        collectionPickerView.pin(.leading, to: .leading, of: view)
+        collectionPickerView.pin(.trailing, to: .trailing, of: view)
+        collectionPickerView.pin(.bottom, to: .bottom, of: view)
         collectionPickerView.layoutIfNeeded()
         
         // Initially position offscreen, we'll animate it in.
@@ -432,8 +442,6 @@ class ImagePickerGridController: UICollectionViewController, PhotoLibraryDelegat
     }
 
     func hideCollectionPicker() {
-        Logger.debug("")
-
         assert(isShowingCollectionPickerController)
         isShowingCollectionPickerController = false
         
@@ -467,7 +475,7 @@ class ImagePickerGridController: UICollectionViewController, PhotoLibraryDelegat
 
     override func collectionView(_ collectionView: UICollectionView, didSelectItemAt indexPath: IndexPath) {
         guard let delegate = delegate else {
-            owsFailDebug("delegate was unexpectedly nil")
+            Log.error("[ImagePickerGridController] delegate was unexpectedly nil")
             return
         }
 
@@ -482,28 +490,30 @@ class ImagePickerGridController: UICollectionViewController, PhotoLibraryDelegat
             didSelectAsset: asset,
             attachmentPublisher: photoCollectionContents.outgoingAttachment(for: asset)
         )
+        firstSelectedIndexPath = nil
 
         if !delegate.isInBatchSelectMode {
             // Don't show "selected" badge unless we're in batch mode
+            firstSelectedIndexPath = indexPath
             collectionView.deselectItem(at: indexPath, animated: false)
             delegate.imagePickerDidCompleteSelection(self)
         }
     }
 
     public override func collectionView(_ collectionView: UICollectionView, didDeselectItemAt indexPath: IndexPath) {
-        Logger.debug("")
         guard let delegate = delegate else {
-            owsFailDebug("delegate was unexpectedly nil")
+            Log.error("[ImagePickerGridController] delegate was unexpectedly nil")
             return
         }
 
         guard let asset: PHAsset = photoCollectionContents.asset(at: indexPath.item) else {
-            SNLog("Failed to deselect cell for asset at \(indexPath.item)")
+            Log.warn("[ImagePickerGridController] Failed to deselect cell for asset at \(indexPath.item)")
             delegate.imagePicker(self, failedToRetrieveAssetAt: indexPath.item, forCount: photoCollectionContents.assetCount)
             return
         }
         
         delegate.imagePicker(self, didDeselectAsset: asset)
+        firstSelectedIndexPath = nil
     }
 
     override func collectionView(_ collectionView: UICollectionView, numberOfItemsInSection section: Int) -> Int {
@@ -511,9 +521,7 @@ class ImagePickerGridController: UICollectionViewController, PhotoLibraryDelegat
     }
 
     override func collectionView(_ collectionView: UICollectionView, cellForItemAt indexPath: IndexPath) -> UICollectionViewCell {
-        guard let delegate = delegate else {
-            return UICollectionViewCell(forAutoLayout: ())
-        }
+        guard let delegate = delegate else { return UICollectionViewCell() }
 
         let cell: PhotoGridViewCell = collectionView.dequeue(type: PhotoGridViewCell.self, for: indexPath)
         
@@ -574,7 +582,7 @@ class TitleView: UIView {
         super.init(frame: frame)
 
         addSubview(stackView)
-        stackView.autoPinEdgesToSuperviewEdges()
+        stackView.pin(to: self)
         
         label.font = .boldSystemFont(ofSize: Values.mediumFontSize)
         label.themeTextColor = .textPrimary

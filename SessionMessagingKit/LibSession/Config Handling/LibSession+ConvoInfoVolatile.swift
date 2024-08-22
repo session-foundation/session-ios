@@ -123,7 +123,7 @@ internal extension LibSession {
                 switch info.variant {
                     case .contact:
                         // FIXME: libSession V1 doesn't sync volatileThreadInfo for blinded message requests
-                        guard SessionId(from: info.threadId)?.prefix == .standard else { return false }
+                        guard (try? SessionId(from: info.threadId))?.prefix == .standard else { return false }
                         
                         return true
                         
@@ -336,9 +336,10 @@ public extension LibSession {
         threadVariant: SessionThread.Variant,
         timestampMs: Int64,
         userPublicKey: String,
-        openGroup: OpenGroup?
+        openGroup: OpenGroup?,
+        using dependencies: Dependencies
     ) -> Bool {
-        return LibSession
+        return dependencies.caches[.libSession]
             .config(for: .convoInfoVolatile, publicKey: userPublicKey)
             .wrappedValue
             .map { conf in

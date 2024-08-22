@@ -337,10 +337,10 @@ private class MigrationTest {
                     // If there is an 'Identity' table then insert "proper" identity info (otherwise mock
                     // data might get deleted as invalid in libSession migrations)
                     try [
-                        Identity(variant: .x25519PublicKey, data: Data.data(fromHex: TestConstants.publicKey)!),
-                        Identity(variant: .x25519PrivateKey, data: Data.data(fromHex: TestConstants.privateKey)!),
-                        Identity(variant: .ed25519PublicKey, data: Data.data(fromHex: TestConstants.edPublicKey)!),
-                        Identity(variant: .ed25519SecretKey, data: Data.data(fromHex: TestConstants.edSecretKey)!)
+                        Identity(variant: .x25519PublicKey, data: Data(hex: TestConstants.publicKey)),
+                        Identity(variant: .x25519PrivateKey, data: Data(hex: TestConstants.privateKey)),
+                        Identity(variant: .ed25519PublicKey, data: Data(hex: TestConstants.edPublicKey)),
+                        Identity(variant: .ed25519SecretKey, data: Data(hex: TestConstants.edSecretKey))
                     ].forEach { try $0.insert(db) }
                     
                 case JobDependencies.databaseTableName:

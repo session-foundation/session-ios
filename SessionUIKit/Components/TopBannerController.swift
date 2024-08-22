@@ -5,11 +5,11 @@ import SessionUtilitiesKit
 
 public class TopBannerController: UIViewController {
     public enum Warning: String, Codable {
-        case outdatedUserConfig
+        case invalid
         
         var text: String {
             switch self {
-                case .outdatedUserConfig: return "deleteAfterGroupFirstReleaseConfigOutdated".localized()
+                case .invalid: return ""
             }
         }
     }

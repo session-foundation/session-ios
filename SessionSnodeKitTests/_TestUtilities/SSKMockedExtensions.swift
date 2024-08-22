@@ -1,6 +1,7 @@
 // Copyright © 2024 Rangeproof Pty Ltd. All rights reserved.
 
 import Foundation
+import SessionSnodeKit
 import SessionUtilitiesKit
 
 extension Network.Destination: Mocked {
