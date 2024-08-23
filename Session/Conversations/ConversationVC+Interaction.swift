@@ -2303,14 +2303,16 @@ extension ConversationVC:
                                         DispatchQueue.main.async { [weak self] in
                                             self?.viewModel.showToast(
                                                 text: "banUserBanned".localized(),
-                                                backgroundColor: .backgroundSecondary
+                                                backgroundColor: .backgroundSecondary,
+                                                insect: (self?.inputAccessoryView?.frame.height ?? Values.mediumSpacing) + Values.smallSpacing
                                             )
                                         }
                                     case .failure:
                                         DispatchQueue.main.async { [weak self] in
                                             self?.viewModel.showToast(
                                                 text: "banErrorFailed".localized(),
-                                                backgroundColor: .backgroundSecondary
+                                                backgroundColor: .backgroundSecondary,
+                                                insect: (self?.inputAccessoryView?.frame.height ?? Values.mediumSpacing) + Values.smallSpacing
                                             )
                                         }
                                 }
@@ -2362,14 +2364,16 @@ extension ConversationVC:
                                         DispatchQueue.main.async { [weak self] in
                                             self?.viewModel.showToast(
                                                 text: "banUserBanned".localized(),
-                                                backgroundColor: .backgroundSecondary
+                                                backgroundColor: .backgroundSecondary,
+                                                insect: (self?.inputAccessoryView?.frame.height ?? Values.mediumSpacing) + Values.smallSpacing
                                             )
                                         }
                                     case .failure:
                                         DispatchQueue.main.async { [weak self] in
                                             self?.viewModel.showToast(
                                                 text: "banErrorFailed".localized(),
-                                                backgroundColor: .backgroundSecondary
+                                                backgroundColor: .backgroundSecondary,
+                                                insect: (self?.inputAccessoryView?.frame.height ?? Values.mediumSpacing) + Values.smallSpacing
                                             )
                                         }
                                 }
