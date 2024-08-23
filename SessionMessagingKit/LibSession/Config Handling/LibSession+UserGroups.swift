@@ -625,6 +625,7 @@ public extension LibSession {
         _ db: Database,
         groupPublicKey: String,
         name: String,
+        joinedAt: TimeInterval,
         latestKeyPairPublicKey: Data,
         latestKeyPairSecretKey: Data,
         latestKeyPairReceivedTimestamp: TimeInterval,
@@ -680,7 +681,8 @@ public extension LibSession {
                                     role: .admin,
                                     isHidden: false
                                 )
-                            }
+                            },
+                        joinedAt: Int64(joinedAt)
                     )
                 ],
                 in: conf

@@ -99,6 +99,30 @@ class BencodeDecoderSpec: QuickSpec {
                     try BencodeDecoder().decode(TestType2.self, from: data)
                 }.to(throwError(DecodingError.typeMismatch(Bool.self, DecodingError.Context(codingPath: [], debugDescription: "Bencode doesn't support Bool values, use an Int and custom Encode/Decode functions isntead"))))
             }
+            
+            // MARK: ---- does not end up in an infinite loop when decoding Int64 types
+            it("does not end up in an infinite loop when decoding Int64 types") {
+                let basicIntListData: Data = "li1ei2ee".data(using: .utf8)!
+                let result = try? BencodeDecoder().decode([Int64].self, from: basicIntListData)
+                
+                expect(result).to(equal([1, 2]))
+            }
+            
+            // MARK: ---- does not end up in an infinite loop when decoding Double types
+            it("does not end up in an infinite loop when decoding Double types") {
+                let basicIntListData: Data = "li1ei2ee".data(using: .utf8)!
+                let result = try? BencodeDecoder().decode([Double].self, from: basicIntListData)
+                
+                expect(result).to(equal([1, 2]))
+            }
+            
+            // MARK: ---- does not end up in an infinite loop when decoding Float types
+            it("does not end up in an infinite loop when decoding Float types") {
+                let basicIntListData: Data = "li1ei2ee".data(using: .utf8)!
+                let result = try? BencodeDecoder().decode([Float].self, from: basicIntListData)
+                
+                expect(result).to(equal([1, 2]))
+            }
         }
     }
 }

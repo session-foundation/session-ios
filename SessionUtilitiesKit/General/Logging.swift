@@ -376,6 +376,13 @@ public class Logger {
                 return
             }
             
+            // We only want to append extension logs to the main app logs (so just early out if this isn't
+            // the main app)
+            guard Singleton.hasAppContext && Singleton.appContext.isMainApp else {
+                self?.completeResumeLogging()
+                return
+            }
+            
             DDLog.loggingQueue.async {
                 let extensionInfo: [(dir: String, type: ExtensionType)] = [
                     ("\(FileManager.default.appSharedDataDirectoryPath)/Logs/NotificationExtension", .notification),

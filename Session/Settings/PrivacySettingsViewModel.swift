@@ -114,6 +114,9 @@ class PrivacySettingsViewModel: SessionTableViewModel, NavigationItemSource, Nav
                                     key: .isScreenLockEnabled,
                                     value: current.isScreenLockEnabled,
                                     oldValue: (previous ?? current).isScreenLockEnabled
+                                ),
+                                accessibility: Accessibility(
+                                    identifier: "Lock App - Switch"
                                 )
                             ),
                             onTap: { [weak self] in
@@ -152,6 +155,9 @@ class PrivacySettingsViewModel: SessionTableViewModel, NavigationItemSource, Nav
                                     key: .checkForCommunityMessageRequests,
                                     value: current.checkForCommunityMessageRequests,
                                     oldValue: (previous ?? current).checkForCommunityMessageRequests
+                                ),
+                                accessibility: Accessibility(
+                                    identifier: "Community Message Requests - Switch"
                                 )
                             ),
                             onTap: { [weak self] in
@@ -177,6 +183,9 @@ class PrivacySettingsViewModel: SessionTableViewModel, NavigationItemSource, Nav
                                     key: .areReadReceiptsEnabled,
                                     value: current.areReadReceiptsEnabled,
                                     oldValue: (previous ?? current).areReadReceiptsEnabled
+                                ),
+                                accessibility: Accessibility(
+                                    identifier: "Read Receipts - Switch"
                                 )
                             ),
                             onTap: {
@@ -234,6 +243,9 @@ class PrivacySettingsViewModel: SessionTableViewModel, NavigationItemSource, Nav
                                     key: .typingIndicatorsEnabled,
                                     value: current.typingIndicatorsEnabled,
                                     oldValue: (previous ?? current).typingIndicatorsEnabled
+                                ),
+                                accessibility: Accessibility(
+                                    identifier: "Typing Indicators - Switch"
                                 )
                             ),
                             onTap: {
@@ -256,6 +268,9 @@ class PrivacySettingsViewModel: SessionTableViewModel, NavigationItemSource, Nav
                                     key: .areLinkPreviewsEnabled,
                                     value: current.areLinkPreviewsEnabled,
                                     oldValue: (previous ?? current).areLinkPreviewsEnabled
+                                ),
+                                accessibility: Accessibility(
+                                    identifier: "Send Link Previews - Switch"
                                 )
                             ),
                             onTap: {
@@ -278,6 +293,9 @@ class PrivacySettingsViewModel: SessionTableViewModel, NavigationItemSource, Nav
                                     key: .areCallsEnabled,
                                     value: current.areCallsEnabled,
                                     oldValue: (previous ?? current).areCallsEnabled
+                                ),
+                                accessibility: Accessibility(
+                                    identifier: "Voice and Video Calls - Switch"
                                 )
                             ),
                             accessibility: Accessibility(
