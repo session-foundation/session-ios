@@ -130,7 +130,10 @@ class ThreadDisappearingMessagesSettingsViewModel: SessionTableViewModel, Naviga
                                     id: "DISAPPEARING_MESSAGES_OFF".localized(),
                                     title: "DISAPPEARING_MESSAGES_OFF".localized(),
                                     rightAccessory: .radio(
-                                        isSelected: { (self?.currentSelection.value.isEnabled == false) }
+                                        isSelected: { (self?.currentSelection.value.isEnabled == false) },
+                                        accessibility: Accessibility(
+                                            identifier: "Off - Radio"
+                                        )
                                     ),
                                     accessibility: Accessibility(
                                         identifier: "Disable disappearing messages (Off option)",
@@ -154,7 +157,10 @@ class ThreadDisappearingMessagesSettingsViewModel: SessionTableViewModel, Naviga
                                         isSelected: {
                                             (self?.currentSelection.value.isEnabled == true) &&
                                             (self?.currentSelection.value.type == .disappearAfterRead)
-                                        }
+                                        },
+                                        accessibility: Accessibility(
+                                            identifier: "Disappear After Read - Radio"
+                                        )
                                     ),
                                     accessibility: Accessibility(
                                         identifier: "Disappear after read option",
@@ -184,7 +190,10 @@ class ThreadDisappearingMessagesSettingsViewModel: SessionTableViewModel, Naviga
                                         isSelected: {
                                             (self?.currentSelection.value.isEnabled == true) &&
                                             (self?.currentSelection.value.type == .disappearAfterSend)
-                                        }
+                                        },
+                                        accessibility: Accessibility(
+                                            identifier: "Disappear After Read - Radio"
+                                        )
                                     ),
                                     accessibility: Accessibility(
                                         identifier: "Disappear after send option",
@@ -226,7 +235,10 @@ class ThreadDisappearingMessagesSettingsViewModel: SessionTableViewModel, Naviga
                                                 isSelected: {
                                                     (self?.currentSelection.value.isEnabled == true) &&
                                                     (self?.currentSelection.value.durationSeconds == duration)
-                                                }
+                                                },
+                                                accessibility: Accessibility(
+                                                    identifier: "\(title) - Radio"
+                                                )
                                             ),
                                             accessibility: Accessibility(
                                                 identifier: "Time option",
@@ -252,7 +264,10 @@ class ThreadDisappearingMessagesSettingsViewModel: SessionTableViewModel, Naviga
                                     id: "DISAPPEARING_MESSAGES_OFF".localized(),
                                     title: "DISAPPEARING_MESSAGES_OFF".localized(),
                                     rightAccessory: .radio(
-                                        isSelected: { (self?.currentSelection.value.isEnabled == false) }
+                                        isSelected: { (self?.currentSelection.value.isEnabled == false) },
+                                        accessibility: Accessibility(
+                                            identifier: "Off - Radio"
+                                        )
                                     ),
                                     isEnabled: (
                                         isNoteToSelf ||
@@ -287,7 +302,10 @@ class ThreadDisappearingMessagesSettingsViewModel: SessionTableViewModel, Naviga
                                                 isSelected: {
                                                     (self?.currentSelection.value.isEnabled == true) &&
                                                     (self?.currentSelection.value.durationSeconds == duration)
-                                                }
+                                                },
+                                                accessibility: Accessibility(
+                                                    identifier: "\(title) - Radio"
+                                                )
                                             ),
                                             isEnabled: (isNoteToSelf || currentUserIsClosedGroupAdmin == true),
                                             accessibility: Accessibility(

@@ -380,14 +380,16 @@ extension SessionCell {
                     let isSelected: Bool = isSelectedRetriever()
                     let wasOldSelection: Bool = (!isSelected && storedSelection)
                 
-                    radioView.isAccessibilityElement = true
-                
+                    radioBorderView.isAccessibilityElement = true
+                    radioBorderView.accessibilityIdentifier = accessibility?.identifier
+                    radioBorderView.accessibilityLabel = accessibility?.label
+                    
                     if isSelected || wasOldSelection {
-                        radioView.accessibilityTraits.insert(.selected)
-                        radioView.accessibilityValue = "selected"
+                        radioBorderView.accessibilityTraits.insert(.selected)
+                        radioBorderView.accessibilityValue = "selected"
                     } else {
-                        radioView.accessibilityTraits.remove(.selected)
-                        radioView.accessibilityValue = nil
+                        radioBorderView.accessibilityTraits.remove(.selected)
+                        radioBorderView.accessibilityValue = nil
                     }
                     
                     radioBorderView.isHidden = false
@@ -402,8 +404,6 @@ extension SessionCell {
                     
                     radioBorderView.layer.cornerRadius = (size.borderSize / 2)
                     
-                    radioView.accessibilityIdentifier = accessibility?.identifier
-                    radioView.accessibilityLabel = accessibility?.label
                     radioView.alpha = (wasOldSelection ? 0.3 : 1)
                     radioView.isHidden = (!isSelected && !storedSelection)
                     radioView.themeBackgroundColor = {
