@@ -322,7 +322,7 @@ extension SessionCell.Accessory {
     // MARK: - .toggle Variants
     
     public static func toggle(_ dataSource: DataSource) -> SessionCell.Accessory {
-        return .toggle(dataSource, accessibility: nil)
+        return .toggle(dataSource, accessibility: Accessibility(identifier: "Switch"))
     }
     
     // MARK: - .dropDown Variants
@@ -334,11 +334,30 @@ extension SessionCell.Accessory {
     // MARK: - .radio Variants
     
     public static func radio(isSelected: @escaping () -> Bool) -> SessionCell.Accessory {
-        return .radio(size: .medium, isSelected: isSelected, storedSelection: false, accessibility: nil)
+        return .radio(
+            size: .medium,
+            isSelected: isSelected,
+            storedSelection: false,
+            accessibility: Accessibility(identifier: "Radio")
+        )
+    }
+    
+    public static func radio(isSelected: @escaping () -> Bool, accessibility: Accessibility) -> SessionCell.Accessory {
+        return .radio(
+            size: .medium,
+            isSelected: isSelected,
+            storedSelection: false,
+            accessibility: accessibility
+        )
     }
     
     public static func radio(isSelected: @escaping () -> Bool, storedSelection: Bool) -> SessionCell.Accessory {
-        return .radio(size: .medium, isSelected: isSelected, storedSelection: storedSelection, accessibility: nil)
+        return .radio(
+            size: .medium,
+            isSelected: isSelected,
+            storedSelection: storedSelection,
+            accessibility: Accessibility(identifier: "Radio")
+        )
     }
     
     // MARK: - .highlightingBackgroundLabel Variants

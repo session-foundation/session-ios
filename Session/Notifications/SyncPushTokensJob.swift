@@ -3,11 +3,9 @@
 import Foundation
 import Combine
 import GRDB
-import SignalCoreKit
 import SessionSnodeKit
 import SessionMessagingKit
 import SessionUtilitiesKit
-import SignalCoreKit
 
 public enum SyncPushTokensJob: JobExecutor {
     public static let maxFailureCount: Int = -1
@@ -174,7 +172,7 @@ public enum SyncPushTokensJob: JobExecutor {
                                     Log.error("[SyncPushTokensJob] Failed to register due to error: \(error)")
                                 
                                 case .finished:
-                                    Log.debug("Recording push tokens locally. pushToken: \(redact(pushToken)), voipToken: \(redact(voipToken))")
+                                    Log.debug("[SyncPushTokensJob] Recording push tokens locally. pushToken: \(redact(pushToken)), voipToken: \(redact(voipToken))")
                                     Log.info("[SyncPushTokensJob] Completed")
                                     dependencies.standardUserDefaults[.lastPushNotificationSync] = dependencies.dateNow
 

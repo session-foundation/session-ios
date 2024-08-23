@@ -2,21 +2,24 @@
 //
 // stringlint:disable
 
-import Foundation
+import UIKit
 import CryptoKit
 import Combine
 import GRDB
-import SignalCoreKit
+
+// MARK: - KeychainStorage
+
+public extension KeychainStorage.DataKey { static let dbCipherKeySpec: Self = "GRDBDatabaseCipherKeySpec" }
+
+// MARK: - Storage
 
 open class Storage {
     public static let queuePrefix: String = "SessionDatabase"
     private static let dbFileName: String = "Session.sqlite"
-    private static let keychainService: String = "TSKeyChainService"
-    private static let dbCipherKeySpecKey: String = "GRDBDatabaseCipherKeySpec"
     private static let kSQLCipherKeySpecLength: Int = 48
     private static let writeWarningThreadshold: TimeInterval = 3
     
-    private static var sharedDatabaseDirectoryPath: String { "\(OWSFileSystem.appSharedDataDirectoryPath())/database" }
+    private static var sharedDatabaseDirectoryPath: String { "\(FileManager.default.appSharedDataDirectoryPath)/database" }
     private static var databasePath: String { "\(Storage.sharedDatabaseDirectoryPath)/\(Storage.dbFileName)" }
     private static var databasePathShm: String { "\(Storage.sharedDatabaseDirectoryPath)/\(Storage.dbFileName)-shm" }
     private static var databasePathWal: String { "\(Storage.sharedDatabaseDirectoryPath)/\(Storage.dbFileName)-wal" }
@@ -68,8 +71,8 @@ open class Storage {
     private func configureDatabase(customWriter: DatabaseWriter? = nil) {
         // Create the database directory if needed and ensure it's protection level is set before attempting to
         // create the database KeySpec or the database itself
-        OWSFileSystem.ensureDirectoryExists(Storage.sharedDatabaseDirectoryPath)
-        OWSFileSystem.protectFileOrFolder(atPath: Storage.sharedDatabaseDirectoryPath)
+        try? FileSystem.ensureDirectoryExists(at: Storage.sharedDatabaseDirectoryPath)
+        try? FileSystem.protectFileOrFolder(at: Storage.sharedDatabaseDirectoryPath)
         
         // If a custom writer was provided then use that (for unit testing)
         guard customWriter == nil else {
@@ -339,7 +342,12 @@ open class Storage {
     // MARK: - Security
     
     private static func getDatabaseCipherKeySpec() throws -> Data {
-        return try SSKDefaultKeychainStorage.shared.data(forService: keychainService, key: dbCipherKeySpecKey)
+        try Singleton.keychain.migrateLegacyKeyIfNeeded(
+            legacyKey: "GRDBDatabaseCipherKeySpec",
+            legacyService: "TSKeyChainService",
+            toKey: .dbCipherKeySpec
+        )
+        return try Singleton.keychain.data(forKey: .dbCipherKeySpec)
     }
     
     @discardableResult private static func getOrGenerateDatabaseKeySpec() throws -> Data {
@@ -369,7 +377,7 @@ open class Storage {
                         var keySpec: Data = try Randomness.generateRandomBytes(numberBytes: kSQLCipherKeySpecLength)
                         defer { keySpec.resetBytes(in: 0..<keySpec.count) } // Reset content immediately after use
                         
-                        try SSKDefaultKeychainStorage.shared.set(data: keySpec, service: keychainService, key: dbCipherKeySpecKey)
+                        try Singleton.keychain.set(data: keySpec, forKey: .dbCipherKeySpec)
                         return keySpec
                     }
                     catch {
@@ -447,13 +455,13 @@ open class Storage {
     }
     
     private static func deleteDatabaseFiles() {
-        if !OWSFileSystem.deleteFile(databasePath) { Log.warn("Failed to delete database.") }
-        if !OWSFileSystem.deleteFile(databasePathShm) { Log.warn("Failed to delete database-shm.") }
-        if !OWSFileSystem.deleteFile(databasePathWal) { Log.warn("Failed to delete database-wal.") }
+        do { try FileSystem.deleteFile(at: databasePath) } catch { Log.warn("Failed to delete database.") }
+        do { try FileSystem.deleteFile(at: databasePathShm) } catch { Log.warn("Failed to delete database-shm.") }
+        do { try FileSystem.deleteFile(at: databasePathWal) } catch { Log.warn("Failed to delete database-wal.") }
     }
     
     private static func deleteDbKeys() throws {
-        try SSKDefaultKeychainStorage.shared.remove(service: keychainService, key: dbCipherKeySpecKey)
+        try Singleton.keychain.remove(key: .dbCipherKeySpec)
     }
     
     // MARK: - Logging Functions

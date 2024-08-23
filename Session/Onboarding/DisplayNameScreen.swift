@@ -125,7 +125,7 @@ struct DisplayNameScreen: View {
         guard self.flow == .register else {
             self.flow.completeRegistration()
             
-            let homeVC: HomeVC = HomeVC(flow: self.flow)
+            let homeVC: HomeVC = HomeVC(flow: self.flow, using: dependencies)
             self.host.controller?.navigationController?.setViewControllers([ homeVC ], animated: true)
             
             return

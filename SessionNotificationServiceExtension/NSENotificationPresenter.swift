@@ -42,7 +42,8 @@ public class NSENotificationPresenter: NSObject, NotificationsProtocol {
         }
         
         let snippet: String = (interaction.previewText(db)
-            .filterForDisplay?
+            .filteredForDisplay
+            .nullIfEmpty?
             .replacingMentions(for: thread.id))
             .defaulting(to: "APN_Message".localized())
         
