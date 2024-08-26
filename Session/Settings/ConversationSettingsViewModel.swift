@@ -74,6 +74,9 @@ class ConversationSettingsViewModel: SessionTableViewModel, NavigatableStateHold
                                     key: .trimOpenGroupMessagesOlderThanSixMonths,
                                     value: current.trimOpenGroupMessagesOlderThanSixMonths,
                                     oldValue: (previous ?? current).trimOpenGroupMessagesOlderThanSixMonths
+                                ),
+                                accessibility: Accessibility(
+                                    identifier: "Trim Communities - Switch"
                                 )
                             ),
                             onTap: {
@@ -96,6 +99,9 @@ class ConversationSettingsViewModel: SessionTableViewModel, NavigatableStateHold
                                     key: .shouldAutoPlayConsecutiveAudioMessages,
                                     value: current.shouldAutoPlayConsecutiveAudioMessages,
                                     oldValue: (previous ?? current).shouldAutoPlayConsecutiveAudioMessages
+                                ),
+                                accessibility: Accessibility(
+                                    identifier: "Autoplay Audio Messages - Switch"
                                 )
                             ),
                             onTap: {
