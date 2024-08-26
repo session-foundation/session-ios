@@ -12,7 +12,7 @@ public extension NSAttributedString {
         ///
         /// **Note:** The `{1,X}` defines a minimum and maximum tag length and may need to be updated if we add support
         /// for longer tags that are currently supported
-        static let regexPattern: String = #"<(?<closeTag>\/)?(?<tagName>[A-Za-z0-9]{1,1})>"#
+        static let regexPattern: String = #"<(?<closeTag>\/)?(?<tagName>[A-Za-z0-9]{1,})>"#
 
         case bold = "b"
         case italic = "i"
@@ -87,7 +87,7 @@ public extension NSAttributedString {
             let currentMatchEnd: Int = currentMatch.range.upperBound
 
             /// Ignore invalid ranges
-            guard (currentMatchStart > lastMatchEnd) || (currentMatchStart == lastMatchEnd && currentMatchStart == 0) else { return }
+            guard (currentMatchStart >= lastMatchEnd) else { return }
 
             /// Retrieve the tag and content values, store the content and any tags which are currently applied so we can construct the
             /// formatted string at the end
