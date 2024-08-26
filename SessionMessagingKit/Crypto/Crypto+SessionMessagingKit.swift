@@ -170,7 +170,7 @@ public extension Crypto.Generator {
 
             guard
                 cX25519Pubkey.count == 32,
-                cX25519Seckey.count == 32,
+                cX25519Seckey.count == 64,
                 session_decrypt_incoming_legacy_group(
                     &cCiphertext,
                     cCiphertext.count,
