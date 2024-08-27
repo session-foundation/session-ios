@@ -62,12 +62,12 @@ public class BlockedContactsViewModel: SessionTableViewModel, NavigatableStateHo
                 orderSQL: TableItem.orderSQL
             ),
             onChangeUnsorted: { [weak self] updatedData, updatedPageInfo in
-                PagedData.processAndTriggerUpdates(
-                    updatedData: self?.process(data: updatedData, for: updatedPageInfo)
-                        .mapToSessionTableViewData(for: self),  // Update the cell positions for background rounding
-                    currentDataRetriever: { self?.tableData },
-                    valueSubject: self?.pendingTableDataSubject
-                )
+                guard
+                    let data: [SectionModel] = self?.process(data: updatedData, for: updatedPageInfo)
+                        .mapToSessionTableViewData(for: self)  // Update the cell positions for background rounding
+                else { return }
+                
+                self?.pendingTableDataSubject.send(data)
             }
         )
         

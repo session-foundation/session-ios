@@ -39,7 +39,7 @@ class NotificationContentViewModelSpec: QuickSpec {
             .receive(on: ImmediateScheduler.shared)
             .sink(
                 receiveCompletion: { _ in },
-                receiveValue: { viewModel.updateTableData($0.0) }
+                receiveValue: { viewModel.updateTableData($0) }
             )
         @TestState var dismissCancellable: AnyCancellable?
         
@@ -101,7 +101,7 @@ class NotificationContentViewModelSpec: QuickSpec {
                     .receive(on: ImmediateScheduler.shared)
                     .sink(
                         receiveCompletion: { _ in },
-                        receiveValue: { viewModel.updateTableData($0.0) }
+                        receiveValue: { viewModel.updateTableData($0) }
                     )
                 
                 expect(viewModel.tableData.first?.elements)

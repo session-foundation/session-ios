@@ -10,7 +10,7 @@ import SessionUtilitiesKit
 
 public protocol ObservableTableSource: AnyObject, SectionedTableData {
     typealias TargetObservation = TableObservation<[SectionModel]>
-    typealias TargetPublisher = AnyPublisher<(([SectionModel], StagedChangeset<[SectionModel]>)), Error>
+    typealias TargetPublisher = AnyPublisher<[SectionModel], Error>
     
     var dependencies: Dependencies { get }
     var state: TableDataState<Section, TableItem> { get }
@@ -23,11 +23,11 @@ public protocol ObservableTableSource: AnyObject, SectionedTableData {
 }
 
 extension ObservableTableSource {
-    public var pendingTableDataSubject: CurrentValueSubject<([SectionModel], StagedChangeset<[SectionModel]>), Never> {
+    public var pendingTableDataSubject: CurrentValueSubject<[SectionModel], Never> {
         self.observableState.pendingTableDataSubject
     }
     public var observation: TargetObservation {
-        ObservationBuilder.changesetSubject(self.observableState.pendingTableDataSubject)
+        ObservationBuilder.subject(self.observableState.pendingTableDataSubject)
     }
     
     public var tableDataPublisher: TargetPublisher { self.observation.finalPublisher(self, using: dependencies) }
@@ -40,7 +40,7 @@ extension ObservableTableSource {
 
 public class ObservableTableSourceState<Section: SessionTableSection, TableItem: Hashable & Differentiable>: SectionedTableData {
     public let forcedRefresh: AnyPublisher<Void, Never>
-    public let pendingTableDataSubject: CurrentValueSubject<([SectionModel], StagedChangeset<[SectionModel]>), Never>
+    public let pendingTableDataSubject: CurrentValueSubject<[SectionModel], Never>
     
     // MARK: - Internal Variables
     
@@ -52,7 +52,7 @@ public class ObservableTableSourceState<Section: SessionTableSection, TableItem:
     init() {
         self.hasEmittedInitialData = false
         self.forcedRefresh = _forcedRefresh.shareReplay(0)
-        self.pendingTableDataSubject = CurrentValueSubject(([], StagedChangeset()))
+        self.pendingTableDataSubject = CurrentValueSubject([])
     }
 }
 
@@ -78,7 +78,7 @@ public struct TableObservation<T> {
         _ source: S,
         using dependencies: Dependencies
     ) -> S.TargetPublisher {
-        typealias TargetData = (([S.SectionModel], StagedChangeset<[S.SectionModel]>))
+        typealias TargetData = [S.SectionModel]
         
         switch (self, self.generatePublisherWithChangeset) {
             case (_, .some(let generatePublisherWithChangeset)):
@@ -177,29 +177,6 @@ public enum ObservationBuilder {
                 .manualRefreshFrom(source.observableState.forcedRefresh)
         }
     }
-    
-    /// The `changesetSubject` will emit immediately when there is a subscriber and store the most recent value to be emitted whenever a new subscriber is
-    /// added
-    static func changesetSubject<T>(
-        _ subject: CurrentValueSubject<([T], StagedChangeset<[T]>), Never>
-    ) -> TableObservation<[T]> {
-        return TableObservation { viewModel, dependencies in
-            subject
-                .withPrevious(([], StagedChangeset()))
-                .handleEvents(
-                    receiveCancel: {
-                        /// When we unsubscribe we send through the existing data but clear out the `StagedChangeset` value
-                        /// so that resubscribing doesn't result in the UI trying to reapply the same changeset (which would cause a
-                        /// crash due to invalid table view changes)
-                        subject.send((subject.value.0, StagedChangeset()))
-                    }
-                )
-                .map { _, current -> ([T], StagedChangeset<[T]>) in current }
-                .setFailureType(to: Error.self)
-                .shareReplay(1)
-                .eraseToAnyPublisher()
-        }
-    }
 }
 
 // MARK: - Convenience Transforms
@@ -249,27 +226,11 @@ public extension Array {
 public extension Publisher {
     func mapToSessionTableViewData<S: ObservableTableSource>(
         for source: S
-    ) -> AnyPublisher<(Output, StagedChangeset<Output>), Failure> where Output == [ArraySection<S.Section, SessionCell.Info<S.TableItem>>] {
+    ) -> AnyPublisher<Output, Failure> where Output == [ArraySection<S.Section, SessionCell.Info<S.TableItem>>] {
         return self
-            .map { [weak source] updatedData -> (Output, StagedChangeset<Output>) in
-                let updatedDataWithPositions: Output = updatedData
-                    .mapToSessionTableViewData(for: source)
-                
-                // Generate an updated changeset
-                let changeset = StagedChangeset(
-                    source: (source?.state.tableData ?? []),
-                    target: updatedDataWithPositions
-                )
-                
-                return (updatedDataWithPositions, changeset)
+            .map { [weak source] updatedData -> Output in
+                updatedData.mapToSessionTableViewData(for: source)
             }
-            .filter { [weak source] _, changeset in
-                source?.observableState.hasEmittedInitialData == false ||   // Always emit at least once
-                !changeset.isEmpty                                          // Do nothing if there were no changes
-            }
-            .handleEvents(receiveOutput: { [weak source] _ in
-                source?.observableState.hasEmittedInitialData = true
-            })
             .eraseToAnyPublisher()
     }
 }

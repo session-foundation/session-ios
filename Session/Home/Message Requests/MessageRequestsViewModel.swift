@@ -101,11 +101,11 @@ class MessageRequestsViewModel: SessionTableViewModel, NavigatableStateHolder, O
                 orderSQL: SessionThreadViewModel.messageRequetsOrderSQL
             ),
             onChangeUnsorted: { [weak self] updatedData, updatedPageInfo in
-                PagedData.processAndTriggerUpdates(
-                    updatedData: self?.process(data: updatedData, for: updatedPageInfo),
-                    currentDataRetriever: { self?.tableData },
-                    valueSubject: self?.pendingTableDataSubject
-                )
+                guard let data: [SectionModel] = self?.process(data: updatedData, for: updatedPageInfo) else {
+                    return
+                }
+                
+                self?.pendingTableDataSubject.send(data)
             }
         )
         
@@ -188,7 +188,7 @@ class MessageRequestsViewModel: SessionTableViewModel, NavigatableStateHolder, O
     
     lazy var footerButtonInfo: AnyPublisher<SessionButton.Info?, Never> = observableState
         .pendingTableDataSubject
-        .map { [dependencies] (currentThreadData: [SectionModel], _: StagedChangeset<[SectionModel]>) in
+        .map { [dependencies] (currentThreadData: [SectionModel]) in
             let threadInfo: [(id: String, variant: SessionThread.Variant)] = (currentThreadData
                 .first(where: { $0.model == .threads })?
                 .elements

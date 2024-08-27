@@ -54,7 +54,7 @@ class ThreadDisappearingMessagesSettingsViewModelSpec: QuickSpec {
                 .receive(on: ImmediateScheduler.shared)
                 .sink(
                     receiveCompletion: { _ in },
-                    receiveValue: { viewModel.updateTableData($0.0) }
+                    receiveValue: { viewModel.updateTableData($0) }
                 )
         ]
         
@@ -88,7 +88,10 @@ class ThreadDisappearingMessagesSettingsViewModelSpec: QuickSpec {
                                 position: .top,
                                 title: "off".localized(),
                                 rightAccessory: .radio(
-                                    isSelected: { true }
+                                    isSelected: { true },
+                                    accessibility: Accessibility(
+                                        identifier: "Off - Radio"
+                                    )
                                 ),
                                 accessibility: Accessibility(
                                     identifier: "Disable disappearing messages (Off option)",
@@ -107,7 +110,10 @@ class ThreadDisappearingMessagesSettingsViewModelSpec: QuickSpec {
                                 title: "disappearingMessagesDisappearAfterSend".localized(),
                                 subtitle: "disappearingMessagesDisappearAfterSendDescription".localized(),
                                 rightAccessory: .radio(
-                                    isSelected: { false }
+                                    isSelected: { false },
+                                    accessibility: Accessibility(
+                                        identifier: "Disappear After Send - Radio"
+                                    )
                                 ),
                                 accessibility: Accessibility(
                                     identifier: "Disappear after send option",
@@ -144,7 +150,7 @@ class ThreadDisappearingMessagesSettingsViewModelSpec: QuickSpec {
                         .receive(on: ImmediateScheduler.shared)
                         .sink(
                             receiveCompletion: { _ in },
-                            receiveValue: { viewModel.updateTableData($0.0) }
+                            receiveValue: { viewModel.updateTableData($0) }
                         )
                 )
                 
@@ -160,7 +166,10 @@ class ThreadDisappearingMessagesSettingsViewModelSpec: QuickSpec {
                                 position: .top,
                                 title: "off".localized(),
                                 rightAccessory: .radio(
-                                    isSelected: { false }
+                                    isSelected: { false },
+                                    accessibility: Accessibility(
+                                        identifier: "Off - Radio"
+                                    )
                                 ),
                                 accessibility: Accessibility(
                                     identifier: "Disable disappearing messages (Off option)",
@@ -179,7 +188,10 @@ class ThreadDisappearingMessagesSettingsViewModelSpec: QuickSpec {
                                 title: "disappearingMessagesDisappearAfterSend".localized(),
                                 subtitle: "disappearingMessagesDisappearAfterSendDescription".localized(),
                                 rightAccessory: .radio(
-                                    isSelected: { true }
+                                    isSelected: { true },
+                                    accessibility: Accessibility(
+                                        identifier: "Disappear After Send - Radio"
+                                    )
                                 ),
                                 accessibility: Accessibility(
                                     identifier: "Disappear after send option",
@@ -200,7 +212,10 @@ class ThreadDisappearingMessagesSettingsViewModelSpec: QuickSpec {
                                 position: .bottom,
                                 title: title,
                                 rightAccessory: .radio(
-                                    isSelected: { true }
+                                    isSelected: { true },
+                                    accessibility: Accessibility(
+                                        identifier: "2 weeks - Radio"
+                                    )
                                 ),
                                 accessibility: Accessibility(
                                     identifier: "Time option",
@@ -253,7 +268,7 @@ class ThreadDisappearingMessagesSettingsViewModelSpec: QuickSpec {
                         .receive(on: ImmediateScheduler.shared)
                         .sink(
                             receiveCompletion: { _ in },
-                            receiveValue: { viewModel.updateTableData($0.0) }
+                            receiveValue: { viewModel.updateTableData($0) }
                         )
                 )
                 
@@ -271,7 +286,10 @@ class ThreadDisappearingMessagesSettingsViewModelSpec: QuickSpec {
                                 title: "disappearingMessagesDisappearAfterSend".localized(),
                                 subtitle: "disappearingMessagesDisappearAfterSendDescription".localized(),
                                 rightAccessory: .radio(
-                                    isSelected: { true }
+                                    isSelected: { true },
+                                    accessibility: Accessibility(
+                                        identifier: "Disappear After Send - Radio"
+                                    )
                                 ),
                                 accessibility: Accessibility(
                                     identifier: "Disappear after send option",
@@ -292,7 +310,10 @@ class ThreadDisappearingMessagesSettingsViewModelSpec: QuickSpec {
                                 position: .bottom,
                                 title: title,
                                 rightAccessory: .radio(
-                                    isSelected: { true }
+                                    isSelected: { true },
+                                    accessibility: Accessibility(
+                                        identifier: "2 weeks - Radio"
+                                    )
                                 ),
                                 accessibility: Accessibility(
                                     identifier: "Time option",
