@@ -588,7 +588,8 @@ class ThreadSettingsViewModel: SessionTableViewModel, NavigationItemSource, Navi
                                 .boolValue(
                                     threadViewModel.threadOnlyNotifyForMentions == true,
                                     oldValue: ((previous?.threadViewModel ?? threadViewModel).threadOnlyNotifyForMentions == true)
-                                )
+                                ),
+                                Accessibility(identifier: "Notify for Mentions Only - Switch")
                             ),
                             isEnabled: (
                                 (
@@ -629,7 +630,8 @@ class ThreadSettingsViewModel: SessionTableViewModel, NavigationItemSource, Navi
                                 .boolValue(
                                     threadViewModel.threadMutedUntilTimestamp != nil,
                                     oldValue: ((previous?.threadViewModel ?? threadViewModel).threadMutedUntilTimestamp != nil)
-                                )
+                                ),
+                                Accessibility(identifier: "Mute - Switch")
                             ),
                             isEnabled: (
                                 (
@@ -678,7 +680,8 @@ class ThreadSettingsViewModel: SessionTableViewModel, NavigationItemSource, Navi
                                 .boolValue(
                                     threadViewModel.threadIsBlocked == true,
                                     oldValue: ((previous?.threadViewModel ?? threadViewModel).threadIsBlocked == true)
-                                )
+                                ),
+                                Accessibility(identifier: "Block This User - Switch")
                             ),
                             accessibility: Accessibility(
                                 identifier: "\(ThreadSettingsViewModel.self).block",
