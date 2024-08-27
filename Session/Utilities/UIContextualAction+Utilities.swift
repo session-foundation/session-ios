@@ -168,7 +168,6 @@ public extension UIContextualAction {
                                                         calledFromConfigHandling: false
                                                     )
                                                 }
-                                                viewController?.dismiss(animated: true, completion: nil)
                                                 
                                                 completionHandler(true)
                                             },
@@ -303,7 +302,6 @@ public extension UIContextualAction {
                                     .optimisticUpdate(
                                         isBlocked: !threadIsBlocked
                                     )
-                                viewController?.dismiss(animated: true, completion: nil)
                                 completionHandler(true)
                                 
                                 // Delay the change to give the cell "unswipe" animation some time to complete
@@ -421,7 +419,6 @@ public extension UIContextualAction {
                                                 calledFromConfigHandling: false
                                             )
                                         }
-                                        viewController?.dismiss(animated: true, completion: nil)
                                         
                                         completionHandler(true)
                                     },
@@ -519,7 +516,6 @@ public extension UIContextualAction {
                                                 calledFromConfigHandling: false
                                             )
                                         }
-                                        viewController?.dismiss(animated: true, completion: nil)
                                         
                                         completionHandler(true)
                                     },

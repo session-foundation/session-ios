@@ -192,7 +192,7 @@ class ThreadDisappearingMessagesSettingsViewModel: SessionTableViewModel, Naviga
                                             (self?.currentSelection.value.type == .disappearAfterSend)
                                         },
                                         accessibility: Accessibility(
-                                            identifier: "Disappear After Read - Radio"
+                                            identifier: "Disappear After Send - Radio"
                                         )
                                     ),
                                     accessibility: Accessibility(

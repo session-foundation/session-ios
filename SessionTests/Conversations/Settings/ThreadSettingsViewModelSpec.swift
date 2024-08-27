@@ -67,7 +67,7 @@ class ThreadSettingsViewModelSpec: QuickSpec {
                 .receive(on: ImmediateScheduler.shared)
                 .sink(
                     receiveCompletion: { _ in },
-                    receiveValue: { viewModel.updateTableData($0.0) }
+                    receiveValue: { viewModel.updateTableData($0) }
                 )
         ]
         
@@ -160,7 +160,7 @@ class ThreadSettingsViewModelSpec: QuickSpec {
                             .receive(on: ImmediateScheduler.shared)
                             .sink(
                                 receiveCompletion: { _ in },
-                                receiveValue: { viewModel.updateTableData($0.0) }
+                                receiveValue: { viewModel.updateTableData($0) }
                             )
                     )
                 }
@@ -459,7 +459,7 @@ class ThreadSettingsViewModelSpec: QuickSpec {
                             .receive(on: ImmediateScheduler.shared)
                             .sink(
                                 receiveCompletion: { _ in },
-                                receiveValue: { viewModel.updateTableData($0.0) }
+                                receiveValue: { viewModel.updateTableData($0) }
                             )
                     )
                 }
@@ -505,7 +505,7 @@ class ThreadSettingsViewModelSpec: QuickSpec {
                             .receive(on: ImmediateScheduler.shared)
                             .sink(
                                 receiveCompletion: { _ in },
-                                receiveValue: { viewModel.updateTableData($0.0) }
+                                receiveValue: { viewModel.updateTableData($0) }
                             )
                     )
                 }
