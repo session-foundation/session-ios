@@ -912,7 +912,11 @@ final class HomeVC: BaseVC, LibSessionRespondingViewController, UITableViewDataS
     
     func createNewDMFromDeepLink(sessionId: String) {
         let viewController: SessionHostingViewController = SessionHostingViewController(rootView: NewMessageScreen(accountId: sessionId))
-        viewController.setNavBarTitle("messageNew".localized())
+        viewController.setNavBarTitle(
+            "messageNew"
+                .putNumber(1)
+                .localized()
+        )
         let navigationController = StyledNavigationController(rootViewController: viewController)
         if UIDevice.current.isIPad {
             navigationController.modalPresentationStyle = .fullScreen

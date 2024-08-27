@@ -425,7 +425,7 @@ class SettingsViewModel: SessionTableViewModel, NavigationItemSource, Navigatabl
                                 let invitation: String = "accountIdShare"
                                     .put(key: "app_name", value: Constants.app_name)
                                     .put(key: "account_id", value: state.profile.id)
-                                    .put(key: "download_url", value: "https://getsession.org/")
+                                    .put(key: "session_download_url", value: Constants.session_download_url)
                                     .localized()
                                 
                                 self?.transitionToScreen(

@@ -19,12 +19,15 @@ struct StartConversationScreen: View {
                         alignment: .center,
                         spacing: 0
                     ) {
+                        let title: String = "messageNew"
+                            .putNumber(1)
+                            .localized()
                         NewConversationCell(
                             image: "Message",
-                            title: "messageNew".localized()
+                            title: title
                         ) {
                             let viewController: SessionHostingViewController = SessionHostingViewController(rootView: NewMessageScreen())
-                            viewController.setNavBarTitle("messageNew".localized())
+                            viewController.setNavBarTitle(title)
                             viewController.setUpDismissingButton(on: .right)
                             self.host.controller?.navigationController?.pushViewController(viewController, animated: true)
                         }

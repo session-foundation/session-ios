@@ -680,16 +680,9 @@ public class MediaTileViewController: UIViewController, UICollectionViewDataSour
         let items: [MediaGalleryViewModel.Item] = indexPaths.map {
             self.viewModel.galleryData[$0.section].elements[$0.item]
         }
-        let confirmationTitle: String = {
-            if indexPaths.count == 1 {
-                return "deleteMessage".localized()
-            }
-            
-            return String(
-                format: "deleteMessages".localized(),
-                indexPaths.count
-            )
-        }()
+        let confirmationTitle: String = "deleteMessage"
+            .putNumber(indexPaths.count)
+            .localized()
 
         let deleteAction = UIAlertAction(title: confirmationTitle, style: .destructive) { [weak self] _ in
             Storage.shared.writeAsync { db in

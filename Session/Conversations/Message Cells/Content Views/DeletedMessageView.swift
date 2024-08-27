@@ -44,7 +44,9 @@ final class DeletedMessageView: UIView {
         // Body label
         let titleLabel = UILabel()
         titleLabel.font = .systemFont(ofSize: Values.smallFontSize)
-        titleLabel.text = "deleteMessageDeleted".localized()
+        titleLabel.text = "deleteMessageDeleted"
+            .putNumber(1)
+            .localized()
         titleLabel.themeTextColor = textColor
         titleLabel.lineBreakMode = .byTruncatingTail
         
