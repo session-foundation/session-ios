@@ -5,8 +5,6 @@ import SessionUIKit
 import SignalUtilitiesKit
 
 class MessageRequestsCell: UITableViewCell {
-    static let reuseIdentifier = "MessageRequestsCell" // stringlint:disable
-    
     // MARK: - Initialization
     
     override init(style: UITableViewCell.CellStyle, reuseIdentifier: String?) {
