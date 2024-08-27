@@ -104,7 +104,7 @@ public enum TSImageQuality: UInt {
 // [SignalAttachment hasError] will be true for non-valid attachments.
 //
 // TODO: Perhaps do conversion off the main thread?
-public class SignalAttachment: Equatable, Hashable {
+public class SignalAttachment: Equatable {
 
     // MARK: Properties
 
@@ -1130,21 +1130,5 @@ public class SignalAttachment: Equatable, Hashable {
             lhs.cachedVideoPreview == rhs.cachedVideoPreview &&
             lhs.isVoiceMessage == rhs.isVoiceMessage
         )
-    }
-    
-    // MARK: - Hashable
-    
-    public func hash(into hasher: inout Hasher) {
-        dataUTI.hash(into: &hasher)
-        captionText.hash(into: &hasher)
-        linkPreviewDraft.hash(into: &hasher)
-        isConvertibleToTextMessage.hash(into: &hasher)
-        isConvertibleToContactShare.hash(into: &hasher)
-        isVoiceMessage.hash(into: &hasher)
-        dataSource.hash(into: &hasher)
-        cachedImage?.size.width.hash(into: &hasher)
-        cachedImage?.size.height.hash(into: &hasher)
-        cachedVideoPreview?.size.width.hash(into: &hasher)
-        cachedVideoPreview?.size.height.hash(into: &hasher)
     }
 }

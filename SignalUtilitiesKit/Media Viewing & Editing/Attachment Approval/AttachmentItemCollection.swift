@@ -24,13 +24,13 @@ class AddMoreRailItem: GalleryRailItem {
     }
 }
 
-class SignalAttachmentItem: Hashable {
+class SignalAttachmentItem: Equatable {
 
     enum SignalAttachmentItemError: Error {
         case noThumbnail
     }
 
-    let uniqueIdentifier: UUID
+    let uniqueIdentifier: UUID = UUID()
     let attachment: SignalAttachment
 
     // This might be nil if the attachment is not a valid image.
@@ -62,25 +62,6 @@ class SignalAttachmentItem: Hashable {
 
     func getThumbnailImage() -> UIImage? {
         return attachment.staticThumbnail()
-    }
-
-    // MARK: Hashable
-    
-    func hash(into hasher: inout Hasher) {
-        /// There was a crash in `AttachmentApprovalViewController` when trying to generate the hash
-        /// value to store in a dictionary, this crash persisted even after refactoring `DataSource` into Swift and
-        /// using custom `hash(into:)` functions on everything in order to exclude values which might have
-        /// been unsafe.
-        ///
-        /// Since the crash is still occurring the most likely culprit is now that one of the values used to generate the
-        /// hash was mutated after the value was stored (as `SignalAttachment` is a class and it was previously
-        /// used for generating the hash) - in order to avoid this we now generate a `uniqueIdentifier` when
-        /// initialising this type and use _only_ that for the hash (this `SignalAttachmentItem` is only used for
-        /// the `AttachmentApprovalViewController` and based on it's usage we shouldn't run into issues
-        /// with this hash not being deterministic
-        ///
-        /// If the crash still occurs it's likely a red herring and there is some other, larger, issue that is causing it
-        uniqueIdentifier.hash(into: &hasher)
     }
 
     // MARK: Equatable
