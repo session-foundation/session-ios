@@ -65,7 +65,7 @@ class SessionThreadViewModelSpec: QuickSpec {
                 
                 // MARK: ---- keeps words within quotes together
                 it("keeps words within quotes together") {
-                    expect(SessionThreadViewModel.searchTermParts("This \"is a Test\" Message"))
+                    expect(SessionThreadViewModel.searchTermParts("This ”is a Test“ Message"))
                         .to(equal([
                             "\"This\"",
                             "\"is a Test\"",
