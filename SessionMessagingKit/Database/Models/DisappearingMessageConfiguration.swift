@@ -151,7 +151,7 @@ public extension DisappearingMessagesConfiguration {
                 
                 return "disappearingMessagesSetYou"
                     .put(key: "time", value: floor(durationSeconds).formatted(format: .long))
-                    .put(key: "disappearing_messages_type", value: (type?.localizedName ?? ""))
+                    .put(key: "disappearing_messages_type", value: (type ?? .unknown).localizedName)
                     .localized()
             }
             
@@ -164,7 +164,7 @@ public extension DisappearingMessagesConfiguration {
             return "disappearingMessagesSet"
                 .put(key: "name", value: senderName)
                 .put(key: "time", value: floor(durationSeconds).formatted(format: .long))
-                .put(key: "disappearing_messages_type", value: (type?.localizedName ?? ""))
+                .put(key: "disappearing_messages_type", value: (type ?? .unknown).localizedName)
                 .localized()
         }
     }
