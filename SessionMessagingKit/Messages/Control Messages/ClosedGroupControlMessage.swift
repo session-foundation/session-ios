@@ -399,14 +399,12 @@ public extension ClosedGroupControlMessage.Kind {
                             knownMemberNameMap[$0] ??
                             Profile.truncated(id: $0, threadVariant: .legacyGroup)
                         }
-                    // TODO: Need logic change
                     infoMessage = infoMessage.appending(
                         "groupRemoved"
                             .put(key: "name", value: removedMemberNames.joined(separator: ", "))
                             .localized()
                     )
                 }
-                // TODO: Need logic change
                 if memberIds.contains(userPublicKey) {
                     infoMessage = infoMessage
                         .appending(
