@@ -168,9 +168,13 @@ public extension Crypto.Generator {
             var maybePlaintext: UnsafeMutablePointer<UInt8>? = nil
             var plaintextLen: Int = 0
 
+            // Note: We should only need a 32 byte key but there was a bug in 2.7.1 where we
+            // started generating 64 byte keys so, in order to support those, we accept allow
+            // both and the C code just takes the first 32 bytes (which is all that is needed
+            // from the 64 byte key anyway)
             guard
                 cX25519Pubkey.count == 32,
-                cX25519Seckey.count == 64,
+                (cX25519Seckey.count == 32 || cX25519Seckey.count == 64),
                 session_decrypt_incoming_legacy_group(
                     &cCiphertext,
                     cCiphertext.count,
