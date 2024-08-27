@@ -138,7 +138,7 @@ let projectState: ProjectState = ProjectState(
     ),
     loadSourceFiles: targetActions.contains(.lintStrings)
 )
-print("------------ Processing \(projectState.localizationFile) ------------")
+print("------------ Processing \(projectState.localizationFile.path) ------------")
 targetActions.forEach { $0.perform(projectState: projectState) }
 
 // MARK: - ScriptAction

@@ -1271,7 +1271,6 @@
 		4CC613352227A00400E21A3A /* ConversationSearch.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ConversationSearch.swift; sourceTree = "<group>"; };
 		70377AAA1918450100CAF501 /* MobileCoreServices.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = MobileCoreServices.framework; path = System/Library/Frameworks/MobileCoreServices.framework; sourceTree = SDKROOT; };
 		76C87F18181EFCE600C4ACAB /* MediaPlayer.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = MediaPlayer.framework; path = System/Library/Frameworks/MediaPlayer.framework; sourceTree = SDKROOT; };
-		7B02DF432A16F47B00ADCFD2 /* EmojiGenerator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EmojiGenerator.swift; sourceTree = "<group>"; };
 		7B0EFDED274F598600FFAAE7 /* TimestampUtils.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TimestampUtils.swift; sourceTree = "<group>"; };
 		7B0EFDEF275084AA00FFAAE7 /* CallMessageCell.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CallMessageCell.swift; sourceTree = "<group>"; };
 		7B0EFDF3275490EA00FFAAE7 /* ringing.mp3 */ = {isa = PBXFileReference; lastKnownFileType = audio.mp3; path = ringing.mp3; sourceTree = "<group>"; };
@@ -4364,7 +4363,6 @@
 			isa = PBXGroup;
 			children = (
 				7BD687D22A5D283200D8E455 /* build_libSession_util.sh */,
-				7B02DF432A16F47B00ADCFD2 /* EmojiGenerator.swift */,
 				FDE7214F287E50D50093DF33 /* ProtoWrappers.py */,
 				FDCCC6E82ABA7402002BBEF5 /* EmojiGenerator.swift */,
 				FDE72150287E50D50093DF33 /* LintLocalizableStrings.swift */,

@@ -52,6 +52,33 @@ enum RemoteModel {
         case symbols = "Symbols"
         case flags = "Flags"
         case components = "Component"
+        
+        var localizedKey: String = {
+            switch self {
+                case .smileys:
+                    return "Smileys"
+                case .people:
+                    return "People"
+                case .smileysAndPeople:
+                    return "Smileys"
+                case .animals:
+                    return "Animals"
+                case .food:
+                    return "Food"
+                case .activities:
+                    return "Activities"
+                case .travel:
+                    return "Travel"
+                case .objects:
+                    return "Objects"
+                case .symbols:
+                    return "Symbols"
+                case .flags:
+                    return "Flags"
+                case .components:
+                    return "Component"
+                }
+        }()
     }
 
     static func fetchEmojiData() throws -> Data {
@@ -551,7 +578,7 @@ extension EmojiGenerator {
                         for category in outputCategories {
                             fileHandle.writeLine("case .\(category):")
                             fileHandle.indent {
-                                let stringKey = "EMOJI_CATEGORY_\("\(category)".uppercased())_NAME"
+                                let stringKey = "emojiCategory\(category.localizedKey)"
                                 let stringComment = "The name for the emoji category '\(category.rawValue)'"
 
                                 fileHandle.writeLine("return NSLocalizedString(\"\(stringKey)\", comment: \"\(stringComment)\")")
