@@ -2273,9 +2273,10 @@ extension ConversationVC:
         let modal: ConfirmationModal = ConfirmationModal(
             targetView: self.view,
             info: ConfirmationModal.Info(
-                title: Constants.app_name,
-                body: .text("This will ban the selected user from this room. It won't ban them from other rooms."),
-                confirmTitle: "okay".localized(),
+                title: "banUser".localized(),
+                body: .text("communityBanDescription".localized()),
+                confirmTitle: "theContinue".localized(),
+                confirmStyle: .danger,
                 cancelStyle: .alert_text,
                 onConfirm: { [weak self] _ in
                     Storage.shared
@@ -2334,9 +2335,10 @@ extension ConversationVC:
         let modal: ConfirmationModal = ConfirmationModal(
             targetView: self.view,
             info: ConfirmationModal.Info(
-                title: Constants.app_name,
-                body: .text("This will ban the selected user from this room and delete all messages sent by them. It won't ban them from other rooms or delete the messages they sent there."),
-                confirmTitle: "okay".localized(),
+                title: "banDeleteAll".localized(),
+                body: .text("communityBanDeleteDescription".localized()),
+                confirmTitle: "theContinue".localized(),
+                confirmStyle: .danger,
                 cancelStyle: .alert_text,
                 onConfirm: { [weak self] _ in
                     Storage.shared

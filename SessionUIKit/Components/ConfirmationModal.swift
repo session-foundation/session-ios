@@ -204,7 +204,7 @@ public class ConfirmationModal: Modal, UITextFieldDelegate {
     }
     
     private func layoutExplanationLabel() {
-        let labelWidth = view.frame.width - 2 * Values.veryLargeSpacing
+        let labelWidth = view.frame.width - 4 * Values.veryLargeSpacing
         let maxLabelSize = CGSize(width: labelWidth, height: CGFloat.greatestFiniteMagnitude)
         let expectedLabelSize = explanationLabel.sizeThatFits(maxLabelSize)
         let lineHeight = explanationLabel.font.lineHeight

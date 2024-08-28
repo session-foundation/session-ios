@@ -298,7 +298,6 @@ public class SessionCell: UITableViewCell {
         leftAccessoryView.alpha = 1
         leftAccessoryFillConstraint.isActive = false
         titleLabel.text = ""
-        titleLabel.textAlignment = .left
         titleLabel.themeTextColor = .textPrimary
         titleLabel.alpha = 1
         titleTextField.text = ""
