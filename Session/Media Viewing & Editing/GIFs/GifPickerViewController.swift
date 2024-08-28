@@ -97,7 +97,7 @@ class GifPickerViewController: OWSViewController, UISearchBarDelegate, UICollect
         // Loki: Customize title
         let titleLabel: UILabel = UILabel()
         titleLabel.font = .boldSystemFont(ofSize: Values.veryLargeFontSize)
-        titleLabel.text = "gif".localized().uppercased()
+        titleLabel.text = Constants.gif
         titleLabel.themeTextColor = .textPrimary
         navigationItem.titleView = titleLabel
 
