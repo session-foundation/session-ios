@@ -507,7 +507,7 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
             exit(0)
         })
         
-        Log.info("Showing startup alert due to error: \(error.name)")
+        Log.info("Showing startup alert due to error: \(error.description)")
         self.window?.rootViewController?.present(alert, animated: animated, completion: presentationCompletion)
     }
     
@@ -920,42 +920,6 @@ private enum LifecycleMethod: Equatable {
             case (.enterForeground(let lhsFailed), .enterForeground(let rhsFailed)): return (lhsFailed == rhsFailed)
             case (.didBecomeActive, .didBecomeActive): return true
             default: return false
-        }
-    }
-}
-
-// MARK: - StartupError
-
-private enum StartupError: Error {
-    case databaseError(Error)
-    case failedToRestore
-    case startupTimeout
-    
-    var name: String {
-        switch self {
-            case .databaseError(StorageError.startupFailed), .databaseError(DatabaseError.SQLITE_LOCKED):
-                return "Database startup failed" // stringlint:disable
-            case .databaseError(StorageError.migrationNoLongerSupported): return "Unsupported version" // stringlint:disable
-            case .failedToRestore: return "Failed to restore" // stringlint:disable
-            case .databaseError: return "Database error" // stringlint:disable
-            case .startupTimeout: return "Startup timeout" // stringlint:disable
-        }
-    }
-    
-    var message: String {
-        switch self {
-            case .databaseError(StorageError.startupFailed), .databaseError(DatabaseError.SQLITE_LOCKED), .failedToRestore, .databaseError:
-                return "databaseErrorGeneric".localized()
-
-            case .databaseError(StorageError.migrationNoLongerSupported):
-                return "databaseErrorUpdate"
-                    .put(key: "app_name", value: Constants.app_name)
-                    .localized()
-            
-            case .startupTimeout: 
-                return "databaseErrorTimeout"
-                    .put(key: "app_name", value: Constants.app_name)
-                    .localized()
         }
     }
 }
