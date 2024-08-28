@@ -164,6 +164,7 @@
 		7BFA8AE32831D0D4001876F3 /* ContextMenuVC+EmojiReactsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7BFA8AE22831D0D4001876F3 /* ContextMenuVC+EmojiReactsView.swift */; };
 		7BFD1A8A2745C4F000FB91B9 /* Permissions.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7BFD1A892745C4F000FB91B9 /* Permissions.swift */; };
 		7BFD1A972747689000FB91B9 /* Session-Turn-Server in Resources */ = {isa = PBXBuildFile; fileRef = 7BFD1A962747689000FB91B9 /* Session-Turn-Server */; };
+		9409433E2C7EB81800D9D2E0 /* WebRTCSession+Constants.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9409433D2C7EB81800D9D2E0 /* WebRTCSession+Constants.swift */; };
 		942256802C23F8BB00C0FDBF /* StartConversationScreen.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9422567D2C23F8BB00C0FDBF /* StartConversationScreen.swift */; };
 		942256812C23F8BB00C0FDBF /* NewMessageScreen.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9422567E2C23F8BB00C0FDBF /* NewMessageScreen.swift */; };
 		942256822C23F8BB00C0FDBF /* InviteAFriendScreen.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9422567F2C23F8BB00C0FDBF /* InviteAFriendScreen.swift */; };
@@ -1355,6 +1356,7 @@
 		7BFD1A892745C4F000FB91B9 /* Permissions.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Permissions.swift; sourceTree = "<group>"; };
 		7BFD1A8B2747150E00FB91B9 /* TurnServerInfo.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TurnServerInfo.swift; sourceTree = "<group>"; };
 		7BFD1A962747689000FB91B9 /* Session-Turn-Server */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = "Session-Turn-Server"; sourceTree = "<group>"; };
+		9409433D2C7EB81800D9D2E0 /* WebRTCSession+Constants.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "WebRTCSession+Constants.swift"; sourceTree = "<group>"; };
 		9422567D2C23F8BB00C0FDBF /* StartConversationScreen.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = StartConversationScreen.swift; sourceTree = "<group>"; };
 		9422567E2C23F8BB00C0FDBF /* NewMessageScreen.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = NewMessageScreen.swift; sourceTree = "<group>"; };
 		9422567F2C23F8BB00C0FDBF /* InviteAFriendScreen.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = InviteAFriendScreen.swift; sourceTree = "<group>"; };
@@ -4381,6 +4383,7 @@
 				B8B558FE26C4E05E00693325 /* WebRTCSession+MessageHandling.swift */,
 				B8BF43B926CC95FB007828D1 /* WebRTC+Utilities.swift */,
 				7BCD116B27016062006330F1 /* WebRTCSession+DataChannel.swift */,
+				9409433D2C7EB81800D9D2E0 /* WebRTCSession+Constants.swift */,
 			);
 			path = WebRTC;
 			sourceTree = "<group>";
@@ -6260,6 +6263,7 @@
 				FD37E9CC28A1E578003AE748 /* AppearanceViewController.swift in Sources */,
 				B8EB20F02640F7F000773E52 /* OpenGroupInvitationView.swift in Sources */,
 				C328254025CA55880062D0A7 /* ContextMenuVC.swift in Sources */,
+				9409433E2C7EB81800D9D2E0 /* WebRTCSession+Constants.swift in Sources */,
 				7BD687D12A5D0D1200D8E455 /* MessageInfoScreen.swift in Sources */,
 				B8269D2925C7A4B400488AB4 /* InputView.swift in Sources */,
 				FD71162E28E168C700B47552 /* SettingsViewModel.swift in Sources */,

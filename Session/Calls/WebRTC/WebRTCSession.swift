@@ -58,7 +58,7 @@ public final class WebRTCSession : NSObject, RTCPeerConnectionDelegate {
     }()
     
     internal lazy var audioTrack: RTCAudioTrack = {
-        return factory.audioTrack(with: audioSource, trackId: "ARDAMSa0") // stringlint:disable
+        return factory.audioTrack(with: audioSource, trackId: Self.Constants.audio_track_id)
     }()
     
     // Video
@@ -69,7 +69,7 @@ public final class WebRTCSession : NSObject, RTCPeerConnectionDelegate {
     }()
     
     internal lazy var localVideoTrack: RTCVideoTrack = {
-        return factory.videoTrack(with: localVideoSource, trackId: "ARDAMSv0") // stringlint:disable
+        return factory.videoTrack(with: localVideoSource, trackId: Self.Constants.local_video_track_id)
     }()
     
     internal lazy var remoteVideoTrack: RTCVideoTrack? = {
@@ -103,7 +103,7 @@ public final class WebRTCSession : NSObject, RTCPeerConnectionDelegate {
         
         super.init()
         
-        let mediaStreamTrackIDS = ["ARDAMS"] // stringlint:disable
+        let mediaStreamTrackIDS = [Self.Constants.media_stream_track_id]
         
         peerConnection?.add(audioTrack, streamIds: mediaStreamTrackIDS)
         peerConnection?.add(localVideoTrack, streamIds: mediaStreamTrackIDS)
@@ -480,15 +480,15 @@ extension WebRTCSession {
     
     public func turnOffVideo() {
         localVideoTrack.isEnabled = false
-        sendJSON(["video": false]) // stringlint:disable
+        sendJSON([Self.Constants.video: false])
     }
     
     public func turnOnVideo() {
         localVideoTrack.isEnabled = true
-        sendJSON(["video": true]) // stringlint:disable
+        sendJSON([Self.Constants.video: true])
     }
     
     public func hangUp() {
-        sendJSON(["hangup": true]) // stringlint:disable
+        sendJSON([Self.Constants.hang_up: true])
     }
 }
