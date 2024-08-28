@@ -204,7 +204,8 @@ struct FakeChat: View {
         ChatBubble(
             text: "onboardingBubbleWelcomeToSession"
                 .put(key: "app_name", value: Constants.app_name)
-                .localized() + " 👋",
+                .put(key: "emoji", value: "👋")
+                .localized(),
             outgoing: false
         ),
         ChatBubble(
@@ -218,7 +219,9 @@ struct FakeChat: View {
             outgoing: false
         ),
         ChatBubble(
-            text: "onboardingBubbleCreatingAnAccountIsEasy".localized() + " 👇",
+            text: "onboardingBubbleCreatingAnAccountIsEasy"
+                .put(key: "emoji", value: "👇")
+                .localized(),
             outgoing: true
         )
     ]
