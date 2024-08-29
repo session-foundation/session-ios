@@ -50,7 +50,7 @@ public extension NSAttributedString {
                 ]
                 case .underline: return [.underlineStyle: NSUnderlineStyle.single.rawValue]
                 case .strikethrough: return [.strikethroughStyle: NSUnderlineStyle.single.rawValue]
-                case .primaryTheme: return [.foregroundColor: ThemeManager.primaryColor.color]
+                case .primaryTheme: return [.foregroundColor: ThemeManager.currentTheme.color(for: .sessionButton_text).defaulting(to: ThemeManager.primaryColor.color)]
             }
         }
     }
@@ -174,7 +174,7 @@ private extension Collection where Element == NSAttributedString.HTMLTag {
                 case .italic: result[.font] = fontWith(font, traits: [.traitItalic])
                 case .underline: result[.underlineStyle] = NSUnderlineStyle.single.rawValue
                 case .strikethrough: result[.strikethroughStyle] = NSUnderlineStyle.single.rawValue
-                case .primaryTheme: result[.foregroundColor] = ThemeManager.primaryColor.color
+                case .primaryTheme: result[.foregroundColor] = ThemeManager.currentTheme.color(for: .sessionButton_text).defaulting(to: ThemeManager.primaryColor.color)
             }
         }
     }
