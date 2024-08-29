@@ -986,26 +986,13 @@ public extension Interaction {
                     for: attachmentDescriptionInfo,
                     count: attachmentCount
                 )
-                
-                if
-                    let attachmentDescription: String = attachmentDescription,
-                    let body: String = body,
-                    !attachmentDescription.isEmpty,
-                    !body.isEmpty
-                {
-                    if Singleton.hasAppContext && Singleton.appContext.isRTL {
-                        return "\(body): \(attachmentDescription)"
-                    }
-                    
-                    return "\(attachmentDescription): \(body)"
+            
+                if let attachmentDescription: String = attachmentDescription, !attachmentDescription.isEmpty {
+                    return attachmentDescription
                 }
                 
                 if let body: String = body, !body.isEmpty {
                     return body
-                }
-                
-                if let attachmentDescription: String = attachmentDescription, !attachmentDescription.isEmpty {
-                    return attachmentDescription
                 }
                 
                 if isOpenGroupInvitation {

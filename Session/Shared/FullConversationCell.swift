@@ -600,12 +600,15 @@ public final class FullConversationCell: UITableViewCell, SwipeActionOptimisticC
         
         if
             (cellViewModel.threadVariant == .legacyGroup || cellViewModel.threadVariant == .group || cellViewModel.threadVariant == .community) &&
-            (cellViewModel.interactionVariant?.isGroupControlMessage == false)
+            (cellViewModel.interactionVariant?.isInfoMessage == false)
         {
             let authorName: String = cellViewModel.authorName(for: cellViewModel.threadVariant)
             
             result.append(NSAttributedString(
-                string: "\(authorName): ", // stringlint:disable
+                string: "messageSnippetGroup"
+                    .put(key: "author", value: authorName)
+                    .put(key: "message_snippet", value: "")
+                    .localized(),
                 attributes: [ .foregroundColor: textColor ]
             ))
         }
@@ -652,11 +655,18 @@ public final class FullConversationCell: UITableViewCell, SwipeActionOptimisticC
         textColor: UIColor
     ) -> NSAttributedString {
         guard !content.isEmpty, content != "noteToSelf".localized() else {
+            if let authorName: String = authorName, !authorName.isEmpty {
+                return NSMutableAttributedString(
+                    string: "messageSnippetGroup"
+                        .put(key: "author", value: authorName)
+                        .put(key: "message_snippet", value: content)
+                        .localized(),
+                    attributes: [ .foregroundColor: textColor ]
+                )
+            }
+            
             return NSMutableAttributedString(
-                string: (authorName != nil && authorName?.isEmpty != true ?
-                    "\(authorName ?? ""): \(content)" : // stringlint:disable
-                    content
-                ),
+                string: content,
                 attributes: [ .foregroundColor: textColor ]
             )
         }
@@ -732,7 +742,10 @@ public final class FullConversationCell: UITableViewCell, SwipeActionOptimisticC
                 guard !authorName.isEmpty else { return nil }
                 
                 let authorPrefix: NSAttributedString = NSAttributedString(
-                    string: "\(authorName): ", // stringlint:disable
+                    string: "messageSnippetGroup"
+                        .put(key: "author", value: authorName)
+                        .put(key: "message_snippet", value: "")
+                        .localized(),
                     attributes: [ .foregroundColor: textColor ]
                 )
                 

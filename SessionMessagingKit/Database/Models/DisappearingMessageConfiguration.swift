@@ -146,7 +146,12 @@ public extension DisappearingMessagesConfiguration {
         var previewText: String {
             guard let senderName: String = senderName else {
                 guard isEnabled, durationSeconds > 0 else {
-                    return "disappearingMessagesTurnedOffYou".localized()
+                    switch threadVariant {
+                        case .legacyGroup, .group:
+                            return "disappearingMessagesTurnedOffYou".localized() // TODO: replace with "disappearingMessagesTurnedOffYouGroup".localized()
+                        default:
+                            return "disappearingMessagesTurnedOffYou".localized()
+                    }
                 }
                 
                 return "disappearingMessagesSetYou"
@@ -156,9 +161,16 @@ public extension DisappearingMessagesConfiguration {
             }
             
             guard isEnabled, durationSeconds > 0 else {
-                return "disappearingMessagesTurnedOff"
-                    .put(key: "name", value: senderName)
-                    .localized()
+                switch threadVariant {
+                    case .legacyGroup, .group:
+                        return "disappearingMessagesTurnedOffGroup"
+                            .put(key: "name", value: senderName)
+                            .localized()
+                    default:
+                        return "disappearingMessagesTurnedOff"
+                            .put(key: "name", value: senderName)
+                            .localized()
+                }
             }
             
             return "disappearingMessagesSet"

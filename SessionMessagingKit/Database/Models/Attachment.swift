@@ -271,11 +271,15 @@ extension Attachment: CustomStringConvertible {
                 descriptionInfo.sourceFilename == nil ||
                 (descriptionInfo.sourceFilename?.count ?? 0) == 0
             {
-                return "🎙️ \("messageVoice".localized())"
+                return "messageVoiceSnippet"
+                    .put(key: "emoji", value: "🎙️")
+                    .localized()
             }
         }
         
-        return "\(emoji(for: descriptionInfo.contentType)) \("attachment".localized())"
+        return "attachmentsNotification"
+            .put(key: "emoji", value: emoji(for: descriptionInfo.contentType))
+            .localized()
     }
     
     public static func emoji(for contentType: String) -> String {
@@ -776,10 +780,7 @@ extension Attachment {
     
     public var documentFileName: String {
         if let sourceFilename: String = sourceFilename { return sourceFilename }
-        if isImage { return "image".localized() + " " + "file".localized() }
-        if isAudio { return "audio".localized() + " " + "file".localized() }
-        if isVideo { return "video".localized() + " " + "file".localized() }
-        return "file".localized()
+        return shortDescription
     }
     
     public var shortDescription: String {
