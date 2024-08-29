@@ -203,12 +203,16 @@ public class ConfirmationModal: Modal, UITextFieldDelegate {
         closeButton.pin(.right, to: .right, of: contentView, withInset: -8)
     }
     
-    private func layoutExplanationLabel() {
+    private func layoutExplanationLabel(showScroll: Bool = true) {
         let labelWidth = view.frame.width - 4 * Values.veryLargeSpacing
         let maxLabelSize = CGSize(width: labelWidth, height: CGFloat.greatestFiniteMagnitude)
         let expectedLabelSize = explanationLabel.sizeThatFits(maxLabelSize)
         let lineHeight = explanationLabel.font.lineHeight
-        explanationLabelContainerHeightConstraint.constant = min(expectedLabelSize.height, lineHeight * 5)
+        if showScroll {
+            explanationLabelContainerHeightConstraint.constant = min(expectedLabelSize.height, lineHeight * 5)
+        } else {
+            explanationLabelContainerHeightConstraint.constant = expectedLabelSize.height
+        }
     }
     
     // MARK: - Content
@@ -253,7 +257,7 @@ public class ConfirmationModal: Modal, UITextFieldDelegate {
             case .input(let explanation, let placeholder, let value, let clearButton, let onTextChanged):
                 explanationLabel.attributedText = explanation
                 explanationLabelContainer.isHidden = (explanation == nil)
-                self.layoutExplanationLabel()
+                self.layoutExplanationLabel(showScroll: false)
                 textField.placeholder = placeholder
                 textField.text = (value ?? "")
                 textField.clearButtonMode = (clearButton ? .always : .never)
