@@ -164,22 +164,6 @@ final class NukeDataModal: Modal {
         }
     }
     
-    private func unknownErrorOccured() {
-        let modal: ConfirmationModal = ConfirmationModal(
-            info: ConfirmationModal.Info(
-                title: "clearDataAll".localized(),
-                body: .text("clearDataErrorDescriptionGeneric".localized()),
-                confirmTitle: "clear".localized(),
-                confirmStyle: .danger,
-                cancelStyle: .alert_text,
-                dismissOnConfirm: false
-            ) { [weak self] confirmationModal in
-                self?.clearDeviceOnly()
-            }
-        )
-        present(modal, animated: true)
-    }
-    
     private func clearEntireAccount(presentedViewController: UIViewController) {
         let dependencies: Dependencies = Dependencies()
         
@@ -239,26 +223,37 @@ final class NukeDataModal: Modal {
                             let potentiallyMaliciousSnodes = confirmations
                                 .compactMap { ($0.value == false ? $0.key : nil) }
 
-                            guard !potentiallyMaliciousSnodes.isEmpty else {
-                                self?.unknownErrorOccured()
-                                return
-                            }
-
-                            let message: String = "clearDataErrorDescription"
-                                .putNumber(potentiallyMaliciousSnodes.count)
-                                .put(key: "service_node_id", value: potentiallyMaliciousSnodes.joined(separator: ", "))
-                                .localized()
-                            
-                            let modal: ConfirmationModal = ConfirmationModal(
-                                targetView: self?.view,
-                                info: ConfirmationModal.Info(
-                                    title: "clearDataError".localized(),
-                                    body: .text(message),
-                                    cancelTitle: "okay".localized(),
-                                    cancelStyle: .alert_text
+                            if potentiallyMaliciousSnodes.isEmpty {
+                                let modal: ConfirmationModal = ConfirmationModal(
+                                    targetView: self?.view,
+                                    info: ConfirmationModal.Info(
+                                        title: "clearDataAll".localized(),
+                                        body: .text("clearDataErrorDescriptionGeneric".localized()),
+                                        confirmTitle: "clear".localized(),
+                                        confirmStyle: .danger,
+                                        cancelStyle: .alert_text
+                                    ) { [weak self] _ in
+                                        self?.clearDeviceOnly()
+                                    }
                                 )
-                            )
-                            self?.present(modal, animated: true)
+                                self?.present(modal, animated: true)
+                            } else {
+                                let message: String = "clearDataErrorDescription"
+                                    .putNumber(potentiallyMaliciousSnodes.count)
+                                    .put(key: "service_node_id", value: potentiallyMaliciousSnodes.joined(separator: ", "))
+                                    .localized()
+                                
+                                let modal: ConfirmationModal = ConfirmationModal(
+                                    targetView: self?.view,
+                                    info: ConfirmationModal.Info(
+                                        title: "clearDataError".localized(),
+                                        body: .text(message),
+                                        cancelTitle: "okay".localized(),
+                                        cancelStyle: .alert_text
+                                    )
+                                )
+                                self?.present(modal, animated: true)
+                            }
                         }
                     )
             }
