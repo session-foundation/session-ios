@@ -253,6 +253,7 @@ public class ConfirmationModal: Modal, UITextFieldDelegate {
             case .input(let explanation, let placeholder, let value, let clearButton, let onTextChanged):
                 explanationLabel.attributedText = explanation
                 explanationLabelContainer.isHidden = (explanation == nil)
+                self.layoutExplanationLabel()
                 textField.placeholder = placeholder
                 textField.text = (value ?? "")
                 textField.clearButtonMode = (clearButton ? .always : .never)
