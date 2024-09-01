@@ -186,13 +186,13 @@ class GifPickerViewController: OWSViewController, UISearchBarDelegate, UICollect
         self.noResultsView = noResultsView
         self.view.addSubview(noResultsView)
         noResultsView.set(.width, to: .width, of: self.view, withOffset: -20)
-        noResultsView.center(.horizontal, in: self.collectionView)
+        noResultsView.center(in: self.collectionView)
 
         let searchErrorView = createErrorLabel(text: "searchMatchesNone".localized())
         self.searchErrorView = searchErrorView
         self.view.addSubview(searchErrorView)
         searchErrorView.set(.width, to: .width, of: self.view, withOffset: -20)
-        searchErrorView.center(.horizontal, in: self.collectionView)
+        searchErrorView.center(in: self.collectionView)
 
         searchErrorView.isUserInteractionEnabled = true
         searchErrorView.addGestureRecognizer(UITapGestureRecognizer(target: self, action: #selector(retryTapped)))
