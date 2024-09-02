@@ -395,7 +395,8 @@ final class VisibleMessageCell: MessageCell, TappableLabelDelegate {
         // Message status image view
         let (image, statusText, tintColor) = cellViewModel.state.statusIconInfo(
             variant: cellViewModel.variant,
-            hasAtLeastOneReadReceipt: cellViewModel.hasAtLeastOneReadReceipt
+            hasAtLeastOneReadReceipt: cellViewModel.hasAtLeastOneReadReceipt,
+            hasAttachments: (cellViewModel.attachments?.isEmpty == false)
         )
         messageStatusLabel.text = statusText
         messageStatusLabel.themeTextColor = tintColor

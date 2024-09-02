@@ -493,7 +493,8 @@ public final class FullConversationCell: UITableViewCell, SwipeActionOptimisticC
         
         let stateInfo = cellViewModel.interactionState?.statusIconInfo(
             variant: (cellViewModel.interactionVariant ?? .standardOutgoing),
-            hasAtLeastOneReadReceipt: (cellViewModel.interactionHasAtLeastOneReadReceipt ?? false)
+            hasAtLeastOneReadReceipt: (cellViewModel.interactionHasAtLeastOneReadReceipt ?? false),
+            hasAttachments: ((cellViewModel.interactionAttachmentCount ?? 0) > 0)
         )
         statusIndicatorView.image = stateInfo?.image
         statusIndicatorView.themeTintColor = stateInfo?.themeTintColor
