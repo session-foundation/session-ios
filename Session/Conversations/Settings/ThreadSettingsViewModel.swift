@@ -697,7 +697,12 @@ class ThreadSettingsViewModel: SessionTableViewModel, NavigationItemSource, Navi
                                         threadViewModel.displayName
                                     )
                                 }(),
-                                body: (threadViewModel.threadIsBlocked == true ? .none :
+                                body: (threadViewModel.threadIsBlocked == true ?
+                                    .attributedText(
+                                        "blockUnblockName"
+                                            .put(key: "name", value: threadViewModel.displayName)
+                                            .localizedFormatted(baseFont: .systemFont(ofSize: Values.smallFontSize))
+                                    ) :
                                     .attributedText(
                                         "blockDescription"
                                             .put(key: "name", value: threadViewModel.displayName)

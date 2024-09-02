@@ -155,8 +155,8 @@ extension ConversationVC:
                     self.viewModel.threadData.displayName
                 ),
                 body: .attributedText(
-                    "blockUnblockDescription"
-                        .put(key: "name", value: self.viewModel.threadData.displayName)
+                    "blockUnblockName"
+                        .put(key: "name", value: viewModel.threadData.displayName)
                         .localizedFormatted(baseFont: .systemFont(ofSize: Values.smallFontSize))
                 ),
                 confirmTitle: "blockUnblock".localized(),

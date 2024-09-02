@@ -180,27 +180,28 @@ public class BlockedContactsViewModel: SessionTableViewModel, NavigatableStateHo
                 
                 return info.title?.text
             }
-        let confirmationTitle: String = {
+        let confirmationBody: NSAttributedString = {
             let name: String = contactNames.first ?? ""
             switch contactNames.count {
             case 1:
                 return "blockUnblockName"
                     .put(key: "name", value: name)
-                    .localized()
+                    .localizedFormatted(baseFont: .systemFont(ofSize: Values.smallFontSize))
             case 2:
                 return "blockUnblockNameTwo"
                     .put(key: "name", value: name)
-                    .localized()
+                    .localizedFormatted(baseFont: .systemFont(ofSize: Values.smallFontSize))
             default:
                 return "blockUnblockNameMultiple"
                     .put(key: "name", value: name)
                     .put(key: "count", value: contactNames.count - 1)
-                    .localized()
+                    .localizedFormatted(baseFont: .systemFont(ofSize: Values.smallFontSize))
             }
         }()
         let confirmationModal: ConfirmationModal = ConfirmationModal(
             info: ConfirmationModal.Info(
-                title: confirmationTitle,
+                title: "blockUnblock".localized(),
+                body: .attributedText(confirmationBody),
                 confirmTitle: "blockUnblock".localized(),
                 confirmStyle: .danger,
                 cancelStyle: .alert_text
