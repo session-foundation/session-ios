@@ -21,7 +21,7 @@ public protocol JobRunnerType {
     func appDidBecomeActive(using dependencies: Dependencies)
     func startNonBlockingQueues(using dependencies: Dependencies)
     
-    /// Stops and clears any pending jobs except for the specified variant, the `onComplete` closure will be called once complete providing a flag indicating whether any additionak
+    /// Stops and clears any pending jobs except for the specified variant, the `onComplete` closure will be called once complete providing a flag indicating whether any additional
     /// processing was needed before the closure was called (if not then the closure will be called synchronously)
     func stopAndClearPendingJobs(exceptForVariant: Job.Variant?, using dependencies: Dependencies, onComplete: ((Bool) -> ())?)
     
@@ -555,6 +555,11 @@ public final class JobRunner: JobRunnerType {
         let jobQueues: [Job.Variant: JobQueue] = queues.wrappedValue
         let blockingQueueIsRunning: Bool = (blockingQueue.wrappedValue?.isRunning.wrappedValue == true)
         
+        // Reset the 'isRunningInBackgroundTask' flag just in case (since we aren't in the background anymore)
+        jobQueues.forEach { _, queue in
+            queue.isRunningInBackgroundTask.mutate { $0 = false }
+        }
+        
         guard !jobsToRun.isEmpty else {
             if !blockingQueueIsRunning {
                 jobQueues.map { _, queue in queue }.asSet().forEach { $0.start(using: dependencies) }
@@ -629,6 +634,7 @@ public final class JobRunner: JobRunnerType {
         }
         
         let oldQueueDrained: (() -> ())? = queue.onQueueDrained
+        queue.isRunningInBackgroundTask.mutate { $0 = true }
         
         // Create a backgroundTask to give the queue the chance to properly be drained
         shutdownBackgroundTask.mutate {
@@ -636,12 +642,14 @@ public final class JobRunner: JobRunnerType {
                 // If the background task didn't succeed then trigger the onComplete (and hope we have
                 // enough time to complete it's logic)
                 guard state != .cancelled else {
+                    queue?.isRunningInBackgroundTask.mutate { $0 = false }
                     queue?.onQueueDrained = oldQueueDrained
                     return
                 }
                 guard state != .success else { return }
                 
                 onComplete?(true)
+                queue?.isRunningInBackgroundTask.mutate { $0 = false }
                 queue?.onQueueDrained = oldQueueDrained
                 queue?.stopAndClearPendingJobs()
             }
@@ -650,6 +658,7 @@ public final class JobRunner: JobRunnerType {
         // Add a callback to be triggered once the queue is drained
         queue.onQueueDrained = { [weak self, weak queue] in
             oldQueueDrained?()
+            queue?.isRunningInBackgroundTask.mutate { $0 = false }
             queue?.onQueueDrained = oldQueueDrained
             onComplete?(true)
             
@@ -677,11 +686,14 @@ public final class JobRunner: JobRunnerType {
             .insert(db)
         }
         
+        // Get the target queue
+        let jobQueue: JobQueue? = queues.wrappedValue[updatedJob.variant]
+        
         // Don't add to the queue if the JobRunner isn't ready (it's been saved to the db so it'll be loaded
         // once the queue actually get started later)
-        guard canAddToQueue(updatedJob) else { return updatedJob }
+        guard canAddToQueue(updatedJob) || jobQueue?.isRunningInBackgroundTask.wrappedValue == true else { return updatedJob }
         
-        let jobQueue: JobQueue? = queues.wrappedValue[updatedJob.variant]
+        // The queue is ready or running in a background task so we can add the job
         jobQueue?.add(db, job: updatedJob, canStartJob: canStartJob, using: dependencies)
         
         // Don't start the queue if the job can't be started
@@ -986,6 +998,7 @@ public final class JobQueue: Hashable {
     fileprivate var hasStartedAtLeastOnce: Atomic<Bool> = Atomic(false)
     fileprivate var isRunning: Atomic<Bool> = Atomic(false)
     fileprivate var pendingJobsQueue: Atomic<[Job]> = Atomic([])
+    fileprivate var isRunningInBackgroundTask: Atomic<Bool> = Atomic(false)
     
     private var nextTrigger: Atomic<Trigger?> = Atomic(nil)
     fileprivate var jobCallbacks: Atomic<[Int64: [(JobRunner.JobResult) -> ()]]> = Atomic([:])
@@ -1263,9 +1276,12 @@ public final class JobQueue: Hashable {
         forceWhenAlreadyRunning: Bool = false,
         using dependencies: Dependencies
     ) {
-        // Only start if the JobRunner is allowed to start the queue
-        guard canStart?(self) == true else { return }
-        guard forceWhenAlreadyRunning || !isRunning.wrappedValue else { return }
+        // Only start if the JobRunner is allowed to start the queue or if this queue is running in
+        // a background task
+        let isRunningInBackgroundTask: Bool = self.isRunningInBackgroundTask.wrappedValue
+        
+        guard canStart?(self) == true || isRunningInBackgroundTask else { return }
+        guard forceWhenAlreadyRunning || !isRunning.wrappedValue || isRunningInBackgroundTask else { return }
         
         // The JobRunner runs synchronously we need to ensure this doesn't start
         // on the main thread (if it is on the main thread then swap to a different thread)
@@ -1290,18 +1306,24 @@ public final class JobQueue: Hashable {
         let jobVariants: [Job.Variant] = self.jobVariants
         let jobIdsAlreadyRunning: Set<Int64> = currentlyRunningJobIds.wrappedValue
         let jobsAlreadyInQueue: Set<Int64> = pendingJobsQueue.wrappedValue.compactMap { $0.id }.asSet()
-        let jobsToRun: [Job] = dependencies.storage.read(using: dependencies) { db in
-            try Job
-                .filterPendingJobs(
-                    variants: jobVariants,
-                    excludeFutureJobs: true,
-                    includeJobsWithDependencies: false
-                )
-                .filter(!jobIdsAlreadyRunning.contains(Job.Columns.id)) // Exclude jobs already running
-                .filter(!jobsAlreadyInQueue.contains(Job.Columns.id))   // Exclude jobs already in the queue
-                .fetchAll(db)
+        let jobsToRun: [Job]
+        
+        switch isRunningInBackgroundTask {
+            case true: jobsToRun = []   // When running in a background task we don't want to schedule extra jobs
+            case false:
+                jobsToRun = dependencies.storage.read(using: dependencies) { db in
+                    try Job
+                        .filterPendingJobs(
+                            variants: jobVariants,
+                            excludeFutureJobs: true,
+                            includeJobsWithDependencies: false
+                        )
+                        .filter(!jobIdsAlreadyRunning.contains(Job.Columns.id)) // Exclude jobs already running
+                        .filter(!jobsAlreadyInQueue.contains(Job.Columns.id))   // Exclude jobs already in the queue
+                        .fetchAll(db)
+                }
+                .defaulting(to: [])
         }
-        .defaulting(to: [])
         
         // Determine the number of jobs to run
         var jobCount: Int = 0
