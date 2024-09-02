@@ -298,7 +298,7 @@ extension ConversationVC:
         let threadId: String = self.viewModel.threadData.threadId
         let threadVariant: SessionThread.Variant = self.viewModel.threadData.threadVariant
         
-        Permissions.requestLibraryPermissionIfNeeded { [weak self, dependencies = viewModel.dependencies] in
+        Permissions.requestLibraryPermissionIfNeeded(isSavingMedia: false) { [weak self, dependencies = viewModel.dependencies] in
             DispatchQueue.main.async {
                 let sendMediaNavController = SendMediaNavigationController.showingMediaLibraryFirst(
                     threadId: threadId,
@@ -2326,30 +2326,35 @@ extension ConversationVC:
         
         guard !mediaAttachments.isEmpty else { return }
     
-        mediaAttachments.forEach { attachment, originalFilePath in
-            PHPhotoLibrary.shared().performChanges(
-                {
-                    if attachment.isImage || attachment.isAnimated {
-                        PHAssetChangeRequest.creationRequestForAssetFromImage(
-                            atFileURL: URL(fileURLWithPath: originalFilePath)
-                        )
-                    }
-                    else if attachment.isVideo {
-                        PHAssetChangeRequest.creationRequestForAssetFromVideo(
-                            atFileURL: URL(fileURLWithPath: originalFilePath)
-                        )
-                    }
-                },
-                completionHandler: { _, _ in }
-            )
+        Permissions.requestLibraryPermissionIfNeeded(
+            isSavingMedia: true,
+            presentingViewController: self
+        ) { [weak self] in
+            mediaAttachments.forEach { attachment, originalFilePath in
+                PHPhotoLibrary.shared().performChanges(
+                    {
+                        if attachment.isImage || attachment.isAnimated {
+                            PHAssetChangeRequest.creationRequestForAssetFromImage(
+                                atFileURL: URL(fileURLWithPath: originalFilePath)
+                            )
+                        }
+                        else if attachment.isVideo {
+                            PHAssetChangeRequest.creationRequestForAssetFromVideo(
+                                atFileURL: URL(fileURLWithPath: originalFilePath)
+                            )
+                        }
+                    },
+                    completionHandler: { _, _ in }
+                )
+            }
+            
+            // Send a 'media saved' notification if needed
+            guard self?.viewModel.threadData.threadVariant == .contact, cellViewModel.variant == .standardIncoming else {
+                return
+            }
+            
+            self?.sendDataExtraction(kind: .mediaSaved(timestamp: UInt64(cellViewModel.timestampMs)))
         }
-        
-        // Send a 'media saved' notification if needed
-        guard self.viewModel.threadData.threadVariant == .contact, cellViewModel.variant == .standardIncoming else {
-            return
-        }
-        
-        sendDataExtraction(kind: .mediaSaved(timestamp: UInt64(cellViewModel.timestampMs)))
     }
 
     func ban(_ cellViewModel: MessageViewModel, using dependencies: Dependencies) {

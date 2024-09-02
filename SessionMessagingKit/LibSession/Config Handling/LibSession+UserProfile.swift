@@ -42,11 +42,11 @@ internal extension LibSession {
         try ProfileManager.updateProfileIfNeeded(
             db,
             publicKey: userPublicKey,
-            name: profileName,
-            avatarUpdate: {
-                guard let profilePictureUrl: String = profilePictureUrl else { return .remove }
+            displayNameUpdate: .currentUserUpdate(profileName),
+            displayPictureUpdate: {
+                guard let profilePictureUrl: String = profilePictureUrl else { return .currentUserRemove }
                 
-                return .updateTo(
+                return .currentUserUpdateTo(
                     url: profilePictureUrl,
                     key: Data(
                         libSessionVal: profilePic.key,

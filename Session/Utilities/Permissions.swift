@@ -96,12 +96,14 @@ public enum Permissions {
     }
 
     public static func requestLibraryPermissionIfNeeded(
+        isSavingMedia: Bool,
         presentingViewController: UIViewController? = nil,
         onAuthorized: @escaping () -> Void
     ) {
         let authorizationStatus: PHAuthorizationStatus
         if #available(iOS 14, *) {
-            authorizationStatus = PHPhotoLibrary.authorizationStatus(for: .readWrite)
+            let targetPermission: PHAccessLevel = (isSavingMedia ? .addOnly : .readWrite)
+            authorizationStatus = PHPhotoLibrary.authorizationStatus(for: targetPermission)
             if authorizationStatus == .notDetermined {
                 // When the user chooses to select photos (which is the .limit status),
                 // the PHPhotoUI will present the picker view on the top of the front view.
@@ -113,7 +115,7 @@ public enum Permissions {
                 // from showing when we request the photo library permission.
                 SessionEnvironment.shared?.isRequestingPermission = true
                 
-                PHPhotoLibrary.requestAuthorization(for: .readWrite) { status in
+                PHPhotoLibrary.requestAuthorization(for: targetPermission) { status in
                     SessionEnvironment.shared?.isRequestingPermission = false
                     if [ PHAuthorizationStatus.authorized, PHAuthorizationStatus.limited ].contains(status) {
                         onAuthorized()
