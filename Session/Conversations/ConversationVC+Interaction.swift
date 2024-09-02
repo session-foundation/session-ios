@@ -902,8 +902,22 @@ extension ConversationVC:
         
         // For call info messages show the "call missed" modal
         guard cellViewModel.variant != .infoCall else {
-            let callMissedTipsModal: CallMissedTipsModal = CallMissedTipsModal(caller: cellViewModel.authorName)
-            present(callMissedTipsModal, animated: true, completion: nil)
+            // If the failure was due to the mic permission being denied then we want to show the permission modal,
+            // otherwise we want to show the call missed tips modal
+            guard
+                let infoMessageData: Data = (cellViewModel.rawBody ?? "").data(using: .utf8),
+                let messageInfo: CallMessage.MessageInfo = try? JSONDecoder().decode(
+                    CallMessage.MessageInfo.self,
+                    from: infoMessageData
+                ),
+                messageInfo.state == .permissionDeniedMicrophone
+            else {
+                let callMissedTipsModal: CallMissedTipsModal = CallMissedTipsModal(caller: cellViewModel.authorName)
+                present(callMissedTipsModal, animated: true, completion: nil)
+                return
+            }
+            
+            Permissions.requestMicrophonePermissionIfNeeded(presentingViewController: self)
             return
         }
         

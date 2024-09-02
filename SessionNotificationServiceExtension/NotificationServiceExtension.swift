@@ -1,6 +1,7 @@
 // Copyright © 2022 Rangeproof Pty Ltd. All rights reserved.
 
 import Foundation
+import AVFAudio
 import Combine
 import GRDB
 import CallKit
@@ -158,14 +159,15 @@ public final class NotificationServiceExtension: UNNotificationServiceExtension 
                             throw NotificationError.ignorableMessage
                         }
                         
-                        switch (db[.areCallsEnabled], isCallOngoing) {
+                        let hasMicrophonePermission: Bool = (AVAudioSession.sharedInstance().recordPermission == .granted)
+                        switch ((db[.areCallsEnabled] && hasMicrophonePermission), isCallOngoing) {
                             case (false, _):
                                 if
                                     let sender: String = callMessage.sender,
                                     let interaction: Interaction = try MessageReceiver.insertCallInfoMessage(
                                         db,
                                         for: callMessage,
-                                        state: .permissionDenied,
+                                        state: (db[.areCallsEnabled] ? .permissionDeniedMicrophone : .permissionDenied),
                                         using: dependencies
                                     )
                                 {

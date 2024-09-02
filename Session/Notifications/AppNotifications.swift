@@ -244,7 +244,10 @@ public class NotificationPresenter: NotificationsProtocol {
         else { return }
         
         // Only notify missed calls
-        guard messageInfo.state == .missed || messageInfo.state == .permissionDenied else { return }
+        switch messageInfo.state {
+            case .missed, .permissionDenied, .permissionDeniedMicrophone: break
+            default: return
+        }
         
         let category = AppNotificationCategory.errorMessage
         let previewType: Preferences.NotificationPreviewType = db[.preferencesNotificationPreviewType]
@@ -262,6 +265,11 @@ public class NotificationPresenter: NotificationsProtocol {
                 case .permissionDenied:
                     return String(
                         format: "modal_call_missed_tips_explanation".localized(),
+                        senderName
+                    )
+                case .permissionDeniedMicrophone:
+                    return String(
+                        format: "call_missed".localized(),
                         senderName
                     )
                 case .missed:

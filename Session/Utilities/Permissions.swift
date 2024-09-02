@@ -3,6 +3,7 @@
 import UIKit
 import Photos
 import PhotosUI
+import AVFAudio
 import SessionUIKit
 import SessionUtilitiesKit
 import SessionMessagingKit
