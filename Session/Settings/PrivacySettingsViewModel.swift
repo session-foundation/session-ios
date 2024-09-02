@@ -307,7 +307,8 @@ class PrivacySettingsViewModel: SessionTableViewModel, NavigationItemSource, Nav
                                 showCondition: .disabled,
                                 confirmTitle: "continue_2".localized(),
                                 confirmAccessibility: Accessibility(identifier: "Enable"),
-                                confirmStyle: .textPrimary,
+                                confirmStyle: .danger,
+                                cancelStyle: .alert_text,
                                 onConfirm: { _ in Permissions.requestMicrophonePermissionIfNeeded() }
                             ),
                             onTap: {

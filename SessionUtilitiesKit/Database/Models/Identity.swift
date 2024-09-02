@@ -142,7 +142,7 @@ public extension Identity {
     
     static func mnemonic() throws -> String {
         let dbIsValid: Bool = Storage.shared.isValid
-        let dbIsSuspendedUnsafe: Bool = Storage.shared.isSuspendedUnsafe
+        let dbIsSuspended: Bool = Storage.shared.isSuspended
         
         if let hexEncodedSeed: String = Identity.fetchHexEncodedSeed() {
             return Mnemonic.encode(hexEncodedString: hexEncodedSeed)
@@ -153,7 +153,7 @@ public extension Identity {
             let hasStoredEdKeyPair: Bool = (Identity.fetchUserEd25519KeyPair() != nil)
             let dbStates: [String] = [
                 "dbIsValid: \(dbIsValid)",
-                "dbIsSuspendedUnsafe: \(dbIsSuspendedUnsafe)",
+                "dbIsSuspended: \(dbIsSuspended)",
                 "storedSeed: false",
                 "userPublicKey: \(hasStoredPublicKey)",
                 "userPrivateKey: false",
