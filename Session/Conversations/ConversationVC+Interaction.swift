@@ -1190,7 +1190,8 @@ extension ConversationVC:
                 body: .attributedText(
                     "urlOpenDescription"
                         .put(key: "url", value: url.absoluteString)
-                        .localizedFormatted(baseFont: .systemFont(ofSize: Values.smallFontSize))
+                        .localizedFormatted(baseFont: .systemFont(ofSize: Values.smallFontSize)),
+                    canScroll: true
                 ),
                 confirmTitle: "open".localized(),
                 confirmStyle: .danger,
