@@ -165,7 +165,7 @@ final class NewClosedGroupVC: BaseVC, UITableViewDataSource, UITableViewDelegate
         guard !contactProfiles.isEmpty else {
             let explanationLabel: UILabel = UILabel()
             explanationLabel.font = .systemFont(ofSize: Values.smallFontSize)
-            explanationLabel.text = "conversationsNone".localized()
+            explanationLabel.text = "contactNone".localized()
             explanationLabel.themeTextColor = .textSecondary
             explanationLabel.textAlignment = .center
             explanationLabel.lineBreakMode = .byWordWrapping
