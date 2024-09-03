@@ -147,7 +147,7 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
         /// Apple's documentation on the matter)
         UNUserNotificationCenter.current().delegate = self
         
-        Storage.resumeDatabaseAccess()
+        Storage.resumeDatabaseAccess(using: dependencies)
         LibSession.resumeNetworkAccess()
         
         // Reset the 'startTime' (since it would be invalid from the last launch)
@@ -209,10 +209,10 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
         stopPollers(shouldStopUserPoller: !self.hasCallOngoing())
         
         // Stop all jobs except for message sending and when completed suspend the database
-        JobRunner.stopAndClearPendingJobs(exceptForVariant: .messageSend, using: dependencies) { neededBackgroundProcessing in
+        JobRunner.stopAndClearPendingJobs(exceptForVariant: .messageSend, using: dependencies) { [dependencies] neededBackgroundProcessing in
             if !self.hasCallOngoing() && (!neededBackgroundProcessing || Singleton.hasAppContext && Singleton.appContext.isInBackground) {
                 LibSession.suspendNetworkAccess()
-                Storage.suspendDatabaseAccess()
+                Storage.suspendDatabaseAccess(using: dependencies)
                 Log.info("[AppDelegate] completed network and database shutdowns.")
                 Log.flush()
             }
@@ -238,7 +238,7 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
         UserDefaults.sharedLokiProject?[.isMainAppActive] = true
         
         // FIXME: Seems like there are some discrepancies between the expectations of how the iOS lifecycle methods work, we should look into them and ensure the code behaves as expected (in this case there were situations where these two wouldn't get called when returning from the background)
-        Storage.resumeDatabaseAccess()
+        Storage.resumeDatabaseAccess(using: dependencies)
         LibSession.resumeNetworkAccess()
         
         ensureRootViewController(calledFrom: .didBecomeActive)
@@ -288,7 +288,7 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
     func application(_ application: UIApplication, performFetchWithCompletionHandler completionHandler: @escaping (UIBackgroundFetchResult) -> Void) {
         Log.appResumedExecution()
         Log.info("Starting background fetch.")
-        Storage.resumeDatabaseAccess()
+        Storage.resumeDatabaseAccess(using: dependencies)
         LibSession.resumeNetworkAccess()
         
         let queue: DispatchQueue = .global(qos: .userInitiated)
@@ -302,7 +302,7 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
         let cancelTimer: Timer = Timer.scheduledTimerOnMainThread(
             withTimeInterval: (application.backgroundTimeRemaining - 5),
             repeats: false
-        ) { [poller] timer in
+        ) { [poller, dependencies] timer in
             timer.invalidate()
             
             guard cancellable != nil else { return }
@@ -312,7 +312,7 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
             
             if Singleton.hasAppContext && Singleton.appContext.isInBackground {
                 LibSession.suspendNetworkAccess()
-                Storage.suspendDatabaseAccess()
+                Storage.suspendDatabaseAccess(using: dependencies)
                 Log.flush()
             }
             
@@ -338,7 +338,7 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
                         
                         if Singleton.hasAppContext && Singleton.appContext.isInBackground {
                             LibSession.suspendNetworkAccess()
-                            Storage.suspendDatabaseAccess()
+                            Storage.suspendDatabaseAccess(using: dependencies)
                             Log.flush()
                         }
                         
@@ -934,7 +934,7 @@ private enum StartupError: Error {
     
     var name: String {
         switch self {
-            case .databaseError(StorageError.startupFailed), .databaseError(DatabaseError.SQLITE_LOCKED):
+            case .databaseError(StorageError.startupFailed), .databaseError(DatabaseError.SQLITE_LOCKED), .databaseError(StorageError.databaseSuspended):
                 return "Database startup failed"
             
             case .databaseError(StorageError.migrationNoLongerSupported): return "Unsupported version"
@@ -946,7 +946,7 @@ private enum StartupError: Error {
     
     var message: String {
         switch self {
-            case .databaseError(StorageError.startupFailed), .databaseError(DatabaseError.SQLITE_LOCKED):
+            case .databaseError(StorageError.startupFailed), .databaseError(DatabaseError.SQLITE_LOCKED), .databaseError(StorageError.databaseSuspended):
                 return "DATABASE_STARTUP_FAILED".localized()
 
             case .databaseError(StorageError.migrationNoLongerSupported):

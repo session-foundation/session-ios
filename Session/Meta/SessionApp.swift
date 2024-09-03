@@ -126,7 +126,11 @@ public struct SessionApp {
         Log.info("Data Reset Complete.")
         Log.flush()
 
-        exit(0)
+        /// Wait until the next run loop to kill the app (hoping to avoid a crash due to the connection closes
+        /// triggering logs)
+        DispatchQueue.main.async {
+            exit(0)
+        }
     }
     
     public static func showHomeView(using dependencies: Dependencies) {

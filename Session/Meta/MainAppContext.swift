@@ -23,6 +23,7 @@ final class MainAppContext: AppContext {
         return result
     }
     var frontmostViewController: UIViewController? { UIApplication.shared.frontmostViewControllerIgnoringAlerts }
+    var backgroundTimeRemaining: TimeInterval { UIApplication.shared.backgroundTimeRemaining }
     
     var mainWindow: UIWindow?
     var wasWokenUpByPushNotification: Bool = false

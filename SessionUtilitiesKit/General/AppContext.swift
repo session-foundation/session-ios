@@ -24,6 +24,7 @@ public protocol AppContext: AnyObject {
     var mainWindow: UIWindow? { get }
     var isRTL: Bool { get }
     var frontmostViewController: UIViewController? { get }
+    var backgroundTimeRemaining: TimeInterval { get }
     
     func setMainWindow(_ mainWindow: UIWindow)
     func ensureSleepBlocking(_ shouldBeBlocking: Bool, blockingObjects: [Any])
@@ -43,6 +44,7 @@ public extension AppContext {
     var isShareExtension: Bool { false }
     var mainWindow: UIWindow? { nil }
     var frontmostViewController: UIViewController? { nil }
+    var backgroundTimeRemaining: TimeInterval { 0 }
     
     var isInBackground: Bool { reportedApplicationState == .background }
     var isAppForegroundAndActive: Bool { reportedApplicationState == .active }
