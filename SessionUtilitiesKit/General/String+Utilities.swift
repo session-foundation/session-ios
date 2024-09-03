@@ -1,4 +1,6 @@
 // Copyright © 2022 Rangeproof Pty Ltd. All rights reserved.
+//
+// stringlint:disable
 
 import Foundation
 import CoreText
@@ -100,23 +102,29 @@ public extension String.StringInterpolation {
 
 public extension String {
     static func formattedDuration(_ duration: TimeInterval, format: TimeInterval.DurationFormat = .short) -> String {
-        var dateComponentsFormatter = DateComponentsFormatter()
+        let dateComponentsFormatter = DateComponentsFormatter()
         dateComponentsFormatter.allowedUnits = [.weekOfMonth, .day, .hour, .minute, .second]
         var calendar = Calendar.current
         
         switch format {
             case .videoDuration:
                 guard duration < 3600 else { fallthrough }
-                dateComponentsFormatter.maximumUnitCount = 2
+                dateComponentsFormatter.allowedUnits = [.minute, .second]
                 dateComponentsFormatter.unitsStyle = .positional
                 dateComponentsFormatter.zeroFormattingBehavior = .pad
                 return dateComponentsFormatter.string(from: duration) ?? ""
             
             case .hoursMinutesSeconds:
-                dateComponentsFormatter.maximumUnitCount = 3
+                if duration < 3600 {
+                    dateComponentsFormatter.allowedUnits = [.minute, .second]
+                    dateComponentsFormatter.zeroFormattingBehavior = .pad
+                } else {
+                    dateComponentsFormatter.allowedUnits = [.hour, .minute, .second]
+                    dateComponentsFormatter.zeroFormattingBehavior = .default
+                }
                 dateComponentsFormatter.unitsStyle = .positional
-                dateComponentsFormatter.zeroFormattingBehavior = .dropLeading
-                return dateComponentsFormatter.string(from: duration) ?? ""
+                // This is a workaroud for 00:00 to be shown as 0:00
+                return (dateComponentsFormatter.string(from: duration) ?? "").replacingOccurrences(of: "00:", with: "0:")
                 
             case .short: // Single unit, no localization, short version e.g. 1w
                 dateComponentsFormatter.maximumUnitCount = 1
