@@ -33,14 +33,8 @@ final public class LocalizationHelper: CustomStringConvertible {
         // If the localized string matches the key provided then the localisation failed
         var localizedString: String = NSLocalizedString(template, comment: "")
         
-        for (key, value) in replacements {
-            localizedString = localizedString.replacingOccurrences(of: tokenize(key), with: value)
-        }
-        
-        // Replace html tag "<br/>" with "\n"
-        localizedString = localizedString.replacingOccurrences(of: "<br/>", with: "\n")
-
         // Deal with plurals
+        // Note: We have to deal with plurals first, so we can get the correct string
         if !self.numbers.isEmpty {
             localizedString = String(
                 format: localizedString,
@@ -48,6 +42,13 @@ final public class LocalizationHelper: CustomStringConvertible {
                 arguments: self.numbers
             )
         }
+        
+        for (key, value) in replacements {
+            localizedString = localizedString.replacingOccurrences(of: tokenize(key), with: value)
+        }
+        
+        // Replace html tag "<br/>" with "\n"
+        localizedString = localizedString.replacingOccurrences(of: "<br/>", with: "\n")
 
         return localizedString
     }
