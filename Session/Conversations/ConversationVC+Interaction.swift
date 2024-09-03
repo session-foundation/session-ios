@@ -161,7 +161,9 @@ extension ConversationVC:
                 ),
                 confirmTitle: "blockUnblock".localized(),
                 confirmAccessibility: Accessibility(identifier: "Confirm block"),
+                confirmStyle: .danger, 
                 cancelAccessibility: Accessibility(identifier: "Cancel block"),
+                cancelStyle: .alert_text,
                 dismissOnConfirm: false // Custom dismissal logic
             ) { [weak self] _ in
                 self?.viewModel.unblockContact()
