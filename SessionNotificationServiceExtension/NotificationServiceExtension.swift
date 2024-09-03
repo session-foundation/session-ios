@@ -51,7 +51,7 @@ public final class NotificationServiceExtension: UNNotificationServiceExtension 
         }
         
         // Perform main setup
-        Storage.resumeDatabaseAccess()
+        Storage.resumeDatabaseAccess(using: dependencies)
         DispatchQueue.main.sync {
             self.setUpIfNecessary() { [weak self] in
                 self?.handleNotification(notificationContent, isPerformingResetup: false)
@@ -415,7 +415,7 @@ public final class NotificationServiceExtension: UNNotificationServiceExtension 
         
         Log.info(handledNotification ? "Completed after handling notification." : "Completed silently.")
         if !isMainAppAndActive {
-            Storage.suspendDatabaseAccess()
+            Storage.suspendDatabaseAccess(using: dependencies)
         }
         Log.flush()
         
@@ -495,7 +495,7 @@ public final class NotificationServiceExtension: UNNotificationServiceExtension 
 
     private func handleFailure(for content: UNMutableNotificationContent, error: NotificationError) {
         Log.error("Show generic failure message due to error: \(error).")
-        Storage.suspendDatabaseAccess()
+        Storage.suspendDatabaseAccess(using: dependencies)
         Log.flush()
         
         content.title = "Session"
