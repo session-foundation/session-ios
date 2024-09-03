@@ -220,40 +220,34 @@ final class NukeDataModal: Modal {
                         receiveValue: { confirmations in
                             self?.dismiss(animated: true, completion: nil) // Dismiss the loader
 
+                            // Get a list of nodes which failed to delete the data
                             let potentiallyMaliciousSnodes = confirmations
                                 .compactMap { ($0.value == false ? $0.key : nil) }
-
-                            if potentiallyMaliciousSnodes.isEmpty {
-                                let modal: ConfirmationModal = ConfirmationModal(
-                                    targetView: self?.view,
-                                    info: ConfirmationModal.Info(
-                                        title: "clearDataAll".localized(),
-                                        body: .text("clearDataErrorDescriptionGeneric".localized()),
-                                        confirmTitle: "clear".localized(),
-                                        confirmStyle: .danger,
-                                        cancelStyle: .alert_text
-                                    ) { [weak self] _ in
-                                        self?.clearDeviceOnly()
-                                    }
-                                )
-                                self?.present(modal, animated: true)
-                            } else {
-                                let message: String = "clearDataErrorDescription"
-                                    .putNumber(potentiallyMaliciousSnodes.count)
-                                    .put(key: "service_node_id", value: potentiallyMaliciousSnodes.joined(separator: ", "))
-                                    .localized()
-                                
-                                let modal: ConfirmationModal = ConfirmationModal(
-                                    targetView: self?.view,
-                                    info: ConfirmationModal.Info(
-                                        title: "clearDataError".localized(),
-                                        body: .text(message),
-                                        cancelTitle: "okay".localized(),
-                                        cancelStyle: .alert_text
-                                    )
-                                )
-                                self?.present(modal, animated: true)
+                            
+                            // If all of the nodes successfully deleted the data then proceed
+                            // to delete the local data
+                            guard !potentiallyMaliciousSnodes.isEmpty else {
+                                self?.deleteAllLocalData()
+                                return
                             }
+
+                            // Otherwise we should warn the user that one or more service node
+                            // failed to delete the data
+                            let message: String = "clearDataErrorDescription"
+                                .putNumber(potentiallyMaliciousSnodes.count)
+                                .put(key: "service_node_id", value: potentiallyMaliciousSnodes.joined(separator: ", "))
+                                .localized()
+                            
+                            let modal: ConfirmationModal = ConfirmationModal(
+                                targetView: self?.view,
+                                info: ConfirmationModal.Info(
+                                    title: "clearDataError".localized(),
+                                    body: .text(message),
+                                    cancelTitle: "okay".localized(),
+                                    cancelStyle: .alert_text
+                                )
+                            )
+                            self?.present(modal, animated: true)
                         }
                     )
             }
