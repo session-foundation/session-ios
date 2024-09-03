@@ -2641,13 +2641,24 @@ extension ConversationVC {
                 // messageRequestResponse back to the sender (this allows the sender to know that
                 // they have been approved and can now use this contact in closed groups)
                 if !isNewThread {
+                    let interaction = try? Interaction(
+                        threadId: threadId,
+                        threadVariant: threadVariant,
+                        authorId: getUserHexEncodedPublicKey(db),
+                        variant: .infoMessageRequestAccepted,
+                        body: "messageRequestYouHaveAccepted"
+                            .put(key: "name", value: self.viewModel.threadData.displayName)
+                            .localized(),
+                        timestampMs: timestampMs
+                    ).inserted(db)
+                    
                     try MessageSender.send(
                         db,
                         message: MessageRequestResponse(
                             isApproved: true,
                             sentTimestampMs: UInt64(timestampMs)
                         ),
-                        interactionId: nil,
+                        interactionId: interaction?.id,
                         threadId: threadId,
                         threadVariant: threadVariant,
                         using: dependencies
