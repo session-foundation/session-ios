@@ -882,21 +882,11 @@ public class ConversationViewModel: OWSAudioPlayerDelegate, NavigatableStateHold
         let threadId: String = self.threadId
         let displayName: String = self._threadData.wrappedValue.displayName
         
-        Storage.shared.writeAsync(
-            updates: { db in
-                try Contact
-                    .filter(id: threadId)
-                    .updateAllAndConfig(db, Contact.Columns.isBlocked.set(to: false))
-            },
-            completion: { [weak self] _, _ in
-                self?.showToast(
-                    text: "blockUnblockedUser"
-                        .put(key: "name", value: displayName)
-                        .localized(),
-                    backgroundColor: .backgroundSecondary
-                )
-            }
-        )
+        Storage.shared.writeAsync { db in
+            try Contact
+                .filter(id: threadId)
+                .updateAllAndConfig(db, Contact.Columns.isBlocked.set(to: false))
+        }
     }
     
     public func expandReactions(for interactionId: Int64) {

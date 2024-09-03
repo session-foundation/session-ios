@@ -832,29 +832,13 @@ class ThreadSettingsViewModel: SessionTableViewModel, NavigationItemSource, Navi
     ) {
         guard oldBlockedState != isBlocked else { return }
         
-        dependencies.storage.writeAsync(
-            updates: { db in
-                try Contact
-                    .filter(id: threadId)
-                    .updateAllAndConfig(
-                        db,
-                        Contact.Columns.isBlocked.set(to: isBlocked)
-                    )
-            },
-            completion: { [weak self] _, _ in
-                self?.showToast(
-                    text: (
-                        isBlocked ?
-                        "blockBlockedUser"
-                            .put(key: "name", value: displayName)
-                            .localized() :
-                        "blockUnblockedUser"
-                            .put(key: "name", value: displayName)
-                            .localized()
-                    ),
-                    backgroundColor: .backgroundSecondary
+        dependencies.storage.writeAsync { db in
+            try Contact
+                .filter(id: threadId)
+                .updateAllAndConfig(
+                    db,
+                    Contact.Columns.isBlocked.set(to: isBlocked)
                 )
-            }
-        )
+        }
     }
 }
