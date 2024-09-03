@@ -389,8 +389,8 @@ public extension UIContextualAction {
                                         .localizedFormatted(baseFont: .boldSystemFont(ofSize: Values.smallFontSize))
                                 }
                                 
-                                return "communityLeaveDescription"
-                                    .put(key: "community_name", value: threadViewModel.displayName)
+                                return "groupLeaveDescription"
+                                    .put(key: "group_name", value: threadViewModel.displayName)
                                     .localizedFormatted(baseFont: .boldSystemFont(ofSize: Values.smallFontSize))
                             }()
                             
@@ -499,8 +499,8 @@ public extension UIContextualAction {
                                             .localizedFormatted(baseFont: .boldSystemFont(ofSize: Values.smallFontSize))
                                         
                                     case .community:
-                                        return "communityLeaveDescription"
-                                            .put(key: "community_name", value: threadViewModel.displayName)
+                                        return "groupLeaveDescription"
+                                            .put(key: "group_name", value: threadViewModel.displayName)
                                             .localizedFormatted(baseFont: .boldSystemFont(ofSize: Values.smallFontSize))
                                 }
                             }()

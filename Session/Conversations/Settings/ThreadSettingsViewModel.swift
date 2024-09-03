@@ -522,8 +522,8 @@ class ThreadSettingsViewModel: SessionTableViewModel, NavigationItemSource, Navi
                                             .localizedFormatted(baseFont: .boldSystemFont(ofSize: Values.smallFontSize))
                                     }
                                     
-                                    return "communityLeaveDescription"
-                                        .put(key: "community_name", value: threadViewModel.displayName)
+                                    return "groupLeaveDescription"
+                                        .put(key: "group_name", value: threadViewModel.displayName)
                                         .localizedFormatted(baseFont: .boldSystemFont(ofSize: Values.smallFontSize))
                                 }()),
                                 confirmTitle: "leave".localized(),
