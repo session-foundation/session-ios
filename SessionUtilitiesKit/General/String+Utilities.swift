@@ -124,7 +124,11 @@ public extension String {
                 }
                 dateComponentsFormatter.unitsStyle = .positional
                 // This is a workaroud for 00:00 to be shown as 0:00
-                return (dateComponentsFormatter.string(from: duration) ?? "").replacingOccurrences(of: "00:", with: "0:")
+                var str: String = dateComponentsFormatter.string(from: duration) ?? ""
+                if str.hasPrefix("0") {
+                    str.remove(at: str.startIndex)
+                }
+                return str
                 
             case .short: // Single unit, no localization, short version e.g. 1w
                 dateComponentsFormatter.maximumUnitCount = 1

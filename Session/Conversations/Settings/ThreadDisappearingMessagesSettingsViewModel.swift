@@ -77,7 +77,8 @@ class ThreadDisappearingMessagesSettingsViewModel: SessionTableViewModel, Naviga
         
         var footer: String? {
             switch self {
-                case .group: return "disappearingMessagesOnlyAdmins".localized()
+                case .group: 
+                    return "\("disappearingMessagesDescription".localized())\n\("disappearingMessagesOnlyAdmins".localized())"
                 default: return nil
             }
         }
