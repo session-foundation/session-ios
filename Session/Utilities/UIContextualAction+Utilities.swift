@@ -368,9 +368,12 @@ public extension UIContextualAction {
                                 case true:
                                     let confirmationModal: ConfirmationModal = ConfirmationModal(
                                         info: ConfirmationModal.Info(
-                                            title: "blockDescription"
-                                                .put(key: "name", value: threadViewModel.displayName)
-                                                .localizedDeformatted(),
+                                            title: "block".localized(),
+                                            body: .attributedText(
+                                                "blockDescription"
+                                                    .put(key: "name", value: threadViewModel.displayName)
+                                                    .localizedFormatted(baseFont: .systemFont(ofSize: Values.smallFontSize))
+                                            ),
                                             confirmTitle: "block".localized(),
                                             confirmAccessibility: Accessibility(
                                                 identifier: "Block"

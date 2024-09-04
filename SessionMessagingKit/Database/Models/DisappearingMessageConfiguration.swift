@@ -148,7 +148,7 @@ public extension DisappearingMessagesConfiguration {
                 guard isEnabled, durationSeconds > 0 else {
                     switch threadVariant {
                         case .legacyGroup, .group:
-                            return "disappearingMessagesTurnedOffYou".localized() // TODO: replace with "disappearingMessagesTurnedOffYouGroup".localized()
+                            return "disappearingMessagesTurnedOffYouGroup".localized()
                         default:
                             return "disappearingMessagesTurnedOffYou".localized()
                     }
