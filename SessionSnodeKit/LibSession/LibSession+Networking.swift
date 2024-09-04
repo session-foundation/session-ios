@@ -174,10 +174,10 @@ public extension LibSession {
             .flatMap { network in
                 CallbackWrapper<Output>
                     .create { wrapper in
-                        let cSwarmPublicKey: [CChar] = swarmPublicKey
+                        guard let cSwarmPublicKey: [CChar] = swarmPublicKey
                             .suffix(64) // Quick way to drop '05' prefix if present
-                            .cArray
-                            .nullTerminated()
+                            .cString(using: .utf8)
+                        else { throw LibSessionError.invalidCConversion }
                         
                         network_get_swarm(network, cSwarmPublicKey, { swarmPtr, swarmSize, ctx in
                             guard
@@ -618,30 +618,18 @@ extension LibSession {
         public var description: String { address }
         
         public var cSnode: network_service_node {
-            return network_service_node(
-                ip: ip.toLibSession(),
-                quic_port: quicPort,
-                ed25519_pubkey_hex: ed25519PubkeyHex.toLibSession()
-            )
+            var result: network_service_node = network_service_node()
+            result.ipString = ip
+            result.set(\.quic_port, to: quicPort)
+            result.set(\.ed25519_pubkey_hex, to: ed25519PubkeyHex)
+            
+            return result
         }
         
         init(_ cSnode: network_service_node) {
-            ip = "\(cSnode.ip.0).\(cSnode.ip.1).\(cSnode.ip.2).\(cSnode.ip.3)"
-            quicPort = cSnode.quic_port
-            ed25519PubkeyHex = String(libSessionVal: cSnode.ed25519_pubkey_hex)
-        }
-        
-        internal init?(nodeString: String) {
-            let parts: [String] = nodeString.components(separatedBy: "|")
-            
-            guard
-                parts.count == 4,
-                let port: UInt16 = UInt16(parts[1])
-            else { return nil }
-            
-            ip = parts[0]
-            quicPort = port
-            ed25519PubkeyHex = parts[3]
+            ip = cSnode.ipString
+            quicPort = cSnode.get(\.quic_port)
+            ed25519PubkeyHex = cSnode.get(\.ed25519_pubkey_hex)
         }
         
         public func hash(into hasher: inout Hasher) {
@@ -756,5 +744,22 @@ internal extension LibSession.CallbackWrapper {
         self.addUnsafePointerToCleanup(cHeaderValues)
         
         return cServerDestination
+    }
+}
+
+// MARK: - Convenience C Access
+
+extension network_service_node: CAccessible, CMutable {
+    var ipString: String {
+        get { "\(ip.0).\(ip.1).\(ip.2).\(ip.3)" }
+        set {
+            let ipParts: [UInt8] = newValue
+                .components(separatedBy: ".")
+                .compactMap { UInt8($0) }
+            
+            guard ipParts.count == 4 else { return }
+            
+            self.ip = (ipParts[0], ipParts[1], ipParts[2], ipParts[3])
+        }
     }
 }

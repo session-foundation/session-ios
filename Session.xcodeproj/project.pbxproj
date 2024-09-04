@@ -832,6 +832,7 @@
 		FDC13D582A17207D007267C7 /* UnsubscribeResponse.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDC13D572A17207D007267C7 /* UnsubscribeResponse.swift */; };
 		FDC13D5A2A1721C5007267C7 /* LegacyNotifyRequest.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDC13D592A1721C5007267C7 /* LegacyNotifyRequest.swift */; };
 		FDC289422C86AB5800020BC2 /* GRDB in Frameworks */ = {isa = PBXBuildFile; productRef = FDC289412C86AB5800020BC2 /* GRDB */; };
+		FDC289472C881A3800020BC2 /* MutableIdentifiable.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDC289462C881A3800020BC2 /* MutableIdentifiable.swift */; };
 		FDC2908727D7047F005DAE71 /* RoomSpec.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDC2908627D7047F005DAE71 /* RoomSpec.swift */; };
 		FDC2908927D70656005DAE71 /* RoomPollInfoSpec.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDC2908827D70656005DAE71 /* RoomPollInfoSpec.swift */; };
 		FDC2908B27D707F3005DAE71 /* SendMessageRequestSpec.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDC2908A27D707F3005DAE71 /* SendMessageRequestSpec.swift */; };
@@ -884,7 +885,7 @@
 		FDD250702837199200198BDA /* GarbageCollectionJob.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDD2506F2837199200198BDA /* GarbageCollectionJob.swift */; };
 		FDD250722837234B00198BDA /* MediaGalleryNavigationController.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDD250712837234B00198BDA /* MediaGalleryNavigationController.swift */; };
 		FDD82C3F2A205D0A00425F05 /* ProcessResult.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDD82C3E2A205D0A00425F05 /* ProcessResult.swift */; };
-		FDDC08F229A300E800BF9681 /* LibSessionTypeConversionUtilitiesSpec.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDDC08F129A300E800BF9681 /* LibSessionTypeConversionUtilitiesSpec.swift */; };
+		FDDC08F229A300E800BF9681 /* TypeConversionUtilitiesSpec.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDDC08F129A300E800BF9681 /* TypeConversionUtilitiesSpec.swift */; };
 		FDDD554C2C1FC812006CBF03 /* CheckForAppUpdatesJob.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDDD554B2C1FC812006CBF03 /* CheckForAppUpdatesJob.swift */; };
 		FDDD554E2C1FCB77006CBF03 /* _019_ScheduleAppUpdateCheckJob.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDDD554D2C1FCB77006CBF03 /* _019_ScheduleAppUpdateCheckJob.swift */; };
 		FDDF074429C3E3D000E5E8B5 /* FetchRequest+Utilities.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDDF074329C3E3D000E5E8B5 /* FetchRequest+Utilities.swift */; };
@@ -1989,6 +1990,7 @@
 		FDC13D552A171FE4007267C7 /* UnsubscribeRequest.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UnsubscribeRequest.swift; sourceTree = "<group>"; };
 		FDC13D572A17207D007267C7 /* UnsubscribeResponse.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UnsubscribeResponse.swift; sourceTree = "<group>"; };
 		FDC13D592A1721C5007267C7 /* LegacyNotifyRequest.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LegacyNotifyRequest.swift; sourceTree = "<group>"; };
+		FDC289462C881A3800020BC2 /* MutableIdentifiable.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MutableIdentifiable.swift; sourceTree = "<group>"; };
 		FDC2908627D7047F005DAE71 /* RoomSpec.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RoomSpec.swift; sourceTree = "<group>"; };
 		FDC2908827D70656005DAE71 /* RoomPollInfoSpec.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RoomPollInfoSpec.swift; sourceTree = "<group>"; };
 		FDC2908A27D707F3005DAE71 /* SendMessageRequestSpec.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SendMessageRequestSpec.swift; sourceTree = "<group>"; };
@@ -2042,7 +2044,7 @@
 		FDD2506F2837199200198BDA /* GarbageCollectionJob.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GarbageCollectionJob.swift; sourceTree = "<group>"; };
 		FDD250712837234B00198BDA /* MediaGalleryNavigationController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MediaGalleryNavigationController.swift; sourceTree = "<group>"; };
 		FDD82C3E2A205D0A00425F05 /* ProcessResult.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProcessResult.swift; sourceTree = "<group>"; };
-		FDDC08F129A300E800BF9681 /* LibSessionTypeConversionUtilitiesSpec.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LibSessionTypeConversionUtilitiesSpec.swift; sourceTree = "<group>"; };
+		FDDC08F129A300E800BF9681 /* TypeConversionUtilitiesSpec.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TypeConversionUtilitiesSpec.swift; sourceTree = "<group>"; };
 		FDDD554B2C1FC812006CBF03 /* CheckForAppUpdatesJob.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CheckForAppUpdatesJob.swift; sourceTree = "<group>"; };
 		FDDD554D2C1FCB77006CBF03 /* _019_ScheduleAppUpdateCheckJob.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = _019_ScheduleAppUpdateCheckJob.swift; sourceTree = "<group>"; };
 		FDDF074329C3E3D000E5E8B5 /* FetchRequest+Utilities.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "FetchRequest+Utilities.swift"; sourceTree = "<group>"; };
@@ -3643,6 +3645,7 @@
 				FDFF9FDE2A787F57005E0628 /* JSONEncoder+Utilities.swift */,
 				FD6A38F02C2A66B100762359 /* KeychainStorageType.swift */,
 				FD09797127FAA2F500936362 /* Optional+Utilities.swift */,
+				FDC289462C881A3800020BC2 /* MutableIdentifiable.swift */,
 				FD09797C27FBDB2000936362 /* Notification+Utilities.swift */,
 				FDF222082818D2B0000A4995 /* NSAttributedString+Utilities.swift */,
 				FDC0F0032BFECE12002CBFB9 /* TimeUnit.swift */,
@@ -4126,6 +4129,7 @@
 				FD83B9B927CF20A5005E1583 /* General */,
 				FDDF074829DAB35200E5E8B5 /* JobRunner */,
 				FD9B30F1293EA0AF008DEE3E /* Networking */,
+				FDC289482C881C5500020BC2 /* LibSession */,
 				FDFBB7522A2023DE00CA7350 /* Utilities */,
 			);
 			path = SessionUtilitiesKitTests;
@@ -4191,7 +4195,6 @@
 		FD8ECF802934385900C0D1BB /* LibSession */ = {
 			isa = PBXGroup;
 			children = (
-				FDDC08F029A300D500BF9681 /* Utilities */,
 				FDA1E83829A5771A00C5C3BD /* LibSessionUtilSpec.swift */,
 				FDA1E83C29AC71A800C5C3BD /* LibSessionSpec.swift */,
 			);
@@ -4265,6 +4268,14 @@
 				FD7F74872BB2929B006DDFD8 /* Request+PushNotificationAPI.swift */,
 			);
 			path = Types;
+			sourceTree = "<group>";
+		};
+		FDC289482C881C5500020BC2 /* LibSession */ = {
+			isa = PBXGroup;
+			children = (
+				FDDC08F029A300D500BF9681 /* Utilities */,
+			);
+			path = LibSession;
 			sourceTree = "<group>";
 		};
 		FDC2909227D710A9005DAE71 /* Types */ = {
@@ -4380,7 +4391,7 @@
 		FDDC08F029A300D500BF9681 /* Utilities */ = {
 			isa = PBXGroup;
 			children = (
-				FDDC08F129A300E800BF9681 /* LibSessionTypeConversionUtilitiesSpec.swift */,
+				FDDC08F129A300E800BF9681 /* TypeConversionUtilitiesSpec.swift */,
 			);
 			path = Utilities;
 			sourceTree = "<group>";
@@ -5860,6 +5871,7 @@
 				B87EF18126377A1D00124B3C /* Features.swift in Sources */,
 				FD09797727FAB7A600936362 /* Data+Image.swift in Sources */,
 				FD7F745B2BAAA35E006DDFD8 /* LibSession.swift in Sources */,
+				FDC289472C881A3800020BC2 /* MutableIdentifiable.swift in Sources */,
 				C300A60D2554B31900555489 /* Logging.swift in Sources */,
 				FD6A39242C2AAE4500762359 /* CGRect+Utilities.swift in Sources */,
 				B8FF8EA625C11FEF004D1F22 /* IPv4.swift in Sources */,
@@ -6389,7 +6401,7 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				FDDC08F229A300E800BF9681 /* LibSessionTypeConversionUtilitiesSpec.swift in Sources */,
+				FDDC08F229A300E800BF9681 /* TypeConversionUtilitiesSpec.swift in Sources */,
 				FDC2909427D710B4005DAE71 /* SOGSEndpointSpec.swift in Sources */,
 				FD96F3A529DBC3DC00401309 /* MessageSendJobSpec.swift in Sources */,
 				FDC2909127D709CA005DAE71 /* SOGSMessageSpec.swift in Sources */,
