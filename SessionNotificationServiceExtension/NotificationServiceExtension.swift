@@ -61,12 +61,18 @@ public final class NotificationServiceExtension: UNNotificationServiceExtension 
     }
     
     private func handleNotification(_ notificationContent: UNMutableNotificationContent, isPerformingResetup: Bool) {
+        let userSessionId: String = getUserHexEncodedPublicKey(using: dependencies)
         let (maybeData, metadata, result) = PushNotificationAPI.processNotification(
             notificationContent: notificationContent,
             using: dependencies
         )
         
-        guard metadata.accountId == getUserHexEncodedPublicKey(using: dependencies) else {
+        /// There is an annoying issue where clearing account data and creating a new account can result in the user receiving push notifications
+        /// for the new account but the NotificationServiceExtension having cached state based on the old account
+        ///
+        /// In order to avoid this we check if the account the notification was sent to matches the current users sessionId and if it doesn't (and the
+        /// notification is for a message stored in one of the users namespaces) then try to re-setup the notification extension
+        guard !metadata.namespace.isCurrentUserNamespace || metadata.accountId == userSessionId else {
             guard !isPerformingResetup else {
                 Log.error("Received notification for an accountId that isn't the current user, resetup failed.")
                 return self.completeSilenty(handledNotification: false)
