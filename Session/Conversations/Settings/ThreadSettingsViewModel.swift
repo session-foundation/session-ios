@@ -515,17 +515,11 @@ class ThreadSettingsViewModel: SessionTableViewModel, NavigationItemSource, Navi
                             ),
                             confirmationInfo: ConfirmationModal.Info(
                                 title: "groupLeave".localized(),
-                                body: .attributedText({
-                                    if currentUserIsClosedGroupAdmin {
-                                        return "groupOnlyAdmin"
-                                            .put(key: "group_name", value: threadViewModel.displayName)
-                                            .localizedFormatted(baseFont: .boldSystemFont(ofSize: Values.smallFontSize))
-                                    }
-                                    
-                                    return "groupLeaveDescription"
+                                body: .attributedText(
+                                    "groupDeleteDescription"
                                         .put(key: "group_name", value: threadViewModel.displayName)
                                         .localizedFormatted(baseFont: .boldSystemFont(ofSize: Values.smallFontSize))
-                                }()),
+                                ),
                                 confirmTitle: "leave".localized(),
                                 confirmStyle: .danger,
                                 cancelStyle: .alert_text

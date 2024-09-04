@@ -802,7 +802,7 @@ final class HomeVC: BaseVC, LibSessionRespondingViewController, UITableViewDataS
                 }()
                 let destructiveAction: UIContextualAction.SwipeAction = {
                     switch (threadViewModel.threadVariant, threadViewModel.threadIsNoteToSelf, threadViewModel.currentUserIsClosedGroupMember) {
-                        case (.contact, true, _): return .hide
+                        case (.contact, true, _): return .clear
                         case (.legacyGroup, _, true), (.group, _, true), (.community, _, _): return .leave
                         default: return .delete
                     }

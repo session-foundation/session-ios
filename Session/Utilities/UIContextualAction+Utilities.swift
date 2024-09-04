@@ -36,6 +36,7 @@ public extension UIContextualAction {
         case block
         case leave
         case delete
+        case clear
     }
     
     static func configuration(for actions: [UIContextualAction]?) -> UISwipeActionsConfiguration? {
@@ -113,6 +114,50 @@ public extension UIContextualAction {
                             }
                             completionHandler(true)
                         }
+                    
+                    // MARK: -- clear
+                    
+                    case .clear:
+                        return UIContextualAction(
+                            title: "clear".localized(),
+                            icon: UIImage(named: "ic_bin"),
+                            themeTintColor: .white,
+                            themeBackgroundColor: themeBackgroundColor,
+                            side: side,
+                            actionIndex: targetIndex,
+                            indexPath: indexPath,
+                            tableView: tableView
+                        ) { _, _, completionHandler  in
+                            let confirmationModal: ConfirmationModal = ConfirmationModal(
+                                info: ConfirmationModal.Info(
+                                    title: "clearMessages".localized(),
+                                    body: .text("clearMessagesNoteToSelfDescription".localized()),
+                                    confirmTitle: "clear".localized(),
+                                    confirmAccessibility: Accessibility(
+                                        identifier: "Clear"
+                                    ),
+                                    confirmStyle: .danger,
+                                    cancelStyle: .alert_text,
+                                    dismissOnConfirm: true,
+                                    onConfirm: { _ in
+                                        Storage.shared.writeAsync { db in
+                                            try SessionThread.deleteOrLeave(
+                                                db,
+                                                threadId: threadViewModel.threadId,
+                                                threadVariant: threadViewModel.threadVariant,
+                                                groupLeaveType: .silent,
+                                                calledFromConfigHandling: false
+                                            )
+                                        }
+                                        
+                                        completionHandler(true)
+                                    },
+                                    afterClosed: { completionHandler(false) }
+                                )
+                            )
+                            
+                            viewController?.present(confirmationModal, animated: true, completion: nil)
+                        }
                         
                     // MARK: -- hide
                         
@@ -133,25 +178,10 @@ public extension UIContextualAction {
                                     completionHandler(true)
                                     
                                 default:
-                                    let confirmationModalExplanation: NSAttributedString = {
-                                        let message = String(
-                                            format: "noteToSelfHideDescription".localized(),
-                                            threadViewModel.displayName
-                                        )
-                                        
-                                        return NSAttributedString(string: message)
-                                            .adding(
-                                                attributes: [
-                                                    .font: UIFont.boldSystemFont(ofSize: Values.smallFontSize)
-                                                ],
-                                                range: (message as NSString).range(of: threadViewModel.displayName)
-                                            )
-                                    }()
-                                    
                                     let confirmationModal: ConfirmationModal = ConfirmationModal(
                                         info: ConfirmationModal.Info(
                                             title: "noteToSelfHide".localized(),
-                                            body: .attributedText(confirmationModalExplanation),
+                                            body: .text("noteToSelfHideDescription".localized()),
                                             confirmTitle: "hide".localized(),
                                             confirmAccessibility: Accessibility(
                                                 identifier: "Hide"
@@ -383,15 +413,17 @@ public extension UIContextualAction {
                             }()
                             
                             let confirmationModalExplanation: NSAttributedString = {
-                                if threadViewModel.currentUserIsClosedGroupAdmin == true {
-                                    return "groupOnlyAdmin"
-                                        .put(key: "group_name", value: threadViewModel.displayName)
-                                        .localizedFormatted(baseFont: .boldSystemFont(ofSize: Values.smallFontSize))
+                                switch threadViewModel.threadVariant {
+                                    case .legacyGroup, .group:
+                                        return "groupDeleteDescription"
+                                            .put(key: "group_name", value: threadViewModel.displayName)
+                                            .localizedFormatted(baseFont: .boldSystemFont(ofSize: Values.smallFontSize))
+                                        
+                                    default:
+                                        return "groupLeaveDescription"
+                                            .put(key: "group_name", value: threadViewModel.displayName)
+                                            .localizedFormatted(baseFont: .boldSystemFont(ofSize: Values.smallFontSize))
                                 }
-                                
-                                return "groupLeaveDescription"
-                                    .put(key: "group_name", value: threadViewModel.displayName)
-                                    .localizedFormatted(baseFont: .boldSystemFont(ofSize: Values.smallFontSize))
                             }()
                             
                             let confirmationModal: ConfirmationModal = ConfirmationModal(
@@ -453,8 +485,7 @@ public extension UIContextualAction {
                     case .delete:
                         return UIContextualAction(
                             title: "delete".localized(),
-                            icon: UIImage(named: "icon_bin"),
-                            iconHeight: Values.mediumFontSize,
+                            icon: UIImage(named: "ic_bin"),
                             themeTintColor: .white,
                             themeBackgroundColor: themeBackgroundColor,
                             side: side,
@@ -480,11 +511,6 @@ public extension UIContextualAction {
                                     return NSAttributedString(
                                         string: "messageRequestsDelete".localized()
                                     )
-                                }
-                                guard threadViewModel.currentUserIsClosedGroupAdmin == false else {
-                                    return "groupOnlyAdmin"
-                                        .put(key: "group_name", value: threadViewModel.displayName)
-                                        .localizedFormatted(baseFont: .boldSystemFont(ofSize: Values.smallFontSize))
                                 }
                                 
                                 switch threadViewModel.threadVariant {
