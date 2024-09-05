@@ -364,8 +364,8 @@ public extension ClosedGroupControlMessage.Kind {
         switch self {
             case .nameChange(let name):
                 return "groupNameNew"
-                .put(key: "group_name", value: name)
-                .localized()
+                    .put(key: "group_name", value: name)
+                    .localized()
                 
             case .membersAdded(let membersAsData):
                 let memberIds: [String] = membersAsData.map { $0.toHexString() }
@@ -378,9 +378,9 @@ public extension ClosedGroupControlMessage.Kind {
                         Profile.truncated(id: $0, threadVariant: .legacyGroup)
                     }
                 
-            return "groupMemberNew"
-                .put(key: "name", value: addedMemberNames.joined(separator: ", "))
-                .localized()
+                return "legacyGroupMemberNew"
+                    .put(key: "name", value: addedMemberNames.joined(separator: ", "))
+                    .localized()
                 
             case .membersRemoved(let membersAsData):
                 let userPublicKey: String = getUserHexEncodedPublicKey(db)
