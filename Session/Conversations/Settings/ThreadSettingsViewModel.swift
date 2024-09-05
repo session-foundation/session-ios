@@ -516,7 +516,7 @@ class ThreadSettingsViewModel: SessionTableViewModel, NavigationItemSource, Navi
                             confirmationInfo: ConfirmationModal.Info(
                                 title: "groupLeave".localized(),
                                 body: .attributedText(
-                                    "groupDeleteDescription"
+                                    (currentUserIsClosedGroupAdmin ? "groupDeleteDescription" : "groupLeaveDescription")
                                         .put(key: "group_name", value: threadViewModel.displayName)
                                         .localizedFormatted(baseFont: .boldSystemFont(ofSize: Values.smallFontSize))
                                 ),

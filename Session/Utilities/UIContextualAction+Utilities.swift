@@ -416,8 +416,8 @@ public extension UIContextualAction {
                             }()
                             
                             let confirmationModalExplanation: NSAttributedString = {
-                                switch threadViewModel.threadVariant {
-                                    case .legacyGroup, .group:
+                                switch (threadViewModel.threadVariant, threadViewModel.currentUserIsClosedGroupAdmin) {
+                                    case (.legacyGroup, true), (.group, true):
                                         return "groupDeleteDescription"
                                             .put(key: "group_name", value: threadViewModel.displayName)
                                             .localizedFormatted(baseFont: .boldSystemFont(ofSize: Values.smallFontSize))
@@ -516,18 +516,19 @@ public extension UIContextualAction {
                                     )
                                 }
                                 
+                                guard threadViewModel.currentUserIsClosedGroupAdmin == false else {
+                                    return "groupDeleteDescription"
+                                        .put(key: "group_name", value: threadViewModel.displayName)
+                                        .localizedFormatted(baseFont: .boldSystemFont(ofSize: Values.smallFontSize))
+                                }
+                                
                                 switch threadViewModel.threadVariant {
                                     case .contact:
                                         return "conversationsDeleteDescription"
                                             .put(key: "name", value: threadViewModel.displayName)
                                             .localizedFormatted(baseFont: .boldSystemFont(ofSize: Values.smallFontSize))
                                         
-                                    case .legacyGroup, .group:
-                                        return "groupDeleteDescription"
-                                            .put(key: "group_name", value: threadViewModel.displayName)
-                                            .localizedFormatted(baseFont: .boldSystemFont(ofSize: Values.smallFontSize))
-                                        
-                                    case .community:
+                                    default:
                                         return "groupLeaveDescription"
                                             .put(key: "group_name", value: threadViewModel.displayName)
                                             .localizedFormatted(baseFont: .boldSystemFont(ofSize: Values.smallFontSize))
