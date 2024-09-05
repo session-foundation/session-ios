@@ -290,7 +290,10 @@ public enum PushRegistrationError: Error {
             return
         }
         
-        Storage.resumeDatabaseAccess()
+        // FIXME: Initialise the `PushRegistrationManager` with a dependencies instance
+        let dependencies: Dependencies = Dependencies()
+        
+        Storage.resumeDatabaseAccess(using: dependencies)
         LibSession.resumeNetworkAccess()
         
         let maybeCall: SessionCall? = Storage.shared.write { db in

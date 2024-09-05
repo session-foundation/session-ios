@@ -13,7 +13,7 @@ internal enum StartupError: Error, CustomStringConvertible {
     
     public var description: String {
         switch self {
-            case .databaseError(StorageError.startupFailed), .databaseError(DatabaseError.SQLITE_LOCKED):
+            case .databaseError(StorageError.startupFailed), .databaseError(DatabaseError.SQLITE_LOCKED), .databaseError(StorageError.databaseSuspended):
                 return "Database startup failed"
             case .databaseError(StorageError.migrationNoLongerSupported): return "Unsupported version"
             case .failedToRestore: return "Failed to restore"
@@ -24,7 +24,7 @@ internal enum StartupError: Error, CustomStringConvertible {
     
     var message: String {
         switch self {
-            case .databaseError(StorageError.startupFailed), .databaseError(DatabaseError.SQLITE_LOCKED), .failedToRestore, .databaseError:
+            case .databaseError(StorageError.startupFailed), .databaseError(DatabaseError.SQLITE_LOCKED), .databaseError(StorageError.databaseSuspended), .failedToRestore, .databaseError:
                 return "databaseErrorGeneric".localized()
 
             case .databaseError(StorageError.migrationNoLongerSupported):
