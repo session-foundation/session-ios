@@ -83,6 +83,21 @@ public struct DisappearingMessagesConfiguration: Codable, Identifiable, Equatabl
                 case .disappearAfterSend: return CONVO_EXPIRATION_AFTER_SEND
             }
         }
+        
+        public func localizedState(durationString: String) -> String {
+            switch self {
+                case .unknown:
+                    return ""
+                case .disappearAfterRead:
+                    return "disappearingMessagesDisappearAfterReadState"
+                        .put(key: "time", value: durationString)
+                        .localized()
+                case .disappearAfterSend:
+                    return "disappearingMessagesDisappearAfterSendState"
+                        .put(key: "time", value: durationString)
+                        .localized()
+            }
+        }
     }
     
     public var id: String { threadId }  // Identifiable

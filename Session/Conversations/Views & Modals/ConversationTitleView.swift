@@ -233,10 +233,10 @@ final class ConversationTitleView: UIView {
                         attributedText: NSAttributedString(attachment: imageAttachment)
                             .appending(string: " ")
                             .appending(
-                                string: "disappearingMessagesDisappear"
-                                    .put(key: "disappearing_messages_type", value: (config.type?.localizedName ?? ""))
-                                    .put(key: "time", value: floor(config.durationSeconds).formatted(format: .short))
-                                    .localized()
+                                string: (config.type ?? .unknown)
+                                    .localizedState(
+                                        durationString: floor(config.durationSeconds).formatted(format: .short)
+                                    )
                             ),
                         accessibility: Accessibility(
                             identifier: "Disappearing messages type and time",

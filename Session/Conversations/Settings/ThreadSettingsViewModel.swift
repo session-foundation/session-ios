@@ -453,10 +453,10 @@ class ThreadSettingsViewModel: SessionTableViewModel, NavigationItemSource, Navi
                                     return "off".localized()
                                 }
                                 
-                                return "disappearingMessagesDisappear"
-                                    .put(key: "disappearing_messages_type", value: (current.disappearingMessagesConfig.type?.localizedName ?? ""))
-                                    .put(key: "time", value: current.disappearingMessagesConfig.durationString)
-                                    .localized()
+                                return (current.disappearingMessagesConfig.type ?? .unknown)
+                                    .localizedState(
+                                        durationString: current.disappearingMessagesConfig.durationString
+                                    )
                             }(),
                             accessibility: Accessibility(
                                 identifier: "Disappearing messages",
