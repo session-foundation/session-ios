@@ -203,7 +203,7 @@ public extension ConfigurationSyncJob {
     static func enqueue(
         _ db: Database,
         publicKey: String,
-        dependencies: Dependencies = Dependencies()
+        using dependencies: Dependencies = Dependencies()
     ) {
         // Upsert a config sync job if needed
         dependencies.jobRunner.upsert(

@@ -4,6 +4,7 @@
 
 import Foundation
 import GRDB
+import SessionSnodeKit
 import SessionUtil
 import SessionUtilitiesKit
 
@@ -254,6 +255,27 @@ public extension Crypto.Generator {
             cDecryptedDataPtr?.deallocate()
 
             return try decryptedData ?? { throw MessageReceiverError.decryptionFailed }()
+        }
+    }
+    
+    static func messageServerHash(
+        swarmPubkey: String,
+        namespace: SnodeAPI.Namespace,
+        data: Data
+    ) -> Crypto.Generator<String> {
+        return Crypto.Generator(
+            id: "messageServerHash",
+            args: [swarmPubkey, namespace, data]
+        ) {
+            var cSwarmPubkey: [CChar] = try swarmPubkey.cString(using: .utf8) ?? { throw LibSessionError.invalidCConversion }()
+            var cData: [CChar] = try data.base64EncodedString().cString(using: .utf8) ?? { throw LibSessionError.invalidCConversion }()
+            var cHash: [CChar] = [CChar](repeating: 0, count: 65)
+            
+            guard session_compute_message_hash(cSwarmPubkey, Int16(namespace.rawValue), cData, &cHash) else {
+                throw MessageReceiverError.decryptionFailed
+            }
+            
+            return String(cString: cHash)
         }
     }
 }

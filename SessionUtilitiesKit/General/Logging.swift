@@ -446,7 +446,7 @@ public class Logger {
                         }
                 }
                 catch {
-                    self?.completeResumeLogging(error: "Unable to write extension logs to current log file")
+                    self?.completeResumeLogging(error: "Unable to write extension logs to current log file due to error: \(error)")
                     return
                 }
                 
