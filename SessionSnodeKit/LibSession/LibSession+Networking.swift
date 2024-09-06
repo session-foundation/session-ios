@@ -230,7 +230,8 @@ public extension LibSession {
         to destination: Network.Destination,
         body: T?,
         swarmPublicKey: String?,
-        timeout: TimeInterval,
+        requestTimeout: TimeInterval,
+        requestAndPathBuildTimeout: TimeInterval?,
         using dependencies: Dependencies
     ) -> AnyPublisher<(ResponseInfoType, Data?), Error> {
         typealias Output = (success: Bool, timeout: Bool, statusCode: Int, data: Data?)
@@ -269,7 +270,8 @@ public extension LibSession {
                                     cPayloadBytes,
                                     cPayloadBytes.count,
                                     cSwarmPublicKey,
-                                    Int64(floor(timeout * 1000)),
+                                    Int64(floor(requestTimeout * 1000)),
+                                    Int64(floor((requestAndPathBuildTimeout ?? 0) * 1000)),
                                     { success, timeout, statusCode, dataPtr, dataLen, ctx in
                                         let data: Data? = dataPtr.map { Data(bytes: $0, count: dataLen) }
                                         CallbackWrapper<Output>.run(ctx, (success, timeout, Int(statusCode), data))
@@ -283,7 +285,8 @@ public extension LibSession {
                                     try wrapper.cServerDestination(destination),
                                     cPayloadBytes,
                                     cPayloadBytes.count,
-                                    Int64(floor(timeout * 1000)),
+                                    Int64(floor(requestTimeout * 1000)),
+                                    Int64(floor((requestAndPathBuildTimeout ?? 0) * 1000)),
                                     { success, timeout, statusCode, dataPtr, dataLen, ctx in
                                         let data: Data? = dataPtr.map { Data(bytes: $0, count: dataLen) }
                                         CallbackWrapper<Output>.run(ctx, (success, timeout, Int(statusCode), data))
@@ -319,6 +322,7 @@ public extension LibSession {
                             data.count,
                             fileName?.cString(using: .utf8),
                             Int64(floor(Network.fileUploadTimeout * 1000)),
+                            0,
                             { success, timeout, statusCode, dataPtr, dataLen, ctx in
                                 let data: Data? = dataPtr.map { Data(bytes: $0, count: dataLen) }
                                 CallbackWrapper<Output>.run(ctx, (success, timeout, Int(statusCode), data))
@@ -350,6 +354,7 @@ public extension LibSession {
                             network,
                             try wrapper.cServerDestination(server),
                             Int64(floor(Network.fileDownloadTimeout * 1000)),
+                            0,
                             { success, timeout, statusCode, dataPtr, dataLen, ctx in
                                 let data: Data? = dataPtr.map { Data(bytes: $0, count: dataLen) }
                                 CallbackWrapper<Output>.run(ctx, (success, timeout, Int(statusCode), data))
@@ -387,6 +392,7 @@ public extension LibSession {
                             CLIENT_PLATFORM_IOS,
                             &cEd25519SecretKey,
                             Int64(floor(Network.fileDownloadTimeout * 1000)),
+                            0,
                             { success, timeout, statusCode, dataPtr, dataLen, ctx in
                                 let data: Data? = dataPtr.map { Data(bytes: $0, count: dataLen) }
                                 CallbackWrapper<Output>.run(ctx, (success, timeout, Int(statusCode), data))

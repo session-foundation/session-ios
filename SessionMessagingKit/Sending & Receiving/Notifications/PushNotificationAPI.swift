@@ -496,7 +496,8 @@ public enum PushNotificationAPI {
         request: Request<T, Endpoint>,
         responseType: R.Type,
         retryCount: Int = 0,
-        timeout: TimeInterval = Network.defaultTimeout,
+        requestTimeout: TimeInterval = Network.defaultTimeout,
+        requestAndPathBuildTimeout: TimeInterval? = nil,
         using dependencies: Dependencies
     ) throws -> Network.PreparedRequest<R> {
         return Network.PreparedRequest<R>(
@@ -504,7 +505,8 @@ public enum PushNotificationAPI {
             urlRequest: try request.generateUrlRequest(using: dependencies),
             responseType: responseType,
             retryCount: retryCount,
-            timeout: timeout
+            requestTimeout: requestTimeout,
+            requestAndPathBuildTimeout: requestAndPathBuildTimeout
         )
     }
 }
