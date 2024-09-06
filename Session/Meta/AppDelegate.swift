@@ -805,10 +805,9 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
     public func startPollersIfNeeded(shouldStartGroupPollers: Bool = true) {
         guard Identity.userExists() else { return }
         
-        /// There is a fun issue where if you launch without any valid paths then the pollers are guaranteed to fail their first poll due to
-        /// trying and failing to build paths without having the `SnodeAPI.snodePool` populated, by waiting for the
-        /// `JobRunner.blockingQueue` to complete we can have more confidence that paths won't fail to build incorrectly
-        JobRunner.afterBlockingQueue { [weak self] in
+        /// Start the pollers on a background thread so that any database queries they need to run don't
+        /// block the main thread
+        DispatchQueue.global(qos: .background).async { [weak self] in
             self?.poller.start()
             
             guard shouldStartGroupPollers else { return }
