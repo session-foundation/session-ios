@@ -8,12 +8,6 @@ import SessionUtil
 // MARK: - LibSession
 
 public enum LibSession {
-    private static let logLevels: [LogCategory: LOG_LEVEL] = [
-        .config: LOG_LEVEL_INFO,
-        .network: LOG_LEVEL_INFO,
-        .manual: LOG_LEVEL_INFO,
-    ]
-    
     public static var version: String { String(cString: LIBSESSION_UTIL_VERSION_STR) }
 }
 
@@ -21,19 +15,29 @@ public enum LibSession {
 
 extension LibSession {
     public static func addLogger() {
+        /// Setup any custom category defaul log levels for libSession
+        Log.Category.create("config", defaultLevel: .info)
+        Log.Category.create("network", defaultLevel: .info)
+        
         /// Set the default log level first (unless specified we only care about semi-dangerous logs)
         session_logger_set_level_default(LOG_LEVEL_WARN)
         
         /// Then set any explicit category log levels we have
-        logLevels.forEach { cat, level in
-            guard let cCat: [CChar] = cat.rawValue.cString(using: .utf8) else { return }
+        AllLoggingCategories.defaultLevels.forEach { category, level in
+            guard
+                let cCat: [CChar] = category.rawValue.cString(using: .utf8),
+                let cLogLevel: LOG_LEVEL = level.libSession
+            else { return }
             
-            session_logger_set_level(cCat, level)
+            session_logger_set_level(cCat, cLogLevel)
         }
         
         /// Finally register the actual logger callback
         session_add_logger_full({ msgPtr, msgLen, catPtr, catLen, lvl in
-            guard let msg: String = String(pointer: msgPtr, length: msgLen, encoding: .utf8) else { return }
+            guard
+                let msg: String = String(pointer: msgPtr, length: msgLen, encoding: .utf8),
+                let cat: String = String(pointer: catPtr, length: catLen, encoding: .utf8)
+            else { return }
             
             /// Logs from libSession come through in the format:
             /// `[yyyy-MM-dd hh:mm:ss] [+{lifetime}s] [{cat}:{lvl}|log.hpp:{line}] {message}`
@@ -48,45 +52,35 @@ extension LibSession {
                 return "\(logParts[1])] \(message)"
             }()
             
-            Log.custom(Log.Level(lvl), [LogCategory(catPtr, catLen).logCat], processedMessage)
+            Log.custom(
+                Log.Level(lvl),
+                [Log.Category(rawValue: cat, customPrefix: "libSession:")],
+                processedMessage
+            )
         })
     }
     
     public static func clearLoggers() {
         session_clear_loggers()
     }
-    
-    // MARK: - Internal
-    
-    fileprivate enum LogCategory: String {
-        case libSession
-        case config
-        case network
-        case quic
-        case manual
-        
-        var logCat: Log.Category {
-            switch self {
-                case .libSession: return "libSession"
-                case .config: return "libSession:config"
-                case .network: return "libSession:network"
-                case .quic: return "libSession:quic"
-                case .manual: return "libSession:manual"
-            }
-        }
-        
-        init(_ catPtr: UnsafePointer<CChar>?, _ catLen: Int) {
-            switch String(pointer: catPtr, length: catLen, encoding: .utf8).map({ LogCategory(rawValue: $0) }) {
-                case .some(let cat): self = cat
-                case .none: self = .libSession
-            }
-        }
-    }
 }
 
 // MARK: - Convenience
 
 fileprivate extension Log.Level {
+    var libSession: LOG_LEVEL? {
+        switch self {
+            case .verbose: return LOG_LEVEL_TRACE
+            case .debug: return LOG_LEVEL_DEBUG
+            case .info: return LOG_LEVEL_INFO
+            case .warn: return LOG_LEVEL_WARN
+            case .error: return LOG_LEVEL_ERROR
+            case .critical: return LOG_LEVEL_CRITICAL
+            case .off: return LOG_LEVEL_OFF
+            case .default: return nil   // It'll use the default value by default so just return nil
+        }
+    }
+    
     init(_ level: LOG_LEVEL) {
         switch level {
             case LOG_LEVEL_TRACE: self = .verbose

@@ -8,9 +8,13 @@ import GRDB
 import SessionSnodeKit
 import SessionUtilitiesKit
 
-private extension Log.Category {
-    static var ip2Country: Log.Category = "IP2Country"
+// MARK: - Log.Level
+
+public extension Log.Category {
+    static let ip2Country: Log.Category = .create("IP2Country", defaultLevel: .info)
 }
+
+// MARK: - IP2Country
 
 public enum IP2Country {
     public static var isInitialized: Atomic<Bool> = Atomic(false)
