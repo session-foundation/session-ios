@@ -4,7 +4,7 @@ import Foundation
 
 // MARK: - DataSource
 
-public protocol DataSource: Equatable, Hashable {
+public protocol DataSource: Equatable {
     var data: Data { get }
     var dataUrl: URL? { get }
 
@@ -140,13 +140,6 @@ public class DataSourceValue: DataSource {
         try data.write(to: URL(fileURLWithPath: path), options: .atomic)
     }
     
-    public func hash(into hasher: inout Hasher) {
-        data.hash(into: &hasher)
-        sourceFilename.hash(into: &hasher)
-        fileExtension.hash(into: &hasher)
-        shouldDeleteOnDeinit.hash(into: &hasher)
-    }
-    
     public static func == (lhs: DataSourceValue, rhs: DataSourceValue) -> Bool {
         return (
             lhs.data == rhs.data &&
@@ -232,12 +225,6 @@ public class DataSourcePath: DataSource {
     
     public func write(to path: String) throws {
         try FileManager.default.copyItem(atPath: filePath, toPath: path)
-    }
-    
-    public func hash(into hasher: inout Hasher) {
-        filePath.hash(into: &hasher)
-        sourceFilename.hash(into: &hasher)
-        shouldDeleteOnDeinit.hash(into: &hasher)
     }
     
     public static func == (lhs: DataSourcePath, rhs: DataSourcePath) -> Bool {

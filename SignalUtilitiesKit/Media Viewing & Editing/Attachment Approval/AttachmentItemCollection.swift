@@ -24,12 +24,13 @@ class AddMoreRailItem: GalleryRailItem {
     }
 }
 
-class SignalAttachmentItem: Hashable {
+class SignalAttachmentItem: Equatable {
 
     enum SignalAttachmentItemError: Error {
         case noThumbnail
     }
 
+    let uniqueIdentifier: UUID = UUID()
     let attachment: SignalAttachment
 
     // This might be nil if the attachment is not a valid image.
@@ -61,12 +62,6 @@ class SignalAttachmentItem: Hashable {
 
     func getThumbnailImage() -> UIImage? {
         return attachment.staticThumbnail()
-    }
-
-    // MARK: Hashable
-    
-    func hash(into hasher: inout Hasher) {
-        attachment.hash(into: &hasher)
     }
 
     // MARK: Equatable

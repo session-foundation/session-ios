@@ -205,7 +205,7 @@ public final class SessionCallManager: NSObject, CallManagerProtocol {
             // Stop all jobs except for message sending and when completed suspend the database
             JobRunner.stopAndClearPendingJobs(exceptForVariant: .messageSend, using: dependencies) { _ in
                 LibSession.suspendNetworkAccess()
-                Storage.shared.suspendDatabaseAccess()
+                dependencies.storage.suspendDatabaseAccess()
                 Log.flush()
             }
         }
