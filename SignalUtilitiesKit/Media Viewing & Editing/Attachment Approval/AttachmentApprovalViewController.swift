@@ -91,7 +91,7 @@ public class AttachmentApprovalViewController: UIPageViewController, UIPageViewC
         set { setCurrentItem(newValue, direction: .forward, animated: false) }
     }
     
-    private var cachedPages: [SignalAttachmentItem: AttachmentPrepViewController] = [:]
+    private var cachedPages: [UUID: AttachmentPrepViewController] = [:]
 
     public var shouldHideControls: Bool {
         guard let pageViewController: AttachmentPrepViewController = pageViewControllers?.first else {
@@ -417,7 +417,7 @@ public class AttachmentApprovalViewController: UIPageViewController, UIPageViewC
     }
 
     private func buildPage(item: SignalAttachmentItem) -> AttachmentPrepViewController? {
-        if let cachedPage = cachedPages[item] {
+        if let cachedPage = cachedPages[item.uniqueIdentifier] {
             Log.debug("[AttachmentApprovalViewController] cache hit.")
             return cachedPage
         }
@@ -425,7 +425,7 @@ public class AttachmentApprovalViewController: UIPageViewController, UIPageViewC
         Log.debug("[AttachmentApprovalViewController] cache miss.")
         let viewController = AttachmentPrepViewController(attachmentItem: item, using: dependencies)
         viewController.prepDelegate = self
-        cachedPages[item] = viewController
+        cachedPages[item.uniqueIdentifier] = viewController
 
         return viewController
     }
