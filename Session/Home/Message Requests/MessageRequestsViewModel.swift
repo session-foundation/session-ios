@@ -205,7 +205,8 @@ class MessageRequestsViewModel: SessionTableViewModel, NavigatableStateHolder, O
                 onTap: { [weak self] in
                     let modal: ConfirmationModal = ConfirmationModal(
                         info: ConfirmationModal.Info(
-                            title: "messageRequestsClearAllExplanation".localized(),
+                            title: "clearAll".localized(),
+                            body: .text("messageRequestsClearAllExplanation".localized()),
                             accessibility: Accessibility(
                                 identifier: "Clear all"
                             ),
