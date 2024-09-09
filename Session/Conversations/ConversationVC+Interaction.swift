@@ -653,7 +653,9 @@ extension ConversationVC:
                         .put(key: "app_name", value: Constants.app_name)
                         .localized()
                 ),
-                confirmTitle: "enable".localized()
+                confirmTitle: "enable".localized(),
+                confirmStyle: .danger,
+                cancelStyle: .alert_text
             ) { [weak self] _ in
                 Storage.shared.writeAsync { db in
                     db[.areLinkPreviewsEnabled] = true
