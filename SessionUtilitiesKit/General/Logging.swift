@@ -670,7 +670,7 @@ public struct AllLoggingCategories {
                 /// **Note:** We only want to use the `rawValue` to distinguish between logging categories
                 /// as the `defaultLevel` can change via the dev settings and any additional metadata could
                 /// be file/class specific
-                category.rawValue != cat.rawValue
+                category.rawValue == cat.rawValue
             })
         else { return }
         

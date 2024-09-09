@@ -310,7 +310,7 @@ class TypeConversionUtilitiesSpec: QuickSpec {
                         "Test3AndExtra".cString(using: .utf8)!
                     )
                     let result = test.withUnsafeMutableBufferPointer { ptr in
-                        var mutablePtr = UnsafeMutablePointer(ptr.baseAddress)
+                        var mutablePtr = UnsafePointer(ptr.baseAddress)
                         
                         return [String](pointer: &mutablePtr, count: 3)
                     }
@@ -322,7 +322,7 @@ class TypeConversionUtilitiesSpec: QuickSpec {
                 it("returns an empty array if given one") {
                     var test = [CChar]()
                     let result = test.withUnsafeMutableBufferPointer { ptr in
-                        var mutablePtr = UnsafeMutablePointer(ptr.baseAddress)
+                        var mutablePtr = UnsafePointer(ptr.baseAddress)
                         
                         return [String](pointer: &mutablePtr, count: 0)
                     }
@@ -338,7 +338,7 @@ class TypeConversionUtilitiesSpec: QuickSpec {
                         "Test2".cString(using: .utf8)!
                     )
                     let result = test.withUnsafeMutableBufferPointer { ptr in
-                        var mutablePtr = UnsafeMutablePointer(ptr.baseAddress)
+                        var mutablePtr = UnsafePointer(ptr.baseAddress)
                         
                         return [String](pointer: &mutablePtr, count: 3)
                     }
@@ -348,7 +348,7 @@ class TypeConversionUtilitiesSpec: QuickSpec {
                 
                 // MARK: ---- returns null when given a null pointer
                 it("returns null when given a null pointer") {
-                    expect([String](pointer: nil, count: 5)).to(beNil())
+                    expect([String](pointee: nil, count: 5)).to(beNil())
                 }
                 
                 // MARK: ---- returns null when given a null count
@@ -365,7 +365,8 @@ class TypeConversionUtilitiesSpec: QuickSpec {
                 
                 // MARK: ---- returns the default value if given null values
                 it("returns the default value if given null values") {
-                    expect([String](pointer: nil, count: 5, defaultValue: ["Test"]))
+                    let ptr: UnsafeMutablePointer<UnsafePointer<CChar>?>? = nil
+                    expect([String](pointer: ptr, count: 5, defaultValue: ["Test"]))
                         .to(equal(["Test"]))
                 }
             }

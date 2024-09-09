@@ -36,13 +36,11 @@ public final class NotificationServiceExtension: UNNotificationServiceExtension 
         
         // Abort if the main app is running
         guard !(UserDefaults.sharedLokiProject?[.isMainAppActive]).defaulting(to: false) else {
-            Log.info("didReceive called while main app running.")
             return self.completeSilenty(handledNotification: false, isMainAppAndActive: true)
         }
         
         guard let notificationContent = request.content.mutableCopy() as? UNMutableNotificationContent else {
-            Log.info("didReceive called with no content.")
-            return self.completeSilenty(handledNotification: false)
+            return self.completeSilenty(handledNotification: false, noContent: true)
         }
         
         Log.info("didReceive called.")
@@ -366,7 +364,7 @@ public final class NotificationServiceExtension: UNNotificationServiceExtension 
         completeSilenty(handledNotification: false)
     }
     
-    private func completeSilenty(handledNotification: Bool, isMainAppAndActive: Bool = false) {
+    private func completeSilenty(handledNotification: Bool, isMainAppAndActive: Bool = false, noContent: Bool = false) {
         // Ensure we only run this once
         guard
             hasCompleted.mutate({ hasCompleted in
@@ -387,7 +385,15 @@ public final class NotificationServiceExtension: UNNotificationServiceExtension 
         }
         
         let duration: CFTimeInterval = (CACurrentMediaTime() - startTime)
-        Log.info(handledNotification ? "Completed after handling notification in \(.seconds(duration), unit: .ms)." : "Completed silently after \(.seconds(duration), unit: .ms).")
+        let logMessage: String = {
+            switch (isMainAppAndActive, handledNotification, noContent) {
+                case (true, _, _): return "Called while main app running, ignoring after \(.seconds(duration), unit: .ms)."
+                case (_, _, true): return "Called with no content, ignoring after \(.seconds(duration), unit: .ms)."
+                case (_, true, _): return "Completed after handling notification in \(.seconds(duration), unit: .ms)."
+                default: return "Completed silently after \(.seconds(duration), unit: .ms)."
+            }
+        }()
+        Log.info(logMessage)
         Log.flush()
         
         self.contentHandler!(silentContent)

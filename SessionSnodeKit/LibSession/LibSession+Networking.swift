@@ -234,7 +234,7 @@ public extension LibSession {
         requestAndPathBuildTimeout: TimeInterval?,
         using dependencies: Dependencies
     ) -> AnyPublisher<(ResponseInfoType, Data?), Error> {
-        typealias Output = (success: Bool, timeout: Bool, statusCode: Int, data: Data?)
+        typealias Output = (success: Bool, timeout: Bool, statusCode: Int, headers: [String: String], data: Data?)
         
         return getOrCreateNetwork()
             .tryFlatMap { network in
@@ -272,9 +272,11 @@ public extension LibSession {
                                     cSwarmPublicKey,
                                     Int64(floor(requestTimeout * 1000)),
                                     Int64(floor((requestAndPathBuildTimeout ?? 0) * 1000)),
-                                    { success, timeout, statusCode, dataPtr, dataLen, ctx in
+                                    { success, timeout, statusCode, cHeaders, cHeaderVals, headerLen, dataPtr, dataLen, ctx in
+                                        let headers: [String: String] = CallbackWrapper<Output>
+                                            .headers(cHeaders, cHeaderVals, headerLen)
                                         let data: Data? = dataPtr.map { Data(bytes: $0, count: dataLen) }
-                                        CallbackWrapper<Output>.run(ctx, (success, timeout, Int(statusCode), data))
+                                        CallbackWrapper<Output>.run(ctx, (success, timeout, Int(statusCode), headers, data))
                                     },
                                     wrapper.unsafePointer()
                                 )
@@ -287,17 +289,19 @@ public extension LibSession {
                                     cPayloadBytes.count,
                                     Int64(floor(requestTimeout * 1000)),
                                     Int64(floor((requestAndPathBuildTimeout ?? 0) * 1000)),
-                                    { success, timeout, statusCode, dataPtr, dataLen, ctx in
+                                    { success, timeout, statusCode, cHeaders, cHeaderVals, headerLen, dataPtr, dataLen, ctx in
+                                        let headers: [String: String] = CallbackWrapper<Output>
+                                            .headers(cHeaders, cHeaderVals, headerLen)
                                         let data: Data? = dataPtr.map { Data(bytes: $0, count: dataLen) }
-                                        CallbackWrapper<Output>.run(ctx, (success, timeout, Int(statusCode), data))
+                                        CallbackWrapper<Output>.run(ctx, (success, timeout, Int(statusCode), headers, data))
                                     },
                                     wrapper.unsafePointer()
                                 )
                         }
                     }
-                    .tryMap { success, timeout, statusCode, data -> (any ResponseInfoType, Data?) in
-                        try throwErrorIfNeeded(success, timeout, statusCode, data)
-                        return (Network.ResponseInfo(code: statusCode), data)
+                    .tryMap { success, timeout, statusCode, headers, data -> (any ResponseInfoType, Data?) in
+                        try throwErrorIfNeeded(success, timeout, statusCode, headers, data)
+                        return (Network.ResponseInfo(code: statusCode, headers: headers), data)
                     }
             }
             .eraseToAnyPublisher()
@@ -309,7 +313,7 @@ public extension LibSession {
         fileName: String?,
         using dependencies: Dependencies = Dependencies()
     ) -> AnyPublisher<(ResponseInfoType, FileUploadResponse), Error> {
-        typealias Output = (success: Bool, timeout: Bool, statusCode: Int, data: Data?)
+        typealias Output = (success: Bool, timeout: Bool, statusCode: Int, headers: [String: String], data: Data?)
         
         return getOrCreateNetwork()
             .tryFlatMap { network in
@@ -323,20 +327,22 @@ public extension LibSession {
                             fileName?.cString(using: .utf8),
                             Int64(floor(Network.fileUploadTimeout * 1000)),
                             0,
-                            { success, timeout, statusCode, dataPtr, dataLen, ctx in
+                            { success, timeout, statusCode, cHeaders, cHeaderVals, headerLen, dataPtr, dataLen, ctx in
+                                let headers: [String: String] = CallbackWrapper<Output>
+                                    .headers(cHeaders, cHeaderVals, headerLen)
                                 let data: Data? = dataPtr.map { Data(bytes: $0, count: dataLen) }
-                                CallbackWrapper<Output>.run(ctx, (success, timeout, Int(statusCode), data))
+                                CallbackWrapper<Output>.run(ctx, (success, timeout, Int(statusCode), headers, data))
                             },
                             wrapper.unsafePointer()
                         )
                     }
-                    .tryMap { success, timeout, statusCode, maybeData -> (any ResponseInfoType, FileUploadResponse) in
-                        try throwErrorIfNeeded(success, timeout, statusCode, maybeData)
+                    .tryMap { success, timeout, statusCode, headers, maybeData -> (any ResponseInfoType, FileUploadResponse) in
+                        try throwErrorIfNeeded(success, timeout, statusCode, headers, maybeData)
                         
                         guard let data: Data = maybeData else { throw NetworkError.parsingFailed }
                         
                         return (
-                            Network.ResponseInfo(code: statusCode),
+                            Network.ResponseInfo(code: statusCode, headers: headers),
                             try FileUploadResponse.decoded(from: data, using: dependencies)
                         )
                     }
@@ -344,7 +350,7 @@ public extension LibSession {
     }
     
     static func downloadFile(from server: Network.Destination) -> AnyPublisher<(ResponseInfoType, Data), Error> {
-        typealias Output = (success: Bool, timeout: Bool, statusCode: Int, data: Data?)
+        typealias Output = (success: Bool, timeout: Bool, statusCode: Int, headers: [String: String], data: Data?)
         
         return getOrCreateNetwork()
             .tryFlatMap { network in
@@ -355,20 +361,22 @@ public extension LibSession {
                             try wrapper.cServerDestination(server),
                             Int64(floor(Network.fileDownloadTimeout * 1000)),
                             0,
-                            { success, timeout, statusCode, dataPtr, dataLen, ctx in
+                            { success, timeout, statusCode, cHeaders, cHeaderVals, headerLen, dataPtr, dataLen, ctx in
+                                let headers: [String: String] = CallbackWrapper<Output>
+                                    .headers(cHeaders, cHeaderVals, headerLen)
                                 let data: Data? = dataPtr.map { Data(bytes: $0, count: dataLen) }
-                                CallbackWrapper<Output>.run(ctx, (success, timeout, Int(statusCode), data))
+                                CallbackWrapper<Output>.run(ctx, (success, timeout, Int(statusCode), headers, data))
                             },
                             wrapper.unsafePointer()
                         )
                     }
-                    .tryMap { success, timeout, statusCode, maybeData -> (any ResponseInfoType, Data) in
-                        try throwErrorIfNeeded(success, timeout, statusCode, maybeData)
+                    .tryMap { success, timeout, statusCode, headers, maybeData -> (any ResponseInfoType, Data) in
+                        try throwErrorIfNeeded(success, timeout, statusCode, headers, maybeData)
                         
                         guard let data: Data = maybeData else { throw NetworkError.parsingFailed }
                         
                         return (
-                            Network.ResponseInfo(code: statusCode),
+                            Network.ResponseInfo(code: statusCode, headers: headers),
                             data
                         )
                     }
@@ -379,7 +387,7 @@ public extension LibSession {
         ed25519SecretKey: [UInt8],
         using dependencies: Dependencies = Dependencies()
     ) -> AnyPublisher<(ResponseInfoType, AppVersionResponse), Error> {
-        typealias Output = (success: Bool, timeout: Bool, statusCode: Int, data: Data?)
+        typealias Output = (success: Bool, timeout: Bool, statusCode: Int, headers: [String: String], data: Data?)
         
         return getOrCreateNetwork()
             .tryFlatMap { network in
@@ -393,20 +401,22 @@ public extension LibSession {
                             &cEd25519SecretKey,
                             Int64(floor(Network.fileDownloadTimeout * 1000)),
                             0,
-                            { success, timeout, statusCode, dataPtr, dataLen, ctx in
+                            { success, timeout, statusCode, cHeaders, cHeaderVals, headerLen, dataPtr, dataLen, ctx in
+                                let headers: [String: String] = CallbackWrapper<Output>
+                                    .headers(cHeaders, cHeaderVals, headerLen)
                                 let data: Data? = dataPtr.map { Data(bytes: $0, count: dataLen) }
-                                CallbackWrapper<Output>.run(ctx, (success, timeout, Int(statusCode), data))
+                                CallbackWrapper<Output>.run(ctx, (success, timeout, Int(statusCode), headers, data))
                             },
                             wrapper.unsafePointer()
                         )
                     }
-                    .tryMap { success, timeout, statusCode, maybeData -> (any ResponseInfoType, AppVersionResponse) in
-                        try throwErrorIfNeeded(success, timeout, statusCode, maybeData)
+                    .tryMap { success, timeout, statusCode, headers, maybeData -> (any ResponseInfoType, AppVersionResponse) in
+                        try throwErrorIfNeeded(success, timeout, statusCode, headers, maybeData)
                         
                         guard let data: Data = maybeData else { throw NetworkError.parsingFailed }
                         
                         return (
-                            Network.ResponseInfo(code: statusCode),
+                            Network.ResponseInfo(code: statusCode, headers: headers),
                             try AppVersionResponse.decoded(from: data, using: dependencies)
                         )
                     }
@@ -544,10 +554,16 @@ public extension LibSession {
         _ success: Bool,
         _ timeout: Bool,
         _ statusCode: Int,
+        _ headers: [String: String],
         _ data: Data?
     ) throws {
         guard !success || statusCode < 200 || statusCode > 299 else { return }
-        guard !timeout else { throw NetworkError.timeout }
+        guard !timeout else {
+            switch data.map({ String(data: $0, encoding: .ascii) }) {
+                case .none: throw NetworkError.timeout(error: "\(NetworkError.unknown)", rawData: data)
+                case .some(let responseString): throw NetworkError.timeout(error: responseString, rawData: data)
+            }
+        }
         
         /// Handle status codes with specific meanings
         switch (statusCode, data.map { String(data: $0, encoding: .ascii) }) {
@@ -675,6 +691,17 @@ public extension Network.Destination {
 }
 
 internal extension LibSession.CallbackWrapper {
+    static func headers(
+        _ cHeaders: UnsafeMutablePointer<UnsafePointer<CChar>?>?,
+        _ cHeaderVals: UnsafeMutablePointer<UnsafePointer<CChar>?>?,
+        _ count: Int
+    ) -> [String: String] {
+        let headers: [String] = [String](pointer: cHeaders, count: count, defaultValue: [])
+        let headerVals: [String] = [String](pointer: cHeaderVals, count: count, defaultValue: [])
+        
+        return zip(headers, headerVals)
+            .reduce(into: [:]) { result, next in result[next.0] = next.1 }
+    }
     func cServerDestination(_ destination: Network.Destination) throws -> network_server_destination {
         guard
             case .server(let url, let method, let headers, let x25519PublicKey) = destination,

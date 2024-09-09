@@ -819,7 +819,7 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
     
     public func stopPollers(shouldStopUserPoller: Bool = true) {
         if shouldStopUserPoller {
-            poller.stopAllPollers()
+            poller.stop()
         }
         
         ClosedGroupPoller.shared.stopAllPollers()

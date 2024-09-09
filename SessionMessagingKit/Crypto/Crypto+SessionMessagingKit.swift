@@ -267,8 +267,8 @@ public extension Crypto.Generator {
             id: "messageServerHash",
             args: [swarmPubkey, namespace, data]
         ) {
-            var cSwarmPubkey: [CChar] = try swarmPubkey.cString(using: .utf8) ?? { throw LibSessionError.invalidCConversion }()
-            var cData: [CChar] = try data.base64EncodedString().cString(using: .utf8) ?? { throw LibSessionError.invalidCConversion }()
+            let cSwarmPubkey: [CChar] = try swarmPubkey.cString(using: .utf8) ?? { throw LibSessionError.invalidCConversion }()
+            let cData: [CChar] = try data.base64EncodedString().cString(using: .utf8) ?? { throw LibSessionError.invalidCConversion }()
             var cHash: [CChar] = [CChar](repeating: 0, count: 65)
             
             guard session_compute_message_hash(cSwarmPubkey, Int16(namespace.rawValue), cData, &cHash) else {

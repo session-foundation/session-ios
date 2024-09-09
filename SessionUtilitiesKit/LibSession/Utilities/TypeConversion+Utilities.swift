@@ -22,31 +22,12 @@ public extension String {
 // MARK: - Array
 
 public extension Array where Element == String {
-    init?(
-        pointer: UnsafeMutablePointer<UnsafeMutablePointer<CChar>?>?,
-        count: Int?
-    ) {
-        guard let count: Int = count else { return nil }
-        
-        // If we were given a count but it's 0 then trying to access the pointer could
-        // crash (as it could be bad memory) so just return an empty array
-        guard count > 0 else {
-            self = []
-            return
-        }
-        guard let pointee: UnsafeMutablePointer<CChar> = pointer?.pointee else { return nil }
-        
-        self = (0..<count)
-            .reduce(into: []) { result, index in
-                /// We need to calculate the start position of each of the hashes in memory which will
-                /// be at the end of the previous hash plus one (due to the null termination character
-                /// which isn't included in Swift strings so isn't included in `count`)
-                let prevLength: Int = (result.isEmpty ? 0 :
-                    result.map { ($0.count + 1) }.reduce(0, +)
-                )
-                
-                result.append(String(cString: pointee.advanced(by: prevLength)))
-            }
+    init?(pointer: UnsafeMutablePointer<UnsafeMutablePointer<CChar>?>?, count: Int?) {
+        self.init(pointee: pointer.map { $0.pointee.map { UnsafePointer($0) } }, count: count)
+    }
+    
+    init?(pointer: UnsafeMutablePointer<UnsafePointer<CChar>?>?, count: Int?) {
+        self.init(pointee: pointer.map { $0.pointee }, count: count)
     }
     
     init(
@@ -55,6 +36,42 @@ public extension Array where Element == String {
         defaultValue: [String]
     ) {
         self = ([String](pointer: pointer, count: count) ?? defaultValue)
+    }
+    
+    init(
+        pointer: UnsafeMutablePointer<UnsafePointer<CChar>?>?,
+        count: Int?,
+        defaultValue: [String]
+    ) {
+        self = ([String](pointer: pointer, count: count) ?? defaultValue)
+    }
+    
+    init?(
+        pointee: UnsafePointer<CChar>?,
+        count: Int?
+    ) {
+        guard
+            let count: Int = count,
+            let pointee: UnsafePointer<CChar> = pointee
+        else { return nil }
+        
+        // If we were given a count but it's 0 then trying to access the pointer could
+        // crash (as it could be bad memory) so just return an empty array
+        guard count > 0 else {
+            self = []
+            return
+        }
+        
+        self = (0..<count).reduce(into: []) { result, index in
+            /// We need to calculate the start position of each of the hashes in memory which will
+            /// be at the end of the previous hash plus one (due to the null termination character
+            /// which isn't included in Swift strings so isn't included in `count`)
+            let prevLength: Int = (result.isEmpty ? 0 :
+                result.map { ($0.count + 1) }.reduce(0, +)
+            )
+            
+            result.append(String(cString: pointee.advanced(by: prevLength)))
+        }
     }
 }
 
