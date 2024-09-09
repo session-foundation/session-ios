@@ -7,7 +7,6 @@ import Combine
 import CoreServices
 import Photos
 import PhotosUI
-import Sodium
 import GRDB
 import SessionUIKit
 import SessionMessagingKit
@@ -156,13 +155,15 @@ extension ConversationVC:
                     self.viewModel.threadData.displayName
                 ),
                 body: .attributedText(
-                    "blockUnblockDescription"
-                        .put(key: "name", value: self.viewModel.threadData.displayName)
+                    "blockUnblockName"
+                        .put(key: "name", value: viewModel.threadData.displayName)
                         .localizedFormatted(baseFont: .systemFont(ofSize: Values.smallFontSize))
                 ),
                 confirmTitle: "blockUnblock".localized(),
                 confirmAccessibility: Accessibility(identifier: "Confirm block"),
+                confirmStyle: .danger, 
                 cancelAccessibility: Accessibility(identifier: "Cancel block"),
+                cancelStyle: .alert_text,
                 dismissOnConfirm: false // Custom dismissal logic
             ) { [weak self] _ in
                 self?.viewModel.unblockContact()
@@ -185,10 +186,9 @@ extension ConversationVC:
         didApproveAttachments attachments: [SignalAttachment],
         forThreadId threadId: String,
         threadVariant: SessionThread.Variant,
-        messageText: String?,
-        using dependencies: Dependencies
+        messageText: String?
     ) {
-        sendMessage(text: (messageText ?? ""), attachments: attachments, using: dependencies)
+        sendMessage(text: (messageText ?? ""), attachments: attachments, using: viewModel.dependencies)
         resetMentions()
         
         dismiss(animated: true) { [weak self] in
@@ -216,10 +216,9 @@ extension ConversationVC:
         didApproveAttachments attachments: [SignalAttachment],
         forThreadId threadId: String,
         threadVariant: SessionThread.Variant,
-        messageText: String?,
-        using dependencies: Dependencies
+        messageText: String?
     ) {
-        sendMessage(text: (messageText ?? ""), attachments: attachments, using: dependencies)
+        sendMessage(text: (messageText ?? ""), attachments: attachments, using: viewModel.dependencies)
         resetMentions()
         
         dismiss(animated: true) { [weak self] in
@@ -255,7 +254,7 @@ extension ConversationVC:
                     title: "giphyWarning".localized(),
                     body: .text(
                         "giphyWarningDescription"
-                            .put(key: "app_name", value: Singleton.appName)
+                            .put(key: "app_name", value: Constants.app_name)
                             .localized()
                     ),
                     confirmTitle: "theContinue".localized()
@@ -299,11 +298,12 @@ extension ConversationVC:
         let threadId: String = self.viewModel.threadData.threadId
         let threadVariant: SessionThread.Variant = self.viewModel.threadData.threadVariant
         
-        Permissions.requestLibraryPermissionIfNeeded { [weak self] in
+        Permissions.requestLibraryPermissionIfNeeded { [weak self, dependencies = viewModel.dependencies] in
             DispatchQueue.main.async {
                 let sendMediaNavController = SendMediaNavigationController.showingMediaLibraryFirst(
                     threadId: threadId,
-                    threadVariant: threadVariant
+                    threadVariant: threadVariant,
+                    using: dependencies
                 )
                 sendMediaNavController.sendMediaNavDelegate = self
                 sendMediaNavController.modalPresentationStyle = .fullScreen
@@ -323,7 +323,8 @@ extension ConversationVC:
         
         let sendMediaNavController = SendMediaNavigationController.showingCameraFirst(
             threadId: self.viewModel.threadData.threadId,
-            threadVariant: self.viewModel.threadData.threadVariant
+            threadVariant: self.viewModel.threadData.threadVariant,
+            using: self.viewModel.dependencies
         )
         sendMediaNavController.sendMediaNavDelegate = self
         sendMediaNavController.modalPresentationStyle = .fullScreen
@@ -359,8 +360,8 @@ extension ConversationVC:
                 let modal: ConfirmationModal = ConfirmationModal(
                     targetView: self?.view,
                     info: ConfirmationModal.Info(
-                        title: "attachmentsErrorNotSupported".localized(),
-                        body: .text("attachmentsErrorSize".localized()),
+                        title: "attachmentsErrorLoad".localized(),
+                        body: .text("attachmentsErrorNotSupported".localized()),
                         cancelTitle: "okay".localized(),
                         cancelStyle: .alert_text
                     )
@@ -371,7 +372,7 @@ extension ConversationVC:
         }
         
         let fileName = urlResourceValues.name ?? "attachment".localized()
-        guard let dataSource = DataSourcePath.dataSource(with: url, shouldDeleteOnDeallocation: false) else {
+        guard let dataSource = DataSourcePath(fileUrl: url, shouldDeleteOnDeinit: false) else {
             DispatchQueue.main.async { [weak self] in
                 self?.viewModel.showToast(text: "attachmentsErrorLoad".localized())
             }
@@ -391,26 +392,28 @@ extension ConversationVC:
     }
 
     func showAttachmentApprovalDialog(for attachments: [SignalAttachment]) {
-        let navController = AttachmentApprovalViewController.wrappedInNavController(
+        guard let navController = AttachmentApprovalViewController.wrappedInNavController(
             threadId: self.viewModel.threadData.threadId,
             threadVariant: self.viewModel.threadData.threadVariant,
             attachments: attachments,
-            approvalDelegate: self
-        )
+            approvalDelegate: self,
+            using: self.viewModel.dependencies
+        ) else { return }
         navController.modalPresentationStyle = .fullScreen
         
         present(navController, animated: true, completion: nil)
     }
 
     func showAttachmentApprovalDialogAfterProcessingVideo(at url: URL, with fileName: String) {
-        ModalActivityIndicatorViewController.present(fromViewController: self, canCancel: true, message: nil) { [weak self] modalActivityIndicator in
-            let dataSource = DataSourcePath.dataSource(with: url, shouldDeleteOnDeallocation: false)!
+        ModalActivityIndicatorViewController.present(fromViewController: self, canCancel: true, message: nil) { [weak self, dependencies = viewModel.dependencies] modalActivityIndicator in
+            let dataSource = DataSourcePath(fileUrl: url, shouldDeleteOnDeinit: false)!
             dataSource.sourceFilename = fileName
             
             SignalAttachment
                 .compressVideoAsMp4(
                     dataSource: dataSource,
-                    dataUTI: kUTTypeMPEG4 as String
+                    dataUTI: kUTTypeMPEG4 as String,
+                    using: dependencies
                 )
                 .attachmentPublisher
                 .sinkUntilComplete(
@@ -541,7 +544,11 @@ extension ConversationVC:
                     if self?.viewModel.threadData.threadShouldBeVisible == false {
                         _ = try SessionThread
                             .filter(id: threadId)
-                            .updateAllAndConfig(db, SessionThread.Columns.shouldBeVisible.set(to: true))
+                            .updateAllAndConfig(
+                                db,
+                                SessionThread.Columns.shouldBeVisible.set(to: true),
+                                SessionThread.Columns.pinnedPriority.set(to: LibSession.visiblePriority)
+                            )
                     }
                     
                     // Insert the interaction and associated it with the optimistically inserted message so
@@ -643,10 +650,12 @@ extension ConversationVC:
                 title: "linkPreviewsEnable".localized(),
                 body: .text(
                     "linkPreviewsFirstDescription"
-                        .put(key: "app_name", value: Singleton.appName)
+                        .put(key: "app_name", value: Constants.app_name)
                         .localized()
                 ),
-                confirmTitle: "enable".localized()
+                confirmTitle: "enable".localized(),
+                confirmStyle: .danger,
+                cancelStyle: .alert_text
             ) { [weak self] _ in
                 Storage.shared.writeAsync { db in
                     db[.areLinkPreviewsEnabled] = true
@@ -695,15 +704,16 @@ extension ConversationVC:
     func didPasteImageFromPasteboard(_ image: UIImage) {
         guard let imageData = image.jpegData(compressionQuality: 1.0) else { return }
         
-        let dataSource = DataSourceValue.dataSource(with: imageData, utiType: kUTTypeJPEG as String)
+        let dataSource = DataSourceValue(data: imageData, utiType: kUTTypeJPEG as String)
         let attachment = SignalAttachment.attachment(dataSource: dataSource, dataUTI: kUTTypeJPEG as String, imageQuality: .medium)
 
-        let approvalVC = AttachmentApprovalViewController.wrappedInNavController(
+        guard let approvalVC = AttachmentApprovalViewController.wrappedInNavController(
             threadId: self.viewModel.threadData.threadId,
             threadVariant: self.viewModel.threadData.threadVariant,
             attachments: [ attachment ],
-            approvalDelegate: self
-        )
+            approvalDelegate: self,
+            using: self.viewModel.dependencies
+        ) else { return }
         approvalVC.modalPresentationStyle = .fullScreen
         
         self.present(approvalVC, animated: true, completion: nil)
@@ -785,8 +795,10 @@ extension ConversationVC:
     }
     
     func hideInputAccessoryView() {
-        self.inputAccessoryView?.isHidden = true
-        self.inputAccessoryView?.alpha = 0
+        DispatchQueue.main.async {
+            self.inputAccessoryView?.isHidden = true
+            self.inputAccessoryView?.alpha = 0
+        }
     }
     
     func showInputAccessoryView() {
@@ -871,12 +883,6 @@ extension ConversationVC:
         cellLocation: CGPoint,
         using dependencies: Dependencies = Dependencies()
     ) {
-        guard cellViewModel.variant != .standardOutgoing || (cellViewModel.state != .failed && cellViewModel.state != .failedToSync) else {
-            // Show the failed message sheet
-            showFailedMessageSheet(for: cellViewModel, using: dependencies)
-            return
-        }
-        
         // For call info messages show the "call missed" modal
         guard cellViewModel.variant != .infoCall else {
             let callMissedTipsModal: CallMissedTipsModal = CallMissedTipsModal(caller: cellViewModel.authorName)
@@ -900,7 +906,7 @@ extension ConversationVC:
                         .localized()
                 }
             }()
-            let modalConfirmTitle: String = messageDisappearingConfig.isEnabled ? "set".localized() : "CONFIRM_BUTTON_TITLE".localized()
+            let modalConfirmTitle: String = messageDisappearingConfig.isEnabled ? "set".localized() : "confirm".localized()
             let confirmationModal: ConfirmationModal = ConfirmationModal(
                 info: ConfirmationModal.Info(
                     title: "disappearingMessagesFollowSetting".localized(),
@@ -931,19 +937,13 @@ extension ConversationVC:
         
         // If it's an incoming media message and the thread isn't trusted then show the placeholder view
         if cellViewModel.cellType != .textOnlyMessage && cellViewModel.variant == .standardIncoming && !cellViewModel.threadIsTrusted {
-            let message: String = "attachmentsAutoDownloadModalDescription"
+            let message: NSAttributedString = "attachmentsAutoDownloadModalDescription"
                 .put(key: "conversation_name", value: cellViewModel.authorName)
-                .localized()
+                .localizedFormatted(baseFont: .systemFont(ofSize: Values.smallFontSize))
             let confirmationModal: ConfirmationModal = ConfirmationModal(
                 info: ConfirmationModal.Info(
                     title: "attachmentsAutoDownloadModalTitle".localized(),
-                    body: .attributedText(
-                        NSAttributedString(string: message)
-                            .adding(
-                                attributes: [ .font: UIFont.boldSystemFont(ofSize: Values.smallFontSize) ],
-                                range: (message as NSString).range(of: cellViewModel.authorName)
-                            )
-                    ),
+                    body: .attributedText(message),
                     confirmTitle: "download".localized(),
                     confirmAccessibility: Accessibility(identifier: "Download media"),
                     cancelAccessibility: Accessibility(identifier: "Don't download media"),
@@ -1090,9 +1090,11 @@ extension ConversationVC:
                 if
                     attachment.isText ||
                     attachment.isMicrosoftDoc ||
-                    attachment.contentType == OWSMimeTypeApplicationPdf
+                    attachment.contentType == MimeTypeUtil.MimeType.applicationPdf
                 {
-                    
+                    // FIXME: If given an invalid text file (eg with binary data) this hangs forever
+                    // Note: I tried dispatching after a short delay, detecting that the new UI is invalid and dismissing it
+                    // if so but the dismissal didn't work (we may have to wait on Apple to handle this one)
                     let interactionController: UIDocumentInteractionController = UIDocumentInteractionController(url: fileUrl)
                     interactionController.delegate = self
                     interactionController.presentPreview(animated: true)
@@ -1185,28 +1187,32 @@ extension ConversationVC:
     func openUrl(_ urlString: String) {
         guard let url: URL = URL(string: urlString) else { return }
         
-        // URLs can be unsafe, so always ask the user whether they want to open one
-        let actionSheet: UIAlertController = UIAlertController(
-            title: "urlOpen".localized(),
-            message: "urlOpenDescription"
-                .put(key: "url", value: url.absoluteString)
-                .localized(),
-            preferredStyle: .actionSheet
+        let modal: ConfirmationModal = ConfirmationModal(
+            targetView: self.view,
+            info: ConfirmationModal.Info(
+                title: "urlOpen".localized(),
+                body: .attributedText(
+                    "urlOpenDescription"
+                        .put(key: "url", value: url.absoluteString)
+                        .localizedFormatted(baseFont: .systemFont(ofSize: Values.smallFontSize)),
+                    canScroll: true
+                ),
+                confirmTitle: "open".localized(),
+                confirmStyle: .danger,
+                cancelTitle: "urlCopy".localized(),
+                cancelStyle: .alert_text,
+                onConfirm:  { [weak self] _ in
+                    UIApplication.shared.open(url, options: [:], completionHandler: nil)
+                    self?.showInputAccessoryView()
+                },
+                onCancel: { [weak self] _ in
+                    UIPasteboard.general.string = url.absoluteString
+                    self?.showInputAccessoryView()
+                }
+            )
         )
-        actionSheet.addAction(UIAlertAction(title: "open".localized(), style: .default) { [weak self] _ in
-            UIApplication.shared.open(url, options: [:], completionHandler: nil)
-            self?.showInputAccessoryView()
-        })
-        actionSheet.addAction(UIAlertAction(title: "urlCopy".localized(), style: .default) { [weak self] _ in
-            UIPasteboard.general.string = url.absoluteString
-            self?.showInputAccessoryView()
-        })
-        actionSheet.addAction(UIAlertAction(title: "cancel".localized(), style: .cancel) { [weak self] _ in
-            self?.showInputAccessoryView()
-        })
         
-        Modal.setupForIPadIfNeeded(actionSheet, targetView: self.view)
-        self.present(actionSheet, animated: true)
+        self.present(modal, animated: true)
     }
     
     func handleReplyButtonTapped(for cellViewModel: MessageViewModel, using dependencies: Dependencies) {
@@ -1216,14 +1222,18 @@ extension ConversationVC:
     func startThread(with sessionId: String, openGroupServer: String?, openGroupPublicKey: String?) {
         guard viewModel.threadData.canWrite else { return }
         // FIXME: Add in support for starting a thread with a 'blinded25' id
-        guard SessionId.Prefix(from: sessionId) != .blinded25 else { return }
-        guard SessionId.Prefix(from: sessionId) == .blinded15 else {
+        guard (try? SessionId.Prefix(from: sessionId)) != .blinded25 else { return }
+        guard (try? SessionId.Prefix(from: sessionId)) == .blinded15 else {
             Storage.shared.write { db in
                 try SessionThread
                     .fetchOrCreate(db, id: sessionId, variant: .contact, shouldBeVisible: nil)
             }
             
-            let conversationVC: ConversationVC = ConversationVC(threadId: sessionId, threadVariant: .contact)
+            let conversationVC: ConversationVC = ConversationVC(
+                threadId: sessionId,
+                threadVariant: .contact,
+                using: viewModel.dependencies
+            )
                 
             self.navigationController?.pushViewController(conversationVC, animated: true)
             return
@@ -1257,7 +1267,11 @@ extension ConversationVC:
         
         guard let threadId: String = targetThreadId else { return }
         
-        let conversationVC: ConversationVC = ConversationVC(threadId: threadId, threadVariant: .contact)
+        let conversationVC: ConversationVC = ConversationVC(
+            threadId: threadId,
+            threadVariant: .contact,
+            using: viewModel.dependencies
+        )
         self.navigationController?.pushViewController(conversationVC, animated: true)
     }
     
@@ -1656,54 +1670,6 @@ extension ConversationVC:
     
     // MARK: --action handling
     
-    private func showFailedMessageSheet(for cellViewModel: MessageViewModel, using dependencies: Dependencies) {
-        let sheet = UIAlertController(
-            title: (cellViewModel.state == .failedToSync ?
-                "MESSAGE_DELIVERY_FAILED_SYNC_TITLE".localized() :
-                "messageStatusFailedToSend".localized()
-            ),
-            message: cellViewModel.mostRecentFailureText,
-            preferredStyle: .actionSheet
-        )
-        sheet.addAction(UIAlertAction(title: "cancel".localized(), style: .cancel, handler: nil))
-        
-        if cellViewModel.state != .failedToSync {
-            sheet.addAction(UIAlertAction(title: "delete".localized(), style: .destructive, handler: { _ in
-                Storage.shared.writeAsync { db in
-                    try Interaction
-                        .filter(id: cellViewModel.id)
-                        .deleteAll(db)
-                }
-            }))
-        }
-        
-        sheet.addAction(UIAlertAction(
-            title: (cellViewModel.state == .failedToSync ?
-                "resync".localized() :
-                "resend".localized()
-            ),
-            style: .default,
-            handler: { [weak self] _ in self?.retry(cellViewModel, using: dependencies) }
-        ))
-        
-        // HACK: Extracting this info from the error string is pretty dodgy
-        let prefix: String = "HTTP request failed at destination (Service node " // stringlint:disable
-        if let mostRecentFailureText: String = cellViewModel.mostRecentFailureText, mostRecentFailureText.hasPrefix(prefix) {
-            let rest = mostRecentFailureText.substring(from: prefix.count)
-            
-            if let index = rest.firstIndex(of: ")") { // stringlint:disable
-                let snodeAddress = String(rest[rest.startIndex..<index])
-                
-                sheet.addAction(UIAlertAction(title: "Copy Service Node Info", style: .default) { _ in // stringlint:disable
-                    UIPasteboard.general.string = snodeAddress
-                })
-            }
-        }
-        
-        Modal.setupForIPadIfNeeded(sheet, targetView: self.view)
-        present(sheet, animated: true, completion: nil)
-    }
-    
     func joinOpenGroup(name: String?, url: String) {
         // Open groups can be unsafe, so always ask the user whether they want to join one
         let finalName: String = (name ?? "communityUnknown".localized())
@@ -1783,7 +1749,7 @@ extension ConversationVC:
                                                 title: "communityJoinError"
                                                     .put(key: "community_name", value: finalName)
                                                     .localized(),
-                                                body: .text(error.localizedDescription),
+                                                body: .text("\(error)"),
                                                 cancelTitle: "okay".localized(),
                                                 cancelStyle: .alert_text
                                             )
@@ -1945,7 +1911,7 @@ extension ConversationVC:
                         attachment.state == .downloaded ||
                         attachment.state == .uploaded
                     ),
-                    let utiType: String = MIMETypeUtil.utiType(forMIMEType: attachment.contentType),
+                    let utiType: String = MimeTypeUtil.utiType(for: attachment.contentType),
                     let originalFilePath: String = attachment.originalFilePath,
                     let data: Data = try? Data(contentsOf: URL(fileURLWithPath: originalFilePath))
                 else { return }
@@ -2208,50 +2174,47 @@ extension ConversationVC:
                     self?.viewModel.stopAudioIfNeeded(for: cellViewModel)
                 })
                 
-                if cellViewModel.threadId != userPublicKey {
-                    actionSheet.addAction(UIAlertAction(
-                        title: {
-                            switch cellViewModel.threadVariant {
-                                case .legacyGroup, .group: return "clearMessagesForEveryone".localized()
-                                default: return "deleteMessageEveryone".localized()
-                            }
-                        }(),
-                        accessibilityIdentifier: "Delete for everyone",
-                        style: .destructive
-                    ) { [weak self] _ in
-                        let completeServerDeletion = { [weak self] in
-                            Storage.shared.writeAsync { db in
-                                try MessageSender
-                                    .send(
-                                        db,
-                                        message: unsendRequest,
-                                        interactionId: nil,
-                                        threadId: cellViewModel.threadId,
-                                        threadVariant: cellViewModel.threadVariant,
-                                        using: dependencies
-                                    )
-                            }
-                            
-                            self?.showInputAccessoryView()
+                actionSheet.addAction(UIAlertAction(
+                    title: {
+                        switch (cellViewModel.threadVariant, cellViewModel.threadId) {
+                            case (.legacyGroup, _), (.group, _): return "clearMessagesForEveryone".localized()
+                            case (_, userPublicKey): return "deleteMessageDevicesAll".localized()
+                            default: return "deleteMessageEveryone".localized()
                         }
-                        
-                        // We can only delete messages on the server for `contact` and `group` conversations
-                        guard cellViewModel.threadVariant == .contact || cellViewModel.threadVariant == .group else {
-                            return completeServerDeletion()
-                        }
-                        
-                        deleteRemotely(
-                            from: self,
-                            request: SnodeAPI
-                                .deleteMessages(
-                                    swarmPublicKey: targetPublicKey,
-                                    serverHashes: [serverHash]
+                    }(),
+                    accessibilityIdentifier: "Delete for everyone",
+                    style: .destructive
+                ) { [weak self] _ in
+                    let completeServerDeletion = {
+                        Storage.shared.writeAsync { db in
+                            try MessageSender
+                                .send(
+                                    db,
+                                    message: unsendRequest,
+                                    interactionId: nil,
+                                    threadId: cellViewModel.threadId,
+                                    threadVariant: cellViewModel.threadVariant,
+                                    using: dependencies
                                 )
-                                .map { _ in () }
-                                .eraseToAnyPublisher()
-                        ) { completeServerDeletion() }
-                    })
-                }
+                        }
+                    }
+                        
+                    // We can only delete messages on the server for `contact` and `group` conversations
+                    guard cellViewModel.threadVariant == .contact || cellViewModel.threadVariant == .group else {
+                        return completeServerDeletion()
+                    }
+                    
+                    deleteRemotely(
+                        from: self,
+                        request: SnodeAPI
+                            .deleteMessages(
+                                swarmPublicKey: targetPublicKey,
+                                serverHashes: [serverHash]
+                            )
+                            .map { _ in () }
+                            .eraseToAnyPublisher()
+                    ) { completeServerDeletion() }
+                })
 
                 actionSheet.addAction(UIAlertAction.init(title: "cancel".localized(), style: .cancel) { [weak self] _ in
                     self?.showInputAccessoryView()
@@ -2315,9 +2278,10 @@ extension ConversationVC:
         let modal: ConfirmationModal = ConfirmationModal(
             targetView: self.view,
             info: ConfirmationModal.Info(
-                title: Singleton.appName,
-                body: .text("This will ban the selected user from this room. It won't ban them from other rooms."),
-                confirmTitle: "okay".localized(),
+                title: "banUser".localized(),
+                body: .text("communityBanDescription".localized()),
+                confirmTitle: "theContinue".localized(),
+                confirmStyle: .danger,
                 cancelStyle: .alert_text,
                 onConfirm: { [weak self] _ in
                     Storage.shared
@@ -2342,15 +2306,21 @@ extension ConversationVC:
                             receiveCompletion: { result in
                                 switch result {
                                     case .finished:
-                                        self?.viewModel.showToast(
-                                            text: "banUserBanned".localized(),
-                                            backgroundColor: .backgroundSecondary
-                                        )
+                                        DispatchQueue.main.async { [weak self] in
+                                            self?.viewModel.showToast(
+                                                text: "banUserBanned".localized(),
+                                                backgroundColor: .backgroundSecondary,
+                                                insect: (self?.inputAccessoryView?.frame.height ?? Values.mediumSpacing) + Values.smallSpacing
+                                            )
+                                        }
                                     case .failure:
-                                        self?.viewModel.showToast(
-                                            text: "banErrorFailed".localized(),
-                                            backgroundColor: .backgroundSecondary
-                                        )
+                                        DispatchQueue.main.async { [weak self] in
+                                            self?.viewModel.showToast(
+                                                text: "banErrorFailed".localized(),
+                                                backgroundColor: .backgroundSecondary,
+                                                insect: (self?.inputAccessoryView?.frame.height ?? Values.mediumSpacing) + Values.smallSpacing
+                                            )
+                                        }
                                 }
                             }
                         )
@@ -2370,9 +2340,10 @@ extension ConversationVC:
         let modal: ConfirmationModal = ConfirmationModal(
             targetView: self.view,
             info: ConfirmationModal.Info(
-                title: Singleton.appName,
-                body: .text("This will ban the selected user from this room and delete all messages sent by them. It won't ban them from other rooms or delete the messages they sent there."),
-                confirmTitle: "okay".localized(),
+                title: "banDeleteAll".localized(),
+                body: .text("communityBanDeleteDescription".localized()),
+                confirmTitle: "theContinue".localized(),
+                confirmStyle: .danger,
                 cancelStyle: .alert_text,
                 onConfirm: { [weak self] _ in
                     Storage.shared
@@ -2397,15 +2368,21 @@ extension ConversationVC:
                             receiveCompletion: { result in
                                 switch result {
                                     case .finished:
-                                        self?.viewModel.showToast(
-                                            text: "banUserBanned".localized(),
-                                            backgroundColor: .backgroundSecondary
-                                        )
+                                        DispatchQueue.main.async { [weak self] in
+                                            self?.viewModel.showToast(
+                                                text: "banUserBanned".localized(),
+                                                backgroundColor: .backgroundSecondary,
+                                                insect: (self?.inputAccessoryView?.frame.height ?? Values.mediumSpacing) + Values.smallSpacing
+                                            )
+                                        }
                                     case .failure:
-                                        self?.viewModel.showToast(
-                                            text: "banErrorFailed".localized(),
-                                            backgroundColor: .backgroundSecondary
-                                        )
+                                        DispatchQueue.main.async { [weak self] in
+                                            self?.viewModel.showToast(
+                                                text: "banErrorFailed".localized(),
+                                                backgroundColor: .backgroundSecondary,
+                                                insect: (self?.inputAccessoryView?.frame.height ?? Values.mediumSpacing) + Values.smallSpacing
+                                            )
+                                        }
                                 }
                             }
                         )
@@ -2534,7 +2511,7 @@ extension ConversationVC:
         }
         
         // Get data
-        let dataSourceOrNil = DataSourcePath.dataSource(with: audioRecorder.url, shouldDeleteOnDeallocation: true)
+        let dataSourceOrNil = DataSourcePath(fileUrl: audioRecorder.url, shouldDeleteOnDeinit: true)
         self.audioRecorder = nil
         
         guard let dataSource = dataSourceOrNil else { return SNLog("Couldn't load recorded data.") }
@@ -2601,16 +2578,18 @@ extension ConversationVC:
     // MARK: - Convenience
     
     func showErrorAlert(for attachment: SignalAttachment) {
-        let modal: ConfirmationModal = ConfirmationModal(
-            targetView: self.view,
-            info: ConfirmationModal.Info(
-                title: "attachmentsErrorSending".localized(),
-                body: .text(attachment.localizedErrorDescription ?? SignalAttachment.missingDataErrorMessage),
-                cancelTitle: "okay".localized(),
-                cancelStyle: .alert_text
+        DispatchQueue.main.async { [weak self] in
+            let modal: ConfirmationModal = ConfirmationModal(
+                targetView: self?.view,
+                info: ConfirmationModal.Info(
+                    title: "attachmentsErrorSending".localized(),
+                    body: .text(attachment.localizedErrorDescription ?? SignalAttachment.missingDataErrorMessage),
+                    cancelTitle: "okay".localized(),
+                    cancelStyle: .alert_text
+                )
             )
-        )
-        self.present(modal, animated: true)
+            self?.present(modal, animated: true)
+        }
     }
 }
 
@@ -2666,13 +2645,24 @@ extension ConversationVC {
                 // messageRequestResponse back to the sender (this allows the sender to know that
                 // they have been approved and can now use this contact in closed groups)
                 if !isNewThread {
+                    let interaction = try? Interaction(
+                        threadId: threadId,
+                        threadVariant: threadVariant,
+                        authorId: getUserHexEncodedPublicKey(db),
+                        variant: .infoMessageRequestAccepted,
+                        body: "messageRequestYouHaveAccepted"
+                            .put(key: "name", value: self.viewModel.threadData.displayName)
+                            .localized(),
+                        timestampMs: timestampMs
+                    ).inserted(db)
+                    
                     try MessageSender.send(
                         db,
                         message: MessageRequestResponse(
                             isApproved: true,
                             sentTimestampMs: UInt64(timestampMs)
                         ),
-                        interactionId: nil,
+                        interactionId: interaction?.id,
                         threadId: threadId,
                         threadVariant: threadVariant,
                         using: dependencies

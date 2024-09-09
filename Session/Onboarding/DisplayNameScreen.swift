@@ -4,6 +4,7 @@ import SwiftUI
 import SessionUIKit
 import SessionMessagingKit
 import SignalUtilitiesKit
+import SessionUtilitiesKit
 
 struct DisplayNameScreen: View {
     @EnvironmentObject var host: HostWrapper
@@ -11,9 +12,11 @@ struct DisplayNameScreen: View {
     @State private var displayName: String = ""
     @State private var error: String? = nil
     
+    private let dependencies: Dependencies
     private let flow: Onboarding.Flow
     
-    public init(flow: Onboarding.Flow) {
+    public init(flow: Onboarding.Flow, using dependencies: Dependencies) {
+        self.dependencies = dependencies
         self.flow = flow
     }
     
@@ -101,7 +104,7 @@ struct DisplayNameScreen: View {
             error = "displayNameErrorDescription".localized()
             return
         }
-        guard !ProfileManager.isToLong(profileName: displayName) else {
+        guard !ProfileManager.isTooLong(profileName: displayName) else {
             error = "displayNameErrorDescriptionShorter".localized()
             return
         }
@@ -109,7 +112,8 @@ struct DisplayNameScreen: View {
         // Try to save the user name but ignore the result
         ProfileManager.updateLocal(
             queue: .global(qos: .default),
-            profileName: displayName
+            profileName: displayName,
+            using: dependencies
         )
         
         // If we are not in the registration flow then we are finished and should go straight
@@ -117,14 +121,16 @@ struct DisplayNameScreen: View {
         guard self.flow == .register else {
             self.flow.completeRegistration()
             
-            let homeVC: HomeVC = HomeVC(flow: self.flow)
+            let homeVC: HomeVC = HomeVC(flow: self.flow, using: dependencies)
             self.host.controller?.navigationController?.setViewControllers([ homeVC ], animated: true)
             
             return
         }
         
         // Need to get the PN mode if registering
-        let viewController: SessionHostingViewController = SessionHostingViewController(rootView: PNModeScreen(flow: flow))
+        let viewController: SessionHostingViewController = SessionHostingViewController(
+            rootView: PNModeScreen(flow: flow, using: dependencies)
+        )
         viewController.setUpNavBarSessionIcon()
         self.host.controller?.navigationController?.pushViewController(viewController, animated: true)
     }
@@ -132,6 +138,6 @@ struct DisplayNameScreen: View {
 
 struct DisplayNameView_Previews: PreviewProvider {
     static var previews: some View {
-        DisplayNameScreen(flow: .register)
+        DisplayNameScreen(flow: .register, using: Dependencies())
     }
 }

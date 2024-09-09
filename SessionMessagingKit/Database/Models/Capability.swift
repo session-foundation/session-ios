@@ -2,8 +2,6 @@
 //
 // stringlint:disable
 
-// stringlint:disable
-
 import Foundation
 import GRDB
 import SessionUtilitiesKit

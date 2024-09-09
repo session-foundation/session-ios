@@ -164,22 +164,6 @@ final class NukeDataModal: Modal {
         }
     }
     
-    private func unknownErrorOccured() {
-        let modal: ConfirmationModal = ConfirmationModal(
-            info: ConfirmationModal.Info(
-                title: "clearDataAll".localized(),
-                body: .text("clearDataErrorDescriptionGeneric".localized()),
-                confirmTitle: "clear".localized(),
-                confirmStyle: .danger,
-                cancelStyle: .alert_text,
-                dismissOnConfirm: false
-            ) { [weak self] confirmationModal in
-                self?.clearDeviceOnly()
-            }
-        )
-        present(modal, animated: true)
-    }
-    
     private func clearEntireAccount(presentedViewController: UIViewController) {
         let dependencies: Dependencies = Dependencies()
         
@@ -220,42 +204,57 @@ final class NukeDataModal: Modal {
                                 case .finished: break
                                 case .failure(let error):
                                     self?.dismiss(animated: true, completion: nil) // Dismiss the loader
-
-                                    let modal: ConfirmationModal = ConfirmationModal(
-                                        targetView: self?.view,
-                                        info: ConfirmationModal.Info(
-                                            title: "clearDataError".localized(),
-                                            body: .text(error.localizedDescription),
-                                            cancelTitle: "okay".localized(),
-                                            cancelStyle: .alert_text
+                                
+                                switch error {
+                                    case NetworkError.timeout, NetworkError.gatewayTimeout:
+                                        let modal: ConfirmationModal = ConfirmationModal(
+                                            targetView: self?.view,
+                                            info: ConfirmationModal.Info(
+                                                title: "clearDataAll".localized(),
+                                                body: .text("clearDataErrorDescriptionGeneric".localized()),
+                                                confirmTitle: "clear".localized(),
+                                                confirmStyle: .danger,
+                                                cancelStyle: .alert_text
+                                            ) { [weak self] _ in
+                                                self?.clearDeviceOnly()
+                                            }
                                         )
-                                    )
-                                    self?.present(modal, animated: true)
+                                        self?.present(modal, animated: true)
+                                                                            
+                                    default:
+                                        let modal: ConfirmationModal = ConfirmationModal(
+                                            targetView: self?.view,
+                                            info: ConfirmationModal.Info(
+                                                title: "clearDataError".localized(),
+                                                body: .text("\(error)"),
+                                                cancelTitle: "okay".localized(),
+                                                cancelStyle: .alert_text
+                                            )
+                                        )
+                                        self?.present(modal, animated: true)
+                                    }
                             }
                         },
                         receiveValue: { confirmations in
                             self?.dismiss(animated: true, completion: nil) // Dismiss the loader
 
+                            // Get a list of nodes which failed to delete the data
                             let potentiallyMaliciousSnodes = confirmations
                                 .compactMap { ($0.value == false ? $0.key : nil) }
-
+                            
+                            // If all of the nodes successfully deleted the data then proceed
+                            // to delete the local data
                             guard !potentiallyMaliciousSnodes.isEmpty else {
-                                self?.unknownErrorOccured()
+                                self?.deleteAllLocalData()
                                 return
                             }
 
-                            let message: String
-                            if potentiallyMaliciousSnodes.count == 1 {
-                                message = "clearDataErrorDescription1"
-                                    .put(key: "service_node_id", value: potentiallyMaliciousSnodes[0])
-                                    .localized()
-                            }
-                            else {
-                                message = "clearDataErrorDescription2"
-                                    .put(key: "count", value: potentiallyMaliciousSnodes.count)
-                                    .put(key: "service_node_id", value: potentiallyMaliciousSnodes.joined(separator: ", "))
-                                    .localized()
-                            }
+                            // Otherwise we should warn the user that one or more service node
+                            // failed to delete the data
+                            let message: String = "clearDataErrorDescription"
+                                .putNumber(potentiallyMaliciousSnodes.count)
+                                .put(key: "service_node_id", value: potentiallyMaliciousSnodes.joined(separator: ", "))
+                                .localized()
                             
                             let modal: ConfirmationModal = ConfirmationModal(
                                 targetView: self?.view,
@@ -309,7 +308,7 @@ final class NukeDataModal: Modal {
         // profile storage
         let wasUnlinked: Bool = UserDefaults.standard[.wasUnlinked]
         
-        SessionApp.resetAppData {
+        SessionApp.resetAppData(using: dependencies) {
             // Resetting the data clears the old user defaults. We need to restore the unlink default.
             UserDefaults.standard[.wasUnlinked] = wasUnlinked
         }

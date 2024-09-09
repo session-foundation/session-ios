@@ -4,7 +4,6 @@ import Foundation
 import Combine
 import UserNotifications
 import SessionMessagingKit
-import SignalCoreKit
 import SignalUtilitiesKit
 import SessionUtilitiesKit
 
@@ -75,10 +74,10 @@ extension UserNotificationPresenterAdaptee: NotificationPresenterAdaptee {
                     
                     if granted {}
                     else if let error: Error = error {
-                        Logger.error("failed with error: \(error)")
+                        Log.error("[UserNotificationPresenterAdaptee] Failed with error: \(error)")
                     }
                     else {
-                        Logger.error("failed without error.")
+                        Log.error("[UserNotificationPresenterAdaptee] Failed without error.")
                     }
                     
                     // Note that the promise is fulfilled regardless of if notification permssions were
@@ -127,12 +126,11 @@ extension UserNotificationPresenterAdaptee: NotificationPresenterAdaptee {
         var trigger: UNNotificationTrigger?
 
         if shouldPresentNotification {
-            if let displayableTitle = title?.filterForDisplay {
+            if let displayableTitle = title?.filteredForDisplay {
                 content.title = displayableTitle
             }
-            if let displayableBody = body.filterForDisplay {
-                content.body = displayableBody
-            }
+            
+            content.body = body.filteredForDisplay
             
             if shouldGroupNotification {
                 trigger = UNTimeIntervalNotificationTrigger(
@@ -153,8 +151,8 @@ extension UserNotificationPresenterAdaptee: NotificationPresenterAdaptee {
                         content.title :
                         threadName
                     )
-                    content.body = "messageNewYouveGotMany"
-                        .put(key: "count", value: numberOfNotifications)
+                    content.body = "messageNewYouveGot"
+                        .putNumber(numberOfNotifications)
                         .localized()
                 }
                 
@@ -163,7 +161,7 @@ extension UserNotificationPresenterAdaptee: NotificationPresenterAdaptee {
         }
         else {
             // Play sound and vibrate, but without a `body` no banner will show.
-            Logger.debug("supressing notification body")
+            Log.debug("[UserNotificationPresenterAdaptee] Supressing notification body")
         }
 
         let request = UNNotificationRequest(
@@ -172,7 +170,7 @@ extension UserNotificationPresenterAdaptee: NotificationPresenterAdaptee {
             trigger: trigger
         )
 
-        Logger.debug("presenting notification with identifier: \(notificationIdentifier)")
+        Log.debug("[UserNotificationPresenterAdaptee] Presenting notification with identifier: \(notificationIdentifier)")
         
         if isReplacingNotification { cancelNotifications(identifiers: [notificationIdentifier]) }
         
@@ -225,7 +223,7 @@ extension UserNotificationPresenterAdaptee: NotificationPresenterAdaptee {
         }
 
         guard let notificationThreadId = userInfo[AppNotificationUserInfoKey.threadId] as? String else {
-            owsFailDebug("threadId was unexpectedly nil")
+            Log.error("[UserNotificationPresenterAdaptee] threadId was unexpectedly nil")
             return true
         }
         
@@ -245,10 +243,9 @@ public class UserNotificationActionHandler: NSObject {
         return NotificationActionHandler.shared
     }
 
-    @objc
-    func handleNotificationResponse( _ response: UNNotificationResponse, completionHandler: @escaping () -> Void) {
-        AssertIsOnMainThread()
-        handleNotificationResponse(response)
+    func handleNotificationResponse( _ response: UNNotificationResponse, completionHandler: @escaping () -> Void, using dependencies: Dependencies) {
+        Log.assertOnMainThread()
+        handleNotificationResponse(response, using: dependencies)
             .subscribe(on: DispatchQueue.global(qos: .userInitiated))
             .receive(on: DispatchQueue.main)
             .sinkUntilComplete(
@@ -264,8 +261,8 @@ public class UserNotificationActionHandler: NSObject {
             )
     }
 
-    func handleNotificationResponse( _ response: UNNotificationResponse) -> AnyPublisher<Void, Error> {
-        AssertIsOnMainThread()
+    func handleNotificationResponse( _ response: UNNotificationResponse, using dependencies: Dependencies) -> AnyPublisher<Void, Error> {
+        Log.assertOnMainThread()
         assert(Singleton.appReadiness.isAppReady)
 
         let userInfo: [AnyHashable: Any] = response.notification.request.content.userInfo
@@ -274,7 +271,7 @@ public class UserNotificationActionHandler: NSObject {
         switch response.actionIdentifier {
             case UNNotificationDefaultActionIdentifier:
                 Log.debug("Notification response: default action")
-                return actionHandler.showThread(userInfo: userInfo)
+                return actionHandler.showThread(userInfo: userInfo, using: dependencies)
                     .setFailureType(to: Error.self)
                     .eraseToAnyPublisher()
                 

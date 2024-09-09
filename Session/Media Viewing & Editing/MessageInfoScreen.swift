@@ -52,7 +52,8 @@ struct MessageInfoScreen: View {
                     if isMessageFailed {
                         let (image, statusText, tintColor) = messageViewModel.state.statusIconInfo(
                             variant: messageViewModel.variant,
-                            hasAtLeastOneReadReceipt: messageViewModel.hasAtLeastOneReadReceipt
+                            hasAtLeastOneReadReceipt: messageViewModel.hasAtLeastOneReadReceipt,
+                            hasAttachments: (messageViewModel.attachments?.isEmpty == false)
                         )
                         
                         HStack(spacing: 6) {

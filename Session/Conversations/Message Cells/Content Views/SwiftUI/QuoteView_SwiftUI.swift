@@ -95,9 +95,9 @@ struct QuoteView_SwiftUI: View {
                         return thumbnail
                     }
                     
-                    let fallbackImageName: String = (MIMETypeUtil.isAudio(attachment.contentType) ? "attachment_audio" : "actionsheet_document_black")
+                    let fallbackImageName: String = (MimeTypeUtil.isAudio(attachment.contentType) ? "attachment_audio" : "actionsheet_document_black")
                     return UIImage(named: fallbackImageName)?
-                        .resizedImage(to: CGSize(width: Self.iconSize, height: Self.iconSize))?
+                        .resized(to: CGSize(width: Self.iconSize, height: Self.iconSize))?
                         .withRenderingMode(.alwaysTemplate)
                 }() {
                     Image(uiImage: image)
@@ -162,7 +162,13 @@ struct QuoteView_SwiftUI: View {
                             currentUserPublicKey: info.currentUserPublicKey,
                             currentUserBlinded15PublicKey: info.currentUserBlinded15PublicKey,
                             currentUserBlinded25PublicKey: info.currentUserBlinded25PublicKey,
-                            isOutgoingMessage: (info.direction == .outgoing),
+                            location: {
+                                switch (info.mode, info.direction) {
+                                    case (.draft, _): return .quoteDraft
+                                    case (_, .outgoing): return .outgoingQuote
+                                    case (_, .incoming): return .incomingQuote
+                                }
+                            }(),
                             textColor: textColor,
                             theme: ThemeManager.currentTheme,
                             primaryColor: ThemeManager.primaryColor,

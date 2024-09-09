@@ -13,19 +13,25 @@ import SessionUtilitiesKit
 class NotificationContentViewModelSpec: QuickSpec {
     override class func spec() {
         // MARK: Configuration
-        @TestState var mockStorage: Storage! = SynchronousStorage(
-            customWriter: try! DatabaseQueue(),
-            migrationTargets: [
-                SNUtilitiesKit.self,
-                SNSnodeKit.self,
-                SNMessagingKit.self,
-                SNUIKit.self
-            ]
-        )
         @TestState var dependencies: Dependencies! = Dependencies(
-            storage: mockStorage,
+            storage: nil,
             scheduler: .immediate
         )
+        @TestState var mockStorage: Storage! = {
+            let result = SynchronousStorage(
+                customWriter: try! DatabaseQueue(),
+                migrationTargets: [
+                    SNUtilitiesKit.self,
+                    SNSnodeKit.self,
+                    SNMessagingKit.self,
+                    SNUIKit.self
+                ],
+                using: dependencies
+            )
+            dependencies.storage = result
+            
+            return result
+        }()
         @TestState var viewModel: NotificationContentViewModel! = NotificationContentViewModel(
             using: dependencies
         )
@@ -33,7 +39,7 @@ class NotificationContentViewModelSpec: QuickSpec {
             .receive(on: ImmediateScheduler.shared)
             .sink(
                 receiveCompletion: { _ in },
-                receiveValue: { viewModel.updateTableData($0.0) }
+                receiveValue: { viewModel.updateTableData($0) }
             )
         @TestState var dismissCancellable: AnyCancellable?
         
@@ -95,7 +101,7 @@ class NotificationContentViewModelSpec: QuickSpec {
                     .receive(on: ImmediateScheduler.shared)
                     .sink(
                         receiveCompletion: { _ in },
-                        receiveValue: { viewModel.updateTableData($0.0) }
+                        receiveValue: { viewModel.updateTableData($0) }
                     )
                 
                 expect(viewModel.tableData.first?.elements)

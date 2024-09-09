@@ -2,7 +2,6 @@
 
 import Foundation
 import GRDB
-import SignalCoreKit
 import SessionUtilitiesKit
 import SessionUIKit
 
@@ -43,73 +42,59 @@ public struct RecipientState: Codable, Equatable, FetchableRecord, PersistableRe
         case failedToSync   // One-to-one Only
         case syncing        // One-to-one Only
         
-        func message(hasAttachments: Bool, hasAtLeastOneReadReceipt: Bool) -> String {
-            switch self {
-                case .sending:
-                    guard hasAttachments else {
-                        return "sending".localized()
-                    }
-                    
-                    return "uploading".localized()
-                
-                case .failed: return "messageStatusFailedToSend".localized()
-                    
-                case .sent:
-                    guard hasAtLeastOneReadReceipt else {
-                        return "disappearingMessagesSent".localized()
-                    }
-                    
-                    return "read".localized()
-                
-                case .failedToSync: return "messageStatusFailedToSync".localized()
-                case .syncing: return "messageStatusSyncing".localized()
-                    
-                default:
-                    owsFailDebug("Message has unexpected status: \(self).")
-                    return "disappearingMessagesSent".localized()
+        public func statusIconInfo(
+            variant: Interaction.Variant,
+            hasAtLeastOneReadReceipt: Bool,
+            hasAttachments: Bool
+        ) -> (image: UIImage?, text: String?, themeTintColor: ThemeValue) {
+            guard variant == .standardOutgoing else {
+                return (nil, "read".localized(), .messageBubble_deliveryStatus)
             }
-        }
-        
-        public func statusIconInfo(variant: Interaction.Variant, hasAtLeastOneReadReceipt: Bool) -> (image: UIImage?, text: String?, themeTintColor: ThemeValue) {
-            guard variant == .standardOutgoing else { return (nil, "read".localized(), .messageBubble_deliveryStatus) }
 
-            switch (self, hasAtLeastOneReadReceipt) {
-                case (.sending, _):
+            switch (self, hasAtLeastOneReadReceipt, hasAttachments) {
+                case (.sending, _, true):
+                    return (
+                        UIImage(systemName: "ellipsis.circle"),
+                        "uploading".localized(),
+                        .messageBubble_deliveryStatus
+                    )
+                    
+                case (.sending, _, _):
                     return (
                         UIImage(systemName: "ellipsis.circle"),
                         "sending".localized(),
                         .messageBubble_deliveryStatus
                     )
 
-                case (.sent, false), (.skipped, _):
+                case (.sent, false, _), (.skipped, _, _):
                     return (
                         UIImage(systemName: "checkmark.circle"),
                         "disappearingMessagesSent".localized(),
                         .messageBubble_deliveryStatus
                     )
 
-                case (.sent, true):
+                case (.sent, true, _):
                     return (
                         UIImage(systemName: "eye.fill"),
                         "read".localized(),
                         .messageBubble_deliveryStatus
                     )
                     
-                case (.failed, _):
+                case (.failed, _, _):
                     return (
                         UIImage(systemName: "exclamationmark.triangle"),
                         "messageStatusFailedToSend".localized(),
                         .danger
                     )
                     
-                case (.failedToSync, _):
+                case (.failedToSync, _, _):
                     return (
                         UIImage(systemName: "exclamationmark.triangle"),
                         "messageStatusFailedToSync".localized(),
                         .warning
                     )
                     
-                case (.syncing, _):
+                case (.syncing, _, _):
                     return (
                         UIImage(systemName: "ellipsis.circle"),
                         "messageStatusSyncing".localized(),

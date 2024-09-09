@@ -48,40 +48,55 @@ public final class ClosedGroupPoller: Poller {
 
     // MARK: - Abstract Methods
     
-    override func pollerName(for publicKey: String) -> String {
-        return "closed group with public key: \(publicKey)"
+    override public func pollerName(for publicKey: String) -> String {
+        return "Closed group poller with public key: \(publicKey)"
     }
 
     override func nextPollDelay(for publicKey: String, using dependencies: Dependencies) -> TimeInterval {
-        // Get the received date of the last message in the thread. If we don't have
-        // any messages yet, pick some reasonable fake time interval to use instead
+        /// Get the received date of the last message in the thread. If we don't have any messages yet then use the group formation timestamp and,
+        /// if that is unable to be retrieved for some reason, fallback to an activity of 1 hour
+        let minActivityThreshold: TimeInterval = (5 * 60)
+        let maxActivityThreshold: TimeInterval = (12 * 60 * 60)
+        let fallbackActivityThreshold: TimeInterval = (1 * 60 * 60)
         let lastMessageDate: Date = Storage.shared
             .read { db in
-                try Interaction
+                let lastMessageTimestmapMs: Int64? = try Interaction
                     .filter(Interaction.Columns.threadId == publicKey)
                     .select(.receivedAtTimestampMs)
                     .order(Interaction.Columns.timestampMs.desc)
                     .asRequest(of: Int64.self)
                     .fetchOne(db)
+                
+                switch lastMessageTimestmapMs {
+                    case .some(let lastMessageTimestmapMs): return lastMessageTimestmapMs
+                    case .none:
+                        let formationTimestamp: TimeInterval? = try ClosedGroup
+                            .filter(ClosedGroup.Columns.threadId == publicKey)
+                            .select(.formationTimestamp)
+                            .asRequest(of: TimeInterval.self)
+                            .fetchOne(db)
+                        
+                        return formationTimestamp.map { Int64(floor($0 * 1000)) }
+                }
             }
             .map { receivedAtTimestampMs -> Date? in
                 guard receivedAtTimestampMs > 0 else { return nil }
                 
                 return Date(timeIntervalSince1970: (TimeInterval(receivedAtTimestampMs) / 1000))
             }
-            .defaulting(to: Date().addingTimeInterval(-5 * 60))
+            .defaulting(to: dependencies.dateNow.addingTimeInterval(-fallbackActivityThreshold))
         
+        /// Convert the conversation activity frequency into
         let timeSinceLastMessage: TimeInterval = dependencies.dateNow.timeIntervalSince(lastMessageDate)
-        let minPollInterval: Double = ClosedGroupPoller.minPollInterval
-        let limit: Double = (12 * 60 * 60)
-        let a: TimeInterval = ((ClosedGroupPoller.maxPollInterval - minPollInterval) / limit)
-        let nextPollInterval: TimeInterval = a * min(timeSinceLastMessage, limit) + minPollInterval
+        let conversationActivityInterval: TimeInterval = max(0, (timeSinceLastMessage - minActivityThreshold))
+        let activityIntervalDelta: Double = (maxActivityThreshold - minActivityThreshold)
+        let pollIntervalDelta: Double = (ClosedGroupPoller.maxPollInterval - ClosedGroupPoller.minPollInterval)
+        let activityIntervalPercentage: Double = min(1, (conversationActivityInterval / activityIntervalDelta))
         
-        return nextPollInterval
+        return (ClosedGroupPoller.minPollInterval + (pollIntervalDelta * activityIntervalPercentage))
     }
 
-    override func handlePollError(_ error: Error, for publicKey: String, using dependencies: Dependencies) -> Bool {
-        SNLog("Polling failed for closed group with public key: \(publicKey) due to error: \(error).")
-        return true
+    override func handlePollError(_ error: Error, for publicKey: String, using dependencies: Dependencies) -> PollerErrorResponse {
+        return .continuePolling
     }
 }

@@ -3,7 +3,7 @@
 import Foundation
 import UIKit
 import SessionUIKit
-import SignalCoreKit
+import SessionUtilitiesKit
 
 protocol AttachmentApprovalInputAccessoryViewDelegate: AnyObject {
     func attachmentApprovalInputUpdateMediaRail()
@@ -31,7 +31,7 @@ class AttachmentApprovalInputAccessoryView: UIView {
 
         galleryRailView = GalleryRailView()
         galleryRailView.scrollFocusMode = .keepWithinBounds
-        galleryRailView.autoSetDimension(.height, toSize: kGalleryRailViewHeight)
+        galleryRailView.set(.height, to: kGalleryRailViewHeight)
 
         super.init(frame: .zero)
 
@@ -68,13 +68,13 @@ class AttachmentApprovalInputAccessoryView: UIView {
         stackView.axis = .vertical
 
         addSubview(stackView)
-        stackView.autoPinEdge(toSuperviewEdge: .top)
-        stackView.autoPinEdge(toSuperviewEdge: .leading)
-        stackView.autoPinEdge(toSuperviewEdge: .trailing)
+        stackView.pin(.top, to: .top, of: self)
+        stackView.pin(.leading, to: .leading, of: self)
+        stackView.pin(.trailing, to: .trailing, of: self)
         // We pin to the superview's _margin_.  Otherwise the notch breaks
         // the layout if you hide the keyboard in the simulator (or if the
         // user uses an external keyboard).
-        stackView.autoPinEdge(toSuperviewMargin: .bottom)
+        stackView.pin(.bottom, toMargin: .bottom, of: self)
         
         let galleryRailBlockingView: UIView = UIView()
         galleryRailBlockingView.themeBackgroundColor = .backgroundPrimary

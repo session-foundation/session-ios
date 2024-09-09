@@ -3,7 +3,6 @@
 import UIKit
 import SessionUIKit
 import SessionUtilitiesKit
-import SignalCoreKit
 
 protocol EmojiPickerCollectionViewDelegate: AnyObject {
     func emojiPicker(_ emojiPicker: EmojiPickerCollectionView?, didSelectEmoji emoji: EmojiWithSkinTones)
@@ -57,13 +56,9 @@ class EmojiPickerCollectionView: UICollectionView {
 
         delegate = self
         dataSource = self
-
-        register(EmojiCell.self, forCellWithReuseIdentifier: EmojiCell.reuseIdentifier)
-        register(
-            EmojiSectionHeader.self,
-            forSupplementaryViewOfKind: UICollectionView.elementKindSectionHeader,
-            withReuseIdentifier: EmojiSectionHeader.reuseIdentifier
-        )
+        
+        register(view: EmojiCell.self)
+        register(view: EmojiSectionHeader.self, ofKind: UICollectionView.elementKindSectionHeader)
 
         themeBackgroundColor = .clear
 
@@ -108,7 +103,7 @@ class EmojiPickerCollectionView: UICollectionView {
 
     // This is not an exact calculation, but is simple and works for our purposes.
     var numberOfColumns: Int {
-        Int((self.width()) / (EmojiPickerCollectionView.emojiWidth + EmojiPickerCollectionView.minimumSpacing))
+        Int(self.bounds.width / (EmojiPickerCollectionView.emojiWidth + EmojiPickerCollectionView.minimumSpacing))
     }
 
     // At max, we show 3 rows of recent emoji
@@ -119,12 +114,12 @@ class EmojiPickerCollectionView: UICollectionView {
         guard section > 0 || !hasRecentEmoji else { return Array(recentEmoji[0..<min(maxRecentEmoji, recentEmoji.count)]) }
 
         guard let category = Emoji.Category.allCases[safe: section - categoryIndexOffset] else {
-            owsFailDebug("Unexpectedly missing category for section \(section)")
+            Log.error("[EmojiPickerCollectionView] Unexpectedly missing category for section \(section)")
             return []
         }
 
         guard let categoryEmoji = allSendableEmojiByCategory[category] else {
-            owsFailDebug("Unexpectedly missing emoji for category \(category)")
+            Log.error("[EmojiPickerCollectionView] Unexpectedly missing emoji for category \(category)")
             return []
         }
 
@@ -141,7 +136,7 @@ class EmojiPickerCollectionView: UICollectionView {
         }
 
         guard let category = Emoji.Category.allCases[safe: section - categoryIndexOffset] else {
-            owsFailDebug("Unexpectedly missing category for section \(section)")
+            Log.error("[EmojiPickerCollectionView] Unexpectedly missing category for section \(section)")
             return nil
         }
 
@@ -229,7 +224,7 @@ extension EmojiPickerCollectionView: UIGestureRecognizerDelegate {
 extension EmojiPickerCollectionView: UICollectionViewDelegate {
     func collectionView(_ collectionView: UICollectionView, didSelectItemAt indexPath: IndexPath) {
         guard let emoji = emojiForIndexPath(indexPath) else {
-            return owsFailDebug("Missing emoji for indexPath \(indexPath)")
+            return Log.error("[EmojiPickerCollectionView] Missing emoji for indexPath \(indexPath)")
         }
         
         pickerDelegate?.emojiPicker(self, didSelectEmoji: emoji)
@@ -246,35 +241,20 @@ extension EmojiPickerCollectionView: UICollectionViewDataSource {
     }
 
     func collectionView(_ collectionView: UICollectionView, cellForItemAt indexPath: IndexPath) -> UICollectionViewCell {
-        let cell = dequeueReusableCell(withReuseIdentifier: EmojiCell.reuseIdentifier, for: indexPath)
-
-        guard let emojiCell = cell as? EmojiCell else {
-            owsFailDebug("unexpected cell type")
-            return cell
-        }
+        let cell = dequeue(type: EmojiCell.self, for: indexPath)
 
         guard let emoji = emojiForIndexPath(indexPath) else {
-            owsFailDebug("unexpected indexPath")
+            Log.error("[EmojiPickerCollectionView] unexpected indexPath")
             return cell
         }
 
-        emojiCell.configure(emoji: emoji)
+        cell.configure(emoji: emoji)
 
         return cell
     }
 
     func collectionView(_ collectionView: UICollectionView, viewForSupplementaryElementOfKind kind: String, at indexPath: IndexPath) -> UICollectionReusableView {
-
-        let supplementaryView = dequeueReusableSupplementaryView(
-            ofKind: kind,
-            withReuseIdentifier: EmojiSectionHeader.reuseIdentifier,
-            for: indexPath
-        )
-
-        guard let sectionHeader = supplementaryView as? EmojiSectionHeader else {
-            owsFailDebug("unexpected supplementary view type")
-            return supplementaryView
-        }
+        let sectionHeader = dequeue(type:  EmojiSectionHeader.self, ofKind: kind, for: indexPath)
 
         sectionHeader.label.text = nameForSection(indexPath.section)
 
@@ -292,13 +272,11 @@ extension EmojiPickerCollectionView: UICollectionViewDelegateFlowLayout {
 
         let measureCell = EmojiSectionHeader()
         measureCell.label.text = nameForSection(section)
-        return measureCell.sizeThatFits(CGSize(width: self.width(), height: .greatestFiniteMagnitude))
+        return measureCell.sizeThatFits(CGSize(width: self.bounds.width, height: .greatestFiniteMagnitude))
     }
 }
 
 private class EmojiCell: UICollectionViewCell {
-    static let reuseIdentifier = "EmojiCell" // stringlint:disable
-
     let emojiLabel = UILabel()
 
     override init(frame: CGRect) {
@@ -308,7 +286,7 @@ private class EmojiCell: UICollectionViewCell {
 
         emojiLabel.font = .boldSystemFont(ofSize: 32)
         contentView.addSubview(emojiLabel)
-        emojiLabel.autoPinEdgesToSuperviewEdges()
+        emojiLabel.pin(to: contentView)
 
         // For whatever reason, some emoji glyphs occasionally have different typographic widths on certain devices
         // e.g. 👩‍🦰: 36x38.19, 👱‍♀️: 40x38. (See: commit message for more info)
@@ -327,8 +305,6 @@ private class EmojiCell: UICollectionViewCell {
 }
 
 private class EmojiSectionHeader: UICollectionReusableView {
-    static let reuseIdentifier = "EmojiSectionHeader" // stringlint:disable
-
     let label = UILabel()
 
     override init(frame: CGRect) {
@@ -344,8 +320,8 @@ private class EmojiSectionHeader: UICollectionReusableView {
         label.font = .systemFont(ofSize: Values.smallFontSize)
         label.themeTextColor = .textPrimary
         addSubview(label)
-        label.autoPinEdgesToSuperviewMargins()
-        label.setCompressionResistanceHigh()
+        label.pin(to: self)
+        label.setCompressionResistance(to: .required)
     }
 
     required init?(coder: NSCoder) {

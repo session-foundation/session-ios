@@ -80,7 +80,9 @@ struct RecoveryPasswordScreen: View {
                                 
                                 ZStack(alignment: .center) {
                                     Button {
-                                        self.showQRCode.toggle()
+                                        withAnimation(.spring()) {
+                                            self.showQRCode.toggle()
+                                        }
                                     } label: {
                                         Text("recoveryPasswordView".localized())
                                             .bold()
@@ -154,7 +156,9 @@ struct RecoveryPasswordScreen: View {
                                     Spacer(minLength: Values.veryLargeSpacing)
                                     
                                     Button {
-                                        self.showQRCode.toggle()
+                                        withAnimation(.spring()) {
+                                            self.showQRCode.toggle()
+                                        }
                                     } label: {
                                         Text("qrView".localized())
                                             .bold()

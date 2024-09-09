@@ -1,9 +1,10 @@
 // Copyright © 2022 Rangeproof Pty Ltd. All rights reserved.
+//
+// stringlint:disable
 
 import Foundation
 import SessionUtilitiesKit
 import SessionMessagingKit
-import SignalCoreKit
 import SessionUIKit
 
 public struct SessionApp {
@@ -17,11 +18,7 @@ public struct SessionApp {
             .defaulting(to: "")
         let appVersion: String? = (Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String)
             .map { "App: \($0)\(buildNumber)" } // stringlint:disable
-        #if DEBUG
         let commitInfo: String? = (Bundle.main.infoDictionary?["GitCommitHash"] as? String).map { "Commit: \($0)" }
-        #else
-        let commitInfo: String? = nil
-        #endif
         
         let versionInfo: [String] = [
             "iOS \(UIDevice.current.systemVersion)",        // stringlint:disable
@@ -111,29 +108,40 @@ public struct SessionApp {
 
     // MARK: - Functions
     
-    public static func resetAppData(onReset: (() -> ())? = nil) {
-        LibSession.clearMemoryState()
+    public static func resetAppData(
+        using dependencies: Dependencies,
+        onReset: (() -> ())? = nil
+    ) {
+        LibSession.clearLoggers()
+        LibSession.clearMemoryState(using: dependencies)
         LibSession.clearSnodeCache()
         LibSession.suspendNetworkAccess()
+        PushNotificationAPI.resetKeys()
         Storage.resetAllStorage()
         ProfileManager.resetProfileStorage()
         Attachment.resetAttachmentStorage()
         AppEnvironment.shared.notificationPresenter.clearAllNotifications()
+        
+        onReset?()
+        Log.info("Data Reset Complete.")
         Log.flush()
 
-        onReset?()
-        exit(0)
+        /// Wait until the next run loop to kill the app (hoping to avoid a crash due to the connection closes
+        /// triggering logs)
+        DispatchQueue.main.async {
+            exit(0)
+        }
     }
     
-    public static func showHomeView() {
+    public static func showHomeView(using dependencies: Dependencies) {
         guard Thread.isMainThread else {
             DispatchQueue.main.async {
-                self.showHomeView()
+                self.showHomeView(using: dependencies)
             }
             return
         }
         
-        let homeViewController: HomeVC = HomeVC()
+        let homeViewController: HomeVC = HomeVC(using: dependencies)
         let navController: UINavigationController = StyledNavigationController(rootViewController: homeViewController)
         (UIApplication.shared.delegate as? AppDelegate)?.window?.rootViewController = navController
     }

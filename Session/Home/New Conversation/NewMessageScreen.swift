@@ -53,27 +53,27 @@ struct NewMessageScreen: View {
     fileprivate func startNewPrivateChatIfPossible(with sessionId: String, onError: (() -> ())?) {
         if !KeyPair.isValidHexEncodedPublicKey(candidate: sessionId) {
             errorString = "qrNotAccountId".localized()
+            
+            DispatchQueue.main.asyncAfter(deadline: .now() + 1) {
+                onError?()
+            }
         }
         else {
             startNewDM(with: sessionId)
         }
     }
     
-    func continueWithAccountIdFromQRCode(onError: (() -> ())?) {
+    func continueWithAccountIdFromQRCode(onSuccess: (() -> ())?, onError: (() -> ())?) {
         startNewPrivateChatIfPossible(with: accountIdOrONS, onError: onError)
     }
     
     func continueWithAccountIdOrONS() {
-        startNewDMIfPossible(with: accountIdOrONS, onError: nil)
-    }
-    
-    fileprivate func startNewDMIfPossible(with onsNameOrPublicKey: String, onError: (() -> ())?) {
-        let maybeSessionId: SessionId? = SessionId(from: onsNameOrPublicKey)
+        let maybeSessionId: SessionId? = try? SessionId(from: accountIdOrONS)
         
-        if KeyPair.isValidHexEncodedPublicKey(candidate: onsNameOrPublicKey) {
+        if KeyPair.isValidHexEncodedPublicKey(candidate: accountIdOrONS) {
             switch maybeSessionId?.prefix {
                 case .standard:
-                    startNewDM(with: onsNameOrPublicKey)
+                    startNewDM(with: accountIdOrONS)
                     
                 default:
                     errorString = "accountIdErrorInvalid".localized()
@@ -85,7 +85,7 @@ struct NewMessageScreen: View {
         ModalActivityIndicatorViewController
             .present(fromViewController: self.host.controller?.navigationController!, canCancel: false) { modalActivityIndicator in
             SnodeAPI
-                .getSessionID(for: onsNameOrPublicKey)
+                .getSessionID(for: accountIdOrONS)
                 .subscribe(on: DispatchQueue.global(qos: .userInitiated))
                 .receive(on: DispatchQueue.main)
                 .sinkUntilComplete(
@@ -96,16 +96,11 @@ struct NewMessageScreen: View {
                                 modalActivityIndicator.dismiss {
                                     let message: String = {
                                         switch error {
-                                            case SnodeAPIError.onsDecryptionFailed, SnodeAPIError.onsHashingFailed,
-                                                SnodeAPIError.onsValidationFailed:
+                                            case SnodeAPIError.onsNotFound:
+                                                return "onsErrorNotRecognized".localized()
+                                            default:
                                                 return "onsErrorUnableToSearch".localized()
-                                            default: break
                                         }
-                                        
-                                        return (maybeSessionId?.prefix == .blinded15 || maybeSessionId?.prefix == .blinded25 ?
-                                            "accountIdErrorInvalid".localized() :
-                                            "onsErrorNotRecognized".localized()
-                                        )
                                     }()
                                     
                                     errorString = message
@@ -120,7 +115,7 @@ struct NewMessageScreen: View {
                 )
         }
     }
-
+    
     private func startNewDM(with sessionId: String) {
         SessionApp.presentConversationCreatingIfNeeded(
             for: sessionId,
@@ -148,12 +143,12 @@ struct EnterAccountIdScreen: View {
                 placeholder: "accountIdOrOnsEnter".localized(),
                 error: $error, 
                 accessibility: Accessibility(
-                    identifier: "Session ID input box",
-                    label: "Session ID input box"
+                    identifier: "Session id input box",
+                    label: "Session id input box"
                 )
             ) {
                 ZStack {
-                    Text("\("messageNewDescription".localized())\(Image(systemName: "questionmark.circle"))")
+                    Text("\("messageNewDescriptionMobile".localized())\(Image(systemName: "questionmark.circle"))")
                         .font(.system(size: Values.verySmallFontSize))
                         .foregroundColor(themeColor: .textSecondary)
                         .multilineTextAlignment(.center)

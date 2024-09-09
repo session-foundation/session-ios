@@ -93,6 +93,9 @@ class NotificationSettingsViewModel: SessionTableViewModel, NavigatableStateHold
                                 .boolValue(
                                     current.isUsingFullAPNs,
                                     oldValue: (previous ?? current).isUsingFullAPNs
+                                ),
+                                accessibility: Accessibility(
+                                    identifier: "Use Fast Mode - Switch"
                                 )
                             ),
                             styling: SessionCell.StyleInfo(
@@ -148,6 +151,9 @@ class NotificationSettingsViewModel: SessionTableViewModel, NavigatableStateHold
                                     key: .playNotificationSoundInForeground,
                                     value: current.playNotificationSoundInForeground,
                                     oldValue: (previous ?? current).playNotificationSoundInForeground
+                                ),
+                                accessibility: Accessibility(
+                                    identifier: "Sound when App is open - Switch"
                                 )
                             ),
                             onTap: {

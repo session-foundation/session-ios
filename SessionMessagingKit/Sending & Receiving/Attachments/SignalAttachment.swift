@@ -40,24 +40,14 @@ extension String {
 extension SignalAttachmentError: LocalizedError {
     public var errorDescription: String? {
         switch self {
-        case .missingData:
-            return "ATTACHMENT_ERROR_MISSING_DATA".localized()
-        case .fileSizeTooLarge:
-            return "attachmentsErrorSize".localized()
-        case .invalidData:
-            return "attachmentsErrorNotSupported".localized()
-        case .couldNotParseImage:
-            return "ATTACHMENT_ERROR_COULD_NOT_PARSE_IMAGE".localized()
-        case .couldNotConvertToJpeg:
-            return "attachmentsErrorOpen".localized()
-        case .invalidFileFormat:
-            return "attachmentsErrorNotSupported".localized()
-        case .couldNotConvertToMpeg4:
-            return "ATTACHMENT_ERROR_COULD_NOT_CONVERT_TO_MP4".localized()
-        case .couldNotRemoveMetadata:
-            return "attachmentsImageErrorMetadata".localized()
-        case .couldNotResizeImage:
-            return "ATTACHMENT_ERROR_COULD_NOT_RESIZE_IMAGE".localized()
+            case .fileSizeTooLarge:
+                return "attachmentsErrorSize".localized()
+            case .invalidData, .missingData, .invalidFileFormat:
+                return "attachmentsErrorNotSupported".localized()
+            case .couldNotConvertToJpeg, .couldNotParseImage, .couldNotConvertToMpeg4, .couldNotResizeImage:
+                return "attachmentsErrorOpen".localized()
+            case .couldNotRemoveMetadata:
+                return "attachmentsImageErrorMetadata".localized()
         }
     }
 }
@@ -104,20 +94,20 @@ public enum TSImageQuality: UInt {
 // [SignalAttachment hasError] will be true for non-valid attachments.
 //
 // TODO: Perhaps do conversion off the main thread?
-public class SignalAttachment: Equatable, Hashable {
+public class SignalAttachment: Equatable {
 
     // MARK: Properties
 
-    public let dataSource: DataSource
+    public let dataSource: (any DataSource)
     public var captionText: String?
     public var linkPreviewDraft: LinkPreviewDraft?
     
-    public var data: Data { return dataSource.data() }
-    public var dataLength: UInt { return dataSource.dataLength() }
-    public var dataUrl: URL? { return dataSource.dataUrl() }
-    public var sourceFilename: String? { return dataSource.sourceFilename?.filterFilename() }
-    public var isValidImage: Bool { return dataSource.isValidImage() }
-    public var isValidVideo: Bool { return dataSource.isValidVideo() }
+    public var data: Data { return dataSource.data }
+    public var dataLength: UInt { return UInt(dataSource.dataLength) }
+    public var dataUrl: URL? { return dataSource.dataUrl }
+    public var sourceFilename: String? { return dataSource.sourceFilename?.filteredFilename }
+    public var isValidImage: Bool { return dataSource.isValidImage }
+    public var isValidVideo: Bool { return dataSource.isValidVideo }
 
     // This flag should be set for text attachments that can be sent as text messages.
     public var isConvertibleToTextMessage = false
@@ -144,14 +134,6 @@ public class SignalAttachment: Equatable, Hashable {
 
     private(set) public var isVoiceMessage = false
 
-    // MARK: Constants
-
-    static let kMaxFileSizeAnimatedImage = OWSMediaUtils.kMaxFileSizeAnimatedImage
-    static let kMaxFileSizeImage = OWSMediaUtils.kMaxFileSizeImage
-    static let kMaxFileSizeVideo = OWSMediaUtils.kMaxFileSizeVideo
-    static let kMaxFileSizeAudio = OWSMediaUtils.kMaxFileSizeAudio
-    static let kMaxFileSizeGeneric = OWSMediaUtils.kMaxFileSizeGeneric
-
     // MARK: 
 
     public static let maxAttachmentsAllowed: Int = 32
@@ -160,7 +142,7 @@ public class SignalAttachment: Equatable, Hashable {
 
     // This method should not be called directly; use the factory
     // methods instead.
-    private init(dataSource: DataSource, dataUTI: String) {
+    private init(dataSource: (any DataSource), dataUTI: String) {
         self.dataSource = dataSource
         self.dataUTI = dataUTI
     }
@@ -219,7 +201,7 @@ public class SignalAttachment: Equatable, Hashable {
         if let cachedImage = cachedImage {
             return cachedImage
         }
-        guard let image = UIImage(data: dataSource.data()) else {
+        guard let image = UIImage(data: dataSource.data) else {
             return nil
         }
         
@@ -257,7 +239,7 @@ public class SignalAttachment: Equatable, Hashable {
     }
     
     public func text() -> String? {
-        guard let text = String(data: dataSource.data(), encoding: .utf8) else {
+        guard let text = String(data: dataSource.data, encoding: .utf8) else {
             return nil
         }
         
@@ -267,7 +249,7 @@ public class SignalAttachment: Equatable, Hashable {
     public func duration() -> TimeInterval? {
         switch (isAudio, isVideo) {
             case (true, _):
-                let audioPlayer: AVAudioPlayer? = try? AVAudioPlayer(data: dataSource.data())
+                let audioPlayer: AVAudioPlayer? = try? AVAudioPlayer(data: dataSource.data)
                 
                 return (audioPlayer?.duration).map { $0 > 0 ? $0 : nil }
                 
@@ -289,7 +271,7 @@ public class SignalAttachment: Equatable, Hashable {
         if let filename = sourceFilename {
             let fileExtension = (filename as NSString).pathExtension
             if fileExtension.count > 0 {
-                if let mimeType = MIMETypeUtil.mimeType(forFileExtension: fileExtension) {
+                if let mimeType = MimeTypeUtil.mimeType(for: fileExtension) {
                     // UTI types are an imperfect means of representing file type;
                     // file extensions are also imperfect but far more reliable and
                     // comprehensive so we always prefer to try to deduce MIME type
@@ -298,11 +280,11 @@ public class SignalAttachment: Equatable, Hashable {
                 }
             }
         }
-        if dataUTI == kUnknownTestAttachmentUTI {
-            return OWSMimeTypeUnknownForTests
+        if dataUTI == MimeTypeUtil.UTI.unknownUTIForTests {
+            return MimeTypeUtil.MimeType.unknownMimeTypeForTests
         }
         guard let mimeType = UTTypeCopyPreferredTagWithClass(dataUTI as CFString, kUTTagClassMIMEType) else {
-            return OWSMimeTypeApplicationOctetStream
+            return MimeTypeUtil.MimeType.applicationOctetStream
         }
         return mimeType.takeRetainedValue() as String
     }
@@ -311,7 +293,7 @@ public class SignalAttachment: Equatable, Hashable {
     // like: "signal-2017-04-24-095918.zip"
     public var filenameOrDefault: String {
         if let filename = sourceFilename {
-            return filename.filterFilename()
+            return filename.filteredFilename
         } else {
             let kDefaultAttachmentName = "signal"
 
@@ -334,13 +316,14 @@ public class SignalAttachment: Equatable, Hashable {
         if let filename = sourceFilename {
             let fileExtension = (filename as NSString).pathExtension
             if fileExtension.count > 0 {
-                return fileExtension.filterFilename()
+                return fileExtension.filteredFilename
             }
         }
-        if dataUTI == kUnknownTestAttachmentUTI {
+        if dataUTI == MimeTypeUtil.UTI.unknownUTIForTests {
             return "unknown".localized()
         }
-        guard let fileExtension = MIMETypeUtil.fileExtension(forUTIType: dataUTI) else {
+
+        guard let fileExtension = MimeTypeUtil.fileExtension(forUtiType: dataUTI) else {
             return nil
         }
         return fileExtension
@@ -355,7 +338,7 @@ public class SignalAttachment: Equatable, Hashable {
          // HEIC is valid input, but not valid output. Non-iOS11 clients do not support it.
         let heicSet: Set<String> = Set(["public.heic", "public.heif"])
 
-        return MIMETypeUtil.supportedImageUTITypes()
+        return MimeTypeUtil.supportedImageUtiTypes
             .union(animatedImageUTISet)
             .union(heicSet)
     }
@@ -363,7 +346,7 @@ public class SignalAttachment: Equatable, Hashable {
     // Returns the set of UTIs that correspond to valid _output_ image formats
     // for Signal attachments.
     private class var outputImageUTISet: Set<String> {
-        return MIMETypeUtil.supportedImageUTITypes().union(animatedImageUTISet)
+        return MimeTypeUtil.supportedImageUtiTypes.union(animatedImageUTISet)
     }
 
     private class var outputVideoUTISet: Set<String> {
@@ -373,19 +356,19 @@ public class SignalAttachment: Equatable, Hashable {
     // Returns the set of UTIs that correspond to valid animated image formats
     // for Signal attachments.
     private class var animatedImageUTISet: Set<String> {
-        return MIMETypeUtil.supportedAnimatedImageUTITypes()
+        return MimeTypeUtil.supportedAnimatedUtiTypes
     }
 
     // Returns the set of UTIs that correspond to valid video formats
     // for Signal attachments.
     private class var videoUTISet: Set<String> {
-        return MIMETypeUtil.supportedVideoUTITypes()
+        return MimeTypeUtil.supportedVideoUtiTypes
     }
 
     // Returns the set of UTIs that correspond to valid audio formats
     // for Signal attachments.
     private class var audioUTISet: Set<String> {
-        return MIMETypeUtil.supportedAudioUTITypes()
+        return MimeTypeUtil.supportedAudioUtiTypes
     }
 
     // Returns the set of UTIs that correspond to valid image, video and audio formats
@@ -496,7 +479,7 @@ public class SignalAttachment: Equatable, Hashable {
                 guard let data = dataForFirstPasteboardItem(dataUTI: dataUTI) else {
                     return nil
                 }
-                let dataSource = DataSourceValue.dataSource(with: data, utiType: dataUTI)
+                let dataSource = DataSourceValue(data: data, utiType: dataUTI)
                 // Pasted images _SHOULD _NOT_ be resized, if possible.
                 return attachment(dataSource: dataSource, dataUTI: dataUTI, imageQuality: .original)
             }
@@ -506,7 +489,7 @@ public class SignalAttachment: Equatable, Hashable {
                 guard let data = dataForFirstPasteboardItem(dataUTI: dataUTI) else {
                     return nil
                 }
-                let dataSource = DataSourceValue.dataSource(with: data, utiType: dataUTI)
+                let dataSource = DataSourceValue(data: data, utiType: dataUTI)
                 return videoAttachment(dataSource: dataSource, dataUTI: dataUTI)
             }
         }
@@ -515,7 +498,7 @@ public class SignalAttachment: Equatable, Hashable {
                 guard let data = dataForFirstPasteboardItem(dataUTI: dataUTI) else {
                     return nil
                 }
-                let dataSource = DataSourceValue.dataSource(with: data, utiType: dataUTI)
+                let dataSource = DataSourceValue(data: data, utiType: dataUTI)
                 return audioAttachment(dataSource: dataSource, dataUTI: dataUTI)
             }
         }
@@ -524,7 +507,7 @@ public class SignalAttachment: Equatable, Hashable {
         guard let data = dataForFirstPasteboardItem(dataUTI: dataUTI) else {
             return nil
         }
-        let dataSource = DataSourceValue.dataSource(with: data, utiType: dataUTI)
+        let dataSource = DataSourceValue(data: data, utiType: dataUTI)
         return genericAttachment(dataSource: dataSource, dataUTI: dataUTI)
     }
 
@@ -547,11 +530,11 @@ public class SignalAttachment: Equatable, Hashable {
     //
     // NOTE: The attachment returned by this method may not be valid.
     //       Check the attachment's error property.
-    private class func imageAttachment(dataSource: DataSource?, dataUTI: String, imageQuality: TSImageQuality) -> SignalAttachment {
+    private class func imageAttachment(dataSource: (any DataSource)?, dataUTI: String, imageQuality: TSImageQuality) -> SignalAttachment {
         assert(dataUTI.count > 0)
         assert(dataSource != nil)
-        guard let dataSource = dataSource else {
-            let attachment = SignalAttachment(dataSource: DataSourceValue.emptyDataSource(), dataUTI: dataUTI)
+        guard var dataSource = dataSource else {
+            let attachment = SignalAttachment(dataSource: DataSourceValue.empty, dataUTI: dataUTI)
             attachment.error = .missingData
             return attachment
         }
@@ -563,13 +546,13 @@ public class SignalAttachment: Equatable, Hashable {
             return attachment
         }
 
-        guard dataSource.dataLength() > 0 else {
+        guard dataSource.dataLength > 0 else {
             attachment.error = .invalidData
             return attachment
         }
 
         if animatedImageUTISet.contains(dataUTI) {
-            guard dataSource.dataLength() <= kMaxFileSizeAnimatedImage else {
+            guard dataSource.dataLength <= MediaUtils.maxFileSizeAnimatedImage else {
                 attachment.error = .fileSizeTooLarge
                 return attachment
             }
@@ -577,7 +560,7 @@ public class SignalAttachment: Equatable, Hashable {
             // Never re-encode animated images (i.e. GIFs) as JPEGs.
             return attachment
         } else {
-            guard let image = UIImage(data: dataSource.data()) else {
+            guard let image = UIImage(data: dataSource.data) else {
                 attachment.error = .couldNotParseImage
                 return attachment
             }
@@ -613,7 +596,7 @@ public class SignalAttachment: Equatable, Hashable {
 
     // If the proposed attachment already conforms to the
     // file size and content size limits, don't recompress it.
-    private class func isValidOutputImage(image: UIImage?, dataSource: DataSource?, dataUTI: String, imageQuality: TSImageQuality) -> Bool {
+    private class func isValidOutputImage(image: UIImage?, dataSource: (any DataSource)?, dataUTI: String, imageQuality: TSImageQuality) -> Bool {
         guard image != nil else {
             return false
         }
@@ -624,7 +607,7 @@ public class SignalAttachment: Equatable, Hashable {
             return false
         }
         if doesImageHaveAcceptableFileSize(dataSource: dataSource, imageQuality: imageQuality) &&
-            dataSource.dataLength() <= kMaxFileSizeImage {
+            dataSource.dataLength <= MediaUtils.maxFileSizeImage {
             return true
         }
         return false
@@ -638,7 +621,7 @@ public class SignalAttachment: Equatable, Hashable {
         assert(dataUTI.count > 0)
 
         guard let image = image else {
-            let dataSource = DataSourceValue.emptyDataSource()
+            let dataSource = DataSourceValue.empty
             dataSource.sourceFilename = filename
             let attachment = SignalAttachment(dataSource: dataSource, dataUTI: dataUTI)
             attachment.error = .missingData
@@ -646,7 +629,7 @@ public class SignalAttachment: Equatable, Hashable {
         }
 
         // Make a placeholder attachment on which to hang errors if necessary.
-        let dataSource = DataSourceValue.emptyDataSource()
+        let dataSource = DataSourceValue.empty
         dataSource.sourceFilename = filename
         let attachment = SignalAttachment(dataSource: dataSource, dataUTI: dataUTI)
         attachment.cachedImage = image
@@ -658,7 +641,7 @@ public class SignalAttachment: Equatable, Hashable {
         assert(attachment.error == nil)
 
         if imageQuality == .original &&
-            attachment.dataLength < kMaxFileSizeGeneric &&
+            attachment.dataLength < MediaUtils.maxFileSizeGeneric &&
             outputImageUTISet.contains(attachment.dataUTI) {
             // We should avoid resizing images attached "as documents" if possible.
             return attachment
@@ -682,17 +665,13 @@ public class SignalAttachment: Equatable, Hashable {
                 return attachment
             }
 
-            guard let dataSource = DataSourceValue.dataSource(with: jpgImageData, fileExtension: "jpg") else {
-                attachment.error = .couldNotConvertToJpeg
-                return attachment
-            }
-
+            let dataSource = DataSourceValue(data: jpgImageData, fileExtension: "jpg")
             let baseFilename = filename?.filenameWithoutExtension
             let jpgFilename = baseFilename?.appendingFileExtension("jpg")
             dataSource.sourceFilename = jpgFilename
 
             if doesImageHaveAcceptableFileSize(dataSource: dataSource, imageQuality: imageQuality) &&
-                dataSource.dataLength() <= kMaxFileSizeImage {
+                dataSource.dataLength <= MediaUtils.maxFileSizeImage {
                 let recompressedAttachment = SignalAttachment(dataSource: dataSource, dataUTI: kUTTypeJPEG as String)
                 recompressedAttachment.cachedImage = dstImage
                 return recompressedAttachment
@@ -762,14 +741,14 @@ public class SignalAttachment: Equatable, Hashable {
                        orientation: uiImage.imageOrientation)
     }
 
-    private class func doesImageHaveAcceptableFileSize(dataSource: DataSource, imageQuality: TSImageQuality) -> Bool {
+    private class func doesImageHaveAcceptableFileSize(dataSource: (any DataSource), imageQuality: TSImageQuality) -> Bool {
         switch imageQuality {
         case .original:
             return true
         case .medium:
-            return dataSource.dataLength() < UInt(1024 * 1024)
+            return dataSource.dataLength < UInt(1024 * 1024)
         case .compact:
-            return dataSource.dataLength() < UInt(400 * 1024)
+            return dataSource.dataLength < UInt(400 * 1024)
         }
     }
 
@@ -810,13 +789,13 @@ public class SignalAttachment: Equatable, Hashable {
     private class func removeImageMetadata(attachment: SignalAttachment) -> SignalAttachment {
 
         guard let source = CGImageSourceCreateWithData(attachment.data as CFData, nil) else {
-            let attachment = SignalAttachment(dataSource: DataSourceValue.emptyDataSource(), dataUTI: attachment.dataUTI)
+            let attachment = SignalAttachment(dataSource: DataSourceValue.empty, dataUTI: attachment.dataUTI)
             attachment.error = .missingData
             return attachment
         }
 
         guard let type = CGImageSourceGetType(source) else {
-            let attachment = SignalAttachment(dataSource: DataSourceValue.emptyDataSource(), dataUTI: attachment.dataUTI)
+            let attachment = SignalAttachment(dataSource: DataSourceValue.empty, dataUTI: attachment.dataUTI)
             attachment.error = .invalidFileFormat
             return attachment
         }
@@ -845,7 +824,7 @@ public class SignalAttachment: Equatable, Hashable {
         }
 
         if CGImageDestinationFinalize(destination) {
-            guard let dataSource = DataSourceValue.dataSource(with: mutableData as Data, utiType: attachment.dataUTI) else {
+            guard let dataSource = DataSourceValue(data: mutableData as Data, utiType: attachment.dataUTI) else {
                 attachment.error = .couldNotRemoveMetadata
                 return attachment
             }
@@ -865,9 +844,9 @@ public class SignalAttachment: Equatable, Hashable {
     //
     // NOTE: The attachment returned by this method may not be valid.
     //       Check the attachment's error property.
-    private class func videoAttachment(dataSource: DataSource?, dataUTI: String) -> SignalAttachment {
+    private class func videoAttachment(dataSource: (any DataSource)?, dataUTI: String) -> SignalAttachment {
         guard let dataSource = dataSource else {
-            let dataSource = DataSourceValue.emptyDataSource()
+            let dataSource = DataSourceValue.empty
             let attachment = SignalAttachment(dataSource: dataSource, dataUTI: dataUTI)
             attachment.error = .missingData
             return attachment
@@ -876,12 +855,12 @@ public class SignalAttachment: Equatable, Hashable {
         return newAttachment(dataSource: dataSource,
                              dataUTI: dataUTI,
                              validUTISet: videoUTISet,
-                             maxFileSize: kMaxFileSizeVideo)
+                             maxFileSize: MediaUtils.maxFileSizeVideo)
     }
 
     public class func copyToVideoTempDir(url fromUrl: URL) throws -> URL {
         let baseDir = SignalAttachment.videoTempPath.appendingPathComponent(UUID().uuidString, isDirectory: true)
-        OWSFileSystem.ensureDirectoryExists(baseDir.path)
+        try? FileSystem.ensureDirectoryExists(at: baseDir.path)
         let toUrl = baseDir.appendingPathComponent(fromUrl.lastPathComponent)
 
         try FileManager.default.copyItem(at: fromUrl, to: toUrl)
@@ -891,13 +870,17 @@ public class SignalAttachment: Equatable, Hashable {
 
     private class var videoTempPath: URL {
         let videoDir = URL(fileURLWithPath: Singleton.appContext.temporaryDirectory).appendingPathComponent("video")
-        OWSFileSystem.ensureDirectoryExists(videoDir.path)
+        try? FileSystem.ensureDirectoryExists(at: videoDir.path)
         return videoDir
     }
 
-    public class func compressVideoAsMp4(dataSource: DataSource, dataUTI: String) -> (AnyPublisher<SignalAttachment, Error>, AVAssetExportSession?) {
-        guard let url = dataSource.dataUrl() else {
-            let attachment = SignalAttachment(dataSource: DataSourceValue.emptyDataSource(), dataUTI: dataUTI)
+    public class func compressVideoAsMp4(
+        dataSource: (any DataSource),
+        dataUTI: String,
+        using dependencies: Dependencies
+    ) -> (AnyPublisher<SignalAttachment, Error>, AVAssetExportSession?) {
+        guard let url = dataSource.dataUrl else {
+            let attachment = SignalAttachment(dataSource: DataSourceValue.empty, dataUTI: dataUTI)
             attachment.error = .missingData
             return (
                 Just(attachment)
@@ -910,7 +893,7 @@ public class SignalAttachment: Equatable, Hashable {
         let asset = AVAsset(url: url)
 
         guard let exportSession = AVAssetExportSession(asset: asset, presetName: AVAssetExportPresetMediumQuality) else {
-            let attachment = SignalAttachment(dataSource: DataSourceValue.emptyDataSource(), dataUTI: dataUTI)
+            let attachment = SignalAttachment(dataSource: DataSourceValue.empty, dataUTI: dataUTI)
             attachment.error = .couldNotConvertToMpeg4
             return (
                 Just(attachment)
@@ -933,9 +916,8 @@ public class SignalAttachment: Equatable, Hashable {
                     let baseFilename = dataSource.sourceFilename
                     let mp4Filename = baseFilename?.filenameWithoutExtension.appendingFileExtension("mp4")
                     
-                    guard let dataSource = DataSourcePath.dataSource(with: exportURL,
-                                                                     shouldDeleteOnDeallocation: true) else {
-                        let attachment = SignalAttachment(dataSource: DataSourceValue.emptyDataSource(), dataUTI: dataUTI)
+                    guard let dataSource = DataSourcePath(fileUrl: exportURL, shouldDeleteOnDeinit: true) else {
+                        let attachment = SignalAttachment(dataSource: DataSourceValue.empty, dataUTI: dataUTI)
                         attachment.error = .couldNotConvertToMpeg4
                         resolver(Result.success(attachment))
                         return
@@ -963,13 +945,12 @@ public class SignalAttachment: Equatable, Hashable {
         }
     }
 
-    public class func compressVideoAsMp4(dataSource: DataSource, dataUTI: String) -> VideoCompressionResult {
-        let (attachmentPublisher, exportSession) = compressVideoAsMp4(dataSource: dataSource, dataUTI: dataUTI)
+    public class func compressVideoAsMp4(dataSource: (any DataSource), dataUTI: String, using dependencies: Dependencies) -> VideoCompressionResult {
+        let (attachmentPublisher, exportSession) = compressVideoAsMp4(dataSource: dataSource, dataUTI: dataUTI, using: dependencies)
         return VideoCompressionResult(attachmentPublisher: attachmentPublisher, exportSession: exportSession)
     }
 
-    @objc
-    public class func isInvalidVideo(dataSource: DataSource, dataUTI: String) -> Bool {
+    public class func isInvalidVideo(dataSource: (any DataSource), dataUTI: String) -> Bool {
         guard videoUTISet.contains(dataUTI) else {
             // not a video
             return false
@@ -984,7 +965,7 @@ public class SignalAttachment: Equatable, Hashable {
         return false
     }
 
-    private class func isValidOutputVideo(dataSource: DataSource?, dataUTI: String) -> Bool {
+    private class func isValidOutputVideo(dataSource: (any DataSource)?, dataUTI: String) -> Bool {
         guard let dataSource = dataSource else {
             return false
         }
@@ -993,7 +974,7 @@ public class SignalAttachment: Equatable, Hashable {
             return false
         }
 
-        if dataSource.dataLength() <= kMaxFileSizeVideo {
+        if dataSource.dataLength <= MediaUtils.maxFileSizeVideo {
             return true
         }
         return false
@@ -1005,11 +986,11 @@ public class SignalAttachment: Equatable, Hashable {
     //
     // NOTE: The attachment returned by this method may not be valid.
     //       Check the attachment's error property.
-    private class func audioAttachment(dataSource: DataSource?, dataUTI: String) -> SignalAttachment {
+    private class func audioAttachment(dataSource: (any DataSource)?, dataUTI: String) -> SignalAttachment {
         return newAttachment(dataSource: dataSource,
                              dataUTI: dataUTI,
                              validUTISet: audioUTISet,
-                             maxFileSize: kMaxFileSizeAudio)
+                             maxFileSize: MediaUtils.maxFileSizeAudio)
     }
 
     // MARK: Generic Attachments
@@ -1018,16 +999,16 @@ public class SignalAttachment: Equatable, Hashable {
     //
     // NOTE: The attachment returned by this method may not be valid.
     //       Check the attachment's error property.
-    private class func genericAttachment(dataSource: DataSource?, dataUTI: String) -> SignalAttachment {
+    private class func genericAttachment(dataSource: (any DataSource)?, dataUTI: String) -> SignalAttachment {
         return newAttachment(dataSource: dataSource,
                              dataUTI: dataUTI,
                              validUTISet: nil,
-                             maxFileSize: kMaxFileSizeGeneric)
+                             maxFileSize: MediaUtils.maxFileSizeGeneric)
     }
 
     // MARK: Voice Messages
 
-    public class func voiceMessageAttachment(dataSource: DataSource?, dataUTI: String) -> SignalAttachment {
+    public class func voiceMessageAttachment(dataSource: (any DataSource)?, dataUTI: String) -> SignalAttachment {
         let attachment = audioAttachment(dataSource: dataSource, dataUTI: dataUTI)
         attachment.isVoiceMessage = true
         return attachment
@@ -1039,7 +1020,7 @@ public class SignalAttachment: Equatable, Hashable {
     //
     // NOTE: The attachment returned by this method may not be valid.
     //       Check the attachment's error property.
-    public class func attachment(dataSource: DataSource?, dataUTI: String) -> SignalAttachment {
+    public class func attachment(dataSource: (any DataSource)?, dataUTI: String) -> SignalAttachment {
         return attachment(dataSource: dataSource, dataUTI: dataUTI, imageQuality: .original)
     }
 
@@ -1047,7 +1028,7 @@ public class SignalAttachment: Equatable, Hashable {
     //
     // NOTE: The attachment returned by this method may not be valid.
     //       Check the attachment's error property.
-    public class func attachment(dataSource: DataSource?, dataUTI: String, imageQuality: TSImageQuality) -> SignalAttachment {
+    public class func attachment(dataSource: (any DataSource)?, dataUTI: String, imageQuality: TSImageQuality) -> SignalAttachment {
         if inputImageUTISet.contains(dataUTI) {
             return imageAttachment(dataSource: dataSource, dataUTI: dataUTI, imageQuality: imageQuality)
         } else if videoUTISet.contains(dataUTI) {
@@ -1060,14 +1041,14 @@ public class SignalAttachment: Equatable, Hashable {
     }
 
     public class func empty() -> SignalAttachment {
-        return SignalAttachment.attachment(dataSource: DataSourceValue.emptyDataSource(),
+        return SignalAttachment.attachment(dataSource: DataSourceValue.empty,
                                            dataUTI: kUTTypeContent as String,
                                            imageQuality: .original)
     }
 
     // MARK: Helper Methods
 
-    private class func newAttachment(dataSource: DataSource?,
+    private class func newAttachment(dataSource: (any DataSource)?,
                                      dataUTI: String,
                                      validUTISet: Set<String>?,
                                      maxFileSize: UInt) -> SignalAttachment {
@@ -1075,7 +1056,7 @@ public class SignalAttachment: Equatable, Hashable {
 
         assert(dataSource != nil)
         guard let dataSource = dataSource else {
-            let attachment = SignalAttachment(dataSource: DataSourceValue.emptyDataSource(), dataUTI: dataUTI)
+            let attachment = SignalAttachment(dataSource: DataSourceValue.empty, dataUTI: dataUTI)
             attachment.error = .missingData
             return attachment
         }
@@ -1089,13 +1070,13 @@ public class SignalAttachment: Equatable, Hashable {
             }
         }
 
-        guard dataSource.dataLength() > 0 else {
-            assert(dataSource.dataLength() > 0)
+        guard dataSource.dataLength > 0 else {
+            assert(dataSource.dataLength > 0)
             attachment.error = .invalidData
             return attachment
         }
 
-        guard dataSource.dataLength() <= maxFileSize else {
+        guard dataSource.dataLength <= maxFileSize else {
             attachment.error = .fileSizeTooLarge
             return attachment
         }
@@ -1107,8 +1088,19 @@ public class SignalAttachment: Equatable, Hashable {
     // MARK: - Equatable
     
     public static func == (lhs: SignalAttachment, rhs: SignalAttachment) -> Bool {
+        switch (lhs.dataSource, rhs.dataSource) {
+            case (let lhsDataSource as DataSourcePath, let rhsDataSource as DataSourcePath):
+                guard lhsDataSource == rhsDataSource else { return false }
+                break
+
+            case (let lhsDataSource as DataSourceValue, let rhsDataSource as DataSourceValue):
+                guard lhsDataSource == rhsDataSource else { return false }
+                break
+
+            default: return false
+        }
+        
         return (
-            lhs.dataSource == rhs.dataSource &&
             lhs.dataUTI == rhs.dataUTI &&
             lhs.captionText == rhs.captionText &&
             lhs.linkPreviewDraft == rhs.linkPreviewDraft &&
@@ -1118,26 +1110,5 @@ public class SignalAttachment: Equatable, Hashable {
             lhs.cachedVideoPreview == rhs.cachedVideoPreview &&
             lhs.isVoiceMessage == rhs.isVoiceMessage
         )
-    }
-    
-    // MARK: - Hashable
-    
-    public func hash(into hasher: inout Hasher) {
-        dataUTI.hash(into: &hasher)
-        captionText.hash(into: &hasher)
-        linkPreviewDraft.hash(into: &hasher)
-        isConvertibleToTextMessage.hash(into: &hasher)
-        isConvertibleToContactShare.hash(into: &hasher)
-        isVoiceMessage.hash(into: &hasher)
-        
-        /// There was a crash in `AttachmentApprovalViewController when trying to generate the hash
-        /// value to store in a dictionary, I'm guessing it's due to either `dataSource`, `cachedImage` or `cachedVideoPreview`
-        /// so, instead of trying to hash them directly which involves unknown behaviours due to `NSObject` & `UIImage` types, this
-        /// has been reworked to use primitives
-        dataSource.sourceFilename.hash(into: &hasher)
-        cachedImage?.size.width.hash(into: &hasher)
-        cachedImage?.size.height.hash(into: &hasher)
-        cachedVideoPreview?.size.width.hash(into: &hasher)
-        cachedVideoPreview?.size.height.hash(into: &hasher)
     }
 }

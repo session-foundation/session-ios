@@ -395,7 +395,8 @@ final class VisibleMessageCell: MessageCell, TappableLabelDelegate {
         // Message status image view
         let (image, statusText, tintColor) = cellViewModel.state.statusIconInfo(
             variant: cellViewModel.variant,
-            hasAtLeastOneReadReceipt: cellViewModel.hasAtLeastOneReadReceipt
+            hasAtLeastOneReadReceipt: cellViewModel.hasAtLeastOneReadReceipt,
+            hasAttachments: (cellViewModel.attachments?.isEmpty == false)
         )
         messageStatusLabel.text = statusText
         messageStatusLabel.themeTextColor = tintColor
@@ -875,7 +876,7 @@ final class VisibleMessageCell: MessageCell, TappableLabelDelegate {
             // For open groups only attempt to start a conversation if the author has a blinded id
             guard cellViewModel.threadVariant != .community else {
                 // FIXME: Add in support for opening a conversation with a 'blinded25' id
-                guard SessionId.Prefix(from: cellViewModel.authorId) == .blinded15 else { return }
+                guard (try? SessionId.Prefix(from: cellViewModel.authorId)) == .blinded15 else { return }
                 
                 delegate?.startThread(
                     with: cellViewModel.authorId,
@@ -1121,7 +1122,7 @@ final class VisibleMessageCell: MessageCell, TappableLabelDelegate {
                 currentUserPublicKey: cellViewModel.currentUserPublicKey,
                 currentUserBlinded15PublicKey: cellViewModel.currentUserBlinded15PublicKey,
                 currentUserBlinded25PublicKey: cellViewModel.currentUserBlinded25PublicKey,
-                isOutgoingMessage: isOutgoing,
+                location: (isOutgoing ? .outgoingMessage : .incomingMessage),
                 textColor: actualTextColor,
                 theme: theme,
                 primaryColor: primaryColor,

@@ -2,7 +2,6 @@
 
 import Foundation
 import GRDB
-import Sodium
 import SessionUtilitiesKit
 
 public final class ClosedGroupControlMessage: ControlMessage {
@@ -365,8 +364,8 @@ public extension ClosedGroupControlMessage.Kind {
         switch self {
             case .nameChange(let name):
                 return "groupNameNew"
-                .put(key: "group_name", value: name)
-                .localized()
+                    .put(key: "group_name", value: name)
+                    .localized()
                 
             case .membersAdded(let membersAsData):
                 let memberIds: [String] = membersAsData.map { $0.toHexString() }
@@ -379,9 +378,9 @@ public extension ClosedGroupControlMessage.Kind {
                         Profile.truncated(id: $0, threadVariant: .legacyGroup)
                     }
                 
-            return "groupMemberNew"
-                .put(key: "name", value: addedMemberNames.joined(separator: ", "))
-                .localized()
+                return "legacyGroupMemberNew"
+                    .put(key: "name", value: addedMemberNames.joined(separator: ", "))
+                    .localized()
                 
             case .membersRemoved(let membersAsData):
                 let userPublicKey: String = getUserHexEncodedPublicKey(db)
@@ -400,14 +399,12 @@ public extension ClosedGroupControlMessage.Kind {
                             knownMemberNameMap[$0] ??
                             Profile.truncated(id: $0, threadVariant: .legacyGroup)
                         }
-                    // TODO: Need logic change
                     infoMessage = infoMessage.appending(
                         "groupRemoved"
                             .put(key: "name", value: removedMemberNames.joined(separator: ", "))
                             .localized()
                     )
                 }
-                // TODO: Need logic change
                 if memberIds.contains(userPublicKey) {
                     infoMessage = infoMessage
                         .appending(

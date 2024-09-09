@@ -1,11 +1,9 @@
 // Copyright © 2022 Rangeproof Pty Ltd. All rights reserved.
 
 import UIKit
-import SignalCoreKit
 import SignalUtilitiesKit
 import SessionUIKit
 import SessionUtilitiesKit
-import SignalCoreKit
 
 final class SAEScreenLockViewController: ScreenLockViewController {
     private var hasShownAuthUIOnce: Bool = false
@@ -32,7 +30,7 @@ final class SAEScreenLockViewController: ScreenLockViewController {
         let titleLabel: UILabel = UILabel()
         titleLabel.font = UIFont.boldSystemFont(ofSize: Values.veryLargeFontSize)
         titleLabel.text = "shareToSession"
-            .put(key: "app_name", value: Singleton.appName)
+            .put(key: "app_name", value: Constants.app_name)
             .localized()
         titleLabel.themeTextColor = .textPrimary
         
@@ -100,7 +98,7 @@ final class SAEScreenLockViewController: ScreenLockViewController {
     // MARK: - Functions
     
     private func tryToPresentAuthUIToUnlockScreenLock() {
-        AssertIsOnMainThread()
+        Log.assertOnMainThread()
 
         // If we're already showing the auth UI; abort.
         if self.isShowingAuthUI { return }
@@ -111,22 +109,22 @@ final class SAEScreenLockViewController: ScreenLockViewController {
         
         ScreenLock.shared.tryToUnlockScreenLock(
             success: { [weak self] in
-                AssertIsOnMainThread()
+                Log.assertOnMainThread()
                 Log.info("unlock screen lock succeeded.")
                 
                 self?.isShowingAuthUI = false
                 self?.shareViewDelegate?.shareViewWasUnlocked()
             },
             failure: { [weak self] error in
-                AssertIsOnMainThread()
+                Log.assertOnMainThread()
                 Log.info("unlock screen lock failed.")
                 
                 self?.isShowingAuthUI = false
                 self?.ensureUI()
-                self?.showScreenLockFailureAlert(message: error.localizedDescription)
+                self?.showScreenLockFailureAlert(message: "\(error)")
             },
             unexpectedFailure: { [weak self] error in
-                AssertIsOnMainThread()
+                Log.assertOnMainThread()
                 Log.info("unlock screen lock unexpectedly failed.")
                 
                 self?.isShowingAuthUI = false
@@ -139,7 +137,7 @@ final class SAEScreenLockViewController: ScreenLockViewController {
                 }
             },
             cancel: { [weak self] in
-                AssertIsOnMainThread()
+                Log.assertOnMainThread()
                 Log.info("unlock screen lock cancelled.")
                 
                 self?.isShowingAuthUI = false
@@ -155,7 +153,7 @@ final class SAEScreenLockViewController: ScreenLockViewController {
     }
     
     private func showScreenLockFailureAlert(message: String) {
-        AssertIsOnMainThread()
+        Log.assertOnMainThread()
         
         let modal: ConfirmationModal = ConfirmationModal(
             targetView: self.view,
@@ -171,7 +169,7 @@ final class SAEScreenLockViewController: ScreenLockViewController {
     }
     
     func unlockButtonWasTapped() {
-        AssertIsOnMainThread()
+        Log.assertOnMainThread()
         Log.info("unlockButtonWasTapped")
         
         self.tryToPresentAuthUIToUnlockScreenLock()

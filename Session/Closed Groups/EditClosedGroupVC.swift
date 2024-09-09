@@ -456,7 +456,7 @@ final class EditClosedGroupVC: BaseVC, UITableViewDataSource, UITableViewDelegat
         if !updatedMemberIds.contains(userPublicKey) {
             guard self.originalMembersAndZombieIds.removing(userPublicKey) == updatedMemberIds else {
                 return showError(
-                    title: "GROUP_UPDATE_ERROR_TITLE".localized(),
+                    title: "deleteAfterLegacyGroupsGroupUpdateErrorTitle".localized(),
                     message: "deleteAfterGroupPR3GroupErrorLeave".localized()
                 )
             }
@@ -495,8 +495,8 @@ final class EditClosedGroupVC: BaseVC, UITableViewDataSource, UITableViewDelegat
                             case .finished: popToConversationVC(self)
                             case .failure(let error):
                                 self?.showError(
-                                    title: "GROUP_UPDATE_ERROR_TITLE".localized(),
-                                    message: error.localizedDescription
+                                    title: "deleteAfterLegacyGroupsGroupUpdateErrorTitle".localized(),
+                                    message: "\(error)"
                                 )
                         }
                     }

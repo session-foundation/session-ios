@@ -4,7 +4,6 @@
 
 import Foundation
 import SessionUtil
-import SignalCoreKit
 
 // MARK: - LibSession
 
@@ -34,10 +33,7 @@ extension LibSession {
         
         /// Finally register the actual logger callback
         session_add_logger_full({ msgPtr, msgLen, catPtr, catLen, lvl in
-            guard
-                let msg: String = String(pointer: msgPtr, length: msgLen, encoding: .utf8),
-                let cat: String = String(pointer: catPtr, length: catLen, encoding: .utf8)
-            else { return }
+            guard let msg: String = String(pointer: msgPtr, length: msgLen, encoding: .utf8) else { return }
             
             /// Logs from libSession come through in the format:
             /// `[yyyy-MM-dd hh:mm:ss] [+{lifetime}s] [{cat}:{lvl}|log.hpp:{line}] {message}`
@@ -49,30 +45,40 @@ extension LibSession {
                 
                 let message: String = String(logParts[3]).trimmingCharacters(in: .whitespacesAndNewlines)
                 
-                return "[libSession:\(cat)] \(logParts[1])] \(message)"
+                return "\(logParts[1])] \(message)"
             }()
             
-            Log.custom(
-                Log.Level(lvl),
-                processedMessage,
-                withPrefixes: true,
-                silenceForTests: false
-            )
+            Log.custom(Log.Level(lvl), [LogCategory(catPtr, catLen).logCat], processedMessage)
         })
+    }
+    
+    public static func clearLoggers() {
+        session_clear_loggers()
     }
     
     // MARK: - Internal
     
     fileprivate enum LogCategory: String {
+        case libSession
         case config
         case network
         case quic
         case manual
         
-        init?(_ catPtr: UnsafePointer<CChar>?, _ catLen: Int) {
+        var logCat: Log.Category {
+            switch self {
+                case .libSession: return "libSession"
+                case .config: return "libSession:config"
+                case .network: return "libSession:network"
+                case .quic: return "libSession:quic"
+                case .manual: return "libSession:manual"
+            }
+        }
+        
+        init(_ catPtr: UnsafePointer<CChar>?, _ catLen: Int) {
             switch String(pointer: catPtr, length: catLen, encoding: .utf8).map({ LogCategory(rawValue: $0) }) {
                 case .some(let cat): self = cat
-                case .none: return nil
+                case .none: self = .libSession
             }
         }
     }
@@ -83,7 +89,7 @@ extension LibSession {
 fileprivate extension Log.Level {
     init(_ level: LOG_LEVEL) {
         switch level {
-            case LOG_LEVEL_TRACE: self = .trace
+            case LOG_LEVEL_TRACE: self = .verbose
             case LOG_LEVEL_DEBUG: self = .debug
             case LOG_LEVEL_INFO: self = .info
             case LOG_LEVEL_WARN: self = .warn

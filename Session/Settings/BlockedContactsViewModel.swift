@@ -62,12 +62,12 @@ public class BlockedContactsViewModel: SessionTableViewModel, NavigatableStateHo
                 orderSQL: TableItem.orderSQL
             ),
             onChangeUnsorted: { [weak self] updatedData, updatedPageInfo in
-                PagedData.processAndTriggerUpdates(
-                    updatedData: self?.process(data: updatedData, for: updatedPageInfo)
-                        .mapToSessionTableViewData(for: self),  // Update the cell positions for background rounding
-                    currentDataRetriever: { self?.tableData },
-                    valueSubject: self?.pendingTableDataSubject
-                )
+                guard
+                    let data: [SectionModel] = self?.process(data: updatedData, for: updatedPageInfo)
+                        .mapToSessionTableViewData(for: self)  // Update the cell positions for background rounding
+                else { return }
+                
+                self?.pendingTableDataSubject.send(data)
             }
         )
         
@@ -174,31 +174,34 @@ public class BlockedContactsViewModel: SessionTableViewModel, NavigatableStateHo
                         .first(where: { section in section.model == .contacts }),
                     let info: SessionCell.Info<TableItem> = section.elements
                         .first(where: { info in info.id.id == contactId })
-                else { return contactId }
+                else {
+                    return Profile.truncated(id: contactId, truncating: .middle)
+                }
                 
                 return info.title?.text
             }
-        let confirmationTitle: String = {
-            let name: String = contactNames.first ?? "CONVERSATION_SETTINGS_BLOCKED_CONTACTS_UNBLOCK_CONFIRMATION_TITLE_FALLBACK".localized()
+        let confirmationBody: NSAttributedString = {
+            let name: String = contactNames.first ?? ""
             switch contactNames.count {
             case 1:
-                return "blockUnblockDescription"
+                return "blockUnblockName"
                     .put(key: "name", value: name)
-                    .localized()
+                    .localizedFormatted(baseFont: .systemFont(ofSize: Values.smallFontSize))
             case 2:
                 return "blockUnblockNameTwo"
                     .put(key: "name", value: name)
-                    .localized()
+                    .localizedFormatted(baseFont: .systemFont(ofSize: Values.smallFontSize))
             default:
                 return "blockUnblockNameMultiple"
                     .put(key: "name", value: name)
                     .put(key: "count", value: contactNames.count - 1)
-                    .localized()
+                    .localizedFormatted(baseFont: .systemFont(ofSize: Values.smallFontSize))
             }
         }()
         let confirmationModal: ConfirmationModal = ConfirmationModal(
             info: ConfirmationModal.Info(
-                title: confirmationTitle,
+                title: "blockUnblock".localized(),
+                body: .attributedText(confirmationBody),
                 confirmTitle: "blockUnblock".localized(),
                 confirmStyle: .danger,
                 cancelStyle: .alert_text

@@ -1,13 +1,17 @@
 // Copyright © 2023 Rangeproof Pty Ltd. All rights reserved.
 
 import SwiftUI
-import Sodium
 import SessionUIKit
 import SignalUtilitiesKit
 import SessionUtilitiesKit
 
 struct LandingScreen: View {
     @EnvironmentObject var host: HostWrapper
+    private let dependencies: Dependencies
+    
+    public init(using dependencies: Dependencies) {
+        self.dependencies = dependencies
+    }
 
     var body: some View {
         ZStack(alignment: .center) {
@@ -94,18 +98,11 @@ struct LandingScreen: View {
                 Button {
                     openLegalUrl()
                 } label: {
-                    let attributedText: NSAttributedString = {
-                        let text = String(format: "onboardingTosPrivacy".localized(), "onboardingTos".localized(), "onboardingPrivacy".localized())
-                        let result = NSMutableAttributedString(
-                            string: text,
-                            attributes: [ .font : UIFont.systemFont(ofSize: Values.verySmallFontSize)]
-                        )
-                        result.addAttribute(.font, value: UIFont.boldSystemFont(ofSize: Values.verySmallFontSize), range: (text as NSString).range(of: "onboardingTos".localized()))
-                        result.addAttribute(.font, value: UIFont.boldSystemFont(ofSize: Values.verySmallFontSize), range: (text as NSString).range(of: "onboardingPrivacy".localized()))
-                        
-                        return result
-                    }()
+                    let attributedText: NSAttributedString = "onboardingTosPrivacy"
+                        .localized()
+                        .formatted(baseFont: .systemFont(ofSize: Values.verySmallFontSize))
                     AttributedText(attributedText)
+                        .font(.system(size: Values.verySmallFontSize))
                         .foregroundColor(themeColor: .textPrimary)
                 }
                 .accessibility(
@@ -125,18 +122,24 @@ struct LandingScreen: View {
             .preregister(
                 with: seed,
                 ed25519KeyPair: ed25519KeyPair,
-                x25519KeyPair: x25519KeyPair
+                x25519KeyPair: x25519KeyPair,
+                using: dependencies
             )
         
-        let viewController: SessionHostingViewController = SessionHostingViewController(rootView: DisplayNameScreen(flow: .register))
+        let viewController: SessionHostingViewController = SessionHostingViewController(
+            rootView: DisplayNameScreen(flow: .register, using: dependencies)
+        )
         viewController.setUpNavBarSessionIcon()
-        self.host.controller?.navigationController?.pushViewController(viewController, animated: true)
+        viewController.setUpClearDataBackButton(flow: .register)
+        self.host.controller?.navigationController?.setViewControllers([viewController], animated: true)
     }
     
     private func restore() {
-        Onboarding.Flow.register.unregister()
+        Onboarding.Flow.register.unregister(using: dependencies)
         
-        let viewController: SessionHostingViewController = SessionHostingViewController(rootView: LoadAccountScreen())
+        let viewController: SessionHostingViewController = SessionHostingViewController(
+            rootView: LoadAccountScreen(using: dependencies)
+        )
         viewController.setNavBarTitle("loadAccount".localized())
         self.host.controller?.navigationController?.pushViewController(viewController, animated: true)
     }
@@ -145,7 +148,7 @@ struct LandingScreen: View {
         let modal: ConfirmationModal = ConfirmationModal(
             info: ConfirmationModal.Info(
                 title: "urlOpen".localized(),
-                body: .text("urlOpenBrowswer".localized()),
+                body: .text("urlOpenBrowser".localized()),
                 confirmTitle: "onboardingTos".localized(),
                 confirmAccessibility: Accessibility(
                     identifier: "Terms of service button",
@@ -200,13 +203,14 @@ struct FakeChat: View {
     let chatBubbles: [ChatBubble] = [
         ChatBubble(
             text: "onboardingBubbleWelcomeToSession"
-                .put(key: "app_name", value: Singleton.appName)
-                .localized() + " 👋",
+                .put(key: "app_name", value: Constants.app_name)
+                .put(key: "emoji", value: "👋")
+                .localized(),
             outgoing: false
         ),
         ChatBubble(
             text: "onboardingBubbleSessionIsEngineered"
-                .put(key: "app_name", value: Singleton.appName)
+                .put(key: "app_name", value: Constants.app_name)
                 .localized(),
             outgoing: true
         ),
@@ -215,7 +219,9 @@ struct FakeChat: View {
             outgoing: false
         ),
         ChatBubble(
-            text: "onboardingBubbleCreatingAnAccountIsEasy".localized() + " 👇",
+            text: "onboardingBubbleCreatingAnAccountIsEasy"
+                .put(key: "emoji", value: "👇")
+                .localized(),
             outgoing: true
         )
     ]
@@ -276,6 +282,6 @@ struct FakeChat: View {
 
 struct LandingView_Previews: PreviewProvider {
     static var previews: some View {
-        LandingScreen()
+        LandingScreen(using: Dependencies())
     }
 }

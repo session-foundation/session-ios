@@ -3,11 +3,9 @@
 import Foundation
 import Combine
 import GRDB
-import SignalCoreKit
 import SessionSnodeKit
 import SessionMessagingKit
 import SessionUtilitiesKit
-import SignalCoreKit
 
 public enum SyncPushTokensJob: JobExecutor {
     public static let maxFailureCount: Int = -1
@@ -29,7 +27,7 @@ public enum SyncPushTokensJob: JobExecutor {
             return deferred(job, dependencies) // Don't need to do anything if it's not the main app
         }
         guard Identity.userCompletedRequiredOnboarding() else {
-            SNLog("[SyncPushTokensJob] Deferred due to incomplete registration")
+            Log.info("[SyncPushTokensJob] Deferred due to incomplete registration")
             return deferred(job, dependencies)
         }
         
@@ -50,7 +48,7 @@ public enum SyncPushTokensJob: JobExecutor {
                     .upserted(db)
             }
             
-            SNLog("[SyncPushTokensJob] Deferred due to in progress job")
+            Log.info("[SyncPushTokensJob] Deferred due to in progress job")
             return deferred(updatedJob ?? job, dependencies)
         }
         
@@ -75,13 +73,13 @@ public enum SyncPushTokensJob: JobExecutor {
                     
                     // Unregister from our server
                     if let existingToken: String = lastRecordedPushToken {
-                        SNLog("[SyncPushTokensJob] Unregister using last recorded push token: \(redact(existingToken))")
+                        Log.info("[SyncPushTokensJob] Unregister using last recorded push token: \(redact(existingToken))")
                         return PushNotificationAPI.unsubscribe(token: Data(hex: existingToken))
                             .map { _ in () }
                             .eraseToAnyPublisher()
                     }
                     
-                    SNLog("[SyncPushTokensJob] No previous token stored just triggering device unregister")
+                    Log.info("[SyncPushTokensJob] No previous token stored just triggering device unregister")
                     return Just(())
                         .setFailureType(to: Error.self)
                         .eraseToAnyPublisher()
@@ -90,8 +88,8 @@ public enum SyncPushTokensJob: JobExecutor {
                 .sinkUntilComplete(
                     receiveCompletion: { result in
                         switch result {
-                            case .finished: SNLog("[SyncPushTokensJob] Unregister Completed")
-                            case .failure: SNLog("[SyncPushTokensJob] Unregister Failed")
+                            case .finished: Log.info("[SyncPushTokensJob] Unregister Completed")
+                            case .failure: Log.error("[SyncPushTokensJob] Unregister Failed")
                         }
                         
                         // We want to complete this job regardless of success or failure
@@ -105,7 +103,7 @@ public enum SyncPushTokensJob: JobExecutor {
         ///
         /// **Note:** Apple's documentation states that we should re-register for notifications on every launch:
         /// https://developer.apple.com/library/archive/documentation/NetworkingInternet/Conceptual/RemoteNotificationsPG/HandlingRemoteNotifications.html#//apple_ref/doc/uid/TP40008194-CH6-SW1
-        SNLog("[SyncPushTokensJob] Re-registering for remote notifications")
+        Log.info("[SyncPushTokensJob] Re-registering for remote notifications")
         PushRegistrationManager.shared.requestPushTokens()
             .flatMap { (pushToken: String, voipToken: String) -> AnyPublisher<(String, String)?, Error> in
                 Deferred {
@@ -115,7 +113,7 @@ public enum SyncPushTokensJob: JobExecutor {
                             LibSession.removePathsChangedCallback(callbackId: pathsChangedId)
                             
                             guard !paths.isEmpty else {
-                                SNLog("[SyncPushTokensJob] OS subscription completed, skipping server subscription due to lack of paths")
+                                Log.info("[SyncPushTokensJob] OS subscription completed, skipping server subscription due to lack of paths")
                                 return resolver(Result.success(nil))
                             }
                             
@@ -154,7 +152,7 @@ public enum SyncPushTokensJob: JobExecutor {
                     dependencies.storage[.lastRecordedPushToken] != pushToken ||
                     uploadOnlyIfStale == false
                 else {
-                    SNLog("[SyncPushTokensJob] OS subscription completed, skipping server subscription due to frequency")
+                    Log.info("[SyncPushTokensJob] OS subscription completed, skipping server subscription due to frequency")
                     return Just(())
                         .setFailureType(to: Error.self)
                         .eraseToAnyPublisher()
@@ -171,11 +169,11 @@ public enum SyncPushTokensJob: JobExecutor {
                         receiveCompletion: { result in
                             switch result {
                                 case .failure(let error):
-                                    SNLog("[SyncPushTokensJob] Failed to register due to error: \(error)")
+                                    Log.error("[SyncPushTokensJob] Failed to register due to error: \(error)")
                                 
                                 case .finished:
-                                    Logger.warn("Recording push tokens locally. pushToken: \(redact(pushToken)), voipToken: \(redact(voipToken))")
-                                    SNLog("[SyncPushTokensJob] Completed")
+                                    Log.debug("[SyncPushTokensJob] Recording push tokens locally. pushToken: \(redact(pushToken)), voipToken: \(redact(voipToken))")
+                                    Log.info("[SyncPushTokensJob] Completed")
                                     dependencies.standardUserDefaults[.lastPushNotificationSync] = dependencies.dateNow
 
                                     dependencies.storage.write(using: dependencies) { db in

@@ -58,6 +58,7 @@ public class ConversationViewModel: OWSAudioPlayerDelegate, NavigatableStateHold
     private let initialUnreadInteractionId: Int64?
     private let markAsReadTrigger: PassthroughSubject<(SessionThreadViewModel.ReadTarget, Int64?), Never> = PassthroughSubject()
     private var markAsReadPublisher: AnyPublisher<Void, Never>?
+    public let dependencies: Dependencies
     
     public lazy var blockedBannerMessage: String = {
         let threadData: SessionThreadViewModel = self._threadData.wrappedValue
@@ -77,7 +78,12 @@ public class ConversationViewModel: OWSAudioPlayerDelegate, NavigatableStateHold
     
     // MARK: - Initialization
     
-    init(threadId: String, threadVariant: SessionThread.Variant, focusedInteractionInfo: Interaction.TimestampInfo?) {
+    init(
+        threadId: String,
+        threadVariant: SessionThread.Variant,
+        focusedInteractionInfo: Interaction.TimestampInfo?,
+        using dependencies: Dependencies
+    ) {
         typealias InitialData = (
             currentUserPublicKey: String,
             initialUnreadInteractionInfo: Interaction.TimestampInfo?,
@@ -180,6 +186,7 @@ public class ConversationViewModel: OWSAudioPlayerDelegate, NavigatableStateHold
             )
         )
         self.pagedDataObserver = nil
+        self.dependencies = dependencies
         
         // Note: Since this references self we need to finish initializing before setting it, we
         // also want to skip the initial query and trigger it async so that the push animation
@@ -260,7 +267,7 @@ public class ConversationViewModel: OWSAudioPlayerDelegate, NavigatableStateHold
     
     private var lastInteractionIdMarkedAsRead: Int64? = nil
     private var lastInteractionTimestampMsMarkedAsRead: Int64 = 0
-    public private(set) var unobservedInteractionDataChanges: ([SectionModel], StagedChangeset<[SectionModel]>)?
+    public private(set) var unobservedInteractionDataChanges: [SectionModel]?
     public private(set) var interactionData: [SectionModel] = []
     public private(set) var reactionExpandedInteractionIds: Set<Int64> = []
     public private(set) var pagedDataObserver: PagedDatabaseObserver<Interaction, MessageViewModel>?
@@ -269,14 +276,15 @@ public class ConversationViewModel: OWSAudioPlayerDelegate, NavigatableStateHold
         didSet {
             // When starting to observe interaction changes we want to trigger a UI update just in case the
             // data was changed while we weren't observing
-            if let changes: ([SectionModel], StagedChangeset<[SectionModel]>) = self.unobservedInteractionDataChanges {
-                let performChange: (([SectionModel], StagedChangeset<[SectionModel]>) -> ())? = onInteractionChange
-                
-                switch Thread.isMainThread {
-                    case true: performChange?(changes.0, changes.1)
-                    case false: DispatchQueue.main.async { performChange?(changes.0, changes.1) }
-                }
-                
+            if let changes: [SectionModel] = self.unobservedInteractionDataChanges {
+                PagedData.processAndTriggerUpdates(
+                    updatedData: changes,
+                    currentDataRetriever: { [weak self] in self?.interactionData },
+                    onDataChangeRetriever: { [weak self] in self?.onInteractionChange },
+                    onUnobservedDataChange: { [weak self] updatedData in
+                        self?.unobservedInteractionDataChanges = updatedData
+                    }
+                )
                 self.unobservedInteractionDataChanges = nil
             }
         }
@@ -420,11 +428,8 @@ public class ConversationViewModel: OWSAudioPlayerDelegate, NavigatableStateHold
                     ),
                     currentDataRetriever: { self?.interactionData },
                     onDataChangeRetriever: { self?.onInteractionChange },
-                    onUnobservedDataChange: { updatedData, changeset in
-                        self?.unobservedInteractionDataChanges = (changeset.isEmpty ?
-                            nil :
-                            (updatedData, changeset)
-                        )
+                    onUnobservedDataChange: { updatedData in
+                        self?.unobservedInteractionDataChanges = updatedData
                     }
                 )
             }
@@ -569,7 +574,7 @@ public class ConversationViewModel: OWSAudioPlayerDelegate, NavigatableStateHold
         let linkPreviewAttachment: Attachment? = linkPreviewDraft.map { draft in
             try? LinkPreview.generateAttachmentIfPossible(
                 imageData: draft.jpegImageData,
-                mimeType: OWSMimeTypeImageJpeg
+                mimeType: MimeTypeUtil.MimeType.imageJpeg
             )
         }
         
@@ -684,7 +689,7 @@ public class ConversationViewModel: OWSAudioPlayerDelegate, NavigatableStateHold
         guard let currentPageInfo: PagedData.PageInfo = self.pagedDataObserver?.pageInfo.wrappedValue else { return }
         
         /// **MUST** have the same logic as in the 'PagedDataObserver.onChangeUnsorted' above
-        let currentData: [SectionModel] = (unobservedInteractionDataChanges?.0 ?? interactionData)
+        let currentData: [SectionModel] = (unobservedInteractionDataChanges ?? interactionData)
         
         PagedData.processAndTriggerUpdates(
             updatedData: process(
@@ -695,11 +700,8 @@ public class ConversationViewModel: OWSAudioPlayerDelegate, NavigatableStateHold
             ),
             currentDataRetriever: { [weak self] in self?.interactionData },
             onDataChangeRetriever: { [weak self] in self?.onInteractionChange },
-            onUnobservedDataChange: { [weak self] updatedData, changeset in
-                self?.unobservedInteractionDataChanges = (changeset.isEmpty ?
-                    nil :
-                    (updatedData, changeset)
-                )
+            onUnobservedDataChange: { [weak self] updatedData in
+                self?.unobservedInteractionDataChanges = updatedData
             }
         )
     }
@@ -880,21 +882,11 @@ public class ConversationViewModel: OWSAudioPlayerDelegate, NavigatableStateHold
         let threadId: String = self.threadId
         let displayName: String = self._threadData.wrappedValue.displayName
         
-        Storage.shared.writeAsync(
-            updates: { db in
-                try Contact
-                    .filter(id: threadId)
-                    .updateAllAndConfig(db, Contact.Columns.isBlocked.set(to: false))
-            },
-            completion: { [weak self] _, _ in
-                self?.showToast(
-                    text: "blockUnblockedUser"
-                        .put(key: "name", value: displayName)
-                        .localized(),
-                    backgroundColor: .backgroundSecondary
-                )
-            }
-        )
+        Storage.shared.writeAsync { db in
+            try Contact
+                .filter(id: threadId)
+                .updateAllAndConfig(db, Contact.Columns.isBlocked.set(to: false))
+        }
     }
     
     public func expandReactions(for interactionId: Int64) {

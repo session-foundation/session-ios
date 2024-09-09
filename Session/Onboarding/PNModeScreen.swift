@@ -17,9 +17,11 @@ struct PNModeScreen: View {
     
     @State private var currentSelection: PNMode = .fast
     
+    private let dependencies: Dependencies
     private let flow: Onboarding.Flow
     
-    public init(flow: Onboarding.Flow) {
+    public init(flow: Onboarding.Flow, using dependencies: Dependencies) {
+        self.dependencies = dependencies
         self.flow = flow
     }
     
@@ -38,7 +40,7 @@ struct PNModeScreen: View {
             mode: .slow,
             title: "notificationsSlowMode".localized(),
             explanation: "notificationsSlowModeDescription"
-                .put(key: "app_name", value: Singleton.appName)
+                .put(key: "app_name", value: Constants.app_name)
                 .localized(),
             isRecommended: false,
             accessibility: Accessibility(
@@ -64,8 +66,8 @@ struct PNModeScreen: View {
                     .foregroundColor(themeColor: .textPrimary)
                 
                 Text(
-                    "onboardingMessageNotificationExplaination"
-                        .put(key: "app_name", value: Singleton.appName)
+                    "onboardingMessageNotificationExplanation"
+                        .put(key: "app_name", value: Constants.app_name)
                         .localized()
                 )
                 .font(.system(size: Values.smallFontSize))
@@ -130,10 +132,7 @@ struct PNModeScreen: View {
         
         // If we are registering then we can just continue on
         guard flow != .register else {
-            self.flow.completeRegistration()
-            self.finishRegister()
-            
-            return
+            return finishRegister()
         }
         
         // Check if we already have a profile name (ie. profile retrieval completed while waiting on
@@ -149,22 +148,21 @@ struct PNModeScreen: View {
         
         guard existingProfileName?.isEmpty != false else {
             // If we have one then we can go straight to the home screen
-            self.flow.completeRegistration()
-            
-            // Go to the home screen
-            let homeVC: HomeVC = HomeVC()
-            self.host.controller?.navigationController?.setViewControllers([ homeVC ], animated: true)
-            return
+            return finishRegister()
         }
         
         // If we don't have one then show a loading indicator and try to retrieve the existing name
-        let viewController: SessionHostingViewController = SessionHostingViewController(rootView: LoadingScreen(flow: flow))
+        let viewController: SessionHostingViewController = SessionHostingViewController(
+            rootView: LoadingScreen(flow: flow, using: dependencies)
+        )
         viewController.setUpNavBarSessionIcon()
         self.host.controller?.navigationController?.pushViewController(viewController, animated: true)
     }
     
     private func finishRegister() {
-        let homeVC: HomeVC = HomeVC(flow: self.flow)
+        self.flow.completeRegistration()
+        
+        let homeVC: HomeVC = HomeVC(flow: self.flow, using: dependencies)
         self.host.controller?.navigationController?.setViewControllers([ homeVC ], animated: true)
         return
     }
@@ -259,6 +257,6 @@ struct PNOptionView: View {
 
 struct PNModeView_Previews: PreviewProvider {
     static var previews: some View {
-        PNModeScreen(flow: .register)
+        PNModeScreen(flow: .register, using: Dependencies())
     }
 }

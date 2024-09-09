@@ -8,10 +8,10 @@ import SessionUIKit
 import SignalUtilitiesKit
 import SessionMessagingKit
 import SessionSnodeKit
-import SignalCoreKit
+import SessionUtilitiesKit
 
 final class ThreadPickerVC: UIViewController, UITableViewDataSource, UITableViewDelegate, AttachmentApprovalViewControllerDelegate {
-    private let viewModel: ThreadPickerViewModel = ThreadPickerViewModel()
+    private let viewModel: ThreadPickerViewModel
     private var dataChangeObservable: DatabaseCancellable? {
         didSet { oldValue?.cancel() }   // Cancel the old observable if there was one
     }
@@ -20,6 +20,16 @@ final class ThreadPickerVC: UIViewController, UITableViewDataSource, UITableView
     var shareNavController: ShareNavController?
     
     // MARK: - Intialization
+    
+    init(using dependencies: Dependencies) {
+        viewModel = ThreadPickerViewModel(using: dependencies)
+        
+        super.init(nibName: nil, bundle: nil)
+    }
+    
+    required init?(coder: NSCoder) {
+        fatalError("init(coder:) has not been implemented")
+    }
     
     deinit {
         NotificationCenter.default.removeObserver(self)
@@ -31,7 +41,7 @@ final class ThreadPickerVC: UIViewController, UITableViewDataSource, UITableView
         let titleLabel: UILabel = UILabel()
         titleLabel.font = .boldSystemFont(ofSize: Values.veryLargeFontSize)
         titleLabel.text = "shareToSession"
-            .put(key: "app_name", value: Singleton.appName)
+            .put(key: "app_name", value: Constants.app_name)
             .localized()
         titleLabel.themeTextColor = .textPrimary
         
@@ -103,7 +113,7 @@ final class ThreadPickerVC: UIViewController, UITableViewDataSource, UITableView
         // When the thread picker disappears it means the user has left the screen (this will be called
         // whether the user has sent the message or cancelled sending)
         LibSession.suspendNetworkAccess()
-        Storage.suspendDatabaseAccess()
+        Storage.suspendDatabaseAccess(using: viewModel.dependencies)
         Log.flush()
     }
     
@@ -189,16 +199,19 @@ final class ThreadPickerVC: UIViewController, UITableViewDataSource, UITableView
             .subscribe(on: DispatchQueue.global(qos: .userInitiated))
             .receive(on: DispatchQueue.main)
             .sinkUntilComplete(
-                receiveValue: { [weak self] attachments in
-                    guard let strongSelf = self else { return }
+                receiveValue: { [weak self, dependencies = self.viewModel.dependencies] attachments in
+                    guard
+                        let strongSelf = self,
+                        let approvalVC: UINavigationController = AttachmentApprovalViewController.wrappedInNavController(
+                            threadId: strongSelf.viewModel.viewData[indexPath.row].threadId,
+                            threadVariant: strongSelf.viewModel.viewData[indexPath.row].threadVariant,
+                            attachments: attachments,
+                            approvalDelegate: strongSelf,
+                            using: dependencies
+                        )
+                    else { return }
                     
-                    let approvalVC: UINavigationController = AttachmentApprovalViewController.wrappedInNavController(
-                        threadId: strongSelf.viewModel.viewData[indexPath.row].threadId,
-                        threadVariant: strongSelf.viewModel.viewData[indexPath.row].threadVariant,
-                        attachments: attachments,
-                        approvalDelegate: strongSelf
-                    )
-                    strongSelf.navigationController?.present(approvalVC, animated: true, completion: nil)
+                    self?.navigationController?.present(approvalVC, animated: true, completion: nil)
                 }
             )
     }
@@ -208,8 +221,7 @@ final class ThreadPickerVC: UIViewController, UITableViewDataSource, UITableView
         didApproveAttachments attachments: [SignalAttachment],
         forThreadId threadId: String,
         threadVariant: SessionThread.Variant,
-        messageText: String?,
-        using dependencies: Dependencies = Dependencies()
+        messageText: String?
     ) {
         // Sharing a URL or plain text will populate the 'messageText' field so in those
         // cases we should ignore the attachments
@@ -229,8 +241,8 @@ final class ThreadPickerVC: UIViewController, UITableViewDataSource, UITableView
         
         shareNavController?.dismiss(animated: true, completion: nil)
         
-        ModalActivityIndicatorViewController.present(fromViewController: shareNavController!, canCancel: false, message: "sending".localized()) { activityIndicator in
-            Storage.resumeDatabaseAccess()
+        ModalActivityIndicatorViewController.present(fromViewController: shareNavController!, canCancel: false, message: "sending".localized()) { [dependencies = viewModel.dependencies] activityIndicator in
+            Storage.resumeDatabaseAccess(using: dependencies)
             LibSession.resumeNetworkAccess()
             
             let swarmPublicKey: String = {
@@ -251,13 +263,20 @@ final class ThreadPickerVC: UIViewController, UITableViewDataSource, UITableView
                 .subscribe(on: DispatchQueue.global(qos: .userInitiated))
                 .flatMap { _ in
                     dependencies.storage.writePublisher { db -> MessageSender.PreparedSendData in
-                        guard
-                            let threadVariant: SessionThread.Variant = try SessionThread
+                        guard let thread: SessionThread = try SessionThread.fetchOne(db, id: threadId) else {
+                            throw MessageSenderError.noThread
+                        }
+                        
+                        // Update the thread to be visible (if it isn't already)
+                        if !thread.shouldBeVisible || thread.pinnedPriority == LibSession.hiddenPriority {
+                            _ = try SessionThread
                                 .filter(id: threadId)
-                                .select(.variant)
-                                .asRequest(of: SessionThread.Variant.self)
-                                .fetchOne(db)
-                        else { throw MessageSenderError.noThread }
+                                .updateAllAndConfig(
+                                    db,
+                                    SessionThread.Columns.shouldBeVisible.set(to: true),
+                                    SessionThread.Columns.pinnedPriority.set(to: LibSession.visiblePriority)
+                                )
+                        }
                         
                         // Create the interaction
                         let interaction: Interaction = try Interaction(
@@ -288,7 +307,7 @@ final class ThreadPickerVC: UIViewController, UITableViewDataSource, UITableView
                                 attachmentId: LinkPreview
                                     .generateAttachmentIfPossible(
                                         imageData: linkPreviewDraft.jpegImageData,
-                                        mimeType: OWSMimeTypeImageJpeg
+                                        mimeType: MimeTypeUtil.MimeType.imageJpeg
                                     )?
                                     .inserted(db)
                                     .id
@@ -319,7 +338,7 @@ final class ThreadPickerVC: UIViewController, UITableViewDataSource, UITableView
                 .sinkUntilComplete(
                     receiveCompletion: { [weak self] result in
                         LibSession.suspendNetworkAccess()
-                        Storage.suspendDatabaseAccess()
+                        Storage.suspendDatabaseAccess(using: dependencies)
                         Log.flush()
                         activityIndicator.dismiss { }
                         

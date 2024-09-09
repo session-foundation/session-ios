@@ -49,11 +49,11 @@ public enum RetrieveDefaultOpenGroupRoomsJob: JobExecutor {
                 receiveCompletion: { result in
                     switch result {
                         case .finished:
-                            SNLog("[RetrieveDefaultOpenGroupRoomsJob] Successfully retrieved default Community rooms")
+                            Log.info("[RetrieveDefaultOpenGroupRoomsJob] Successfully retrieved default Community rooms")
                             success(job, false, dependencies)
                             
                         case .failure(let error):
-                            SNLog("[RetrieveDefaultOpenGroupRoomsJob] Failed to get default Community rooms")
+                            Log.error("[RetrieveDefaultOpenGroupRoomsJob] Failed to get default Community rooms due to error: \(error)")
                             failure(job, error, false, dependencies)
                     }
                 }

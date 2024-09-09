@@ -12,7 +12,7 @@ final class HomeVC: BaseVC, LibSessionRespondingViewController, UITableViewDataS
     private static let loadingHeaderHeight: CGFloat = 40
     public static let newConversationButtonSize: CGFloat = 60
     
-    private let viewModel: HomeViewModel = HomeViewModel()
+    private let viewModel: HomeViewModel
     private var dataChangeObservable: DatabaseCancellable? {
         didSet { oldValue?.cancel() }   // Cancel the old observable if there was one
     }
@@ -29,7 +29,8 @@ final class HomeVC: BaseVC, LibSessionRespondingViewController, UITableViewDataS
     
     // MARK: - Intialization
     
-    init(flow: Onboarding.Flow? = nil) {
+    init(flow: Onboarding.Flow? = nil, using dependencies: Dependencies) {
+        self.viewModel = HomeViewModel(using: dependencies)
         Storage.shared.addObserver(viewModel.pagedDataObserver)
         self.flow = flow
         super.init(nibName: nil, bundle: nil)
@@ -50,7 +51,7 @@ final class HomeVC: BaseVC, LibSessionRespondingViewController, UITableViewDataS
     private lazy var seedReminderView: SeedReminderView = {
         let result = SeedReminderView()
         result.accessibilityLabel = "Recovery phrase reminder"
-        result.title = NSAttributedString(string: "recoveryPasswordBannerTittle".localized())
+        result.title = NSAttributedString(string: "recoveryPasswordBannerTitle".localized())
         result.subtitle = "recoveryPasswordBannerDescription".localized()
         result.setProgress(1, animated: false)
         result.delegate = self
@@ -247,7 +248,10 @@ final class HomeVC: BaseVC, LibSessionRespondingViewController, UITableViewDataS
         
         let welcomeLabel = UILabel()
         welcomeLabel.font = .systemFont(ofSize: Values.smallFontSize)
-        welcomeLabel.text = "onboardingBubbleWelcomeToSession".localized()
+        welcomeLabel.text = "onboardingBubbleWelcomeToSession"
+            .put(key: "app_name", value: Constants.app_name)
+            .put(key: "emoji", value: "")
+            .localized()
         welcomeLabel.themeTextColor = .sessionButton_text
         welcomeLabel.textAlignment = .center
 
@@ -325,8 +329,7 @@ final class HomeVC: BaseVC, LibSessionRespondingViewController, UITableViewDataS
         
         // Empty state view
         view.addSubview(emptyStateStackView)
-        emptyStateStackView.pin(.leading, to: .leading, of: view, withInset: Values.accountCreatedViewHorizontalOffset)
-        emptyStateStackView.pin(.trailing, to: .trailing, of: view, withInset: -Values.accountCreatedViewHorizontalOffset)
+        emptyStateStackView.set(.width, to: 300)
         emptyStateStackView.center(.horizontal, in: view)
         let verticalCenteringConstraint2 = emptyStateStackView.center(.vertical, in: view)
         verticalCenteringConstraint2.constant = -Values.massiveSpacing // Makes things appear centered visually
@@ -588,7 +591,7 @@ final class HomeVC: BaseVC, LibSessionRespondingViewController, UITableViewDataS
         // Container view
         let profilePictureViewContainer = UIView()
         profilePictureViewContainer.addSubview(profilePictureView)
-        profilePictureView.autoPinEdgesToSuperviewEdges()
+        profilePictureView.pin(to: profilePictureViewContainer)
         profilePictureViewContainer.addSubview(pathStatusView)
         pathStatusView.pin(.trailing, to: .trailing, of: profilePictureViewContainer)
         pathStatusView.pin(.bottom, to: .bottom, of: profilePictureViewContainer)
@@ -737,7 +740,7 @@ final class HomeVC: BaseVC, LibSessionRespondingViewController, UITableViewDataS
                 // Cannot properly sync outgoing blinded message requests so don't provide the option
                 guard
                     threadViewModel.threadVariant != .contact ||
-                    SessionId(from: section.elements[indexPath.row].threadId)?.prefix == .standard
+                    (try? SessionId(from: section.elements[indexPath.row].threadId))?.prefix == .standard
                 else { return nil }
                 
                 return UIContextualAction.configuration(
@@ -775,7 +778,7 @@ final class HomeVC: BaseVC, LibSessionRespondingViewController, UITableViewDataS
                 )
                 
             case .threads:
-                let sessionIdPrefix: SessionId.Prefix? = SessionId(from: threadViewModel.threadId)?.prefix
+                let sessionIdPrefix: SessionId.Prefix? = (try? SessionId(from: threadViewModel.threadId))?.prefix
                 
                 // Cannot properly sync outgoing blinded message requests so only provide valid options
                 let shouldHavePinAction: Bool = (
@@ -799,7 +802,7 @@ final class HomeVC: BaseVC, LibSessionRespondingViewController, UITableViewDataS
                 }()
                 let destructiveAction: UIContextualAction.SwipeAction = {
                     switch (threadViewModel.threadVariant, threadViewModel.threadIsNoteToSelf, threadViewModel.currentUserIsClosedGroupMember) {
-                        case (.contact, true, _): return .hide
+                        case (.contact, true, _): return .clear
                         case (.legacyGroup, _, true), (.group, _, true), (.community, _, _): return .leave
                         default: return .delete
                     }
@@ -836,7 +839,7 @@ final class HomeVC: BaseVC, LibSessionRespondingViewController, UITableViewDataS
             let targetViewController: UIViewController = ConfirmationModal(
                 info: ConfirmationModal.Info(
                     title: "theError".localized(),
-                    body: .text("LOAD_RECOVERY_PASSWORD_ERROR".localized()),
+                    body: .text("recoveryPasswordErrorLoad".localized()),
                     cancelTitle: "okay".localized(),
                     cancelStyle: .alert_text
                 )
@@ -867,7 +870,8 @@ final class HomeVC: BaseVC, LibSessionRespondingViewController, UITableViewDataS
             ConversationVC(
                 threadId: threadId,
                 threadVariant: variant,
-                focusedInteractionInfo: focusedInteractionInfo
+                focusedInteractionInfo: focusedInteractionInfo,
+                using: viewModel.dependencies
             )
         ].compactMap { $0 }
         
@@ -887,7 +891,7 @@ final class HomeVC: BaseVC, LibSessionRespondingViewController, UITableViewDataS
         if let presentedVC = self.presentedViewController {
             presentedVC.dismiss(animated: false, completion: nil)
         }
-        let searchController = GlobalSearchViewController()
+        let searchController = GlobalSearchViewController(using: viewModel.dependencies)
         self.navigationController?.setViewControllers([ self, searchController ], animated: true)
     }
     
@@ -909,7 +913,11 @@ final class HomeVC: BaseVC, LibSessionRespondingViewController, UITableViewDataS
     
     func createNewDMFromDeepLink(sessionId: String) {
         let viewController: SessionHostingViewController = SessionHostingViewController(rootView: NewMessageScreen(accountId: sessionId))
-        viewController.setNavBarTitle("messageNew".localized())
+        viewController.setNavBarTitle(
+            "messageNew"
+                .putNumber(1)
+                .localized()
+        )
         let navigationController = StyledNavigationController(rootViewController: viewController)
         if UIDevice.current.isIPad {
             navigationController.modalPresentationStyle = .fullScreen

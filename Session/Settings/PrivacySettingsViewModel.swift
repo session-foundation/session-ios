@@ -109,13 +109,16 @@ class PrivacySettingsViewModel: SessionTableViewModel, NavigationItemSource, Nav
                             id: .screenLock,
                             title: "lockApp".localized(),
                             subtitle: "lockAppDescriptionIos"
-                                .put(key: "app_name", value: Singleton.appName)
+                                .put(key: "app_name", value: Constants.app_name)
                                 .localized(),
                             rightAccessory: .toggle(
                                 .boolValue(
                                     key: .isScreenLockEnabled,
                                     value: current.isScreenLockEnabled,
                                     oldValue: (previous ?? current).isScreenLockEnabled
+                                ),
+                                accessibility: Accessibility(
+                                    identifier: "Lock App - Switch"
                                 )
                             ),
                             onTap: { [weak self] in
@@ -148,12 +151,15 @@ class PrivacySettingsViewModel: SessionTableViewModel, NavigationItemSource, Nav
                         SessionCell.Info(
                             id: .communityMessageRequests,
                             title: "messageRequestsCommunities".localized(),
-                            subtitle: "messageReqeuestsCommunitiesDescription".localized(),
+                            subtitle: "messageRequestsCommunitiesDescription".localized(),
                             rightAccessory: .toggle(
                                 .boolValue(
                                     key: .checkForCommunityMessageRequests,
                                     value: current.checkForCommunityMessageRequests,
                                     oldValue: (previous ?? current).checkForCommunityMessageRequests
+                                ),
+                                accessibility: Accessibility(
+                                    identifier: "Community Message Requests - Switch"
                                 )
                             ),
                             onTap: { [weak self] in
@@ -179,6 +185,9 @@ class PrivacySettingsViewModel: SessionTableViewModel, NavigationItemSource, Nav
                                     key: .areReadReceiptsEnabled,
                                     value: current.areReadReceiptsEnabled,
                                     oldValue: (previous ?? current).areReadReceiptsEnabled
+                                ),
+                                accessibility: Accessibility(
+                                    identifier: "Read Receipts - Switch"
                                 )
                             ),
                             onTap: {
@@ -213,7 +222,10 @@ class PrivacySettingsViewModel: SessionTableViewModel, NavigationItemSource, Nav
                                     // Use a transform scale to reduce the size of the typing indicator to the
                                     // desired size (this way the animation remains intact)
                                     let cell: TypingIndicatorCell = TypingIndicatorCell()
-                                    cell.transform = CGAffineTransform.scale(targetHeight / cell.bounds.height)
+                                    cell.transform = CGAffineTransform(
+                                        scaleX: targetHeight / cell.bounds.height,
+                                        y: targetHeight / cell.bounds.height
+                                    )
                                     cell.typingIndicatorView.startAnimation()
                                     result.addSubview(cell)
                                     
@@ -233,6 +245,9 @@ class PrivacySettingsViewModel: SessionTableViewModel, NavigationItemSource, Nav
                                     key: .typingIndicatorsEnabled,
                                     value: current.typingIndicatorsEnabled,
                                     oldValue: (previous ?? current).typingIndicatorsEnabled
+                                ),
+                                accessibility: Accessibility(
+                                    identifier: "Typing Indicators - Switch"
                                 )
                             ),
                             onTap: {
@@ -255,6 +270,9 @@ class PrivacySettingsViewModel: SessionTableViewModel, NavigationItemSource, Nav
                                     key: .areLinkPreviewsEnabled,
                                     value: current.areLinkPreviewsEnabled,
                                     oldValue: (previous ?? current).areLinkPreviewsEnabled
+                                ),
+                                accessibility: Accessibility(
+                                    identifier: "Send Link Previews - Switch"
                                 )
                             ),
                             onTap: {
@@ -277,6 +295,9 @@ class PrivacySettingsViewModel: SessionTableViewModel, NavigationItemSource, Nav
                                     key: .areCallsEnabled,
                                     value: current.areCallsEnabled,
                                     oldValue: (previous ?? current).areCallsEnabled
+                                ),
+                                accessibility: Accessibility(
+                                    identifier: "Voice and Video Calls - Switch"
                                 )
                             ),
                             accessibility: Accessibility(
@@ -288,7 +309,8 @@ class PrivacySettingsViewModel: SessionTableViewModel, NavigationItemSource, Nav
                                 showCondition: .disabled,
                                 confirmTitle: "theContinue".localized(),
                                 confirmAccessibility: Accessibility(identifier: "Enable"),
-                                confirmStyle: .textPrimary,
+                                confirmStyle: .danger,
+                                cancelStyle: .alert_text,
                                 onConfirm: { _ in Permissions.requestMicrophonePermissionIfNeeded() }
                             ),
                             onTap: {

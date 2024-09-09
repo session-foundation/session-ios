@@ -28,7 +28,7 @@ public enum Permissions {
                         title: "permissionsRequired".localized(),
                         body: .text(
                             "cameraGrantAccessDenied"
-                                .put(key: "app_name", value: Singleton.appName)
+                                .put(key: "app_name", value: Constants.app_name)
                                 .localized()
                         ),
                         confirmTitle: "sessionSettings".localized(),
@@ -69,7 +69,9 @@ public enum Permissions {
                     info: ConfirmationModal.Info(
                         title: "permissionsRequired".localized(),
                         body: .text(
-                            "permissionsMicrophoneAccessRequired".localized()
+                            "permissionsMicrophoneAccessRequiredIos"
+                                .put(key: "app_name", value: Constants.app_name)
+                                .localized()
                         ),
                         confirmTitle: "sessionSettings".localized(),
                         dismissOnConfirm: false,
@@ -128,7 +130,7 @@ public enum Permissions {
                         title: "permissionsRequired".localized(),
                         body: .text(
                             "permissionsLibrary"
-                                .put(key: "app_name", value: Singleton.appName)
+                                .put(key: "app_name", value: Constants.app_name)
                                 .localized()
                         ),
                         confirmTitle: "sessionSettings".localized(),

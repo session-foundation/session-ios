@@ -29,7 +29,7 @@ final class DeletedMessageView: UIView {
     private func setUpViewHierarchy(textColor: ThemeValue) {
         // Image view
         let icon = UIImage(named: "ic_trash")?
-            .resizedImage(to: CGSize(
+            .resized(to: CGSize(
                 width: DeletedMessageView.iconSize,
                 height: DeletedMessageView.iconSize
             ))?
@@ -44,7 +44,9 @@ final class DeletedMessageView: UIView {
         // Body label
         let titleLabel = UILabel()
         titleLabel.font = .systemFont(ofSize: Values.smallFontSize)
-        titleLabel.text = "deleteMessageDeleted".localized()
+        titleLabel.text = "deleteMessageDeleted"
+            .putNumber(1)
+            .localized()
         titleLabel.themeTextColor = textColor
         titleLabel.lineBreakMode = .byTruncatingTail
         

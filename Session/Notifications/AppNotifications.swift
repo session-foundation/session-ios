@@ -5,7 +5,6 @@ import Combine
 import GRDB
 import SessionMessagingKit
 import SignalUtilitiesKit
-import SignalCoreKit
 import SessionUtilitiesKit
 import SessionSnodeKit
 
@@ -137,12 +136,12 @@ public class NotificationPresenter: NotificationsProtocol {
         
         switch previewType {
             case .noNameNoPreview:
-                notificationTitle = Singleton.appName
+                notificationTitle = Constants.app_name
                 
             case .nameNoPreview, .nameAndPreview:
                 switch thread.variant {
                     case .contact:
-                        notificationTitle = (isMessageRequest ? Singleton.appName : senderName)
+                        notificationTitle = (isMessageRequest ? Constants.app_name : senderName)
                         
                     case .legacyGroup, .group, .community:
                         notificationTitle = "notificationsIosGroup"
@@ -153,7 +152,9 @@ public class NotificationPresenter: NotificationsProtocol {
         }
         
         switch previewType {
-            case .noNameNoPreview, .nameNoPreview: notificationBody = "messageNewYouveGotA".localized()
+            case .noNameNoPreview, .nameNoPreview: notificationBody = "messageNewYouveGot"
+                .putNumber(1)
+                .localized()
             case .nameAndPreview: notificationBody = messageText
         }
         
@@ -255,14 +256,14 @@ public class NotificationPresenter: NotificationsProtocol {
             AppNotificationUserInfoKey.threadVariantRaw: thread.variant.rawValue
         ]
         
-        let notificationTitle: String = Singleton.appName
+        let notificationTitle: String = Constants.app_name
         let senderName: String = Profile.displayName(db, id: interaction.authorId, threadVariant: thread.variant)
         let notificationBody: String? = {
             switch messageInfo.state {
                 case .permissionDenied:
                     return "callsYouMissedCallPermissions"
                         .put(key: "name", value: senderName)
-                        .localized()
+                        .localizedDeformatted()
                 case .missed:
                     return "callsMissedCallFrom"
                         .put(key: "name", value: senderName)
@@ -311,10 +312,8 @@ public class NotificationPresenter: NotificationsProtocol {
         else { return }
         guard !isMessageRequest else { return }
         
-        let senderName: String = Profile.displayName(db, id: reaction.authorId, threadVariant: thread.variant)
-        let notificationTitle = Singleton.appName
-        var notificationBody = "emojiReactsHoverName"
-            .put(key: "name", value: senderName)
+        let notificationTitle = Profile.displayName(db, id: reaction.authorId, threadVariant: thread.variant)
+        var notificationBody = "emojiReactsNotification"
             .put(key: "emoji", value: reaction.emoji)
             .localized()
         
@@ -324,7 +323,9 @@ public class NotificationPresenter: NotificationsProtocol {
         
         switch previewType {
             case .nameAndPreview: break
-            default: notificationBody = "messageNewYouveGotA".localized()
+            default: notificationBody = "messageNewYouveGot"
+                .putNumber(1)
+                .localized()
         }
         
         let category = AppNotificationCategory.incomingMessage
@@ -453,7 +454,7 @@ public class NotificationPresenter: NotificationsProtocol {
         guard Storage.shared[.playNotificationSoundInForeground] else { return false }
 
         let nowMs: UInt64 = UInt64(floor(Date().timeIntervalSince1970 * 1000))
-        let recentThreshold = nowMs - UInt64(kAudioNotificationsThrottleInterval * Double(kSecondInMs))
+        let recentThreshold = nowMs - UInt64(kAudioNotificationsThrottleInterval * 1000)
 
         let recentNotifications = mostRecentNotifications.wrappedValue.filter { $0 > recentThreshold }
 
@@ -558,12 +559,12 @@ class NotificationActionHandler {
             .eraseToAnyPublisher()
     }
 
-    func showThread(userInfo: [AnyHashable: Any]) -> AnyPublisher<Void, Never> {
+    func showThread(userInfo: [AnyHashable: Any], using dependencies: Dependencies) -> AnyPublisher<Void, Never> {
         guard
             let threadId = userInfo[AppNotificationUserInfoKey.threadId] as? String,
             let threadVariantRaw = userInfo[AppNotificationUserInfoKey.threadVariantRaw] as? Int,
             let threadVariant: SessionThread.Variant = SessionThread.Variant(rawValue: threadVariantRaw)
-        else { return showHomeVC() }
+        else { return showHomeVC(using: dependencies) }
 
         // If this happens when the the app is not, visible we skip the animation so the thread
         // can be visible to the user immediately upon opening the app, rather than having to watch
@@ -579,8 +580,8 @@ class NotificationActionHandler {
             .eraseToAnyPublisher()
     }
     
-    func showHomeVC() -> AnyPublisher<Void, Never> {
-        SessionApp.showHomeView()
+    func showHomeVC(using dependencies: Dependencies) -> AnyPublisher<Void, Never> {
+        SessionApp.showHomeView(using: dependencies)
         return Just(())
             .eraseToAnyPublisher()
     }
@@ -625,7 +626,7 @@ enum NotificationError: Error {
 
 extension NotificationError {
     static func failDebug(_ description: String) -> NotificationError {
-        owsFailDebug(description)
+        Log.error("[NotificationActionHandler] Failed with error: \(description)")
         return NotificationError.assertionError(description: description)
     }
 }

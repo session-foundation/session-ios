@@ -15,6 +15,7 @@ public class NSENotificationPresenter: NSObject, NotificationsProtocol {
         
         // Ensure we should be showing a notification for the thread
         guard thread.shouldShowNotification(db, for: interaction, isMessageRequest: isMessageRequest) else {
+            Log.info("Ignoring notification because thread reported that we shouldn't show it.")
             return
         }
         
@@ -40,9 +41,13 @@ public class NSENotificationPresenter: NSObject, NotificationsProtocol {
         }
         
         let snippet: String = (interaction.previewText(db)
-            .filterForDisplay?
+            .filteredForDisplay
+            .nullIfEmpty?
             .replacingMentions(for: thread.id))
-            .defaulting(to: "messageNewYouveGotA".localized())
+            .defaulting(to: "messageNewYouveGot"
+                .putNumber(1)
+                .localized()
+            )
         
         let userInfo: [String: Any] = [
             NotificationServiceExtension.isFromRemoteKey: true,
@@ -70,17 +75,21 @@ public class NSENotificationPresenter: NSObject, NotificationsProtocol {
         
             case .nameNoPreview:
                 notificationContent.title = notificationTitle
-                notificationContent.body = "messageNewYouveGotA".localized()
+                notificationContent.body = "messageNewYouveGot"
+                    .putNumber(1)
+                    .localized()
                 
             case .noNameNoPreview:
-                notificationContent.title = Singleton.appName
-                notificationContent.body = "messageNewYouveGotA".localized()
+                notificationContent.title = Constants.app_name
+                notificationContent.body = "messageNewYouveGot"
+                    .putNumber(1)
+                    .localized()
         }
         
         // If it's a message request then overwrite the body to be something generic (only show a notification
         // when receiving a new message request if there aren't any others or the user had hidden them)
         if isMessageRequest {
-            notificationContent.title = Singleton.appName
+            notificationContent.title = Constants.app_name
             notificationContent.body = "messageRequestsNew".localized()
         }
         
@@ -109,8 +118,8 @@ public class NSENotificationPresenter: NSObject, NotificationsProtocol {
                     notificationContent.title :
                     groupName
                 )
-                notificationContent.body = "messageNewYouveGotMany"
-                    .put(key: "count", value: numberOfNotifications)
+                notificationContent.body = "messageNewYouveGot"
+                    .putNumber(numberOfNotifications)
                     .localized()
             }
             
@@ -159,7 +168,7 @@ public class NSENotificationPresenter: NSObject, NotificationsProtocol {
             .map { NSNumber(value: $0) }
             .defaulting(to: NSNumber(value: 0))
         
-        notificationContent.title = Singleton.appName
+        notificationContent.title = Constants.app_name
         notificationContent.body = ""
         
         let senderName: String = Profile.displayName(db, id: interaction.authorId, threadVariant: thread.variant)
@@ -189,10 +198,8 @@ public class NSENotificationPresenter: NSObject, NotificationsProtocol {
         else { return }
         guard !isMessageRequest else { return }
         
-        let senderName: String = Profile.displayName(db, id: reaction.authorId, threadVariant: thread.variant)
-        let notificationTitle = Singleton.appName
-        var notificationBody = "emojiReactsHoverName"
-            .put(key: "name", value: senderName)
+        let notificationTitle = Profile.displayName(db, id: reaction.authorId, threadVariant: thread.variant)
+        var notificationBody = "emojiReactsNotification"
             .put(key: "emoji", value: reaction.emoji)
             .localized()
         
@@ -202,7 +209,9 @@ public class NSENotificationPresenter: NSObject, NotificationsProtocol {
         
         switch previewType {
             case .nameAndPreview: break
-            default: notificationBody = "messageNewYouveGotA".localized()
+            default: notificationBody = "messageNewYouveGot"
+                .putNumber(1)
+                .localized()
         }
 
         let userInfo: [String: Any] = [

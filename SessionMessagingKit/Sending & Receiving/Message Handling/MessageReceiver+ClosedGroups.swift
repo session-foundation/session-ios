@@ -3,7 +3,6 @@
 import Foundation
 import Combine
 import GRDB
-import Sodium
 import SessionUtilitiesKit
 import SessionSnodeKit
 
@@ -23,7 +22,8 @@ extension MessageReceiver {
                     db,
                     threadId: threadId,
                     threadVariant: threadVariant,
-                    message: message
+                    message: message,
+                    using: dependencies
                 )
                 
             case .nameChange:
@@ -153,7 +153,13 @@ extension MessageReceiver {
         
         // Create the group
         let thread: SessionThread = try SessionThread
-            .fetchOrCreate(db, id: groupPublicKey, variant: .legacyGroup, shouldBeVisible: true)
+            .fetchOrCreate(
+                db,
+                id: groupPublicKey,
+                variant: .legacyGroup,
+                creationDateTimestamp: (TimeInterval(formationTimestampMs) / 1000),
+                shouldBeVisible: true
+            )
         let closedGroup: ClosedGroup = try ClosedGroup(
             threadId: groupPublicKey,
             name: name,
@@ -219,6 +225,7 @@ extension MessageReceiver {
                 db,
                 groupPublicKey: groupPublicKey,
                 name: name,
+                joinedAt: (TimeInterval(formationTimestampMs) / 1000),
                 latestKeyPairPublicKey: Data(encryptionKeyPair.publicKey),
                 latestKeyPairSecretKey: Data(encryptionKeyPair.secretKey),
                 latestKeyPairReceivedTimestamp: receivedTimestamp,
@@ -257,7 +264,8 @@ extension MessageReceiver {
         _ db: Database,
         threadId: String,
         threadVariant: SessionThread.Variant,
-        message: ClosedGroupControlMessage
+        message: ClosedGroupControlMessage,
+        using dependencies: Dependencies
     ) throws {
         guard case let .encryptionKeyPair(explicitGroupPublicKey, wrappers) = message.kind else {
             return
@@ -285,9 +293,12 @@ extension MessageReceiver {
         
         let plaintext: Data
         do {
-            plaintext = try MessageReceiver.decryptWithSessionProtocol(
-                ciphertext: encryptedKeyPair,
-                using: userKeyPair
+            plaintext = try dependencies.crypto.tryGenerate(
+                .plaintextWithSessionProtocolLegacyGroup(
+                    ciphertext: encryptedKeyPair,
+                    keyPair: userKeyPair,
+                    using: dependencies
+                )
             ).plaintext
         }
         catch {

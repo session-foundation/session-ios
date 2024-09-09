@@ -19,12 +19,15 @@ struct StartConversationScreen: View {
                         alignment: .center,
                         spacing: 0
                     ) {
+                        let title: String = "messageNew"
+                            .putNumber(1)
+                            .localized()
                         NewConversationCell(
                             image: "Message",
-                            title: "messageNew".localized()
+                            title: title
                         ) {
                             let viewController: SessionHostingViewController = SessionHostingViewController(rootView: NewMessageScreen())
-                            viewController.setNavBarTitle("messageNew".localized())
+                            viewController.setNavBarTitle(title)
                             viewController.setUpNavBarButton(rightItem: .close)
                             self.host.controller?.navigationController?.pushViewController(viewController, animated: true)
                         }
@@ -104,7 +107,7 @@ struct StartConversationScreen: View {
                     QRCodeView(
                         string: getUserHexEncodedPublicKey(),
                         hasBackground: false,
-                        logo: "SessionWhite40",
+                        logo: "SessionWhite40", // stringlint:disable
                         themeStyle: ThemeManager.currentTheme.interfaceStyle
                     )
                     .aspectRatio(1, contentMode: .fit)

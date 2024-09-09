@@ -5,7 +5,6 @@ import Combine
 import GRDB
 import SessionSnodeKit
 import SessionUtilitiesKit
-import Sodium
 
 public final class MessageSender {
     // MARK: - Message Preparation
@@ -15,7 +14,7 @@ public final class MessageSender {
         let destination: Message.Destination
         let namespace: SnodeAPI.Namespace?
         
-        let message: Message?
+        let message: Message
         let interactionId: Int64?
         let totalAttachmentsUploaded: Int
         
@@ -25,7 +24,7 @@ public final class MessageSender {
         
         private init(
             shouldSend: Bool,
-            message: Message?,
+            message: Message,
             destination: Message.Destination,
             namespace: SnodeAPI.Namespace?,
             interactionId: Int64?,
@@ -269,27 +268,14 @@ public final class MessageSender {
         // Encrypt the serialized protobuf
         let ciphertext: Data
         do {
-            switch destination {
-                case .contact(let publicKey):
-                    ciphertext = try encryptWithSessionProtocol(db, plaintext: plaintext, for: publicKey, using: dependencies)
-                    
-                case .syncMessage:
-                    ciphertext = try encryptWithSessionProtocol(db, plaintext: plaintext, for: userPublicKey, using: dependencies)
-                    
-                case .closedGroup(let groupPublicKey):
-                    guard let encryptionKeyPair: ClosedGroupKeyPair = try? ClosedGroupKeyPair.fetchLatestKeyPair(db, threadId: groupPublicKey) else {
-                        throw MessageSenderError.noKeyPair
-                    }
-                    
-                    ciphertext = try encryptWithSessionProtocol(
-                        db,
-                        plaintext: plaintext,
-                        for: SessionId(.standard, publicKey: encryptionKeyPair.publicKey.bytes).hexString,
-                        using: dependencies
-                    )
-                    
-                case .openGroup, .openGroupInbox: preconditionFailure()
-            }
+            ciphertext = try dependencies.crypto.tryGenerate(
+                .ciphertextWithSessionProtocol(
+                    db,
+                    plaintext: plaintext,
+                    destination: destination,
+                    using: dependencies
+                )
+            )
         }
         catch {
             SNLog("Couldn't encrypt message for destination: \(destination) due to error: \(error).")
@@ -411,12 +397,12 @@ public final class MessageSender {
                 return SessionId(.unblinded, publicKey: userEdKeyPair.publicKey).hexString
             }
             guard
-                let blindedKeyPair: KeyPair = dependencies.crypto.generate(
-                    .blindedKeyPair(serverPublicKey: openGroup.publicKey, edKeyPair: userEdKeyPair, using: dependencies)
+                let blinded15KeyPair: KeyPair = dependencies.crypto.generate(
+                    .blinded15KeyPair(serverPublicKey: openGroup.publicKey, ed25519SecretKey: userEdKeyPair.secretKey)
                 )
             else { throw MessageSenderError.signingFailed }
             
-            return SessionId(.blinded15, publicKey: blindedKeyPair.publicKey).hexString
+            return SessionId(.blinded15, publicKey: blinded15KeyPair.publicKey).hexString
         }()
         
         // Validate the message
@@ -564,13 +550,15 @@ public final class MessageSender {
         let ciphertext: Data
         
         do {
-            ciphertext = try encryptWithSessionBlindingProtocol(
-                db,
-                plaintext: plaintext,
-                for: recipientBlindedPublicKey,
-                openGroupPublicKey: openGroupPublicKey,
-                using: dependencies
-            )
+            ciphertext = try dependencies.crypto.generateResult(
+                .ciphertextWithSessionBlindingProtocol(
+                    db,
+                    plaintext: plaintext,
+                    recipientBlindedId: recipientBlindedPublicKey,
+                    serverPublicKey: openGroupPublicKey,
+                    using: dependencies
+                )
+            ).successOrThrow()
         }
         catch {
             SNLog("Couldn't encrypt message for destination: \(destination) due to error: \(error).")
@@ -621,17 +609,15 @@ public final class MessageSender {
                 guard expectedAttachmentUploadCount == data.totalAttachmentsUploaded else {
                     // Make sure to actually handle this as a failure (if we don't then the message
                     // won't go into an error state correctly)
-                    if let message: Message = data.message {
-                        dependencies.storage.read { db in
-                            MessageSender.handleFailedMessageSend(
-                                db,
-                                message: message,
-                                destination: data.destination,
-                                with: .attachmentsNotUploaded,
-                                interactionId: data.interactionId,
-                                using: dependencies
-                            )
-                        }
+                    dependencies.storage.read { db in
+                        MessageSender.handleFailedMessageSend(
+                            db,
+                            message: data.message,
+                            destination: data.destination,
+                            with: .attachmentsNotUploaded,
+                            interactionId: data.interactionId,
+                            using: dependencies
+                        )
                     }
                     
                     return Fail(error: MessageSenderError.attachmentsNotUploaded)
@@ -657,7 +643,6 @@ public final class MessageSender {
         using dependencies: Dependencies
     ) -> AnyPublisher<Void, Error> {
         guard
-            let message: Message = data.message,
             let namespace: SnodeAPI.Namespace = data.namespace,
             let snodeMessage: SnodeMessage = data.snodeMessage
         else {
@@ -668,7 +653,7 @@ public final class MessageSender {
         return dependencies.network
             .send(.message(snodeMessage, in: namespace), using: dependencies)
             .flatMap { info, response -> AnyPublisher<Void, Error> in
-                let updatedMessage: Message = message
+                let updatedMessage: Message = data.message
                 updatedMessage.serverHash = response.hash
 
                 // Only legacy groups need to manually trigger push notifications now so only create the job
@@ -744,7 +729,7 @@ public final class MessageSender {
                             dependencies.storage.read { db in
                                 MessageSender.handleFailedMessageSend(
                                     db,
-                                    message: message,
+                                    message: data.message,
                                     destination: data.destination,
                                     with: .other(error),
                                     interactionId: data.interactionId,
@@ -765,7 +750,6 @@ public final class MessageSender {
         using dependencies: Dependencies
     ) -> AnyPublisher<Void, Error> {
         guard
-            let message: Message = data.message,
             case .openGroup(let roomToken, let server, let whisperTo, let whisperMods, let fileIds) = data.destination,
             let plaintext: Data = data.plaintext
         else {
@@ -791,7 +775,7 @@ public final class MessageSender {
             .flatMap { $0.send(using: dependencies) }
             .flatMap { (responseInfo, responseData) -> AnyPublisher<Void, Error> in
                 let serverTimestampMs: UInt64? = responseData.posted.map { UInt64(floor($0 * 1000)) }
-                let updatedMessage: Message = message
+                let updatedMessage: Message = data.message
                 updatedMessage.openGroupServerMessageId = UInt64(responseData.id)
                 
                 return dependencies.storage.writePublisher { db in
@@ -816,7 +800,7 @@ public final class MessageSender {
                             dependencies.storage.read { db in
                                 MessageSender.handleFailedMessageSend(
                                     db,
-                                    message: message,
+                                    message: data.message,
                                     destination: data.destination,
                                     with: .other(error),
                                     interactionId: data.interactionId,
@@ -834,7 +818,6 @@ public final class MessageSender {
         using dependencies: Dependencies
     ) -> AnyPublisher<Void, Error> {
         guard
-            let message: Message = data.message,
             case .openGroupInbox(let server, _, let recipientBlindedPublicKey) = data.destination,
             let ciphertext: Data = data.ciphertext
         else {
@@ -856,7 +839,7 @@ public final class MessageSender {
             }
             .flatMap { $0.send(using: dependencies) }
             .flatMap { (responseInfo, responseData) -> AnyPublisher<Void, Error> in
-                let updatedMessage: Message = message
+                let updatedMessage: Message = data.message
                 updatedMessage.openGroupServerMessageId = UInt64(responseData.id)
                 
                 return dependencies.storage.writePublisher { db in
@@ -881,7 +864,7 @@ public final class MessageSender {
                             dependencies.storage.read { db in
                                 MessageSender.handleFailedMessageSend(
                                     db,
-                                    message: message,
+                                    message: data.message,
                                     destination: data.destination,
                                     with: .other(error),
                                     interactionId: data.interactionId,
@@ -1149,7 +1132,6 @@ public final class MessageSender {
             Message.shouldSync(message: message)
         {
             if let message = message as? VisibleMessage { message.syncTarget = publicKey }
-            if let message = message as? ExpirationTimerUpdate { message.syncTarget = publicKey }
             
             dependencies.jobRunner.add(
                 db,

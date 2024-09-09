@@ -8,13 +8,14 @@ import SessionUIKit
 import SessionMessagingKit
 import SessionUtilitiesKit
 import SignalUtilitiesKit
-import SignalCoreKit
 import SessionSnodeKit
 
 @UIApplicationMain
 class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterDelegate {
     private static let maxRootViewControllerInitialQueryDuration: TimeInterval = 10
     
+    /// The AppDelete is initialised by the OS so we should init an instance of `Dependencies` to be used throughout
+    let dependencies: Dependencies = Dependencies()
     var window: UIWindow?
     var backgroundSnapshotBlockerWindow: UIWindow?
     var appStartupWindow: UIWindow?
@@ -36,8 +37,7 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
         Singleton.setup(appContext: MainAppContext())
         verifyDBKeysAvailableBeforeBackgroundLaunch()
 
-        Cryptography.seedRandom()
-        AppVersion.sharedInstance()
+        _ = AppVersion.shared
         AppEnvironment.shared.pushRegistrationManager.createVoipRegistryIfNecessary()
 
         // Prevent the device from sleeping during database view async registration
@@ -51,7 +51,7 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
         
         AppSetup.setupEnvironment(
             appSpecificBlock: {
-                Log.setup(with: Logger(primaryPrefix: "Session"))
+                Log.setup(with: Logger(primaryPrefix: "Session", level: .info))
                 Log.info("[AppDelegate] Setting up environment.")
                 
                 // Setup LibSession
@@ -93,7 +93,8 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
                 /// we don't want to access it until after the migrations run
                 ThemeManager.mainWindow = mainWindow
                 self?.completePostMigrationSetup(calledFrom: .finishLaunching, needsConfigSync: needsConfigSync)
-            }
+            },
+            using: dependencies
         )
         
         if SessionEnvironment.shared?.callManager.wrappedValue?.currentCall == nil {
@@ -146,7 +147,7 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
         /// Apple's documentation on the matter)
         UNUserNotificationCenter.current().delegate = self
         
-        Storage.resumeDatabaseAccess()
+        Storage.resumeDatabaseAccess(using: dependencies)
         LibSession.resumeNetworkAccess()
         
         // Reset the 'startTime' (since it would be invalid from the last launch)
@@ -168,7 +169,7 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
             }
             
             // Dispatch async so things can continue to be progressed if a migration does need to run
-            DispatchQueue.global(qos: .userInitiated).async { [weak self] in
+            DispatchQueue.global(qos: .userInitiated).async { [weak self, dependencies] in
                 AppSetup.runPostSetupMigrations(
                     migrationProgressChanged: { progress, minEstimatedTotalTime in
                         self?.loadingViewController?.updateProgress(
@@ -191,7 +192,8 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
                             calledFrom: .enterForeground(initialLaunchFailed: initialLaunchFailed),
                             needsConfigSync: needsConfigSync
                         )
-                    }
+                    },
+                    using: dependencies
                 )
             }
         }
@@ -206,14 +208,11 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
         // but answers the call on another device
         stopPollers(shouldStopUserPoller: !self.hasCallOngoing())
         
-        // FIXME: Move this to be initialised as part of `AppDelegate`
-        let dependencies: Dependencies = Dependencies()
-        
         // Stop all jobs except for message sending and when completed suspend the database
-        JobRunner.stopAndClearPendingJobs(exceptForVariant: .messageSend, using: dependencies) {
-            if !self.hasCallOngoing() {
+        JobRunner.stopAndClearPendingJobs(exceptForVariant: .messageSend, using: dependencies) { [dependencies] neededBackgroundProcessing in
+            if !self.hasCallOngoing() && (!neededBackgroundProcessing || Singleton.hasAppContext && Singleton.appContext.isInBackground) {
                 LibSession.suspendNetworkAccess()
-                Storage.suspendDatabaseAccess()
+                Storage.suspendDatabaseAccess(using: dependencies)
                 Log.info("[AppDelegate] completed network and database shutdowns.")
                 Log.flush()
             }
@@ -235,7 +234,12 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
         Log.info("[AppDelegate] applicationDidBecomeActive.")
         guard !SNUtilitiesKit.isRunningTests else { return }
         
+        Log.info("[AppDelegate] Setting 'isMainAppActive' to true.")
         UserDefaults.sharedLokiProject?[.isMainAppActive] = true
+        
+        // FIXME: Seems like there are some discrepancies between the expectations of how the iOS lifecycle methods work, we should look into them and ensure the code behaves as expected (in this case there were situations where these two wouldn't get called when returning from the background)
+        Storage.resumeDatabaseAccess(using: dependencies)
+        LibSession.resumeNetworkAccess()
         
         ensureRootViewController(calledFrom: .didBecomeActive)
 
@@ -263,6 +267,7 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
         Log.info("[AppDelegate] applicationWillResignActive.")
         clearAllNotificationsAndRestoreBadgeCount()
         
+        Log.info("[AppDelegate] Setting 'isMainAppActive' to false.")
         UserDefaults.sharedLokiProject?[.isMainAppActive] = false
 
         Log.flush()
@@ -283,60 +288,70 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
     func application(_ application: UIApplication, performFetchWithCompletionHandler completionHandler: @escaping (UIBackgroundFetchResult) -> Void) {
         Log.appResumedExecution()
         Log.info("Starting background fetch.")
-        Storage.resumeDatabaseAccess()
+        Storage.resumeDatabaseAccess(using: dependencies)
         LibSession.resumeNetworkAccess()
+        
+        let queue: DispatchQueue = .global(qos: .userInitiated)
+        let poller: BackgroundPoller = BackgroundPoller()
+        var cancellable: AnyCancellable?
         
         // Background tasks only last for a certain amount of time (which can result in a crash and a
         // prompt appearing for the user), we want to avoid this and need to make sure to suspend the
         // database again before the background task ends so we start a timer that expires 1 second
         // before the background task is due to expire in order to do so
         let cancelTimer: Timer = Timer.scheduledTimerOnMainThread(
-            withTimeInterval: (application.backgroundTimeRemaining - 1),
+            withTimeInterval: (application.backgroundTimeRemaining - 5),
             repeats: false
-        ) { timer in
+        ) { [poller, dependencies] timer in
             timer.invalidate()
             
-            guard BackgroundPoller.isValid else { return }
+            guard cancellable != nil else { return }
             
-            Log.info("Background poll failed due to manual timeout")
-            BackgroundPoller.isValid = false
+            Log.info("Background poll failed due to manual timeout.")
+            cancellable?.cancel()
             
             if Singleton.hasAppContext && Singleton.appContext.isInBackground {
                 LibSession.suspendNetworkAccess()
-                Storage.suspendDatabaseAccess()
+                Storage.suspendDatabaseAccess(using: dependencies)
                 Log.flush()
             }
             
+            _ = poller // Capture poller to ensure it doesn't go out of scope
             completionHandler(.failed)
         }
         
-        // Flag the background poller as valid first and then trigger it to poll once the app is
-        // ready (we do this here rather than in `BackgroundPoller.poll` to avoid the rare edge-case
-        // that could happen when the timeout triggers before the app becomes ready which would have
-        // incorrectly set this 'isValid' flag to true after it should have timed out)
-        BackgroundPoller.isValid = true
-        
-        Singleton.appReadiness.runNowOrWhenAppDidBecomeReady {
+        Singleton.appReadiness.runNowOrWhenAppDidBecomeReady { [dependencies, poller] in
             // If the 'AppReadiness' process takes too long then it's possible for the user to open
             // the app after this closure is registered but before it's actually triggered - this can
             // result in the `BackgroundPoller` incorrectly getting called in the foreground, this check
             // is here to prevent that
             guard Singleton.hasAppContext && Singleton.appContext.isInBackground else { return }
             
-            BackgroundPoller.poll { result in
-                guard BackgroundPoller.isValid else { return }
-                
-                BackgroundPoller.isValid = false
-                
-                if Singleton.hasAppContext && Singleton.appContext.isInBackground {
-                    LibSession.suspendNetworkAccess()
-                    Storage.suspendDatabaseAccess()
-                    Log.flush()
-                }
-                
-                cancelTimer.invalidate()
-                completionHandler(result)
-            }
+            cancellable = poller
+                .poll(using: dependencies)
+                .subscribe(on: queue, using: dependencies)
+                .receive(on: DispatchQueue.main, using: dependencies)
+                .sink(
+                    receiveCompletion: { [poller] result in
+                        // Ensure we haven't timed out yet
+                        guard cancelTimer.isValid else { return }
+                        
+                        if Singleton.hasAppContext && Singleton.appContext.isInBackground {
+                            LibSession.suspendNetworkAccess()
+                            Storage.suspendDatabaseAccess(using: dependencies)
+                            Log.flush()
+                        }
+                        
+                        cancelTimer.invalidate()
+                        _ = poller // Capture poller to ensure it doesn't go out of scope
+                        
+                        switch result {
+                            case .failure: completionHandler(.failed)
+                            case .finished: completionHandler(.newData)
+                        }
+                    },
+                    receiveValue: { _ in }
+                )
         }
     }
     
@@ -384,7 +399,7 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
             DeviceSleepManager.sharedInstance.removeBlock(blockObject: self)
             
             /// App launch hasn't really completed until the main screen is loaded so wait until then to register it
-            AppVersion.sharedInstance().mainAppLaunchDidComplete()
+            AppVersion.shared.mainAppLaunchDidComplete()
             
             /// App won't be ready for extensions and no need to enqueue a config sync unless we successfully completed startup
             Storage.shared.writeAsync { db in
@@ -397,7 +412,7 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
                 db[.isReadyForAppExtensions] = true
                 
                 if Identity.userCompletedRequiredOnboarding(db) {
-                    let appVersion: AppVersion = AppVersion.sharedInstance()
+                    let appVersion: AppVersion = AppVersion.shared
                     
                     // If the device needs to sync config or the user updated to a new version
                     if
@@ -430,7 +445,7 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
         /// This **must** be a standard `UIAlertController` instead of a `ConfirmationModal` because we may not
         /// have access to the database when displaying this so can't extract theme information for styling purposes
         let alert: UIAlertController = UIAlertController(
-            title: Singleton.appName,
+            title: Constants.app_name,
             message: error.message,
             preferredStyle: .alert
         )
@@ -454,7 +469,7 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
                 
             // Offer the 'Restore' option if it was a migration error
             case .databaseError:
-                alert.addAction(UIAlertAction(title: "onboardingAccountExists".localized(), style: .destructive) { _ in
+                alert.addAction(UIAlertAction(title: "onboardingAccountExists".localized(), style: .destructive) { [dependencies] _ in
                     // Reset the current database for a clean migration
                     Storage.resetForCleanMigration()
                     
@@ -479,19 +494,20 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
                                 case .success:
                                     self?.completePostMigrationSetup(calledFrom: lifecycleMethod, needsConfigSync: needsConfigSync)
                             }
-                        }
+                        },
+                        using: dependencies
                     )
                 })
                 
             default: break
         }
         
-        alert.addAction(UIAlertAction(title: "quit".localized(), style: .default) { _ in
+        alert.addAction(UIAlertAction(title: "quit".put(key: "app_name", value: Constants.app_name).localized(), style: .default) { _ in
             Log.flush()
             exit(0)
         })
         
-        Log.info("Showing startup alert due to error: \(error.name)")
+        Log.info("Showing startup alert due to error: \(error.description)")
         self.window?.rootViewController?.present(alert, animated: animated, completion: presentationCompletion)
     }
     
@@ -631,24 +647,27 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
         // Navigate to the approriate screen depending on the onboarding state
         switch Onboarding.State.current {
             case .newUser:
-                DispatchQueue.main.async {
-                    let viewController = SessionHostingViewController(rootView: LandingScreen())
+                DispatchQueue.main.async { [dependencies] in
+                    let viewController = SessionHostingViewController(rootView: LandingScreen(using: dependencies))
                     viewController.setUpNavBarSessionIcon()
                     populateHomeScreenTimer.invalidate()
                     rootViewControllerSetupComplete(viewController)
                 }
                 
             case .missingName:
-                DispatchQueue.main.async {
-                    let viewController = SessionHostingViewController(rootView: DisplayNameScreen(flow: .register))
+                DispatchQueue.main.async { [dependencies] in
+                    let viewController = SessionHostingViewController(
+                        rootView: DisplayNameScreen(flow: .register, using: dependencies)
+                    )
                     viewController.setUpNavBarSessionIcon()
+                    viewController.setUpClearDataBackButton(flow: .register)
                     populateHomeScreenTimer.invalidate()
                     rootViewControllerSetupComplete(viewController)
                 }
                 
             case .completed:
-                DispatchQueue.main.async {
-                    let viewController: HomeVC = HomeVC()
+                DispatchQueue.main.async { [dependencies] in
+                    let viewController: HomeVC = HomeVC(using: dependencies)
                     
                     /// We want to start observing the changes for the 'HomeVC' and want to wait until we actually get data back before we
                     /// continue as we don't want to show a blank home screen
@@ -738,8 +757,8 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
     /// the notification or choosing a UNNotificationAction. The delegate must be set before the application returns from
     /// application:didFinishLaunchingWithOptions:.
     func userNotificationCenter(_ center: UNUserNotificationCenter, didReceive response: UNNotificationResponse, withCompletionHandler completionHandler: @escaping () -> Void) {
-        Singleton.appReadiness.runNowOrWhenAppDidBecomeReady {
-            AppEnvironment.shared.userNotificationActionHandler.handleNotificationResponse(response, completionHandler: completionHandler)
+        Singleton.appReadiness.runNowOrWhenAppDidBecomeReady { [dependencies] in
+            AppEnvironment.shared.userNotificationActionHandler.handleNotificationResponse(response, completionHandler: completionHandler, using: dependencies)
         }
     }
 
@@ -901,40 +920,6 @@ private enum LifecycleMethod: Equatable {
             case (.enterForeground(let lhsFailed), .enterForeground(let rhsFailed)): return (lhsFailed == rhsFailed)
             case (.didBecomeActive, .didBecomeActive): return true
             default: return false
-        }
-    }
-}
-
-// MARK: - StartupError
-
-private enum StartupError: Error {
-    case databaseError(Error)
-    case failedToRestore
-    case startupTimeout
-    
-    var name: String {
-        switch self {
-            case .databaseError(StorageError.startupFailed), .databaseError(DatabaseError.SQLITE_LOCKED):
-                return "Database startup failed" // stringlint:disable
-            case .databaseError(StorageError.migrationNoLongerSupported): return "Unsupported version" // stringlint:disable
-            case .failedToRestore: return "Failed to restore" // stringlint:disable
-            case .databaseError: return "Database error" // stringlint:disable
-            case .startupTimeout: return "Startup timeout" // stringlint:disable
-        }
-    }
-    
-    var message: String {
-        switch self {
-            case .databaseError(StorageError.startupFailed), .databaseError(DatabaseError.SQLITE_LOCKED), .failedToRestore, .databaseError:
-                return "databaseErrorGeneric".localized()
-
-            case .databaseError(StorageError.migrationNoLongerSupported):
-                return "databaseErrorUpdate".localized()
-            
-            case .startupTimeout: 
-                return "databaseErrorTimeout"
-                    .put(key: "app_name", value: Singleton.appName)
-                    .localized()
         }
     }
 }

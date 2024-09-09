@@ -63,6 +63,7 @@ final class JoinOpenGroupVC: BaseVC, UIPageViewControllerDataSource, UIPageViewC
         
         setNavBarTitle("communityJoin".localized())
         view.themeBackgroundColor = .newConversation_background
+        let navBarHeight: CGFloat = (navigationController?.navigationBar.frame.size.height ?? 0)
         
         let closeButton = UIBarButtonItem(image: #imageLiteral(resourceName: "X"), style: .plain, target: self, action: #selector(close))
         closeButton.themeTintColor = .textPrimary
@@ -78,7 +79,7 @@ final class JoinOpenGroupVC: BaseVC, UIPageViewControllerDataSource, UIPageViewC
         // Tab bar
         view.addSubview(tabBar)
         tabBar.pin(.leading, to: .leading, of: view)
-        tabBar.pin(.top, to: .top, of: view)
+        tabBar.pin(.top, to: .top, of: view, withInset: navBarHeight)
         tabBar.pin(.trailing, to: .trailing, of: view)
         
         // Page VC constraints
@@ -89,7 +90,6 @@ final class JoinOpenGroupVC: BaseVC, UIPageViewControllerDataSource, UIPageViewC
         pageVCView.pin(.trailing, to: .trailing, of: view)
         pageVCView.pin(.bottom, to: .bottom, of: view)
         
-        let navBarHeight: CGFloat = (navigationController?.navigationBar.frame.size.height ?? 0)
         let statusBarHeight: CGFloat = UIApplication.shared.statusBarFrame.size.height
         let height: CGFloat = ((navigationController?.view.bounds.height ?? 0) - navBarHeight - TabBar.snHeight - statusBarHeight)
         let size: CGSize = CGSize(width: UIScreen.main.bounds.width, height: height)
@@ -149,7 +149,7 @@ final class JoinOpenGroupVC: BaseVC, UIPageViewControllerDataSource, UIPageViewC
         dismiss(animated: true, completion: nil)
     }
 
-    func controller(_ controller: QRCodeScanningViewController, didDetectQRCodeWith string: String, onError: (() -> ())?) {
+    func controller(_ controller: QRCodeScanningViewController, didDetectQRCodeWith string: String, onSuccess: (() -> ())?, onError: (() -> ())?) {
         joinOpenGroup(with: string, onError: onError)
     }
 
@@ -226,10 +226,8 @@ final class JoinOpenGroupVC: BaseVC, UIPageViewControllerDataSource, UIPageViewC
                                 self?.isJoining = false
                                 self?.dismiss(animated: true) { // Dismiss the loader
                                     self?.showError(
-                                        title: "communityJoinError"
-                                            .put(key: "community_name", value: "communityUnknown".localized())
-                                            .localized(),
-                                        message: error.localizedDescription,
+                                        title: "communityJoinError".localized(),
+                                        message: "\(error)",
                                         onError: onError
                                     )
                                 }
@@ -524,7 +522,7 @@ private final class ScanQRCodePlaceholderVC: UIViewController {
         let explanationLabel = UILabel()
         explanationLabel.font = .systemFont(ofSize: Values.smallFontSize)
         explanationLabel.text = "cameraGrantAccessQr"
-            .put(key: "app_name", value: Singleton.appName)
+            .put(key: "app_name", value: Constants.app_name)
             .localized()
         explanationLabel.themeTextColor = .textPrimary
         explanationLabel.textAlignment = .center

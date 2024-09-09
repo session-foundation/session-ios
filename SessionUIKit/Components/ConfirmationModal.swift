@@ -47,6 +47,15 @@ public class ConfirmationModal: Modal, UITextFieldDelegate {
         return result
     }()
     
+    private lazy var explanationLabelContainer: UIScrollView = {
+        let result: UIScrollView = UIScrollView()
+        result.isHidden = true
+        
+        return result
+    }()
+    
+    private lazy var explanationLabelContainerHeightConstraint = explanationLabelContainer.set(.height, to: 0)
+    
     private lazy var explanationLabel: UILabel = {
         let result: UILabel = UILabel()
         result.font = .systemFont(ofSize: Values.smallFontSize)
@@ -54,7 +63,6 @@ public class ConfirmationModal: Modal, UITextFieldDelegate {
         result.textAlignment = .center
         result.lineBreakMode = .byWordWrapping
         result.numberOfLines = 0
-        result.isHidden = true
         
         return result
     }()
@@ -107,7 +115,7 @@ public class ConfirmationModal: Modal, UITextFieldDelegate {
     }()
     
     private lazy var contentStackView: UIStackView = {
-        let result = UIStackView(arrangedSubviews: [ titleLabel, explanationLabel, textFieldContainer, imageViewContainer ])
+        let result = UIStackView(arrangedSubviews: [ titleLabel, explanationLabelContainer, textFieldContainer, imageViewContainer ])
         result.axis = .vertical
         result.spacing = Values.smallSpacing
         result.isLayoutMarginsRelativeArrangement = true
@@ -178,6 +186,10 @@ public class ConfirmationModal: Modal, UITextFieldDelegate {
         contentView.addSubview(mainStackView)
         contentView.addSubview(closeButton)
         
+        explanationLabelContainer.addSubview(explanationLabel)
+        explanationLabel.pin(to: explanationLabelContainer)
+        explanationLabel.set(.width, to: .width, of: explanationLabelContainer)
+        
         textFieldContainer.addSubview(textField)
         textField.pin(to: textFieldContainer, withInset: 12)
         
@@ -189,6 +201,18 @@ public class ConfirmationModal: Modal, UITextFieldDelegate {
         mainStackView.pin(to: contentView)
         closeButton.pin(.top, to: .top, of: contentView, withInset: 8)
         closeButton.pin(.right, to: .right, of: contentView, withInset: -8)
+    }
+    
+    private func layoutExplanationLabel(_ canScroll: Bool = true) {
+        let labelWidth = view.frame.width - 4 * Values.veryLargeSpacing
+        let maxLabelSize = CGSize(width: labelWidth, height: CGFloat.greatestFiniteMagnitude)
+        let expectedLabelSize = explanationLabel.sizeThatFits(maxLabelSize)
+        let lineHeight = explanationLabel.font.lineHeight
+        if canScroll {
+            explanationLabelContainerHeightConstraint.constant = min(expectedLabelSize.height, lineHeight * 5)
+        } else {
+            explanationLabelContainerHeightConstraint.constant = expectedLabelSize.height
+        }
     }
     
     // MARK: - Content
@@ -218,19 +242,23 @@ public class ConfirmationModal: Modal, UITextFieldDelegate {
             case .none:
                 mainStackView.spacing = Values.smallSpacing
                 
-            case .text(let text):
+            case .text(let text, let canScroll):
                 mainStackView.spacing = Values.smallSpacing
                 explanationLabel.text = text
-                explanationLabel.isHidden = false
+                explanationLabelContainer.isHidden = false
+                self.layoutExplanationLabel(canScroll)
                 
-            case .attributedText(let attributedText):
+            case .attributedText(let attributedText, let canScroll):
                 mainStackView.spacing = Values.smallSpacing
                 explanationLabel.attributedText = attributedText
-                explanationLabel.isHidden = false
+                explanationLabelContainer.isHidden = false
+                self.layoutExplanationLabel(canScroll)
                 
             case .input(let explanation, let placeholder, let value, let clearButton, let onTextChanged):
                 explanationLabel.attributedText = explanation
-                explanationLabel.isHidden = (explanation == nil)
+                explanationLabelContainer.isHidden = (explanation == nil)
+                let canScroll: Bool = false
+                self.layoutExplanationLabel(canScroll)
                 textField.placeholder = placeholder
                 textField.text = (value ?? "")
                 textField.clearButtonMode = (clearButton ? .always : .never)
@@ -488,8 +516,14 @@ public extension ConfirmationModal.Info {
         }
         
         case none
-        case text(String)
-        case attributedText(NSAttributedString)
+        case text(
+            _ text: String,
+            canScroll: Bool = false
+        )
+        case attributedText(
+            _ attributedText: NSAttributedString,
+            canScroll: Bool = false
+        )
         case input(
             explanation: NSAttributedString?,
             placeholder: String,
@@ -511,8 +545,8 @@ public extension ConfirmationModal.Info {
         public static func == (lhs: ConfirmationModal.Info.Body, rhs: ConfirmationModal.Info.Body) -> Bool {
             switch (lhs, rhs) {
                 case (.none, .none): return true
-                case (.text(let lhsText), .text(let rhsText)): return (lhsText == rhsText)
-                case (.attributedText(let lhsText), .attributedText(let rhsText)): return (lhsText == rhsText)
+                case (.text(let lhsText, _), .text(let rhsText, _)): return (lhsText == rhsText)
+                case (.attributedText(let lhsText, _), .attributedText(let rhsText, _)): return (lhsText == rhsText)
                 
                 case (.input(let lhsExplanation, let lhsPlaceholder, let lhsInitialValue, let lhsClearButton, _), .input(let rhsExplanation, let rhsPlaceholder, let rhsInitialValue, let rhsClearButton, _)):
                    return (
@@ -545,8 +579,8 @@ public extension ConfirmationModal.Info {
         public func hash(into hasher: inout Hasher) {
             switch self {
                 case .none: break
-                case .text(let text): text.hash(into: &hasher)
-                case .attributedText(let text): text.hash(into: &hasher)
+                case .text(let text, _): text.hash(into: &hasher)
+                case .attributedText(let text, _): text.hash(into: &hasher)
                     
                 case .input(let explanation, let placeholder, let initialValue, let clearButton, _):
                     explanation.hash(into: &hasher)

@@ -179,9 +179,7 @@ internal extension LibSession {
                     .fetchOne(db, id: sessionId)
                     .defaulting(to: DisappearingMessagesConfiguration.defaultWith(sessionId))
                 
-                let isValid: Bool = Features.useNewDisappearingMessagesConfig ? data.config.isValidV2Config() : true
-                
-                if isValid && data.config != localConfig {
+                if data.config.isValidV2Config() && data.config != localConfig {
                     try data.config
                         .saved(db)
                         .clearUnrelatedControlMessages(
@@ -274,7 +272,7 @@ internal extension LibSession {
         let targetContacts: [SyncedContactInfo] = contactData
             .filter {
                 $0.id != userPublicKey &&
-                SessionId(from: $0.id)?.prefix == .standard
+                (try? SessionId(from: $0.id))?.prefix == .standard
             }
         
         // If we only updated the current user contact then no need to continue
@@ -331,9 +329,15 @@ internal extension LibSession {
                     // Download the profile picture if needed (this can be triggered within
                     // database reads/writes so dispatch the download to a separate queue to
                     // prevent blocking)
+                    //
+                    // Note: Only trigger the avatar download if we are in the main app (don't
+                    // want the extensions to trigger this as it can clog up their networking)
                     if
-                        oldAvatarUrl != (updatedProfile.profilePictureUrl ?? "") ||
-                        oldAvatarKey != (updatedProfile.profileEncryptionKey ?? Data(repeating: 0, count: ProfileManager.avatarAES256KeyByteLength))
+                        Singleton.hasAppContext &&
+                        Singleton.appContext.isMainApp && (
+                            oldAvatarUrl != (updatedProfile.profilePictureUrl ?? "") ||
+                            oldAvatarKey != (updatedProfile.profileEncryptionKey ?? Data(repeating: 0, count: ProfileManager.avatarAES256KeyByteLength))
+                        )
                     {
                         DispatchQueue.global(qos: .background).async {
                             ProfileManager.downloadAvatar(for: updatedProfile)
@@ -374,7 +378,7 @@ internal extension LibSession {
         let targetContacts: [Contact] = updatedContacts
             .filter {
                 $0.id != userPublicKey &&
-                SessionId(from: $0.id)?.prefix == .standard
+                (try? SessionId(from: $0.id))?.prefix == .standard
             }
         
         // If we only updated the current user contact then no need to continue
@@ -447,7 +451,7 @@ internal extension LibSession {
         let targetProfiles: [Profile] = updatedProfiles
             .filter {
                 $0.id != userPublicKey &&
-                SessionId(from: $0.id)?.prefix == .standard &&
+                (try? SessionId(from: $0.id))?.prefix == .standard &&
                 existingContactIds.contains($0.id)
             }
         
@@ -501,7 +505,7 @@ internal extension LibSession {
         let targetDisappearingConfigs: [DisappearingMessagesConfiguration] = updatedDisappearingConfigs
             .filter {
                 $0.id != userPublicKey &&
-                SessionId(from: $0.id)?.prefix == .standard &&
+                (try? SessionId(from: $0.id))?.prefix == .standard &&
                 existingContactIds.contains($0.id)
             }
         

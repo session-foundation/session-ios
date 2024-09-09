@@ -100,11 +100,11 @@ final class QuoteView: UIView {
         contentView.pin(to: self)
         
         if let attachment: Attachment = attachment {
-            let isAudio: Bool = MIMETypeUtil.isAudio(attachment.contentType)
+            let isAudio: Bool = MimeTypeUtil.isAudio(attachment.contentType)
             let fallbackImageName: String = (isAudio ? "attachment_audio" : "actionsheet_document_black") // stringlint:disable
             let imageView: UIImageView = UIImageView(
                 image: UIImage(named: fallbackImageName)?
-                    .resizedImage(to: CGSize(width: iconSize, height: iconSize))?
+                    .resized(to: CGSize(width: iconSize, height: iconSize))?
                     .withRenderingMode(.alwaysTemplate)
             )
             
@@ -193,7 +193,13 @@ final class QuoteView: UIView {
                         currentUserPublicKey: currentUserPublicKey,
                         currentUserBlinded15PublicKey: currentUserBlinded15PublicKey,
                         currentUserBlinded25PublicKey: currentUserBlinded25PublicKey,
-                        isOutgoingMessage: (direction == .outgoing),
+                        location: {
+                            switch (mode, direction) {
+                                case (.draft, _): return .quoteDraft
+                                case (_, .outgoing): return .outgoingQuote
+                                case (_, .incoming): return .incomingQuote
+                            }
+                        }(),
                         textColor: textColor,
                         theme: theme,
                         primaryColor: primaryColor,

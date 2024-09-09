@@ -2,7 +2,6 @@
 
 import Foundation
 import GRDB
-import Sodium
 import SessionUtil
 import SessionUtilitiesKit
 import SessionSnodeKit
@@ -217,9 +216,23 @@ internal extension LibSession {
                 let name: String = group.name,
                 let lastKeyPair: ClosedGroupKeyPair = group.lastKeyPair,
                 let members: [GroupMember] = group.groupMembers,
-                let updatedAdmins: Set<GroupMember> = group.groupAdmins?.asSet(),
-                let joinedAt: Int64 = group.joinedAt
+                let updatedAdmins: Set<GroupMember> = group.groupAdmins?.asSet()
             else { return }
+            
+            // There were some bugs (somewhere) where the `joinedAt` valid could be in seconds, milliseconds
+            // or even microseconds so we need to try to detect this and convert it to proper seconds (if we don't
+            // have a value then we want it to be at the bottom of the list, so default to `0`)
+            let joinedAt: TimeInterval = {
+                guard let value: Int64 = group.joinedAt else { return 0 }
+                
+                if value > 9_000_000_000_000 {  // Microseconds
+                    return (Double(value) / 1_000_000)
+                } else if value > 9_000_000_000 {  // Milliseconds
+                    return (Double(value) / 1000)
+                }
+                
+                return TimeInterval(value)  // Seconds
+            }()
             
             if !existingLegacyGroupIds.contains(group.id) {
                 // Add a new group if it doesn't already exist
@@ -237,7 +250,7 @@ internal extension LibSession {
                         .map { $0.profileId },
                     admins: updatedAdmins.map { $0.profileId },
                     expirationTimer: UInt32(group.disappearingConfig?.durationSeconds ?? 0),
-                    formationTimestampMs: UInt64((group.joinedAt.map { $0 * 1000 } ?? latestConfigSentTimestampMs)),
+                    formationTimestampMs: UInt64(joinedAt * 1000),
                     calledFromConfigHandling: true,
                     using: dependencies
                 )
@@ -612,6 +625,7 @@ public extension LibSession {
         _ db: Database,
         groupPublicKey: String,
         name: String,
+        joinedAt: TimeInterval,
         latestKeyPairPublicKey: Data,
         latestKeyPairSecretKey: Data,
         latestKeyPairReceivedTimestamp: TimeInterval,
@@ -667,7 +681,8 @@ public extension LibSession {
                                     role: .admin,
                                     isHidden: false
                                 )
-                            }
+                            },
+                        joinedAt: Int64(joinedAt)
                     )
                 ],
                 in: conf
@@ -723,12 +738,14 @@ public extension LibSession {
     
     static func batchUpdate(
         _ db: Database,
-        disappearingConfigs: [DisappearingMessagesConfiguration]
+        disappearingConfigs: [DisappearingMessagesConfiguration],
+        using dependencies: Dependencies
     ) throws {
         try LibSession.performAndPushChange(
             db,
             for: .userGroups,
-            publicKey: getUserHexEncodedPublicKey(db)
+            publicKey: getUserHexEncodedPublicKey(db, using: dependencies),
+            using: dependencies
         ) { conf in
             try LibSession.upsert(
                 legacyGroups: disappearingConfigs.map {

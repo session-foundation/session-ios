@@ -40,7 +40,7 @@ struct OpenGroupInvitationView_SwiftUI: View {
             // Icon
             let iconName = (isOutgoing ? "Globe" : "Plus")
             if let iconImage = UIImage(named: iconName)?
-                .resizedImage(to: CGSize(width: Self.iconSize, height: Self.iconSize))?
+                .resized(to: CGSize(width: Self.iconSize, height: Self.iconSize))?
                 .withRenderingMode(.alwaysTemplate)
             {
                 Image(uiImage: iconImage)
@@ -87,7 +87,7 @@ struct OpenGroupInvitationView_SwiftUI: View {
 struct OpenGroupInvitationView_SwiftUI_Previews: PreviewProvider {
     static var previews: some View {
         OpenGroupInvitationView_SwiftUI(
-            name: Singleton.appName,
+            name: Constants.app_name,
             url: "http://open.getsession.org/session?public_key=a03c383cf63c3c4efe67acc52112a6dd734b3a946b9545f488aaa93da7991238",
             textColor: .messageBubble_outgoingText,
             isOutgoing: true

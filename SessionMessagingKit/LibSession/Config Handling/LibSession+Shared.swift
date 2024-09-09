@@ -9,6 +9,18 @@ import SessionUtilitiesKit
 
 // MARK: - Convenience
 
+public extension LibSession {
+    enum Crypto {
+        public typealias Domain = String
+    }
+
+    /// A `0` `priority` value indicates visible, but not pinned
+    static let visiblePriority: Int32 = 0
+    
+    /// A negative `priority` value indicates hidden
+    static let hiddenPriority: Int32 = -1
+}
+
 internal extension LibSession {
     /// This is a buffer period within which we will process messages which would result in a config change, any message which would normally
     /// result in a config change which was sent before `lastConfigMessage.timestamp - configChangeBufferPeriod` will not
@@ -34,12 +46,6 @@ internal extension LibSession {
         return !allColumnsThatTriggerConfigUpdate.isDisjoint(with: targetColumns)
     }
     
-    /// A `0` `priority` value indicates visible, but not pinned
-    static let visiblePriority: Int32 = 0
-    
-    /// A negative `priority` value indicates hidden
-    static let hiddenPriority: Int32 = -1
-    
     static func shouldBeVisible(priority: Int32) -> Bool {
         return (priority >= LibSession.visiblePriority)
     }
@@ -48,6 +54,7 @@ internal extension LibSession {
         _ db: Database,
         for variant: ConfigDump.Variant,
         publicKey: String,
+        using dependencies: Dependencies = Dependencies(),
         change: (UnsafeMutablePointer<config_object>?) throws -> ()
     ) throws {
         // Since we are doing direct memory manipulation we are using an `Atomic`
@@ -55,7 +62,7 @@ internal extension LibSession {
         let needsPush: Bool
         
         do {
-            needsPush = try LibSession
+            needsPush = try dependencies.caches[.libSession]
                 .config(for: variant, publicKey: publicKey)
                 .mutate { conf in
                     guard conf != nil else { throw LibSessionError.nilConfigObject }
@@ -210,13 +217,17 @@ internal extension LibSession {
         return updated
     }
     
-    static func hasSetting(_ db: Database, forKey key: String) throws -> Bool {
+    static func hasSetting(
+        _ db: Database,
+        forKey key: String,
+        using dependencies: Dependencies
+    ) throws -> Bool {
         let userPublicKey: String = getUserHexEncodedPublicKey(db)
         
         // Currently the only synced setting is 'checkForCommunityMessageRequests'
         switch key {
             case Setting.BoolKey.checkForCommunityMessageRequests.rawValue:
-                return try LibSession
+                return try dependencies.caches[.libSession]
                     .config(for: .userProfile, publicKey: userPublicKey)
                     .wrappedValue
                     .map { conf -> Bool in (try LibSession.rawBlindedMessageRequestValue(in: conf) >= 0) }
@@ -382,14 +393,15 @@ public extension LibSession {
         _ db: Database? = nil,
         threadId: String,
         threadVariant: SessionThread.Variant,
-        visibleOnly: Bool
+        visibleOnly: Bool,
+        using dependencies: Dependencies
     ) -> Bool {
         // Currently blinded conversations cannot be contained in the config, so there is no point checking (it'll always be
         // false)
         guard
             threadVariant == .community || (
-                SessionId(from: threadId)?.prefix != .blinded15 &&
-                SessionId(from: threadId)?.prefix != .blinded25
+                (try? SessionId(from: threadId))?.prefix != .blinded15 &&
+                (try? SessionId(from: threadId))?.prefix != .blinded25
             )
         else { return false }
         
@@ -401,7 +413,7 @@ public extension LibSession {
             }
         }()
         
-        return LibSession
+        return dependencies.caches[.libSession]
             .config(for: configVariant, publicKey: userPublicKey)
             .wrappedValue
             .map { conf in

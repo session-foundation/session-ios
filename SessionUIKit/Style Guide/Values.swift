@@ -49,11 +49,31 @@ public enum Values {
     public static let veryLargeSpacing = CGFloat(35)
     public static let massiveSpacing = CGFloat(64)
     public static let onboardingButtonBottomOffset = isIPhone5OrSmaller ? CGFloat(52) : CGFloat(72)
-    public static let accountCreatedViewHorizontalOffset = isIPhone6OrSmaller ? CGFloat(24) : CGFloat(50)
     
     // MARK: - iPad Sizes
     public static let iPadModalWidth = UIScreen.main.bounds.width / 2
     public static let iPadButtonWidth = CGFloat(240)
     public static let iPadButtonSpacing = CGFloat(32)
     public static let iPadUserSessionIdContainerWidth = iPadButtonWidth * 2 + iPadButtonSpacing
+    
+    // MARK: - Auto Scaling
+
+    static let iPhone5ScreenWidth: CGFloat = 320
+    static let iPhone7PlusScreenWidth: CGFloat = 414
+
+    static var screenShortDimension: CGFloat {
+        return min(UIScreen.main.bounds.size.width, UIScreen.main.bounds.size.height)
+    }
+
+    public static func scaleFromIPhone5To7Plus(_ iPhone5Value: CGFloat, _ iPhone7PlusValue: CGFloat) -> CGFloat {
+        return screenShortDimension
+            .inverseLerp(iPhone5ScreenWidth, iPhone7PlusScreenWidth)
+            .clamp01()
+            .lerp(iPhone5Value, iPhone7PlusValue)
+            .rounded()
+    }
+
+    public static func scaleFromIPhone5(_ iPhone5Value: CGFloat) -> CGFloat {
+        round(iPhone5Value * screenShortDimension / iPhone5ScreenWidth)
+    }
 }

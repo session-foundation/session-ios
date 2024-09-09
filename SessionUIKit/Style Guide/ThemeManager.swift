@@ -171,13 +171,9 @@ public enum ThemeManager {
         appearance.backButtonAppearance = barButtonItemAppearance
         appearance.doneButtonAppearance = barButtonItemAppearance
         
+        UINavigationBar.appearance().isTranslucent = false
         UINavigationBar.appearance().standardAppearance = appearance
         UINavigationBar.appearance().scrollEdgeAppearance = appearance
-
-        // Update toolbars to use the right colours
-        UIToolbar.appearance().barTintColor = ThemeManager.currentTheme.color(for: .backgroundPrimary)
-        UIToolbar.appearance().isTranslucent = false
-        UIToolbar.appearance().tintColor = textPrimary
         
         // Note: 'UINavigationBar.appearance' only affects newly created nav bars so we need
         // to force-update any current navigation bar (unfortunately the only way to do this
@@ -230,6 +226,9 @@ public enum ThemeManager {
             let navController: UINavigationController = ((viewController as? UINavigationController) ?? viewController.navigationController),
             let navigationBackground: ThemeValue = (navController.viewControllers.first as? ThemedNavigation)?.navigationBackground
         else { return }
+        
+        navController.navigationBar.barTintColor = ThemeManager.currentTheme.color(for: navigationBackground)
+        navController.navigationBar.shadowImage = ThemeManager.currentTheme.color(for: navigationBackground)?.toImage()
         
         let textPrimary: UIColor = (ThemeManager.currentTheme.color(for: .textPrimary) ?? .white)
         let appearance = UINavigationBarAppearance()

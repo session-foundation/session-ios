@@ -452,17 +452,11 @@ class ThreadSettingsViewModel: SessionTableViewModel, NavigationItemSource, Navi
                                 guard current.disappearingMessagesConfig.isEnabled else {
                                     return "off".localized()
                                 }
-                                guard Features.useNewDisappearingMessagesConfig else {
-                                    return "disappearingMessagesDisappear"
-                                        .put(key: "disappearing_messages_type", value: "")
-                                        .put(key: "time", value: current.disappearingMessagesConfig.durationString)
-                                        .localized()
-                                }
                                 
-                                return "disappearingMessagesDisappear"
-                                    .put(key: "disappearing_messages_type", value: (current.disappearingMessagesConfig.type?.localizedName ?? ""))
-                                    .put(key: "time", value: current.disappearingMessagesConfig.durationString)
-                                    .localized()
+                                return (current.disappearingMessagesConfig.type ?? .unknown)
+                                    .localizedState(
+                                        durationString: current.disappearingMessagesConfig.durationString
+                                    )
                             }(),
                             accessibility: Accessibility(
                                 identifier: "Disappearing messages",
@@ -521,17 +515,11 @@ class ThreadSettingsViewModel: SessionTableViewModel, NavigationItemSource, Navi
                             ),
                             confirmationInfo: ConfirmationModal.Info(
                                 title: "groupLeave".localized(),
-                                body: .attributedText({
-                                    if currentUserIsClosedGroupAdmin {
-                                        return "groupOnlyAdmin"
-                                            .put(key: "group_name", value: threadViewModel.displayName)
-                                            .localizedFormatted(baseFont: .boldSystemFont(ofSize: Values.smallFontSize))
-                                    }
-                                    
-                                    return "communityLeaveDescription"
-                                        .put(key: "community_name", value: threadViewModel.displayName)
+                                body: .attributedText(
+                                    (currentUserIsClosedGroupAdmin ? "groupDeleteDescription" : "groupLeaveDescription")
+                                        .put(key: "group_name", value: threadViewModel.displayName)
                                         .localizedFormatted(baseFont: .boldSystemFont(ofSize: Values.smallFontSize))
-                                }()),
+                                ),
                                 confirmTitle: "leave".localized(),
                                 confirmStyle: .danger,
                                 cancelStyle: .alert_text
@@ -584,6 +572,9 @@ class ThreadSettingsViewModel: SessionTableViewModel, NavigationItemSource, Navi
                                 .boolValue(
                                     threadViewModel.threadOnlyNotifyForMentions == true,
                                     oldValue: ((previous?.threadViewModel ?? threadViewModel).threadOnlyNotifyForMentions == true)
+                                ),
+                                accessibility: Accessibility(
+                                    identifier: "Notify for Mentions Only - Switch"
                                 )
                             ),
                             isEnabled: (
@@ -625,6 +616,9 @@ class ThreadSettingsViewModel: SessionTableViewModel, NavigationItemSource, Navi
                                 .boolValue(
                                     threadViewModel.threadMutedUntilTimestamp != nil,
                                     oldValue: ((previous?.threadViewModel ?? threadViewModel).threadMutedUntilTimestamp != nil)
+                                ),
+                                accessibility: Accessibility(
+                                    identifier: "Mute - Switch"
                                 )
                             ),
                             isEnabled: (
@@ -674,6 +668,9 @@ class ThreadSettingsViewModel: SessionTableViewModel, NavigationItemSource, Navi
                                 .boolValue(
                                     threadViewModel.threadIsBlocked == true,
                                     oldValue: ((previous?.threadViewModel ?? threadViewModel).threadIsBlocked == true)
+                                ),
+                                accessibility: Accessibility(
+                                    identifier: "Block This User - Switch"
                                 )
                             ),
                             accessibility: Accessibility(
@@ -694,7 +691,12 @@ class ThreadSettingsViewModel: SessionTableViewModel, NavigationItemSource, Navi
                                         threadViewModel.displayName
                                     )
                                 }(),
-                                body: (threadViewModel.threadIsBlocked == true ? .none :
+                                body: (threadViewModel.threadIsBlocked == true ?
+                                    .attributedText(
+                                        "blockUnblockName"
+                                            .put(key: "name", value: threadViewModel.displayName)
+                                            .localizedFormatted(baseFont: .systemFont(ofSize: Values.smallFontSize))
+                                    ) :
                                     .attributedText(
                                         "blockDescription"
                                             .put(key: "name", value: threadViewModel.displayName)
@@ -824,29 +826,13 @@ class ThreadSettingsViewModel: SessionTableViewModel, NavigationItemSource, Navi
     ) {
         guard oldBlockedState != isBlocked else { return }
         
-        dependencies.storage.writeAsync(
-            updates: { db in
-                try Contact
-                    .filter(id: threadId)
-                    .updateAllAndConfig(
-                        db,
-                        Contact.Columns.isBlocked.set(to: isBlocked)
-                    )
-            },
-            completion: { [weak self] _, _ in
-                self?.showToast(
-                    text: (
-                        isBlocked ?
-                        "blockBlockedUser"
-                            .put(key: "name", value: displayName)
-                            .localized() :
-                        "blockUnblockedUser"
-                            .put(key: "name", value: displayName)
-                            .localized()
-                    ),
-                    backgroundColor: .backgroundSecondary
+        dependencies.storage.writeAsync { db in
+            try Contact
+                .filter(id: threadId)
+                .updateAllAndConfig(
+                    db,
+                    Contact.Columns.isBlocked.set(to: isBlocked)
                 )
-            }
-        )
+        }
     }
 }

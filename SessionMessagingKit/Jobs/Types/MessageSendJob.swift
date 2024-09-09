@@ -3,7 +3,6 @@
 import Foundation
 import Combine
 import GRDB
-import SignalCoreKit
 import SessionUtilitiesKit
 import SessionSnodeKit
 
@@ -28,9 +27,15 @@ public enum MessageSendJob: JobExecutor {
             return failure(job, JobRunnerError.missingRequiredDetails, true, dependencies)
         }
         
-        // We need to include 'fileIds' when sending messages with attachments to Open Groups
-        // so extract them from any associated attachments
+        /// We need to include `fileIds` when sending messages with attachments to Open Groups so extract them from any
+        /// associated attachments
         var messageFileIds: [String] = []
+        let messageType: String = {
+            switch details.destination {
+                case .syncMessage: return "\(type(of: details.message)) (SyncMessage)"
+                default: return "\(type(of: details.message))"
+            }
+        }()
         
         /// Ensure any associated attachments have already been uploaded before sending the message
         ///
@@ -188,11 +193,11 @@ public enum MessageSendJob: JobExecutor {
                 receiveCompletion: { result in
                     switch result {
                         case .finished:
-                            Log.info("[MessageSendJob] Completed sending \(type(of: details.message)) after \(.seconds(dependencies.dateNow.timeIntervalSince1970 - startTime), unit: .s).")
+                            Log.info("[MessageSendJob] Completed sending \(messageType) after \(.seconds(dependencies.dateNow.timeIntervalSince1970 - startTime), unit: .s).")
                             success(job, false, dependencies)
                             
                         case .failure(let error):
-                            Log.info("[MessageSendJob] Failed to send \(type(of: details.message)) after \(.seconds(dependencies.dateNow.timeIntervalSince1970 - startTime), unit: .s) due to error: \(error).")
+                            Log.info("[MessageSendJob] Failed to send \(messageType) after \(.seconds(dependencies.dateNow.timeIntervalSince1970 - startTime), unit: .s) due to error: \(error).")
                             
                             // Actual error handling
                             switch (error, details.message) {
@@ -266,42 +271,9 @@ extension MessageSendJob {
                 throw StorageError.decodingFailed
             }
             
-            let message: Message = try variant.decode(from: container, forKey: .message)
-            var destination: Message.Destination = try container.decode(Message.Destination.self, forKey: .destination)
-            
-            /// Handle the legacy 'isSyncMessage' flag - this flag was deprecated in `2.5.2` (April 2024) and can be removed in a
-            /// subsequent release after May 2024
-            if ((try? container.decode(Bool.self, forKey: .isSyncMessage)) ?? false) {
-                switch (destination, message) {
-                    case (.contact, let message as VisibleMessage):
-                        guard let targetPublicKey: String = message.syncTarget else {
-                            SNLog("Unable to decode messageSend job due to missing syncTarget")
-                            throw StorageError.decodingFailed
-                        }
-                        
-                        destination = .syncMessage(originalRecipientPublicKey: targetPublicKey)
-                        
-                    case (.contact, let message as ExpirationTimerUpdate):
-                        guard let targetPublicKey: String = message.syncTarget else {
-                            SNLog("Unable to decode messageSend job due to missing syncTarget")
-                            throw StorageError.decodingFailed
-                        }
-                        
-                        destination = .syncMessage(originalRecipientPublicKey: targetPublicKey)
-                        
-                    case (.contact(let publicKey), _):
-                        SNLog("Sync message in messageSend job was missing explicit syncTarget (falling back to specified value)")
-                        destination = .syncMessage(originalRecipientPublicKey: publicKey)
-                        
-                    default:
-                        SNLog("Unable to decode messageSend job due to invalid sync message state")
-                        throw StorageError.decodingFailed
-                }
-            }
-            
             self = Details(
-                destination: destination,
-                message: message
+                destination: try container.decode(Message.Destination.self, forKey: .destination),
+                message: try variant.decode(from: container, forKey: .message)
             )
         }
         

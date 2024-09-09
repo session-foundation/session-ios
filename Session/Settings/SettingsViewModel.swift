@@ -3,7 +3,6 @@
 import Foundation
 import Combine
 import GRDB
-import YYImage
 import DifferenceKit
 import SessionUIKit
 import SessionMessagingKit
@@ -190,7 +189,7 @@ class SettingsViewModel: SessionTableViewModel, NavigationItemSource, Navigatabl
                                     )
                                     return
                                 }
-                                guard !ProfileManager.isToLong(profileName: updatedNickname) else {
+                                guard !ProfileManager.isTooLong(profileName: updatedNickname) else {
                                     self?.transitionToScreen(
                                         ConfirmationModal(
                                             info: ConfirmationModal.Info(
@@ -265,7 +264,6 @@ class SettingsViewModel: SessionTableViewModel, NavigationItemSource, Navigatabl
                                 interaction: .editable
                             ),
                             styling: SessionCell.StyleInfo(
-                                alignment: .centerHugging,
                                 customPadding: SessionCell.Padding(top: Values.smallSpacing),
                                 backgroundStyle: .noBackground
                             ),
@@ -425,9 +423,9 @@ class SettingsViewModel: SessionTableViewModel, NavigationItemSource, Navigatabl
                             title: "sessionInviteAFriend".localized(),
                             onTap: {
                                 let invitation: String = "accountIdShare"
-                                    .put(key: "app_name", value: Singleton.appName)
+                                    .put(key: "app_name", value: Constants.app_name)
                                     .put(key: "account_id", value: state.profile.id)
-                                    .put(key: "download_url", value: "https://getsession.org/")
+                                    .put(key: "session_download_url", value: Constants.session_download_url)
                                     .localized()
                                 
                                 self?.transitionToScreen(
@@ -461,7 +459,7 @@ class SettingsViewModel: SessionTableViewModel, NavigationItemSource, Navigatabl
                                     let targetViewController: UIViewController = ConfirmationModal(
                                         info: ConfirmationModal.Info(
                                             title: "theError".localized(),
-                                            body: .text("LOAD_RECOVERY_PASSWORD_ERROR".localized()),
+                                            body: .text("recoveryPasswordErrorLoad".localized()),
                                             cancelTitle: "okay".localized(),
                                             cancelStyle: .alert_text
                                         )
@@ -621,7 +619,7 @@ class SettingsViewModel: SessionTableViewModel, NavigationItemSource, Navigatabl
                                 switch (avatarUpdate, error) {
                                     case (.remove, _): return "profileDisplayPictureRemoveError".localized()
                                     case (_, .avatarUploadMaxFileSizeExceeded):
-                                        return "update_profile_modal_max_size_error_title".localized()
+                                        return "attachmentsErrorSize".localized()
                                     
                                     default: return "profileErrorUpdate".localized()
                                 }

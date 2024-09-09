@@ -6,20 +6,19 @@
 //
 /// This script is based on https://github.com/ginowu7/CleanSwiftLocalizableExample
 /// The main differences are:
-/// 1. Changes to the localised usage regex
-/// 2. Addition to excluded unlocalised cases
-/// 3. Functionality to update and copy localised permission requirement strings to infoPlist.xcstrings
+/// 1. Changes to the localized usage regex
+/// 2. Addition to excluded unlocalized cases
+/// 3. Functionality to update and copy localized permission requirement strings to infoPlist.xcstrings
 
 import Foundation
 
-typealias JSON = [String:Any]
+typealias JSON = [String:AnyHashable]
 
 extension ProjectState {
     /// Adding `// stringlint:disable` to the top of a source file (before imports) or after a string will mean that file/line gets
     /// ignored by this script (good for some things like the auto-generated emoji strings or debug strings)
     static let lintSuppression: String = "stringlint:disable"
-    static let primaryLocalisationFile: String = "en"
-    static let validLocalisationSuffixes: Set<String> = ["Localizable.strings"]
+    static let primaryLocalisation: String = "en"
     static let permissionStrings: Set<String> = [
         "permissionsStorageSend",
         "permissionsFaceId",
@@ -49,7 +48,7 @@ extension ProjectState {
         "external/"                 // External dependencies
     ]
     static let excludedPhrases: Set<String> = [ "", " ", "  ", ",", ", ", "null", "\"", "@[0-9a-fA-F]{66}", "^[0-9A-Fa-f]+$", "/" ]
-    static let excludedUnlocalisedStringLineMatching: Set<MatchType> = [
+    static let excludedUnlocalizedStringLineMatching: Set<MatchType> = [
         .contains(ProjectState.lintSuppression, caseSensitive: false),
         .prefix("#import", caseSensitive: false),
         .prefix("@available(", caseSensitive: false),
@@ -59,12 +58,13 @@ extension ProjectState {
         .contains("print(", caseSensitive: false),
         .contains("SNLog(", caseSensitive: false),
         .contains("Log.setup(", caseSensitive: false),
-        .contains("Log.trace(", caseSensitive: false),
+        .contains("Log.verbose(", caseSensitive: false),
         .contains("Log.debug(", caseSensitive: false),
         .contains("Log.info(", caseSensitive: false),
         .contains("Log.warn(", caseSensitive: false),
         .contains("Log.error(", caseSensitive: false),
         .contains("Log.critical(", caseSensitive: false),
+        .contains("Log.Category =", caseSensitive: false),
         .contains("logMessage:", caseSensitive: false),
         .contains("owsFailDebug(", caseSensitive: false),
         .contains("#imageLiteral(resourceName:", caseSensitive: false),
@@ -112,10 +112,12 @@ extension ProjectState {
         .contains("separator:", caseSensitive: false),
         .contains("separatedBy:", caseSensitive: false),
         .nextLine(.contains(".put(key:", caseSensitive: false)),
+        .nextLine(.contains(".putNumber(", caseSensitive: false)),
         .nextLine(.contains(".localized()", caseSensitive: false)),
         .regex(".*static var databaseTableName: String"),
         .regex("case .* = "),
-        .regex("Error.*\\(")
+        .regex("Error.*\\("),
+        .belowLineContaining("PreviewProvider")
     ]
 }
 
@@ -137,7 +139,7 @@ let projectState: ProjectState = ProjectState(
     ),
     loadSourceFiles: targetActions.contains(.lintStrings)
 )
-print("------------ Processing \(projectState.localizationFiles.count) Localization File(s) ------------")
+print("------------ Processing \(projectState.localizationFile.path) ------------")
 targetActions.forEach { $0.perform(projectState: projectState) }
 
 // MARK: - ScriptAction
@@ -173,70 +175,62 @@ enum ScriptAction: String {
                     ),
                     let fileUrls: [URL] = enumerator.allObjects as? [URL]
                 else { return Output.error("Could not retrieve list of files within built product") }
-                
+            
                 let localizationFiles: Set<String> = Set(fileUrls
                     .filter { $0.path.hasSuffix(".lproj") }
                     .map { $0.lastPathComponent.replacingOccurrences(of: ".lproj", with: "") })
-                let missingFiles: Set<String> = Set(projectState.localizationFiles
-                    .map { $0.name })
+                let missingFiles: Set<String> = projectState.localizationFile.locales
                     .subtracting(localizationFiles)
-                
+
                 guard missingFiles.isEmpty else {
                     return Output.error("Translations missing from \(productName): \(missingFiles.joined(separator: ", "))")
                 }
                 break
                 
             case .lintStrings:
-                guard !projectState.localizationFiles.isEmpty else {
+                guard !projectState.localizationFile.strings.isEmpty else {
                     return print("------------ Nothing to lint ------------")
                 }
                 
-                // Add warnings for any duplicate keys
-                projectState.localizationFiles.forEach { file in
-                    // Show errors for any duplicates
-                    file.duplicates.forEach { phrase, original in Output.duplicate(phrase, original: original) }
+                var allKeys: [String] = []
+                var duplicates: [String] = []
+                projectState.localizationFile.strings.forEach { key, value in
+                    if allKeys.contains(key) {
+                        duplicates.append(key)
+                    } else {
+                        allKeys.append(key)
+                    }
                     
-                    // Show warnings for any phrases missing from the file
-                    let allKeys: Set<String> = Set(file.keyPhrase.keys)
-                    let missingKeysFromOtherFiles: [String: [String]] = projectState.localizationFiles.reduce(into: [:]) { result, otherFile in
-                        guard otherFile.path != file.path else { return }
-                        
-                        let missingKeys: Set<String> = Set(otherFile.keyPhrase.keys)
-                            .subtracting(allKeys)
-                        
-                        missingKeys.forEach { missingKey in
-                            result[missingKey] = ((result[missingKey] ?? []) + [otherFile.name])
+                    // Add warning for probably faulty translation
+                    if let localizations: JSON = (value as? JSON)?["localizations"] as? JSON {
+                        if let original: String = ((localizations["en"] as? JSON)?["stringUnit"] as? JSON)?["value"] as? String {
+                            localizations.forEach { locale, translation in
+                                if let phrase: String = ((translation as? JSON)?["stringUnit"] as? JSON)?["value"] as? String {
+                                    let numberOfVarablesOrignal = Regex.matches("\\{.*\\}", content: original).count
+                                    let numberOfVarablesPhrase = Regex.matches("\\{.*\\}", content: phrase).count
+                                    if numberOfVarablesPhrase != numberOfVarablesOrignal {
+                                        Output.warning("\(key) in \(locale) may be faulty")
+                                    }
+                                }
+                            }
                         }
                     }
-                    
-                    missingKeysFromOtherFiles.forEach { missingKey, namesOfFilesItWasFound in
-                        Output.warning(file, "Phrase '\(missingKey)' is missing (found in: \(namesOfFilesItWasFound.joined(separator: ", ")))")
-                    }
-                    
-                    var maybeFaulty: [String] = []
-                    file.keyPhrase.forEach { key, phrase in
-                        guard let original = projectState.primaryLocalizationFile.keyPhrase[key] else { return }
-                        let numberOfVarablesOrignal = Regex.matches("\\{.*\\}", content: original.value).count
-                        let numberOfVarablesPhrase = Regex.matches("\\{.*\\}", content: phrase.value).count
-                        if numberOfVarablesPhrase != numberOfVarablesOrignal {
-                            maybeFaulty.append(key)
-                        }
-                    }
-                    maybeFaulty.forEach { key in Output.warning(file, "\(key) may be faulty.") }
                 }
-                
+            
+                // Add warnings for any duplicate keys
+                duplicates.forEach { Output.duplicate(key: $0) }
+
                 // Process the source code
                 print("------------ Processing \(projectState.sourceFiles.count) Source File(s) ------------")
-                let allKeys: Set<String> = Set(projectState.primaryLocalizationFile.keyPhrase.keys)
-                
+  
                 projectState.sourceFiles.forEach { file in
-                    // Add logs for unlocalised strings
+                    // Add logs for unlocalized strings
                     file.unlocalizedPhrases.forEach { phrase in
                         Output.warning(phrase, "Found unlocalized string '\(phrase.key)'")
                     }
                     
-                    // Add errors for missing localised strings
-                    let missingKeys: Set<String> = Set(file.keyPhrase.keys).subtracting(allKeys)
+                    // Add errors for missing localized strings
+                    let missingKeys: Set<String> = Set(file.keyPhrase.keys).subtracting(Set(allKeys))
                     missingKeys.forEach { key in
                         switch file.keyPhrase[key] {
                             case .some(let phrase): Output.error(phrase, "Localized phrase '\(key)' missing from strings files")
@@ -247,41 +241,38 @@ enum ScriptAction: String {
                 break
             case .updatePermissionStrings:
                 print("------------ Updating permission strings ------------")
+                var strings: JSON = projectState.infoPlistLocalizationFile.strings
                 var updatedInfoPlistJSON: JSON = projectState.infoPlistLocalizationFile.json
-                var strings: JSON = updatedInfoPlistJSON["strings"] as! JSON
-                projectState.localizationFiles.forEach { file in
-                    ProjectState.permissionStrings.forEach { key in
-                        guard let nsKey: String = ProjectState.permissionStringsMap[key] else { return }
-                        var keyPhrases: JSON = strings[nsKey] as! JSON
-                        var localizations: JSON = keyPhrases["localizations"] as! JSON
-                        if let phrase: String = file.keyPhrase[key]?.value {
-                            if let translations: JSON = localizations[file.name] as? JSON {
-                                var stringUnit: JSON = translations["stringUnit"] as! JSON
-                                if (stringUnit["value"] as! String) != phrase {
-                                    stringUnit["state"] = "translated"
-                                    stringUnit["value"] = phrase
-                                }
-                            } else {
-                                let stringUnit: JSON = [
-                                    "state": "translated",
-                                    "value": phrase.replacingOccurrences(of: "\"", with: "")
-                                ]
-                                localizations[file.name] = ["stringUnit": stringUnit]
-                            }
+                ProjectState.permissionStrings.forEach { key in
+                    guard let nsKey: String = ProjectState.permissionStringsMap[key] else { return }
+                    if
+                        let stringsData: Data = try? JSONSerialization.data(withJSONObject: (projectState.localizationFile.strings[key] as! JSON), options: [ .fragmentsAllowed ]),
+                        let stringsJSONString: String = String(data: stringsData, encoding: .utf8)
+                    {
+                        let updatedStringsJSONString = stringsJSONString.replacingOccurrences(of: "{app_name}", with: "Session")
+                        
+                        if 
+                            let updatedStringsData: Data = updatedStringsJSONString.data(using: .utf8),
+                            let updatedStrings: JSON = try? JSONSerialization.jsonObject(with: updatedStringsData, options: [ .fragmentsAllowed ]) as? JSON
+                        {
+                            strings[nsKey] = updatedStrings
                         }
-                        keyPhrases["localizations"] = localizations
-                        strings[nsKey] = keyPhrases
                     }
                 }
                 updatedInfoPlistJSON["strings"] = strings
-                
-            if let data: Data = try? JSONSerialization.data(withJSONObject: updatedInfoPlistJSON, options: [ .fragmentsAllowed ]) {
-                do {
-                    try data.write(to: URL(fileURLWithPath: projectState.infoPlistLocalizationFile.path), options: [.atomic])
-                } catch {
-                    fatalError("Could not write to InfoPlist.xcstrings, error: \(error)")
+            
+                guard updatedInfoPlistJSON != projectState.infoPlistLocalizationFile.json else {
+                    return
                 }
-            }
+                
+                if let data: Data = try? JSONSerialization.data(withJSONObject: updatedInfoPlistJSON, options: [ .fragmentsAllowed ]) {
+                    do {
+                        try data.write(to: URL(fileURLWithPath: projectState.infoPlistLocalizationFile.path), options: [.atomic])
+                    } catch {
+                        fatalError("Could not write to InfoPlist.xcstrings, error: \(error)")
+                    }
+                }
+                break
         }
         
         print("------------ Complete ------------")
@@ -325,6 +316,10 @@ enum Output {
         print("\(location.location): error: \(error)")
     }
     
+    static func warning(_ warning: String) {
+        print("warning: \(warning)")
+    }
+    
     static func warning(_ location: Locatable, _ warning: String) {
         print("\(location.location): warning: \(warning)")
     }
@@ -339,14 +334,17 @@ enum Output {
         // currently include the reference to the original entry
         // print("\(original.location): note: previously found here")
     }
+    
+    static func duplicate(key: String) {
+        print("Error: duplicate key '\(key)'")
+    }
 }
 
 // MARK: - ProjectState
 
 struct ProjectState {
-    let primaryLocalizationFile: LocalizationStringsFile
-    let localizationFiles: [LocalizationStringsFile]
     let sourceFiles: [SourceFile]
+    let localizationFile: XCStringsFile
     let infoPlistLocalizationFile: XCStringsFile
     
     init(path: String, loadSourceFiles: Bool) {
@@ -365,17 +363,11 @@ struct ProjectState {
             ((try? fileUrl.resourceValues(forKeys: [.isDirectoryKey]))?.isDirectory == false) &&
             !lowerCaseExcludedPaths.contains { fileUrl.path.lowercased().contains($0) }
         }
-        
-        // Localization files
-        let targetFileSuffixes: Set<String> = Set(ProjectState.validLocalisationSuffixes.map { $0.lowercased() })
-        self.localizationFiles = validFileUrls
-            .filter { fileUrl in targetFileSuffixes.contains { fileUrl.path.lowercased().contains($0) } }
-            .map { LocalizationStringsFile(path: $0.path) }
-        
-        guard let primaryLocalizationFile: LocalizationStringsFile = self.localizationFiles.first(where: { $0.name == ProjectState.primaryLocalisationFile }) else {
-            fatalError("Could not locate primary localization file: \(ProjectState.primaryLocalisationFile)")
-        }
-        self.primaryLocalizationFile = primaryLocalizationFile
+
+        self.localizationFile = validFileUrls
+            .filter { fileUrl in fileUrl.path.contains("Localizable.xcstrings") }
+            .map { XCStringsFile(path: $0.path) }
+            .last!
         
         self.infoPlistLocalizationFile = validFileUrls
             .filter { fileUrl in fileUrl.path.contains("InfoPlist.xcstrings") }
@@ -405,10 +397,13 @@ protocol KeyedLocatable: Locatable {
 
 extension ProjectState {
     // MARK: - XCStringsFile
+    
     struct XCStringsFile: Locatable {
         let name: String
         let path: String
         var json: JSON
+        var strings: JSON
+        var locales: Set<String> = Set()
         
         var location: String { path }
         
@@ -419,6 +414,12 @@ extension ProjectState {
                 .last ?? "Unknown")
             self.path = path
             self.json = XCStringsFile.parse(path)
+            self.strings = self.json["strings"] as! JSON
+            self.strings.values.forEach { value in
+                if let localizations: JSON = (value as? JSON)?["localizations"] as? JSON {
+                    self.locales.formUnion(localizations.map{ $0.key })
+                }
+            }
         }
         
         static func parse(_ path: String) -> JSON {
@@ -428,77 +429,6 @@ extension ProjectState {
             else { fatalError("Could not read from path: \(path)") }
             
             return json
-        }
-    }
-    
-    // MARK: - LocalizationStringsFile
-    
-    struct LocalizationStringsFile: Locatable {
-        struct Phrase: KeyedLocatable {
-            let key: String
-            let value: String
-            let filePath: String
-            let lineNumber: Int
-            
-            var location: String { "\(filePath):\(lineNumber)" }
-        }
-        
-        let name: String
-        let path: String
-        let keyPhrase: [String: Phrase]
-        let duplicates: [(Phrase, original: Phrase)]
-        
-        var location: String { path }
-        
-        init(path: String) {
-            let result = LocalizationStringsFile.parse(path)
-            
-            self.name = (path
-                .replacingOccurrences(of: "/Localizable.strings", with: "")
-                .replacingOccurrences(of: ".lproj", with: "")
-                .components(separatedBy: "/")
-                .last ?? "Unknown")
-            self.path = path
-            self.keyPhrase = result.keyPhrase
-            self.duplicates = result.duplicates
-        }
-        
-        static func parse(_ path: String) -> (keyPhrase: [String: Phrase], duplicates: [(Phrase, original: Phrase)]) {
-            guard
-                let data: Data = FileManager.default.contents(atPath: path),
-                let content: String = String(data: data, encoding: .utf8)
-            else { fatalError("Could not read from path: \(path)") }
-            
-            let lines: [String] = content.components(separatedBy: .newlines)
-            var duplicates: [(Phrase, original: Phrase)] = []
-            var keyPhrase: [String: Phrase] = [:]
-            
-            lines.enumerated().forEach { lineNumber, line in
-                guard
-                    let key: String = Regex.matches("\"([^\"]*?)\"(?= =)", content: line).first,
-                    let value: String = Regex.matches("(?<== )\"(.*?)\"(?=;)", content: line).first
-                else { return }
-                
-                // Remove the quotation marks around the key
-                let trimmedKey: String = String(key
-                    .prefix(upTo: key.index(before: key.endIndex))
-                    .suffix(from: key.index(after: key.startIndex)))
-                
-                // Files are 1-indexed but arrays are 0-indexed so add 1 to the lineNumber
-                let result: Phrase = Phrase(
-                    key: trimmedKey,
-                    value: value,
-                    filePath: path,
-                    lineNumber: (lineNumber + 1)
-                )
-                
-                switch keyPhrase[trimmedKey] {
-                    case .some(let original): duplicates.append((result, original))
-                    case .none: keyPhrase[trimmedKey] = result
-                }
-            }
-            
-            return (keyPhrase, duplicates)
         }
     }
     
@@ -560,7 +490,7 @@ extension ProjectState {
                 // been suppressed or it's explicitly excluded due to the rules at the top of the file
                 guard
                     trimmedLine.contains("\"") &&
-                    !ProjectState.excludedUnlocalisedStringLineMatching
+                    !ProjectState.excludedUnlocalizedStringLineMatching
                         .contains(where: { $0.matches(trimmedLine, lineNumber, lines) })
                 else { return }
                 
@@ -573,7 +503,7 @@ extension ProjectState {
                     line.components(separatedBy: commentMatches[0])[0]
                 )
                 
-                // Use regex to find `NSLocalizedString("", "")`, `"".localised()` and any other `""`
+                // Use regex to find `NSLocalizedString("", "")`, `"".localized()` and any other `""`
                 // values in the source code
                 //
                 // Note: It's more complex because we need to exclude escaped quotation marks from
@@ -618,7 +548,7 @@ extension ProjectState {
                 /// **Note:** While it'd be nice to have the regex automatically exclude the quotes doing so makes it _far_ less
                 /// efficient (approx. by a factor of 8 times) so we remove those ourselves)
                 if allMatches.isEmpty {
-                    // Find strings which are just not localised
+                    // Find strings which are just not localized
                     let potentialUnlocalizedStrings: [String] = Regex
                         .matches("\\\"[^\\\"\\\\]*(?:\\\\.[^\\\"\\\\]*)*(?:\\\")", content: targetLine)
                         // Remove the leading and trailing quotation marks
@@ -666,6 +596,7 @@ indirect enum MatchType: Hashable {
     case regex(String)
     case previousLine(numEarlier: Int, MatchType)
     case nextLine(MatchType)
+    case belowLineContaining(String)
     
     func matches(_ value: String, _ index: Int, _ lines: [String]) -> Bool {
         switch self {
@@ -703,6 +634,9 @@ indirect enum MatchType: Hashable {
             case .nextLine(let type):
                 guard index + 1 < lines.count else { return false }
                 return type.matches(lines[index + 1], index + 1, lines)
+            
+            case .belowLineContaining(let other):
+                return lines[0..<index].contains(where: { $0.lowercased().contains(other.lowercased()) })
         }
     }
 }
