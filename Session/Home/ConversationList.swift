@@ -410,7 +410,7 @@ struct ConversationItemRow: View {
 }
 
 struct ConversationList_Previews: PreviewProvider {
-    @State static var viewModel: HomeViewModel = HomeViewModel()
+    @State static var viewModel: HomeViewModel = HomeViewModel(using: Dependencies())
     
     static var previews: some View {
         ConversationList(viewModel: $viewModel)

@@ -12,7 +12,7 @@ import SignalUtilitiesKit
 struct HomeScreen: View {
     @EnvironmentObject var host: HostWrapper
     
-    @State private var viewModel: HomeViewModel = HomeViewModel()
+    @State private var viewModel: HomeViewModel
     @State private var flow: Onboarding.Flow?
     @State private var dataChangeObservable: DatabaseCancellable? {
         didSet { oldValue?.cancel() }   // Cancel the old observable if there was one
@@ -23,8 +23,9 @@ struct HomeScreen: View {
     @State private var isAutoLoadingNextPage: Bool = false
     @State private var viewHasAppeared: Bool = false
     
-    init(flow: Onboarding.Flow? = nil) {
+    init(flow: Onboarding.Flow? = nil, using dependencies: Dependencies) {
         self.flow = flow
+        self.viewModel = HomeViewModel(using: dependencies)
     }
     
     var body: some View {
@@ -105,7 +106,8 @@ struct HomeScreen: View {
             ConversationVC(
                 threadId: threadId,
                 threadVariant: variant,
-                focusedInteractionInfo: focusedInteractionInfo
+                focusedInteractionInfo: focusedInteractionInfo, 
+                using: viewModel.dependencies
             )
         ].compactMap { $0 }
         
@@ -125,7 +127,7 @@ struct HomeScreen: View {
         if let presentedVC = self.host.controller?.presentedViewController {
             presentedVC.dismiss(animated: false, completion: nil)
         }
-        let searchController = GlobalSearchViewController()
+        let searchController = GlobalSearchViewController(using: viewModel.dependencies)
         self.host.controller?.navigationController?.setViewControllers(
             [ self.host.controller, searchController ].compactMap{ $0 },
             animated: true
@@ -332,7 +334,7 @@ struct SeedBanner: View {
                                     alignment: .center,
                                     spacing: Values.verySmallSpacing,
                                     content: {
-                                        Text("recoveryPasswordBannerTittle".localized())
+                                        Text("recoveryPasswordBannerTitle".localized())
                                             .font(.system(size: Values.smallFontSize))
                                             .bold()
                                             .foregroundColor(themeColor: .textPrimary)
@@ -395,5 +397,5 @@ struct SeedBanner: View {
 }
 
 #Preview {
-    HomeScreen(flow: .register)
+    HomeScreen(flow: .register, using: Dependencies())
 }
