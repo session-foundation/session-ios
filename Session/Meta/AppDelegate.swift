@@ -667,18 +667,26 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
                 
             case .completed:
                 DispatchQueue.main.async { [dependencies] in
-                    let viewController: HomeVC = HomeVC(using: dependencies)
+//                    let viewController: HomeVC = HomeVC(using: dependencies)
+//                    
+//                    /// We want to start observing the changes for the 'HomeVC' and want to wait until we actually get data back before we
+//                    /// continue as we don't want to show a blank home screen
+//                    DispatchQueue.global(qos: .userInitiated).async {
+//                        viewController.startObservingChanges() {
+//                            populateHomeScreenTimer.invalidate()
+//                            
+//                            DispatchQueue.main.async {
+//                                rootViewControllerSetupComplete(viewController)
+//                            }
+//                        }
+//                    }
                     
-                    /// We want to start observing the changes for the 'HomeVC' and want to wait until we actually get data back before we
-                    /// continue as we don't want to show a blank home screen
-                    DispatchQueue.global(qos: .userInitiated).async {
-                        viewController.startObservingChanges() {
-                            populateHomeScreenTimer.invalidate()
-                            
-                            DispatchQueue.main.async {
-                                rootViewControllerSetupComplete(viewController)
-                            }
-                        }
+                    let viewController = SessionHostingViewController(rootView: HomeScreen(using: dependencies))
+                    
+                    populateHomeScreenTimer.invalidate()
+                    
+                    DispatchQueue.main.async {
+                        rootViewControllerSetupComplete(viewController)
                     }
                 }
         }

@@ -9,19 +9,19 @@ import SessionUtilitiesKit
 import SignalUtilitiesKit
 
 struct ConversationList: View {
-    @Binding private var viewModel: HomeViewModel
+    @Binding private var threadData: [HomeScreenDataModel.SectionModel]
     
     public static let mutePrefix: String = "\u{e067}  " // stringlint:disable
     public static let unreadCountViewSize: CGFloat = 20
     public static let statusIndicatorSize: CGFloat = 14
     
-    public init(viewModel: Binding<HomeViewModel>) {
-        self._viewModel = viewModel
+    public init(threadData: Binding<[HomeScreenDataModel.SectionModel]>) {
+        self._threadData = threadData
     }
 
     var body: some View {
         List {
-            ForEach(viewModel.threadData) { sectionModel in
+            ForEach(self.threadData) { sectionModel in
                 switch sectionModel.model {
                     case .messageRequests:
                         Section {
@@ -154,7 +154,7 @@ struct Info {
         self.isBlocked = (threadViewModel.threadIsBlocked == true)
         self.isPinned = threadViewModel.threadPinnedPriority > 0
         self.shouldShowUnreadCount = (threadIsUnread && unreadCount > 0)
-        self.unreadCountString = (unreadCount < 10000 ? "\(unreadCount)" : "9999+")
+        self.unreadCountString = (unreadCount < 10000 ? "\(unreadCount)" : "9999+")  // stringlint:disable
         self.unreadCountFontSize = (unreadCount < 10000 ? Values.verySmallFontSize : 8)
         self.shouldShowUnreadIcon = (threadIsUnread && !self.shouldShowUnreadCount)
         self.shouldShowMentionIcon = (
@@ -163,7 +163,6 @@ struct Info {
         )
         self.timeString = threadViewModel.lastInteractionDate.formattedForDisplay
         self.shouldShowTypingIndicator = (threadViewModel.threadContactIsTyping == true)
-        let textColor: UIColor
         self.snippet = Self.getSnippet(threadViewModel: threadViewModel)
     }
     
@@ -409,10 +408,10 @@ struct ConversationItemRow: View {
     }
 }
 
-struct ConversationList_Previews: PreviewProvider {
-    @State static var viewModel: HomeViewModel = HomeViewModel(using: Dependencies())
-    
-    static var previews: some View {
-        ConversationList(viewModel: $viewModel)
-    }
-}
+//struct ConversationList_Previews: PreviewProvider {
+//    @State static var viewModel: HomeViewModel = HomeViewModel(using: Dependencies())
+//    
+//    static var previews: some View {
+//        ConversationList(viewModel: $viewModel)
+//    }
+//}

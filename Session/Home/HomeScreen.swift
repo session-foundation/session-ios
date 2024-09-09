@@ -12,7 +12,7 @@ import SignalUtilitiesKit
 struct HomeScreen: View {
     @EnvironmentObject var host: HostWrapper
     
-    @State private var viewModel: HomeViewModel
+    @State private var viewModel: HomeScreenViewModel
     @State private var flow: Onboarding.Flow?
     @State private var dataChangeObservable: DatabaseCancellable? {
         didSet { oldValue?.cancel() }   // Cancel the old observable if there was one
@@ -23,17 +23,18 @@ struct HomeScreen: View {
     @State private var isAutoLoadingNextPage: Bool = false
     @State private var viewHasAppeared: Bool = false
     
-    init(flow: Onboarding.Flow? = nil, using dependencies: Dependencies) {
+    init(flow: Onboarding.Flow? = nil, using dependencies: Dependencies, onReceivedInitialChange: (() -> ())? = nil) {
         self.flow = flow
-        self.viewModel = HomeViewModel(using: dependencies)
+        self.viewModel = HomeScreenViewModel(
+            using: dependencies,
+            onReceivedInitialChange: onReceivedInitialChange
+        )
     }
     
     var body: some View {
         ZStack(
             alignment: .top,
             content: {
-                ThemeManager.currentTheme.colorSwiftUI(for: .backgroundPrimary).ignoresSafeArea()
-                
                 if viewModel.state.showViewedSeedBanner {
                     SeedBanner(action: handleContinueButtonTapped)
                 }
@@ -49,14 +50,15 @@ struct HomeScreen: View {
                     )
                 }
                 
-                ConversationList(viewModel: $viewModel)
+                ConversationList(threadData: $viewModel.threadData)
                 
                 NewConversationButton(action: createNewConversation)
             }
         )
-        .onReceive(Just(viewModel), perform: { updatedViewModel in
+        .backgroundColor(themeColor: .backgroundPrimary)
+        .onReceive(Just(viewModel.dataModel), perform: { updatedDataModel in
             (self.host.controller as? SessionHostingViewController<HomeScreen>)?.setUpNavBarButton(
-                leftItem: .profile(profile: updatedViewModel.state.userProfile),
+                leftItem: .profile(profile: updatedDataModel.state.userProfile),
                 rightItem: .search,
                 leftAction: openSettings,
                 rightAction: showSearchUI
@@ -75,7 +77,7 @@ struct HomeScreen: View {
             let targetViewController: UIViewController = ConfirmationModal(
                 info: ConfirmationModal.Info(
                     title: "theError".localized(),
-                    body: .text("LOAD_RECOVERY_PASSWORD_ERROR".localized()),
+                    body: .text("recoveryPasswordErrorLoad".localized()),
                     cancelTitle: "okay".localized(),
                     cancelStyle: .alert_text
                 )
@@ -100,14 +102,16 @@ struct HomeScreen: View {
             self.host.controller,
             (
                 (isMessageRequest && action != .compose) ?
-                SessionTableViewController(viewModel: MessageRequestsViewModel()) :
-                nil
+                SessionTableViewController(
+                    viewModel: MessageRequestsViewModel(
+                        using: viewModel.dataModel.dependencies)
+                ) : nil
             ),
             ConversationVC(
                 threadId: threadId,
                 threadVariant: variant,
                 focusedInteractionInfo: focusedInteractionInfo, 
-                using: viewModel.dependencies
+                using: viewModel.dataModel.dependencies
             )
         ].compactMap { $0 }
         
@@ -127,7 +131,7 @@ struct HomeScreen: View {
         if let presentedVC = self.host.controller?.presentedViewController {
             presentedVC.dismiss(animated: false, completion: nil)
         }
-        let searchController = GlobalSearchViewController(using: viewModel.dependencies)
+        let searchController = GlobalSearchViewController(using: viewModel.dataModel.dependencies)
         self.host.controller?.navigationController?.setViewControllers(
             [ self.host.controller, searchController ].compactMap{ $0 },
             animated: true
@@ -252,9 +256,13 @@ struct EmptyStateView: View {
                         .font(.system(size: Values.veryLargeFontSize))
                         .foregroundColor(themeColor: .textPrimary)
                     
-                    Text("onboardingBubbleWelcomeToSession".localized())
-                        .font(.system(size: Values.smallFontSize))
-                        .foregroundColor(themeColor: .sessionButton_text)
+                    Text(
+                        "onboardingBubbleWelcomeToSession"
+                            .put(key: "emoji", value: "")
+                            .localized()
+                    )
+                    .font(.system(size: Values.smallFontSize))
+                    .foregroundColor(themeColor: .sessionButton_text)
                         
                 } else {
                     // Normal empty state
@@ -313,14 +321,10 @@ struct SeedBanner: View {
         ZStack(
             alignment: .topLeading,
             content: {
-                ThemeManager.currentTheme.colorSwiftUI(for: .conversationButton_background).ignoresSafeArea()
-                
                 Rectangle()
                     .fill(themeColor: .primary)
-                    .frame(
-                        width: .infinity,
-                        height: 2
-                    )
+                    .frame(height: 2)
+                    .frame(maxWidth: .infinity)
                 
                 HStack(
                     alignment: .center,
@@ -388,6 +392,7 @@ struct SeedBanner: View {
                 .padding(isIPhone5OrSmaller ? Values.smallSpacing : Values.mediumSpacing)
             }
         )
+        .backgroundColor(themeColor: .conversationButton_background)
         .border(
             width: Values.separatorThickness,
             edges: [.bottom],
@@ -396,6 +401,6 @@ struct SeedBanner: View {
     }
 }
 
-#Preview {
-    HomeScreen(flow: .register, using: Dependencies())
-}
+//#Preview {
+//    HomeScreen(flow: .register, using: Dependencies())
+//}
