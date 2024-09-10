@@ -210,9 +210,9 @@ final class NukeDataModal: Modal {
                                             let modal: ConfirmationModal = ConfirmationModal(
                                                 targetView: self?.view,
                                                 info: ConfirmationModal.Info(
-                                                    title: "clearDataError".localized(),
+                                                    title: "clearDataAll".localized(),
                                                     body: .text("clearDataErrorDescriptionGeneric".localized()),
-                                                    confirmTitle: "clearDeviceOnly".localized(),
+                                                    confirmTitle: "clearDevice".localized(),
                                                     confirmStyle: .danger,
                                                     cancelStyle: .alert_text
                                                 ) { [weak self] _ in
@@ -252,9 +252,9 @@ final class NukeDataModal: Modal {
                             let modal: ConfirmationModal = ConfirmationModal(
                                 targetView: self?.view,
                                 info: ConfirmationModal.Info(
-                                    title: "clearDataError".localized(),
+                                    title: "clearDataAll".localized(),
                                     body: .text("clearDataErrorDescriptionGeneric".localized()),
-                                    confirmTitle: "clearDeviceOnly".localized(),
+                                    confirmTitle: "clearDevice".localized(),
                                     confirmStyle: .danger,
                                     cancelStyle: .alert_text
                                 ) { [weak self] _ in
