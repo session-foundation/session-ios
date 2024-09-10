@@ -573,7 +573,8 @@ public extension LibSession {
             case (401, _):
                 Log.warn("Unauthorised (Failed to verify the signature).")
                 throw NetworkError.unauthorised
-                
+            
+            case (403, _): throw NetworkError.forbidden
             case (404, _): throw NetworkError.notFound
                 
             /// A snode will return a `406` but onion requests v4 seems to return `425` so handle both

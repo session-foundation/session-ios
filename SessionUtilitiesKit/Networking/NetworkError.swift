@@ -7,6 +7,7 @@ import Foundation
 public enum NetworkError: Error, Equatable, CustomStringConvertible {
     case invalidURL
     case invalidPreparedRequest
+    case forbidden
     case notFound
     case parsingFailed
     case invalidResponse
@@ -26,6 +27,7 @@ public enum NetworkError: Error, Equatable, CustomStringConvertible {
         switch self {
             case .invalidURL: return "Invalid URL (NetworkError.invalidURL)."
             case .invalidPreparedRequest: return "Invalid PreparedRequest provided (NetworkError.invalidPreparedRequest)."
+            case .forbidden: return "Forbidden (NetworkError.forbidden)."
             case .notFound: return "Not Found (NetworkError.notFound)."
             case .parsingFailed: return "Invalid response (NetworkError.parsingFailed)."
             case .invalidResponse: return "Invalid response (NetworkError.invalidResponse)."

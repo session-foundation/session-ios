@@ -192,7 +192,7 @@ extension ConversationVC:
         threadVariant: SessionThread.Variant,
         messageText: String?
     ) {
-        sendMessage(text: (messageText ?? ""), attachments: attachments, using: viewModel.dependencies)
+        sendMessage(text: (messageText ?? ""), attachments: attachments)
         resetMentions()
         
         dismiss(animated: true) { [weak self] in
@@ -222,7 +222,7 @@ extension ConversationVC:
         threadVariant: SessionThread.Variant,
         messageText: String?
     ) {
-        sendMessage(text: (messageText ?? ""), attachments: attachments, using: viewModel.dependencies)
+        sendMessage(text: (messageText ?? ""), attachments: attachments)
         resetMentions()
         
         dismiss(animated: true) { [weak self] in
@@ -467,8 +467,7 @@ extension ConversationVC:
         attachments: [SignalAttachment] = [],
         linkPreviewDraft: LinkPreviewDraft? = nil,
         quoteModel: QuotedReplyModel? = nil,
-        hasPermissionToSendSeed: Bool = false,
-        using dependencies: Dependencies = Dependencies()
+        hasPermissionToSendSeed: Bool = false
     ) {
         guard !showBlockedModalIfNeeded() else { return }
         
@@ -539,17 +538,14 @@ extension ConversationVC:
             quoteModel: quoteModel
         )
         
-        sendMessage(optimisticData: optimisticData, using: dependencies)
+        sendMessage(optimisticData: optimisticData)
     }
     
-    private func sendMessage(
-        optimisticData: ConversationViewModel.OptimisticMessageData,
-        using dependencies: Dependencies
-    ) {
+    private func sendMessage(optimisticData: ConversationViewModel.OptimisticMessageData) {
         let threadId: String = self.viewModel.threadData.threadId
         let threadVariant: SessionThread.Variant = self.viewModel.threadData.threadVariant
         
-        DispatchQueue.global(qos:.userInitiated).async(using: dependencies) {
+        DispatchQueue.global(qos:.userInitiated).async(using: viewModel.dependencies) { [dependencies = viewModel.dependencies] in
             // Generate the quote thumbnail if needed (want this to happen outside of the DBWrite thread as
             // this can take up to 0.5s
             let quoteThumbnailAttachment: Attachment? = optimisticData.quoteModel?.attachment?.cloneAsQuoteThumbnail()
@@ -1905,7 +1901,7 @@ extension ConversationVC:
             }
             
             // Try to send the optimistic message again
-            sendMessage(optimisticData: optimisticMessageData, using: dependencies)
+            sendMessage(optimisticData: optimisticMessageData)
             return
         }
         
@@ -2617,7 +2613,7 @@ extension ConversationVC:
         }
         
         // Send attachment
-        sendMessage(text: "", attachments: [attachment], using: dependencies)
+        sendMessage(text: "", attachments: [attachment])
     }
 
     func cancelVoiceMessageRecording() {
