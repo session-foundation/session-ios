@@ -385,15 +385,12 @@ public final class NotificationServiceExtension: UNNotificationServiceExtension 
         }
         
         let duration: CFTimeInterval = (CACurrentMediaTime() - startTime)
-        let logMessage: String = {
-            switch (isMainAppAndActive, handledNotification, noContent) {
-                case (true, _, _): return "Called while main app running, ignoring after \(.seconds(duration), unit: .ms)."
-                case (_, _, true): return "Called with no content, ignoring after \(.seconds(duration), unit: .ms)."
-                case (_, true, _): return "Completed after handling notification in \(.seconds(duration), unit: .ms)."
-                default: return "Completed silently after \(.seconds(duration), unit: .ms)."
-            }
-        }()
-        Log.info(logMessage)
+        switch (isMainAppAndActive, handledNotification, noContent) {
+            case (true, _, _): Log.info("Called while main app running, ignoring after \(.seconds(duration), unit: .ms).")
+            case (_, _, true): Log.info("Called with no content, ignoring after \(.seconds(duration), unit: .ms).")
+            case (_, true, _): Log.info("Completed after handling notification in \(.seconds(duration), unit: .ms).")
+            default: Log.info("Completed silently after \(.seconds(duration), unit: .ms).")
+        }
         Log.flush()
         
         self.contentHandler!(silentContent)
