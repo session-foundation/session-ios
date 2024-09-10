@@ -283,8 +283,8 @@ extension Attachment: CustomStringConvertible {
     }
     
     public static func emoji(for contentType: String) -> String {
-        if MimeTypeUtil.isImage(contentType) {
-            return "📷"     // stringlint:disable
+        if MimeTypeUtil.isAnimated(contentType) {
+            return "🎡"     // stringlint:disable
         }
         else if MimeTypeUtil.isVideo(contentType) {
             return "🎥"     // stringlint:disable
@@ -292,8 +292,8 @@ extension Attachment: CustomStringConvertible {
         else if MimeTypeUtil.isAudio(contentType) {
             return "🎧"     // stringlint:disable
         }
-        else if MimeTypeUtil.isAnimated(contentType) {
-            return "🎡"     // stringlint:disable
+        else if MimeTypeUtil.isImage(contentType) {
+            return "📷"     // stringlint:disable
         }
         
         return "📎"         // stringlint:disable
