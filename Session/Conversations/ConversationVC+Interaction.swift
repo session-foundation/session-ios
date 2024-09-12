@@ -192,7 +192,7 @@ extension ConversationVC:
         threadVariant: SessionThread.Variant,
         messageText: String?
     ) {
-        sendMessage(text: (messageText ?? ""), attachments: attachments, using: viewModel.dependencies)
+        sendMessage(text: (messageText ?? ""), attachments: attachments)
         resetMentions()
         
         dismiss(animated: true) { [weak self] in
@@ -222,7 +222,7 @@ extension ConversationVC:
         threadVariant: SessionThread.Variant,
         messageText: String?
     ) {
-        sendMessage(text: (messageText ?? ""), attachments: attachments, using: viewModel.dependencies)
+        sendMessage(text: (messageText ?? ""), attachments: attachments)
         resetMentions()
         
         dismiss(animated: true) { [weak self] in
@@ -298,7 +298,7 @@ extension ConversationVC:
         let threadId: String = self.viewModel.threadData.threadId
         let threadVariant: SessionThread.Variant = self.viewModel.threadData.threadVariant
         
-        Permissions.requestLibraryPermissionIfNeeded { [weak self, dependencies = viewModel.dependencies] in
+        Permissions.requestLibraryPermissionIfNeeded(isSavingMedia: false) { [weak self, dependencies = viewModel.dependencies] in
             DispatchQueue.main.async {
                 let sendMediaNavController = SendMediaNavigationController.showingMediaLibraryFirst(
                     threadId: threadId,
@@ -467,8 +467,7 @@ extension ConversationVC:
         attachments: [SignalAttachment] = [],
         linkPreviewDraft: LinkPreviewDraft? = nil,
         quoteModel: QuotedReplyModel? = nil,
-        hasPermissionToSendSeed: Bool = false,
-        using dependencies: Dependencies = Dependencies()
+        hasPermissionToSendSeed: Bool = false
     ) {
         guard !showBlockedModalIfNeeded() else { return }
         
@@ -539,17 +538,14 @@ extension ConversationVC:
             quoteModel: quoteModel
         )
         
-        sendMessage(optimisticData: optimisticData, using: dependencies)
+        sendMessage(optimisticData: optimisticData)
     }
     
-    private func sendMessage(
-        optimisticData: ConversationViewModel.OptimisticMessageData,
-        using dependencies: Dependencies
-    ) {
+    private func sendMessage(optimisticData: ConversationViewModel.OptimisticMessageData) {
         let threadId: String = self.viewModel.threadData.threadId
         let threadVariant: SessionThread.Variant = self.viewModel.threadData.threadVariant
         
-        DispatchQueue.global(qos:.userInitiated).async(using: dependencies) {
+        DispatchQueue.global(qos:.userInitiated).async(using: viewModel.dependencies) { [dependencies = viewModel.dependencies] in
             // Generate the quote thumbnail if needed (want this to happen outside of the DBWrite thread as
             // this can take up to 0.5s
             let quoteThumbnailAttachment: Attachment? = optimisticData.quoteModel?.attachment?.cloneAsQuoteThumbnail()
@@ -902,8 +898,22 @@ extension ConversationVC:
         
         // For call info messages show the "call missed" modal
         guard cellViewModel.variant != .infoCall else {
-            let callMissedTipsModal: CallMissedTipsModal = CallMissedTipsModal(caller: cellViewModel.authorName)
-            present(callMissedTipsModal, animated: true, completion: nil)
+            // If the failure was due to the mic permission being denied then we want to show the permission modal,
+            // otherwise we want to show the call missed tips modal
+            guard
+                let infoMessageData: Data = (cellViewModel.rawBody ?? "").data(using: .utf8),
+                let messageInfo: CallMessage.MessageInfo = try? JSONDecoder().decode(
+                    CallMessage.MessageInfo.self,
+                    from: infoMessageData
+                ),
+                messageInfo.state == .permissionDeniedMicrophone
+            else {
+                let callMissedTipsModal: CallMissedTipsModal = CallMissedTipsModal(caller: cellViewModel.authorName)
+                present(callMissedTipsModal, animated: true, completion: nil)
+                return
+            }
+            
+            Permissions.requestMicrophonePermissionIfNeeded(presentingViewController: self)
             return
         }
         
@@ -1891,7 +1901,7 @@ extension ConversationVC:
             }
             
             // Try to send the optimistic message again
-            sendMessage(optimisticData: optimisticMessageData, using: dependencies)
+            sendMessage(optimisticData: optimisticMessageData)
             return
         }
         
@@ -2326,30 +2336,35 @@ extension ConversationVC:
         
         guard !mediaAttachments.isEmpty else { return }
     
-        mediaAttachments.forEach { attachment, originalFilePath in
-            PHPhotoLibrary.shared().performChanges(
-                {
-                    if attachment.isImage || attachment.isAnimated {
-                        PHAssetChangeRequest.creationRequestForAssetFromImage(
-                            atFileURL: URL(fileURLWithPath: originalFilePath)
-                        )
-                    }
-                    else if attachment.isVideo {
-                        PHAssetChangeRequest.creationRequestForAssetFromVideo(
-                            atFileURL: URL(fileURLWithPath: originalFilePath)
-                        )
-                    }
-                },
-                completionHandler: { _, _ in }
-            )
+        Permissions.requestLibraryPermissionIfNeeded(
+            isSavingMedia: true,
+            presentingViewController: self
+        ) { [weak self] in
+            mediaAttachments.forEach { attachment, originalFilePath in
+                PHPhotoLibrary.shared().performChanges(
+                    {
+                        if attachment.isImage || attachment.isAnimated {
+                            PHAssetChangeRequest.creationRequestForAssetFromImage(
+                                atFileURL: URL(fileURLWithPath: originalFilePath)
+                            )
+                        }
+                        else if attachment.isVideo {
+                            PHAssetChangeRequest.creationRequestForAssetFromVideo(
+                                atFileURL: URL(fileURLWithPath: originalFilePath)
+                            )
+                        }
+                    },
+                    completionHandler: { _, _ in }
+                )
+            }
+            
+            // Send a 'media saved' notification if needed
+            guard self?.viewModel.threadData.threadVariant == .contact, cellViewModel.variant == .standardIncoming else {
+                return
+            }
+            
+            self?.sendDataExtraction(kind: .mediaSaved(timestamp: UInt64(cellViewModel.timestampMs)))
         }
-        
-        // Send a 'media saved' notification if needed
-        guard self.viewModel.threadData.threadVariant == .contact, cellViewModel.variant == .standardIncoming else {
-            return
-        }
-        
-        sendDataExtraction(kind: .mediaSaved(timestamp: UInt64(cellViewModel.timestampMs)))
     }
 
     func ban(_ cellViewModel: MessageViewModel, using dependencies: Dependencies) {
@@ -2598,7 +2613,7 @@ extension ConversationVC:
         }
         
         // Send attachment
-        sendMessage(text: "", attachments: [attachment], using: dependencies)
+        sendMessage(text: "", attachments: [attachment])
     }
 
     func cancelVoiceMessageRecording() {

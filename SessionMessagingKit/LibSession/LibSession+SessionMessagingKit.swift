@@ -229,70 +229,70 @@ public extension LibSession {
         /// config while we are reading (which could result in crashes)
         return try existingDumpVariants
             .reduce(into: PendingChanges()) { result, variant in
-                guard
-                    let conf = dependencies.caches[.libSession]
-                        .config(for: variant, publicKey: publicKey)
-                        .wrappedValue
-                else { return }
-                    
-                // Check if the config needs to be pushed
-                guard config_needs_push(conf) else {
-                    // If not then try retrieve any obsolete hashes to be removed
-                    guard let cObsoletePtr: UnsafeMutablePointer<config_string_list> = config_old_hashes(conf) else {
-                        return
-                    }
-                    
-                    let obsoleteHashes: [String] = [String](
-                        pointer: cObsoletePtr.pointee.value,
-                        count: cObsoletePtr.pointee.len,
-                        defaultValue: []
-                    )
-                    
-                    // If there are no obsolete hashes then no need to return anything
-                    guard !obsoleteHashes.isEmpty else { return }
-                    
-                    result.append(hashes: obsoleteHashes)
-                    return
-                }
-                
-                guard let cPushData: UnsafeMutablePointer<config_push_data> = config_push(conf) else {
-                    let configCountInfo: String = {
-                        switch variant {
-                            case .userProfile: return "1 profile"  // stringlint:disable
-                            case .contacts: return "\(contacts_size(conf)) contacts"  // stringlint:disable
-                            case .userGroups: return "\(user_groups_size(conf)) group conversations"  // stringlint:disable
-                            case .convoInfoVolatile: return "\(convo_info_volatile_size(conf)) volatile conversations"  // stringlint:disable
-                            case .invalid: return "Invalid"  // stringlint:disable
+                try dependencies.caches[.libSession]
+                    .config(for: variant, publicKey: publicKey)
+                    .mutate { conf in
+                        guard conf != nil else { return }
+                        
+                        // Check if the config needs to be pushed
+                        guard config_needs_push(conf) else {
+                            // If not then try retrieve any obsolete hashes to be removed
+                            guard let cObsoletePtr: UnsafeMutablePointer<config_string_list> = config_old_hashes(conf) else {
+                                return
+                            }
+                            
+                            let obsoleteHashes: [String] = [String](
+                                pointer: cObsoletePtr.pointee.value,
+                                count: cObsoletePtr.pointee.len,
+                                defaultValue: []
+                            )
+                            
+                            // If there are no obsolete hashes then no need to return anything
+                            guard !obsoleteHashes.isEmpty else { return }
+                            
+                            result.append(hashes: obsoleteHashes)
+                            return
                         }
-                    }()
+                        
+                        guard let cPushData: UnsafeMutablePointer<config_push_data> = config_push(conf) else {
+                            let configCountInfo: String = {
+                                switch variant {
+                                    case .userProfile: return "1 profile"  // stringlint:disable
+                                    case .contacts: return "\(contacts_size(conf)) contacts"  // stringlint:disable
+                                    case .userGroups: return "\(user_groups_size(conf)) group conversations"  // stringlint:disable
+                                    case .convoInfoVolatile: return "\(convo_info_volatile_size(conf)) volatile conversations"  // stringlint:disable
+                                    case .invalid: return "Invalid"  // stringlint:disable
+                                }
+                            }()
+                            
+                            throw LibSessionError(
+                                conf,
+                                fallbackError: .unableToGeneratePushData,
+                                logMessage: "[LibSession] Failed to generate push data for \(variant) config data, size: \(configCountInfo), error"
+                            )
+                        }
                     
-                    throw LibSessionError(
-                        conf,
-                        fallbackError: .unableToGeneratePushData,
-                        logMessage: "[LibSession] Failed to generate push data for \(variant) config data, size: \(configCountInfo), error"
-                    )
-                }
-            
-                let pushData: Data = Data(
-                    bytes: cPushData.pointee.config,
-                    count: cPushData.pointee.config_len
-                )
-                let obsoleteHashes: [String] = [String](
-                    pointer: cPushData.pointee.obsolete,
-                    count: cPushData.pointee.obsolete_len,
-                    defaultValue: []
-                )
-                let seqNo: Int64 = cPushData.pointee.seqno
-                cPushData.deallocate()
-                
-                result.append(
-                    data: PendingChanges.PushData(
-                        data: pushData,
-                        seqNo: seqNo,
-                        variant: variant
-                    ),
-                    hashes: obsoleteHashes
-                )
+                        let pushData: Data = Data(
+                            bytes: cPushData.pointee.config,
+                            count: cPushData.pointee.config_len
+                        )
+                        let obsoleteHashes: [String] = [String](
+                            pointer: cPushData.pointee.obsolete,
+                            count: cPushData.pointee.obsolete_len,
+                            defaultValue: []
+                        )
+                        let seqNo: Int64 = cPushData.pointee.seqno
+                        cPushData.deallocate()
+                        
+                        result.append(
+                            data: PendingChanges.PushData(
+                                data: pushData,
+                                seqNo: seqNo,
+                                variant: variant
+                            ),
+                            hashes: obsoleteHashes
+                        )
+                    }
             }
     }
     

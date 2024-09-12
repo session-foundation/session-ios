@@ -40,7 +40,7 @@ class SnodeRequestSpec: QuickSpec {
                                 ),
                                 urlRequest: URLRequest(url: URL(string: "https://www.oxen.io")!),
                                 responseType: NoResponse.self,
-                                timeout: 0
+                                requestTimeout: 0
                             )
                         ]
                     )

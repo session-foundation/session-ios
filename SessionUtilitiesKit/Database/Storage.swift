@@ -91,7 +91,7 @@ open class Storage {
         /// **Note:** If we fail to get/generate the keySpec then don't bother continuing to setup the Database as it'll just be invalid,
         /// in this case the App/Extensions will have logic that checks the `isValid` flag of the database
         do {
-            var tmpKeySpec: Data = try Storage.getOrGenerateDatabaseKeySpec()
+            var tmpKeySpec: Data = try getOrGenerateDatabaseKeySpec()
             tmpKeySpec.resetBytes(in: 0..<tmpKeySpec.count)
         }
         catch { return }
@@ -108,8 +108,8 @@ open class Storage {
         config.busyMode = .timeout(Storage.writeTransactionStartTimeout)
 
         /// Load in the SQLCipher keys
-        config.prepareDatabase { db in
-            var keySpec: Data = try Storage.getOrGenerateDatabaseKeySpec()
+        config.prepareDatabase { [weak self] db in
+            var keySpec: Data = try self?.getOrGenerateDatabaseKeySpec() ?? { throw StorageError.invalidKeySpec }()
             defer { keySpec.resetBytes(in: 0..<keySpec.count) } // Reset content immediately after use
             
             // Use a raw key spec, where the 96 hexadecimal digits are provided
@@ -358,12 +358,12 @@ open class Storage {
         return try Singleton.keychain.data(forKey: .dbCipherKeySpec)
     }
     
-    @discardableResult private static func getOrGenerateDatabaseKeySpec() throws -> Data {
+    @discardableResult private func getOrGenerateDatabaseKeySpec() throws -> Data {
         do {
-            var keySpec: Data = try getDatabaseCipherKeySpec()
+            var keySpec: Data = try Storage.getDatabaseCipherKeySpec()
             defer { keySpec.resetBytes(in: 0..<keySpec.count) }
             
-            guard keySpec.count == kSQLCipherKeySpecLength else { throw StorageError.invalidKeySpec }
+            guard keySpec.count == Storage.kSQLCipherKeySpecLength else { throw StorageError.invalidKeySpec }
             
             return keySpec
         }
@@ -382,7 +382,7 @@ open class Storage {
                 case (_, errSecItemNotFound):
                     // No keySpec was found so we need to generate a new one
                     do {
-                        var keySpec: Data = try Randomness.generateRandomBytes(numberBytes: kSQLCipherKeySpecLength)
+                        var keySpec: Data = try Randomness.generateRandomBytes(numberBytes: Storage.kSQLCipherKeySpecLength)
                         defer { keySpec.resetBytes(in: 0..<keySpec.count) } // Reset content immediately after use
                         
                         try Singleton.keychain.set(data: keySpec, forKey: .dbCipherKeySpec)
@@ -426,40 +426,41 @@ open class Storage {
     /// The generally suggested approach is to avoid this entirely by not storing the database in an AppGroup folder and sharing it
     /// with extensions - this may be possible but will require significant refactoring and a potentially painful migration to move the
     /// database and other files into the App folder
-    public static func suspendDatabaseAccess(using dependencies: Dependencies) {
-        guard !dependencies.storage.isSuspended else { return }
+    public func suspendDatabaseAccess() {
+        guard !isSuspended else { return }
         
-        dependencies.storage.isSuspended = true
+        isSuspended = true
         Log.info("[Storage] Database access suspended.")
         
         /// Interrupt any open transactions (if this function is called then we are expecting that all processes have finished running
         /// and don't actually want any more transactions to occur)
-        dependencies.storage.dbWriter?.interrupt()
+        dbWriter?.interrupt()
     }
     
     /// This method reverses the database suspension used to prevent the `0xdead10cc` exception (see `suspendDatabaseAccess()`
     /// above for more information
-    public static func resumeDatabaseAccess(using dependencies: Dependencies) {
-        guard dependencies.storage.isSuspended else { return }
-        dependencies.storage.isSuspended = false
+    public func resumeDatabaseAccess() {
+        guard isSuspended else { return }
+
+        isSuspended = false
         Log.info("[Storage] Database access resumed.")
     }
     
-    public static func resetAllStorage() {
-        Storage.shared.isValid = false
+    public func resetAllStorage() {
+        isValid = false
         Storage.internalHasCreatedValidInstance.mutate { $0 = false }
-        Storage.shared.migrationsCompleted.mutate { $0 = false }
-        Storage.shared.dbWriter = nil
+        migrationsCompleted.mutate { $0 = false }
+        dbWriter = nil
         
         deleteDatabaseFiles()
         do { try deleteDbKeys() } catch { Log.warn("Failed to delete database keys.") }
     }
     
-    public static func reconfigureDatabase() {
-        Storage.shared.configureDatabase()
+    public func reconfigureDatabase() {
+        configureDatabase()
     }
     
-    public static func resetForCleanMigration() {
+    public func resetForCleanMigration() {
         // Clear existing content
         resetAllStorage()
         
@@ -467,13 +468,13 @@ open class Storage {
         reconfigureDatabase()
     }
     
-    private static func deleteDatabaseFiles() {
-        do { try FileSystem.deleteFile(at: databasePath) } catch { Log.warn("Failed to delete database.") }
-        do { try FileSystem.deleteFile(at: databasePathShm) } catch { Log.warn("Failed to delete database-shm.") }
-        do { try FileSystem.deleteFile(at: databasePathWal) } catch { Log.warn("Failed to delete database-wal.") }
+    private func deleteDatabaseFiles() {
+        do { try FileSystem.deleteFile(at: Storage.databasePath) } catch { Log.warn("Failed to delete database.") }
+        do { try FileSystem.deleteFile(at: Storage.databasePathShm) } catch { Log.warn("Failed to delete database-shm.") }
+        do { try FileSystem.deleteFile(at: Storage.databasePathWal) } catch { Log.warn("Failed to delete database-wal.") }
     }
     
-    private static func deleteDbKeys() throws {
+    private func deleteDbKeys() throws {
         try Singleton.keychain.remove(key: .dbCipherKeySpec)
     }
     
@@ -734,7 +735,7 @@ public extension ValueObservation {
 #if DEBUG
 public extension Storage {
     func exportInfo(password: String) throws -> (dbPath: String, keyPath: String) {
-        var keySpec: Data = try Storage.getOrGenerateDatabaseKeySpec()
+        var keySpec: Data = try getOrGenerateDatabaseKeySpec()
         defer { keySpec.resetBytes(in: 0..<keySpec.count) } // Reset content immediately after use
         
         guard var passwordData: Data = password.data(using: .utf8) else { throw StorageError.generic }

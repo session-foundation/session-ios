@@ -30,20 +30,20 @@ extension MessageReceiver {
             try ProfileManager.updateProfileIfNeeded(
                 db,
                 publicKey: sender,
-                name: profile.displayName,
-                blocksCommunityMessageRequests: profile.blocksCommunityMessageRequests,
-                avatarUpdate: {
+                displayNameUpdate: .contactUpdate(profile.displayName),
+                displayPictureUpdate: {
                     guard
                         let profilePictureUrl: String = profile.profilePictureUrl,
                         let profileKey: Data = profile.profileKey
-                    else { return .remove }
+                    else { return .contactRemove }
                     
-                    return .updateTo(
+                    return .contactUpdateTo(
                         url: profilePictureUrl,
                         key: profileKey,
                         fileName: nil
                     )
                 }(),
+                blocksCommunityMessageRequests: profile.blocksCommunityMessageRequests,
                 sentTimestamp: messageSentTimestamp,
                 using: dependencies
             )

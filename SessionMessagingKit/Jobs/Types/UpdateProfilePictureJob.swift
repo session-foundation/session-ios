@@ -48,8 +48,7 @@ public enum UpdateProfilePictureJob: JobExecutor {
         
         ProfileManager.updateLocal(
             queue: queue,
-            profileName: profile.name,
-            avatarUpdate: (profilePictureData.map { .uploadImageData($0) } ?? .none),
+            displayPictureUpdate: (profilePictureData.map { .currentUserUploadImageData($0) } ?? .none),
             success: { db in
                 // Need to call the 'success' closure asynchronously on the queue to prevent a reentrancy
                 // issue as it will write to the database and this closure is already called within

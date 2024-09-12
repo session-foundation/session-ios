@@ -425,7 +425,11 @@ public class PagedDatabaseObserver<ObservedTable, T>: TransactionObserver where 
                 let updatedItems: [T] = {
                     do { return try dataQuery(targetRowIds).fetchAll(db) }
                     catch {
-                        SNLog("[PagedDatabaseObserver] Error fetching data during change: \(error)")
+                        // If the database is suspended then don't bother logging (as we already know why)
+                        if !Storage.shared.isSuspended {
+                            Log.error("[PagedDatabaseObserver] Error fetching data during change: \(error)")
+                        }
+                        
                         return []
                     }
                 }()

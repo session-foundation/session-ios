@@ -21,6 +21,7 @@ public enum MessageReceiver {
         var customMessage: Message? = nil
         let sender: String
         let sentTimestamp: UInt64
+        let serverHash: String?
         let openGroupServerMessageId: UInt64?
         let threadVariant: SessionThread.Variant
         let threadIdGenerator: (Message) throws -> String
@@ -40,6 +41,7 @@ public enum MessageReceiver {
                 plaintext = data.removePadding()   // Remove the padding
                 sender = messageSender
                 sentTimestamp = UInt64(floor(timestamp * 1000)) // Convert to ms for database consistency
+                serverHash = nil
                 openGroupServerMessageId = UInt64(messageServerId)
                 threadVariant = .community
                 threadIdGenerator = { message in
@@ -50,10 +52,6 @@ public enum MessageReceiver {
                 }
                 
             case (_, .openGroupInbox(let timestamp, let messageServerId, let serverPublicKey, let senderId, let recipientId)):
-                guard let userEd25519KeyPair: KeyPair = Identity.fetchUserEd25519KeyPair(db) else {
-                    throw MessageReceiverError.noUserED25519KeyPair
-                }
-                
                 (plaintext, sender) = try dependencies.crypto.tryGenerate(
                     .plaintextWithSessionBlindingProtocol(
                         db,
@@ -67,11 +65,12 @@ public enum MessageReceiver {
                 
                 plaintext = plaintext.removePadding()   // Remove the padding
                 sentTimestamp = UInt64(floor(timestamp * 1000)) // Convert to ms for database consistency
+                serverHash = nil
                 openGroupServerMessageId = UInt64(messageServerId)
                 threadVariant = .contact
                 threadIdGenerator = { _ in sender }
                 
-            case (_, .swarm(let publicKey, let namespace, _, _, _)):
+            case (_, .swarm(let publicKey, let namespace, let swarmServerHash, _, _)):
                 switch namespace {
                     case .default:
                         guard
@@ -80,9 +79,6 @@ public enum MessageReceiver {
                         else {
                             SNLog("Failed to unwrap data for message from 'default' namespace.")
                             throw MessageReceiverError.invalidMessage
-                        }
-                        guard let userX25519KeyPair: KeyPair = Identity.fetchUserKeyPair(db) else {
-                            throw MessageReceiverError.noUserX25519KeyPair
                         }
                         
                         (plaintext, sender) = try dependencies.crypto.tryGenerate(
@@ -94,6 +90,7 @@ public enum MessageReceiver {
                         )
                         plaintext = plaintext.removePadding()   // Remove the padding
                         sentTimestamp = envelope.timestamp
+                        serverHash = swarmServerHash
                         openGroupServerMessageId = nil
                         threadVariant = .contact
                         threadIdGenerator = { message in
@@ -148,6 +145,16 @@ public enum MessageReceiver {
                         (plaintext, sender) = try decrypt(keyPairs: encryptionKeyPairs)
                         plaintext = plaintext.removePadding()   // Remove the padding
                         sentTimestamp = envelope.timestamp
+                        
+                        /// If we weren't given a `serverHash` then compute one locally using the same logic the swarm would
+                        switch swarmServerHash.isEmpty {
+                            case false: serverHash = swarmServerHash
+                            case true:
+                                serverHash = dependencies.crypto.generate(
+                                    .messageServerHash(swarmPubkey: publicKey, namespace: namespace, data: data)
+                                ).defaulting(to: "")
+                        }
+                        
                         openGroupServerMessageId = nil
                         threadVariant = .legacyGroup
                         threadIdGenerator = { _ in publicKey }
@@ -170,7 +177,7 @@ public enum MessageReceiver {
         let message: Message = try (customMessage ?? Message.createMessageFrom(proto, sender: sender))
         message.sender = sender
         message.recipient = userSessionId
-        message.serverHash = origin.serverHash
+        message.serverHash = serverHash
         message.sentTimestamp = sentTimestamp
         message.receivedTimestamp = UInt64(SnodeAPI.currentOffsetTimestampMs())
         message.openGroupServerMessageId = openGroupServerMessageId

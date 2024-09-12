@@ -1,6 +1,7 @@
 // Copyright © 2022 Rangeproof Pty Ltd. All rights reserved.
 
 import Foundation
+import AVFAudio
 import GRDB
 import WebRTC
 import SessionUtilitiesKit
@@ -75,8 +76,11 @@ extension MessageReceiver {
             return
         }
         
-        guard db[.areCallsEnabled] else {
-            if let interaction: Interaction = try MessageReceiver.insertCallInfoMessage(db, for: message, state: .permissionDenied, using: dependencies) {
+        let hasMicrophonePermission: Bool = (AVAudioSession.sharedInstance().recordPermission == .granted)
+        guard db[.areCallsEnabled] && hasMicrophonePermission else {
+            let state: CallMessage.MessageInfo.State = (db[.areCallsEnabled] ? .permissionDeniedMicrophone : .permissionDenied)
+            
+            if let interaction: Interaction = try MessageReceiver.insertCallInfoMessage(db, for: message, state: state, using: dependencies) {
                 let thread: SessionThread = try SessionThread
                     .fetchOrCreate(db, id: sender, variant: .contact, shouldBeVisible: nil)
                 
