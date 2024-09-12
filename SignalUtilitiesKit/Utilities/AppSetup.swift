@@ -8,7 +8,8 @@ import SessionUIKit
 import SessionSnodeKit
 
 public enum AppSetup {
-    private static let hasRun: Atomic<Bool> = Atomic(false)
+    private static let _hasRun: Atomic<Bool> = Atomic(false)
+    public static var hasRun: Bool { _hasRun.wrappedValue }
     
     public static func setupEnvironment(
         retrySetupIfDatabaseInvalid: Bool = false,
@@ -18,13 +19,13 @@ public enum AppSetup {
         using dependencies: Dependencies
     ) {
         // If we've already run the app setup then only continue under certain circumstances
-        guard !AppSetup.hasRun.wrappedValue else {
-            let storageIsValid: Bool = Storage.shared.isValid
+        guard !AppSetup._hasRun.wrappedValue else {
+            let storageIsValid: Bool = dependencies.storage.isValid
             
             switch (retrySetupIfDatabaseInvalid, storageIsValid) {
                 case (true, false):
-                    Storage.reconfigureDatabase()
-                    AppSetup.hasRun.mutate { $0 = false }
+                    dependencies.storage.reconfigureDatabase()
+                    AppSetup._hasRun.mutate { $0 = false }
                     AppSetup.setupEnvironment(
                         retrySetupIfDatabaseInvalid: false, // Don't want to get stuck in a loop
                         appSpecificBlock: appSpecificBlock,
@@ -42,7 +43,7 @@ public enum AppSetup {
             return
         }
         
-        AppSetup.hasRun.mutate { $0 = true }
+        AppSetup._hasRun.mutate { $0 = true }
         
         var backgroundTask: SessionBackgroundTask? = SessionBackgroundTask(label: #function)
         
@@ -91,7 +92,7 @@ public enum AppSetup {
     ) {
         var backgroundTask: SessionBackgroundTask? = (backgroundTask ?? SessionBackgroundTask(label: #function))
         
-        Storage.shared.perform(
+        dependencies.storage.perform(
             migrationTargets: [
                 SNUtilitiesKit.self,
                 SNSnodeKit.self,

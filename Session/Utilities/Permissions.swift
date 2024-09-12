@@ -3,6 +3,7 @@
 import UIKit
 import Photos
 import PhotosUI
+import AVFAudio
 import SessionUIKit
 import SessionUtilitiesKit
 import SessionMessagingKit
@@ -94,9 +95,11 @@ public enum Permissions {
     }
 
     public static func requestLibraryPermissionIfNeeded(
+        isSavingMedia: Bool,
         presentingViewController: UIViewController? = nil,
         onAuthorized: @escaping () -> Void
     ) {
+        let targetPermission: PHAccessLevel = (isSavingMedia ? .addOnly : .readWrite)
         let authorizationStatus = PHPhotoLibrary.authorizationStatus(for: .readWrite)
         if authorizationStatus == .notDetermined {
             // When the user chooses to select photos (which is the .limit status),
@@ -109,7 +112,7 @@ public enum Permissions {
             // from showing when we request the photo library permission.
             SessionEnvironment.shared?.isRequestingPermission = true
             
-            PHPhotoLibrary.requestAuthorization(for: .readWrite) { status in
+            PHPhotoLibrary.requestAuthorization(for: targetPermission) { status in
                 SessionEnvironment.shared?.isRequestingPermission = false
                 if [ PHAuthorizationStatus.authorized, PHAuthorizationStatus.limited ].contains(status) {
                     onAuthorized()

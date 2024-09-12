@@ -1,6 +1,7 @@
 // Copyright © 2022 Rangeproof Pty Ltd. All rights reserved.
 
 import Foundation
+import AVFAudio
 import Combine
 import GRDB
 import CallKit
@@ -11,8 +12,8 @@ import SignalUtilitiesKit
 import SessionUtilitiesKit
 
 public final class NotificationServiceExtension: UNNotificationServiceExtension {
-    private let dependencies: Dependencies = Dependencies()
-    private var didPerformSetup = false
+    private var dependencies: Dependencies = Dependencies()
+    private var startTime: CFTimeInterval = 0
     private var contentHandler: ((UNNotificationContent) -> Void)?
     private var request: UNNotificationRequest?
     private var hasCompleted: Atomic<Bool> = Atomic(false)
@@ -26,6 +27,7 @@ public final class NotificationServiceExtension: UNNotificationServiceExtension 
     // MARK: Did receive a remote push notification request
     
     override public func didReceive(_ request: UNNotificationRequest, withContentHandler contentHandler: @escaping (UNNotificationContent) -> Void) {
+        self.startTime = CACurrentMediaTime()
         self.contentHandler = contentHandler
         self.request = request
         
@@ -34,13 +36,11 @@ public final class NotificationServiceExtension: UNNotificationServiceExtension 
         
         // Abort if the main app is running
         guard !(UserDefaults.sharedLokiProject?[.isMainAppActive]).defaulting(to: false) else {
-            Log.info("didReceive called while main app running.")
             return self.completeSilenty(handledNotification: false, isMainAppAndActive: true)
         }
         
         guard let notificationContent = request.content.mutableCopy() as? UNMutableNotificationContent else {
-            Log.info("didReceive called with no content.")
-            return self.completeSilenty(handledNotification: false)
+            return self.completeSilenty(handledNotification: false, noContent: true)
         }
         
         Log.info("didReceive called.")
@@ -50,10 +50,12 @@ public final class NotificationServiceExtension: UNNotificationServiceExtension 
             Singleton.setup(appContext: NotificationServiceExtensionContext())
         }
         
-        // Perform main setup
-        Storage.resumeDatabaseAccess(using: dependencies)
+        /// Perform main setup (create a new `Dependencies` instance each time so we don't need to worry about state from previous
+        /// notifications causing issues with new notifications
+        self.dependencies = Dependencies()
+        
         DispatchQueue.main.sync {
-            self.setUpIfNecessary() { [weak self] in
+            self.performSetup { [weak self] in
                 self?.handleNotification(notificationContent, isPerformingResetup: false)
             }
         }
@@ -64,16 +66,6 @@ public final class NotificationServiceExtension: UNNotificationServiceExtension 
             notificationContent: notificationContent,
             using: dependencies
         )
-        
-        guard metadata.accountId == getUserHexEncodedPublicKey(using: dependencies) else {
-            guard !isPerformingResetup else {
-                Log.error("Received notification for an accountId that isn't the current user, resetup failed.")
-                return self.completeSilenty(handledNotification: false)
-            }
-            
-            Log.warn("Received notification for an accountId that isn't the current user, attempting to resetup.")
-            return self.forceResetup(notificationContent)
-        }
         
         guard
             (result == .success || result == .legacySuccess),
@@ -158,14 +150,15 @@ public final class NotificationServiceExtension: UNNotificationServiceExtension 
                             throw NotificationError.ignorableMessage
                         }
                         
-                        switch (db[.areCallsEnabled], isCallOngoing) {
+                        let hasMicrophonePermission: Bool = (AVAudioSession.sharedInstance().recordPermission == .granted)
+                        switch ((db[.areCallsEnabled] && hasMicrophonePermission), isCallOngoing) {
                             case (false, _):
                                 if
                                     let sender: String = callMessage.sender,
                                     let interaction: Interaction = try MessageReceiver.insertCallInfoMessage(
                                         db,
                                         for: callMessage,
-                                        state: .permissionDenied,
+                                        state: (db[.areCallsEnabled] ? .permissionDeniedMicrophone : .permissionDenied),
                                         using: dependencies
                                     )
                                 {
@@ -238,31 +231,35 @@ public final class NotificationServiceExtension: UNNotificationServiceExtension 
                 // If an error occurred we want to rollback the transaction (by throwing) and then handle
                 // the error outside of the database
                 let handleError = {
-                    switch error {
-                        case MessageReceiverError.noGroupKeyPair:
-                            Log.warn("Failed due to having no legacy group decryption keys.")
-                            self?.completeSilenty(handledNotification: false)
-                            
-                        case MessageReceiverError.outdatedMessage:
-                            Log.info("Ignoring notification for already seen message.")
-                            self?.completeSilenty(handledNotification: false)
-                            
-                        case NotificationError.ignorableMessage:
-                            Log.info("Ignoring message which requires no notification.")
-                            self?.completeSilenty(handledNotification: false)
-                            
-                        case MessageReceiverError.duplicateMessage, MessageReceiverError.duplicateControlMessage,
-                            MessageReceiverError.duplicateMessageNewSnode:
-                            Log.info("Ignoring duplicate message (probably received it just before going to the background).")
-                            self?.completeSilenty(handledNotification: false)
-                            
-                        case NotificationError.messageProcessing:
-                            self?.handleFailure(for: notificationContent, error: .messageProcessing)
-                            
-                        case let msgError as MessageReceiverError:
-                            self?.handleFailure(for: notificationContent, error: .messageHandling(msgError))
-                            
-                        default: self?.handleFailure(for: notificationContent, error: .other(error))
+                    // Dispatch to the next run loop to ensure we are out of the database write thread before
+                    // handling the result (and suspending the database)
+                    DispatchQueue.main.async {
+                        switch error {
+                            case MessageReceiverError.noGroupKeyPair:
+                                Log.warn("Failed due to having no legacy group decryption keys.")
+                                self?.completeSilenty(handledNotification: false)
+                                
+                            case MessageReceiverError.outdatedMessage:
+                                Log.info("Ignoring notification for already seen message.")
+                                self?.completeSilenty(handledNotification: false)
+                                
+                            case NotificationError.ignorableMessage:
+                                Log.info("Ignoring message which requires no notification.")
+                                self?.completeSilenty(handledNotification: false)
+                                
+                            case MessageReceiverError.duplicateMessage, MessageReceiverError.duplicateControlMessage,
+                                MessageReceiverError.duplicateMessageNewSnode:
+                                Log.info("Ignoring duplicate message (probably received it just before going to the background).")
+                                self?.completeSilenty(handledNotification: false)
+                                
+                            case NotificationError.messageProcessing:
+                                self?.handleFailure(for: notificationContent, error: .messageProcessing)
+                                
+                            case let msgError as MessageReceiverError:
+                                self?.handleFailure(for: notificationContent, error: .messageHandling(msgError))
+                                
+                            default: self?.handleFailure(for: notificationContent, error: .other(error))
+                        }
                     }
                 }
                 
@@ -277,18 +274,29 @@ public final class NotificationServiceExtension: UNNotificationServiceExtension 
 
     // MARK: Setup
 
-    private func setUpIfNecessary(completion: @escaping () -> Void) {
-        Log.assertOnMainThread()
-
-        // The NSE will often re-use the same process, so if we're
-        // already set up we want to do nothing; we're already ready
-        // to process new messages.
-        guard !didPerformSetup else { return completion() }
-
+    private func performSetup(completion: @escaping () -> Void) {
         Log.info("Performing setup.")
-        didPerformSetup = true
 
         _ = AppVersion.shared
+        
+        // FIXME: Remove these once the database instance is fully managed via `Dependencies`
+        if AppSetup.hasRun {
+            dependencies.storage.resumeDatabaseAccess()
+            dependencies.storage.reconfigureDatabase()
+            dependencies.caches.mutate(cache: .general) { $0.clearCachedUserPublicKey() }
+            
+            // If we had already done a setup then `libSession` won't have been re-setup so
+            // we need to do so now (this ensures it has the correct user keys as well)
+            LibSession.clearMemoryState(using: dependencies)
+            dependencies.storage.read { [dependencies] db in
+                LibSession.loadState(
+                    db,
+                    userPublicKey: getUserHexEncodedPublicKey(db, using: dependencies),
+                    ed25519SecretKey: Identity.fetchUserEd25519KeyPair(db)?.secretKey,
+                    using: dependencies
+                )
+            }
+        }
 
         AppSetup.setupEnvironment(
             retrySetupIfDatabaseInvalid: true,
@@ -307,85 +315,44 @@ public final class NotificationServiceExtension: UNNotificationServiceExtension 
                 // Setup LibSession
                 LibSession.addLogger()
             },
-            migrationsCompletion: { [weak self] result, needsConfigSync in
+            migrationsCompletion: { [weak self, dependencies] result, _ in
                 switch result {
                     case .failure(let error):
                         Log.error("Failed to complete migrations: \(error).")
                         self?.completeSilenty(handledNotification: false)
                         
                     case .success:
-                        // We should never receive a non-voip notification on an app that doesn't support
-                        // app extensions since we have to inform the service we wanted these, so in theory
-                        // this path should never occur. However, the service does have our push token
-                        // so it is possible that could change in the future. If it does, do nothing
-                        // and don't disturb the user. Messages will be processed when they open the app.
-                        guard Storage.shared[.isReadyForAppExtensions] else {
-                            Log.error("Not ready for extensions.")
-                            self?.completeSilenty(handledNotification: false)
-                            return
-                        }
-                        
                         DispatchQueue.main.async {
-                            self?.versionMigrationsDidComplete(needsConfigSync: needsConfigSync, completion: completion)
+                            // Ensure storage is actually valid
+                            guard dependencies.storage.isValid else {
+                                Log.error("Storage invalid.")
+                                self?.completeSilenty(handledNotification: false)
+                                return
+                            }
+                            
+                            // We should never receive a non-voip notification on an app that doesn't support
+                            // app extensions since we have to inform the service we wanted these, so in theory
+                            // this path should never occur. However, the service does have our push token
+                            // so it is possible that could change in the future. If it does, do nothing
+                            // and don't disturb the user. Messages will be processed when they open the app.
+                            guard dependencies.storage[.isReadyForAppExtensions] else {
+                                Log.error("Not ready for extensions.")
+                                self?.completeSilenty(handledNotification: false)
+                                return
+                            }
+                            
+                            // If the app wasn't ready then mark it as ready now
+                            if !Singleton.appReadiness.isAppReady {
+                                // Note that this does much more than set a flag; it will also run all deferred blocks.
+                                Singleton.appReadiness.setAppReady()
+                            }
+
+                            completion()
                         }
                 }
             },
             using: dependencies
         )
-    }
-    
-    private func versionMigrationsDidComplete(needsConfigSync: Bool, completion: @escaping () -> Void) {
-        Log.assertOnMainThread()
-
-        // If we need a config sync then trigger it now
-        if needsConfigSync {
-            Storage.shared.write { db in
-                ConfigurationSyncJob.enqueue(db, publicKey: getUserHexEncodedPublicKey(db))
-            }
-        }
-
-        // App isn't ready until storage is ready AND all version migrations are complete.
-        guard Storage.shared.isValid else {
-            Log.error("Storage invalid.")
-            return self.completeSilenty(handledNotification: false)
-        }
-        
-        // If the app wasn't ready then mark it as ready now
-        if !Singleton.appReadiness.isAppReady {
-            // Note that this does much more than set a flag; it will also run all deferred blocks.
-            Singleton.appReadiness.setAppReady()
-        }
-        
-        completion()
-    }
-    
-    /// It's possible for the NotificationExtension to still have some kind of cached data from the old database after it's been deleted
-    /// when a new account is created shortly after, this results in weird errors when receiving PNs for the new account
-    ///
-    /// In order to avoid this situation we check to see whether the received PN is targetting the current user and, if not, we call this
-    /// method to force a resetup of the notification extension
-    ///
-    /// **Note:** We need to reconfigure the database here because if the database was deleted it's possible for the NotificationExtension
-    /// to somehow still have some form of access to the old one
-    private func forceResetup(_ notificationContent: UNMutableNotificationContent) {
-        Storage.reconfigureDatabase()
-        LibSession.clearMemoryState(using: dependencies)
-        dependencies.caches.mutate(cache: .general) { $0.clearCachedUserPublicKey() }
-        
-        self.setUpIfNecessary() { [weak self, dependencies] in
-            // If we had already done a setup then `libSession` won't have been re-setup so
-            // we need to do so now (this ensures it has the correct user keys as well)
-            Storage.shared.read { db in
-                LibSession.loadState(
-                    db,
-                    userPublicKey: getUserHexEncodedPublicKey(db),
-                    ed25519SecretKey: Identity.fetchUserEd25519KeyPair(db)?.secretKey,
-                    using: dependencies
-                )
-            }
-            
-            self?.handleNotification(notificationContent, isPerformingResetup: true)
-        }
     }
     
     // MARK: Handle completion
@@ -397,7 +364,7 @@ public final class NotificationServiceExtension: UNNotificationServiceExtension 
         completeSilenty(handledNotification: false)
     }
     
-    private func completeSilenty(handledNotification: Bool, isMainAppAndActive: Bool = false) {
+    private func completeSilenty(handledNotification: Bool, isMainAppAndActive: Bool = false, noContent: Bool = false) {
         // Ensure we only run this once
         guard
             hasCompleted.mutate({ hasCompleted in
@@ -408,14 +375,21 @@ public final class NotificationServiceExtension: UNNotificationServiceExtension 
         else { return }
         
         let silentContent: UNMutableNotificationContent = UNMutableNotificationContent()
-        silentContent.badge = Storage.shared
-            .read { db in try Interaction.fetchUnreadCount(db) }
-            .map { NSNumber(value: $0) }
-            .defaulting(to: NSNumber(value: 0))
         
-        Log.info(handledNotification ? "Completed after handling notification." : "Completed silently.")
         if !isMainAppAndActive {
-            Storage.suspendDatabaseAccess(using: dependencies)
+            silentContent.badge = dependencies.storage
+                .read { db in try Interaction.fetchUnreadCount(db) }
+                .map { NSNumber(value: $0) }
+                .defaulting(to: NSNumber(value: 0))
+            dependencies.storage.suspendDatabaseAccess()
+        }
+        
+        let duration: CFTimeInterval = (CACurrentMediaTime() - startTime)
+        switch (isMainAppAndActive, handledNotification, noContent) {
+            case (true, _, _): Log.info("Called while main app running, ignoring after \(.seconds(duration), unit: .ms).")
+            case (_, _, true): Log.info("Called with no content, ignoring after \(.seconds(duration), unit: .ms).")
+            case (_, true, _): Log.info("Completed after handling notification in \(.seconds(duration), unit: .ms).")
+            default: Log.info("Completed silently after \(.seconds(duration), unit: .ms).")
         }
         Log.flush()
         
@@ -496,8 +470,10 @@ public final class NotificationServiceExtension: UNNotificationServiceExtension 
     }
 
     private func handleFailure(for content: UNMutableNotificationContent, error: NotificationError) {
-        Log.error("Show generic failure message due to error: \(error).")
-        Storage.suspendDatabaseAccess(using: dependencies)
+        dependencies.storage.suspendDatabaseAccess()
+        
+        let duration: CFTimeInterval = (CACurrentMediaTime() - startTime)
+        Log.error("Show generic failure message after \(.seconds(duration), unit: .ms) due to error: \(error).")
         Log.flush()
         
         content.title = Constants.app_name

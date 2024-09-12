@@ -493,8 +493,24 @@ public extension SessionThread {
         
         // If the thread is a message request then we only want to notify for the first message
         if self.variant == .contact && isMessageRequest {
+            let numInteractions: Int = {
+                switch interaction.serverHash {
+                    case .some(let serverHash):
+                        return (try? self.interactions
+                            .filter(Interaction.Columns.serverHash != serverHash)
+                            .fetchCount(db))
+                            .defaulting(to: 0)
+                    
+                    case .none:
+                        return (try? self.interactions
+                            .filter(Interaction.Columns.timestampMs != interaction.timestampMs)
+                            .fetchCount(db))
+                            .defaulting(to: 0)
+                }
+            }()
+            
             // We only want to show a notification for the first interaction in the thread
-            guard ((try? self.interactions.fetchCount(db)) ?? 0) <= 1 else { return false }
+            guard numInteractions == 0 else { return false }
             
             // Need to re-show the message requests section if it had been hidden
             if db[.hasHiddenMessageRequests] {

@@ -154,7 +154,7 @@ class SendMediaNavigationController: UINavigationController {
     }
 
     private func didTapMediaLibraryModeButton() {
-        Permissions.requestLibraryPermissionIfNeeded { [weak self] in
+        Permissions.requestLibraryPermissionIfNeeded(isSavingMedia: false) { [weak self] in
             DispatchQueue.main.async {
                 self?.fadeTo(viewControllers: ((self?.mediaLibraryViewController).map { [$0] } ?? []))
             }

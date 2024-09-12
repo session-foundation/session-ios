@@ -36,22 +36,19 @@ internal extension LibSession {
         let userPublicKey: String = getUserHexEncodedPublicKey(db)
         let profileName: String = String(cString: profileNamePtr)
         let profilePic: user_profile_pic = user_profile_get_pic(conf)
-        let profilePictureUrl: String? = String(libSessionVal: profilePic.url, nullIfEmpty: true)
+        let profilePictureUrl: String? = profilePic.get(\.url, nullIfEmpty: true)
         
         // Handle user profile changes
         try ProfileManager.updateProfileIfNeeded(
             db,
             publicKey: userPublicKey,
-            name: profileName,
-            avatarUpdate: {
-                guard let profilePictureUrl: String = profilePictureUrl else { return .remove }
+            displayNameUpdate: .currentUserUpdate(profileName),
+            displayPictureUpdate: {
+                guard let profilePictureUrl: String = profilePictureUrl else { return .currentUserRemove }
                 
-                return .updateTo(
+                return .currentUserUpdateTo(
                     url: profilePictureUrl,
-                    key: Data(
-                        libSessionVal: profilePic.key,
-                        count: ProfileManager.avatarAES256KeyByteLength
-                    ),
+                    key: profilePic.get(\.key),
                     fileName: nil
                 )
             }(),
@@ -184,8 +181,8 @@ internal extension LibSession {
         
         // Either assign the updated profile pic, or sent a blank profile pic (to remove the current one)
         var profilePic: user_profile_pic = user_profile_pic()
-        profilePic.url = profile.profilePictureUrl.toLibSession()
-        profilePic.key = profile.profileEncryptionKey.toLibSession()
+        profilePic.set(\.url, to: profile.profilePictureUrl)
+        profilePic.set(\.key, to: profile.profileEncryptionKey)
         user_profile_set_pic(conf, profilePic)
         try LibSessionError.throwIfNeeded(conf)
     }
@@ -227,3 +224,7 @@ extension LibSession {
         return user_profile_get_blinded_msgreqs(conf)
     }
 }
+
+// MARK: - C Conformance
+
+extension user_profile_pic: CAccessible & CMutable {}

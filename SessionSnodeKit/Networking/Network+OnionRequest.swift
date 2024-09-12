@@ -11,20 +11,22 @@ public extension Network.RequestType {
         _ payload: Data,
         to snode: LibSession.Snode,
         swarmPublicKey: String?,
-        timeout: TimeInterval = Network.defaultTimeout
+        requestTimeout: TimeInterval = Network.defaultTimeout,
+        requestAndPathBuildTimeout: TimeInterval? = nil
     ) -> Network.RequestType<Data?> {
         return Network.RequestType(
             id: "onionRequest",
             url: "quic://\(snode.address)",
             method: "POST",
             body: payload,
-            args: [payload, snode, swarmPublicKey, timeout]
+            args: [payload, snode, swarmPublicKey, requestTimeout, requestAndPathBuildTimeout]
         ) { dependencies in
             LibSession.sendOnionRequest(
                 to: Network.Destination.snode(snode),
                 body: payload,
                 swarmPublicKey: swarmPublicKey,
-                timeout: timeout,
+                requestTimeout: requestTimeout,
+                requestAndPathBuildTimeout: requestAndPathBuildTimeout,
                 using: dependencies
             )
         }
@@ -34,7 +36,8 @@ public extension Network.RequestType {
         _ request: URLRequest,
         to server: String,
         with x25519PublicKey: String,
-        timeout: TimeInterval = Network.defaultTimeout
+        requestTimeout: TimeInterval = Network.defaultTimeout,
+        requestAndPathBuildTimeout: TimeInterval? = nil
     ) -> Network.RequestType<Data?> {
         return Network.RequestType(
             id: "onionRequest",
@@ -42,9 +45,9 @@ public extension Network.RequestType {
             method: request.httpMethod,
             headers: request.allHTTPHeaderFields,
             body: request.httpBody,
-            args: [request, server, x25519PublicKey, timeout]
+            args: [request, server, x25519PublicKey, requestTimeout, requestAndPathBuildTimeout]
         ) { dependencies in
-            guard let url = request.url, let host = request.url?.host else {
+            guard let url = request.url else {
                 return Fail(error: NetworkError.invalidURL).eraseToAnyPublisher()
             }
             
@@ -57,7 +60,8 @@ public extension Network.RequestType {
                 ),
                 body: request.httpBody,
                 swarmPublicKey: nil,
-                timeout: timeout,
+                requestTimeout: requestTimeout,
+                requestAndPathBuildTimeout: requestAndPathBuildTimeout,
                 using: dependencies
             )
         }

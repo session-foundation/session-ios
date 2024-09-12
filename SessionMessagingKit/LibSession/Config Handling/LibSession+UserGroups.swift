@@ -45,8 +45,8 @@ internal extension LibSession {
             try LibSession.checkLoopLimitReached(&infiniteLoopGuard, for: .userGroups)
             
             if user_groups_it_is_community(groupsIterator, &community) {
-                let server: String = String(libSessionVal: community.base_url)
-                let roomToken: String = String(libSessionVal: community.room)
+                let server: String = community.get(\.base_url)
+                let roomToken: String = community.get(\.room)
                 
                 communities.append(
                     PrioritisedData(
@@ -54,33 +54,24 @@ internal extension LibSession {
                             threadId: OpenGroup.idFor(roomToken: roomToken, server: server),
                             server: server,
                             roomToken: roomToken,
-                            publicKey: Data(
-                                libSessionVal: community.pubkey,
-                                count: OpenGroup.pubkeyByteLength
-                            ).toHexString()
+                            publicKey: community.getHex(\.pubkey)
                         ),
                         priority: community.priority
                     )
                 )
             }
             else if user_groups_it_is_legacy_group(groupsIterator, &legacyGroup) {
-                let groupId: String = String(libSessionVal: legacyGroup.session_id)
+                let groupId: String = legacyGroup.get(\.session_id)
                 let members: [String: Bool] = LibSession.memberInfo(in: &legacyGroup)
                 
                 legacyGroups.append(
                     LegacyGroupInfo(
                         id: groupId,
-                        name: String(libSessionVal: legacyGroup.name),
+                        name: legacyGroup.get(\.name),
                         lastKeyPair: ClosedGroupKeyPair(
                             threadId: groupId,
-                            publicKey: Data(
-                                libSessionVal: legacyGroup.enc_pubkey,
-                                count: ClosedGroup.pubkeyByteLength
-                            ),
-                            secretKey: Data(
-                                libSessionVal: legacyGroup.enc_seckey,
-                                count: ClosedGroup.secretKeyByteLength
-                            ),
+                            publicKey: legacyGroup.get(\.enc_pubkey),
+                            secretKey: legacyGroup.get(\.enc_seckey),
                             receivedTimestamp: (TimeInterval(SnodeAPI.currentOffsetTimestampMs()) / 1000)
                         ),
                         disappearingConfig: DisappearingMessagesConfiguration
@@ -431,31 +422,20 @@ internal extension LibSession {
                 
                 // Assign all properties to match the updated group (if there is one)
                 if let updatedName: String = legacyGroup.name {
-                    userGroup.pointee.name = updatedName.toLibSession()
-                    
-                    // Store the updated group (needs to happen before variables go out of scope)
-                    user_groups_set_legacy_group(conf, userGroup)
-                    try LibSessionError.throwIfNeeded(conf) { ugroups_legacy_group_free(userGroup) }
+                    userGroup.set(\.name, to: updatedName)
                 }
                 
                 if let lastKeyPair: ClosedGroupKeyPair = legacyGroup.lastKeyPair {
-                    userGroup.pointee.enc_pubkey = lastKeyPair.publicKey.toLibSession()
-                    userGroup.pointee.enc_seckey = lastKeyPair.secretKey.toLibSession()
-                    userGroup.pointee.have_enc_keys = true
-                    
-                    // Store the updated group (needs to happen before variables go out of scope)
-                    user_groups_set_legacy_group(conf, userGroup)
-                    try LibSessionError.throwIfNeeded(conf) { ugroups_legacy_group_free(userGroup) }
+                    userGroup.set(\.enc_pubkey, to: lastKeyPair.publicKey)
+                    userGroup.set(\.enc_seckey, to: lastKeyPair.secretKey)
+                    userGroup.set(\.have_enc_keys, to: true)
                 }
                 
                 // Assign all properties to match the updated disappearing messages config (if there is one)
                 if let updatedConfig: DisappearingMessagesConfiguration = legacyGroup.disappearingConfig {
-                    userGroup.pointee.disappearing_timer = (!updatedConfig.isEnabled ? 0 :
+                    userGroup.set(\.disappearing_timer, to: (!updatedConfig.isEnabled ? 0 :
                         Int64(floor(updatedConfig.durationSeconds))
-                    )
-                    
-                    user_groups_set_legacy_group(conf, userGroup)
-                    try LibSessionError.throwIfNeeded(conf) { ugroups_legacy_group_free(userGroup) }
+                    ))
                 }
                 
                 // Add/Remove the group members and admins
@@ -511,11 +491,11 @@ internal extension LibSession {
                 }
                 
                 if let joinedAt: Int64 = legacyGroup.joinedAt {
-                    userGroup.pointee.joined_at = joinedAt
+                    userGroup.set(\.joined_at, to: joinedAt)
                 }
                 
                 // Store the updated group (can't be sure if we made any changes above)
-                userGroup.pointee.priority = (legacyGroup.priority ?? userGroup.pointee.priority)
+                userGroup.set(\.priority, to: (legacyGroup.priority ?? userGroup.pointee.priority))
                 
                 // Note: Need to free the legacy group pointer
                 user_groups_set_free_legacy_group(conf, userGroup)
@@ -946,3 +926,8 @@ extension LibSession {
         let priority: Int32
     }
 }
+
+// MARK: - C Conformance
+
+extension ugroups_community_info: CAccessible & CMutable {}
+extension ugroups_legacy_group_info: CAccessible & CMutable {}

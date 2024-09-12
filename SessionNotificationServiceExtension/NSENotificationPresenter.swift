@@ -151,7 +151,10 @@ public class NSENotificationPresenter: NSObject, NotificationsProtocol {
         else { return }
         
         // Only notify missed calls
-        guard messageInfo.state == .missed || messageInfo.state == .permissionDenied else { return }
+        switch messageInfo.state {
+            case .missed, .permissionDenied, .permissionDeniedMicrophone: break
+            default: return
+        }
         
         let userInfo: [String: Any] = [
             NotificationServiceExtension.isFromRemoteKey: true,
@@ -177,6 +180,12 @@ public class NSENotificationPresenter: NSObject, NotificationsProtocol {
             notificationContent.body = "callsYouMissedCallPermissions"
                 .put(key: "name", value: senderName)
                 .localizedDeformatted()
+        }
+        else if messageInfo.state == .permissionDeniedMicrophone {
+            notificationContent.body = String(
+                format: "callsMissedCallFrom".localized(),
+                senderName
+            )
         }
         
         addNotifcationRequest(

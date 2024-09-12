@@ -179,7 +179,17 @@ final class NukeDataModal: Modal {
                                     .distinct()
                                     .asRequest(of: String.self)
                                     .fetchSet(db)
-                                    .map { ($0, try OpenGroupAPI.preparedClearInbox(db, on: $0, using: dependencies))}
+                                    .map { server in
+                                        (
+                                            server,
+                                            try OpenGroupAPI.preparedClearInbox(
+                                                db,
+                                                on: server,
+                                                requestAndPathBuildTimeout: Network.defaultTimeout,
+                                                using: dependencies
+                                            )
+                                        )
+                                    }
                             }
                             .defaulting(to: [])
                             .compactMap { server, preparedRequest in
@@ -193,7 +203,10 @@ final class NukeDataModal: Modal {
                     .subscribe(on: DispatchQueue.global(qos: .userInitiated))
                     .flatMap { results in
                         SnodeAPI
-                            .deleteAllMessages(namespace: .all)
+                            .deleteAllMessages(
+                                namespace: .all,
+                                requestAndPathBuildTimeout: Network.defaultTimeout
+                            )
                             .map { results.reduce($0) { result, next in result.updated(with: next) } }
                             .eraseToAnyPublisher()
                     }

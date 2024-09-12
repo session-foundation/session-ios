@@ -558,7 +558,7 @@ public extension LibSession {
             if convo_info_volatile_it_is_1to1(convoIterator, &oneToOne) {
                 result.append(
                     VolatileThreadInfo(
-                        threadId: String(libSessionVal: oneToOne.session_id),
+                        threadId: oneToOne.get(\.session_id),
                         variant: .contact,
                         changes: [
                             .markedAsUnread(oneToOne.unread),
@@ -568,12 +568,9 @@ public extension LibSession {
                 )
             }
             else if convo_info_volatile_it_is_community(convoIterator, &community) {
-                let server: String = String(libSessionVal: community.base_url)
-                let roomToken: String = String(libSessionVal: community.room)
-                let publicKey: String = Data(
-                    libSessionVal: community.pubkey,
-                    count: OpenGroup.pubkeyByteLength
-                ).toHexString()
+                let server: String = community.get(\.base_url)
+                let roomToken: String = community.get(\.room)
+                let publicKey: String = community.getHex(\.pubkey)
                 
                 result.append(
                     VolatileThreadInfo(
@@ -595,7 +592,7 @@ public extension LibSession {
             else if convo_info_volatile_it_is_legacy_group(convoIterator, &legacyGroup) {
                 result.append(
                     VolatileThreadInfo(
-                        threadId: String(libSessionVal: legacyGroup.group_id),
+                        threadId: legacyGroup.get(\.group_id),
                         variant: .legacyGroup,
                         changes: [
                             .markedAsUnread(legacyGroup.unread),
@@ -640,3 +637,8 @@ fileprivate extension [LibSession.VolatileThreadInfo.Change] {
     }
 }
 
+// MARK: - C Conformance
+
+extension convo_info_volatile_1to1: CAccessible & CMutable {}
+extension convo_info_volatile_community: CAccessible & CMutable {}
+extension convo_info_volatile_legacy_group: CAccessible & CMutable {}

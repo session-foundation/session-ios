@@ -32,7 +32,8 @@ public extension Network.PreparedRequest {
                                     request,
                                     to: serverTarget.server,
                                     with: serverTarget.x25519PublicKey,
-                                    timeout: timeout
+                                    requestTimeout: requestTimeout,
+                                    requestAndPathBuildTimeout: requestAndPathBuildTimeout
                                 ),
                                 using: dependencies
                             )
@@ -46,7 +47,8 @@ public extension Network.PreparedRequest {
                                     payload,
                                     to: snodeTarget.snode,
                                     swarmPublicKey: snodeTarget.swarmPublicKey,
-                                    timeout: timeout
+                                    requestTimeout: requestTimeout,
+                                    requestAndPathBuildTimeout: requestAndPathBuildTimeout
                                 ),
                                 using: dependencies
                             )
@@ -62,7 +64,8 @@ public extension Network.PreparedRequest {
                                             payload,
                                             to: snode,
                                             swarmPublicKey: randomTarget.swarmPublicKey,
-                                            timeout: timeout
+                                            requestTimeout: requestTimeout,
+                                            requestAndPathBuildTimeout: requestAndPathBuildTimeout
                                         ),
                                         using: dependencies
                                     )
@@ -74,7 +77,12 @@ public extension Network.PreparedRequest {
                         return LibSession.getSwarm(swarmPublicKey: randomTarget.swarmPublicKey)
                             .tryFlatMapWithRandomSnode(retry: randomTarget.retryCount, using: dependencies) { snode in
                                 SnodeAPI
-                                    .getNetworkTime(from: snode, using: dependencies)
+                                    .getNetworkTime(
+                                        from: snode,
+                                        requestTimeout: requestTimeout,
+                                        requestAndPathBuildTimeout: requestAndPathBuildTimeout,
+                                        using: dependencies
+                                    )
                                     .tryFlatMap { timestampMs in
                                         guard
                                             let updatedRequest: URLRequest = try? randomTarget
@@ -88,7 +96,8 @@ public extension Network.PreparedRequest {
                                                     payload,
                                                     to: snode,
                                                     swarmPublicKey: randomTarget.swarmPublicKey,
-                                                    timeout: timeout
+                                                    requestTimeout: requestTimeout,
+                                                    requestAndPathBuildTimeout: requestAndPathBuildTimeout
                                                 ),
                                                 using: dependencies
                                             )

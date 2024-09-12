@@ -147,7 +147,7 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
         /// Apple's documentation on the matter)
         UNUserNotificationCenter.current().delegate = self
         
-        Storage.resumeDatabaseAccess(using: dependencies)
+        dependencies.storage.resumeDatabaseAccess()
         LibSession.resumeNetworkAccess()
         
         // Reset the 'startTime' (since it would be invalid from the last launch)
@@ -212,7 +212,7 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
         JobRunner.stopAndClearPendingJobs(exceptForVariant: .messageSend, using: dependencies) { [dependencies] neededBackgroundProcessing in
             if !self.hasCallOngoing() && (!neededBackgroundProcessing || Singleton.hasAppContext && Singleton.appContext.isInBackground) {
                 LibSession.suspendNetworkAccess()
-                Storage.suspendDatabaseAccess(using: dependencies)
+                dependencies.storage.suspendDatabaseAccess()
                 Log.info("[AppDelegate] completed network and database shutdowns.")
                 Log.flush()
             }
@@ -238,7 +238,7 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
         UserDefaults.sharedLokiProject?[.isMainAppActive] = true
         
         // FIXME: Seems like there are some discrepancies between the expectations of how the iOS lifecycle methods work, we should look into them and ensure the code behaves as expected (in this case there were situations where these two wouldn't get called when returning from the background)
-        Storage.resumeDatabaseAccess(using: dependencies)
+        dependencies.storage.resumeDatabaseAccess()
         LibSession.resumeNetworkAccess()
         
         ensureRootViewController(calledFrom: .didBecomeActive)
@@ -288,7 +288,7 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
     func application(_ application: UIApplication, performFetchWithCompletionHandler completionHandler: @escaping (UIBackgroundFetchResult) -> Void) {
         Log.appResumedExecution()
         Log.info("Starting background fetch.")
-        Storage.resumeDatabaseAccess(using: dependencies)
+        dependencies.storage.resumeDatabaseAccess()
         LibSession.resumeNetworkAccess()
         
         let queue: DispatchQueue = .global(qos: .userInitiated)
@@ -312,7 +312,7 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
             
             if Singleton.hasAppContext && Singleton.appContext.isInBackground {
                 LibSession.suspendNetworkAccess()
-                Storage.suspendDatabaseAccess(using: dependencies)
+                dependencies.storage.suspendDatabaseAccess()
                 Log.flush()
             }
             
@@ -338,7 +338,7 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
                         
                         if Singleton.hasAppContext && Singleton.appContext.isInBackground {
                             LibSession.suspendNetworkAccess()
-                            Storage.suspendDatabaseAccess(using: dependencies)
+                            dependencies.storage.suspendDatabaseAccess()
                             Log.flush()
                         }
                         
@@ -471,7 +471,7 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
             case .databaseError:
                 alert.addAction(UIAlertAction(title: "onboardingAccountExists".localized(), style: .destructive) { [dependencies] _ in
                     // Reset the current database for a clean migration
-                    Storage.resetForCleanMigration()
+                    dependencies.storage.resetForCleanMigration()
                     
                     // Hide the top banner if there was one
                     TopBannerController.hide()
@@ -804,10 +804,9 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
     public func startPollersIfNeeded(shouldStartGroupPollers: Bool = true) {
         guard Identity.userExists() else { return }
         
-        /// There is a fun issue where if you launch without any valid paths then the pollers are guaranteed to fail their first poll due to
-        /// trying and failing to build paths without having the `SnodeAPI.snodePool` populated, by waiting for the
-        /// `JobRunner.blockingQueue` to complete we can have more confidence that paths won't fail to build incorrectly
-        JobRunner.afterBlockingQueue { [weak self] in
+        /// Start the pollers on a background thread so that any database queries they need to run don't
+        /// block the main thread
+        DispatchQueue.global(qos: .background).async { [weak self] in
             self?.poller.start()
             
             guard shouldStartGroupPollers else { return }
@@ -819,7 +818,7 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
     
     public func stopPollers(shouldStopUserPoller: Bool = true) {
         if shouldStopUserPoller {
-            poller.stopAllPollers()
+            poller.stop()
         }
         
         ClosedGroupPoller.shared.stopAllPollers()

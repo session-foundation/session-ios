@@ -30,7 +30,7 @@ public final class ClosedGroupPoller: Poller {
         // Fetch all closed groups (excluding any don't contain the current user as a
         // GroupMemeber as the user is no longer a member of those)
         dependencies.storage
-            .read { db in
+            .read { db -> Set<String> in
                 try ClosedGroup
                     .select(.threadId)
                     .joining(
@@ -38,7 +38,7 @@ public final class ClosedGroupPoller: Poller {
                             .filter(GroupMember.Columns.profileId == getUserHexEncodedPublicKey(db, using: dependencies))
                     )
                     .asRequest(of: String.self)
-                    .fetchAll(db)
+                    .fetchSet(db)
             }
             .defaulting(to: [])
             .forEach { [weak self] publicKey in

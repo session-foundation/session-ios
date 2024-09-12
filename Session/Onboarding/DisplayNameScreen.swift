@@ -112,7 +112,7 @@ struct DisplayNameScreen: View {
         // Try to save the user name but ignore the result
         ProfileManager.updateLocal(
             queue: .global(qos: .default),
-            profileName: displayName,
+            displayNameUpdate: .currentUserUpdate(displayName),
             using: dependencies
         )
         

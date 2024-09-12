@@ -241,8 +241,8 @@ extension MessageReceiver {
         // Resubscribe for group push notifications
         let currentUserPublicKey: String = getUserHexEncodedPublicKey(db)
         
-        PushNotificationAPI
-            .subscribeToLegacyGroups(
+        (try? PushNotificationAPI
+            .preparedSubscribeToLegacyGroups(
                 currentUserPublicKey: currentUserPublicKey,
                 legacyGroupIds: try ClosedGroup
                     .select(.threadId)
@@ -253,8 +253,11 @@ extension MessageReceiver {
                     )
                     .asRequest(of: String.self)
                     .fetchSet(db)
-                    .inserting(groupPublicKey)  // Insert the new key just to be sure
-            )
+                    .inserting(groupPublicKey),  // Insert the new key just to be sure
+                using: dependencies
+            ))?
+            .send(using: dependencies)
+            .subscribe(on: DispatchQueue.global(qos: .userInitiated), using: dependencies)
             .sinkUntilComplete()
     }
 

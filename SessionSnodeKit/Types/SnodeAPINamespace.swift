@@ -68,6 +68,16 @@ public extension SnodeAPI {
             }
         }
         
+        public var isCurrentUserNamespace: Bool {
+            switch self {
+                case .default, .configUserProfile, .configContacts, .configConvoInfoVolatile, .configUserGroups:
+                    return true
+                    
+                case .configClosedGroupInfo, .legacyClosedGroup, .unknown, .all:
+                    return false
+            }
+        }
+        
         public var isConfigNamespace: Bool {
             switch self {
                 case .configUserProfile, .configContacts, .configConvoInfoVolatile, .configUserGroups,

@@ -1,4 +1,6 @@
 // Copyright © 2022 Rangeproof Pty Ltd. All rights reserved.
+//
+// stringlint:disable
 
 import Foundation
 
@@ -17,7 +19,7 @@ public enum ProfileManagerError: LocalizedError {
             case .avatarEncryptionFailed: return "Avatar encryption failed."
             case .avatarUploadFailed: return "Avatar upload failed."
             case .avatarUploadMaxFileSizeExceeded: return "Maximum file size exceeded."
-            case .invalidCall: return "Attempted to remove avatar using the wrong method."
+            case .invalidCall: return "Attempted to modify profile using the wrong method."
         }
     }
 }
