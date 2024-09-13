@@ -31,14 +31,14 @@ extension MessageReceiver {
             try ProfileManager.updateProfileIfNeeded(
                 db,
                 publicKey: senderId,
-                name: profile.displayName,
-                avatarUpdate: {
+                displayNameUpdate: .contactUpdate(profile.displayName),
+                displayPictureUpdate: {
                     guard
                         let profilePictureUrl: String = profile.profilePictureUrl,
                         let profileKey: Data = profile.profileKey
                     else { return .none }
                     
-                    return .updateTo(
+                    return .contactUpdateTo(
                         url: profilePictureUrl,
                         key: profileKey,
                         fileName: nil

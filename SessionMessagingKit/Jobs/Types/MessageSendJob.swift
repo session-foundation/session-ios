@@ -23,7 +23,7 @@ public enum MessageSendJob: JobExecutor {
             let detailsData: Data = job.details,
             let details: Details = try? JSONDecoder().decode(Details.self, from: detailsData)
         else {
-            Log.error("[MessageSendJob] Failing due to missing details")
+            Log.error("[MessageSendJob] Failing (\(job.id ?? -1)) due to missing details")
             return failure(job, JobRunnerError.missingRequiredDetails, true, dependencies)
         }
         
@@ -50,7 +50,7 @@ public enum MessageSendJob: JobExecutor {
                 let jobId: Int64 = job.id,
                 let interactionId: Int64 = job.interactionId
             else {
-                Log.error("[MessageSendJob] Failing due to missing details")
+                Log.error("[MessageSendJob] Failing (\(job.id ?? -1)) due to missing details")
                 return failure(job, JobRunnerError.missingRequiredDetails, true, dependencies)
             }
             
@@ -62,7 +62,7 @@ public enum MessageSendJob: JobExecutor {
                     // If the original interaction no longer exists then don't bother sending the message (ie. the
                     // message was deleted before it even got sent)
                     guard try Interaction.exists(db, id: interactionId) else {
-                        Log.warn("[MessageSendJob] Failing due to missing interaction")
+                        Log.warn("[MessageSendJob] Failing (\(job.id ?? -1)) due to missing interaction")
                         return (StorageError.objectNotFound, [], [])
                     }
 
@@ -78,7 +78,7 @@ public enum MessageSendJob: JobExecutor {
                     // If there were failed attachments then this job should fail (can't send a
                     // message which has associated attachments if the attachments fail to upload)
                     guard !allAttachmentStateInfo.contains(where: { $0.state == .failedDownload }) else {
-                        Log.info("[MessageSendJob] Failing due to failed attachment upload")
+                        Log.info("[MessageSendJob] Failing (\(job.id ?? -1)) due to failed attachment upload")
                         return (AttachmentError.notUploaded, [], fileIds)
                     }
 
@@ -157,7 +157,7 @@ public enum MessageSendJob: JobExecutor {
                         }
                 }
 
-                Log.info("[MessageSendJob] Deferring due to pending attachment uploads")
+                Log.info("[MessageSendJob] Deferring (\(job.id ?? -1)) due to pending attachment uploads")
                 return deferred(job, dependencies)
             }
 
@@ -193,11 +193,11 @@ public enum MessageSendJob: JobExecutor {
                 receiveCompletion: { result in
                     switch result {
                         case .finished:
-                            Log.info("[MessageSendJob] Completed sending \(messageType) after \(.seconds(dependencies.dateNow.timeIntervalSince1970 - startTime), unit: .s).")
+                            Log.info("[MessageSendJob] Completed sending \(messageType) (\(job.id ?? -1)) after \(.seconds(dependencies.dateNow.timeIntervalSince1970 - startTime), unit: .s).")
                             success(job, false, dependencies)
                             
                         case .failure(let error):
-                            Log.info("[MessageSendJob] Failed to send \(messageType) after \(.seconds(dependencies.dateNow.timeIntervalSince1970 - startTime), unit: .s) due to error: \(error).")
+                            Log.info("[MessageSendJob] Failed to send \(messageType) (\(job.id ?? -1)) after \(.seconds(dependencies.dateNow.timeIntervalSince1970 - startTime), unit: .s) due to error: \(error).")
                             
                             // Actual error handling
                             switch (error, details.message) {
@@ -208,7 +208,7 @@ public enum MessageSendJob: JobExecutor {
                                     failure(job, error, true, dependencies)
                                     
                                 case (SnodeAPIError.clockOutOfSync, _):
-                                    Log.error("[MessageSendJob] \(originalSentTimestamp != nil ? "Permanently Failing" : "Failing") to send \(type(of: details.message)) due to clock out of sync issue.")
+                                    Log.error("[MessageSendJob] \(originalSentTimestamp != nil ? "Permanently Failing" : "Failing") to send \(type(of: details.message)) (\(job.id ?? -1)) due to clock out of sync issue.")
                                     failure(job, error, (originalSentTimestamp != nil), dependencies)
                                     
                                 // Don't bother retrying (it can just send a new one later but allowing retries

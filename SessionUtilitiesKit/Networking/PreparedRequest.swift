@@ -19,7 +19,8 @@ public extension Network {
         public let originalType: Decodable.Type
         public let responseType: R.Type
         public let retryCount: Int
-        public let timeout: TimeInterval
+        public let requestTimeout: TimeInterval
+        public let requestAndPathBuildTimeout: TimeInterval?
         public let cachedResponse: CachedResponse?
         fileprivate let responseConverter: ((ResponseInfoType, Any) throws -> R)
         public let subscriptionHandler: (() -> Void)?
@@ -49,7 +50,8 @@ public extension Network {
             responseType: R.Type,
             requireAllBatchResponses: Bool = true,
             retryCount: Int = 0,
-            timeout: TimeInterval
+            requestTimeout: TimeInterval,
+            requestAndPathBuildTimeout: TimeInterval? = nil
         ) where R: Decodable {
             let batchRequests: [Network.BatchRequest.Child]? = (request.body as? BatchRequestChildRetrievable)?.requests
             let batchEndpoints: [E] = (batchRequests?
@@ -68,7 +70,8 @@ public extension Network {
             self.originalType = R.self
             self.responseType = responseType
             self.retryCount = retryCount
-            self.timeout = timeout
+            self.requestTimeout = requestTimeout
+            self.requestAndPathBuildTimeout = requestAndPathBuildTimeout
             self.cachedResponse = nil
             
             // When we are making a batch request we also want to call though any sub request event
@@ -246,7 +249,8 @@ public extension Network {
             originalType: U.Type,
             responseType: R.Type,
             retryCount: Int,
-            timeout: TimeInterval,
+            requestTimeout: TimeInterval,
+            requestAndPathBuildTimeout: TimeInterval?,
             cachedResponse: CachedResponse?,
             responseConverter: @escaping (ResponseInfoType, Any) throws -> R,
             subscriptionHandler: (() -> Void)?,
@@ -272,7 +276,8 @@ public extension Network {
             self.originalType = originalType
             self.responseType = responseType
             self.retryCount = retryCount
-            self.timeout = timeout
+            self.requestTimeout = requestTimeout
+            self.requestAndPathBuildTimeout = requestAndPathBuildTimeout
             self.cachedResponse = cachedResponse
             self.responseConverter = responseConverter
             self.subscriptionHandler = subscriptionHandler
@@ -420,7 +425,8 @@ public extension Network.PreparedRequest {
             originalType: originalType,
             responseType: responseType,
             retryCount: retryCount,
-            timeout: timeout,
+            requestTimeout: requestTimeout,
+            requestAndPathBuildTimeout: requestAndPathBuildTimeout,
             cachedResponse: cachedResponse,
             responseConverter: responseConverter,
             subscriptionHandler: subscriptionHandler,
@@ -464,7 +470,8 @@ public extension Network.PreparedRequest {
             originalType: originalType,
             responseType: O.self,
             retryCount: retryCount,
-            timeout: timeout,
+            requestTimeout: requestTimeout,
+            requestAndPathBuildTimeout: requestAndPathBuildTimeout,
             cachedResponse: cachedResponse.map { data in
                 (try? responseConverter(data.info, data.convertedData))
                     .map { convertedData in
@@ -573,7 +580,8 @@ public extension Network.PreparedRequest {
             originalType: originalType,
             responseType: responseType,
             retryCount: retryCount,
-            timeout: timeout,
+            requestTimeout: requestTimeout,
+            requestAndPathBuildTimeout: requestAndPathBuildTimeout,
             cachedResponse: cachedResponse,
             responseConverter: responseConverter,
             subscriptionHandler: subscriptionHandler,
@@ -610,7 +618,8 @@ public extension Network.PreparedRequest {
             originalType: R.self,
             responseType: R.self,
             retryCount: 0,
-            timeout: 0,
+            requestTimeout: 0,
+            requestAndPathBuildTimeout: nil,
             cachedResponse: Network.PreparedRequest<R>.CachedResponse(
                 info: Network.ResponseInfo(code: 0, headers: [:]),
                 originalData: cachedResponse,

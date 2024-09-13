@@ -226,6 +226,7 @@ public extension CallMessage {
             case outgoing
             case missed
             case permissionDenied
+            case permissionDeniedMicrophone
             case unknown
         }
         
@@ -253,7 +254,7 @@ public extension CallMessage {
                         threadContactDisplayName
                     )
                     
-                case .missed, .permissionDenied:
+                case .missed, .permissionDenied, .permissionDeniedMicrophone:
                     return String(
                         format: "call_missed".localized(),
                         threadContactDisplayName

@@ -12,14 +12,12 @@ protocol PhotoCaptureViewControllerDelegate: AnyObject {
     func photoCaptureViewControllerDidCancel(_ photoCaptureViewController: PhotoCaptureViewController)
 }
 
-enum PhotoCaptureError: Error {
+enum PhotoCaptureError: Error, CustomStringConvertible {
     case assertionError(description: String)
     case initializationFailed
     case captureFailed
-}
 
-extension PhotoCaptureError: LocalizedError {
-    var localizedDescription: String {
+    var description: String {
         switch self {
         case .initializationFailed:
             return NSLocalizedString("PHOTO_CAPTURE_UNABLE_TO_INITIALIZE_CAMERA", comment: "alert title")

@@ -25,19 +25,42 @@ public enum Log {
         case error
         case critical
         case off
+        
+        case `default`
     }
     
-    public struct Category: ExpressibleByStringLiteral, ExpressibleByExtendedGraphemeClusterLiteral, ExpressibleByUnicodeScalarLiteral {
-        public typealias StringLiteralType = String
+    public struct Category: Hashable {
+        public let rawValue: String
+        fileprivate let customPrefix: String
+        public let defaultLevel: Log.Level
         
-        fileprivate let rawValue: String
+        fileprivate static let identifierPrefix: String = "logLevel-"
+        fileprivate var identifier: String { "\(Category.identifierPrefix)\(rawValue)" }
         
-        public init(stringLiteral value: String) {
-            self.rawValue = value
+        private init(rawValue: String, customPrefix: String, defaultLevel: Log.Level) {
+            self.rawValue = rawValue
+            self.customPrefix = customPrefix
+            self.defaultLevel = defaultLevel
+            
+            AllLoggingCategories.register(category: self)
         }
         
-        public init(unicodeScalarLiteral value: Character) {
-            self.rawValue = String(value)
+        fileprivate init?(identifier: String) {
+            guard identifier.hasPrefix(Category.identifierPrefix) else { return nil }
+            
+            self.init(
+                rawValue: identifier.substring(from: Category.identifierPrefix.count),
+                customPrefix: "",
+                defaultLevel: .default
+            )
+        }
+        
+        public init(rawValue: String, customPrefix: String = "") {
+            self.init(rawValue: rawValue, customPrefix: customPrefix, defaultLevel: .default)
+        }
+        
+        @discardableResult public static func create(_ rawValue: String, customPrefix: String = "", defaultLevel: Log.Level) -> Log.Category {
+            return Log.Category(rawValue: rawValue, customPrefix: customPrefix, defaultLevel: defaultLevel)
         }
     }
     
@@ -446,7 +469,7 @@ public class Logger {
                         }
                 }
                 catch {
-                    self?.completeResumeLogging(error: "Unable to write extension logs to current log file")
+                    self?.completeResumeLogging(error: "Unable to write extension logs to current log file due to error: \(error)")
                     return
                 }
                 
@@ -501,7 +524,7 @@ public class Logger {
                 (DispatchQueue.isDBWriteQueue ? "DBWrite" : nil)
             ]
             .compactMap { $0 }
-            .appending(contentsOf: categories.map { $0.rawValue })
+            .appending(contentsOf: categories.map { "\($0.customPrefix)\($0.rawValue)" })
             .joined(separator: ", ")
             
             return "[\(prefixes)] "
@@ -516,7 +539,7 @@ public class Logger {
             .trimmingCharacters(in: .whitespacesAndNewlines)
         
         switch level {
-            case .off: return
+            case .off, .default: return
             case .verbose: DDLogVerbose("💙 \(logMessage)", file: file, function: function, line: line)
             case .debug: DDLogDebug("💚 \(logMessage)", file: file, function: function, line: line)
             case .info: DDLogInfo("💛 \(logMessage)", file: file, function: function, line: line)
@@ -525,7 +548,7 @@ public class Logger {
             case .critical: DDLogError("🔥 \(logMessage)", file: file, function: function, line: line)
         }
         
-        let mainCategory: String = (categories.first?.rawValue ?? "[General]")
+        let mainCategory: String = (categories.first?.rawValue ?? "General")
         var systemLogger: SystemLoggerType? = systemLoggers.wrappedValue[mainCategory]
         
         if systemLogger == nil {
@@ -577,7 +600,7 @@ private class SystemLogger: SystemLoggerType {
     
     public func log(_ level: Log.Level, _ log: String) {
         switch level {
-            case .off: return
+            case .off, .default: return
             case .verbose: logger.trace("\(log)")
             case .debug: logger.debug("\(log)")
             case .info: logger.info("\(log)")
@@ -622,4 +645,35 @@ private extension DispatchQueue {
 // FIXME: Remove this once everything has been updated to use the new `Log.x()` methods.
 public func SNLog(_ message: String, forceNSLog: Bool = false) {
     Log.info(message)
+}
+
+// MARK: - AllLoggingCategories
+
+public struct AllLoggingCategories {
+    public static var defaultLevels: [Log.Category: Log.Level] {
+        return AllLoggingCategories.registeredCategoryDefaults.wrappedValue
+            .reduce(into: [:]) { result, cat in result[cat] = cat.defaultLevel }
+    }
+    private static let registeredCategoryDefaults: Atomic<Set<Log.Category>> = Atomic([])
+    
+    // MARK: - Initialization
+
+    public let rawValue: Int
+
+    public init(rawValue: Int) {
+        self.rawValue = -1      // `0` is a protected value so can't use it
+    }
+    
+    fileprivate static func register(category: Log.Category) {
+        guard
+            !registeredCategoryDefaults.wrappedValue.contains(where: { cat in
+                /// **Note:** We only want to use the `rawValue` to distinguish between logging categories
+                /// as the `defaultLevel` can change via the dev settings and any additional metadata could
+                /// be file/class specific
+                category.rawValue == cat.rawValue
+            })
+        else { return }
+        
+        registeredCategoryDefaults.mutate { $0.insert(category) }
+    }
 }

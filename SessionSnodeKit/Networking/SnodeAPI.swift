@@ -740,7 +740,7 @@ public final class SnodeAPI {
                 )
                 .send(using: dependencies)
                 .tryMap { _, response -> Void in
-                    try response.validResultMap(
+                    _ = try response.validResultMap(
                         swarmPublicKey: getUserHexEncodedPublicKey(),
                         validationData: subkeyToRevoke,
                         using: dependencies
@@ -860,6 +860,8 @@ public final class SnodeAPI {
     /// Clears all the user's data from their swarm. Returns a dictionary of snode public key to deletion confirmation.
     public static func deleteAllMessages(
         namespace: SnodeAPI.Namespace,
+        requestTimeout: TimeInterval = Network.defaultTimeout,
+        requestAndPathBuildTimeout: TimeInterval? = nil,
         using dependencies: Dependencies = Dependencies()
     ) -> AnyPublisher<[String: Bool], Error> {
         guard let userED25519KeyPair = Identity.fetchUserEd25519KeyPair() else {
@@ -882,9 +884,12 @@ public final class SnodeAPI {
                             timestampMs: UInt64(SnodeAPI.currentOffsetTimestampMs()),
                             ed25519PublicKey: userED25519KeyPair.publicKey,
                             ed25519SecretKey: userED25519KeyPair.secretKey
-                        )
+                        ),
+                        retryCount: 0   // Don't auto retry this request (user can manually retry on failure)
                     ),
                     responseType: DeleteAllMessagesResponse.self,
+                    requestTimeout: requestTimeout,
+                    requestAndPathBuildTimeout: requestAndPathBuildTimeout,
                     using: dependencies
                 )
                 .send(using: dependencies)
@@ -931,7 +936,8 @@ public final class SnodeAPI {
                             timestampMs: UInt64(SnodeAPI.currentOffsetTimestampMs()),
                             ed25519PublicKey: userED25519KeyPair.publicKey,
                             ed25519SecretKey: userED25519KeyPair.secretKey
-                        )
+                        ),
+                        retryCount: 0   // Don't auto retry this request (user can manually retry on failure)
                     ),
                     responseType: DeleteAllBeforeResponse.self,
                     using: dependencies
@@ -953,6 +959,8 @@ public final class SnodeAPI {
     
     public static func getNetworkTime(
         from snode: LibSession.Snode,
+        requestTimeout: TimeInterval = Network.defaultTimeout,
+        requestAndPathBuildTimeout: TimeInterval? = nil,
         using dependencies: Dependencies
     ) -> AnyPublisher<UInt64, Error> {
         do {
@@ -964,6 +972,8 @@ public final class SnodeAPI {
                         body: [String: String]()
                     ),
                     responseType: GetNetworkTimestampResponse.self,
+                    requestTimeout: requestTimeout,
+                    requestAndPathBuildTimeout: requestAndPathBuildTimeout,
                     using: dependencies
                 )
                 .send(using: dependencies)
@@ -987,7 +997,8 @@ public final class SnodeAPI {
         responseType: R.Type,
         requireAllBatchResponses: Bool = true,
         retryCount: Int = 0,
-        timeout: TimeInterval = Network.defaultTimeout,
+        requestTimeout: TimeInterval = Network.defaultTimeout,
+        requestAndPathBuildTimeout: TimeInterval? = nil,
         using dependencies: Dependencies
     ) throws -> Network.PreparedRequest<R> {
         return Network.PreparedRequest<R>(
@@ -996,7 +1007,8 @@ public final class SnodeAPI {
             responseType: responseType,
             requireAllBatchResponses: requireAllBatchResponses,
             retryCount: retryCount,
-            timeout: timeout
+            requestTimeout: requestTimeout,
+            requestAndPathBuildTimeout: requestAndPathBuildTimeout
         )
         .handleEvents(
             receiveOutput: { _, response in
@@ -1140,7 +1152,7 @@ private extension Request {
         swarmPublicKey: String,
         requiresLatestNetworkTime: Bool,
         body: B,
-        retryCount: Int = SnodeAPI.maxRetryCount
+        retryCount: Int
     ) where T == SnodeRequest<B>, Endpoint == SnodeAPI.Endpoint, B: Encodable & UpdatableTimestamp {
         self = Request(
             method: .post,

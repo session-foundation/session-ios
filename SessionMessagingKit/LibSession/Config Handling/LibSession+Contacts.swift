@@ -315,16 +315,13 @@ internal extension LibSession {
                 // Update the profile data (if there is one - users we have sent a message request to may
                 // not have profile info in certain situations)
                 if let updatedProfile: Profile = info.profile {
-                    let oldAvatarUrl: String? = String(libSessionVal: contact.profile_pic.url)
-                    let oldAvatarKey: Data? = Data(
-                        libSessionVal: contact.profile_pic.key,
-                        count: ProfileManager.avatarAES256KeyByteLength
-                    )
+                    let oldAvatarUrl: String? = contact.get(\.profile_pic.url)
+                    let oldAvatarKey: Data? = contact.get(\.profile_pic.key)
                     
-                    contact.name = updatedProfile.name.toLibSession()
-                    contact.nickname = updatedProfile.nickname.toLibSession()
-                    contact.profile_pic.url = updatedProfile.profilePictureUrl.toLibSession()
-                    contact.profile_pic.key = updatedProfile.profileEncryptionKey.toLibSession()
+                    contact.set(\.name, to: updatedProfile.name)
+                    contact.set(\.nickname, to: updatedProfile.nickname)
+                    contact.set(\.profile_pic.url, to: updatedProfile.profilePictureUrl)
+                    contact.set(\.profile_pic.key, to: updatedProfile.profileEncryptionKey)
                     
                     // Download the profile picture if needed (this can be triggered within
                     // database reads/writes so dispatch the download to a separate queue to
@@ -399,7 +396,7 @@ internal extension LibSession {
                     guard
                         var cContactId: [CChar] = contactData.id.cString(using: .utf8),
                         contacts_get(conf, &contact, &cContactId),
-                        String(libSessionVal: contact.name, nullIfEmpty: true) != nil
+                        contact.get(\.name, nullIfEmpty: true) != nil
                     else {
                         LibSessionError.clear(conf)
                         return contactData.id
@@ -682,29 +679,21 @@ private extension LibSession {
         while !contacts_iterator_done(contactIterator, &contact) {
             try LibSession.checkLoopLimitReached(&infiniteLoopGuard, for: .contacts)
             
-            let contactId: String = String(cString: withUnsafeBytes(of: contact.session_id) { [UInt8]($0) }
-                .map { CChar($0) }
-                .nullTerminated()
-            )
+            let contactId: String = contact.get(\.session_id)
             let contactResult: Contact = Contact(
                 id: contactId,
                 isApproved: contact.approved,
                 isBlocked: contact.blocked,
                 didApproveMe: contact.approved_me
             )
-            let profilePictureUrl: String? = String(libSessionVal: contact.profile_pic.url, nullIfEmpty: true)
+            let profilePictureUrl: String? = contact.get(\.profile_pic.url, nullIfEmpty: true)
             let profileResult: Profile = Profile(
                 id: contactId,
-                name: String(libSessionVal: contact.name),
+                name: contact.get(\.name),
                 lastNameUpdate: (TimeInterval(latestConfigSentTimestampMs) / 1000),
-                nickname: String(libSessionVal: contact.nickname, nullIfEmpty: true),
+                nickname: contact.get(\.nickname, nullIfEmpty: true),
                 profilePictureUrl: profilePictureUrl,
-                profileEncryptionKey: (profilePictureUrl == nil ? nil :
-                    Data(
-                        libSessionVal: contact.profile_pic.key,
-                        count: ProfileManager.avatarAES256KeyByteLength
-                    )
-                ),
+                profileEncryptionKey: (profilePictureUrl == nil ? nil : contact.get(\.profile_pic.key)),
                 lastProfilePictureUpdate: (TimeInterval(latestConfigSentTimestampMs) / 1000)
             )
             let configResult: DisappearingMessagesConfiguration = DisappearingMessagesConfiguration(
@@ -728,3 +717,7 @@ private extension LibSession {
         return result
     }
 }
+
+// MARK: - C Conformance
+
+extension contacts_contact: CAccessible & CMutable {}

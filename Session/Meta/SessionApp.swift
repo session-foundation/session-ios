@@ -117,7 +117,7 @@ public struct SessionApp {
         LibSession.clearSnodeCache()
         LibSession.suspendNetworkAccess()
         PushNotificationAPI.resetKeys()
-        Storage.resetAllStorage()
+        dependencies.storage.resetAllStorage()
         ProfileManager.resetProfileStorage()
         Attachment.resetAttachmentStorage()
         AppEnvironment.shared.notificationPresenter.clearAllNotifications()

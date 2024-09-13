@@ -41,7 +41,7 @@ class PreparedRequestSpec: QuickSpec {
                         request: request,
                         urlRequest: try! request.generateUrlRequest(using: dependencies),
                         responseType: TestType.self,
-                        timeout: 10
+                        requestTimeout: 10
                     )
                     
                     expect(preparedRequest.request.url?.absoluteString).to(equal("testServer/endpoint"))
@@ -70,7 +70,7 @@ class PreparedRequestSpec: QuickSpec {
                         request: request,
                         urlRequest: try! request.generateUrlRequest(using: dependencies),
                         responseType: TestType.self,
-                        timeout: 10
+                        requestTimeout: 10
                     )
                     
                     expect(TestEndpoint.excludedSubRequestHeaders).to(equal([HTTPHeader.testHeader]))

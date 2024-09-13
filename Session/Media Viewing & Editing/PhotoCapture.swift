@@ -92,14 +92,13 @@ class PhotoCapture: NSObject {
                 self?.session.beginConfiguration()
                 defer { self?.session.commitConfiguration() }
 
-                try self?.updateCurrentInput(position: .back)
+                do { try self?.updateCurrentInput(position: .back) }
+                catch { throw PhotoCaptureError.initializationFailed }
 
                 guard
                     let photoOutput = self?.captureOutput.photoOutput,
                     self?.session.canAddOutput(photoOutput) == true
-                else {
-                    throw PhotoCaptureError.initializationFailed
-                }
+                else { throw PhotoCaptureError.initializationFailed }
 
                 if let connection = photoOutput.connection(with: .video) {
                     if connection.isVideoStabilizationSupported {
@@ -610,7 +609,13 @@ class PhotoCaptureOutputAdaptee: NSObject, ImageCaptureOutput {
         }
 
         func photoOutput(_ output: AVCapturePhotoOutput, didFinishProcessingPhoto photo: AVCapturePhoto, error: Error?) {
-            var data = photo.fileDataRepresentation()!
+            guard var data: Data = photo.fileDataRepresentation() else {
+                DispatchQueue.main.async {
+                    self.delegate?.captureOutputDidFinishProcessing(photoData: nil, error: error)
+                }
+                return
+            }
+            
             // Call normalized here to fix the orientation
             if let srcImage = UIImage(data: data) {
                 data = srcImage.normalizedImage().jpegData(compressionQuality: 1.0)!
