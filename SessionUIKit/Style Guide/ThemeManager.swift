@@ -150,6 +150,12 @@ public enum ThemeManager {
         ThemeManager.mainWindow?.tintColor = textPrimary
         ThemeManager.mainWindow?.rootViewController?.setNeedsStatusBarAppearanceUpdate()
         
+        // Update toolbars to use the right colours
+        UIToolbar.appearance().barTintColor = ThemeManager.currentTheme.color(for: .backgroundPrimary)
+        UIToolbar.appearance().isTranslucent = false
+        UIToolbar.appearance().tintColor = textPrimary
+        
+        // Update the nav bars to use the right colours
         let appearance = UINavigationBarAppearance()
         appearance.configureWithOpaqueBackground()
         appearance.backgroundColor = ThemeManager.currentTheme.color(for: .backgroundPrimary)
