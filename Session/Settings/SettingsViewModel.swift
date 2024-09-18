@@ -607,18 +607,9 @@ class SettingsViewModel: SessionTableViewModel, NavigationItemSource, Navigatabl
                 failure: { [weak self] error in
                     DispatchQueue.main.async {
                         modalActivityIndicator.dismiss {
-                            let title: String = {
+                            let message: String = {
                                 switch (displayPictureUpdate, error) {
                                     case (.currentUserRemove, _): return "profileDisplayPictureRemoveError".localized()
-                                    case (_, .avatarUploadMaxFileSizeExceeded):
-                                        return "attachmentsErrorSize".localized()
-                                    
-                                    default: return "profileErrorUpdate".localized()
-                                }
-                            }()
-                            let message: String? = {
-                                switch (displayPictureUpdate, error) {
-                                    case (.currentUserRemove, _): return nil
                                     case (_, .avatarUploadMaxFileSizeExceeded):
                                         return "profileDisplayPictureSizeError".localized()
                                     
@@ -629,8 +620,8 @@ class SettingsViewModel: SessionTableViewModel, NavigationItemSource, Navigatabl
                             self?.transitionToScreen(
                                 ConfirmationModal(
                                     info: ConfirmationModal.Info(
-                                        title: title,
-                                        body: (message.map { .text($0) } ?? .none),
+                                        title: "profileErrorUpdate".localized(),
+                                        body: .text(message),
                                         cancelTitle: "okay".localized(),
                                         cancelStyle: .alert_text,
                                         dismissType: .single
