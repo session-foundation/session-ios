@@ -264,7 +264,7 @@ enum ScriptAction: String {
                     return
                 }
                 
-                if let data: Data = try? JSONSerialization.data(withJSONObject: updatedInfoPlistJSON, options: [ .fragmentsAllowed ]) {
+                if let data: Data = try? JSONSerialization.data(withJSONObject: updatedInfoPlistJSON, options: [ .fragmentsAllowed, .sortedKeys ]) {
                     do {
                         try data.write(to: URL(fileURLWithPath: projectState.infoPlistLocalizationFile.path), options: [.atomic])
                     } catch {
