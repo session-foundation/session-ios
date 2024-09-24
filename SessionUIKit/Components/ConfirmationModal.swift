@@ -47,17 +47,8 @@ public class ConfirmationModal: Modal, UITextFieldDelegate {
         return result
     }()
     
-    private lazy var explanationLabelContainer: UIScrollView = {
-        let result: UIScrollView = UIScrollView()
-        result.isHidden = true
-        
-        return result
-    }()
-    
-    private lazy var explanationLabelContainerHeightConstraint = explanationLabelContainer.set(.height, to: 0)
-    
-    private lazy var explanationLabel: UILabel = {
-        let result: UILabel = UILabel()
+    private lazy var explanationLabel: ScrollableLabel = {
+        let result: ScrollableLabel = ScrollableLabel()
         result.font = .systemFont(ofSize: Values.smallFontSize)
         result.themeTextColor = .alert_text
         result.textAlignment = .center
@@ -115,7 +106,7 @@ public class ConfirmationModal: Modal, UITextFieldDelegate {
     }()
     
     private lazy var contentStackView: UIStackView = {
-        let result = UIStackView(arrangedSubviews: [ titleLabel, explanationLabelContainer, textFieldContainer, imageViewContainer ])
+        let result = UIStackView(arrangedSubviews: [ titleLabel, explanationLabel, textFieldContainer, imageViewContainer ])
         result.axis = .vertical
         result.spacing = Values.smallSpacing
         result.isLayoutMarginsRelativeArrangement = true
@@ -186,10 +177,6 @@ public class ConfirmationModal: Modal, UITextFieldDelegate {
         contentView.addSubview(mainStackView)
         contentView.addSubview(closeButton)
         
-        explanationLabelContainer.addSubview(explanationLabel)
-        explanationLabel.pin(to: explanationLabelContainer)
-        explanationLabel.set(.width, to: .width, of: explanationLabelContainer)
-        
         textFieldContainer.addSubview(textField)
         textField.pin(to: textFieldContainer, withInset: 12)
         
@@ -201,18 +188,6 @@ public class ConfirmationModal: Modal, UITextFieldDelegate {
         mainStackView.pin(to: contentView)
         closeButton.pin(.top, to: .top, of: contentView, withInset: 8)
         closeButton.pin(.right, to: .right, of: contentView, withInset: -8)
-    }
-    
-    private func layoutExplanationLabel(_ canScroll: Bool = true) {
-        let labelWidth = view.frame.width - 4 * Values.veryLargeSpacing
-        let maxLabelSize = CGSize(width: labelWidth, height: CGFloat.greatestFiniteMagnitude)
-        let expectedLabelSize = explanationLabel.sizeThatFits(maxLabelSize)
-        let lineHeight = explanationLabel.font.lineHeight
-        if canScroll {
-            explanationLabelContainerHeightConstraint.constant = min(expectedLabelSize.height, lineHeight * 5)
-        } else {
-            explanationLabelContainerHeightConstraint.constant = expectedLabelSize.height
-        }
     }
     
     // MARK: - Content
@@ -245,20 +220,19 @@ public class ConfirmationModal: Modal, UITextFieldDelegate {
             case .text(let text, let canScroll):
                 mainStackView.spacing = Values.smallSpacing
                 explanationLabel.text = text
-                explanationLabelContainer.isHidden = false
-                self.layoutExplanationLabel(canScroll)
+                explanationLabel.canScroll = canScroll
+                explanationLabel.isHidden = false
                 
             case .attributedText(let attributedText, let canScroll):
                 mainStackView.spacing = Values.smallSpacing
                 explanationLabel.attributedText = attributedText
-                explanationLabelContainer.isHidden = false
-                self.layoutExplanationLabel(canScroll)
+                explanationLabel.canScroll = canScroll
+                explanationLabel.isHidden = false
                 
             case .input(let explanation, let placeholder, let value, let clearButton, let onTextChanged):
                 explanationLabel.attributedText = explanation
-                explanationLabelContainer.isHidden = (explanation == nil)
-                let canScroll: Bool = false
-                self.layoutExplanationLabel(canScroll)
+                explanationLabel.canScroll = false
+                explanationLabel.isHidden = (explanation == nil)
                 textField.placeholder = placeholder
                 textField.text = (value ?? "")
                 textField.clearButtonMode = (clearButton ? .always : .never)
