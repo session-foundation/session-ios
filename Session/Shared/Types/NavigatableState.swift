@@ -13,8 +13,8 @@ public protocol NavigatableStateHolder {
 }
 
 public extension NavigatableStateHolder {
-    func showToast(text: String, backgroundColor: ThemeValue = .backgroundPrimary) {
-        navigatableState._showToast.send((text, backgroundColor))
+    func showToast(text: String, backgroundColor: ThemeValue = .backgroundPrimary, insect: CGFloat = Values.largeSpacing) {
+        navigatableState._showToast.send((text, backgroundColor, insect))
     }
     
     func dismissScreen(type: DismissType = .auto) {
@@ -29,13 +29,13 @@ public extension NavigatableStateHolder {
 // MARK: - NavigatableState
 
 public struct NavigatableState {
-    let showToast: AnyPublisher<(String, ThemeValue), Never>
+    let showToast: AnyPublisher<(String, ThemeValue, CGFloat), Never>
     let transitionToScreen: AnyPublisher<(UIViewController, TransitionType), Never>
     let dismissScreen: AnyPublisher<DismissType, Never>
     
     // MARK: - Internal Variables
     
-    fileprivate let _showToast: PassthroughSubject<(String, ThemeValue), Never> = PassthroughSubject()
+    fileprivate let _showToast: PassthroughSubject<(String, ThemeValue, CGFloat), Never> = PassthroughSubject()
     fileprivate let _transitionToScreen: PassthroughSubject<(UIViewController, TransitionType), Never> = PassthroughSubject()
     fileprivate let _dismissScreen: PassthroughSubject<DismissType, Never> = PassthroughSubject()
     
@@ -55,11 +55,11 @@ public struct NavigatableState {
     ) {
         self.showToast
             .receive(on: DispatchQueue.main)
-            .sink { [weak viewController] text, color in
+            .sink { [weak viewController] text, color, insect in
                 guard let view: UIView = viewController?.view else { return }
                 
                 let toastController: ToastController = ToastController(text: text, background: color)
-                toastController.presentToastView(fromBottomOfView: view, inset: Values.largeSpacing)
+                toastController.presentToastView(fromBottomOfView: view, inset: insect)
             }
             .store(in: &disposables)
         

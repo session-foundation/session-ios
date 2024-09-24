@@ -435,17 +435,19 @@ public final class NotificationServiceExtension: UNNotificationServiceExtension 
     private func handleFailureForVoIP(_ db: Database, for callMessage: CallMessage) {
         let notificationContent = UNMutableNotificationContent()
         notificationContent.userInfo = [ NotificationServiceExtension.isFromRemoteKey : true ]
-        notificationContent.title = "Session"
+        notificationContent.title = Constants.app_name
         notificationContent.badge = (try? Interaction.fetchUnreadCount(db))
             .map { NSNumber(value: $0) }
             .defaulting(to: NSNumber(value: 0))
         
         if let sender: String = callMessage.sender {
             let senderDisplayName: String = Profile.displayName(db, id: sender, threadVariant: .contact)
-            notificationContent.body = "\(senderDisplayName) is calling..."
+            notificationContent.body = "callsIncoming"
+                .put(key: "name", value: senderDisplayName)
+                .localized()
         }
         else {
-            notificationContent.body = "Incoming call..."
+            notificationContent.body = "callsIncomingUnknown".localized()
         }
         
         let identifier = self.request?.identifier ?? UUID().uuidString
@@ -474,8 +476,10 @@ public final class NotificationServiceExtension: UNNotificationServiceExtension 
         Log.error("Show generic failure message after \(.seconds(duration), unit: .ms) due to error: \(error).")
         Log.flush()
         
-        content.title = "Session"
-        content.body = "APN_Message".localized()
+        content.title = Constants.app_name
+        content.body = "messageNewYouveGot"
+            .putNumber(1)
+            .localized()
         let userInfo: [String: Any] = [ NotificationServiceExtension.isFromRemoteKey: true ]
         content.userInfo = userInfo
         contentHandler!(content)

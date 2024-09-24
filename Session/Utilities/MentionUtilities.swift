@@ -34,7 +34,9 @@ public enum MentionUtilities {
             theme: .classicDark,
             primaryColor: Theme.PrimaryColor.green,
             attributes: [:]
-        ).string
+        )
+        .string
+        .deformatted()
     }
 
     public static func highlightMentions(
@@ -50,7 +52,7 @@ public enum MentionUtilities {
         attributes: [NSAttributedString.Key: Any]
     ) -> NSAttributedString {
         guard
-            let regex: NSRegularExpression = try? NSRegularExpression(pattern: "@[0-9a-fA-F]{66}", options: [])
+            let regex: NSRegularExpression = try? NSRegularExpression(pattern: "@[0-9a-fA-F]{66}", options: []) // stringlint:disable
         else {
             return NSAttributedString(string: string)
         }
@@ -77,7 +79,7 @@ public enum MentionUtilities {
             let isCurrentUser: Bool = currentUserPublicKeys.contains(publicKey)
             
             guard let targetString: String = {
-                guard !isCurrentUser else { return "MEDIA_GALLERY_SENDER_NAME_YOU".localized() }
+                guard !isCurrentUser else { return "you".localized() }
                 guard let displayName: String = Profile.displayNameNoFallback(id: publicKey, threadVariant: threadVariant) else {
                     lastMatchEnd = (match.range.location + match.range.length)
                     return nil
@@ -87,7 +89,7 @@ public enum MentionUtilities {
             }()
             else { continue }
             
-            string = string.replacingCharacters(in: range, with: "@\(targetString)")
+            string = string.replacingCharacters(in: range, with: "@\(targetString)") // stringlint:disable
             lastMatchEnd = (match.range.location + targetString.utf16.count)
             
             mentions.append((

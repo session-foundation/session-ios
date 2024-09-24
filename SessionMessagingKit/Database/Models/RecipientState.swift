@@ -42,76 +42,62 @@ public struct RecipientState: Codable, Equatable, FetchableRecord, PersistableRe
         case failedToSync   // One-to-one Only
         case syncing        // One-to-one Only
         
-        func message(hasAttachments: Bool, hasAtLeastOneReadReceipt: Bool) -> String {
-            switch self {
-                case .sending:
-                    guard hasAttachments else {
-                        return "MESSAGE_STATUS_SENDING".localized()
-                    }
-                    
-                    return "MESSAGE_STATUS_UPLOADING".localized()
-                
-                case .failed: return "MESSAGE_STATUS_FAILED".localized()
-                    
-                case .sent:
-                    guard hasAtLeastOneReadReceipt else {
-                        return "MESSAGE_STATUS_SENT".localized()
-                    }
-                    
-                    return "MESSAGE_STATUS_READ".localized()
-                
-                case .failedToSync: return "MESSAGE_DELIVERY_STATUS_FAILED_SYNC".localized()
-                case .syncing: return "MESSAGE_DELIVERY_STATUS_SYNCING".localized()
-                    
-                default:
-                    Log.error("Message has unexpected status: \(self).")
-                    return "MESSAGE_STATUS_SENT".localized()
+        public func statusIconInfo(
+            variant: Interaction.Variant,
+            hasAtLeastOneReadReceipt: Bool,
+            hasAttachments: Bool
+        ) -> (image: UIImage?, text: String?, themeTintColor: ThemeValue) {
+            guard variant == .standardOutgoing else {
+                return (nil, "read".localized(), .messageBubble_deliveryStatus)
             }
-        }
-        
-        public func statusIconInfo(variant: Interaction.Variant, hasAtLeastOneReadReceipt: Bool) -> (image: UIImage?, text: String?, themeTintColor: ThemeValue) {
-            guard variant == .standardOutgoing else { return (nil, "MESSAGE_DELIVERY_STATUS_READ".localized(), .messageBubble_deliveryStatus) }
 
-            switch (self, hasAtLeastOneReadReceipt) {
-                case (.sending, _):
+            switch (self, hasAtLeastOneReadReceipt, hasAttachments) {
+                case (.sending, _, true):
                     return (
                         UIImage(systemName: "ellipsis.circle"),
-                        "MESSAGE_DELIVERY_STATUS_SENDING".localized(),
-                        .messageBubble_deliveryStatus
-                    )
-
-                case (.sent, false), (.skipped, _):
-                    return (
-                        UIImage(systemName: "checkmark.circle"),
-                        "MESSAGE_DELIVERY_STATUS_SENT".localized(),
-                        .messageBubble_deliveryStatus
-                    )
-
-                case (.sent, true):
-                    return (
-                        UIImage(systemName: "eye.fill"),
-                        "MESSAGE_DELIVERY_STATUS_READ".localized(),
+                        "uploading".localized(),
                         .messageBubble_deliveryStatus
                     )
                     
-                case (.failed, _):
+                case (.sending, _, _):
+                    return (
+                        UIImage(systemName: "ellipsis.circle"),
+                        "sending".localized(),
+                        .messageBubble_deliveryStatus
+                    )
+
+                case (.sent, false, _), (.skipped, _, _):
+                    return (
+                        UIImage(systemName: "checkmark.circle"),
+                        "disappearingMessagesSent".localized(),
+                        .messageBubble_deliveryStatus
+                    )
+
+                case (.sent, true, _):
+                    return (
+                        UIImage(systemName: "eye.fill"),
+                        "read".localized(),
+                        .messageBubble_deliveryStatus
+                    )
+                    
+                case (.failed, _, _):
                     return (
                         UIImage(systemName: "exclamationmark.triangle"),
-                        "MESSAGE_DELIVERY_STATUS_FAILED".localized(),
+                        "messageStatusFailedToSend".localized(),
                         .danger
                     )
                     
-                case (.failedToSync, _):
+                case (.failedToSync, _, _):
                     return (
                         UIImage(systemName: "exclamationmark.triangle"),
-                        "MESSAGE_DELIVERY_STATUS_FAILED_SYNC".localized(),
+                        "messageStatusFailedToSync".localized(),
                         .warning
                     )
                     
-                case (.syncing, _):
+                case (.syncing, _, _):
                     return (
                         UIImage(systemName: "ellipsis.circle"),
-                        "MESSAGE_DELIVERY_STATUS_SYNCING".localized(),
+                        "messageStatusSyncing".localized(),
                         .warning
                     )
 

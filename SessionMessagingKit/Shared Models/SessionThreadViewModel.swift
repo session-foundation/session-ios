@@ -1233,7 +1233,7 @@ public extension SessionThreadViewModel {
     }
     
     static func standardQuotes(_ term: String) -> String {
-        // Apple like to use the special '”“' quote characters when typing so replace them with normal ones
+        // Apple like to use the special '""' quote characters when typing so replace them with normal ones
         return term
             .replacingOccurrences(of: "”", with: "\"")
             .replacingOccurrences(of: "“", with: "\"")
@@ -1416,7 +1416,7 @@ public extension SessionThreadViewModel {
         let closedGroupFullTextSearch: TypedTableAlias<ClosedGroup.FullTextSearch> = TypedTableAlias(name: ClosedGroup.fullTextSearchTableName)
         let openGroupFullTextSearch: TypedTableAlias<OpenGroup.FullTextSearch> = TypedTableAlias(name: OpenGroup.fullTextSearchTableName)
         
-        let noteToSelfLiteral: SQL = SQL(stringLiteral: "NOTE_TO_SELF".localized().lowercased())
+        let noteToSelfLiteral: SQL = SQL(stringLiteral: "noteToSelf".localized().lowercased())
         let searchTermLiteral: SQL = SQL(stringLiteral: searchTerm.lowercased())
         
         /// **Note:** The `numColumnsBeforeProfiles` value **MUST** match the number of fields before

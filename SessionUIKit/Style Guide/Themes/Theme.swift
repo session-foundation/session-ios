@@ -16,10 +16,10 @@ public enum Theme: String, CaseIterable, Codable, EnumStringSetting {
     
     public var title: String {
         switch self {
-            case .classicDark: return "Classic Dark"
-            case .classicLight: return "Classic Light"
-            case .oceanDark: return "Ocean Dark"
-            case .oceanLight: return "Ocean Light"
+        case .classicDark: return "appearanceThemesClassicDark".localized()
+        case .classicLight: return "appearanceThemesClassicLight".localized()
+        case .oceanDark: return "appearanceThemesOceanDark".localized()
+        case .oceanLight: return "appearanceThemesOceanLight".localized()
         }
     }
     

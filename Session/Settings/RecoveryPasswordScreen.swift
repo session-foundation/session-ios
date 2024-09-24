@@ -63,13 +63,7 @@ struct RecoveryPasswordScreen: View {
                             }
                             .padding(.bottom, Values.smallSpacing)
                             
-                            Text("recovery_password_explanation_1".localized())
-                                .font(.system(size: Values.smallFontSize))
-                                .foregroundColor(themeColor: .textPrimary)
-                                .padding(.bottom, Values.mediumSpacing)
-                                .fixedSize(horizontal: false, vertical: true)
-                            
-                            Text("recovery_password_explanation_2".localized())
+                            Text("recoveryPasswordDescription".localized())
                                 .font(.system(size: Values.smallFontSize))
                                 .foregroundColor(themeColor: .textPrimary)
                                 .padding(.bottom, Values.mediumSpacing)
@@ -258,12 +252,8 @@ struct RecoveryPasswordScreen: View {
         let modal: ConfirmationModal = ConfirmationModal(
             info: ConfirmationModal.Info(
                 title: "recoveryPasswordHidePermanently".localized(),
-                body: .text(
-                    "hide_recovery_password_modal_warning_1".localized() +
-                    "\n\n" +
-                    "hide_recovery_password_modal_warning_2".localized()
-                ),
-                confirmTitle: "continue_2".localized(),
+                body: .text("recoveryPasswordHidePermanentlyDescription1".localized()),
+                confirmTitle: "theContinue".localized(),
                 confirmAccessibility: Accessibility(
                     identifier: "Continue",
                     label: "Continue"
@@ -283,7 +273,7 @@ struct RecoveryPasswordScreen: View {
                         info: ConfirmationModal.Info(
                             title: "recoveryPasswordHidePermanently".localized(),
                             body: .text("recoveryPasswordHidePermanentlyDescription2".localized()),
-                            confirmTitle: "TXT_CANCEL_TITLE".localized(),
+                            confirmTitle: "cancel".localized(),
                             confirmAccessibility: Accessibility(
                                 identifier: "Cancel",
                                 label: "Cancel"

@@ -124,7 +124,7 @@ extension MessageSender {
                             currentUserPublicKey: userPublicKey,
                             legacyGroupIds: try ClosedGroup
                                 .select(.threadId)
-                                .filter(!ClosedGroup.Columns.threadId.like("\(SessionId.Prefix.group.rawValue)%"))
+                                .filter(!ClosedGroup.Columns.threadId.like("\(SessionId.Prefix.group.rawValue)%")) // stringlint:disable
                                 .joining(
                                     required: ClosedGroup.members
                                         .filter(GroupMember.Columns.profileId == userPublicKey)
@@ -616,7 +616,7 @@ extension MessageSender {
             threadVariant: .legacyGroup,
             authorId: userPublicKey,
             variant: .infoClosedGroupCurrentUserLeaving,
-            body: "group_you_leaving".localized(),
+            body: "leaving".localized(),
             timestampMs: SnodeAPI.currentOffsetTimestampMs()
         ).inserted(db)
         

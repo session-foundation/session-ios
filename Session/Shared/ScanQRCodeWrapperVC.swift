@@ -7,29 +7,14 @@ final class ScanQRCodeWrapperVC: BaseVC {
     var delegate: (UIViewController & QRScannerDelegate)? = nil
     var isPresentedModally = false
     
-    private let message: String?
     private let scanQRCodeVC = QRCodeScanningViewController()
     
     // MARK: - Lifecycle
     
-    init(message: String?) {
-        self.message = message
-        
-        super.init(nibName: nil, bundle: nil)
-    }
-    
-    required init?(coder: NSCoder) {
-        preconditionFailure("Use init(message:) instead.")
-    }
-    
-    override init(nibName: String?, bundle: Bundle?) {
-        preconditionFailure("Use init(message:) instead.")
-    }
-    
     override func viewDidLoad() {
         super.viewDidLoad()
         
-        title = "Scan QR Code"
+        title = "qrScan".localized()
         
         // Set up navigation bar if needed
         if isPresentedModally {
@@ -40,37 +25,7 @@ final class ScanQRCodeWrapperVC: BaseVC {
         scanQRCodeVC.scanDelegate = delegate
         let scanQRCodeVCView = scanQRCodeVC.view!
         view.addSubview(scanQRCodeVCView)
-        scanQRCodeVCView.pin(.top, to: .top, of: view)
-        scanQRCodeVCView.pin(.leading, to: .leading, of: view)
-        scanQRCodeVCView.pin(.trailing, to: .trailing, of: view)
-        
-        if let message = message {
-            scanQRCodeVCView.set(.height, lessThanOrEqualTo: UIScreen.main.bounds.width)
-            
-            // Set up bottom view
-            let bottomView = UIView()
-            view.addSubview(bottomView)
-            bottomView.pin(.top, to: .bottom, of: scanQRCodeVCView)
-            bottomView.pin(.leading, to: .leading, of: view)
-            bottomView.pin(.trailing, to: .trailing, of: view)
-            bottomView.pin(.bottom, to: .bottom, of: view)
-            
-            // Set up explanation label
-            let explanationLabel: UILabel = UILabel()
-            explanationLabel.font = .systemFont(ofSize: Values.smallFontSize)
-            explanationLabel.text = message
-            explanationLabel.themeTextColor = .textPrimary
-            explanationLabel.textAlignment = .center
-            explanationLabel.lineBreakMode = .byWordWrapping
-            explanationLabel.numberOfLines = 0
-            bottomView.addSubview(explanationLabel)
-            
-            explanationLabel.set(.width, to: .width, of: bottomView, withOffset: 32)
-            explanationLabel.set(.height, to: .height, of: bottomView, withOffset: 32)
-        }
-        else {
-            scanQRCodeVCView.pin(.bottom, to: .bottom, of: view)
-        }
+        scanQRCodeVCView.pin(to: view)
     }
     
     override func viewDidAppear(_ animated: Bool) {

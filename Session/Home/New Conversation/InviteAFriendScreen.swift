@@ -44,11 +44,15 @@ struct InviteAFriendScreen: View {
                         .stroke(themeColor: .borderSeparator)
                     )
                 
-                Text("invite_a_friend_explanation".localized())
-                    .font(.system(size: Values.verySmallFontSize))
-                    .multilineTextAlignment(.center)
-                    .foregroundColor(themeColor: .textSecondary)
-                    .padding(.horizontal, Values.smallSpacing)
+                Text(
+                    "shareAccountIdDescription"
+                        .put(key: "app_name", value: Constants.app_name)
+                        .localized()
+                )
+                .font(.system(size: Values.verySmallFontSize))
+                .multilineTextAlignment(.center)
+                .foregroundColor(themeColor: .textSecondary)
+                .padding(.horizontal, Values.smallSpacing)
                 
                 HStack(
                     alignment: .center,

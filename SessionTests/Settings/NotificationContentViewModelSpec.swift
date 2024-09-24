@@ -47,7 +47,7 @@ class NotificationContentViewModelSpec: QuickSpec {
         describe("a NotificationContentViewModel") {
             // MARK: -- has the correct title
             it("has the correct title") {
-                expect(viewModel.title).to(equal("NOTIFICATIONS_STYLE_CONTENT_TITLE".localized()))
+                expect(viewModel.title).to(equal("notificationsContent".localized()))
             }
 
             // MARK: -- has the correct number of items
@@ -66,7 +66,7 @@ class NotificationContentViewModelSpec: QuickSpec {
                             SessionCell.Info(
                                 id: Preferences.NotificationPreviewType.nameAndPreview,
                                 position: .top,
-                                title: "NOTIFICATIONS_STYLE_CONTENT_OPTION_NAME_AND_CONTENT".localized(),
+                                title: "notificationsContentShowNameAndContent".localized(),
                                 rightAccessory: .radio(
                                     isSelected: { true }
                                 )
@@ -74,7 +74,7 @@ class NotificationContentViewModelSpec: QuickSpec {
                             SessionCell.Info(
                                 id: Preferences.NotificationPreviewType.nameNoPreview,
                                 position: .middle,
-                                title: "NOTIFICATIONS_STYLE_CONTENT_OPTION_NAME_ONLY".localized(),
+                                title: "notificationsContentShowNameOnly".localized(),
                                 rightAccessory: .radio(
                                     isSelected: { false }
                                 )
@@ -82,7 +82,7 @@ class NotificationContentViewModelSpec: QuickSpec {
                             SessionCell.Info(
                                 id: Preferences.NotificationPreviewType.noNameNoPreview,
                                 position: .bottom,
-                                title: "NOTIFICATIONS_STYLE_CONTENT_OPTION_NO_NAME_OR_CONTENT".localized(),
+                                title: "notificationsContentShowNoNameOrContent".localized(),
                                 rightAccessory: .radio(
                                     isSelected: { false }
                                 )
@@ -110,7 +110,7 @@ class NotificationContentViewModelSpec: QuickSpec {
                             SessionCell.Info(
                                 id: Preferences.NotificationPreviewType.nameAndPreview,
                                 position: .top,
-                                title: "NOTIFICATIONS_STYLE_CONTENT_OPTION_NAME_AND_CONTENT".localized(),
+                                title: "notificationsContentShowNameAndContent".localized(),
                                 rightAccessory: .radio(
                                     isSelected: { false }
                                 )
@@ -118,7 +118,7 @@ class NotificationContentViewModelSpec: QuickSpec {
                             SessionCell.Info(
                                 id: Preferences.NotificationPreviewType.nameNoPreview,
                                 position: .middle,
-                                title: "NOTIFICATIONS_STYLE_CONTENT_OPTION_NAME_ONLY".localized(),
+                                title: "notificationsContentShowNameOnly".localized(),
                                 rightAccessory: .radio(
                                     isSelected: { true }
                                 )
@@ -126,7 +126,7 @@ class NotificationContentViewModelSpec: QuickSpec {
                             SessionCell.Info(
                                 id: Preferences.NotificationPreviewType.noNameNoPreview,
                                 position: .bottom,
-                                title: "NOTIFICATIONS_STYLE_CONTENT_OPTION_NO_NAME_OR_CONTENT".localized(),
+                                title: "notificationsContentShowNoNameOrContent".localized(),
                                 rightAccessory: .radio(
                                     isSelected: { false }
                                 )

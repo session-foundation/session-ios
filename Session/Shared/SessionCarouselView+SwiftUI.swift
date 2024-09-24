@@ -202,11 +202,7 @@ struct SessionCarouselView_SwiftUI_Previews: PreviewProvider {
     @State static var index = 1
     static var previews: some View {
         ZStack {
-            if #available(iOS 14.0, *) {
-                Color.black.ignoresSafeArea()
-            } else {
-                Color.black
-            }
+            Color.black.ignoresSafeArea()
             
             SessionCarouselView_SwiftUI(
                 index: $index,

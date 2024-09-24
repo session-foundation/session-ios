@@ -177,16 +177,6 @@ extension View {
         }
     }
     
-    public func hideListRowSeparator() -> some View {
-        if #available(iOS 15.0, *) {
-            return listRowSeparator(.hidden)
-        } else {
-            return onAppear {
-                UITableView.appearance().separatorStyle = .none
-            }
-        }
-    }
-    
     public func accessibility(_ accessibility: Accessibility) -> some View {
         if #available(iOSApplicationExtension 14.0, *) {
             guard let identifier = accessibility.identifier else {

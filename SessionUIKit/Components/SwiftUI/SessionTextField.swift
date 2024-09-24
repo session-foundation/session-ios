@@ -66,7 +66,7 @@ public struct SessionTextField<ExplanationView>: View where ExplanationView: Vie
                     .font(.system(size: Values.smallFontSize))
                     .foregroundColor(themeColor: textThemeColor)
                     .accessibility(self.accessibility)
-                } else if #available(iOS 14.0, *) {
+                } else {
                     ZStack {
                         TextEditor(
                             text: $text.onChange{ value in
@@ -94,19 +94,6 @@ public struct SessionTextField<ExplanationView>: View where ExplanationView: Vie
                             )
                     }
                     .fixedSize(horizontal: false, vertical: true)
-                } else {
-                    SwiftUI.TextField(
-                        "",
-                        text: $text.onChange{ value in
-                            if error?.isEmpty == false && text != value {
-                                previousError = error!
-                                error = nil
-                            }
-                        }
-                    )
-                    .font(.system(size: Values.smallFontSize))
-                    .foregroundColor(themeColor: textThemeColor)
-                    .accessibility(self.accessibility)
                 }
             }
             .padding(.horizontal, Values.largeSpacing)

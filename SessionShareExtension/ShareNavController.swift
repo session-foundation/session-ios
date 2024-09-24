@@ -215,8 +215,7 @@ final class ShareNavController: UINavigationController, ShareViewDelegate {
         ModalActivityIndicatorViewController
             .present(
                 fromViewController: self,
-                canCancel: false,
-                message: "vc_share_loading_message".localized()
+                canCancel: false
             ) { activityIndicator in
                 publisher
                     .subscribe(on: DispatchQueue.global(qos: .userInitiated))
@@ -251,9 +250,9 @@ final class ShareNavController: UINavigationController, ShareViewDelegate {
         let modal: ConfirmationModal = ConfirmationModal(
             targetView: self.view,
             info: ConfirmationModal.Info(
-                title: "Session",
+                title: Constants.app_name,
                 body: .text("\(error)"),
-                cancelTitle: "BUTTON_OK".localized(),
+                cancelTitle: "okay".localized(),
                 cancelStyle: .alert_text,
                 afterClosed: { [weak self] in self?.extensionContext?.cancelRequest(withError: error) }
             )
@@ -477,7 +476,7 @@ final class ShareNavController: UINavigationController, ShareViewDelegate {
                     
                     switch value {
                         case let data as Data:
-                            let customFileName = "Contact.vcf"
+                            let customFileName = "Contact.vcf" // stringlint:disable
                             let customFileExtension = MimeTypeUtil.fileExtension(forUtiType: srcUtiType)
                             
                             guard let tempFilePath = try? FileSystem.write(data: data, toTemporaryFileWithExtension: customFileExtension) else {
@@ -508,7 +507,7 @@ final class ShareNavController: UINavigationController, ShareViewDelegate {
                                 )
                                 return
                             }
-                            guard let tempFilePath: String = try? FileSystem.write(data: data, toTemporaryFileWithExtension: "txt") else {
+                            guard let tempFilePath: String = try? FileSystem.write(data: data, toTemporaryFileWithExtension: "txt") else { // stringlint:disable
                                 resolver(
                                     Result.failure(ShareViewControllerError.assertionError(description: "Error writing item data: \(String(describing: error))"))
                                 )
@@ -578,7 +577,7 @@ final class ShareNavController: UINavigationController, ShareViewDelegate {
                             
                         case let image as UIImage:
                             if let data = image.pngData() {
-                                let tempFilePath: String = FileSystem.temporaryFilePath(fileExtension: "png")
+                                let tempFilePath: String = FileSystem.temporaryFilePath(fileExtension: "png") // stringlint:disable
                                 do {
                                     let url = NSURL.fileURL(withPath: tempFilePath)
                                     try data.write(to: url)

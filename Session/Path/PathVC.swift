@@ -47,7 +47,7 @@ final class PathVC: BaseVC {
 
     private lazy var learnMoreButton: SessionButton = {
         let result = SessionButton(style: .bordered, size: .large)
-        result.setTitle("vc_path_learn_more_button_title".localized(), for: UIControl.State.normal)
+        result.setTitle("learnMore".localized(), for: UIControl.State.normal)
         result.addTarget(self, action: #selector(learnMore), for: UIControl.Event.touchUpInside)
         
         return result
@@ -67,14 +67,16 @@ final class PathVC: BaseVC {
     }
 
     private func setUpNavBar() {
-        setNavBarTitle("vc_path_title".localized())
+        setNavBarTitle("onionRoutingPath".localized())
     }
 
     private func setUpViewHierarchy() {
         // Set up explanation label
         let explanationLabel = UILabel()
         explanationLabel.font = .systemFont(ofSize: Values.smallFontSize)
-        explanationLabel.text = "vc_path_explanation".localized()
+        explanationLabel.text = "onionRoutingPathDescription"
+            .put(key: "app_name", value: Constants.app_name)
+            .localized()
         explanationLabel.themeTextColor = .textSecondary
         explanationLabel.textAlignment = .center
         explanationLabel.lineBreakMode = .byWordWrapping
@@ -170,14 +172,14 @@ final class PathVC: BaseVC {
         }
         
         let youRow = getPathRow(
-            title: "vc_path_device_row_title".localized(),
+            title: "you".localized(),
             subtitle: nil,
             location: .top,
             dotAnimationStartDelay: 1,
             dotAnimationRepeatInterval: dotAnimationRepeatInterval
         )
         let destinationRow = getPathRow(
-            title: "vc_path_destination_row_title".localized(),
+            title: "onionRoutingPathDestination".localized(),
             subtitle: nil,
             location: .bottom,
             dotAnimationStartDelay: Double(pathToDisplay.count) + 2,
@@ -232,8 +234,8 @@ final class PathVC: BaseVC {
     private func getPathRow(snode: LibSession.Snode, location: LineView.Location, dotAnimationStartDelay: Double, dotAnimationRepeatInterval: Double, isGuardSnode: Bool) -> UIStackView {
         return getPathRow(
             title: (isGuardSnode ?
-                "vc_path_guard_node_row_title".localized() :
-                "vc_path_service_node_row_title".localized()
+                "onionRoutingPathEntryNode".localized() :
+                "onionRoutingPathServiceNode".localized()
             ),
             subtitle: IP2Country.country(for: snode.ip),
             location: location,

@@ -213,7 +213,7 @@ class GlobalSearchViewController: BaseVC, LibSessionRespondingViewController, UI
         // See more https://developer.apple.com/documentation/uikit/uisearchbar/1624283-showscancelbutton?language=objc
         if UIDevice.current.isIPad {
             let ipadCancelButton = UIButton()
-            ipadCancelButton.setTitle("Cancel", for: .normal)
+            ipadCancelButton.setTitle("cancel".localized(), for: .normal)
             ipadCancelButton.setThemeTitleColor(.textPrimary, for: .normal)
             ipadCancelButton.addTarget(self, action: #selector(cancel), for: .touchUpInside)
             searchBarContainer.addSubview(ipadCancelButton)
@@ -462,13 +462,13 @@ extension GlobalSearchViewController {
             case .messages: 
                 guard !section.elements.isEmpty else { return UIView() }
                 titleLabel.font = .boldSystemFont(ofSize: Values.largeFontSize)
-                titleLabel.text = "SEARCH_SECTION_MESSAGES".localized()
+                titleLabel.text = "messages".localized()
                 break
             case .groupedContacts(let title): 
                 guard !section.elements.isEmpty else { return UIView() }
                 if title.isEmpty {
                     titleLabel.font = .boldSystemFont(ofSize: Values.largeFontSize)
-                    titleLabel.text = "NEW_CONVERSATION_CONTACTS_SECTION_TITLE".localized()
+                    titleLabel.text = "contactContacts".localized()
                 } else {
                     titleLabel.font = .systemFont(ofSize: Values.smallFontSize)
                     titleLabel.text = title

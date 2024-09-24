@@ -132,9 +132,9 @@ class MessageRequestsViewModel: SessionTableViewModel, NavigatableStateHolder, O
     
     // MARK: - Content
     
-    public let title: String = "MESSAGE_REQUESTS_TITLE".localized()
-    public let initialLoadMessage: String? = "LOADING_CONVERSATIONS".localized()
-    public let emptyStateTextPublisher: AnyPublisher<String?, Never> = Just("MESSAGE_REQUESTS_EMPTY_TEXT".localized())
+    public let title: String = "sessionMessageRequests".localized()
+    public let initialLoadMessage: String? = "loading".localized()
+    public let emptyStateTextPublisher: AnyPublisher<String?, Never> = Just("messageRequestsNonePending".localized())
         .eraseToAnyPublisher()
     public let cellType: SessionTableViewCellType = .fullConversation
     public private(set) var pagedDataObserver: PagedDatabaseObserver<SessionThread, SessionThreadViewModel>?
@@ -197,7 +197,7 @@ class MessageRequestsViewModel: SessionTableViewModel, NavigatableStateHolder, O
             
             return SessionButton.Info(
                 style: .destructive,
-                title: "MESSAGE_REQUESTS_CLEAR_ALL".localized(),
+                title: "clearAll".localized(),
                 isEnabled: !threadInfo.isEmpty,
                 accessibility: Accessibility(
                     identifier: "Clear all"
@@ -205,11 +205,12 @@ class MessageRequestsViewModel: SessionTableViewModel, NavigatableStateHolder, O
                 onTap: { [weak self] in
                     let modal: ConfirmationModal = ConfirmationModal(
                         info: ConfirmationModal.Info(
-                            title: "MESSAGE_REQUESTS_CLEAR_ALL_CONFIRMATION_TITLE".localized(),
+                            title: "clearAll".localized(),
+                            body: .text("messageRequestsClearAllExplanation".localized()),
                             accessibility: Accessibility(
                                 identifier: "Clear all"
                             ),
-                            confirmTitle: "MESSAGE_REQUESTS_CLEAR_ALL_CONFIRMATION_ACTON".localized(),
+                            confirmTitle: "clear".localized(),
                             confirmAccessibility: Accessibility(
                                 identifier: "Clear"
                             ),
@@ -275,7 +276,8 @@ class MessageRequestsViewModel: SessionTableViewModel, NavigatableStateHolder, O
                         indexPath: indexPath,
                         tableView: tableView,
                         threadViewModel: threadViewModel,
-                        viewController: viewController
+                        viewController: viewController,
+                        navigatableStateHolder: nil
                     )
                 )
                 

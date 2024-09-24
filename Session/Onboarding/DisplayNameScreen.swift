@@ -22,11 +22,7 @@ struct DisplayNameScreen: View {
     
     var body: some View {
         ZStack(alignment: .center) {
-            if #available(iOS 14.0, *) {
-                ThemeManager.currentTheme.colorSwiftUI(for: .backgroundPrimary).ignoresSafeArea()
-            } else {
-                ThemeManager.currentTheme.colorSwiftUI(for: .backgroundPrimary)
-            }
+            ThemeManager.currentTheme.colorSwiftUI(for: .backgroundPrimary).ignoresSafeArea()
             
             VStack(
                 alignment: .leading,
@@ -34,7 +30,7 @@ struct DisplayNameScreen: View {
             ) {
                 Spacer(minLength: 0)
                 
-                let title: String = (self.flow == .register) ? "vc_display_name_title_2".localized() : "displayNameNew".localized()
+                let title: String = (self.flow == .register) ? "displayNamePick".localized() : "displayNameNew".localized()
                 Text(title)
                     .bold()
                     .font(.system(size: Values.veryLargeFontSize))
@@ -76,7 +72,7 @@ struct DisplayNameScreen: View {
                 Button {
                     register()
                 } label: {
-                    Text("continue_2".localized())
+                    Text("theContinue".localized())
                         .bold()
                         .font(.system(size: Values.smallFontSize))
                         .foregroundColor(themeColor: .sessionButton_text)
@@ -105,11 +101,11 @@ struct DisplayNameScreen: View {
     private func register() {
         let displayName = self.displayName.trimmingCharacters(in: CharacterSet.whitespacesAndNewlines)
         guard !displayName.isEmpty else {
-            error = "vc_display_name_display_name_missing_error".localized()
+            error = "displayNameErrorDescription".localized()
             return
         }
         guard !ProfileManager.isTooLong(profileName: displayName) else {
-            error = "vc_display_name_display_name_too_long_error".localized()
+            error = "displayNameErrorDescriptionShorter".localized()
             return
         }
         
