@@ -47,8 +47,8 @@ public class ConfirmationModal: Modal, UITextFieldDelegate {
         return result
     }()
     
-    private lazy var explanationLabel: ScrollableLabelView = {
-        let result: ScrollableLabelView = ScrollableLabelView()
+    private lazy var explanationLabel: ScrollableLabel = {
+        let result: ScrollableLabel = ScrollableLabel()
         result.font = .systemFont(ofSize: Values.smallFontSize)
         result.themeTextColor = .alert_text
         result.textAlignment = .center

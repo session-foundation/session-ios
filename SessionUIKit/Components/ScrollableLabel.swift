@@ -2,7 +2,7 @@
 
 import UIKit
 
-class ScrollableLabelView: UIView {
+class ScrollableLabel: UIView {
     private var oldSize: CGSize = .zero
     private var layoutLoopCounter: Int = 0
     
