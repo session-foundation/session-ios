@@ -92,7 +92,7 @@ final class SeedReminderView: UIView {
         button.accessibilityIdentifier = "Reveal recovery phrase button"
         button.accessibilityLabel = "Reveal recovery phrase button"
         button.isAccessibilityElement = true
-        button.setTitle("continue_2".localized(), for: UIControl.State.normal)
+        button.setTitle("theContinue".localized(), for: UIControl.State.normal)
         button.set(.width, greaterThanOrEqualTo: 80)
         button.addTarget(self, action: #selector(handleContinueButtonTapped), for: UIControl.Event.touchUpInside)
         

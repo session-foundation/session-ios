@@ -107,7 +107,7 @@ final class ConversationVC: BaseVC, LibSessionRespondingViewController, Conversa
         return result
     }()
 
-    lazy var recordVoiceMessageActivity = AudioActivity(audioDescription: "Voice message", behavior: .playAndRecord)
+    lazy var recordVoiceMessageActivity = AudioActivity(audioDescription: "Voice message", behavior: .playAndRecord) // stringlint:disable
 
     lazy var searchController: ConversationSearchController = {
         let result: ConversationSearchController = ConversationSearchController(
@@ -144,7 +144,6 @@ final class ConversationVC: BaseVC, LibSessionRespondingViewController, Conversa
         result.separatorStyle = .none
         result.themeBackgroundColor = .clear
         result.showsVerticalScrollIndicator = false
-        result.contentInsetAdjustmentBehavior = .never
         result.keyboardDismissMode = .interactive
         result.contentInset = UIEdgeInsets(
             top: 0,
@@ -209,7 +208,9 @@ final class ConversationVC: BaseVC, LibSessionRespondingViewController, Conversa
     
     lazy var outdatedClientBanner: InfoBanner = {
         let info: InfoBanner.Info = InfoBanner.Info(
-            message: String(format: "DISAPPEARING_MESSAGES_OUTDATED_CLIENT_BANNER".localized(), self.viewModel.threadData.displayName),
+            message: "disappearingMessagesLegacy"
+                .put(key: "name", value: self.viewModel.threadData.displayName)
+                .localized(),
             backgroundColor: .primary,
             messageFont: .systemFont(ofSize: Values.verySmallFontSize),
             messageTintColor: .messageBubble_outgoingText,
@@ -424,7 +425,7 @@ final class ConversationVC: BaseVC, LibSessionRespondingViewController, Conversa
             name: UIApplication.userDidTakeScreenshotNotification,
             object: nil
         )
-        
+       
         // Observe keyboard notifications
         let keyboardNotifications: [Notification.Name] = [
             UIResponder.keyboardWillShowNotification,
@@ -442,6 +443,8 @@ final class ConversationVC: BaseVC, LibSessionRespondingViewController, Conversa
                 object: nil
             )
         }
+
+        self.viewModel.navigatableState.setupBindings(viewController: self, disposables: &self.viewModel.disposables)
         
         // The first time the view loads we should mark the thread as read (in case it was manually
         // marked as unread) - doing this here means if we add a "mark as unread" action within the
@@ -665,21 +668,24 @@ final class ConversationVC: BaseVC, LibSessionRespondingViewController, Conversa
     }
     
     private func emptyStateText(for threadData: SessionThreadViewModel) -> String {
-        return String(
-            format: {
-                switch (threadData.threadIsNoteToSelf, threadData.canWrite) {
-                    case (true, _): return "CONVERSATION_EMPTY_STATE_NOTE_TO_SELF".localized()
-                    case (_, false):
-                        return (threadData.profile?.blocksCommunityMessageRequests == true ?
-                            "COMMUNITY_MESSAGE_REQUEST_DISABLED_EMPTY_STATE".localized() :
-                            "CONVERSATION_EMPTY_STATE_READ_ONLY".localized()
-                        )
-                       
-                    default: return "CONVERSATION_EMPTY_STATE".localized()
+        switch (threadData.threadIsNoteToSelf, threadData.canWrite) {
+            case (true, _):
+                return "noteToSelfEmpty".localized()
+            case (_, false):
+                if threadData.profile?.blocksCommunityMessageRequests == true {
+                    return "messageRequestsTurnedOff"
+                        .put(key: "name", value: threadData.displayName)
+                        .localized()
+                } else {
+                    return "conversationsEmpty"
+                        .put(key: "conversation_name", value: threadData.displayName)
+                        .localized()
                 }
-            }(),
-            threadData.displayName
-        )
+            default:
+                return "groupNoMessages"
+                    .put(key: "group_name", value: threadData.displayName)
+                    .localized()
+        }
     }
     
     private func handleThreadUpdates(_ updatedThreadData: SessionThreadViewModel, initialLoad: Bool = false) {
@@ -725,13 +731,7 @@ final class ConversationVC: BaseVC, LibSessionRespondingViewController, Conversa
             
             // Update the empty state
             let text: String = emptyStateText(for: updatedThreadData)
-            emptyStateLabel.attributedText = NSAttributedString(string: text)
-                .adding(
-                    attributes: [.font: UIFont.boldSystemFont(ofSize: Values.verySmallFontSize)],
-                    range: text.range(of: updatedThreadData.displayName)
-                        .map { NSRange($0, in: text) }
-                        .defaulting(to: NSRange(location: 0, length: 0))
-                )
+            emptyStateLabel.attributedText = text.formatted(in: emptyStateLabel)
         }
         
         if
@@ -1479,10 +1479,9 @@ final class ConversationVC: BaseVC, LibSessionRespondingViewController, Conversa
         }
         
         self.outdatedClientBanner.update(
-            message: String(
-                format: "DISAPPEARING_MESSAGES_OUTDATED_CLIENT_BANNER".localized(),
-                Profile.displayName(id: outdatedMemberId, threadVariant: self.viewModel.threadData.threadVariant)
-            ),
+            message: "disappearingMessagesLegacy"
+                .put(key: "name", value: Profile.displayName(id: outdatedMemberId, threadVariant: self.viewModel.threadData.threadVariant))
+                .localized(),
             dismiss: self.removeOutdatedClientBanner
         )
 
@@ -1555,9 +1554,9 @@ final class ConversationVC: BaseVC, LibSessionRespondingViewController, Conversa
                                 let modal: ConfirmationModal = ConfirmationModal(
                                     targetView: self?.view,
                                     info: ConfirmationModal.Info(
-                                        title: CommonStrings.errorAlertTitle,
-                                        body: .text("INVALID_AUDIO_FILE_ALERT_ERROR_MESSAGE".localized()),
-                                        cancelTitle: "BUTTON_OK".localized(),
+                                        title: "theError".localized(),
+                                        body: .text("audioUnableToPlay".localized()),
+                                        cancelTitle: "okay".localized(),
                                         cancelStyle: .alert_text
                                     )
                                 )
@@ -1725,7 +1724,7 @@ final class ConversationVC: BaseVC, LibSessionRespondingViewController, Conversa
     func updateUnreadCountView(unreadCount: UInt?) {
         let unreadCount: Int = Int(unreadCount ?? 0)
         let fontSize: CGFloat = (unreadCount < 10000 ? Values.verySmallFontSize : 8)
-        unreadCountLabel.text = (unreadCount < 10000 ? "\(unreadCount)" : "9999+")
+        unreadCountLabel.text = (unreadCount < 10000 ? "\(unreadCount)" : "9999+") // stringlint:disable
         unreadCountLabel.font = .boldSystemFont(ofSize: fontSize)
         unreadCountView.isHidden = (unreadCount == 0)
     }

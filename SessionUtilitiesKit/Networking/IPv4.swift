@@ -13,6 +13,7 @@ public enum IPv4 {
         for i in stride(from: 3, through: 0, by: -1) {
             result += octets[ 3 - i ] << (i * 8)
         }
+        
         return (result > 0 ? result : nil)
     }
 }

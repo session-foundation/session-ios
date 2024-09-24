@@ -40,6 +40,17 @@ public struct DisappearingMessagesConfiguration: Codable, Identifiable, Equatabl
         case unknown
         case disappearAfterRead
         case disappearAfterSend
+        
+        public var localizedName: String {
+            switch self {
+                case .unknown:
+                    return ""
+                case .disappearAfterRead:
+                    return "disappearingMessagesTypeRead".localized()
+                case .disappearAfterSend:
+                    return "disappearingMessagesTypeSent".localized()
+            }
+        }
 
         init(protoType: SNProtoContent.SNProtoContentExpirationType) {
             switch protoType {
@@ -70,6 +81,21 @@ public struct DisappearingMessagesConfiguration: Codable, Identifiable, Equatabl
                 case .unknown:            return CONVO_EXPIRATION_NONE
                 case .disappearAfterRead: return CONVO_EXPIRATION_AFTER_READ
                 case .disappearAfterSend: return CONVO_EXPIRATION_AFTER_SEND
+            }
+        }
+        
+        public func localizedState(durationString: String) -> String {
+            switch self {
+                case .unknown:
+                    return ""
+                case .disappearAfterRead:
+                    return "disappearingMessagesDisappearAfterReadState"
+                        .put(key: "time", value: durationString)
+                        .localized()
+                case .disappearAfterSend:
+                    return "disappearingMessagesDisappearAfterSendState"
+                        .put(key: "time", value: durationString)
+                        .localized()
             }
         }
     }
@@ -135,26 +161,38 @@ public extension DisappearingMessagesConfiguration {
         var previewText: String {
             guard let senderName: String = senderName else {
                 guard isEnabled, durationSeconds > 0 else {
-                    return "YOU_DISAPPEARING_MESSAGES_INFO_DISABLE".localized()
+                    switch threadVariant {
+                        case .legacyGroup, .group:
+                            return "disappearingMessagesTurnedOffYouGroup".localized()
+                        default:
+                            return "disappearingMessagesTurnedOffYou".localized()
+                    }
                 }
                 
-                return String(
-                    format: "YOU_DISAPPEARING_MESSAGES_INFO_ENABLE".localized(),
-                    floor(durationSeconds).formatted(format: .long),
-                    (type == .disappearAfterRead ? "DISAPPEARING_MESSAGE_STATE_READ".localized() : "DISAPPEARING_MESSAGE_STATE_SENT".localized())
-                )
+                return "disappearingMessagesSetYou"
+                    .put(key: "time", value: floor(durationSeconds).formatted(format: .long))
+                    .put(key: "disappearing_messages_type", value: (type ?? .unknown).localizedName)
+                    .localized()
             }
             
             guard isEnabled, durationSeconds > 0 else {
-                return String(format: "DISAPPERING_MESSAGES_INFO_DISABLE".localized(), senderName)
+                switch threadVariant {
+                    case .legacyGroup, .group:
+                        return "disappearingMessagesTurnedOffGroup"
+                            .put(key: "name", value: senderName)
+                            .localized()
+                    default:
+                        return "disappearingMessagesTurnedOff"
+                            .put(key: "name", value: senderName)
+                            .localized()
+                }
             }
             
-            return String(
-                format: "DISAPPERING_MESSAGES_INFO_ENABLE".localized(),
-                senderName,
-                floor(durationSeconds).formatted(format: .long),
-                (type == .disappearAfterRead ? "DISAPPEARING_MESSAGE_STATE_READ".localized() : "DISAPPEARING_MESSAGE_STATE_SENT".localized())
-            )
+            return "disappearingMessagesSet"
+                .put(key: "name", value: senderName)
+                .put(key: "time", value: floor(durationSeconds).formatted(format: .long))
+                .put(key: "disappearing_messages_type", value: (type ?? .unknown).localizedName)
+                .localized()
         }
     }
     

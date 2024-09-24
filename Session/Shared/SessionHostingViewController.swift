@@ -160,7 +160,11 @@ public class SessionHostingViewController<Content>: UIHostingController<Modified
             targetView: self.view,
             info: ConfirmationModal.Info(
                 title: "warning".localized(),
-                body: .text("onboardingBackAccountCreation".localized()),
+                body: .text(
+                    "onboardingBackAccountCreation"
+                        .put(key: "app_name", value: Constants.app_name)
+                        .localized()
+                ),
                 confirmTitle: "quitButton".localized(),
                 confirmAccessibility: Accessibility(identifier: "Quit"),
                 confirmStyle: .danger,
@@ -178,7 +182,11 @@ public class SessionHostingViewController<Content>: UIHostingController<Modified
             targetView: self.view,
             info: ConfirmationModal.Info(
                 title: "warning".localized(),
-                body: .text("onboardingBackLoadAccount".localized()),
+                body: .text(
+                    "onboardingBackLoadAccount"
+                        .put(key: "app_name", value: Constants.app_name)
+                        .localized()
+                ),
                 confirmTitle: "quitButton".localized(),
                 confirmStyle: .danger,
                 cancelStyle: .textPrimary,

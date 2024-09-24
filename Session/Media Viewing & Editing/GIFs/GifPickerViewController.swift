@@ -97,7 +97,7 @@ class GifPickerViewController: OWSViewController, UISearchBarDelegate, UICollect
         // Loki: Customize title
         let titleLabel: UILabel = UILabel()
         titleLabel.font = .boldSystemFont(ofSize: Values.veryLargeFontSize)
-        titleLabel.text = "accessibility_gif_button".localized().uppercased()
+        titleLabel.text = Constants.gif
         titleLabel.themeTextColor = .textPrimary
         navigationItem.titleView = titleLabel
 
@@ -182,17 +182,17 @@ class GifPickerViewController: OWSViewController, UISearchBarDelegate, UICollect
         logoImageView.set(.height, to: .height, of: bottomBanner, withOffset: -3)
         logoImageView.center(.horizontal, in: bottomBanner)
 
-        let noResultsView = createErrorLabel(text: "GIF_VIEW_SEARCH_NO_RESULTS".localized())
+        let noResultsView = createErrorLabel(text: "searchMatchesNone".localized())
         self.noResultsView = noResultsView
         self.view.addSubview(noResultsView)
         noResultsView.set(.width, to: .width, of: self.view, withOffset: -20)
-        noResultsView.center(.horizontal, in: self.collectionView)
+        noResultsView.center(in: self.collectionView)
 
-        let searchErrorView = createErrorLabel(text: "GIF_VIEW_SEARCH_ERROR".localized())
+        let searchErrorView = createErrorLabel(text: "searchMatchesNone".localized())
         self.searchErrorView = searchErrorView
         self.view.addSubview(searchErrorView)
         searchErrorView.set(.width, to: .width, of: self.view, withOffset: -20)
-        searchErrorView.center(.horizontal, in: self.collectionView)
+        searchErrorView.center(in: self.collectionView)
 
         searchErrorView.isUserInteractionEnabled = true
         searchErrorView.addGestureRecognizer(UITapGestureRecognizer(target: self, action: #selector(retryTapped)))
@@ -361,10 +361,10 @@ class GifPickerViewController: OWSViewController, UISearchBarDelegate, UICollect
                             let modal: ConfirmationModal = ConfirmationModal(
                                 targetView: self?.view,
                                 info: ConfirmationModal.Info(
-                                    title: "GIF_PICKER_FAILURE_ALERT_TITLE".localized(),
+                                    title: "errorUnknown".localized(),
                                     body: .text("\(error)"),
-                                    confirmTitle: CommonStrings.retryButton,
-                                    cancelTitle: CommonStrings.dismissButton,
+                                    confirmTitle: "retry".localized(),
+                                    cancelTitle: "dismiss".localized(),
                                     cancelStyle: .alert_text,
                                     onConfirm: { _ in
                                         self?.getFileForCell(cell)
@@ -380,7 +380,6 @@ class GifPickerViewController: OWSViewController, UISearchBarDelegate, UICollect
                         return
                     }
 
-                    let filePath = asset.filePath
                     let dataSource = DataSourcePath(filePath: asset.filePath, shouldDeleteOnDeinit: false)
                     let attachment = SignalAttachment.attachment(dataSource: dataSource, dataUTI: rendition.utiType, imageQuality: .medium)
 
@@ -448,9 +447,9 @@ class GifPickerViewController: OWSViewController, UISearchBarDelegate, UICollect
             let modal: ConfirmationModal = ConfirmationModal(
                 targetView: self.view,
                 info: ConfirmationModal.Info(
-                    title: CommonStrings.errorAlertTitle,
-                    body: .text("GIF_PICKER_VIEW_MISSING_QUERY".localized()),
-                    cancelTitle: "BUTTON_OK".localized(),
+                    title: "theError".localized(),
+                    body: .text("searchEnter".localized()),
+                    cancelTitle: "okay".localized(),
                     cancelStyle: .alert_text
                 )
             )

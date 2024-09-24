@@ -47,14 +47,13 @@ public class ConfirmationModal: Modal, UITextFieldDelegate {
         return result
     }()
     
-    private lazy var explanationLabel: UILabel = {
-        let result: UILabel = UILabel()
+    private lazy var explanationLabel: ScrollableLabel = {
+        let result: ScrollableLabel = ScrollableLabel()
         result.font = .systemFont(ofSize: Values.smallFontSize)
         result.themeTextColor = .alert_text
         result.textAlignment = .center
         result.lineBreakMode = .byWordWrapping
         result.numberOfLines = 0
-        result.isHidden = true
         
         return result
     }()
@@ -218,18 +217,21 @@ public class ConfirmationModal: Modal, UITextFieldDelegate {
             case .none:
                 mainStackView.spacing = Values.smallSpacing
                 
-            case .text(let text):
+            case .text(let text, let canScroll):
                 mainStackView.spacing = Values.smallSpacing
                 explanationLabel.text = text
+                explanationLabel.canScroll = canScroll
                 explanationLabel.isHidden = false
                 
-            case .attributedText(let attributedText):
+            case .attributedText(let attributedText, let canScroll):
                 mainStackView.spacing = Values.smallSpacing
                 explanationLabel.attributedText = attributedText
+                explanationLabel.canScroll = canScroll
                 explanationLabel.isHidden = false
                 
             case .input(let explanation, let placeholder, let value, let clearButton, let onTextChanged):
                 explanationLabel.attributedText = explanation
+                explanationLabel.canScroll = false
                 explanationLabel.isHidden = (explanation == nil)
                 textField.placeholder = placeholder
                 textField.text = (value ?? "")
@@ -355,7 +357,7 @@ public extension ConfirmationModal {
             confirmAccessibility: Accessibility? = nil,
             confirmStyle: ThemeValue = .alert_text,
             confirmEnabled: Bool = true,
-            cancelTitle: String = "TXT_CANCEL_TITLE".localized(),
+            cancelTitle: String = "cancel".localized(),
             cancelAccessibility: Accessibility? = Accessibility(
                 identifier: "Cancel"
             ),
@@ -488,8 +490,14 @@ public extension ConfirmationModal.Info {
         }
         
         case none
-        case text(String)
-        case attributedText(NSAttributedString)
+        case text(
+            _ text: String,
+            canScroll: Bool = false
+        )
+        case attributedText(
+            _ attributedText: NSAttributedString,
+            canScroll: Bool = false
+        )
         case input(
             explanation: NSAttributedString?,
             placeholder: String,
@@ -511,8 +519,8 @@ public extension ConfirmationModal.Info {
         public static func == (lhs: ConfirmationModal.Info.Body, rhs: ConfirmationModal.Info.Body) -> Bool {
             switch (lhs, rhs) {
                 case (.none, .none): return true
-                case (.text(let lhsText), .text(let rhsText)): return (lhsText == rhsText)
-                case (.attributedText(let lhsText), .attributedText(let rhsText)): return (lhsText == rhsText)
+                case (.text(let lhsText, _), .text(let rhsText, _)): return (lhsText == rhsText)
+                case (.attributedText(let lhsText, _), .attributedText(let rhsText, _)): return (lhsText == rhsText)
                 
                 case (.input(let lhsExplanation, let lhsPlaceholder, let lhsInitialValue, let lhsClearButton, _), .input(let rhsExplanation, let rhsPlaceholder, let rhsInitialValue, let rhsClearButton, _)):
                    return (
@@ -545,8 +553,8 @@ public extension ConfirmationModal.Info {
         public func hash(into hasher: inout Hasher) {
             switch self {
                 case .none: break
-                case .text(let text): text.hash(into: &hasher)
-                case .attributedText(let text): text.hash(into: &hasher)
+                case .text(let text, _): text.hash(into: &hasher)
+                case .attributedText(let text, _): text.hash(into: &hasher)
                     
                 case .input(let explanation, let placeholder, let initialValue, let clearButton, _):
                     explanation.hash(into: &hasher)

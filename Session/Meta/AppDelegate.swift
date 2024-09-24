@@ -445,11 +445,11 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
         /// This **must** be a standard `UIAlertController` instead of a `ConfirmationModal` because we may not
         /// have access to the database when displaying this so can't extract theme information for styling purposes
         let alert: UIAlertController = UIAlertController(
-            title: "Session",
+            title: Constants.app_name,
             message: error.message,
             preferredStyle: .alert
         )
-        alert.addAction(UIAlertAction(title: "HELP_REPORT_BUG_ACTION_TITLE".localized(), style: .default) { _ in
+        alert.addAction(UIAlertAction(title: "helpReportABugExportLogs".localized(), style: .default) { _ in
             HelpViewModel.shareLogs(viewControllerToDismiss: alert) { [weak self] in
                 // Don't bother showing the "Failed Startup" modal again if we happen to now
                 // have an initial view controller (this most likely means that the startup
@@ -469,7 +469,7 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
                 
             // Offer the 'Restore' option if it was a migration error
             case .databaseError:
-                alert.addAction(UIAlertAction(title: "vc_restore_title".localized(), style: .destructive) { [dependencies] _ in
+                alert.addAction(UIAlertAction(title: "onboardingAccountExists".localized(), style: .destructive) { [dependencies] _ in
                     // Reset the current database for a clean migration
                     dependencies.storage.resetForCleanMigration()
                     
@@ -502,12 +502,12 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
             default: break
         }
         
-        alert.addAction(UIAlertAction(title: "APP_STARTUP_EXIT".localized(), style: .default) { _ in
+        alert.addAction(UIAlertAction(title: "quit".put(key: "app_name", value: Constants.app_name).localized(), style: .default) { _ in
             Log.flush()
             exit(0)
         })
         
-        Log.info("Showing startup alert due to error: \(error.name)")
+        Log.info("Showing startup alert due to error: \(error.description)")
         self.window?.rootViewController?.present(alert, animated: animated, completion: presentationCompletion)
     }
     
@@ -520,10 +520,9 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
         Log.info("Exiting because we are in the background and the database password is not accessible.")
         
         let notificationContent: UNMutableNotificationContent = UNMutableNotificationContent()
-        notificationContent.body = String(
-            format: NSLocalizedString("NOTIFICATION_BODY_PHONE_LOCKED_FORMAT", comment: ""),
-            UIDevice.current.localizedModel
-        )
+        notificationContent.body = "notificationsIosRestart"
+            .put(key: "device", value: UIDevice.current.localizedModel)
+            .localized()
         let notificationRequest: UNNotificationRequest = UNNotificationRequest(
             identifier: UUID().uuidString,
             content: notificationContent,
@@ -920,40 +919,6 @@ private enum LifecycleMethod: Equatable {
             case (.enterForeground(let lhsFailed), .enterForeground(let rhsFailed)): return (lhsFailed == rhsFailed)
             case (.didBecomeActive, .didBecomeActive): return true
             default: return false
-        }
-    }
-}
-
-// MARK: - StartupError
-
-private enum StartupError: Error {
-    case databaseError(Error)
-    case failedToRestore
-    case startupTimeout
-    
-    var name: String {
-        switch self {
-            case .databaseError(StorageError.startupFailed), .databaseError(DatabaseError.SQLITE_LOCKED), .databaseError(StorageError.databaseSuspended):
-                return "Database startup failed"
-            
-            case .databaseError(StorageError.migrationNoLongerSupported): return "Unsupported version"
-            case .failedToRestore: return "Failed to restore"
-            case .databaseError: return "Database error"
-            case .startupTimeout: return "Startup timeout"
-        }
-    }
-    
-    var message: String {
-        switch self {
-            case .databaseError(StorageError.startupFailed), .databaseError(DatabaseError.SQLITE_LOCKED), .databaseError(StorageError.databaseSuspended):
-                return "DATABASE_STARTUP_FAILED".localized()
-
-            case .databaseError(StorageError.migrationNoLongerSupported):
-                return "DATABASE_UNSUPPORTED_MIGRATION".localized()
-            
-            case .failedToRestore: return "DATABASE_RESTORE_FAILED".localized()
-            case .databaseError: return "DATABASE_MIGRATION_FAILED".localized()
-            case .startupTimeout: return "APP_STARTUP_TIMEOUT".localized()
         }
     }
 }

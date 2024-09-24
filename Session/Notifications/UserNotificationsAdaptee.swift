@@ -32,24 +32,17 @@ class UserNotificationConfig {
             case .markAsRead:
                 return UNNotificationAction(
                     identifier: action.identifier,
-                    title: MessageStrings.markAsReadNotificationAction,
+                    title: "messageMarkRead".localized(),
                     options: []
                 )
                 
             case .reply:
                 return UNTextInputNotificationAction(
                     identifier: action.identifier,
-                    title: MessageStrings.replyNotificationAction,
+                    title: "reply".localized(),
                     options: [],
-                    textInputButtonTitle: MessageStrings.sendButton,
+                    textInputButtonTitle: "send".localized(),
                     textInputPlaceholder: ""
-                )
-                
-            case .showThread:
-                return UNNotificationAction(
-                    identifier: action.identifier,
-                    title: CallStrings.showThreadButtonTitle,
-                    options: [.foreground]
                 )
         }
     }
@@ -158,10 +151,9 @@ extension UserNotificationPresenterAdaptee: NotificationPresenterAdaptee {
                         content.title :
                         threadName
                     )
-                    content.body = String(
-                        format: NotificationStrings.incomingCollapsedMessagesBody,
-                        "\(numberOfNotifications)"
-                    )
+                    content.body = "messageNewYouveGot"
+                        .putNumber(numberOfNotifications)
+                        .localized()
                 }
                 
                 content.userInfo[AppNotificationUserInfoKey.threadNotificationCounter] = numberOfNotifications
@@ -311,11 +303,6 @@ public class UserNotificationActionHandler: NSObject {
                 }
 
                 return actionHandler.reply(userInfo: userInfo, replyText: textInputResponse.userText, applicationState: applicationState)
-                    
-            case .showThread:
-                return actionHandler.showThread(userInfo: userInfo, using: dependencies)
-                    .setFailureType(to: Error.self)
-                    .eraseToAnyPublisher()
         }
     }
 }

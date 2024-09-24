@@ -27,7 +27,7 @@ struct NewMessageScreen: View {
                     tabIndex: $tabIndex,
                     tabTitles: [
                         "accountIdEnter".localized(),
-                        "vc_create_private_chat_scan_qr_code_tab_title".localized()
+                        "qrScan".localized()
                     ]
                 ).frame(maxWidth: .infinity)
                     
@@ -97,7 +97,7 @@ struct NewMessageScreen: View {
                                     let message: String = {
                                         switch error {
                                             case SnodeAPIError.onsNotFound:
-                                                return "new_message_screen_error_msg_unrecognized_ons".localized()
+                                                return "onsErrorNotRecognized".localized()
                                             default:
                                                 return "onsErrorUnableToSearch".localized()
                                         }
@@ -148,17 +148,10 @@ struct EnterAccountIdScreen: View {
                 )
             ) {
                 ZStack {
-                    if #available(iOS 14.0, *) {
-                        Text("\("new_message_screen_enter_account_id_explanation".localized())\(Image(systemName: "questionmark.circle"))")
-                            .font(.system(size: Values.verySmallFontSize))
-                            .foregroundColor(themeColor: .textSecondary)
-                            .multilineTextAlignment(.center)
-                    } else {
-                        Text("new_message_screen_enter_account_id_explanation".localized())
-                            .font(.system(size: Values.verySmallFontSize))
-                            .foregroundColor(themeColor: .textSecondary)
-                            .multilineTextAlignment(.center)
-                    }
+                    Text("\("messageNewDescriptionMobile".localized())\(Image(systemName: "questionmark.circle"))")
+                        .font(.system(size: Values.verySmallFontSize))
+                        .foregroundColor(themeColor: .textSecondary)
+                        .multilineTextAlignment(.center)
                 }
                 .accessibility(
                     Accessibility(

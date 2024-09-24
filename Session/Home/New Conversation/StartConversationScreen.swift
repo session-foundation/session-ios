@@ -19,12 +19,15 @@ struct StartConversationScreen: View {
                         alignment: .center,
                         spacing: 0
                     ) {
+                        let title: String = "messageNew"
+                            .putNumber(1)
+                            .localized()
                         NewConversationCell(
                             image: "Message",
-                            title: "vc_create_private_chat_title".localized()
+                            title: title
                         ) {
                             let viewController: SessionHostingViewController = SessionHostingViewController(rootView: NewMessageScreen())
-                            viewController.setNavBarTitle("vc_create_private_chat_title".localized())
+                            viewController.setNavBarTitle(title)
                             viewController.setUpDismissingButton(on: .right)
                             self.host.controller?.navigationController?.pushViewController(viewController, animated: true)
                         }
@@ -41,7 +44,7 @@ struct StartConversationScreen: View {
                         
                         NewConversationCell(
                             image: "Group",
-                            title: "vc_create_closed_group_title".localized()
+                            title: "groupCreate".localized()
                         ) {
                             let viewController = NewClosedGroupVC()
                             self.host.controller?.navigationController?.pushViewController(viewController, animated: true)
@@ -59,7 +62,7 @@ struct StartConversationScreen: View {
                         
                         NewConversationCell(
                             image: "Globe",
-                            title: "vc_join_public_chat_title".localized()
+                            title: "communityJoin".localized()
                         ) {
                             let viewController = JoinOpenGroupVC()
                             self.host.controller?.navigationController?.pushViewController(viewController, animated: true)
@@ -77,10 +80,10 @@ struct StartConversationScreen: View {
                         
                         NewConversationCell(
                             image: "icon_invite",
-                            title: "vc_settings_invite_a_friend_button_title".localized()
+                            title: "sessionInviteAFriend".localized()
                         ) {
                             let viewController: SessionHostingViewController = SessionHostingViewController(rootView: InviteAFriendScreen())
-                            viewController.setNavBarTitle("vc_settings_invite_a_friend_button_title".localized())
+                            viewController.setNavBarTitle("sessionInviteAFriend".localized())
                             viewController.setUpDismissingButton(on: .right)
                             self.host.controller?.navigationController?.pushViewController(viewController, animated: true)
                         }
@@ -104,7 +107,7 @@ struct StartConversationScreen: View {
                     QRCodeView(
                         string: getUserHexEncodedPublicKey(),
                         hasBackground: false,
-                        logo: "SessionWhite40",
+                        logo: "SessionWhite40", // stringlint:disable
                         themeStyle: ThemeManager.currentTheme.interfaceStyle
                     )
                     .aspectRatio(1, contentMode: .fit)

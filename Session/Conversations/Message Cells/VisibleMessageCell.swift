@@ -395,7 +395,8 @@ final class VisibleMessageCell: MessageCell, TappableLabelDelegate {
         // Message status image view
         let (image, statusText, tintColor) = cellViewModel.state.statusIconInfo(
             variant: cellViewModel.variant,
-            hasAtLeastOneReadReceipt: cellViewModel.hasAtLeastOneReadReceipt
+            hasAtLeastOneReadReceipt: cellViewModel.hasAtLeastOneReadReceipt,
+            hasAttachments: (cellViewModel.attachments?.isEmpty == false)
         )
         messageStatusLabel.text = statusText
         messageStatusLabel.themeTextColor = tintColor
@@ -625,6 +626,7 @@ final class VisibleMessageCell: MessageCell, TappableLabelDelegate {
                 albumView.set(.width, to: size.width)
                 albumView.set(.height, to: size.height)
                 albumView.loadMedia()
+                albumView.accessibilityLabel = "contentDescriptionMediaMessage".localized()
                 snContentView.addArrangedSubview(albumView)
         
                 unloadContent = { albumView.unloadMedia() }

@@ -15,11 +15,7 @@ struct LandingScreen: View {
 
     var body: some View {
         ZStack(alignment: .center) {
-            if #available(iOS 14.0, *) {
-                ThemeManager.currentTheme.colorSwiftUI(for: .backgroundPrimary).ignoresSafeArea()
-            } else {
-                ThemeManager.currentTheme.colorSwiftUI(for: .backgroundPrimary)
-            }
+            ThemeManager.currentTheme.colorSwiftUI(for: .backgroundPrimary).ignoresSafeArea()
             
             VStack(
                 alignment: .center,
@@ -102,18 +98,11 @@ struct LandingScreen: View {
                 Button {
                     openLegalUrl()
                 } label: {
-                    let attributedText: NSAttributedString = {
-                        let text = String(format: "onboardingTosPrivacy".localized(), "terms_of_service".localized(), "privacy_policy".localized())
-                        let result = NSMutableAttributedString(
-                            string: text,
-                            attributes: [ .font : UIFont.systemFont(ofSize: Values.verySmallFontSize)]
-                        )
-                        result.addAttribute(.font, value: UIFont.boldSystemFont(ofSize: Values.verySmallFontSize), range: (text as NSString).range(of: "terms_of_service".localized()))
-                        result.addAttribute(.font, value: UIFont.boldSystemFont(ofSize: Values.verySmallFontSize), range: (text as NSString).range(of: "privacy_policy".localized()))
-                        
-                        return result
-                    }()
+                    let attributedText: NSAttributedString = "onboardingTosPrivacy"
+                        .localized()
+                        .formatted(baseFont: .systemFont(ofSize: Values.verySmallFontSize))
                     AttributedText(attributedText)
+                        .font(.system(size: Values.verySmallFontSize))
                         .foregroundColor(themeColor: .textPrimary)
                 }
                 .accessibility(
@@ -151,7 +140,7 @@ struct LandingScreen: View {
         let viewController: SessionHostingViewController = SessionHostingViewController(
             rootView: LoadAccountScreen(using: dependencies)
         )
-        viewController.setNavBarTitle("onboarding_load_account_title".localized())
+        viewController.setNavBarTitle("loadAccount".localized())
         self.host.controller?.navigationController?.pushViewController(viewController, animated: true)
     }
     
@@ -159,14 +148,14 @@ struct LandingScreen: View {
         let modal: ConfirmationModal = ConfirmationModal(
             info: ConfirmationModal.Info(
                 title: "urlOpen".localized(),
-                body: .text("urlOpenBrowswer".localized()),
-                confirmTitle: "terms_of_service".localized(),
+                body: .text("urlOpenBrowser".localized()),
+                confirmTitle: "onboardingTos".localized(),
                 confirmAccessibility: Accessibility(
                     identifier: "Terms of service button",
                     label: "Terms of service button"
                 ),
                 confirmStyle: .textPrimary,
-                cancelTitle: "privacy_policy".localized(),
+                cancelTitle: "onboardingPrivacy".localized(),
                 cancelAccessibility: Accessibility(
                     identifier: "Privacy policy button",
                     label: "Privacy policy button"
@@ -212,10 +201,29 @@ struct FakeChat: View {
     @State var numberOfBubblesShown: Int = 0
     
     let chatBubbles: [ChatBubble] = [
-        ChatBubble(text: "onboardingBubbleWelcomeToSession".localized() + " 👋", outgoing: false),
-        ChatBubble(text: "onboardingBubbleSessionIsEngineered".localized(), outgoing: true),
-        ChatBubble(text: "onboardingBubbleNoPhoneNumber".localized(), outgoing: false),
-        ChatBubble(text: "onboardingBubbleCreatingAnAccountIsEasy".localized() + " 👇", outgoing: true),
+        ChatBubble(
+            text: "onboardingBubbleWelcomeToSession"
+                .put(key: "app_name", value: Constants.app_name)
+                .put(key: "emoji", value: "👋")
+                .localized(),
+            outgoing: false
+        ),
+        ChatBubble(
+            text: "onboardingBubbleSessionIsEngineered"
+                .put(key: "app_name", value: Constants.app_name)
+                .localized(),
+            outgoing: true
+        ),
+        ChatBubble(
+            text: "onboardingBubbleNoPhoneNumber".localized(),
+            outgoing: false
+        ),
+        ChatBubble(
+            text: "onboardingBubbleCreatingAnAccountIsEasy"
+                .put(key: "emoji", value: "👇")
+                .localized(),
+            outgoing: true
+        )
     ]
     
     var body: some View {

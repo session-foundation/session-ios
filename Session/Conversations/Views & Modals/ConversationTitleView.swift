@@ -157,7 +157,7 @@ final class ConversationTitleView: UIView {
                         .foregroundColor: textPrimary
                     ]
                 )
-                .appending(string: "Muted")
+                .appending(string: "notificationsMuted".localized())
                 
                 labelInfos.append(
                     SessionLabelCarouselView.LabelInfo(
@@ -179,7 +179,7 @@ final class ConversationTitleView: UIView {
                 
                 let notificationSettingsLabelString = NSAttributedString(attachment: imageAttachment)
                     .appending(string: "  ")
-                    .appending(string: "view_conversation_title_notify_for_mentions_only".localized())
+                    .appending(string: "notificationsMentionsOnly".localized())
                 
                 labelInfos.append(
                     SessionLabelCarouselView.LabelInfo(
@@ -197,9 +197,9 @@ final class ConversationTitleView: UIView {
                     case .legacyGroup, .group:
                         labelInfos.append(
                             SessionLabelCarouselView.LabelInfo(
-                                attributedText: NSAttributedString(
-                                    string: "\(userCount) member\(userCount == 1 ? "" : "s")"
-                                ),
+                                attributedText: "members"
+                                    .putNumber(userCount)
+                                    .localizedFormatted(baseFont: .systemFont(ofSize: Values.miniFontSize)),
                                 accessibility: nil, // TODO: Add accessibility
                                 type: .userCount
                             )
@@ -208,9 +208,9 @@ final class ConversationTitleView: UIView {
                     case .community:
                         labelInfos.append(
                             SessionLabelCarouselView.LabelInfo(
-                                attributedText: NSAttributedString(
-                                    string: "\(userCount) active member\(userCount == 1 ? "" : "s")"
-                                ),
+                                attributedText: "membersActive"
+                                    .putNumber(userCount)
+                                    .localizedFormatted(baseFont: .systemFont(ofSize: Values.miniFontSize)),
                                 accessibility: nil, // TODO: Add accessibility
                                 type: .userCount
                             )
@@ -232,13 +232,12 @@ final class ConversationTitleView: UIView {
                     SessionLabelCarouselView.LabelInfo(
                         attributedText: NSAttributedString(attachment: imageAttachment)
                             .appending(string: " ")
-                            .appending(string: String(
-                                format: (config.type == .disappearAfterRead ?
-                                    "DISAPPERING_MESSAGES_SUMMARY_READ".localized() :
-                                    "DISAPPERING_MESSAGES_SUMMARY_SEND".localized()
-                                ),
-                                floor(config.durationSeconds).formatted(format: .short)
-                            )),
+                            .appending(
+                                string: (config.type ?? .unknown)
+                                    .localizedState(
+                                        durationString: floor(config.durationSeconds).formatted(format: .short)
+                                    )
+                            ),
                         accessibility: Accessibility(
                             identifier: "Disappearing messages type and time",
                             label: "Disappearing messages type and time"

@@ -1,5 +1,7 @@
 // Copyright © 2022 Rangeproof Pty Ltd. All rights reserved.
 
+// stringlint:disable
+
 import Foundation
 import SessionUtilitiesKit
 
@@ -25,12 +27,7 @@ public extension Date {
             return Date.thisWeekFormatter.string(from: self)
         }
         
-        guard Calendar.current.isDate(self, equalTo: dateNow, toGranularity: .minute) else {
-            // Today formatter: 8:32 am
-            return Date.todayFormatter.string(from: self)
-        }
-        
-        return "DATE_NOW".localized()
+        return Date.todayFormatter.string(from: self)
     }
     
     var fromattedForMessageInfo: String {

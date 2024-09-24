@@ -40,12 +40,12 @@ class PrivacySettingsViewModel: SessionTableViewModel, NavigationItemSource, Nav
         
         var title: String? {
             switch self {
-                case .screenSecurity: return "PRIVACY_SECTION_SCREEN_SECURITY".localized()
-                case .messageRequests: return "PRIVACY_SECTION_MESSAGE_REQUESTS".localized()
-                case .readReceipts: return "PRIVACY_SECTION_READ_RECEIPTS".localized()
-                case .typingIndicators: return "PRIVACY_SECTION_TYPING_INDICATORS".localized()
-                case .linkPreviews: return "PRIVACY_SECTION_LINK_PREVIEWS".localized()
-                case .calls: return "PRIVACY_SECTION_CALLS".localized()
+                case .screenSecurity: return "screenSecurity".localized()
+                case .messageRequests: return "sessionMessageRequests".localized()
+                case .readReceipts: return "readReceipts".localized()
+                case .typingIndicators: return "typingIndicators".localized()
+                case .linkPreviews: return "linkPreviews".localized()
+                case .calls: return "callsSettings".localized()
             }
         }
         
@@ -87,7 +87,7 @@ class PrivacySettingsViewModel: SessionTableViewModel, NavigationItemSource, Nav
         let areCallsEnabled: Bool
     }
     
-    let title: String = "PRIVACY_TITLE".localized()
+    let title: String = "sessionPrivacy".localized()
     
     lazy var observation: TargetObservation = ObservationBuilder
         .databaseObservation(self) { [weak self] db -> State in
@@ -108,7 +108,9 @@ class PrivacySettingsViewModel: SessionTableViewModel, NavigationItemSource, Nav
                         SessionCell.Info(
                             id: .screenLock,
                             title: "lockApp".localized(),
-                            subtitle: "PRIVACY_SCREEN_SECURITY_LOCK_SESSION_DESCRIPTION".localized(),
+                            subtitle: "lockAppDescriptionIos"
+                                .put(key: "app_name", value: Constants.app_name)
+                                .localized(),
                             rightAccessory: .toggle(
                                 .boolValue(
                                     key: .isScreenLockEnabled,
@@ -126,8 +128,8 @@ class PrivacySettingsViewModel: SessionTableViewModel, NavigationItemSource, Nav
                                     self?.transitionToScreen(
                                         ConfirmationModal(
                                             info: ConfirmationModal.Info(
-                                                title: "SCREEN_LOCK_ERROR_LOCAL_AUTHENTICATION_NOT_AVAILABLE".localized(),
-                                                cancelTitle: "BUTTON_OK".localized(),
+                                                title: "lockAppEnablePasscode".localized(),
+                                                cancelTitle: "okay".localized(),
                                                 cancelStyle: .alert_text
                                             )
                                         ),
@@ -148,8 +150,8 @@ class PrivacySettingsViewModel: SessionTableViewModel, NavigationItemSource, Nav
                     elements: [
                         SessionCell.Info(
                             id: .communityMessageRequests,
-                            title: "PRIVACY_SCREEN_MESSAGE_REQUESTS_COMMUNITY_TITLE".localized(),
-                            subtitle: "PRIVACY_SCREEN_MESSAGE_REQUESTS_COMMUNITY_DESCRIPTION".localized(),
+                            title: "messageRequestsCommunities".localized(),
+                            subtitle: "messageRequestsCommunitiesDescription".localized(),
                             rightAccessory: .toggle(
                                 .boolValue(
                                     key: .checkForCommunityMessageRequests,
@@ -176,8 +178,8 @@ class PrivacySettingsViewModel: SessionTableViewModel, NavigationItemSource, Nav
                     elements: [
                         SessionCell.Info(
                             id: .readReceipts,
-                            title: "PRIVACY_READ_RECEIPTS_TITLE".localized(),
-                            subtitle: "PRIVACY_READ_RECEIPTS_DESCRIPTION".localized(),
+                            title: "readReceipts".localized(),
+                            subtitle: "readReceiptsDescription".localized(),
                             rightAccessory: .toggle(
                                 .boolValue(
                                     key: .areReadReceiptsEnabled,
@@ -202,11 +204,11 @@ class PrivacySettingsViewModel: SessionTableViewModel, NavigationItemSource, Nav
                         SessionCell.Info(
                             id: .typingIndicators,
                             title: SessionCell.TextInfo(
-                                "PRIVACY_TYPING_INDICATORS_TITLE".localized(),
+                                "typingIndicators".localized(),
                                 font: .title
                             ),
                             subtitle: SessionCell.TextInfo(
-                                "PRIVACY_TYPING_INDICATORS_DESCRIPTION".localized(),
+                                "typingIndicatorsDescription".localized(),
                                 font: .subtitle,
                                 extraViewGenerator: {
                                     let targetHeight: CGFloat = 20
@@ -261,8 +263,8 @@ class PrivacySettingsViewModel: SessionTableViewModel, NavigationItemSource, Nav
                     elements: [
                         SessionCell.Info(
                             id: .linkPreviews,
-                            title: "PRIVACY_LINK_PREVIEWS_TITLE".localized(),
-                            subtitle: "PRIVACY_LINK_PREVIEWS_DESCRIPTION".localized(),
+                            title: "linkPreviewsSend".localized(),
+                            subtitle: "linkPreviewsDescription".localized(),
                             rightAccessory: .toggle(
                                 .boolValue(
                                     key: .areLinkPreviewsEnabled,
@@ -286,8 +288,8 @@ class PrivacySettingsViewModel: SessionTableViewModel, NavigationItemSource, Nav
                     elements: [
                         SessionCell.Info(
                             id: .calls,
-                            title: "PRIVACY_CALLS_TITLE".localized(),
-                            subtitle: "PRIVACY_CALLS_DESCRIPTION".localized(),
+                            title: "callsVoiceAndVideo".localized(),
+                            subtitle: "callsVoiceAndVideoToggleDescription".localized(),
                             rightAccessory: .toggle(
                                 .boolValue(
                                     key: .areCallsEnabled,
@@ -302,10 +304,10 @@ class PrivacySettingsViewModel: SessionTableViewModel, NavigationItemSource, Nav
                                 label: "Allow voice and video calls"
                             ),
                             confirmationInfo: ConfirmationModal.Info(
-                                title: "PRIVACY_CALLS_WARNING_TITLE".localized(),
-                                body: .text("PRIVACY_CALLS_WARNING_DESCRIPTION".localized()),
+                                title: "callsVoiceAndVideoBeta".localized(),
+                                body: .text("callsVoiceAndVideoModalDescription".localized()),
                                 showCondition: .disabled,
-                                confirmTitle: "continue_2".localized(),
+                                confirmTitle: "theContinue".localized(),
                                 confirmAccessibility: Accessibility(identifier: "Enable"),
                                 confirmStyle: .danger,
                                 cancelStyle: .alert_text,

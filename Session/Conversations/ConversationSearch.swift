@@ -278,7 +278,7 @@ public final class SearchResultsBar: UIView {
         
         DispatchQueue.main.async { [weak self] in
             if hasNoExistingResults {
-                self?.label.text = "CONVERSATION_SEARCH_SEARCHING".localized()
+                self?.label.text = "searchSearching".localized()
             }
             
             self?.startLoading()
@@ -326,27 +326,17 @@ public final class SearchResultsBar: UIView {
             stopLoading()
             return
         }
-
-        switch results.count {
-            case 0:
-                // Keyboard toolbar label when no messages match the search string
-                label.text = "CONVERSATION_SEARCH_NO_RESULTS".localized()
-            
-            case 1:
-                // Keyboard toolbar label when exactly 1 message matches the search string
-                label.text = "CONVERSATION_SEARCH_ONE_RESULT".localized()
         
-            default:
-                // Keyboard toolbar label when more than 1 message matches the search string
-                //
-                // Embeds {{number/position of the 'currently viewed' result}} and
-                // the {{total number of results}}
-                let format = "CONVERSATION_SEARCH_RESULTS_FORMAT".localized()
-
-                guard let currentIndex: Int = currentIndex else { return }
-                
-                label.text = String(format: format, currentIndex + 1, results.count)
+        label.text = {
+            guard results.count > 0 else {
+                return "searchMatchesNone".localized()
             }
+            
+            return "searchMatches"
+                .putNumber(results.count)
+                .put(key: "found_count", value: (currentIndex ?? 0) + 1)
+                .localized()
+        }()
 
         if let currentIndex: Int = currentIndex {
             downButton.isEnabled = currentIndex > 0

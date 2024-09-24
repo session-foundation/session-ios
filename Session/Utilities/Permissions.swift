@@ -26,14 +26,13 @@ public enum Permissions {
                 
                 let confirmationModal: ConfirmationModal = ConfirmationModal(
                     info: ConfirmationModal.Info(
-                        title: "Session",
+                        title: "permissionsRequired".localized(),
                         body: .text(
-                            String(
-                                format: "modal_permission_explanation".localized(),
-                                "modal_permission_camera".localized()
-                            )
+                            "cameraGrantAccessDenied"
+                                .put(key: "app_name", value: Constants.app_name)
+                                .localized()
                         ),
-                        confirmTitle: "modal_permission_settings_title".localized(),
+                        confirmTitle: "sessionSettings".localized(),
                         dismissOnConfirm: false
                     ) { [weak presentingViewController] _ in
                         presentingViewController?.dismiss(animated: true, completion: {
@@ -69,14 +68,13 @@ public enum Permissions {
                 
                 let confirmationModal: ConfirmationModal = ConfirmationModal(
                     info: ConfirmationModal.Info(
-                        title: "Session",
+                        title: "permissionsRequired".localized(),
                         body: .text(
-                            String(
-                                format: "modal_permission_explanation".localized(),
-                                "modal_permission_microphone".localized()
-                            )
+                            "permissionsMicrophoneAccessRequiredIos"
+                                .put(key: "app_name", value: Constants.app_name)
+                                .localized()
                         ),
-                        confirmTitle: "modal_permission_settings_title".localized(),
+                        confirmTitle: "sessionSettings".localized(),
                         dismissOnConfirm: false,
                         onConfirm: { [weak presentingViewController] _ in
                             presentingViewController?.dismiss(animated: true, completion: {
@@ -101,36 +99,23 @@ public enum Permissions {
         presentingViewController: UIViewController? = nil,
         onAuthorized: @escaping () -> Void
     ) {
-        let authorizationStatus: PHAuthorizationStatus
-        if #available(iOS 14, *) {
-            let targetPermission: PHAccessLevel = (isSavingMedia ? .addOnly : .readWrite)
-            authorizationStatus = PHPhotoLibrary.authorizationStatus(for: targetPermission)
-            if authorizationStatus == .notDetermined {
-                // When the user chooses to select photos (which is the .limit status),
-                // the PHPhotoUI will present the picker view on the top of the front view.
-                // Since we have the ScreenLockUI showing when we request premissions,
-                // the picker view will be presented on the top of the ScreenLockUI.
-                // However, the ScreenLockUI will dismiss with the permission request alert view, so
-                // the picker view then will dismiss, too. The selection process cannot be finished
-                // this way. So we add a flag (isRequestingPermission) to prevent the ScreenLockUI
-                // from showing when we request the photo library permission.
-                SessionEnvironment.shared?.isRequestingPermission = true
-                
-                PHPhotoLibrary.requestAuthorization(for: targetPermission) { status in
-                    SessionEnvironment.shared?.isRequestingPermission = false
-                    if [ PHAuthorizationStatus.authorized, PHAuthorizationStatus.limited ].contains(status) {
-                        onAuthorized()
-                    }
-                }
-            }
-        }
-        else {
-            authorizationStatus = PHPhotoLibrary.authorizationStatus()
-            if authorizationStatus == .notDetermined {
-                PHPhotoLibrary.requestAuthorization { status in
-                    if status == .authorized {
-                        onAuthorized()
-                    }
+        let targetPermission: PHAccessLevel = (isSavingMedia ? .addOnly : .readWrite)
+        let authorizationStatus = PHPhotoLibrary.authorizationStatus(for: .readWrite)
+        if authorizationStatus == .notDetermined {
+            // When the user chooses to select photos (which is the .limit status),
+            // the PHPhotoUI will present the picker view on the top of the front view.
+            // Since we have the ScreenLockUI showing when we request premissions,
+            // the picker view will be presented on the top of the ScreenLockUI.
+            // However, the ScreenLockUI will dismiss with the permission request alert view, so
+            // the picker view then will dismiss, too. The selection process cannot be finished
+            // this way. So we add a flag (isRequestingPermission) to prevent the ScreenLockUI
+            // from showing when we request the photo library permission.
+            SessionEnvironment.shared?.isRequestingPermission = true
+            
+            PHPhotoLibrary.requestAuthorization(for: targetPermission) { status in
+                SessionEnvironment.shared?.isRequestingPermission = false
+                if [ PHAuthorizationStatus.authorized, PHAuthorizationStatus.limited ].contains(status) {
+                    onAuthorized()
                 }
             }
         }
@@ -145,14 +130,13 @@ public enum Permissions {
                 
                 let confirmationModal: ConfirmationModal = ConfirmationModal(
                     info: ConfirmationModal.Info(
-                        title: "Session",
+                        title: "permissionsRequired".localized(),
                         body: .text(
-                            String(
-                                format: "modal_permission_explanation".localized(),
-                                "modal_permission_library".localized()
-                            )
+                            "permissionsLibrary"
+                                .put(key: "app_name", value: Constants.app_name)
+                                .localized()
                         ),
-                        confirmTitle: "modal_permission_settings_title".localized(),
+                        confirmTitle: "sessionSettings".localized(),
                         dismissOnConfirm: false
                     ) { [weak presentingViewController] _ in
                         presentingViewController?.dismiss(animated: true, completion: {

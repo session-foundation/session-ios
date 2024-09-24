@@ -51,12 +51,12 @@ final class HomeVC: BaseVC, LibSessionRespondingViewController, UITableViewDataS
     private lazy var seedReminderView: SeedReminderView = {
         let result = SeedReminderView()
         result.accessibilityLabel = "Recovery phrase reminder"
-        result.title = NSAttributedString(string: "onboarding_recovery_password_title".localized())
-        result.subtitle = "onboarding_recovery_password_subtitle".localized()
+        result.title = NSAttributedString(string: "recoveryPasswordBannerTitle".localized())
+        result.subtitle = "recoveryPasswordBannerDescription".localized()
         result.setProgress(1, animated: false)
         result.delegate = self
         result.isHidden = !self.viewModel.state.showViewedSeedBanner
-
+        
         return result
     }()
     
@@ -64,7 +64,7 @@ final class HomeVC: BaseVC, LibSessionRespondingViewController, UITableViewDataS
         let result: UILabel = UILabel()
         result.translatesAutoresizingMaskIntoConstraints = false
         result.font = .systemFont(ofSize: Values.smallFontSize)
-        result.text = "LOADING_CONVERSATIONS".localized()
+        result.text = "loading".localized()
         result.themeTextColor = .textSecondary
         result.textAlignment = .center
         result.numberOfLines = 0
@@ -92,11 +92,8 @@ final class HomeVC: BaseVC, LibSessionRespondingViewController, UITableViewDataS
         result.register(view: FullConversationCell.self)
         result.dataSource = self
         result.delegate = self
-        
-        if #available(iOS 15.0, *) {
-            result.sectionHeaderTopPadding = 0
-        }
-        
+        result.sectionHeaderTopPadding = 0
+
         return result
     }()
     
@@ -251,7 +248,10 @@ final class HomeVC: BaseVC, LibSessionRespondingViewController, UITableViewDataS
         
         let welcomeLabel = UILabel()
         welcomeLabel.font = .systemFont(ofSize: Values.smallFontSize)
-        welcomeLabel.text = "onboardingBubbleWelcomeToSession".localized()
+        welcomeLabel.text = "onboardingBubbleWelcomeToSession"
+            .put(key: "app_name", value: Constants.app_name)
+            .put(key: "emoji", value: "")
+            .localized()
         welcomeLabel.themeTextColor = .sessionButton_text
         welcomeLabel.textAlignment = .center
 
@@ -750,7 +750,8 @@ final class HomeVC: BaseVC, LibSessionRespondingViewController, UITableViewDataS
                         indexPath: indexPath,
                         tableView: tableView,
                         threadViewModel: threadViewModel,
-                        viewController: self
+                        viewController: self,
+                        navigatableStateHolder: viewModel
                     )
                 )
             
@@ -771,7 +772,8 @@ final class HomeVC: BaseVC, LibSessionRespondingViewController, UITableViewDataS
                         indexPath: indexPath,
                         tableView: tableView,
                         threadViewModel: threadViewModel,
-                        viewController: self
+                        viewController: self,
+                        navigatableStateHolder: viewModel
                     )
                 )
                 
@@ -800,7 +802,7 @@ final class HomeVC: BaseVC, LibSessionRespondingViewController, UITableViewDataS
                 }()
                 let destructiveAction: UIContextualAction.SwipeAction = {
                     switch (threadViewModel.threadVariant, threadViewModel.threadIsNoteToSelf, threadViewModel.currentUserIsClosedGroupMember) {
-                        case (.contact, true, _): return .hide
+                        case (.contact, true, _): return .clear
                         case (.legacyGroup, _, true), (.group, _, true), (.community, _, _): return .leave
                         default: return .delete
                     }
@@ -817,7 +819,8 @@ final class HomeVC: BaseVC, LibSessionRespondingViewController, UITableViewDataS
                         indexPath: indexPath,
                         tableView: tableView,
                         threadViewModel: threadViewModel,
-                        viewController: self
+                        viewController: self,
+                        navigatableStateHolder: viewModel
                     )
                 )
                 
@@ -835,9 +838,9 @@ final class HomeVC: BaseVC, LibSessionRespondingViewController, UITableViewDataS
         } else {
             let targetViewController: UIViewController = ConfirmationModal(
                 info: ConfirmationModal.Info(
-                    title: "ALERT_ERROR_TITLE".localized(),
-                    body: .text("LOAD_RECOVERY_PASSWORD_ERROR".localized()),
-                    cancelTitle: "BUTTON_OK".localized(),
+                    title: "theError".localized(),
+                    body: .text("recoveryPasswordErrorLoad".localized()),
+                    cancelTitle: "okay".localized(),
                     cancelStyle: .alert_text
                 )
             )
@@ -897,7 +900,7 @@ final class HomeVC: BaseVC, LibSessionRespondingViewController, UITableViewDataS
             rootView: StartConversationScreen(),
             customizedNavigationBackground: .backgroundSecondary
         )
-        viewController.setNavBarTitle("start_conversation_screen_title".localized())
+        viewController.setNavBarTitle("conversationsStart".localized())
         viewController.setUpDismissingButton(on: .right)
         
         let navigationController = StyledNavigationController(rootViewController: viewController)
@@ -910,7 +913,11 @@ final class HomeVC: BaseVC, LibSessionRespondingViewController, UITableViewDataS
     
     func createNewDMFromDeepLink(sessionId: String) {
         let viewController: SessionHostingViewController = SessionHostingViewController(rootView: NewMessageScreen(accountId: sessionId))
-        viewController.setNavBarTitle("vc_create_private_chat_title".localized())
+        viewController.setNavBarTitle(
+            "messageNew"
+                .putNumber(1)
+                .localized()
+        )
         let navigationController = StyledNavigationController(rootViewController: viewController)
         if UIDevice.current.isIPad {
             navigationController.modalPresentationStyle = .fullScreen

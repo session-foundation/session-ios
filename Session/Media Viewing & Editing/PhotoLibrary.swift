@@ -185,7 +185,7 @@ class PhotoCollectionContents {
                     exportSession.outputFileType = AVFileType.mp4
                     exportSession.metadataItemFilter = AVMetadataItemFilter.forSharing()
                     
-                    let exportPath = FileSystem.temporaryFilePath(fileExtension: "mp4")
+                    let exportPath = FileSystem.temporaryFilePath(fileExtension: "mp4") // stringlint:disable
                     let exportURL = URL(fileURLWithPath: exportPath)
                     exportSession.outputURL = exportURL
                     
@@ -250,7 +250,7 @@ class PhotoCollection {
     func localizedTitle() -> String {
         guard let localizedTitle = collection.localizedTitle?.stripped,
             localizedTitle.count > 0 else {
-            return NSLocalizedString("PHOTO_PICKER_UNNAMED_COLLECTION", comment: "label for system photo collections which have no name.")
+            return "attachmentsAlbumUnnamed".localized()
         }
         return localizedTitle
     }

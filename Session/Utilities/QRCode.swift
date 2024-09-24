@@ -10,12 +10,12 @@ enum QRCode {
     static func generate(for string: String, hasBackground: Bool) -> UIImage {
         let data = string.data(using: .utf8)
         var qrCodeAsCIImage: CIImage
-        let filter1 = CIFilter(name: "CIQRCodeGenerator")!
+        let filter1 = CIFilter(name: "CIQRCodeGenerator")! // stringlint:disable
         filter1.setValue(data, forKey: "inputMessage")
         qrCodeAsCIImage = filter1.outputImage!
         
         guard !hasBackground else {
-            let filter2 = CIFilter(name: "CIFalseColor")!
+            let filter2 = CIFilter(name: "CIFalseColor")! // stringlint:disable
             filter2.setValue(qrCodeAsCIImage, forKey: "inputImage")
             filter2.setValue(CIColor(color: .black), forKey: "inputColor0")
             filter2.setValue(CIColor(color: .white), forKey: "inputColor1")
@@ -25,10 +25,10 @@ enum QRCode {
             return UIImage(ciImage: scaledQRCodeAsCIImage)
         }
         
-        let filter2 = CIFilter(name: "CIColorInvert")!
+        let filter2 = CIFilter(name: "CIColorInvert")! // stringlint:disable
         filter2.setValue(qrCodeAsCIImage, forKey: "inputImage")
         qrCodeAsCIImage = filter2.outputImage!
-        let filter3 = CIFilter(name: "CIMaskToAlpha")!
+        let filter3 = CIFilter(name: "CIMaskToAlpha")! // stringlint:disable
         filter3.setValue(qrCodeAsCIImage, forKey: "inputImage")
         qrCodeAsCIImage = filter3.outputImage!
         

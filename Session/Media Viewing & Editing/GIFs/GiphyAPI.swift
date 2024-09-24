@@ -11,17 +11,12 @@ enum GiphyFormat {
     case gif, mp4, jpg
 }
 
-enum GiphyError: Error {
+enum GiphyError: Error, CustomStringConvertible {
     case assertionError(description: String)
     case fetchFailure
-}
-
-extension GiphyError: LocalizedError {
-    public var errorDescription: String? {
-        switch self {
-            case .assertionError: return "GIF_PICKER_ERROR_GENERIC".localized()
-            case .fetchFailure: return "GIF_PICKER_ERROR_FETCH_FAILURE".localized()
-        }
+    
+    var description: String {
+        return "errorUnknown".localized()
     }
 }
 
