@@ -3,6 +3,7 @@
 import Foundation
 import Combine
 import CoreServices
+import UniformTypeIdentifiers
 import SignalUtilitiesKit
 import SessionUtilitiesKit
 
@@ -56,11 +57,11 @@ class GiphyRendition: ProxiedContentAssetDescription {
         }
     }
 
-    public var utiType: String {
+    public var type: UTType {
         switch format {
-            case .gif: return kUTTypeGIF as String
-            case .mp4: return kUTTypeMPEG4 as String
-            case .jpg: return kUTTypeJPEG as String
+            case .gif: return .gif
+            case .mp4: return .mpeg4Movie
+            case .jpg: return .jpeg
         }
     }
 

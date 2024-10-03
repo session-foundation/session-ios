@@ -505,18 +505,18 @@ public class AttachmentApprovalViewController: UIPageViewController, UIPageViewC
             Log.error("[AttachmentApprovalViewController] Could not render for output.")
             return attachmentItem.attachment
         }
-        var dataUTI = kUTTypeImage as String
+        var dataType: UTType = .image
         let maybeDstData: Data? = {
             let isLossy: Bool = (
-                attachmentItem.attachment.mimeType.caseInsensitiveCompare(MimeTypeUtil.MimeType.imageJpeg) == .orderedSame
+                attachmentItem.attachment.mimeType.caseInsensitiveCompare(UTType.mimeTypeJpeg) == .orderedSame
             )
             
             if isLossy {
-                dataUTI = kUTTypeJPEG as String
+                dataType = .jpeg
                 return dstImage.jpegData(compressionQuality: 0.9)
             }
             else {
-                dataUTI = kUTTypePNG as String
+                dataType = .png
                 return dstImage.pngData()
             }
         }()
@@ -525,7 +525,7 @@ public class AttachmentApprovalViewController: UIPageViewController, UIPageViewC
             Log.error("[AttachmentApprovalViewController] Could not export for output.")
             return attachmentItem.attachment
         }
-        guard let dataSource = DataSourceValue(data: dstData, utiType: dataUTI) else {
+        guard let dataSource = DataSourceValue(data: dstData, dataType: dataType) else {
             Log.error("[AttachmentApprovalViewController] Could not prepare data source for output.")
             return attachmentItem.attachment
         }
@@ -533,13 +533,13 @@ public class AttachmentApprovalViewController: UIPageViewController, UIPageViewC
         // Rewrite the filename's extension to reflect the output file format.
         var filename: String? = attachmentItem.attachment.sourceFilename
         if let sourceFilename = attachmentItem.attachment.sourceFilename {
-            if let fileExtension: String = MimeTypeUtil.fileExtension(forUtiType: dataUTI) {
+            if let fileExtension: String = dataType.sessionFileExtension {
                 filename = (sourceFilename as NSString).deletingPathExtension.appendingFileExtension(fileExtension)
             }
         }
         dataSource.sourceFilename = filename
 
-        let dstAttachment = SignalAttachment.attachment(dataSource: dataSource, dataUTI: dataUTI, imageQuality: .medium)
+        let dstAttachment = SignalAttachment.attachment(dataSource: dataSource, type: dataType, imageQuality: .medium)
         if let attachmentError = dstAttachment.error {
             Log.error("[AttachmentApprovalViewController] Could not prepare attachment for output: \(attachmentError).")
             return attachmentItem.attachment
