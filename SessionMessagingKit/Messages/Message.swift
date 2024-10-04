@@ -322,7 +322,6 @@ public extension Message {
     static func shouldSync(message: Message) -> Bool {
         switch message {
             case is VisibleMessage: return true
-            case is ExpirationTimerUpdate: return true
             case is UnsendRequest: return true
             
             case let controlMessage as ClosedGroupControlMessage:
@@ -349,7 +348,6 @@ public extension Message {
                 
                 switch message {
                     case let message as VisibleMessage: maybeSyncTarget = message.syncTarget
-                    case let message as ExpirationTimerUpdate: maybeSyncTarget = message.syncTarget
                     default: maybeSyncTarget = nil
                 }
                 
@@ -701,7 +699,8 @@ public extension Message {
         destination: Message.Destination,
         using dependencies: Dependencies
     ) -> UInt64 {
-        guard dependencies[feature: .updatedDisappearingMessages] else { return message.ttl }
+        // Not disappearing messages
+        guard let expiresInSeconds = message.expiresInSeconds else { return message.ttl }
         
         switch (destination, message) {
             // Disappear after sent messages with exceptions

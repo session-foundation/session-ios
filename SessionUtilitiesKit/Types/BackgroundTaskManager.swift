@@ -45,12 +45,14 @@ public class SessionBackgroundTaskManager {
     /// This property should only be accessed while synchronized on this instance.
     private var continuityTimer: Timer?
     
+    /// In order to ensure we have sufficient time to clean up before background tasks expire (without having to kick off additional tasks)
+    /// we track the remaining background execution time and end tasks 5 seconds early (same as the AppDelegate background fetch)
+    private var expirationTimeObserver: Timer?
+    private var hasGottenValidBackgroundTimeRemaining: Bool = false
+    
     fileprivate init(using dependencies: Dependencies) {
         self.dependencies = dependencies
-        self.isAppActive = (
-            dependencies.hasInitialised(singleton: .appContext) &&
-            dependencies[singleton: .appContext].isMainAppAndActive
-        )
+        self.isAppActive = dependencies[singleton: .appContext].isMainAppAndActive
     }
     
     deinit {
@@ -67,10 +69,7 @@ public class SessionBackgroundTaskManager {
     }
     
     public func startObservingNotifications() {
-        guard
-            dependencies.hasInitialised(singleton: .appContext),
-            dependencies[singleton: .appContext].isMainApp
-        else { return }
+        guard dependencies[singleton: .appContext].isMainApp else { return }
         
         NotificationCenter.default.addObserver(
             self,
@@ -110,7 +109,7 @@ public class SessionBackgroundTaskManager {
     // background task, but the background task couldn't be begun.
     // In that case expirationBlock will not be called.
     fileprivate func addTask(expiration: @escaping () -> ()) -> UInt64? {
-        return SessionBackgroundTaskManager.synced(self) { [weak self] in
+        return SessionBackgroundTaskManager.synced(self) { [weak self, dependencies] in
             let taskId: UInt64 = ((self?.idCounter ?? 0) + 1)
             self?.idCounter = taskId
             self?.expirationMap[taskId] = expiration
@@ -121,6 +120,17 @@ public class SessionBackgroundTaskManager {
             
             self?.continuityTimer?.invalidate()
             self?.continuityTimer = nil
+            
+            // Start observing the background time remaining
+            if self?.expirationTimeObserver?.isValid != true {
+                self?.hasGottenValidBackgroundTimeRemaining = false
+                self?.expirationTimeObserver = Timer.scheduledTimerOnMainThread(
+                    withTimeInterval: 1,
+                    repeats: true,
+                    using: dependencies,
+                    block: { _ in self?.expirationTimerDidFire() }
+                )
+            }
             
             return taskId
         }
@@ -142,7 +152,7 @@ public class SessionBackgroundTaskManager {
             self?.continuityTimer = Timer.scheduledTimerOnMainThread(
                 withTimeInterval: 0.25,
                 using: dependencies,
-                block: { _ in self?.timerDidFire() }
+                block: { _ in self?.continuityTimerDidFire() }
             )
             self?.ensureBackgroundTaskState()
         }
@@ -151,15 +161,12 @@ public class SessionBackgroundTaskManager {
     /// Begins or end a background task if necessary.
     @discardableResult private func ensureBackgroundTaskState() -> Bool {
         // We can't create background tasks in the SAE, but pretend that we succeeded.
-        guard
-            dependencies.hasInitialised(singleton: .appContext),
-            dependencies[singleton: .appContext].isMainApp
-        else { return true }
+        guard dependencies[singleton: .appContext].isMainApp else { return true }
         
         return SessionBackgroundTaskManager.synced(self) { [weak self, dependencies] in
             // We only want to have a background task if we are:
             // a) "not active" AND
-            // b1) there is one or more active instance of OWSBackgroundTask OR...
+            // b1) there is one or more active instance of SessionBackgroundTask OR...
             // b2) ...there _was_ an active instance recently.
             let shouldHaveBackgroundTask: Bool = (
                 self?.isAppActive == false && (
@@ -180,6 +187,8 @@ public class SessionBackgroundTaskManager {
             // Need to end background task.
             let maybeBackgroundTaskId: UIBackgroundTaskIdentifier? = self?.backgroundTaskId
             self?.backgroundTaskId = .invalid
+            self?.expirationTimeObserver?.invalidate()
+            self?.expirationTimeObserver = nil
             
             if let backgroundTaskId: UIBackgroundTaskIdentifier = maybeBackgroundTaskId, backgroundTaskId != .invalid {
                 dependencies[singleton: .appContext].endBackgroundTask(backgroundTaskId)
@@ -191,9 +200,8 @@ public class SessionBackgroundTaskManager {
     
     /// Returns `false` if the background task cannot be begun.
     private func startBackgroundTask() -> Bool {
-        guard dependencies.hasInitialised(singleton: .appContext) else { return false }
+        guard dependencies[singleton: .appContext].isMainApp else { return false }
         
-        // TODO: Need to test that this does block itself (I guess the old @sync'ed allowed reentry?
         return SessionBackgroundTaskManager.synced(self) { [weak self, dependencies] in
             self?.backgroundTaskId = dependencies[singleton: .appContext].beginBackgroundTask {
                 /// Supposedly `[UIApplication beginBackgroundTaskWithExpirationHandler]`'s handler
@@ -216,6 +224,8 @@ public class SessionBackgroundTaskManager {
         SessionBackgroundTaskManager.synced(self) { [weak self] in
             backgroundTaskId = (self?.backgroundTaskId ?? .invalid)
             self?.backgroundTaskId = .invalid
+            self?.expirationTimeObserver?.invalidate()
+            self?.expirationTimeObserver = nil
             
             expirationMap = (self?.expirationMap ?? [:])
             self?.expirationMap.removeAll()
@@ -237,11 +247,33 @@ public class SessionBackgroundTaskManager {
         }
     }
     
-    private func timerDidFire() {
+    private func continuityTimerDidFire() {
         SessionBackgroundTaskManager.synced(self) { [weak self] in
             self?.continuityTimer?.invalidate()
             self?.continuityTimer = nil
             self?.ensureBackgroundTaskState()
+        }
+    }
+    
+    private func expirationTimerDidFire() {
+        guard dependencies[singleton: .appContext].isMainApp else { return }
+        
+        let backgroundTimeRemaining: TimeInterval = dependencies[singleton: .appContext].backgroundTimeRemaining
+        
+        SessionBackgroundTaskManager.synced(self) { [weak self] in
+            // It takes the OS a little while to update the 'backgroundTimeRemaining' value so if it hasn't been updated
+            // yet then don't do anything
+            guard self?.hasGottenValidBackgroundTimeRemaining == true || backgroundTimeRemaining != .greatestFiniteMagnitude else {
+                return
+            }
+            
+            self?.hasGottenValidBackgroundTimeRemaining = true
+            
+            // If there is more than 5 seconds remaining then no need to do anything yet (plenty of time to continue running)
+            guard backgroundTimeRemaining <= 5 else { return }
+            
+            // There isn't a lot of time remaining so trigger the expiration
+            self?.backgroundTaskExpired()
         }
     }
 }
@@ -301,8 +333,9 @@ public class SessionBackgroundTask {
             }
         }
         
-        // If a background task could not be begun, call the completion block
-        guard taskId != nil else { return }
+        // If we didn't get a taskId then the background task could not be started so
+        // we should call the completion block with a 'couldNotStart' error
+        guard taskId == nil else { return }
         
         SessionBackgroundTask.synced(self) { [weak self] in
             completion = self?.completion

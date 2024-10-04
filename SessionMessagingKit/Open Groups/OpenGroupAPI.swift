@@ -75,7 +75,7 @@ public enum OpenGroupAPI {
                             // 'maxInactivityPeriod' then just retrieve recent messages instead
                             // of trying to get all messages since the last one retrieved
                             !hasPerformedInitialPoll &&
-                            timeSinceLastPoll > OpenGroupAPI.Poller.maxInactivityPeriod
+                            timeSinceLastPoll > CommunityPoller.maxInactivityPeriod
                         )
                     )
                     
@@ -144,7 +144,7 @@ public enum OpenGroupAPI {
     ///
     /// For contained subrequests that specify a body (i.e. POST or PUT requests) exactly one of `json`, `b64`, or `bytes` must be provided
     /// with the request body.
-    private static func preparedBatch(
+    public static func preparedBatch(
         _ db: Database,
         server: String,
         requests: [any ErasedPreparedRequest],
@@ -861,7 +861,7 @@ public enum OpenGroupAPI {
             .filter(OpenGroup.Columns.server == server.lowercased())
             .asRequest(of: String.self)
             .fetchOne(db)
-
+        
         guard let serverPublicKey: String = maybePublicKey else { throw OpenGroupAPIError.noPublicKey }
         
         return try Network.PreparedRequest(
@@ -869,7 +869,6 @@ public enum OpenGroupAPI {
                 endpoint: Endpoint.roomFile(roomToken),
                 destination: .serverUpload(
                     server: server,
-                    endpoint: Endpoint.roomFile(roomToken),
                     x25519PublicKey: serverPublicKey,
                     fileName: fileName
                 ),
@@ -877,7 +876,7 @@ public enum OpenGroupAPI {
             ),
             responseType: FileUploadResponse.self,
             additionalSignatureData: AdditionalSigningData(server: server),
-            timeout: Network.fileUploadTimeout,
+            requestTimeout: Network.fileUploadTimeout,
             using: dependencies
         )
         .signed(db, with: OpenGroupAPI.signRequest, using: dependencies)
@@ -918,7 +917,7 @@ public enum OpenGroupAPI {
             ),
             responseType: Data.self,
             additionalSignatureData: AdditionalSigningData(server: server),
-            timeout: Network.fileDownloadTimeout,
+            requestTimeout: Network.fileDownloadTimeout,
             using: dependencies
         )
         .signed(db, with: OpenGroupAPI.signRequest, using: dependencies)
@@ -973,6 +972,8 @@ public enum OpenGroupAPI {
     public static func preparedClearInbox(
         _ db: Database,
         on server: String,
+        requestTimeout: TimeInterval = Network.defaultTimeout,
+        requestAndPathBuildTimeout: TimeInterval? = nil,
         using dependencies: Dependencies
     ) throws -> Network.PreparedRequest<DeleteInboxResponse> {
         return try Network.PreparedRequest(
@@ -984,6 +985,8 @@ public enum OpenGroupAPI {
             ),
             responseType: DeleteInboxResponse.self,
             additionalSignatureData: AdditionalSigningData(server: server),
+            requestTimeout: requestTimeout,
+            requestAndPathBuildTimeout: requestAndPathBuildTimeout,
             using: dependencies
         )
         .signed(db, with: OpenGroupAPI.signRequest, using: dependencies)
@@ -1469,22 +1472,15 @@ private extension Network.Destination {
 
 private extension Network.Destination.ServerInfo {
     func signed(_ db: Database, _ data: OpenGroupAPI.AdditionalSigningData, _ body: Data?, using dependencies: Dependencies) throws -> Network.Destination.ServerInfo {
-        return Network.Destination.ServerInfo(
-            method: method,
+        return updated(with: try OpenGroupAPI.signatureHeaders(
+            db,
             url: url,
-            pathAndParamsString: pathAndParamsString,
-            headers: (headers ?? [:])
-                .updated(with: try OpenGroupAPI.signatureHeaders(
-                    db,
-                    url: url,
-                    method: method,
-                    server: data.server,
-                    serverPublicKey: x25519PublicKey,
-                    body: body,
-                    forceBlinded: data.forceBlinded,
-                    using: dependencies
-                )),
-            x25519PublicKey: x25519PublicKey
-        )
+            method: method,
+            server: data.server,
+            serverPublicKey: x25519PublicKey,
+            body: body,
+            forceBlinded: data.forceBlinded,
+            using: dependencies
+        ))
     }
 }

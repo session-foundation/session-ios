@@ -31,6 +31,8 @@ extension Mocked { static var any: Self { mock } }
 extension Int: Mocked { static var mock: Int { 0 } }
 extension Int64: Mocked { static var mock: Int64 { 0 } }
 extension Dictionary: Mocked { static var mock: Self { [:] } }
+extension Array: Mocked { static var mock: Self { [] } }
+extension Set: Mocked { static var mock: Self { [] } }
 extension Float: Mocked { static var mock: Float { 0 } }
 extension Double: Mocked { static var mock: Double { 0 } }
 extension String: Mocked { static var mock: String { "" } }
@@ -41,9 +43,6 @@ extension UnsafeMutablePointer<ObjCBool>?: Mocked { static var mock: UnsafeMutab
 // The below types either can't be mocked or use the 'MockedGeneric' or 'MockedDoubleGeneric' types
 // so need their own direct 'any' values
 
-extension Array { static var any: Self { mock(type: Element.self) } }
-extension Set { static var any: Self { mock(type: Element.self) } }
-extension Dictionary { static var any: Self { mock(typeA: Key.self, typeB: Value.self) } }
 extension Error { static var any: Error { TestError.mock } }
 
 extension UIApplication.State { static var any: UIApplication.State { .active } }
@@ -72,25 +71,6 @@ extension URLRequest: Mocked {
     static var mock: URLRequest = URLRequest(url: URL(fileURLWithPath: "mock"))
 }
 
-extension Array: MockedGeneric {
-    typealias Generic = Element
-    
-    static func mock(type: Element.Type) -> [Element] { return [] }
-}
-
-extension Set: MockedGeneric {
-    typealias Generic = Element
-    
-    static func mock(type: Element.Type) -> Set<Element> { return [] }
-}
-
-extension Dictionary: MockedDoubleGeneric {
-    typealias GenericA = Key
-    typealias GenericB = Value
-    
-    static func mock(typeA: Key.Type, typeB: Value.Type) -> [Key: Value] { return [:] }
-}
-
 extension AnyPublisher: MockedGeneric where Failure == Error {
     typealias Generic = Output
     
@@ -98,30 +78,6 @@ extension AnyPublisher: MockedGeneric where Failure == Error {
     
     static func mock(type: Output.Type) -> AnyPublisher<Output, Error> {
         return Fail(error: MockError.mockedData).eraseToAnyPublisher()
-    }
-}
-
-extension Network.BatchSubResponse: MockedGeneric where T: Mocked {
-    typealias Generic = T
-    
-    static func mockValue(type: Generic.Type) -> Network.BatchSubResponse<Generic> {
-        return Network.BatchSubResponse(
-            code: 200,
-            headers: [:],
-            body: Generic.mock,
-            failedToParseBody: false
-        )
-    }
-}
-
-extension Network.BatchSubResponse {
-    static func mockArrayValue<M: Mocked>(type: M.Type) -> Network.BatchSubResponse<Array<M>> {
-        return Network.BatchSubResponse(
-            code: 200,
-            headers: [:],
-            body: [M.mock],
-            failedToParseBody: false
-        )
     }
 }
 
@@ -142,18 +98,6 @@ extension Job.Variant: Mocked {
 
 extension JobRunner.JobResult: Mocked {
     static var mock: JobRunner.JobResult = .succeeded
-}
-
-extension Network.RequestType: MockedGeneric {
-    typealias Generic = T
-    
-    static func mock(type: T.Type) -> Network.RequestType<T> {
-        return Network.RequestType(id: "mock") { Fail(error: MockError.mockedData).eraseToAnyPublisher() }
-    }
-}
-
-extension NoResponse: Mocked {
-    static var mock: NoResponse = NoResponse()
 }
 
 // MARK: - Encodable Convenience

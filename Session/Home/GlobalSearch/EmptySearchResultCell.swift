@@ -8,7 +8,7 @@ import NVActivityIndicatorView
 class EmptySearchResultCell: UITableViewCell {
     private lazy var messageLabel: UILabel = {
         let result = UILabel()
-        result.text = "CONVERSATION_SEARCH_NO_RESULTS".localized()
+        result.text = "searchMatchesNone".localized()
         result.themeTextColor = .textPrimary
         result.textAlignment = .center
         result.numberOfLines = 3

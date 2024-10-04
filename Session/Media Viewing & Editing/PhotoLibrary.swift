@@ -4,6 +4,7 @@ import Foundation
 import Combine
 import Photos
 import CoreServices
+import UniformTypeIdentifiers
 import SignalUtilitiesKit
 import SessionMessagingKit
 import SessionUtilitiesKit
@@ -138,7 +139,7 @@ class PhotoCollectionContents {
         _ = imageManager.requestImage(for: asset, targetSize: thumbnailSize, contentMode: .aspectFill, options: nil, resultHandler: resultHandler)
     }
 
-    private func requestImageDataSource(for asset: PHAsset, using dependencies: Dependencies) -> AnyPublisher<(dataSource: (any DataSource), dataUTI: String), Error> {
+    private func requestImageDataSource(for asset: PHAsset, using dependencies: Dependencies) -> AnyPublisher<(dataSource: (any DataSource), type: UTType), Error> {
         return Deferred {
             Future { [weak self] resolver in
                 
@@ -152,24 +153,24 @@ class PhotoCollectionContents {
                         return
                     }
                     
-                    guard let dataUTI = dataUTI else {
+                    guard let type: UTType = dataUTI.map({ UTType($0) }) else {
                         resolver(Result.failure(PhotoLibraryError.assertionError(description: "dataUTI was unexpectedly nil")))
                         return
                     }
                     
-                    guard let dataSource = DataSourceValue(data: imageData, utiType: dataUTI, using: dependencies) else {
+                    guard let dataSource = DataSourceValue(data: imageData, dataType: type, using: dependencies) else {
                         resolver(Result.failure(PhotoLibraryError.assertionError(description: "dataSource was unexpectedly nil")))
                         return
                     }
                     
-                    resolver(Result.success((dataSource: dataSource, dataUTI: dataUTI)))
+                    resolver(Result.success((dataSource: dataSource, type: type)))
                 }
             }
         }
         .eraseToAnyPublisher()
     }
 
-    private func requestVideoDataSource(for asset: PHAsset, using dependencies: Dependencies) -> AnyPublisher<(dataSource: (any DataSource), dataUTI: String), Error> {
+    private func requestVideoDataSource(for asset: PHAsset, using dependencies: Dependencies) -> AnyPublisher<(dataSource: (any DataSource), type: UTType), Error> {
         return Deferred {
             Future { [weak self] resolver in
                 
@@ -186,7 +187,7 @@ class PhotoCollectionContents {
                     exportSession.outputFileType = AVFileType.mp4
                     exportSession.metadataItemFilter = AVMetadataItemFilter.forSharing()
                     
-                    let exportPath = FileSystem.temporaryFilePath(fileExtension: "mp4", using: dependencies)
+                    let exportPath = FileSystem.temporaryFilePath(fileExtension: "mp4", using: dependencies) // stringlint:disable
                     let exportURL = URL(fileURLWithPath: exportPath)
                     exportSession.outputURL = exportURL
                     
@@ -202,7 +203,7 @@ class PhotoCollectionContents {
                             return
                         }
                         
-                        resolver(Result.success((dataSource: dataSource, dataUTI: kUTTypeMPEG4 as String)))
+                        resolver(Result.success((dataSource: dataSource, type: .mpeg4Movie)))
                     }
                 }
             }
@@ -214,17 +215,15 @@ class PhotoCollectionContents {
         switch asset.mediaType {
             case .image:
                 return requestImageDataSource(for: asset, using: dependencies)
-                    .map { (dataSource: DataSource, dataUTI: String) in
-                        SignalAttachment
-                            .attachment(dataSource: dataSource, dataUTI: dataUTI, imageQuality: .medium, using: dependencies)
+                    .map { (dataSource: DataSource, type: UTType) in
+                        SignalAttachment.attachment(dataSource: dataSource, type: type, imageQuality: .medium, using: dependencies)
                     }
                     .eraseToAnyPublisher()
                 
             case .video:
                 return requestVideoDataSource(for: asset, using: dependencies)
-                    .map { (dataSource: DataSource, dataUTI: String) in
-                        SignalAttachment
-                            .attachment(dataSource: dataSource, dataUTI: dataUTI, using: dependencies)
+                    .map { (dataSource: DataSource, type: UTType) in
+                        SignalAttachment.attachment(dataSource: dataSource, type: type, using: dependencies)
                     }
                     .eraseToAnyPublisher()
                 
@@ -251,7 +250,7 @@ class PhotoCollection {
     func localizedTitle() -> String {
         guard let localizedTitle = collection.localizedTitle?.stripped,
             localizedTitle.count > 0 else {
-            return NSLocalizedString("PHOTO_PICKER_UNNAMED_COLLECTION", comment: "label for system photo collections which have no name.")
+            return "attachmentsAlbumUnnamed".localized()
         }
         return localizedTitle
     }

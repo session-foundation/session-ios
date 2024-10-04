@@ -29,11 +29,12 @@ public enum SnodeAPIError: Error, CustomStringConvertible {
     case onsDecryptionFailed
     case onsHashingFailed
     case onsValidationFailed
+    case onsNotFound
     
     // Quic
     case invalidPayload
     case missingSecretKey
-    case nodeNotFound(String)
+    case nodeNotFound(Int?, String)
     case unassociatedPubkey
     case unableToRetrieveSwarm
 
@@ -59,20 +60,24 @@ public enum SnodeAPIError: Error, CustomStringConvertible {
             case .ranOutOfRandomSnodes(let maybeError):
                 switch maybeError {
                     case .none: return "Ran out of random snodes (SnodeAPIError.ranOutOfRandomSnodes(nil))."
-                    case .some(let error):
-                        let errorDesc = "\(error)".trimmingCharacters(in: CharacterSet(["."]))
-                        return "Ran out of random snodes (SnodeAPIError.ranOutOfRandomSnodes(\(errorDesc))."
+                    case .some(let error): return "Ran out of random snodes (SnodeAPIError.ranOutOfRandomSnodes(\(error))."
                 }
                 
             // ONS
             case .onsDecryptionFailed: return "Couldn't decrypt ONS name (SnodeAPIError.onsDecryptionFailed)."
             case .onsHashingFailed: return "Couldn't compute ONS name hash (SnodeAPIError.onsHashingFailed)."
             case .onsValidationFailed: return "ONS name validation failed (SnodeAPIError.onsValidationFailed)."
+            case .onsNotFound: return "ONS name not found (SnodeAPIError.onsNotFound)"
                 
             // Quic
             case .invalidPayload: return "Invalid payload (SnodeAPIError.invalidPayload)."
             case .missingSecretKey: return "Missing secret key (SnodeAPIError.missingSecretKey)."
-            case .nodeNotFound(let nodePubkey): return "Next node was not found: \(nodePubkey) (SnodeAPIError.nodeNotFound)."
+            case .nodeNotFound(let nodeIndex, _):
+                switch nodeIndex {
+                    case .some(let index): return "Error in Onion request path, with hop \(index) (SnodeAPIError.nodeNotFound)."
+                    case .none: return "Error in Onion request path (SnodeAPIError.nodeNotFound)."
+                }
+                
             case .unassociatedPubkey: return "The service node is no longer associated with the public key (SnodeAPIError.unassociatedPubkey)."
             case .unableToRetrieveSwarm: return "Unable to retrieve the swarm for the given public key (SnodeAPIError.unableToRetrieveSwarm)."
         }

@@ -4,16 +4,32 @@ import UIKit.UIImage
 import GRDB
 import SessionUtilitiesKit
 
-// MARK: - Current User Profile
+// MARK: - Log.Category
+
+private extension Log.Category {
+    static let profile: Log.Category = .create("Profile", defaultLevel: .info)
+}
+
+// MARK: - Profile Updates
 
 public extension Profile {
+    enum DisplayNameUpdate {
+        case none
+        case contactUpdate(String?)
+        case currentUserUpdate(String?)
+    }
+    
     static func isTooLong(profileName: String) -> Bool {
+        /// String.utf8CString will include the null terminator (Int8)0 as the end of string buffer.
+        /// When the string is exactly 100 bytes String.utf8CString.count will be 101.
+        /// However in LibSession, the Contact C API supports 101 characters in order to account for
+        /// the null terminator - char name[101]. So it is OK to use String.utf8.count
         return (profileName.utf8CString.count > LibSession.sizeMaxNameBytes)
     }
     
     static func updateLocal(
         queue: DispatchQueue,
-        profileName: String,
+        displayNameUpdate: DisplayNameUpdate = .none,
         displayPictureUpdate: DisplayPictureManager.Update = .none,
         success: ((Database) throws -> ())? = nil,
         failure: ((DisplayPictureError) -> ())? = nil,
@@ -22,13 +38,16 @@ public extension Profile {
         let userSessionId: SessionId = dependencies[cache: .general].sessionId
         let isRemovingAvatar: Bool = {
             switch displayPictureUpdate {
-                case .remove: return true
+                case .currentUserRemove: return true
                 default: return false
             }
         }()
         
         switch displayPictureUpdate {
-            case .none, .remove, .updateTo:
+            case .contactRemove, .contactUpdateTo, .groupRemove, .groupUpdateTo, .groupUploadImageData:
+                failure?(DisplayPictureError.invalidCall)
+            
+            case .none, .currentUserRemove, .currentUserUpdateTo:
                 dependencies[singleton: .storage].writeAsync { db in
                     if isRemovingAvatar {
                         let existingProfileUrl: String? = try Profile
@@ -48,26 +67,26 @@ public extension Profile {
                         }
                         
                         switch existingProfileUrl {
-                            case .some: Log.verbose("Updating local profile on service with cleared avatar.")
-                            case .none: Log.verbose("Updating local profile on service with no avatar.")
+                            case .some: Log.verbose(.profile, "Updating local profile on service with cleared avatar.")
+                            case .none: Log.verbose(.profile, "Updating local profile on service with no avatar.")
                         }
                     }
                     
                     try Profile.updateIfNeeded(
                         db,
                         publicKey: userSessionId.hexString,
-                        name: profileName,
+                        displayNameUpdate: displayNameUpdate,
                         displayPictureUpdate: displayPictureUpdate,
                         sentTimestamp: dependencies.dateNow.timeIntervalSince1970,
                         calledFromConfig: nil,
                         using: dependencies
                     )
                     
-                    Log.info("Successfully updated service with profile.")
+                    Log.info(.profile, "Successfully updated user profile.")
                     try success?(db)
                 }
                 
-            case .uploadImageData(let data):
+            case .currentUserUploadImageData(let data):
                 DisplayPictureManager.prepareAndUploadDisplayPicture(
                     queue: queue,
                     imageData: data,
@@ -76,15 +95,19 @@ public extension Profile {
                             try Profile.updateIfNeeded(
                                 db,
                                 publicKey: userSessionId.hexString,
-                                name: profileName,
-                                displayPictureUpdate: .updateTo(url: downloadUrl, key: newProfileKey, fileName: fileName),
+                                displayNameUpdate: displayNameUpdate,
+                                displayPictureUpdate: .currentUserUpdateTo(
+                                    url: downloadUrl,
+                                    key: newProfileKey,
+                                    fileName: fileName
+                                ),
                                 sentTimestamp: dependencies.dateNow.timeIntervalSince1970,
                                 calledFromConfig: nil,
                                 using: dependencies
                             )
                             
                             dependencies[defaults: .standard, key: .lastProfilePictureUpload] = dependencies.dateNow
-                            Log.info("Successfully updated service with profile.")
+                            Log.info(.profile, "Successfully updated user profile.")
                             try success?(db)
                         }
                     },
@@ -97,9 +120,9 @@ public extension Profile {
     static func updateIfNeeded(
         _ db: Database,
         publicKey: String,
-        name: String?,
-        blocksCommunityMessageRequests: Bool? = nil,
+        displayNameUpdate: DisplayNameUpdate = .none,
         displayPictureUpdate: DisplayPictureManager.Update,
+        blocksCommunityMessageRequests: Bool? = nil,
         sentTimestamp: TimeInterval,
         calledFromConfig configTriggeringChange: ConfigDump.Variant?,
         using dependencies: Dependencies
@@ -109,11 +132,17 @@ public extension Profile {
         var profileChanges: [ConfigColumnAssignment] = []
         
         // Name
-        if let name: String = name, !name.isEmpty, name != profile.name {
-            if sentTimestamp > (profile.lastNameUpdate ?? 0) || (isCurrentUser && configTriggeringChange == .userProfile) {
+        // FIXME: This 'lastNameUpdate' approach is buggy - we should have a timestamp on the ConvoInfoVolatile
+        switch (displayNameUpdate, isCurrentUser, (sentTimestamp > (profile.lastNameUpdate ?? 0))) {
+            case (.none, _, _): break
+            case (.currentUserUpdate(let name), true, _), (.contactUpdate(let name), false, true):
+                guard let name: String = name, !name.isEmpty, name != profile.name else { break }
+                
                 profileChanges.append(Profile.Columns.name.set(to: name))
                 profileChanges.append(Profile.Columns.lastNameUpdate.set(to: sentTimestamp))
-            }
+            
+            // Don't want profiles in messages to modify the current users profile info so ignore those cases
+            default: break
         }
         
         // Blocks community message requests flag
@@ -123,31 +152,42 @@ public extension Profile {
         }
         
         // Profile picture & profile key
-        if sentTimestamp > (profile.lastProfilePictureUpdate ?? 0) || (isCurrentUser && configTriggeringChange == .userProfile) {
-            switch displayPictureUpdate {
-                case .none: break
-                case .uploadImageData: preconditionFailure("Invalid options for this function")
-                    
-                case .remove:
-                    profileChanges.append(Profile.Columns.profilePictureUrl.set(to: nil))
-                    profileChanges.append(Profile.Columns.profileEncryptionKey.set(to: nil))
-                    profileChanges.append(Profile.Columns.profilePictureFileName.set(to: nil))
-                    profileChanges.append(Profile.Columns.lastProfilePictureUpdate.set(to: sentTimestamp))
-                    
-                case .updateTo(let url, let key, .some(let fileName)) where FileManager.default.fileExists(atPath: DisplayPictureManager.filepath(for: fileName, using: dependencies)):
-                    // Update the 'lastProfilePictureUpdate' timestamp for either external or local changes
+        switch (displayPictureUpdate, isCurrentUser) {
+            case (.none, _): break
+            case (.currentUserUploadImageData, _), (.groupRemove, _), (.groupUpdateTo, _):
+                preconditionFailure("Invalid options for this function")
+                
+            case (.contactRemove, false), (.currentUserRemove, true):
+                profileChanges.append(Profile.Columns.profilePictureUrl.set(to: nil))
+                profileChanges.append(Profile.Columns.profileEncryptionKey.set(to: nil))
+                profileChanges.append(Profile.Columns.profilePictureFileName.set(to: nil))
+                profileChanges.append(Profile.Columns.lastProfilePictureUpdate.set(to: sentTimestamp))
+            
+            case (.contactUpdateTo(let url, let key, let fileName), false),
+                (.currentUserUpdateTo(let url, let key, let fileName), true):
+                var avatarNeedsDownload: Bool = false
+                
+                if url != profile.profilePictureUrl {
+                    profileChanges.append(Profile.Columns.profilePictureUrl.set(to: url))
+                    avatarNeedsDownload = true
+                }
+                
+                if key != profile.profileEncryptionKey && key.count == DisplayPictureManager.aes256KeyByteLength {
+                    profileChanges.append(Profile.Columns.profileEncryptionKey.set(to: key))
+                }
+                
+                // Profile filename (this isn't synchronized between devices)
+                if let fileName: String = fileName {
                     profileChanges.append(Profile.Columns.profilePictureFileName.set(to: fileName))
-                    profileChanges.append(Profile.Columns.lastProfilePictureUpdate.set(to: sentTimestamp))
-                    
-                    if url != profile.profilePictureUrl {
-                        profileChanges.append(Profile.Columns.profilePictureUrl.set(to: url))
-                    }
-                    
-                    if key != profile.profileEncryptionKey && key.count == DisplayPictureManager.aes256KeyByteLength {
-                        profileChanges.append(Profile.Columns.profileEncryptionKey.set(to: key))
-                    }
-                    
-                case .updateTo(let url, let key, _):
+                }
+                
+                // If we have already downloaded the image then no need to download it again
+                let maybeFilePath: String? = try? DisplayPictureManager.filepath(
+                    for: fileName.defaulting(to: DisplayPictureManager.generateFilename(for: url, using: dependencies)),
+                    using: dependencies
+                )
+                
+                if avatarNeedsDownload, let filePath: String = maybeFilePath, !FileManager.default.fileExists(atPath: filePath) {
                     dependencies[singleton: .jobRunner].add(
                         db,
                         job: Job(
@@ -158,9 +198,15 @@ public extension Profile {
                                 timestamp: sentTimestamp
                             )
                         ),
-                        canStartJob: true
+                        canStartJob: dependencies[singleton: .appContext].isMainApp
                     )
-            }
+                }
+                
+                // Update the 'lastProfilePictureUpdate' timestamp for either external or local changes
+                profileChanges.append(Profile.Columns.lastProfilePictureUpdate.set(to: sentTimestamp))
+            
+            // Don't want profiles in messages to modify the current users profile info so ignore those cases
+            default: break
         }
         
         // Persist any changes

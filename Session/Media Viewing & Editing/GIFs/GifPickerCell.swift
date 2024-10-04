@@ -2,9 +2,10 @@
 
 import Foundation
 import Combine
+import UniformTypeIdentifiers
 import YYImage
-import SignalUtilitiesKit
 import SessionSnodeKit
+import SignalUtilitiesKit
 import SessionUtilitiesKit
 
 class GifPickerCell: UICollectionViewCell {
@@ -114,7 +115,7 @@ class GifPickerCell: UICollectionViewCell {
         // Record high quality animated rendition, but to save bandwidth, don't start downloading
         // until it's selected.
         guard let highQualityAnimatedRendition = imageInfo.pickSendingRendition() else {
-            Log.warn("[GitPickerCell] could not pick gif rendition: \(imageInfo.giphyId)")
+            Log.warn(.giphy, "Cell could not pick gif rendition: \(imageInfo.giphyId)")
             clearAssetRequests()
             return
         }
@@ -123,12 +124,12 @@ class GifPickerCell: UICollectionViewCell {
         // The Giphy API returns a slew of "renditions" for a given image.
         // It's critical that we carefully "pick" the best rendition to use.
         guard let animatedRendition = imageInfo.pickPreviewRendition() else {
-            Log.warn("[GitPickerCell] could not pick gif rendition: \(imageInfo.giphyId)")
+            Log.warn(.giphy, "Cell could not pick gif rendition: \(imageInfo.giphyId)")
             clearAssetRequests()
             return
         }
         guard let stillRendition = imageInfo.pickStillRendition() else {
-            Log.warn("[GitPickerCell] could not pick still rendition: \(imageInfo.giphyId)")
+            Log.warn(.giphy, "Cell could not pick still rendition: \(imageInfo.giphyId)")
             clearAssetRequests()
             return
         }
@@ -142,7 +143,7 @@ class GifPickerCell: UICollectionViewCell {
                 priority: .high,
                 success: { [weak self] assetRequest, asset in
                     if assetRequest != nil && assetRequest != self?.stillAssetRequest {
-                        Log.error("[GitPickerCell] Obsolete request callback.")
+                        Log.error(.giphy, "Cell received obsolete request callback.")
                         return
                     }
                     
@@ -152,7 +153,7 @@ class GifPickerCell: UICollectionViewCell {
                 },
                 failure: { [weak self] assetRequest in
                     if assetRequest != self?.stillAssetRequest {
-                        Log.error("[GitPickerCell] Obsolete request callback.")
+                        Log.error(.giphy, "Cell received obsolete request callback.")
                         return
                     }
                     self?.clearStillAssetRequest()
@@ -169,7 +170,7 @@ class GifPickerCell: UICollectionViewCell {
                 priority: .low,
                 success: { [weak self] assetRequest, asset in
                     if assetRequest != nil && assetRequest != self?.animatedAssetRequest {
-                        Log.error("[GitPickerCell] Obsolete request callback.")
+                        Log.error(.giphy, "Cell received obsolete request callback.")
                         return
                     }
                     
@@ -180,7 +181,7 @@ class GifPickerCell: UICollectionViewCell {
                 },
                 failure: { [weak self] assetRequest in
                     if assetRequest != self?.animatedAssetRequest {
-                        Log.error("[GitPickerCell] Obsolete request callback.")
+                        Log.error(.giphy, "Cell received obsolete request callback.")
                         return
                     }
                     
@@ -200,13 +201,13 @@ class GifPickerCell: UICollectionViewCell {
             clearViewState()
             return
         }
-        guard let dependencies: Dependencies = dependencies, Data.isValidImage(at: asset.filePath, mimeType: MimeTypeUtil.MimeType.imageGif, using: dependencies) else {
-            Log.error("[GitPickerCell] Invalid asset.")
+        guard let dependencies: Dependencies = dependencies, Data.isValidImage(at: asset.filePath, type: .gif, using: dependencies) else {
+            Log.error(.giphy, "Cell received invalid asset.")
             clearViewState()
             return
         }
         guard let image = YYImage(contentsOfFile: asset.filePath) else {
-            Log.error("[GitPickerCell] Could not load asset.")
+            Log.error(.giphy, "Cell could not load asset.")
             clearViewState()
             return
         }
@@ -217,7 +218,7 @@ class GifPickerCell: UICollectionViewCell {
             imageView.pin(to: contentView)
         }
         guard let imageView = imageView else {
-            Log.error("[GitPickerCell] Missing imageview.")
+            Log.error(.giphy, "Cell missing imageview.")
             clearViewState()
             return
         }
@@ -251,7 +252,7 @@ class GifPickerCell: UICollectionViewCell {
 
     public func requestRenditionForSending() -> AnyPublisher<ProxiedContentAsset, Error> {
         guard let renditionForSending = self.renditionForSending else {
-            Log.error("[GitPickerCell] renditionForSending was unexpectedly nil")
+            Log.error(.giphy, "Cell renditionForSending was unexpectedly nil")
             return Fail(error: GiphyError.assertionError(description: "renditionForSending was unexpectedly nil"))
                 .eraseToAnyPublisher()
         }
@@ -269,7 +270,7 @@ class GifPickerCell: UICollectionViewCell {
             )
             .mapError { _ -> Error in
                 // TODO: GiphyDownloader API should pass through a useful failing error so we can pass it through here
-                Log.error("[GitPickerCell] request failed")
+                Log.error(.giphy, "Cell request failed")
                 return GiphyError.fetchFailure
             }
             .map { asset, _ in asset }

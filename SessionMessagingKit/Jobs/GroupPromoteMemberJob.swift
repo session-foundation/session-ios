@@ -7,6 +7,14 @@ import SessionUIKit
 import SessionUtilitiesKit
 import SessionSnodeKit
 
+// MARK: - Log.Category
+
+private extension Log.Category {
+    static let cat: Log.Category = .create("GroupPromoteMemberJob", defaultLevel: .info)
+}
+
+// MARK: - GroupPromoteMemberJob
+
 public enum GroupPromoteMemberJob: JobExecutor {
     public static var maxFailureCount: Int = 1
     public static var requiresThreadId: Bool = true
@@ -90,7 +98,7 @@ public enum GroupPromoteMemberJob: JobExecutor {
                             success(job, false)
                             
                         case .failure(let error):
-                            Log.error("[GroupPromoteMemberJob] Couldn't send message due to error: \(error).")
+                            Log.error(.cat, "Couldn't send message due to error: \(error).")
                             
                             // Update the promotion status of the group member (only if the role is 'admin' and
                             // the role status isn't already 'accepted')
@@ -126,7 +134,7 @@ public enum GroupPromoteMemberJob: JobExecutor {
                                     failure(job, error, true)
                                     
                                 case SnodeAPIError.clockOutOfSync:
-                                    Log.error("[GroupPromoteMemberJob] Permanently Failing to send due to clock out of sync issue.")
+                                    Log.error(.cat, "Permanently Failing to send due to clock out of sync issue.")
                                     failure(job, error, true)
                                     
                                 default: failure(job, error, false)
@@ -157,7 +165,6 @@ public enum GroupPromoteMemberJob: JobExecutor {
                         // Don't do anything if there are no 'failedIds' values or we can't get a window
                         guard
                             !failedIds.isEmpty,
-                            dependencies.hasInitialised(singleton: .appContext),
                             let mainWindow: UIWindow = dependencies[singleton: .appContext].mainWindow
                         else { return }
                         
@@ -176,62 +183,58 @@ public enum GroupPromoteMemberJob: JobExecutor {
                             }
                             .map { maybeName, profiles -> FetchedData in
                                 (
-                                    (maybeName ?? "GROUP_TITLE_FALLBACK".localized()),
+                                    (maybeName ?? "groupUnknown".localized()),
                                     profiles.reduce(into: [:]) { result, next in result[next.id] = next }
                                 )
                             }
-                            .defaulting(to: ("GROUP_TITLE_FALLBACK".localized(), [:]))
+                            .defaulting(to: ("groupUnknown".localized(), [:]))
                         
                         let message: NSAttributedString = {
                             switch failedIds.count {
                                 case 1:
-                                    return NSAttributedString(
-                                        format: "GROUP_ACTION_PROMOTE_FAILED_ONE".localized(),
-                                        .font(
-                                            (
+                                    return "adminPromotionFailedDescription"
+                                        .put(
+                                            key: "name",
+                                            value: (
                                                 data.profileInfo[failedIds[0]]?.displayName(for: .group) ??
                                                 Profile.truncated(id: failedIds[0], truncating: .middle)
-                                            ),
-                                            ToastController.boldFont
-                                        ),
-                                        .font(data.groupName, ToastController.boldFont)
-                                    )
+                                            )
+                                        )
+                                        .put(key: "group_name", value: data.groupName)
+                                        .localizedFormatted(baseFont: ToastController.font)
                                     
                                 case 2:
-                                    return NSAttributedString(
-                                        format: "GROUP_ACTION_PROMOTE_FAILED_TWO".localized(),
-                                        .font(
-                                            (
+                                    return "adminPromotionFailedDescriptionTwo"
+                                        .put(
+                                            key: "name",
+                                            value: (
                                                 data.profileInfo[failedIds[0]]?.displayName(for: .group) ??
                                                 Profile.truncated(id: failedIds[0], truncating: .middle)
-                                            ),
-                                            ToastController.boldFont
-                                        ),
-                                        .font(
-                                            (
+                                            )
+                                        )
+                                        .put(
+                                            key: "other_name",
+                                            value: (
                                                 data.profileInfo[failedIds[1]]?.displayName(for: .group) ??
                                                 Profile.truncated(id: failedIds[1], truncating: .middle)
-                                            ),
-                                            ToastController.boldFont
-                                        ),
-                                        .font(data.groupName, ToastController.boldFont)
-                                    )
+                                            )
+                                        )
+                                        .put(key: "group_name", value: data.groupName)
+                                        .localizedFormatted(baseFont: ToastController.font)
                                     
                                 default:
-                                    let targetProfile: Profile? = data.profileInfo.values.first
-                                    
-                                    return NSAttributedString(
-                                        format: "GROUP_ACTION_PROMOTE_FAILED_MULTIPLE".localized(),
-                                        .font(
-                                            (
-                                                targetProfile?.displayName(for: .group) ??
+                                    // TODO: [GROUPS REBUILD] This doesn't have the standard bold tags
+                                    return "adminPromotionFailedDescriptionMultiple"
+                                        .put(
+                                            key: "name",
+                                            value: (
+                                                data.profileInfo[failedIds[0]]?.displayName(for: .group) ??
                                                 Profile.truncated(id: failedIds[0], truncating: .middle)
-                                            ),
-                                            ToastController.boldFont
-                                        ),
-                                        .plain("\(failedIds.count - 1)"),
-                                        .font(data.groupName, ToastController.boldFont)
-                                    )
+                                            )
+                                        )
+                                        .put(key: "count", value: failedIds.count - 1)
+                                        .put(key: "group_name", value: data.groupName)
+                                        .localizedFormatted(baseFont: ToastController.font)
                             }
                         }()
                         

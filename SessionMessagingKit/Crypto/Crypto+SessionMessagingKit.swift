@@ -5,6 +5,7 @@
 import Foundation
 import CryptoKit
 import GRDB
+import SessionSnodeKit
 import SessionUtil
 import SessionUtilitiesKit
 
@@ -86,7 +87,6 @@ public extension Crypto.Generator {
                 .defaulting(to: [])
             var secretKey: [UInt8] = ed25519PrivateKey
             var cDomain: [CChar] = try domain.cString(using: .utf8) ?? { throw LibSessionError.invalidCConversion }()
-            
             let cEncryptedDataPtr: UnsafeMutablePointer<UInt8>? = session_encrypt_for_multiple_simple_ed25519(
                 &outLen,
                 &cMessages,
@@ -168,9 +168,13 @@ public extension Crypto.Generator {
             var maybePlaintext: UnsafeMutablePointer<UInt8>? = nil
             var plaintextLen: Int = 0
 
+            // Note: We should only need a 32 byte key but there was a bug in 2.7.1 where we
+            // started generating 64 byte keys so, in order to support those, we accept allow
+            // both and the C code just takes the first 32 bytes (which is all that is needed
+            // from the 64 byte key anyway)
             guard
                 cX25519Pubkey.count == 32,
-                cX25519Seckey.count == 32,
+                (cX25519Seckey.count == 32 || cX25519Seckey.count == 64),
                 session_decrypt_incoming_legacy_group(
                     &cCiphertext,
                     cCiphertext.count,
@@ -250,6 +254,27 @@ public extension Crypto.Generator {
             cDecryptedDataPtr?.deallocate()
 
             return try decryptedData ?? { throw MessageReceiverError.decryptionFailed }()
+        }
+    }
+    
+    static func messageServerHash(
+        swarmPubkey: String,
+        namespace: SnodeAPI.Namespace,
+        data: Data
+    ) -> Crypto.Generator<String> {
+        return Crypto.Generator(
+            id: "messageServerHash",
+            args: [swarmPubkey, namespace, data]
+        ) {
+            let cSwarmPubkey: [CChar] = try swarmPubkey.cString(using: .utf8) ?? { throw LibSessionError.invalidCConversion }()
+            let cData: [CChar] = try data.base64EncodedString().cString(using: .utf8) ?? { throw LibSessionError.invalidCConversion }()
+            var cHash: [CChar] = [CChar](repeating: 0, count: 65)
+            
+            guard session_compute_message_hash(cSwarmPubkey, Int16(namespace.rawValue), cData, &cHash) else {
+                throw MessageReceiverError.decryptionFailed
+            }
+            
+            return String(cString: cHash)
         }
     }
 }

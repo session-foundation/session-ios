@@ -7,6 +7,11 @@ import SessionUtilitiesKit
 import SessionSnodeKit
 
 extension MessageSender {
+    typealias CreateGroupDatabaseResult = (
+        SessionThread,
+        [Network.PreparedRequest<Void>],
+        Network.PreparedRequest<PushNotificationAPI.LegacyPushServerResponse>?
+    )
     public static var distributingKeyPairs: Atomic<[String: [ClosedGroupKeyPair]]> = Atomic([:])
     
     public static func createLegacyClosedGroup(
@@ -15,7 +20,7 @@ extension MessageSender {
         using dependencies: Dependencies
     ) -> AnyPublisher<SessionThread, Error> {
         dependencies[singleton: .storage]
-            .writePublisher { db -> (SessionId, SessionThread, [Network.PreparedRequest<Void>], Set<String>) in
+            .writePublisher { db -> CreateGroupDatabaseResult in
                 // Generate the group's two keys
                 guard
                     let groupKeyPair: KeyPair = dependencies[singleton: .crypto].generate(.x25519KeyPair()),
@@ -39,6 +44,7 @@ extension MessageSender {
                     db,
                     id: legacyGroupSessionId,
                     variant: .legacyGroup,
+                    creationDateTimestamp: formationTimestamp,
                     shouldBeVisible: true,
                     calledFromConfig: nil,
                     using: dependencies
@@ -52,12 +58,11 @@ extension MessageSender {
                 ).insert(db)
                 
                 // Store the key pair
-                let latestKeyPairReceivedTimestamp: TimeInterval = (dependencies[cache: .snodeAPI].currentOffsetTimestampMs() / 1000)
                 try ClosedGroupKeyPair(
                     threadId: legacyGroupSessionId,
                     publicKey: Data(encryptionKeyPair.publicKey),
                     secretKey: Data(encryptionKeyPair.secretKey),
-                    receivedTimestamp: latestKeyPairReceivedTimestamp
+                    receivedTimestamp: formationTimestamp
                 ).insert(db)
                 
                 // Create the member objects
@@ -86,13 +91,13 @@ extension MessageSender {
                     db,
                     legacyGroupSessionId: legacyGroupSessionId,
                     name: name,
+                    joinedAt: formationTimestamp,
                     latestKeyPairPublicKey: Data(encryptionKeyPair.publicKey),
                     latestKeyPairSecretKey: Data(encryptionKeyPair.secretKey),
-                    latestKeyPairReceivedTimestamp: latestKeyPairReceivedTimestamp,
+                    latestKeyPairReceivedTimestamp: formationTimestamp,
                     disappearingConfig: DisappearingMessagesConfiguration.defaultWith(legacyGroupSessionId),
                     members: members,
                     admins: admins,
-                    formationTimestamp: formationTimestamp,
                     using: dependencies
                 )
                 
@@ -120,47 +125,54 @@ extension MessageSender {
                             using: dependencies
                         )
                     }
-                let allActiveLegacyGroupIds: Set<String> = try ClosedGroup
-                    .select(.threadId)
-                    .filter(!ClosedGroup.Columns.threadId.like("\(SessionId.Prefix.group.rawValue)%"))
-                    .joining(
-                        required: ClosedGroup.members
-                            .filter(GroupMember.Columns.profileId == userSessionId.hexString)
-                    )
-                    .asRequest(of: String.self)
-                    .fetchSet(db)
-                    .inserting(legacyGroupSessionId)  // Insert the new key just to be sure
                 
-                return (userSessionId, thread, memberSendData, allActiveLegacyGroupIds)
+                // Prepare the notification subscription request
+                var preparedNotificationSubscription: Network.PreparedRequest<PushNotificationAPI.LegacyPushServerResponse>?
+                
+                if let token: String = dependencies[defaults: .standard, key: .deviceToken] {
+                    preparedNotificationSubscription = try? PushNotificationAPI
+                        .preparedSubscribeToLegacyGroups(
+                            token: token,
+                            userSessionId: userSessionId,
+                            legacyGroupIds: try ClosedGroup
+                                .select(.threadId)
+                                .filter(!ClosedGroup.Columns.threadId.like("\(SessionId.Prefix.group.rawValue)%")) // stringlint:disable
+                                .joining(
+                                    required: ClosedGroup.members
+                                        .filter(GroupMember.Columns.profileId == userSessionId.hexString)
+                                )
+                                .asRequest(of: String.self)
+                                .fetchSet(db)
+                                .inserting(legacyGroupSessionId),  // Insert the new key just to be sure
+                            using: dependencies
+                        )
+                }
+                
+                return (thread, memberSendData, preparedNotificationSubscription)
             }
-            .flatMap { userSessionId, thread, memberSendData, allActiveLegacyGroupIds in
+            .flatMap { thread, memberSendData, preparedNotificationSubscription -> AnyPublisher<(SessionThread, Network.PreparedRequest<PushNotificationAPI.LegacyPushServerResponse>?), Error> in
+                // Send a closed group update message to all members individually
                 Publishers
-                    .MergeMany(
-                        // Send a closed group update message to all members individually
-                        memberSendData
-                            .appending(
-                                // Resubscribe to all legacy groups
-                                try? PushNotificationAPI
-                                    .preparedSubscribeToLegacyGroups(
-                                        userSessionId: userSessionId,
-                                        legacyGroupIds: allActiveLegacyGroupIds,
-                                        using: dependencies
-                                    )?
-                                    .map { _, _ in () }
-                            )
-                            .map { $0.send(using: dependencies) }
-                    )
+                    .MergeMany(memberSendData.map { $0.send(using: dependencies) })
                     .collect()
-                    .map { _ in thread }
+                    .map { _ in (thread, preparedNotificationSubscription) }
+                    .eraseToAnyPublisher()
             }
             .handleEvents(
-                receiveOutput: { thread in
+                receiveOutput: { thread, preparedNotificationSubscription in
+                    // Subscribe for push notifications (if PNs are enabled)
+                    preparedNotificationSubscription?
+                        .send(using: dependencies)
+                        .subscribe(on: DispatchQueue.global(qos: .userInitiated), using: dependencies)
+                        .sinkUntilComplete()
+                    
                     // Start polling
                     dependencies
                         .mutate(cache: .groupPollers) { $0.getOrCreatePoller(for: thread.id) }
                         .startIfNeeded()
                 }
             )
+            .map { thread, _ -> SessionThread in thread }
             .eraseToAnyPublisher()
     }
 
@@ -473,6 +485,7 @@ extension MessageSender {
                 db,
                 id: member,
                 variant: .contact,
+                creationDateTimestamp: closedGroup.formationTimestamp,
                 shouldBeVisible: nil,
                 calledFromConfig: nil,
                 using: dependencies
@@ -649,6 +662,7 @@ extension MessageSender {
                 db,
                 id: publicKey,
                 variant: .contact,
+                creationDateTimestamp: closedGroup.formationTimestamp,
                 shouldBeVisible: nil,
                 calledFromConfig: nil,
                 using: dependencies

@@ -18,7 +18,7 @@ enum _003_YDBToGRDBMigration: Migration {
             Identity.userExists(db, using: dependencies)
         else { return Storage.update(progress: 1, for: self, in: target, using: dependencies) }
         
-        Log.info("[Migration Error] Attempted to perform legacy migation", silenceForTests: true)
+        Log.error(.migration, "Attempted to perform legacy migation")
         throw StorageError.migrationNoLongerSupported
     }
 }

@@ -249,7 +249,7 @@ class ScreenLockUI {
                 Log.info("unlock screen lock failed.")
                 self?.clearAuthUIWhenActive()
                 self?.didLastUnlockAttemptFail = true
-                self?.showScreenLockFailureAlert(message: error.localizedDescription)
+                self?.showScreenLockFailureAlert(message: "\(error)")
             },
             unexpectedFailure: { [weak self] error in
                 Log.info("unlock screen lock unexpectedly failed.")
@@ -279,9 +279,9 @@ class ScreenLockUI {
         let modal: ConfirmationModal = ConfirmationModal(
             targetView: screenBlockingWindow.rootViewController?.view,
             info: ConfirmationModal.Info(
-                title: "SCREEN_LOCK_UNLOCK_FAILED".localized(),
+                title: "authenticateFailed".localized(),
                 body: .text(message),
-                cancelTitle: "BUTTON_OK".localized(),
+                cancelTitle: "okay".localized(),
                 cancelStyle: .alert_text,
                 afterClosed: { [weak self] in self?.ensureUI() } // After the alert, update the UI
             )

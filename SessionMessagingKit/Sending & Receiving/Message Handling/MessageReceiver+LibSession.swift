@@ -50,7 +50,7 @@ extension MessageReceiver {
                             using: dependencies
                         )
                         
-                    default: Log.error("[MessageReceiver] Received libSession encrypted message with unsupported domain: \(domain)")
+                    default: Log.error(.messageReceiver, "Received libSession encrypted message with unsupported domain: \(domain)")
                 }
             }
     }

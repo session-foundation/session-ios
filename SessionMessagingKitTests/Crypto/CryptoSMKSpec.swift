@@ -26,7 +26,7 @@ class CryptoSMKSpec: QuickSpec {
                 try Identity(variant: .ed25519SecretKey, data: Data(hex: TestConstants.edSecretKey)).insert(db)
             }
         )
-        @TestState(singleton: .crypto, in: dependencies) var crypto: Crypto! = Crypto()
+        @TestState(singleton: .crypto, in: dependencies) var crypto: Crypto! = Crypto(using: .any)
         @TestState var mockCrypto: MockCrypto! = MockCrypto()
 
         // MARK: - Crypto for SessionMessagingKit

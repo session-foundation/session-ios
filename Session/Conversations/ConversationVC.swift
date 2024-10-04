@@ -74,9 +74,10 @@ final class ConversationVC: BaseVC, LibSessionRespondingViewController, Conversa
     }
     
     override var inputAccessoryView: UIView? {
-        guard viewModel.threadData.canWrite(using: viewModel.dependencies) else { return nil }
-        
-        return (isShowingSearchUI ? searchController.resultsBar : snInputView)
+        return (viewModel.threadData.canWrite(using: viewModel.dependencies) && isShowingSearchUI ?
+            searchController.resultsBar :
+            snInputView
+        )
     }
 
     /// The height of the visible part of the table view, i.e. the distance from the navigation bar (where the table view's origin is)
@@ -96,7 +97,7 @@ final class ConversationVC: BaseVC, LibSessionRespondingViewController, Conversa
         return margin <= ConversationVC.scrollToBottomMargin
     }
 
-    lazy var mnemonic: String = { ((try? SeedVC.mnemonic(using: viewModel.dependencies)) ?? "") }()
+    lazy var mnemonic: String = { ((try? Identity.mnemonic(using: viewModel.dependencies)) ?? "") }()
 
     // FIXME: Would be good to create a Swift-based cache and replace this
     lazy var mediaCache: NSCache<NSString, AnyObject> = {
@@ -105,7 +106,7 @@ final class ConversationVC: BaseVC, LibSessionRespondingViewController, Conversa
         return result
     }()
 
-    lazy var recordVoiceMessageActivity = AudioActivity(audioDescription: "Voice message", behavior: .playAndRecord)
+    lazy var recordVoiceMessageActivity = AudioActivity(audioDescription: "Voice message", behavior: .playAndRecord) // stringlint:disable
 
     lazy var searchController: ConversationSearchController = {
         let result: ConversationSearchController = ConversationSearchController(
@@ -141,7 +142,6 @@ final class ConversationVC: BaseVC, LibSessionRespondingViewController, Conversa
         result.separatorStyle = .none
         result.themeBackgroundColor = .clear
         result.showsVerticalScrollIndicator = false
-        result.contentInsetAdjustmentBehavior = .never
         result.keyboardDismissMode = .interactive
         result.contentInset = UIEdgeInsets(
             top: 0,
@@ -215,10 +215,9 @@ final class ConversationVC: BaseVC, LibSessionRespondingViewController, Conversa
         let result: InfoBanner = InfoBanner(
             info: InfoBanner.Info(
                 font: .systemFont(ofSize: Values.verySmallFontSize),
-                message: String(
-                    format: "DISAPPEARING_MESSAGES_OUTDATED_CLIENT_BANNER".localized(),
-                    self.viewModel.threadData.displayName
-                ),
+                message: "disappearingMessagesLegacy"
+                    .put(key: "name", value: self.viewModel.threadData.displayName)
+                    .localized(),
                 icon: .close,
                 tintColor: .messageBubble_outgoingText,
                 backgroundColor: .primary,
@@ -228,8 +227,6 @@ final class ConversationVC: BaseVC, LibSessionRespondingViewController, Conversa
                 onTap: { [weak self] in self?.removeOutdatedClientBanner() }
             )
         )
-        result.accessibilityLabel = "Outdated client banner"
-        result.isAccessibilityElement = true
         
         return result
     }()
@@ -238,10 +235,7 @@ final class ConversationVC: BaseVC, LibSessionRespondingViewController, Conversa
         let result: InfoBanner = InfoBanner(
             info: InfoBanner.Info(
                 font: .systemFont(ofSize: Values.miniFontSize),
-                message: String(
-                    format: "LEGACY_GROUPS_DEPRECATED_BANNER".localized(),
-                    Features.legacyGroupDepricationDate.formattedForBanner
-                ),
+                message: "groupInviteVersion".localized(),
                 icon: .link,
                 tintColor: .messageBubble_outgoingText,
                 backgroundColor: .primary,
@@ -252,8 +246,6 @@ final class ConversationVC: BaseVC, LibSessionRespondingViewController, Conversa
             )
         )
         result.isHidden = (self.viewModel.threadData.threadVariant != .legacyGroup)
-        result.accessibilityLabel = "Legacy group banner"
-        result.isAccessibilityElement = true
         
         return result
     }()
@@ -294,19 +286,12 @@ final class ConversationVC: BaseVC, LibSessionRespondingViewController, Conversa
     }()
     
     private lazy var emptyStateLabel: UILabel = {
-        let text: String = viewModel.threadData.emptyStateText(using: viewModel.dependencies)
         let result: UILabel = UILabel()
         result.isAccessibilityElement = true
         result.accessibilityIdentifier = "Control message"
         result.translatesAutoresizingMaskIntoConstraints = false
         result.font = .systemFont(ofSize: Values.verySmallFontSize)
-        result.attributedText = NSAttributedString(string: text)
-            .adding(
-                attributes: [.font: UIFont.boldSystemFont(ofSize: Values.verySmallFontSize)],
-                range: text.range(of: self.viewModel.threadData.displayName)
-                    .map { NSRange($0, in: text) }
-                    .defaulting(to: NSRange(location: 0, length: 0))
-            )
+        result.attributedText = viewModel.emptyStateText(for: viewModel.threadData).formatted(in: result)
         result.themeTextColor = .textSecondary
         result.textAlignment = .center
         result.lineBreakMode = .byWordWrapping
@@ -469,7 +454,7 @@ final class ConversationVC: BaseVC, LibSessionRespondingViewController, Conversa
             name: UIApplication.userDidTakeScreenshotNotification,
             object: nil
         )
-        
+       
         // Observe keyboard notifications
         let keyboardNotifications: [Notification.Name] = [
             UIResponder.keyboardWillShowNotification,
@@ -487,6 +472,8 @@ final class ConversationVC: BaseVC, LibSessionRespondingViewController, Conversa
                 object: nil
             )
         }
+
+        self.viewModel.navigatableState.setupBindings(viewController: self, disposables: &self.viewModel.disposables)
         
         // The first time the view loads we should mark the thread as read (in case it was manually
         // marked as unread) - doing this here means if we add a "mark as unread" action within the
@@ -732,14 +719,7 @@ final class ConversationVC: BaseVC, LibSessionRespondingViewController, Conversa
             )
             
             // Update the empty state
-            let text: String = updatedThreadData.emptyStateText(using: viewModel.dependencies)
-            emptyStateLabel.attributedText = NSAttributedString(string: text)
-                .adding(
-                    attributes: [.font: UIFont.boldSystemFont(ofSize: Values.verySmallFontSize)],
-                    range: text.range(of: updatedThreadData.displayName)
-                        .map { NSRange($0, in: text) }
-                        .defaulting(to: NSRange(location: 0, length: 0))
-                )
+            emptyStateLabel.attributedText = viewModel.emptyStateText(for: updatedThreadData).formatted(in: emptyStateLabel)
         }
         
         if
@@ -766,6 +746,12 @@ final class ConversationVC: BaseVC, LibSessionRespondingViewController, Conversa
             viewModel.threadData.threadIsMessageRequest != updatedThreadData.threadIsMessageRequest ||
             viewModel.threadData.threadRequiresApproval != updatedThreadData.threadRequiresApproval
         {
+            if updatedThreadData.canWrite(using: viewModel.dependencies) {
+                self.showInputAccessoryView()
+            } else {
+                self.hideInputAccessoryView()
+            }
+           
             let messageRequestsViewWasVisible: Bool = (self.messageRequestFooterView.isHidden == false)
             
             UIView.animate(withDuration: 0.3) { [weak self, dependencies = viewModel.dependencies] in
@@ -1462,10 +1448,7 @@ final class ConversationVC: BaseVC, LibSessionRespondingViewController, Conversa
     ) {
         let currentDisappearingMessagesConfiguration: DisappearingMessagesConfiguration? = disappearingMessagesConfiguration ?? self.viewModel.threadData.disappearingMessagesConfiguration
         // Do not show the banner until the new disappearing messages is enabled
-        guard
-            viewModel.dependencies[feature: .updatedDisappearingMessages] &&
-            currentDisappearingMessagesConfiguration?.isEnabled == true
-        else {
+        guard currentDisappearingMessagesConfiguration?.isEnabled == true else {
             self.outdatedClientBanner.isHidden = true
             self.emptyStatePaddingView.isHidden = (stateStackView
                 .arrangedSubviews
@@ -1494,14 +1477,16 @@ final class ConversationVC: BaseVC, LibSessionRespondingViewController, Conversa
         }
         
         self.outdatedClientBanner.update(
-            message: String(
-                format: "DISAPPEARING_MESSAGES_OUTDATED_CLIENT_BANNER".localized(),
-                Profile.displayName(
-                    id: outdatedMemberId,
-                    threadVariant: viewModel.threadData.threadVariant,
-                    using: viewModel.dependencies
+            message: "disappearingMessagesLegacy"
+                .put(
+                    key: "name",
+                    value: Profile.displayName(
+                        id: outdatedMemberId,
+                        threadVariant: self.viewModel.threadData.threadVariant,
+                        using: viewModel.dependencies
+                    )
                 )
-            ),
+                .localized(),
             onTap: { [weak self] in self?.removeOutdatedClientBanner() }
         )
 
@@ -1586,9 +1571,9 @@ final class ConversationVC: BaseVC, LibSessionRespondingViewController, Conversa
                                 let modal: ConfirmationModal = ConfirmationModal(
                                     targetView: self?.view,
                                     info: ConfirmationModal.Info(
-                                        title: CommonStrings.errorAlertTitle,
-                                        body: .text("INVALID_AUDIO_FILE_ALERT_ERROR_MESSAGE".localized()),
-                                        cancelTitle: "BUTTON_OK".localized(),
+                                        title: "theError".localized(),
+                                        body: .text("audioUnableToPlay".localized()),
+                                        cancelTitle: "okay".localized(),
                                         cancelStyle: .alert_text
                                     )
                                 )
@@ -1757,7 +1742,7 @@ final class ConversationVC: BaseVC, LibSessionRespondingViewController, Conversa
     func updateUnreadCountView(unreadCount: UInt?) {
         let unreadCount: Int = Int(unreadCount ?? 0)
         let fontSize: CGFloat = (unreadCount < 10000 ? Values.verySmallFontSize : 8)
-        unreadCountLabel.text = (unreadCount < 10000 ? "\(unreadCount)" : "9999+")
+        unreadCountLabel.text = (unreadCount < 10000 ? "\(unreadCount)" : "9999+") // stringlint:disable
         unreadCountLabel.font = .boldSystemFont(ofSize: fontSize)
         unreadCountView.isHidden = (unreadCount == 0)
     }

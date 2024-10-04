@@ -32,7 +32,7 @@ final class NukeDataModal: Modal {
     private lazy var titleLabel: UILabel = {
         let result = UILabel()
         result.font = .boldSystemFont(ofSize: Values.mediumFontSize)
-        result.text = "modal_clear_all_data_title".localized()
+        result.text = "clearDataAll".localized()
         result.themeTextColor = .textPrimary
         result.textAlignment = .center
         result.lineBreakMode = .byWordWrapping
@@ -44,7 +44,7 @@ final class NukeDataModal: Modal {
     private lazy var explanationLabel: UILabel = {
         let result = UILabel()
         result.font = .systemFont(ofSize: Values.smallFontSize)
-        result.text = "modal_clear_all_data_explanation".localized()
+        result.text = "clearDataAllDescription".localized()
         result.themeTextColor = .textPrimary
         result.textAlignment = .center
         result.lineBreakMode = .byWordWrapping
@@ -59,7 +59,7 @@ final class NukeDataModal: Modal {
             radio.update(isSelected: true)
         }
         result.font = .systemFont(ofSize: Values.smallFontSize)
-        result.text = "modal_clear_all_data_device_only_button_title".localized()
+        result.text = "clearDeviceOnly".localized()
         result.update(isSelected: true)
         
         return result
@@ -71,14 +71,14 @@ final class NukeDataModal: Modal {
             radio.update(isSelected: true)
         }
         result.font = .systemFont(ofSize: Values.smallFontSize)
-        result.text = "modal_clear_all_data_entire_account_button_title".localized()
+        result.text = "clearDeviceAndNetwork".localized()
         
         return result
     }()
     
     private lazy var clearDataButton: UIButton = {
         let result: UIButton = Modal.createButton(
-            title: "modal_clear_all_data_confirm".localized(),
+            title: "clear".localized(),
             titleColor: .danger
         )
         result.addTarget(self, action: #selector(clearAllData), for: UIControl.Event.touchUpInside)
@@ -141,9 +141,9 @@ final class NukeDataModal: Modal {
         
         let confirmationModal: ConfirmationModal = ConfirmationModal(
             info: ConfirmationModal.Info(
-                title: "modal_clear_all_data_title".localized(),
-                body: .text("modal_clear_all_data_explanation_2".localized()),
-                confirmTitle: "modal_clear_all_data_confirm".localized(),
+                title: "clearDataAll".localized(),
+                body: .text("clearDeviceAndNetworkConfirm".localized()),
+                confirmTitle: "clear".localized(),
                 confirmStyle: .danger,
                 cancelStyle: .alert_text,
                 dismissOnConfirm: false
@@ -181,6 +181,7 @@ final class NukeDataModal: Modal {
                         (
                             try SnodeAPI.preparedDeleteAllMessages(
                                 namespace: .all,
+                                requestAndPathBuildTimeout: Network.defaultTimeout,
                                 authMethod: try Authentication.with(
                                     db,
                                     swarmPublicKey: dependencies[cache: .general].sessionId.hexString,
@@ -195,7 +196,13 @@ final class NukeDataModal: Modal {
                                 .asRequest(of: String.self)
                                 .fetchSet(db)
                                 .map { server in
-                                    try OpenGroupAPI.preparedClearInbox(db, on: server, using: dependencies)
+                                    try OpenGroupAPI
+                                        .preparedClearInbox(
+                                            db,
+                                            on: server,
+                                            requestAndPathBuildTimeout: Network.defaultTimeout,
+                                            using: dependencies
+                                        )
                                         .map { _, _ in server }
                                 }
                         )
@@ -222,47 +229,62 @@ final class NukeDataModal: Modal {
                                 case .finished: break
                                 case .failure(let error):
                                     self?.dismiss(animated: true, completion: nil) // Dismiss the loader
-
-                                    let modal: ConfirmationModal = ConfirmationModal(
-                                        targetView: self?.view,
-                                        info: ConfirmationModal.Info(
-                                            title: "ALERT_ERROR_TITLE".localized(),
-                                            body: .text(error.localizedDescription),
-                                            cancelTitle: "BUTTON_OK".localized(),
-                                            cancelStyle: .alert_text
-                                        )
-                                    )
-                                    self?.present(modal, animated: true)
+                                
+                                    switch error {
+                                        case NetworkError.timeout, NetworkError.gatewayTimeout:
+                                            let modal: ConfirmationModal = ConfirmationModal(
+                                                targetView: self?.view,
+                                                info: ConfirmationModal.Info(
+                                                    title: "clearDataAll".localized(),
+                                                    body: .text("clearDataErrorDescriptionGeneric".localized()),
+                                                    confirmTitle: "clearDevice".localized(),
+                                                    confirmStyle: .danger,
+                                                    cancelStyle: .alert_text
+                                                ) { [weak self] _ in
+                                                    self?.clearDeviceOnly()
+                                                }
+                                            )
+                                            self?.present(modal, animated: true)
+                                                                                
+                                        default:
+                                            let modal: ConfirmationModal = ConfirmationModal(
+                                                targetView: self?.view,
+                                                info: ConfirmationModal.Info(
+                                                    title: "clearDataError".localized(),
+                                                    body: .text("\(error)"),
+                                                    cancelTitle: "okay".localized(),
+                                                    cancelStyle: .alert_text
+                                                )
+                                            )
+                                            self?.present(modal, animated: true)
+                                    }
                             }
                         },
                         receiveValue: { confirmations in
                             self?.dismiss(animated: true, completion: nil) // Dismiss the loader
 
+                            // Get a list of nodes which failed to delete the data
                             let potentiallyMaliciousSnodes = confirmations
                                 .compactMap { ($0.value == false ? $0.key : nil) }
-
+                            
+                            // If all of the nodes successfully deleted the data then proceed
+                            // to delete the local data
                             guard !potentiallyMaliciousSnodes.isEmpty else {
                                 self?.deleteAllLocalData()
                                 return
                             }
 
-                            let message: String
-
-                            if potentiallyMaliciousSnodes.count == 1 {
-                                message = String(format: "dialog_clear_all_data_deletion_failed_1".localized(), potentiallyMaliciousSnodes[0])
-                            }
-                            else {
-                                message = String(format: "dialog_clear_all_data_deletion_failed_2".localized(), String(potentiallyMaliciousSnodes.count), potentiallyMaliciousSnodes.joined(separator: ", "))
-                            }
-
                             let modal: ConfirmationModal = ConfirmationModal(
                                 targetView: self?.view,
                                 info: ConfirmationModal.Info(
-                                    title: "ALERT_ERROR_TITLE".localized(),
-                                    body: .text(message),
-                                    cancelTitle: "BUTTON_OK".localized(),
+                                    title: "clearDataAll".localized(),
+                                    body: .text("clearDataErrorDescriptionGeneric".localized()),
+                                    confirmTitle: "clearDevice".localized(),
+                                    confirmStyle: .danger,
                                     cancelStyle: .alert_text
-                                )
+                                ) { [weak self] _ in
+                                    self?.clearDeviceOnly()
+                                }
                             )
                             self?.present(modal, animated: true)
                         }
@@ -294,8 +316,8 @@ final class NukeDataModal: Modal {
         // Clear out the user defaults
         UserDefaults.removeAll(using: dependencies)
         
-        // Remove the cached key so it gets re-cached on next access
-        dependencies.remove(cache: .general)    // TODO: Test that the deinit gets called
+        // Remove the general cache
+        dependencies.remove(cache: .general)
         
         // Stop any pollers
         (UIApplication.shared.delegate as? AppDelegate)?.stopPollers()

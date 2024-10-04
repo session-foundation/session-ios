@@ -59,13 +59,9 @@ class EmojiPickerCollectionView: UICollectionView {
 
         delegate = self
         dataSource = self
-
-        register(EmojiCell.self, forCellWithReuseIdentifier: EmojiCell.reuseIdentifier)
-        register(
-            EmojiSectionHeader.self,
-            forSupplementaryViewOfKind: UICollectionView.elementKindSectionHeader,
-            withReuseIdentifier: EmojiSectionHeader.reuseIdentifier
-        )
+        
+        register(view: EmojiCell.self)
+        register(view: EmojiSectionHeader.self, ofKind: UICollectionView.elementKindSectionHeader)
 
         themeBackgroundColor = .clear
 
@@ -139,7 +135,7 @@ class EmojiPickerCollectionView: UICollectionView {
 
     func nameForSection(_ section: Int) -> String? {
         guard section > 0 || !hasRecentEmoji else {
-            return "EMOJI_CATEGORY_RECENTS_NAME".localized()
+            return "emojiCategoryRecentlyUsed".localized()
         }
 
         guard let category = Emoji.Category.allCases[safe: section - categoryIndexOffset] else {
@@ -248,36 +244,20 @@ extension EmojiPickerCollectionView: UICollectionViewDataSource {
     }
 
     func collectionView(_ collectionView: UICollectionView, cellForItemAt indexPath: IndexPath) -> UICollectionViewCell {
-        let cell = dequeueReusableCell(withReuseIdentifier: EmojiCell.reuseIdentifier, for: indexPath)
-
-        guard let emojiCell = cell as? EmojiCell else {
-            Log.error("[EmojiPickerCollectionView] unexpected cell type")
-            return cell
-        }
+        let cell: EmojiCell = dequeue(type: EmojiCell.self, for: indexPath)
 
         guard let emoji = emojiForIndexPath(indexPath) else {
             Log.error("[EmojiPickerCollectionView] unexpected indexPath")
             return cell
         }
 
-        emojiCell.configure(emoji: emoji)
+        cell.configure(emoji: emoji)
 
         return cell
     }
 
     func collectionView(_ collectionView: UICollectionView, viewForSupplementaryElementOfKind kind: String, at indexPath: IndexPath) -> UICollectionReusableView {
-
-        let supplementaryView = dequeueReusableSupplementaryView(
-            ofKind: kind,
-            withReuseIdentifier: EmojiSectionHeader.reuseIdentifier,
-            for: indexPath
-        )
-
-        guard let sectionHeader = supplementaryView as? EmojiSectionHeader else {
-            Log.error("[EmojiPickerCollectionView] unexpected supplementary view type")
-            return supplementaryView
-        }
-
+        let sectionHeader: EmojiSectionHeader = dequeue(type:  EmojiSectionHeader.self, ofKind: kind, for: indexPath)
         sectionHeader.label.text = nameForSection(indexPath.section)
 
         return sectionHeader
@@ -299,8 +279,6 @@ extension EmojiPickerCollectionView: UICollectionViewDelegateFlowLayout {
 }
 
 private class EmojiCell: UICollectionViewCell {
-    static let reuseIdentifier = "EmojiCell" // stringlint:disable
-
     let emojiLabel = UILabel()
 
     override init(frame: CGRect) {
@@ -329,8 +307,6 @@ private class EmojiCell: UICollectionViewCell {
 }
 
 private class EmojiSectionHeader: UICollectionReusableView {
-    static let reuseIdentifier = "EmojiSectionHeader" // stringlint:disable
-
     let label = UILabel()
 
     override init(frame: CGRect) {

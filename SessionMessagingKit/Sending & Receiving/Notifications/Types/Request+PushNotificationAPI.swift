@@ -15,17 +15,15 @@ public extension Request where Endpoint == PushNotificationAPI.Endpoint {
         body: T? = nil,
         using dependencies: Dependencies
     ) throws {
-        self = Request(
+        self = try Request(
             endpoint: endpoint,
             destination: try .server(
                 method: method,
                 server: endpoint.server(using: dependencies),
-                endpoint: endpoint,
                 queryParameters: queryParameters,
                 headers: headers,
                 x25519PublicKey: endpoint.serverPublicKey
             ),
-            headers: headers,
             body: body
         )
     }

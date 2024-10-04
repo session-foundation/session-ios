@@ -7,6 +7,14 @@ import SessionSnodeKit
 import SessionMessagingKit
 import SessionUtilitiesKit
 
+// MARK: - Log.Category
+
+private extension Log.Category {
+    static let cat: Log.Category = .create("SyncPushTokensJob", defaultLevel: .info)
+}
+
+// MARK: - SyncPushTokensJob
+
 public enum SyncPushTokensJob: JobExecutor {
     public static let maxFailureCount: Int = -1
     public static let requiresThreadId: Bool = false
@@ -26,8 +34,8 @@ public enum SyncPushTokensJob: JobExecutor {
         guard dependencies[defaults: .appGroup, key: .isMainAppActive] else {
             return deferred(job) // Don't need to do anything if it's not the main app
         }
-        guard Identity.userCompletedRequiredOnboarding(using: dependencies) else {
-            Log.info("[SyncPushTokensJob] Deferred due to incomplete registration")
+        guard dependencies[cache: .onboarding].state == .completed else {
+            Log.info(.cat, "Deferred due to incomplete registration")
             return deferred(job)
         }
         
@@ -48,7 +56,7 @@ public enum SyncPushTokensJob: JobExecutor {
                     .upserted(db)
             }
             
-            Log.info("[SyncPushTokensJob] Deferred due to in progress job")
+            Log.info(.cat, "Deferred due to in progress job")
             return deferred(updatedJob ?? job)
         }
         
@@ -73,14 +81,14 @@ public enum SyncPushTokensJob: JobExecutor {
                     
                     // Unregister from our server
                     if let existingToken: String = lastRecordedPushToken {
-                        Log.info("[SyncPushTokensJob] Unregister using last recorded push token: \(redact(existingToken))")
+                        Log.info(.cat, "Unregister using last recorded push token: \(redact(existingToken))")
                         return PushNotificationAPI
                             .unsubscribeAll(token: Data(hex: existingToken), using: dependencies)
                             .map { _ in () }
                             .eraseToAnyPublisher()
                     }
                     
-                    Log.info("[SyncPushTokensJob] No previous token stored just triggering device unregister")
+                    Log.info(.cat, "No previous token stored just triggering device unregister")
                     return Just(())
                         .setFailureType(to: Error.self)
                         .eraseToAnyPublisher()
@@ -89,8 +97,8 @@ public enum SyncPushTokensJob: JobExecutor {
                 .sinkUntilComplete(
                     receiveCompletion: { result in
                         switch result {
-                            case .finished: Log.info("[SyncPushTokensJob] Unregister Completed")
-                            case .failure: Log.error("[SyncPushTokensJob] Unregister Failed")
+                            case .finished: Log.info(.cat, "Unregister Completed")
+                            case .failure: Log.error(.cat, "Unregister Failed")
                         }
                         
                         // We want to complete this job regardless of success or failure
@@ -104,14 +112,14 @@ public enum SyncPushTokensJob: JobExecutor {
         ///
         /// **Note:** Apple's documentation states that we should re-register for notifications on every launch:
         /// https://developer.apple.com/library/archive/documentation/NetworkingInternet/Conceptual/RemoteNotificationsPG/HandlingRemoteNotifications.html#//apple_ref/doc/uid/TP40008194-CH6-SW1
-        Log.info("[SyncPushTokensJob] Re-registering for remote notifications")
+        Log.info(.cat, "Re-registering for remote notifications")
         dependencies[singleton: .pushRegistrationManager].requestPushTokens()
             .flatMap { (pushToken: String, voipToken: String) -> AnyPublisher<(String, String)?, Error> in
                 dependencies[cache: .libSessionNetwork].paths
                     .first()    // Only listen for the first callback
                     .map { paths in
                         guard !paths.isEmpty else {
-                            Log.info("[SyncPushTokensJob] OS subscription completed, skipping server subscription due to lack of paths")
+                            Log.info(.cat, "OS subscription completed, skipping server subscription due to lack of paths")
                             return nil
                         }
                         
@@ -149,7 +157,7 @@ public enum SyncPushTokensJob: JobExecutor {
                     dependencies[singleton: .storage, key: .lastRecordedPushToken] != pushToken ||
                     uploadOnlyIfStale == false
                 else {
-                    Log.info("[SyncPushTokensJob] OS subscription completed, skipping server subscription due to frequency")
+                    Log.info(.cat, "OS subscription completed, skipping server subscription due to frequency")
                     return Just(())
                         .setFailureType(to: Error.self)
                         .eraseToAnyPublisher()
@@ -166,11 +174,11 @@ public enum SyncPushTokensJob: JobExecutor {
                         receiveCompletion: { result in
                             switch result {
                                 case .failure(let error):
-                                    Log.error("[SyncPushTokensJob] Failed to register due to error: \(error)")
+                                    Log.error(.cat, "Failed to register due to error: \(error)")
                                 
                                 case .finished:
-                                    Log.debug("[SyncPushTokensJob] Recording push tokens locally. pushToken: \(redact(pushToken)), voipToken: \(redact(voipToken))")
-                                    Log.info("[SyncPushTokensJob] Completed")
+                                    Log.debug(.cat, "Recording push tokens locally. pushToken: \(redact(pushToken)), voipToken: \(redact(voipToken))")
+                                    Log.info(.cat, "Completed")
 
                                     dependencies[singleton: .storage].write { db in
                                         db[.lastRecordedPushToken] = pushToken

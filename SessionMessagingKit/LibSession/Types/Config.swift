@@ -74,19 +74,6 @@ public extension LibSession {
         
         // MARK: - Functions
         
-        func needsDump(using dependencies: Dependencies) -> Bool {
-            return dependencies.mockableValue(
-                key: "needsDump",
-                {
-                    switch self {
-                        case .invalid: return false
-                        case .object(let conf): return config_needs_dump(conf)
-                        case .groupKeys(let conf, _, _): return groups_keys_needs_dump(conf)
-                    }
-                }()
-            )
-        }
-        
         func push(variant: ConfigDump.Variant) -> PendingChanges.PushData? {
             switch self {
                 case .invalid: return nil
@@ -228,7 +215,7 @@ public extension LibSession {
                         mergeHashes.allSatisfy({ $0 != nil }),
                         mergeData.allSatisfy({ $0 != nil })
                     else {
-                        Log.error("[LibSession] Failed to correctly allocate merge data")
+                        Log.error(.libSession, "Failed to correctly allocate merge data")
                         return nil
                     }
                     
@@ -257,7 +244,7 @@ public extension LibSession {
                     mergedHashesPtr?.deallocate()
                     
                     if mergedHashes.count != messages.count {
-                        Log.warn("[LibSession] Unable to merge \(messages[0].namespace) messages (\(mergedHashes.count)/\(messages.count))")
+                        Log.warn(.libSession, "Unable to merge \(messages[0].namespace) messages (\(mergedHashes.count)/\(messages.count))")
                     }
                     
                     return messages
@@ -294,7 +281,7 @@ public extension LibSession {
                         .sorted()
                     
                     if successfulMergeTimestamps.count != messages.count {
-                        Log.warn("[LibSession] Unable to merge \(SnodeAPI.Namespace.configGroupKeys) messages (\(successfulMergeTimestamps.count)/\(messages.count))")
+                        Log.warn(.libSession, "Unable to merge \(SnodeAPI.Namespace.configGroupKeys) messages (\(successfulMergeTimestamps.count)/\(messages.count))")
                     }
                     
                     return successfulMergeTimestamps.last
@@ -325,7 +312,7 @@ public extension LibSession {
 
 // MARK: - PendingChanges
 
-internal extension LibSession {
+public extension LibSession {
     struct PendingChanges {
         public struct PushData {
             let data: Data
@@ -374,13 +361,6 @@ public extension Optional where Wrapped == LibSession.Config {
     
     // MARK: - Functions
     
-    func needsDump(using dependencies: Dependencies) -> Bool {
-        switch self {
-            case .some(let config): return config.needsDump(using: dependencies)
-            case .none: return false
-        }
-    }
-    
     func confirmPushed(seqNo: Int64, hash: String) {
         switch self {
             case .some(let config): return config.confirmPushed(seqNo: seqNo, hash: hash)
@@ -407,8 +387,6 @@ public extension Optional where Wrapped == LibSession.Config {
 
 public extension Atomic where Value == Optional<LibSession.Config> {
     var needsPush: Bool { return wrappedValue.needsPush }
-    
-    func needsDump(using dependencies: Dependencies) -> Bool { return wrappedValue.needsDump(using: dependencies) }
 }
 
 // MARK: - LibSessionError Convenience

@@ -40,7 +40,7 @@ extension PushNotificationAPI {
             // Generate the signature for the request for encoding
             let signature: Authentication.Signature = try authMethod.generateSignature(
                 with: verificationBytes,
-                using: try encoder.dependencies ?? { throw CryptoError.signatureGenerationFailed }()
+                using: try encoder.dependencies ?? { throw DependenciesError.missingDependencies }()
             )
             try container.encode(timestamp, forKey: .timestamp)
             

@@ -40,12 +40,12 @@ class PrivacySettingsViewModel: SessionTableViewModel, NavigationItemSource, Nav
         
         var title: String? {
             switch self {
-                case .screenSecurity: return "PRIVACY_SECTION_SCREEN_SECURITY".localized()
-                case .messageRequests: return "PRIVACY_SECTION_MESSAGE_REQUESTS".localized()
-                case .readReceipts: return "PRIVACY_SECTION_READ_RECEIPTS".localized()
-                case .typingIndicators: return "PRIVACY_SECTION_TYPING_INDICATORS".localized()
-                case .linkPreviews: return "PRIVACY_SECTION_LINK_PREVIEWS".localized()
-                case .calls: return "PRIVACY_SECTION_CALLS".localized()
+                case .screenSecurity: return "screenSecurity".localized()
+                case .messageRequests: return "sessionMessageRequests".localized()
+                case .readReceipts: return "readReceipts".localized()
+                case .typingIndicators: return "typingIndicators".localized()
+                case .linkPreviews: return "linkPreviews".localized()
+                case .calls: return "callsSettings".localized()
             }
         }
         
@@ -87,7 +87,7 @@ class PrivacySettingsViewModel: SessionTableViewModel, NavigationItemSource, Nav
         let areCallsEnabled: Bool
     }
     
-    let title: String = "PRIVACY_TITLE".localized()
+    let title: String = "sessionPrivacy".localized()
     
     lazy var observation: TargetObservation = ObservationBuilder
         .databaseObservation(self) { [weak self] db -> State in
@@ -107,11 +107,16 @@ class PrivacySettingsViewModel: SessionTableViewModel, NavigationItemSource, Nav
                     elements: [
                         SessionCell.Info(
                             id: .screenLock,
-                            title: "PRIVACY_SCREEN_SECURITY_LOCK_SESSION_TITLE".localized(),
-                            subtitle: "PRIVACY_SCREEN_SECURITY_LOCK_SESSION_DESCRIPTION".localized(),
+                            title: "lockApp".localized(),
+                            subtitle: "lockAppDescriptionIos"
+                                .put(key: "app_name", value: Constants.app_name)
+                                .localized(),
                             trailingAccessory: .toggle(
                                 current.isScreenLockEnabled,
-                                oldValue: previous?.isScreenLockEnabled
+                                oldValue: previous?.isScreenLockEnabled,
+                                accessibility: Accessibility(
+                                    identifier: "Lock App - Switch"
+                                )
                             ),
                             onTap: { [weak self] in
                                 // Make sure the device has a passcode set before allowing screen lock to
@@ -120,8 +125,8 @@ class PrivacySettingsViewModel: SessionTableViewModel, NavigationItemSource, Nav
                                     self?.transitionToScreen(
                                         ConfirmationModal(
                                             info: ConfirmationModal.Info(
-                                                title: "SCREEN_LOCK_ERROR_LOCAL_AUTHENTICATION_NOT_AVAILABLE".localized(),
-                                                cancelTitle: "BUTTON_OK".localized(),
+                                                title: "lockAppEnablePasscode".localized(),
+                                                cancelTitle: "okay".localized(),
                                                 cancelStyle: .alert_text
                                             )
                                         ),
@@ -146,11 +151,14 @@ class PrivacySettingsViewModel: SessionTableViewModel, NavigationItemSource, Nav
                     elements: [
                         SessionCell.Info(
                             id: .communityMessageRequests,
-                            title: "PRIVACY_SCREEN_MESSAGE_REQUESTS_COMMUNITY_TITLE".localized(),
-                            subtitle: "PRIVACY_SCREEN_MESSAGE_REQUESTS_COMMUNITY_DESCRIPTION".localized(),
+                            title: "messageRequestsCommunities".localized(),
+                            subtitle: "messageRequestsCommunitiesDescription".localized(),
                             trailingAccessory: .toggle(
                                 current.checkForCommunityMessageRequests,
-                                oldValue: previous?.checkForCommunityMessageRequests
+                                oldValue: previous?.checkForCommunityMessageRequests,
+                                accessibility: Accessibility(
+                                    identifier: "Community Message Requests - Switch"
+                                )
                             ),
                             onTap: { [weak self] in
                                 dependencies[singleton: .storage].write { db in
@@ -169,11 +177,14 @@ class PrivacySettingsViewModel: SessionTableViewModel, NavigationItemSource, Nav
                     elements: [
                         SessionCell.Info(
                             id: .readReceipts,
-                            title: "PRIVACY_READ_RECEIPTS_TITLE".localized(),
-                            subtitle: "PRIVACY_READ_RECEIPTS_DESCRIPTION".localized(),
+                            title: "readReceipts".localized(),
+                            subtitle: "readReceiptsDescription".localized(),
                             trailingAccessory: .toggle(
                                 current.areReadReceiptsEnabled,
-                                oldValue: previous?.areReadReceiptsEnabled
+                                oldValue: previous?.areReadReceiptsEnabled,
+                                accessibility: Accessibility(
+                                    identifier: "Read Receipts - Switch"
+                                )
                             ),
                             onTap: {
                                 dependencies[singleton: .storage].write { db in
@@ -193,11 +204,11 @@ class PrivacySettingsViewModel: SessionTableViewModel, NavigationItemSource, Nav
                         SessionCell.Info(
                             id: .typingIndicators,
                             title: SessionCell.TextInfo(
-                                "PRIVACY_TYPING_INDICATORS_TITLE".localized(),
+                                "typingIndicators".localized(),
                                 font: .title
                             ),
                             subtitle: SessionCell.TextInfo(
-                                "PRIVACY_TYPING_INDICATORS_DESCRIPTION".localized(),
+                                "typingIndicatorsDescription".localized(),
                                 font: .subtitle,
                                 extraViewGenerator: {
                                     let targetHeight: CGFloat = 20
@@ -231,7 +242,10 @@ class PrivacySettingsViewModel: SessionTableViewModel, NavigationItemSource, Nav
                             ),
                             trailingAccessory: .toggle(
                                 current.typingIndicatorsEnabled,
-                                oldValue: previous?.typingIndicatorsEnabled
+                                oldValue: previous?.typingIndicatorsEnabled,
+                                accessibility: Accessibility(
+                                    identifier: "Typing Indicators - Switch"
+                                )
                             ),
                             onTap: {
                                 dependencies[singleton: .storage].write { db in
@@ -250,11 +264,14 @@ class PrivacySettingsViewModel: SessionTableViewModel, NavigationItemSource, Nav
                     elements: [
                         SessionCell.Info(
                             id: .linkPreviews,
-                            title: "PRIVACY_LINK_PREVIEWS_TITLE".localized(),
-                            subtitle: "PRIVACY_LINK_PREVIEWS_DESCRIPTION".localized(),
+                            title: "linkPreviewsSend".localized(),
+                            subtitle: "linkPreviewsDescription".localized(),
                             trailingAccessory: .toggle(
                                 current.areLinkPreviewsEnabled,
-                                oldValue: previous?.areLinkPreviewsEnabled
+                                oldValue: previous?.areLinkPreviewsEnabled,
+                                accessibility: Accessibility(
+                                    identifier: "Send Link Previews - Switch"
+                                )
                             ),
                             onTap: {
                                 dependencies[singleton: .storage].write { db in
@@ -273,22 +290,26 @@ class PrivacySettingsViewModel: SessionTableViewModel, NavigationItemSource, Nav
                     elements: [
                         SessionCell.Info(
                             id: .calls,
-                            title: "PRIVACY_CALLS_TITLE".localized(),
-                            subtitle: "PRIVACY_CALLS_DESCRIPTION".localized(),
+                            title: "callsVoiceAndVideo".localized(),
+                            subtitle: "callsVoiceAndVideoToggleDescription".localized(),
                             trailingAccessory: .toggle(
                                 current.areCallsEnabled,
-                                oldValue: previous?.areCallsEnabled
+                                oldValue: previous?.areCallsEnabled,
+                                accessibility: Accessibility(
+                                    identifier: "Voice and Video Calls - Switch"
+                                )
                             ),
                             accessibility: Accessibility(
                                 label: "Allow voice and video calls"
                             ),
                             confirmationInfo: ConfirmationModal.Info(
-                                title: "PRIVACY_CALLS_WARNING_TITLE".localized(),
-                                body: .text("PRIVACY_CALLS_WARNING_DESCRIPTION".localized()),
+                                title: "callsVoiceAndVideoBeta".localized(),
+                                body: .text("callsVoiceAndVideoModalDescription".localized()),
                                 showCondition: .disabled,
-                                confirmTitle: "continue_2".localized(),
+                                confirmTitle: "theContinue".localized(),
                                 confirmAccessibility: Accessibility(identifier: "Enable"),
-                                confirmStyle: .textPrimary,
+                                confirmStyle: .danger,
+                                cancelStyle: .alert_text,
                                 onConfirm: { _ in Permissions.requestMicrophonePermissionIfNeeded(using: dependencies) }
                             ),
                             onTap: {

@@ -4,6 +4,14 @@ import Foundation
 import GRDB
 import SessionUtilitiesKit
 
+// MARK: - Log.Category
+
+private extension Log.Category {
+    static let cat: Log.Category = .create("RetrieveDefaultOpenGroupRoomsJob", defaultLevel: .info)
+}
+
+// MARK: - RetrieveDefaultOpenGroupRoomsJob
+
 public enum RetrieveDefaultOpenGroupRoomsJob: JobExecutor {
     public static let maxFailureCount: Int = -1
     public static let requiresThreadId: Bool = false
@@ -49,10 +57,12 @@ public enum RetrieveDefaultOpenGroupRoomsJob: JobExecutor {
                 receiveCompletion: { result in
                     switch result {
                         case .finished:
-                            Log.info("[RetrieveDefaultOpenGroupRoomsJob] Successfully retrieved default Community rooms")
+                            Log.info(.cat, "Successfully retrieved default Community rooms")
                             success(job, false)
-                            
-                        case .failure(let error): failure(job, error, false)
+                        
+                        case .failure(let error):
+                            Log.error(.cat, "Failed to get default Community rooms due to error: \(error)")
+                            failure(job, error, false)
                     }
                 }
             )

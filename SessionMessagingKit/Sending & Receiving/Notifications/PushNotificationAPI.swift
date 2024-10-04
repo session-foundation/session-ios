@@ -12,6 +12,12 @@ import SessionUtilitiesKit
 
 public extension KeychainStorage.DataKey { static let pushNotificationEncryptionKey: Self = "PNEncryptionKeyKey" }
 
+// MARK: - Log.Category
+
+private extension Log.Category {
+    static let cat: Log.Category = .create("PushNotificationAPI", defaultLevel: .info)
+}
+
 // MARK: - PushNotificationAPI
 
 public enum PushNotificationAPI {
@@ -47,7 +53,7 @@ public enum PushNotificationAPI {
         let now: TimeInterval = dependencies.dateNow.timeIntervalSince1970
         
         guard isForcedUpdate || hexEncodedToken != oldToken || now - lastUploadTime > tokenExpirationInterval else {
-            SNLog("Device token hasn't changed or expired; no need to re-upload.")
+            Log.info(.cat, "Device token hasn't changed or expired; no need to re-upload.")
             return Just(())
                 .setFailureType(to: Error.self)
                 .eraseToAnyPublisher()
@@ -205,7 +211,7 @@ public enum PushNotificationAPI {
         }
         
         guard let notificationsEncryptionKey: Data = try? getOrGenerateEncryptionKey(using: dependencies) else {
-            SNLog("Unable to retrieve PN encryption key.")
+            Log.error(.cat, "Unable to retrieve PN encryption key.")
             throw StorageError.invalidKeySpec
         }
         
@@ -251,13 +257,13 @@ public enum PushNotificationAPI {
                 zip(response.subResponses, sessionIds).forEach { subResponse, sessionId in
                     guard subResponse.success != true else { return }
                     
-                    Log.error("[PushNotificationAPI] Couldn't subscribe for push notifications for: \(sessionId) due to error (\(subResponse.error ?? -1)): \(subResponse.message ?? "nil").")
+                    Log.error(.cat, "Couldn't subscribe for push notifications for: \(sessionId) due to error (\(subResponse.error ?? -1)): \(subResponse.message ?? "nil").")
                 }
             },
             receiveCompletion: { result in
                 switch result {
                     case .finished: break
-                    case .failure: Log.error("[PushNotificationAPI] Couldn't subscribe for push notifications.")
+                    case .failure: Log.error(.cat, "Couldn't subscribe for push notifications.")
                 }
             }
         )
@@ -299,13 +305,13 @@ public enum PushNotificationAPI {
                 zip(response.subResponses, sessionIds).forEach { subResponse, sessionId in
                     guard subResponse.success != true else { return }
                     
-                    Log.error("[PushNotificationAPI] Couldn't unsubscribe for push notifications for: \(sessionId) due to error (\(subResponse.error ?? -1)): \(subResponse.message ?? "nil").")
+                    Log.error(.cat, "Couldn't unsubscribe for push notifications for: \(sessionId) due to error (\(subResponse.error ?? -1)): \(subResponse.message ?? "nil").")
                 }
             },
             receiveCompletion: { result in
                 switch result {
                     case .finished: break
-                    case .failure: Log.error("[PushNotificationAPI] Couldn't unsubscribe for push notifications.")
+                    case .failure: Log.error(.cat, "Couldn't unsubscribe for push notifications.")
                 }
             }
         )
@@ -337,13 +343,13 @@ public enum PushNotificationAPI {
         .handleEvents(
             receiveOutput: { _, response in
                 guard response.code != 0 else {
-                    return Log.error("[PushNotificationAPI] Couldn't send push notification due to error: \(response.message ?? "nil").")
+                    return Log.error(.cat, "Couldn't send push notification due to error: \(response.message ?? "nil").")
                 }
             },
             receiveCompletion: { result in
                 switch result {
                     case .finished: break
-                    case .failure: Log.error("[PushNotificationAPI] Couldn't send push notification.")
+                    case .failure: Log.error(.cat, "Couldn't send push notification.")
                 }
             }
         )
@@ -359,7 +365,7 @@ public enum PushNotificationAPI {
         legacyGroupIds: Set<String>,
         using dependencies: Dependencies
     ) throws -> Network.PreparedRequest<LegacyPushServerResponse>? {
-        let isUsingFullAPNs = dependencies[defaults: .standard, key: .isUsingFullAPNs]
+        let isUsingFullAPNs: Bool = dependencies[defaults: .standard, key: .isUsingFullAPNs]
         
         // Only continue if PNs are enabled and we have a device token
         guard
@@ -387,13 +393,13 @@ public enum PushNotificationAPI {
         .handleEvents(
             receiveOutput: { _, response in
                 guard response.code != 0 else {
-                    return Log.error("[PushNotificationAPI] Couldn't subscribe for legacy groups due to error: \(response.message ?? "nil").")
+                    return Log.error(.cat, "Couldn't subscribe for legacy groups due to error: \(response.message ?? "nil").")
                 }
             },
             receiveCompletion: { result in
                 switch result {
                     case .finished: break
-                    case .failure: Log.error("[PushNotificationAPI] Couldn't subscribe for legacy groups.")
+                    case .failure: Log.error(.cat, "Couldn't subscribe for legacy groups.")
                 }
             }
         )
@@ -422,13 +428,13 @@ public enum PushNotificationAPI {
         .handleEvents(
             receiveOutput: { _, response in
                 guard response.code != 0 else {
-                    return Log.error("[PushNotificationAPI] Couldn't unsubscribe for legacy group: \(legacyGroupId) due to error: \(response.message ?? "nil").")
+                    return Log.error(.cat, "Couldn't unsubscribe for legacy group: \(legacyGroupId) due to error: \(response.message ?? "nil").")
                 }
             },
             receiveCompletion: { result in
                 switch result {
                     case .finished: break
-                    case .failure: Log.error("[PushNotificationAPI] Couldn't unsubscribe for legacy group: \(legacyGroupId).")
+                    case .failure: Log.error(.cat, "Couldn't unsubscribe for legacy group: \(legacyGroupId).")
                 }
             }
         )
@@ -493,6 +499,11 @@ public enum PushNotificationAPI {
     
     @discardableResult private static func getOrGenerateEncryptionKey(using dependencies: Dependencies) throws -> Data {
         do {
+            try dependencies[singleton: .keychain].migrateLegacyKeyIfNeeded(
+                legacyKey: "PNEncryptionKeyKey",
+                legacyService: "PNKeyChainService",
+                toKey: .pushNotificationEncryptionKey
+            )
             var encryptionKey: Data = try dependencies[singleton: .keychain].data(forKey: .pushNotificationEncryptionKey)
             defer { encryptionKey.resetBytes(in: 0..<encryptionKey.count) }
             
@@ -513,7 +524,7 @@ public enum PushNotificationAPI {
                         return keySpec
                     }
                     catch {
-                        Log.error("[PushNotificationAPI] Setting keychain value failed with error: \(error.localizedDescription)")
+                        Log.error(.cat, "Setting keychain value failed with error: \(error.localizedDescription)")
                         throw StorageError.keySpecCreationFailed
                     }
                     
@@ -522,19 +533,15 @@ public enum PushNotificationAPI {
                     // after device restart until device is unlocked for the first time. If the app receives a push
                     // notification, we won't be able to access the keychain to process that notification, so we should
                     // just terminate by throwing an uncaught exception
-                    if dependencies.hasInitialised(singleton: .appContext) && (dependencies[singleton: .appContext].isMainApp || dependencies[singleton: .appContext].isInBackground) {
+                    if dependencies[singleton: .appContext].isMainApp || dependencies[singleton: .appContext].isInBackground {
                         let appState: UIApplication.State = dependencies[singleton: .appContext].reportedApplicationState
-                        Log.error("[PushNotificationAPI] CipherKeySpec inaccessible. New install or no unlock since device restart?, ApplicationState: \(appState.name)")
+                        Log.error(.cat, "CipherKeySpec inaccessible. New install or no unlock since device restart?, ApplicationState: \(appState.name)")
                         throw StorageError.keySpecInaccessible
                     }
                     
-                    Log.error("[PushNotificationAPI] CipherKeySpec inaccessible; not main app.")
+                    Log.error(.cat, "CipherKeySpec inaccessible; not main app.")
                     throw StorageError.keySpecInaccessible
             }
         }
-    }
-    
-    public static func deleteKeys(using dependencies: Dependencies) {
-        try? dependencies[singleton: .keychain].remove(key: .pushNotificationEncryptionKey)
     }
 }

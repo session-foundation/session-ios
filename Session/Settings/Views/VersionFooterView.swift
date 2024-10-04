@@ -35,12 +35,19 @@ class VersionFooterView: UIView {
         result.lineBreakMode = .byCharWrapping
         result.numberOfLines = 0
         
-        if
-            let version: String = Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String, // stringlint:disable
-            let buildNumber: String = Bundle.main.infoDictionary?["CFBundleVersion"] as? String // stringlint:disable
-        {
-            result.text = "Version \(version) (\(buildNumber))"
-        }
+        let infoDict = Bundle.main.infoDictionary
+        let version: String = ((infoDict?["CFBundleShortVersionString"] as? String) ?? "0.0.0")   // stringlint:disable
+        let buildNumber: String? = (infoDict?["CFBundleVersion"] as? String)                      // stringlint:disable
+        let commitInfo: String? = (infoDict?["GitCommitHash"] as? String)                         // stringlint:disable
+        let buildInfo: String? = [buildNumber, commitInfo]
+            .compactMap { $0 }
+            .joined(separator: " - ")                                                             // stringlint:disable
+            .nullIfEmpty
+            .map { "(\($0))" }                                                                    // stringlint:disable
+        result.text = [
+            "Version \(version)",                                                                 // stringlint:disable
+            buildInfo
+        ].compactMap { $0 }.joined(separator: " ")                                                // stringlint:disable
         
         return result
     }()

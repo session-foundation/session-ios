@@ -13,7 +13,7 @@ extension SessionCallManager {
             !call.hasConnected
         else { return }
         
-        reportOutgoingCall(call, using: dependencies)
+        reportOutgoingCall(call)
         
         if callController != nil {
             let handle = CXHandle(type: .generic, value: call.sessionId)

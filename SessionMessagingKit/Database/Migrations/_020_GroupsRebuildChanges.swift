@@ -67,13 +67,17 @@ enum _020_GroupsRebuildChanges: Migration {
         
         existingImageInfo.forEach { imageInfo in
             let fileName: String = DisplayPictureManager.generateFilename(using: dependencies)
-            let filePath: String = DisplayPictureManager.filepath(for: fileName, using: dependencies)
+            
+            guard let filePath: String = try? DisplayPictureManager.filepath(for: fileName, using: dependencies) else {
+                Log.error("[GroupsRebuildChanges] Failed to generate community file path for current file name")
+                return
+            }
             
             // Save the decrypted display picture to disk
             try? imageInfo.data.write(to: URL(fileURLWithPath: filePath), options: [.atomic])
             
             guard UIImage(contentsOfFile: filePath) != nil else {
-                SNLog("[GroupsRebuildChanges] Failed to save Community imageData for \(imageInfo.threadId)")
+                Log.error("[GroupsRebuildChanges] Failed to save Community imageData for \(imageInfo.threadId)")
                 return
             }
             

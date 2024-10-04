@@ -4,6 +4,8 @@ import Foundation
 import SessionUtilitiesKit
 
 class MockUserDefaults: Mock<UserDefaultsType>, UserDefaultsType {
+    var allKeys: [String] { mock() }
+    
     func object(forKey defaultName: String) -> Any? { return mock(args: [defaultName]) }
     func string(forKey defaultName: String) -> String? { return mock(args: [defaultName]) }
     func array(forKey defaultName: String) -> [Any]? { return mock(args: [defaultName]) }

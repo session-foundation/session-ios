@@ -2,6 +2,7 @@
 
 import UIKit
 import Combine
+import UniformTypeIdentifiers
 import GRDB
 import DifferenceKit
 import SessionUIKit
@@ -40,7 +41,9 @@ final class ThreadPickerVC: UIViewController, UITableViewDataSource, UITableView
     private lazy var titleLabel: UILabel = {
         let titleLabel: UILabel = UILabel()
         titleLabel.font = .boldSystemFont(ofSize: Values.veryLargeFontSize)
-        titleLabel.text = "vc_share_title".localized()
+        titleLabel.text = "shareToSession"
+            .put(key: "app_name", value: Constants.app_name)
+            .localized()
         titleLabel.themeTextColor = .textPrimary
         
         return titleLabel
@@ -49,7 +52,7 @@ final class ThreadPickerVC: UIViewController, UITableViewDataSource, UITableView
     private lazy var databaseErrorLabel: UILabel = {
         let result: UILabel = UILabel()
         result.font = .systemFont(ofSize: Values.mediumFontSize)
-        result.text = "database_inaccessible_error".localized()
+        result.text = "shareExtensionDatabaseError".localized()
         result.textAlignment = .center
         result.themeTextColor = .textPrimary
         result.numberOfLines = 0
@@ -233,7 +236,7 @@ final class ThreadPickerVC: UIViewController, UITableViewDataSource, UITableView
             (
                 (messageText?.isEmpty == true || (attachments[0].text() == messageText) ?
                     attachments[0].text() :
-                    "\(attachments[0].text() ?? "")\n\n\(messageText ?? "")"
+                    "\(attachments[0].text() ?? "")\n\n\(messageText ?? "")" // stringlint:disable
                 )
             ) :
             messageText
@@ -248,21 +251,39 @@ final class ThreadPickerVC: UIViewController, UITableViewDataSource, UITableView
         
         shareNavController?.dismiss(animated: true, completion: nil)
         
-        ModalActivityIndicatorViewController.present(fromViewController: shareNavController!, canCancel: false, message: "vc_share_sending_message".localized()) { [dependencies = viewModel.dependencies] activityIndicator in
+        ModalActivityIndicatorViewController.present(fromViewController: shareNavController!, canCancel: false, message: "sending".localized()) { [dependencies = viewModel.dependencies] activityIndicator in
             dependencies[singleton: .storage].resumeDatabaseAccess()
             dependencies.mutate(cache: .libSessionNetwork) { $0.resumeNetworkAccess() }
             
             /// When we prepare the message we set the timestamp to be the `dependencies[cache: .snodeAPI].currentOffsetTimestampMs()`
             /// but won't actually have a value because the share extension won't have talked to a service node yet which can cause
             /// issues with Disappearing Messages, as a result we need to explicitly `getNetworkTime` in order to ensure it's accurate
+            /// before we create the interaction
             dependencies[singleton: .network]
                 .getSwarm(for: swarmPublicKey)
-                .subscribe(on: DispatchQueue.global(qos: .userInitiated))
-                .tryMapWithRandomSnode(using: dependencies) { snode in
-                    try SnodeAPI.preparedGetNetworkTime(from: snode, using: dependencies)
+                .tryFlatMapWithRandomSnode(using: dependencies) { snode in
+                    try SnodeAPI
+                        .preparedGetNetworkTime(from: snode, using: dependencies)
+                        .send(using: dependencies)
                 }
+                .subscribe(on: DispatchQueue.global(qos: .userInitiated))
                 .flatMapStorageWritePublisher(using: dependencies) { db, _ -> (Interaction, [Network.PreparedRequest<String>]) in
-                    guard (try? SessionThread.exists(db, id: threadId)) == true else { throw MessageSenderError.noThread }
+                    guard let thread: SessionThread = try SessionThread.fetchOne(db, id: threadId) else {
+                        throw MessageSenderError.noThread
+                    }
+                    
+                    // Update the thread to be visible (if it isn't already)
+                    if !thread.shouldBeVisible || thread.pinnedPriority == LibSession.hiddenPriority {
+                        _ = try SessionThread
+                            .filter(id: threadId)
+                            .updateAllAndConfig(
+                                db,
+                                SessionThread.Columns.shouldBeVisible.set(to: true),
+                                SessionThread.Columns.pinnedPriority.set(to: LibSession.visiblePriority),
+                                calledFromConfig: nil,
+                                using: dependencies
+                            )
+                    }
                     
                     // Create the interaction
                     let interaction: Interaction = try Interaction(
@@ -294,7 +315,7 @@ final class ThreadPickerVC: UIViewController, UITableViewDataSource, UITableView
                             attachmentId: LinkPreview
                                 .generateAttachmentIfPossible(
                                     imageData: linkPreviewDraft.jpegImageData,
-                                    mimeType: MimeTypeUtil.MimeType.imageJpeg,
+                                    type: .jpeg,
                                     using: dependencies
                                 )?
                                 .inserted(db)
@@ -310,7 +331,7 @@ final class ThreadPickerVC: UIViewController, UITableViewDataSource, UITableView
                     return (
                         interaction,
                         try preparedAttachments.map {
-                            try $0.preparedUpload(db, threadId: threadId, using: dependencies)
+                            try $0.preparedUpload(db, threadId: threadId, logCategory: .messageSender, using: dependencies)
                         }
                     )
                 }

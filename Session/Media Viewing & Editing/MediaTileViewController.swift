@@ -135,7 +135,7 @@ public class MediaTileViewController: UIViewController, UICollectionViewDataSour
         
         ViewControllerUtilities.setUpDefaultSessionStyle(
             for: self,
-            title: MediaStrings.allMedia,
+            title: "conversationsSettingsAllMedia".localized(),
             hasCustomBackButton: false
         )
 
@@ -429,9 +429,9 @@ public class MediaTileViewController: UIViewController, UICollectionViewDataSour
                 sectionHeader.configure(
                     title: {
                         switch section.model {
-                            case .emptyGallery: return "GALLERY_TILES_EMPTY_GALLERY".localized()
-                            case .loadOlder: return "GALLERY_TILES_LOADING_OLDER_LABEL".localized()
-                            case .loadNewer: return "GALLERY_TILES_LOADING_MORE_RECENT_LABEL".localized()
+                            case .emptyGallery: return "attachmentsMediaEmpty".localized()
+                            case .loadOlder: return "attachmentsLoadingOlder".localized()
+                            case .loadNewer: return "attachmentsLoadingNewer".localized()
                             case .galleryMonth: return ""   // Impossible case
                         }
                     }()
@@ -685,16 +685,9 @@ public class MediaTileViewController: UIViewController, UICollectionViewDataSour
         let items: [MediaGalleryViewModel.Item] = indexPaths.map {
             self.viewModel.galleryData[$0.section].elements[$0.item]
         }
-        let confirmationTitle: String = {
-            if indexPaths.count == 1 {
-                return "MEDIA_GALLERY_DELETE_SINGLE_MESSAGE".localized()
-            }
-            
-            return String(
-                format: "MEDIA_GALLERY_DELETE_MULTIPLE_MESSAGES_FORMAT".localized(),
-                indexPaths.count
-            )
-        }()
+        let confirmationTitle: String = "deleteMessage"
+            .putNumber(indexPaths.count)
+            .localized()
 
         let deleteAction = UIAlertAction(title: confirmationTitle, style: .destructive) { [weak self, dependencies = viewModel.dependencies] _ in
             dependencies[singleton: .storage].writeAsync { db in
@@ -731,7 +724,7 @@ public class MediaTileViewController: UIViewController, UICollectionViewDataSour
 
         let actionSheet = UIAlertController(title: nil, message: nil, preferredStyle: .actionSheet)
         actionSheet.addAction(deleteAction)
-        actionSheet.addAction(UIAlertAction(title: "TXT_CANCEL_TITLE".localized(), style: .cancel))
+        actionSheet.addAction(UIAlertAction(title: "cancel".localized(), style: .cancel))
 
         Modal.setupForIPadIfNeeded(actionSheet, targetView: self.view)
         self.present(actionSheet, animated: true)

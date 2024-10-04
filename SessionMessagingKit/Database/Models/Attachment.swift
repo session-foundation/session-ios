@@ -4,6 +4,7 @@ import Foundation
 import AVFAudio
 import AVFoundation
 import Combine
+import UniformTypeIdentifiers
 import GRDB
 import SessionUtilitiesKit
 import SessionSnodeKit
@@ -164,7 +165,7 @@ public struct Attachment: Codable, Identifiable, Equatable, Hashable, FetchableR
         self.width = width
         self.height = height
         self.duration = duration
-        self.isVisualMedia = (isVisualMedia ?? MimeTypeUtil.isVisualMedia(contentType))
+        self.isVisualMedia = (isVisualMedia ?? UTType.isVisualMedia(contentType))
         self.isValid = isValid
         self.encryptionKey = encryptionKey
         self.digest = digest
@@ -211,7 +212,7 @@ public struct Attachment: Codable, Identifiable, Equatable, Hashable, FetchableR
         self.width = imageSize.map { UInt(floor($0.width)) }
         self.height = imageSize.map { UInt(floor($0.height)) }
         self.duration = duration
-        self.isVisualMedia = MimeTypeUtil.isVisualMedia(contentType)
+        self.isVisualMedia = UTType.isVisualMedia(contentType)
         self.isValid = isValid
         self.encryptionKey = nil
         self.digest = nil
@@ -260,9 +261,13 @@ extension Attachment: CustomStringConvertible {
     public static func description(for descriptionInfo: DescriptionInfo, count: Int) -> String {
         // We only support multi-attachment sending of images so we can just default to the image attachment
         // if there were multiple attachments
-        guard count == 1 else { return "\(emoji(for: MimeTypeUtil.MimeType.imageJpeg)) \("ATTACHMENT".localized())" }
-
-        if MimeTypeUtil.isAudio(descriptionInfo.contentType) {
+        guard count == 1 else {
+            return "attachmentsNotification"
+                .put(key: "emoji", value: emoji(for: UTType.mimeTypeJpeg))
+                .localized()
+        }
+        
+        if UTType.isAudio(descriptionInfo.contentType) {
             // a missing filename is the legacy way to determine if an audio attachment is
             // a voice note vs. other arbitrary audio attachments.
             if
@@ -270,25 +275,29 @@ extension Attachment: CustomStringConvertible {
                 descriptionInfo.sourceFilename == nil ||
                 (descriptionInfo.sourceFilename?.count ?? 0) == 0
             {
-                return "🎙️ \("ATTACHMENT_TYPE_VOICE_MESSAGE".localized())"
+                return "messageVoiceSnippet"
+                    .put(key: "emoji", value: "🎙️")
+                    .localized()
             }
         }
         
-        return "\(emoji(for: descriptionInfo.contentType)) \("ATTACHMENT".localized())"
+        return "attachmentsNotification"
+            .put(key: "emoji", value: emoji(for: descriptionInfo.contentType))
+            .localized()
     }
     
     public static func emoji(for contentType: String) -> String {
-        if MimeTypeUtil.isImage(contentType) {
-            return "📷"     // stringlint:disable
+        if UTType.isAnimated(contentType) {
+            return "🎡"     // stringlint:disable
         }
-        else if MimeTypeUtil.isVideo(contentType) {
+        else if UTType.isVideo(contentType) {
             return "🎥"     // stringlint:disable
         }
-        else if MimeTypeUtil.isAudio(contentType) {
+        else if UTType.isAudio(contentType) {
             return "🎧"     // stringlint:disable
         }
-        else if MimeTypeUtil.isAnimated(contentType) {
-            return "🎡"     // stringlint:disable
+        else if UTType.isImage(contentType) {
+            return "📷"     // stringlint:disable
         }
         
         return "📎"         // stringlint:disable
@@ -339,7 +348,7 @@ extension Attachment {
         }()
         // Regenerate this just in case we added support since the attachment was inserted into
         // the database (eg. manually downloaded in a later update)
-        let isVisualMedia: Bool = MimeTypeUtil.isVisualMedia(contentType)
+        let isVisualMedia: Bool = UTType.isVisualMedia(contentType)
         let attachmentResolution: CGSize? = {
             if let width: UInt = self.width, let height: UInt = self.height, width > 0, height > 0 {
                 return CGSize(width: Int(width), height: Int(height))
@@ -368,7 +377,7 @@ extension Attachment {
             isVisualMedia: (
                 // Regenerate this just in case we added support since the attachment was inserted into
                 // the database (eg. manually downloaded in a later update)
-                MimeTypeUtil.isVisualMedia(contentType)
+                UTType.isVisualMedia(contentType)
             ),
             isValid: isValid,
             encryptionKey: (encryptionKey ?? self.encryptionKey),
@@ -386,9 +395,9 @@ extension Attachment {
             guard
                 let fileName: String = filename,
                 let fileExtension: String = URL(string: fileName)?.pathExtension
-            else { return MimeTypeUtil.MimeType.applicationOctetStream }
-
-            return (MimeTypeUtil.mimeType(for: fileExtension) ?? MimeTypeUtil.MimeType.applicationOctetStream)
+            else { return UTType.mimeTypeDefault }
+            
+            return (UTType.sessionMimeType(for: fileExtension) ?? UTType.mimeTypeDefault)
         }
         
         self.id = UUID().uuidString
@@ -414,7 +423,7 @@ extension Attachment {
         self.width = (proto.hasWidth && proto.width > 0 ? UInt(proto.width) : nil)
         self.height = (proto.hasHeight && proto.height > 0 ? UInt(proto.height) : nil)
         self.duration = nil         // Needs to be downloaded to be set
-        self.isVisualMedia = MimeTypeUtil.isVisualMedia(contentType)
+        self.isVisualMedia = UTType.isVisualMedia(contentType)
         self.isValid = false        // Needs to be downloaded to be set
         self.encryptionKey = proto.key
         self.digest = proto.digest
@@ -590,7 +599,7 @@ extension Attachment {
     
     private static var sharedDataAttachmentsDirPath: String = {
         URL(fileURLWithPath: FileManager.default.appSharedDataDirectoryPath)
-            .appendingPathComponent("Attachments")
+            .appendingPathComponent("Attachments") // stringlint:disable
             .path
     }()
     
@@ -606,13 +615,57 @@ extension Attachment {
     }
     
     public static func originalFilePath(id: String, mimeType: String, sourceFilename: String?, using dependencies: Dependencies) -> String? {
-        return MimeTypeUtil.filePath(
-            for: id,
-            ofMimeType: mimeType,
-            sourceFilename: sourceFilename,
-            in: Attachment.attachmentsFolder(using: dependencies),
-            using: dependencies
-        )
+        // Store the file in a subdirectory whose name is the uniqueId of this attachment,
+        // to avoid collisions between multiple attachments with the same name
+        let attachmentFolder: String = Attachment.attachmentsFolder(using: dependencies).appending("/\(id)")
+        
+        if let sourceFilename: String = sourceFilename, !sourceFilename.isEmpty {
+            // Ensure that the filename is a valid filesystem name,
+            // replacing invalid characters with an underscore.
+            var normalizedFileName: String = sourceFilename
+                .trimmingCharacters(in: .whitespacesAndNewlines)
+                .components(separatedBy: .whitespacesAndNewlines)
+                .joined(separator: "_")
+                .components(separatedBy: .illegalCharacters)
+                .joined(separator: "_")
+                .components(separatedBy: .controlCharacters)
+                .joined(separator: "_")
+                .components(separatedBy: CharacterSet(charactersIn: "<>|\\:()&;?*/~"))
+                .joined(separator: "_")
+            
+            while normalizedFileName.hasPrefix(".") {
+                normalizedFileName = String(normalizedFileName.substring(from: 1))
+            }
+            
+            var targetFileExtension: String = URL(fileURLWithPath: normalizedFileName).pathExtension
+            let filenameWithoutExtension: String = URL(fileURLWithPath: normalizedFileName)
+                .deletingPathExtension()
+                .lastPathComponent
+                .trimmingCharacters(in: .whitespacesAndNewlines)
+            
+            // If the filename has not file extension, deduce one
+            // from the MIME type.
+            if targetFileExtension.isEmpty {
+                targetFileExtension = (UTType(sessionMimeType: mimeType)?.sessionFileExtension ?? UTType.fileExtensionDefault)
+            }
+            
+            targetFileExtension = targetFileExtension.lowercased()
+            
+            if !targetFileExtension.isEmpty {
+                guard case .success = Result(try FileSystem.ensureDirectoryExists(at: attachmentFolder, using: dependencies)) else {
+                    return nil
+                }
+                
+                return attachmentFolder.appending("/\(filenameWithoutExtension).\(targetFileExtension)")
+            }
+        }
+        
+        let targetFileExtension: String = (
+            UTType(sessionMimeType: mimeType)?.sessionFileExtension ??
+            UTType.fileExtensionDefault
+        ).lowercased()
+        
+        return attachmentFolder.appending("/\(id).\(targetFileExtension)")
     }
     
     public static func localRelativeFilePath(from originalFilePath: String?, using dependencies: Dependencies) -> String? {
@@ -623,19 +676,17 @@ extension Attachment {
     }
     
     internal static func imageSize(contentType: String, originalFilePath: String, using dependencies: Dependencies) -> CGSize? {
-        let isVideo: Bool = MimeTypeUtil.isVideo(contentType)
-        let isImage: Bool = MimeTypeUtil.isImage(contentType)
-        let isAnimated: Bool = MimeTypeUtil.isAnimated(contentType)
+        let type: UTType? = UTType(sessionMimeType: contentType)
         
-        guard isVideo || isImage || isAnimated else { return nil }
+        guard type?.isVideo == true || type?.isImage == true || type?.isAnimated == true else { return nil }
         
-        if isVideo {
+        if type?.isVideo == true {
             guard MediaUtils.isValidVideo(path: originalFilePath, using: dependencies) else { return nil }
             
             return Attachment.videoStillImage(filePath: originalFilePath, using: dependencies)?.size
         }
         
-        return Data.imageSize(for: originalFilePath, mimeType: contentType, using: dependencies)
+        return Data.imageSize(for: originalFilePath, type: type, using: dependencies)
     }
     
     public static func videoStillImage(filePath: String, using dependencies: Dependencies) -> UIImage? {
@@ -662,7 +713,7 @@ extension Attachment {
         let targetPath: String = (constructedFilePath ?? originalFilePath)
         
         // Process audio attachments
-        if MimeTypeUtil.isAudio(contentType) {
+        if UTType.isAudio(contentType) {
             do {
                 let audioPlayer: AVAudioPlayer = try AVAudioPlayer(contentsOf: URL(fileURLWithPath: targetPath))
                 
@@ -680,15 +731,15 @@ extension Attachment {
         }
         
         // Process image attachments
-        if MimeTypeUtil.isImage(contentType) || MimeTypeUtil.isAnimated(contentType) {
+        if UTType.isImage(contentType) || UTType.isAnimated(contentType) {
             return (
-                Data.isValidImage(at: targetPath, mimeType: contentType, using: dependencies),
+                Data.isValidImage(at: targetPath, type: UTType(sessionMimeType: contentType), using: dependencies),
                 nil
             )
         }
         
         // Process video attachments
-        if MimeTypeUtil.isVideo(contentType) {
+        if UTType.isVideo(contentType) {
             let asset: AVURLAsset = AVURLAsset(url: URL(fileURLWithPath: targetPath), options: nil)
             let durationSeconds: TimeInterval = (
                 // According to the CMTime docs "value/timescale = seconds"
@@ -709,7 +760,7 @@ extension Attachment {
 // MARK: - Convenience
 
 extension Attachment {
-    public static let nonMediaQuoteFileId: String = "NON_MEDIA_QUOTE_FILE_ID"
+    public static let nonMediaQuoteFileId: String = "NON_MEDIA_QUOTE_FILE_ID" // stringlint:disable
     
     public enum ThumbnailSize {
         case small
@@ -743,7 +794,7 @@ extension Attachment {
     var thumbnailsDirPath: String {
         // Thumbnails are written to the caches directory, so that iOS can
         // remove them if necessary
-        return "\(FileSystem.cachesDirectoryPath)/\(id)-thumbnails"
+        return "\(FileSystem.cachesDirectoryPath)/\(id)-thumbnails" // stringlint:disable
     }
     
     func legacyThumbnailPath(using dependencies: Dependencies) -> String? {
@@ -756,7 +807,7 @@ extension Attachment {
         let filename: String = fileUrl.lastPathComponent.filenameWithoutExtension
         let containingDir: String = fileUrl.deletingLastPathComponent().path
         
-        return "\(containingDir)/\(filename)-signal-ios-thumbnail.jpg"
+        return "\(containingDir)/\(filename)-signal-ios-thumbnail.jpg" // stringlint:disable
     }
     
     func originalImage(using dependencies: Dependencies) -> UIImage? {
@@ -772,26 +823,23 @@ extension Attachment {
         return UIImage(contentsOfFile: originalFilePath)
     }
     
-    public var isImage: Bool { MimeTypeUtil.isImage(contentType) }
-    public var isVideo: Bool { MimeTypeUtil.isVideo(contentType) }
-    public var isAnimated: Bool { MimeTypeUtil.isAnimated(contentType) }
-    public var isAudio: Bool { MimeTypeUtil.isAudio(contentType) }
-    public var isText: Bool { MimeTypeUtil.isText(contentType) }
-    public var isMicrosoftDoc: Bool { MimeTypeUtil.isMicrosoftDoc(contentType) }
+    public var isImage: Bool { UTType.isImage(contentType) }
+    public var isVideo: Bool { UTType.isVideo(contentType) }
+    public var isAnimated: Bool { UTType.isAnimated(contentType) }
+    public var isAudio: Bool { UTType.isAudio(contentType) }
+    public var isText: Bool { UTType.isText(contentType) }
+    public var isMicrosoftDoc: Bool { UTType.isMicrosoftDoc(contentType) }
     
     public var documentFileName: String {
         if let sourceFilename: String = sourceFilename { return sourceFilename }
-        if isImage { return "Image File" }
-        if isAudio { return "Audio File" }
-        if isVideo { return "Video File" }
-        return "File"
+        return shortDescription
     }
     
     public var shortDescription: String {
-        if isImage { return "Image" }
-        if isAudio { return "Audio" }
-        if isVideo { return "Video" }
-        return "Document"
+        if isImage { return "image".localized() }
+        if isAudio { return "audio".localized() }
+        if isVideo { return "video".localized() }
+        return "document".localized()
     }
     
     public var documentFileInfo: String {
@@ -812,7 +860,7 @@ extension Attachment {
     }
     
     public func thumbnailPath(for dimensions: UInt) -> String {
-        return "\(thumbnailsDirPath)/thumbnail-\(dimensions).jpg"
+        return "\(thumbnailsDirPath)/thumbnail-\(dimensions).jpg" // stringlint:disable
     }
     
     private func loadThumbnail(with dimensions: UInt, using dependencies: Dependencies, success: @escaping (UIImage, () throws -> Data) -> (), failure: @escaping () -> ()) {
@@ -893,7 +941,7 @@ extension Attachment {
     
     public func cloneAsQuoteThumbnail(using dependencies: Dependencies) -> Attachment? {
         let cloneId: String = UUID().uuidString
-        let thumbnailName: String = "quoted-thumbnail-\(sourceFilename ?? "null")"
+        let thumbnailName: String = "quoted-thumbnail-\(sourceFilename ?? "null")" // stringlint:disable
         
         guard self.isVisualMedia else { return nil }
         
@@ -901,7 +949,7 @@ extension Attachment {
             self.isValid,
             let thumbnailPath: String = Attachment.originalFilePath(
                 id: cloneId,
-                mimeType: MimeTypeUtil.MimeType.imageJpeg,
+                mimeType: UTType.mimeTypeJpeg,
                 sourceFilename: thumbnailName,
                 using: dependencies
             )
@@ -948,7 +996,7 @@ extension Attachment {
         // Need to retrieve the size of the thumbnail as it maintains it's aspect ratio
         let thumbnailSize: CGSize = Attachment
             .imageSize(
-                contentType: MimeTypeUtil.MimeType.imageJpeg,
+                contentType: UTType.mimeTypeJpeg,
                 originalFilePath: thumbnailPath,
                 using: dependencies
             )
@@ -964,7 +1012,7 @@ extension Attachment {
             id: cloneId,
             variant: .standard,
             state: .downloaded,
-            contentType: MimeTypeUtil.MimeType.imageJpeg,
+            contentType: UTType.mimeTypeJpeg,
             byteCount: UInt(thumbnailData.count),
             sourceFilename: thumbnailName,
             localRelativeFilePath: Attachment.localRelativeFilePath(from: thumbnailPath, using: dependencies),
@@ -1051,6 +1099,7 @@ extension Attachment {
     public func preparedUpload(
         _ db: Database,
         threadId: String,
+        logCategory cat: Log.Category,
         using dependencies: Dependencies
     ) throws -> Network.PreparedRequest<String> {
         typealias UploadInfo = (
@@ -1071,9 +1120,6 @@ extension Attachment {
                     case .community(let openGroup): return OpenGroupAPI.Endpoint.roomFile(openGroup.roomToken)
                 }
             }()
-            let finalData: Data
-            let finalEncryptionKey: Data?
-            let finalDigest: Data?
             
             // This can occur if an AttachmentUploadJob was explicitly created for a message
             // dependant on the attachment being uploaded (in this case the attachment has
@@ -1122,36 +1168,33 @@ extension Attachment {
             
             // Get the raw attachment data
             guard let rawData: Data = try? readDataFromFile(using: dependencies) else {
-                Log.error("[Attachment] Couldn't read attachment from disk.")
+                Log.error(cat, "Couldn't read attachment from disk.")
                 throw AttachmentError.noAttachment
             }
             
-            // Perform encryption if needed
-            typealias EncryptionData = (ciphertext: Data, encryptionKey: Data, digest: Data)
-            switch destination.shouldEncrypt {
-                case false:
-                    finalEncryptionKey = nil
-                    finalDigest = nil
-                    finalData = rawData
-                    
-                case true:
-                    guard
-                        let result: EncryptionData = dependencies[singleton: .crypto].generate(
-                            .encryptAttachment(plaintext: rawData, using: dependencies)
-                        )
-                    else {
-                        Log.error("[Attachment] Couldn't encrypt attachment.")
-                        throw AttachmentError.encryptionFailed
-                    }
-                    
-                    
-                    finalEncryptionKey = result.encryptionKey
-                    finalDigest = result.digest
-                    finalData = result.ciphertext
-            }
+            // Encrypt the attachment if needed
+            var finalData: Data = rawData
+            var encryptionKey: Data?
+            var digest: Data?
             
+            typealias EncryptionData = (ciphertext: Data, encryptionKey: Data, digest: Data)
+            if destination.shouldEncrypt {
+                guard
+                    let result: EncryptionData = dependencies[singleton: .crypto].generate(
+                        .encryptAttachment(plaintext: rawData, using: dependencies)
+                    )
+                else {
+                    Log.error(cat, "Couldn't encrypt attachment.")
+                    throw AttachmentError.encryptionFailed
+                }
+                
+                finalData = result.ciphertext
+                encryptionKey = result.encryptionKey
+                digest = result.digest
+            }
+                
             // Ensure the file size is smaller than our upload limit
-            Log.info("[Attachment] File size: \(finalData.count) bytes.")
+            Log.info(cat, "File size: \(finalData.count) bytes.")
             guard finalData.count <= Network.maxFileSize else { throw NetworkError.maxFileSizeExceeded }
             
             // Generate the request
@@ -1160,10 +1203,10 @@ extension Attachment {
                     return (
                         self,
                         try Network.preparedUpload(data: finalData, using: dependencies),
-                        finalEncryptionKey,
-                        finalDigest
+                        encryptionKey,
+                        digest
                     )
-                    
+                
                 case .community(let openGroup):
                     return (
                         self,
@@ -1174,8 +1217,8 @@ extension Attachment {
                             on: openGroup.server,
                             using: dependencies
                         ),
-                        finalEncryptionKey,
-                        finalDigest
+                        encryptionKey,
+                        digest
                     )
             }
         }()

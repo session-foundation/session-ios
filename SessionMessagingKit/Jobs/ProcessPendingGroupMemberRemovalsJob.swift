@@ -7,6 +7,14 @@ import SessionUIKit
 import SessionUtilitiesKit
 import SessionSnodeKit
 
+// MARK: - Log.Category
+
+private extension Log.Category {
+    static let cat: Log.Category = .create("ProcessPendingGroupMemberRemovalsJob", defaultLevel: .info)
+}
+
+// MARK: - ProcessPendingGroupMemberRemovalsJob
+
 public enum ProcessPendingGroupMemberRemovalsJob: JobExecutor {
     public static var maxFailureCount: Int = 1
     public static var requiresThreadId: Bool = true
@@ -54,7 +62,7 @@ public enum ProcessPendingGroupMemberRemovalsJob: JobExecutor {
                     .upserted(db)
             }
             
-            SNLog("[ProcessPendingGroupMemberRemovalsJob] For \(job.threadId ?? "UnknownId") deferred due to in progress job")
+            Log.info(.cat, "For \(job.threadId ?? "UnknownId") deferred due to in progress job")
             return deferred(updatedJob ?? job)
         }
         

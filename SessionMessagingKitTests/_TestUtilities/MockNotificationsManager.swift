@@ -7,6 +7,16 @@ import SessionMessagingKit
 import SessionUtilitiesKit
 
 public class MockNotificationsManager: Mock<NotificationsManagerType>, NotificationsManagerType {
+    public required init(using dependencies: Dependencies) {
+        super.init()
+        
+        mockNoReturn(untrackedArgs: [dependencies])
+    }
+    
+    internal required init(functionHandler: MockFunctionHandler? = nil, initialSetup: ((Mock<NotificationsManagerType>) -> ())? = nil) {
+        super.init(functionHandler: functionHandler, initialSetup: initialSetup)
+    }
+    
     public func registerNotificationSettings() -> AnyPublisher<Void, Never> {
         return mock()
     }
@@ -15,10 +25,9 @@ public class MockNotificationsManager: Mock<NotificationsManagerType>, Notificat
         _ db: Database,
         for interaction: Interaction,
         in thread: SessionThread,
-        applicationState: UIApplication.State,
-        using dependencies: Dependencies
+        applicationState: UIApplication.State
     ) {
-        mockNoReturn(args: [interaction, thread, applicationState], untrackedArgs: [db, dependencies])
+        mockNoReturn(args: [interaction, thread, applicationState], untrackedArgs: [db])
     }
     
     public func notifyUser(

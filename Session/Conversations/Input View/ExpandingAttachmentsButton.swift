@@ -35,7 +35,7 @@ final class ExpandingAttachmentsButton: UIView, InputViewButtonDelegate {
     lazy var documentButton: InputViewButton = {
         let result = InputViewButton(icon: #imageLiteral(resourceName: "actionsheet_document_black"), delegate: self, hasOpaqueBackground: true)
         result.accessibilityIdentifier = "Documents folder"
-        result.accessibilityLabel = "accessibility_document_button".localized()
+        result.accessibilityLabel = "Files"
         result.isAccessibilityElement = true
         
         return result
@@ -44,7 +44,7 @@ final class ExpandingAttachmentsButton: UIView, InputViewButtonDelegate {
     lazy var libraryButton: InputViewButton = {
         let result = InputViewButton(icon: #imageLiteral(resourceName: "actionsheet_camera_roll_black"), delegate: self, hasOpaqueBackground: true)
         result.accessibilityIdentifier = "Images folder"
-        result.accessibilityLabel = "accessibility_library_button".localized()
+        result.accessibilityLabel = "Photo library"
         result.isAccessibilityElement = true
         
         return result
@@ -53,7 +53,7 @@ final class ExpandingAttachmentsButton: UIView, InputViewButtonDelegate {
     lazy var cameraButton: InputViewButton = {
         let result = InputViewButton(icon: #imageLiteral(resourceName: "actionsheet_camera_black"), delegate: self, hasOpaqueBackground: true)
         result.accessibilityIdentifier = "Select camera button"
-        result.accessibilityLabel = "accessibility_camera_button".localized()
+        result.accessibilityLabel = "Camera"
         result.isAccessibilityElement = true
         
         return result
@@ -61,7 +61,7 @@ final class ExpandingAttachmentsButton: UIView, InputViewButtonDelegate {
     lazy var cameraButtonContainer = container(for: cameraButton)
     lazy var mainButton: InputViewButton = {
         let result = InputViewButton(icon: #imageLiteral(resourceName: "ic_plus_24"), delegate: self)
-        result.accessibilityLabel = "accessibility_expanding_attachments_button".localized()
+        result.accessibilityLabel = "Add attachment"
         
         return result
     }()
@@ -112,7 +112,7 @@ final class ExpandingAttachmentsButton: UIView, InputViewButtonDelegate {
     // MARK: Animation
     private func expandOrCollapse() {
         if isExpanded {
-            mainButton.accessibilityLabel = NSLocalizedString("accessibility_main_button_collapse", comment: "")
+            mainButton.accessibilityLabel = "Collapse attachment options"
             let expandedButtonSize = InputViewButton.expandedSize
             let spacing: CGFloat = 4
             cameraButtonContainerBottomConstraint.constant = -1 * (expandedButtonSize + spacing)
@@ -126,7 +126,7 @@ final class ExpandingAttachmentsButton: UIView, InputViewButtonDelegate {
                 self.layoutIfNeeded()
             }
         } else {
-            mainButton.accessibilityLabel = NSLocalizedString("accessibility_expanding_attachments_button", comment: "")
+            mainButton.accessibilityLabel = "Add attachment"
             [ gifButtonContainerBottomConstraint, documentButtonContainerBottomConstraint, libraryButtonContainerBottomConstraint, cameraButtonContainerBottomConstraint ].forEach {
                 $0.constant = 0
             }
@@ -151,6 +151,7 @@ final class ExpandingAttachmentsButton: UIView, InputViewButtonDelegate {
     // MARK: Convenience
     private func container(for button: InputViewButton) -> UIView {
         let result = UIView()
+        result.isAccessibilityElement = true
         result.addSubview(button)
         result.set(.width, to: InputViewButton.expandedSize)
         result.set(.height, to: InputViewButton.expandedSize)

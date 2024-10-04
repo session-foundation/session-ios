@@ -248,6 +248,7 @@ enum _013_SessionUtilChanges: Migration {
                     db,
                     id: userSessionId.hexString,
                     variant: .contact,
+                    creationDateTimestamp: TimeInterval(dependencies[cache: .snodeAPI].currentOffsetTimestampMs() / 1000),
                     shouldBeVisible: false,
                     calledFromConfig: nil,
                     using: dependencies

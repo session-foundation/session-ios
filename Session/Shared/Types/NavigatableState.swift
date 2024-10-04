@@ -13,12 +13,12 @@ public protocol NavigatableStateHolder {
 }
 
 public extension NavigatableStateHolder {
-    func showToast(text: String, backgroundColor: ThemeValue = .backgroundPrimary) {
-        navigatableState._showToast.send((NSAttributedString(string: text), backgroundColor))
+    func showToast(text: String, backgroundColor: ThemeValue = .backgroundPrimary, inset: CGFloat = Values.largeSpacing) {
+        navigatableState._showToast.send((NSAttributedString(string: text), backgroundColor, inset))
     }
-
-    func showToast(text: NSAttributedString, backgroundColor: ThemeValue = .backgroundPrimary) {
-        navigatableState._showToast.send((text, backgroundColor))
+    
+    func showToast(text: NSAttributedString, backgroundColor: ThemeValue = .backgroundPrimary, inset: CGFloat = Values.largeSpacing) {
+        navigatableState._showToast.send((text, backgroundColor, inset))
     }
     
     func dismissScreen(type: DismissType = .auto) {
@@ -33,13 +33,13 @@ public extension NavigatableStateHolder {
 // MARK: - NavigatableState
 
 public struct NavigatableState {
-    let showToast: AnyPublisher<(NSAttributedString, ThemeValue), Never>
+    let showToast: AnyPublisher<(NSAttributedString, ThemeValue, CGFloat), Never>
     let transitionToScreen: AnyPublisher<(UIViewController, TransitionType), Never>
     let dismissScreen: AnyPublisher<DismissType, Never>
     
     // MARK: - Internal Variables
     
-    fileprivate let _showToast: PassthroughSubject<(NSAttributedString, ThemeValue), Never> = PassthroughSubject()
+    fileprivate let _showToast: PassthroughSubject<(NSAttributedString, ThemeValue, CGFloat), Never> = PassthroughSubject()
     fileprivate let _transitionToScreen: PassthroughSubject<(UIViewController, TransitionType), Never> = PassthroughSubject()
     fileprivate let _dismissScreen: PassthroughSubject<DismissType, Never> = PassthroughSubject()
     
@@ -59,11 +59,11 @@ public struct NavigatableState {
     ) {
         self.showToast
             .receive(on: DispatchQueue.main)
-            .sink { [weak viewController] text, color in
+            .sink { [weak viewController] text, color, inset in
                 guard let view: UIView = viewController?.view else { return }
                 
                 let toastController: ToastController = ToastController(text: text, background: color)
-                toastController.presentToastView(fromBottomOfView: view, inset: Values.largeSpacing)
+                toastController.presentToastView(fromBottomOfView: view, inset: inset)
             }
             .store(in: &disposables)
         

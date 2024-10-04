@@ -639,10 +639,7 @@ open class ProxiedContentDownloader: NSObject, URLSessionTaskDelegate, URLSessio
             removeAssetRequestFromQueue(assetRequest: assetRequest)
             return
         }
-        guard
-            dependencies.hasInitialised(singleton: .appContext) &&
-            (dependencies[singleton: .appContext].isMainAppAndActive || dependencies[singleton: .appContext].isShareExtension)
-        else {
+        guard dependencies[singleton: .appContext].isMainAppAndActive || dependencies[singleton: .appContext].isShareExtension else {
             // If app is not active, fail the asset request.
             assetRequest.state = .failed
             assetRequestDidFail(assetRequest: assetRequest)
@@ -908,7 +905,7 @@ open class ProxiedContentDownloader: NSObject, URLSessionTaskDelegate, URLSessio
     // MARK: Temp Directory
 
     public func ensureDownloadFolder() {
-        guard dependencies.hasInitialised(singleton: .appContext) else { return }
+        guard dependencies[singleton: .appContext].isValid else { return }
         
         // We write assets to the temporary directory so that iOS can clean them up.
         // We try to eagerly clean up these assets when they are no longer in use.

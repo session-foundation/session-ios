@@ -5,32 +5,35 @@ import GRDB
 import SessionUtil
 import SessionUtilitiesKit
 
+// MARK: - ConvoInfoVolatile Handling
+
 internal extension LibSession {
     static let columnsRelatedToConvoInfoVolatile: [ColumnExpression] = [
         // Note: We intentionally exclude 'Interaction.Columns.wasRead' from here as we want to
         // manually manage triggering config updates from marking as read
         SessionThread.Columns.markedAsUnread
     ]
-    
-    // MARK: - Incoming Changes
-    
-    static func handleConvoInfoVolatileUpdate(
+}
+
+// MARK: - Incoming Changes
+
+internal extension LibSessionCacheType {
+    func handleConvoInfoVolatileUpdate(
         _ db: Database,
-        in config: Config?,
-        using dependencies: Dependencies
+        in config: LibSession.Config?
     ) throws {
-        guard config.needsDump(using: dependencies) else { return }
+        guard configNeedsDump(config) else { return }
         guard case .object(let conf) = config else { throw LibSessionError.invalidConfigObject }
         
         // Get the volatile thread info from the conf and local conversations
-        let volatileThreadInfo: [VolatileThreadInfo] = try extractConvoVolatileInfo(from: conf)
-        let localVolatileThreadInfo: [String: VolatileThreadInfo] = VolatileThreadInfo.fetchAll(db)
+        let volatileThreadInfo: [LibSession.VolatileThreadInfo] = try LibSession.extractConvoVolatileInfo(from: conf)
+        let localVolatileThreadInfo: [String: LibSession.VolatileThreadInfo] = LibSession.VolatileThreadInfo.fetchAll(db)
             .reduce(into: [:]) { result, next in result[next.threadId] = next }
         
         // Map the volatileThreadInfo, upserting any changes and returning a list of local changes
         // which should override any synced changes (eg. 'lastReadTimestampMs')
-        let newerLocalChanges: [VolatileThreadInfo] = try volatileThreadInfo
-            .compactMap { threadInfo -> VolatileThreadInfo? in
+        let newerLocalChanges: [LibSession.VolatileThreadInfo] = try volatileThreadInfo
+            .compactMap { threadInfo -> LibSession.VolatileThreadInfo? in
                 // Note: A normal 'openGroupId' isn't lowercased but the volatile conversation
                 // info will always be lowercase so we need to fetch the "proper" threadId (in
                 // order to be able to update the corrent database entries)
@@ -44,7 +47,7 @@ internal extension LibSession {
                 
                 
                 // Get the existing local state for the thread
-                let localThreadInfo: VolatileThreadInfo? = localVolatileThreadInfo[threadId]
+                let localThreadInfo: LibSession.VolatileThreadInfo? = localVolatileThreadInfo[threadId]
                 
                 // Update the thread 'markedAsUnread' state
                 if
@@ -110,17 +113,17 @@ internal extension LibSession {
         // If there are no newer local last read timestamps then just return the mergeResult
         guard !newerLocalChanges.isEmpty else { return }
         
-        try upsert(
+        try LibSession.upsert(
             convoInfoVolatileChanges: newerLocalChanges,
-            in: config,
-            using: dependencies
+            in: config
         )
     }
-    
+}
+
+internal extension LibSession {
     static func upsert(
         convoInfoVolatileChanges: [VolatileThreadInfo],
-        in config: Config?,
-        using dependencies: Dependencies
+        in config: Config?
     ) throws {
         guard case .object(let conf) = config else { throw LibSessionError.invalidConfigObject }
         
@@ -289,8 +292,7 @@ internal extension LibSession {
         ) { config in
             try upsert(
                 convoInfoVolatileChanges: changes,
-                in: config,
-                using: dependencies
+                in: config
             )
         }
     }
@@ -416,8 +418,7 @@ public extension LibSession {
                         changes: [.lastReadTimestampMs(lastReadTimestampMs)]
                     )
                 ],
-                in: config,
-                using: dependencies
+                in: config
             )
         }
     }
@@ -654,7 +655,7 @@ public extension LibSession {
             if convo_info_volatile_it_is_1to1(convoIterator, &oneToOne) {
                 result.append(
                     VolatileThreadInfo(
-                        threadId: String(libSessionVal: oneToOne.session_id),
+                        threadId: oneToOne.get(\.session_id),
                         variant: .contact,
                         changes: [
                             .markedAsUnread(oneToOne.unread),
@@ -664,12 +665,9 @@ public extension LibSession {
                 )
             }
             else if convo_info_volatile_it_is_community(convoIterator, &community) {
-                let server: String = String(libSessionVal: community.base_url)
-                let roomToken: String = String(libSessionVal: community.room)
-                let publicKey: String = Data(
-                    libSessionVal: community.pubkey,
-                    count: LibSession.sizeCommunityPubkeyBytes
-                ).toHexString()
+                let server: String = community.get(\.base_url)
+                let roomToken: String = community.get(\.room)
+                let publicKey: String = community.getHex(\.pubkey)
                 
                 result.append(
                     VolatileThreadInfo(
@@ -691,7 +689,7 @@ public extension LibSession {
             else if convo_info_volatile_it_is_legacy_group(convoIterator, &legacyGroup) {
                 result.append(
                     VolatileThreadInfo(
-                        threadId: String(libSessionVal: legacyGroup.group_id),
+                        threadId: legacyGroup.get(\.group_id),
                         variant: .legacyGroup,
                         changes: [
                             .markedAsUnread(legacyGroup.unread),
@@ -703,7 +701,7 @@ public extension LibSession {
             else if convo_info_volatile_it_is_group(convoIterator, &group) {
                 result.append(
                     VolatileThreadInfo(
-                        threadId: String(libSessionVal: group.group_id),
+                        threadId: group.get(\.group_id),
                         variant: .group,
                         changes: [
                             .markedAsUnread(group.unread),
@@ -748,3 +746,9 @@ fileprivate extension [LibSession.VolatileThreadInfo.Change] {
     }
 }
 
+// MARK: - C Conformance
+
+extension convo_info_volatile_1to1: CAccessible & CMutable {}
+extension convo_info_volatile_community: CAccessible & CMutable {}
+extension convo_info_volatile_legacy_group: CAccessible & CMutable {}
+extension convo_info_volatile_group: CAccessible & CMutable {}

@@ -15,6 +15,7 @@ public enum SNUIKit {
         func cacheContextualActionInfo(tableViewHash: Int, sideKey: String, actionIndex: Int, actionInfo: Any)
         func removeCachedContextualActionInfo(tableViewHash: Int, keys: [String])
         func placeholderIconCacher(cacheKey: String, generator: @escaping () -> UIImage) -> UIImage
+        func localizedString(for key: String) -> String
     }
     
     private static var _mainWindow: UIWindow? = nil
@@ -94,4 +95,21 @@ public enum SNUIKit {
         
         return config.placeholderIconCacher(cacheKey: cacheKey, generator: generator)
     }
+    
+    public static func localizedString(for key: String) -> String {
+        guard let config: ConfigType = self.config else {
+            guard
+                let englishPath: String = Bundle.main.path(forResource: "en", ofType: "lproj"),
+                let englishBundle: Bundle = Bundle(path: englishPath)
+            else { return "" }
+            
+            return englishBundle.localizedString(forKey: key, value: nil, table: nil)
+        }
+        
+        return config.localizedString(for: key)
+    }
+}
+
+internal extension String {
+    func localized() -> String { SNUIKit.localizedString(for: self) }
 }

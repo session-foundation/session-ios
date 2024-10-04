@@ -24,7 +24,7 @@ class NotificationContentViewModelSpec: QuickSpec {
                 SNUtilitiesKit.self,
                 SNSnodeKit.self,
                 SNMessagingKit.self,
-                SNUIKit.self
+                DeprecatedUIKitMigrationTarget.self
             ],
             using: dependencies
         )
@@ -34,7 +34,7 @@ class NotificationContentViewModelSpec: QuickSpec {
         @TestState var dataChangeCancellable: AnyCancellable? = viewModel.tableDataPublisher
             .sink(
                 receiveCompletion: { _ in },
-                receiveValue: { viewModel.updateTableData($0.0) }
+                receiveValue: { viewModel.updateTableData($0) }
             )
         @TestState var dismissCancellable: AnyCancellable?
         
@@ -42,7 +42,7 @@ class NotificationContentViewModelSpec: QuickSpec {
         describe("a NotificationContentViewModel") {
             // MARK: -- has the correct title
             it("has the correct title") {
-                expect(viewModel.title).to(equal("NOTIFICATIONS_STYLE_CONTENT_TITLE".localized()))
+                expect(viewModel.title).to(equal("notificationsContent".localized()))
             }
 
             // MARK: -- has the correct number of items
@@ -59,7 +59,7 @@ class NotificationContentViewModelSpec: QuickSpec {
                             SessionCell.Info(
                                 id: Preferences.NotificationPreviewType.nameAndPreview,
                                 position: .top,
-                                title: "NOTIFICATIONS_STYLE_CONTENT_OPTION_NAME_AND_CONTENT".localized(),
+                                title: "notificationsContentShowNameAndContent".localized(),
                                 trailingAccessory: .radio(
                                     isSelected: true
                                 )
@@ -67,7 +67,7 @@ class NotificationContentViewModelSpec: QuickSpec {
                             SessionCell.Info(
                                 id: Preferences.NotificationPreviewType.nameNoPreview,
                                 position: .middle,
-                                title: "NOTIFICATIONS_STYLE_CONTENT_OPTION_NAME_ONLY".localized(),
+                                title: "notificationsContentShowNameOnly".localized(),
                                 trailingAccessory: .radio(
                                     isSelected: false
                                 )
@@ -75,7 +75,7 @@ class NotificationContentViewModelSpec: QuickSpec {
                             SessionCell.Info(
                                 id: Preferences.NotificationPreviewType.noNameNoPreview,
                                 position: .bottom,
-                                title: "NOTIFICATIONS_STYLE_CONTENT_OPTION_NO_NAME_OR_CONTENT".localized(),
+                                title: "notificationsContentShowNoNameOrContent".localized(),
                                 trailingAccessory: .radio(
                                     isSelected: false
                                 )
@@ -93,7 +93,7 @@ class NotificationContentViewModelSpec: QuickSpec {
                 dataChangeCancellable = viewModel.tableDataPublisher
                     .sink(
                         receiveCompletion: { _ in },
-                        receiveValue: { viewModel.updateTableData($0.0) }
+                        receiveValue: { viewModel.updateTableData($0) }
                     )
                 
                 expect(viewModel.tableData.first?.elements)
@@ -102,7 +102,7 @@ class NotificationContentViewModelSpec: QuickSpec {
                             SessionCell.Info(
                                 id: Preferences.NotificationPreviewType.nameAndPreview,
                                 position: .top,
-                                title: "NOTIFICATIONS_STYLE_CONTENT_OPTION_NAME_AND_CONTENT".localized(),
+                                title: "notificationsContentShowNameAndContent".localized(),
                                 trailingAccessory: .radio(
                                     isSelected: false
                                 )
@@ -110,7 +110,7 @@ class NotificationContentViewModelSpec: QuickSpec {
                             SessionCell.Info(
                                 id: Preferences.NotificationPreviewType.nameNoPreview,
                                 position: .middle,
-                                title: "NOTIFICATIONS_STYLE_CONTENT_OPTION_NAME_ONLY".localized(),
+                                title: "notificationsContentShowNameOnly".localized(),
                                 trailingAccessory: .radio(
                                     isSelected: true
                                 )
@@ -118,7 +118,7 @@ class NotificationContentViewModelSpec: QuickSpec {
                             SessionCell.Info(
                                 id: Preferences.NotificationPreviewType.noNameNoPreview,
                                 position: .bottom,
-                                title: "NOTIFICATIONS_STYLE_CONTENT_OPTION_NO_NAME_OR_CONTENT".localized(),
+                                title: "notificationsContentShowNoNameOrContent".localized(),
                                 trailingAccessory: .radio(
                                     isSelected: false
                                 )

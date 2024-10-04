@@ -9,8 +9,11 @@ import SessionMessagingKit
 import SessionUtilitiesKit
 import SignalUtilitiesKit
 
-final class JoinOpenGroupVC: BaseVC, UIPageViewControllerDataSource, UIPageViewControllerDelegate, QRScannerDelegate {
+final class JoinOpenGroupVC: BaseVC, UIPageViewControllerDataSource, UIPageViewControllerDelegate, QRScannerDelegate, NavigatableStateHolder {
     private let dependencies: Dependencies
+    public let navigatableState: NavigatableState = NavigatableState()
+    private var disposables: Set<AnyCancellable> = Set()
+    
     private let pageVC = UIPageViewController(transitionStyle: .scroll, navigationOrientation: .horizontal, options: nil)
     private var pages: [UIViewController] = []
     private var isJoining = false
@@ -20,11 +23,11 @@ final class JoinOpenGroupVC: BaseVC, UIPageViewControllerDataSource, UIPageViewC
     
     private lazy var tabBar: TabBar = {
         let tabs: [TabBar.Tab] = [
-            TabBar.Tab(title: "vc_join_public_chat_enter_group_url_tab_title".localized()) { [weak self] in
+            TabBar.Tab(title: "communityUrl".localized()) { [weak self] in
                 guard let self = self else { return }
                 self.pageVC.setViewControllers([ self.pages[0] ], direction: .forward, animated: false, completion: nil)
             },
-            TabBar.Tab(title: "vc_join_public_chat_scan_qr_code_tab_title".localized()) { [weak self] in
+            TabBar.Tab(title: "qrScan".localized()) { [weak self] in
                 guard let self = self else { return }
                 self.pageVC.setViewControllers([ self.pages[1] ], direction: .forward, animated: false, completion: nil)
             }
@@ -48,7 +51,7 @@ final class JoinOpenGroupVC: BaseVC, UIPageViewControllerDataSource, UIPageViewC
     }()
 
     private lazy var scanQRCodeWrapperVC: ScanQRCodeWrapperVC = {
-        let result: ScanQRCodeWrapperVC = ScanQRCodeWrapperVC(message: nil)
+        let result: ScanQRCodeWrapperVC = ScanQRCodeWrapperVC()
         result.delegate = self
         
         return result
@@ -71,8 +74,9 @@ final class JoinOpenGroupVC: BaseVC, UIPageViewControllerDataSource, UIPageViewC
     override func viewDidLoad() {
         super.viewDidLoad()
         
-        setNavBarTitle("vc_join_public_chat_title".localized())
+        setNavBarTitle("communityJoin".localized())
         view.themeBackgroundColor = .newConversation_background
+        let navBarHeight: CGFloat = (navigationController?.navigationBar.frame.size.height ?? 0)
         
         let closeButton = UIBarButtonItem(image: #imageLiteral(resourceName: "X"), style: .plain, target: self, action: #selector(close))
         closeButton.themeTintColor = .textPrimary
@@ -88,7 +92,7 @@ final class JoinOpenGroupVC: BaseVC, UIPageViewControllerDataSource, UIPageViewC
         // Tab bar
         view.addSubview(tabBar)
         tabBar.pin(.leading, to: .leading, of: view)
-        tabBar.pin(.top, to: .top, of: view)
+        tabBar.pin(.top, to: .top, of: view, withInset: navBarHeight)
         tabBar.pin(.trailing, to: .trailing, of: view)
         
         // Page VC constraints
@@ -99,12 +103,13 @@ final class JoinOpenGroupVC: BaseVC, UIPageViewControllerDataSource, UIPageViewC
         pageVCView.pin(.trailing, to: .trailing, of: view)
         pageVCView.pin(.bottom, to: .bottom, of: view)
         
-        let navBarHeight: CGFloat = (navigationController?.navigationBar.frame.size.height ?? 0)
         let statusBarHeight: CGFloat = UIApplication.shared.statusBarFrame.size.height
         let height: CGFloat = ((navigationController?.view.bounds.height ?? 0) - navBarHeight - TabBar.snHeight - statusBarHeight)
         let size: CGSize = CGSize(width: UIScreen.main.bounds.width, height: height)
         enterURLVC.constrainSize(to: size)
         scanQRCodePlaceholderVC.constrainSize(to: size)
+        
+        navigatableState.setupBindings(viewController: self, disposables: &disposables)
     }
     
     override func viewWillTransition(to size: CGSize, with coordinator: UIViewControllerTransitionCoordinator) {
@@ -157,7 +162,7 @@ final class JoinOpenGroupVC: BaseVC, UIPageViewControllerDataSource, UIPageViewC
         dismiss(animated: true, completion: nil)
     }
 
-    func controller(_ controller: QRCodeScanningViewController, didDetectQRCodeWith string: String, onError: (() -> ())?) {
+    func controller(_ controller: QRCodeScanningViewController, didDetectQRCodeWith string: String, onSuccess: (() -> ())?, onError: (() -> ())?) {
         joinOpenGroup(with: string, onError: onError)
     }
 
@@ -166,8 +171,8 @@ final class JoinOpenGroupVC: BaseVC, UIPageViewControllerDataSource, UIPageViewC
         // The host doesn't parse if no explicit scheme is provided
         guard let (room, server, publicKey) = LibSession.parseCommunity(url: urlString) else {
             showError(
-                title: "invalid_url".localized(),
-                message: "COMMUNITY_ERROR_INVALID_URL".localized(),
+                title: "communityEnterUrlErrorInvalid".localized(),
+                message: "communityEnterUrlErrorInvalidDescription".localized(),
                 onError: onError
             )
             return
@@ -184,6 +189,18 @@ final class JoinOpenGroupVC: BaseVC, UIPageViewControllerDataSource, UIPageViewC
         onError: (() -> ())?
     ) {
         guard !isJoining, let navigationController: UINavigationController = navigationController else { return }
+        
+        guard dependencies[singleton: .openGroupManager].hasExistingOpenGroup(
+            roomToken: roomToken,
+            server: server,
+            publicKey: publicKey
+        ) != true else {
+            self.showToast(
+                text: "communityJoinedAlready".localized(),
+                backgroundColor: .backgroundSecondary
+            )
+            return
+        }
         
         isJoining = true
         
@@ -229,8 +246,8 @@ final class JoinOpenGroupVC: BaseVC, UIPageViewControllerDataSource, UIPageViewC
                                 self?.isJoining = false
                                 self?.dismiss(animated: true) { // Dismiss the loader
                                     self?.showError(
-                                        title: "COMMUNITY_ERROR_GENERIC".localized(),
-                                        message: error.localizedDescription,
+                                        title: "communityJoinError".localized(),
+                                        message: "\(error)",
                                         onError: onError
                                     )
                                 }
@@ -242,6 +259,7 @@ final class JoinOpenGroupVC: BaseVC, UIPageViewControllerDataSource, UIPageViewC
                                     dependencies[singleton: .app].presentConversationCreatingIfNeeded(
                                         for: OpenGroup.idFor(roomToken: roomToken, server: server),
                                         variant: .community,
+                                        action: .none,
                                         dismissing: nil,
                                         animated: false
                                     )
@@ -259,7 +277,7 @@ final class JoinOpenGroupVC: BaseVC, UIPageViewControllerDataSource, UIPageViewC
             info: ConfirmationModal.Info(
                 title: title,
                 body: .text(message),
-                cancelTitle: "BUTTON_OK".localized(),
+                cancelTitle: "okay".localized(),
                 cancelStyle: .alert_text,
                 afterClosed: onError
             )
@@ -284,7 +302,7 @@ private final class EnterURLVC: UIViewController, UIGestureRecognizerDelegate, O
     private var keyboardTransitionSnapshot2: UIView?
     
     private lazy var urlTextView: TextView = {
-        let result: TextView = TextView(placeholder: "vc_enter_chat_url_text_field_hint".localized())
+        let result: TextView = TextView(placeholder: "communityEnterUrl".localized())
         result.keyboardType = .URL
         result.autocapitalizationType = .none
         result.autocorrectionType = .no
@@ -296,7 +314,7 @@ private final class EnterURLVC: UIViewController, UIGestureRecognizerDelegate, O
         let result: UILabel = UILabel()
         result.setContentHuggingPriority(.required, for: .vertical)
         result.font = .boldSystemFont(ofSize: Values.largeFontSize)
-        result.text = "vc_join_open_group_suggestions_title".localized()
+        result.text = "communityJoinOfficial".localized()
         result.themeTextColor = .textPrimary
         result.lineBreakMode = .byWordWrapping
         result.numberOfLines = 0
@@ -339,7 +357,7 @@ private final class EnterURLVC: UIViewController, UIGestureRecognizerDelegate, O
         
         // Next button
         let joinButton = SessionButton(style: .bordered, size: .large)
-        joinButton.setTitle("JOIN_COMMUNITY_BUTTON_TITLE".localized(), for: UIControl.State.normal)
+        joinButton.setTitle("join".localized(), for: UIControl.State.normal)
         joinButton.addTarget(self, action: #selector(joinOpenGroup), for: UIControl.Event.touchUpInside)
         
         let joinButtonContainer = UIView(
@@ -551,7 +569,9 @@ private final class ScanQRCodePlaceholderVC: UIViewController {
         // Explanation label
         let explanationLabel = UILabel()
         explanationLabel.font = .systemFont(ofSize: Values.smallFontSize)
-        explanationLabel.text = "vc_scan_qr_code_camera_access_explanation".localized()
+        explanationLabel.text = "cameraGrantAccessQr"
+            .put(key: "app_name", value: Constants.app_name)
+            .localized()
         explanationLabel.themeTextColor = .textPrimary
         explanationLabel.textAlignment = .center
         explanationLabel.lineBreakMode = .byWordWrapping
@@ -560,7 +580,7 @@ private final class ScanQRCodePlaceholderVC: UIViewController {
         // Call to action button
         let callToActionButton = UIButton()
         callToActionButton.titleLabel?.font = .boldSystemFont(ofSize: Values.mediumFontSize)
-        callToActionButton.setTitle("continue_2".localized(), for: .normal)
+        callToActionButton.setTitle("theContinue".localized(), for: .normal)
         callToActionButton.setThemeTitleColor(.primary, for: .normal)
         callToActionButton.addTarget(self, action: #selector(requestCameraAccess), for: .touchUpInside)
         

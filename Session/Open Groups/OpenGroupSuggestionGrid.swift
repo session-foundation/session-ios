@@ -90,7 +90,7 @@ final class OpenGroupSuggestionGrid: UIView, UICollectionViewDataSource, UIColle
     private lazy var errorTitleLabel: UILabel = {
         let result: UILabel = UILabel()
         result.font = .systemFont(ofSize: Values.mediumFontSize, weight: .medium)
-        result.text = "DEFAULT_OPEN_GROUP_LOAD_ERROR_TITLE".localized()
+        result.text = "communityError".localized()
         result.themeTextColor = .textPrimary
         result.textAlignment = .center
         result.numberOfLines = 0
@@ -101,7 +101,7 @@ final class OpenGroupSuggestionGrid: UIView, UICollectionViewDataSource, UIColle
     private lazy var errorSubtitleLabel: UILabel = {
         let result: UILabel = UILabel()
         result.font = .systemFont(ofSize: Values.smallFontSize, weight: .medium)
-        result.text = "DEFAULT_OPEN_GROUP_LOAD_ERROR_SUBTITLE".localized()
+        result.text = "communityErrorDescription".localized()
         result.themeTextColor = .textPrimary
         result.textAlignment = .center
         result.numberOfLines = 0
@@ -255,6 +255,7 @@ final class OpenGroupSuggestionGrid: UIView, UICollectionViewDataSource, UIColle
     func collectionView(_ collectionView: UICollectionView, didSelectItemAt indexPath: IndexPath) {
         let room = data[indexPath.section * itemsPerSection + indexPath.item].room
         delegate?.join(room)
+        collectionView.deselectItem(at: indexPath, animated: true)
     }
 }
 

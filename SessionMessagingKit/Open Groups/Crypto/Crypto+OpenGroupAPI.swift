@@ -216,7 +216,7 @@ public extension Crypto.Generator {
             let ed25519KeyPair: KeyPair = try Identity.fetchUserEd25519KeyPair(db) ?? {
                 throw MessageSenderError.noUserED25519KeyPair
             }()
-
+            
             var cCiphertext: [UInt8] = Array(ciphertext)
             var cEd25519SecretKey: [UInt8] = ed25519KeyPair.secretKey
             var cSenderId: [UInt8] = Array(Data(hex: senderId))

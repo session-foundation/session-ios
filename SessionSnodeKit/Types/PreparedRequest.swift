@@ -21,7 +21,8 @@ public extension Network {
         public let originalType: Decodable.Type
         public let responseType: R.Type
         public let retryCount: Int
-        public let timeout: TimeInterval
+        public let requestTimeout: TimeInterval
+        public let requestAndPathBuildTimeout: TimeInterval?
         public let cachedResponse: CachedResponse?
         fileprivate let responseConverter: ((ResponseInfoType, Any) throws -> R)
         public let subscriptionHandler: (() -> Void)?
@@ -30,7 +31,8 @@ public extension Network {
         public let cancelEventHandler: (() -> Void)?
         
         // The following types are needed for `BatchRequest` handling
-        private let path: String
+        public let method: HTTPMethod
+        public let path: String
         public let endpoint: (any EndpointType)
         public let endpointName: String
         public let headers: [HTTPHeader: String]
@@ -50,7 +52,8 @@ public extension Network {
             responseType: R.Type,
             requireAllBatchResponses: Bool = true,
             retryCount: Int = 0,
-            timeout: TimeInterval = Network.defaultTimeout,
+            requestTimeout: TimeInterval = Network.defaultTimeout,
+            requestAndPathBuildTimeout: TimeInterval? = nil,
             using dependencies: Dependencies
         ) throws where R: Decodable {
             try self.init(
@@ -59,7 +62,8 @@ public extension Network {
                 additionalSignatureData: NoSignature.null,
                 requireAllBatchResponses: requireAllBatchResponses,
                 retryCount: retryCount,
-                timeout: timeout,
+                requestTimeout: requestTimeout,
+                requestAndPathBuildTimeout: requestAndPathBuildTimeout,
                 using: dependencies
             )
         }
@@ -70,7 +74,8 @@ public extension Network {
             additionalSignatureData: S?,
             requireAllBatchResponses: Bool = true,
             retryCount: Int = 0,
-            timeout: TimeInterval = Network.defaultTimeout,
+            requestTimeout: TimeInterval = Network.defaultTimeout,
+            requestAndPathBuildTimeout: TimeInterval? = nil,
             using dependencies: Dependencies
         ) throws where R: Decodable {
             let batchRequests: [Network.BatchRequest.Child]? = (request.body as? BatchRequestChildRetrievable)?.requests
@@ -91,7 +96,8 @@ public extension Network {
             self.originalType = R.self
             self.responseType = responseType
             self.retryCount = retryCount
-            self.timeout = timeout
+            self.requestTimeout = requestTimeout
+            self.requestAndPathBuildTimeout = requestAndPathBuildTimeout
             self.cachedResponse = nil
             
             // When we are making a batch request we also want to call though any sub request event
@@ -221,10 +227,11 @@ public extension Network {
             }()
             
             // The following data is needed in this type for handling batch requests
+            self.method = request.destination.method
             self.endpoint = request.endpoint
             self.endpointName = E.name
             self.path = request.destination.urlPathAndParamsString
-            self.headers = request.headers
+            self.headers = request.destination.headers
             
             self.batchEndpoints = batchEndpoints
             self.batchRequestVariant = E.batchRequestVariant
@@ -270,13 +277,15 @@ public extension Network {
             originalType: U.Type,
             responseType: R.Type,
             retryCount: Int,
-            timeout: TimeInterval,
+            requestTimeout: TimeInterval,
+            requestAndPathBuildTimeout: TimeInterval?,
             cachedResponse: CachedResponse?,
             responseConverter: @escaping (ResponseInfoType, Any) throws -> R,
             subscriptionHandler: (() -> Void)?,
             outputEventHandler: ((CachedResponse) -> Void)?,
             completionEventHandler: ((Subscribers.Completion<Error>) -> Void)?,
             cancelEventHandler: (() -> Void)?,
+            method: HTTPMethod,
             endpoint: (any EndpointType),
             endpointName: String,
             headers: [HTTPHeader: String],
@@ -297,7 +306,8 @@ public extension Network {
             self.originalType = originalType
             self.responseType = responseType
             self.retryCount = retryCount
-            self.timeout = timeout
+            self.requestTimeout = requestTimeout
+            self.requestAndPathBuildTimeout = requestAndPathBuildTimeout
             self.cachedResponse = cachedResponse
             self.responseConverter = responseConverter
             self.subscriptionHandler = subscriptionHandler
@@ -306,6 +316,7 @@ public extension Network {
             self.cancelEventHandler = cancelEventHandler
             
             // The following data is needed in this type for handling batch requests
+            self.method = method
             self.endpoint = endpoint
             self.endpointName = endpointName
             self.headers = headers
@@ -417,7 +428,7 @@ extension Network.PreparedRequest: ErasedPreparedRequest {
                     try container.encode(batchRequestHeaders, forKey: .headers)
                 }
                 
-                try container.encode(HTTPMethod.post, forKey: .method)  // Should always be POST
+                try container.encode(method, forKey: .method)
                 try container.encode(path, forKey: .path)
                 try jsonKeyedBodyEncoder?(&container, .json)
                 try container.encodeIfPresent(b64, forKey: .b64)
@@ -439,23 +450,27 @@ public extension Network.PreparedRequest {
         with requestSigner: (Database, Network.PreparedRequest<R>, Dependencies) throws -> Network.Destination,
         using dependencies: Dependencies
     ) throws -> Network.PreparedRequest<R> {
+        let signedDestination: Network.Destination = try requestSigner(db, self, dependencies)
+        
         return Network.PreparedRequest(
             body: body,
-            destination: try requestSigner(db, self, dependencies),
+            destination: signedDestination,
             additionalSignatureData: additionalSignatureData,
             originalType: originalType,
             responseType: responseType,
             retryCount: retryCount,
-            timeout: timeout,
+            requestTimeout: requestTimeout,
+            requestAndPathBuildTimeout: requestAndPathBuildTimeout,
             cachedResponse: cachedResponse,
             responseConverter: responseConverter,
             subscriptionHandler: subscriptionHandler,
             outputEventHandler: outputEventHandler,
             completionEventHandler: completionEventHandler,
             cancelEventHandler: cancelEventHandler,
+            method: method,
             endpoint: endpoint,
             endpointName: endpointName,
-            headers: headers,
+            headers: signedDestination.headers,
             path: path,
             batchEndpoints: batchEndpoints,
             batchRequestVariant: batchRequestVariant,
@@ -491,7 +506,8 @@ public extension Network.PreparedRequest {
             originalType: originalType,
             responseType: O.self,
             retryCount: retryCount,
-            timeout: timeout,
+            requestTimeout: requestTimeout,
+            requestAndPathBuildTimeout: requestAndPathBuildTimeout,
             cachedResponse: cachedResponse.map { data in
                 (try? responseConverter(data.info, data.convertedData))
                     .map { convertedData in
@@ -519,6 +535,7 @@ public extension Network.PreparedRequest {
             },
             completionEventHandler: completionEventHandler,
             cancelEventHandler: cancelEventHandler,
+            method: method,
             endpoint: endpoint,
             endpointName: endpointName,
             headers: headers,
@@ -601,13 +618,15 @@ public extension Network.PreparedRequest {
             originalType: originalType,
             responseType: responseType,
             retryCount: retryCount,
-            timeout: timeout,
+            requestTimeout: requestTimeout,
+            requestAndPathBuildTimeout: requestAndPathBuildTimeout,
             cachedResponse: cachedResponse,
             responseConverter: responseConverter,
             subscriptionHandler: subscriptionHandler,
             outputEventHandler: outputEventHandler,
             completionEventHandler: completionEventHandler,
             cancelEventHandler: cancelEventHandler,
+            method: method,
             endpoint: endpoint,
             endpointName: endpointName,
             headers: headers,
@@ -643,7 +662,8 @@ public extension Network.PreparedRequest {
             originalType: R.self,
             responseType: R.self,
             retryCount: 0,
-            timeout: 0,
+            requestTimeout: 0,
+            requestAndPathBuildTimeout: nil,
             cachedResponse: Network.PreparedRequest<R>.CachedResponse(
                 info: Network.ResponseInfo(code: 0, headers: [:]),
                 originalData: cachedResponse,
@@ -654,6 +674,7 @@ public extension Network.PreparedRequest {
             outputEventHandler: nil,
             completionEventHandler: nil,
             cancelEventHandler: nil,
+            method: .get,
             endpoint: endpoint,
             endpointName: E.name,
             headers: [:],

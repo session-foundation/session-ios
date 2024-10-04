@@ -133,14 +133,14 @@ public final class SnodeAPI {
                 request: {
                     switch snode {
                         case .none:
-                            return Request(
+                            return try Request(
                                 endpoint: .batch,
                                 swarmPublicKey: swarmPublicKey,
                                 body: Network.BatchRequest(requestsKey: .requests, requests: requests)
                             )
                         
                         case .some(let snode):
-                            return Request(
+                            return try Request(
                                 endpoint: .batch,
                                 snode: snode,
                                 swarmPublicKey: swarmPublicKey,
@@ -185,15 +185,6 @@ public final class SnodeAPI {
         authMethod: AuthenticationMethod,
         using dependencies: Dependencies
     ) throws -> Network.PreparedRequest<PreparedGetMessagesResponse> {
-        // Prune expired message hashes for this namespace on this service node
-        try SnodeReceivedMessageInfo.pruneExpiredMessageHashInfo(
-            db,
-            for: snode,
-            namespace: namespace,
-            swarmPublicKey: authMethod.swarmPublicKey,
-            using: dependencies
-        )
-
         let maybeLastHash: String? = try SnodeReceivedMessageInfo
             .fetchLastNotExpired(
                 db,
@@ -304,7 +295,6 @@ public final class SnodeAPI {
                                 )
                             }
                             .send(using: dependencies)
-                            .retry(4)
                             .map { _, sessionId in sessionId }
                             .eraseToAnyPublisher()
                     }
@@ -550,6 +540,8 @@ public final class SnodeAPI {
     /// Clears all the user's data from their swarm. Returns a dictionary of snode public key to deletion confirmation.
     public static func preparedDeleteAllMessages(
         namespace: SnodeAPI.Namespace,
+        requestTimeout: TimeInterval = Network.defaultTimeout,
+        requestAndPathBuildTimeout: TimeInterval? = nil,
         authMethod: AuthenticationMethod,
         using dependencies: Dependencies
     ) throws -> Network.PreparedRequest<[String: Bool]> {
@@ -567,6 +559,8 @@ public final class SnodeAPI {
                 ),
                 responseType: DeleteAllMessagesResponse.self,
                 retryCount: maxRetryCount,
+                requestTimeout: requestTimeout,
+                requestAndPathBuildTimeout: requestAndPathBuildTimeout,
                 using: dependencies
             )
             .tryMap { info, response -> [String: Bool] in
@@ -648,7 +642,8 @@ public final class SnodeAPI {
         responseType: R.Type,
         requireAllBatchResponses: Bool = true,
         retryCount: Int = 0,
-        timeout: TimeInterval = Network.defaultTimeout,
+        requestTimeout: TimeInterval = Network.defaultTimeout,
+        requestAndPathBuildTimeout: TimeInterval? = nil,
         using dependencies: Dependencies
     ) throws -> Network.PreparedRequest<R> {
         return try Network.PreparedRequest<R>(
@@ -656,7 +651,8 @@ public final class SnodeAPI {
             responseType: responseType,
             requireAllBatchResponses: requireAllBatchResponses,
             retryCount: retryCount,
-            timeout: timeout,
+            requestTimeout: requestTimeout,
+            requestAndPathBuildTimeout: requestAndPathBuildTimeout,
             using: dependencies
         )
         .handleEvents(

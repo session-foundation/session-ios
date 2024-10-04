@@ -14,7 +14,7 @@ import SignalUtilitiesKit
 class EditGroupViewModel: SessionTableViewModel, NavigatableStateHolder, EditableStateHolder, ObservableTableSource {
     private static let minVersionBannerInfo: InfoBanner.Info = InfoBanner.Info(
         font: .systemFont(ofSize: Values.verySmallFontSize),
-        message: "GROUP_MEMBERS_MIN_VERSION".localized(),
+        message: "groupInviteVersion".localized(),
         icon: .none,
         tintColor: .black,
         backgroundColor: .warning,
@@ -33,7 +33,7 @@ class EditGroupViewModel: SessionTableViewModel, NavigatableStateHolder, Editabl
     private lazy var imagePickerHandler: ImagePickerHandler = ImagePickerHandler(
         onTransition: { [weak self] in self?.transitionToScreen($0, transitionType: $1) },
         onImageDataPicked: { [weak self] resultImageData in
-            self?.updatedDisplayPictureSelected(update: .uploadImageData(resultImageData))
+            self?.updatedDisplayPictureSelected(update: .groupUploadImageData(resultImageData))
         }
     )
     fileprivate var newDisplayName: String?
@@ -59,7 +59,7 @@ class EditGroupViewModel: SessionTableViewModel, NavigatableStateHolder, Editabl
         
         public var title: String? {
             switch self {
-                case .members: return "GROUP_MEMBERS".localized()
+                case .members: return "groupMembers".localized()
                 default: return nil
             }
         }
@@ -101,7 +101,7 @@ class EditGroupViewModel: SessionTableViewModel, NavigatableStateHolder, Editabl
         )
     }
     
-    let title: String = "EDIT_GROUP_ACTION".localized()
+    let title: String = "groupEdit".localized()
     
     var bannerInfo: AnyPublisher<InfoBanner.Info?, Never> { Just(EditGroupViewModel.minVersionBannerInfo).eraseToAnyPublisher() }
     
@@ -156,7 +156,7 @@ class EditGroupViewModel: SessionTableViewModel, NavigatableStateHolder, Editabl
                         SessionCell.Info(
                             id: .groupName,
                             title: SessionCell.TextInfo(
-                                "ERROR_UNABLE_TO_FIND_DATA".localized(),
+                                "errorUnknown".localized(),
                                 font: .subtitle,
                                 alignment: .center
                             ),
@@ -246,7 +246,7 @@ class EditGroupViewModel: SessionTableViewModel, NavigatableStateHolder, Editabl
                             state.group.name,
                             font: .titleLarge,
                             alignment: .center,
-                            editingPlaceholder: "EDIT_GROUP_NAME_PLACEHOLDER".localized()
+                            editingPlaceholder: "groupNameEnter".localized()
                         ),
                         styling: SessionCell.StyleInfo(
                             alignment: .centerHugging,
@@ -259,7 +259,7 @@ class EditGroupViewModel: SessionTableViewModel, NavigatableStateHolder, Editabl
                             backgroundStyle: .noBackground
                         ),
                         accessibility: Accessibility(
-                            identifier: "Group name",
+                            identifier: "Group name text field",
                             label: state.group.name
                         ),
                         onTap: { [weak self] in
@@ -277,7 +277,7 @@ class EditGroupViewModel: SessionTableViewModel, NavigatableStateHolder, Editabl
                                 (state.group.groupDescription ?? ""),
                                 font: .subtitle,
                                 alignment: .center,
-                                editingPlaceholder: "EDIT_GROUP_DESCRIPTION_PLACEHOLDER".localized()
+                                editingPlaceholder: "groupDescriptionEnter".localized()
                             ),
                             styling: SessionCell.StyleInfo(
                                 tintColor: .textSecondary,
@@ -289,7 +289,7 @@ class EditGroupViewModel: SessionTableViewModel, NavigatableStateHolder, Editabl
                                 backgroundStyle: .noBackground
                             ),
                             accessibility: Accessibility(
-                                identifier: "Group description",
+                                identifier: "Group description text field",
                                 label: (state.group.groupDescription ?? "")
                             ),
                             onTap: { [weak self] in
@@ -309,10 +309,10 @@ class EditGroupViewModel: SessionTableViewModel, NavigatableStateHolder, Editabl
                     SessionCell.Info(
                         id: .invite,
                         leadingAccessory:  .icon(UIImage(named: "icon_invite")?.withRenderingMode(.alwaysTemplate)),
-                        title: "GROUP_ACTION_INVITE_CONTACTS".localized(),
+                        title: "membersInvite".localized(),
                         accessibility: Accessibility(
-                            identifier: "Invite Contacts",
-                            label: "Invite Contacts"
+                            identifier: "Add members",
+                            label: "Add members"
                         ),
                         onTap: { [weak self] in self?.inviteContacts(currentGroupName: state.group.name) }
                     ),
@@ -320,7 +320,7 @@ class EditGroupViewModel: SessionTableViewModel, NavigatableStateHolder, Editabl
                         SessionCell.Info(
                             id: .inviteById,
                             leadingAccessory:  .icon(UIImage(named: "ic_plus_24")?.withRenderingMode(.alwaysTemplate)),
-                            title: "Invite Account ID or ONS",  // FIXME: Localise this
+                            title: "accountIdOrOnsInvite".localized(),
                             accessibility: Accessibility(
                                 identifier: "Invite by id",
                                 label: "Invite by id"
@@ -343,7 +343,7 @@ class EditGroupViewModel: SessionTableViewModel, NavigatableStateHolder, Editabl
                             ),
                             title: SessionCell.TextInfo(
                                 {
-                                    guard memberInfo.profileId != userSessionId.hexString else { return "CURRENT_USER".localized() }
+                                    guard memberInfo.profileId != userSessionId.hexString else { return "you".localized() }
                                     
                                     return (
                                         memberInfo.profile?.displayName() ??
@@ -367,7 +367,7 @@ class EditGroupViewModel: SessionTableViewModel, NavigatableStateHolder, Editabl
                                     case (.admin, _), (.moderator, _): return nil
                                     case (.standard, .failed), (.standard, .notSentYet), (.standard, .pending):
                                         return .highlightingBackgroundLabelAndRadio(
-                                            title: "context_menu_resend".localized(),
+                                            title: "resend".localized(),
                                             isSelected: selectedIdsSubject.value.contains(memberInfo.profileId),
                                             labelAccessibility: Accessibility(
                                                 identifier: "Resend invite button",
@@ -401,7 +401,7 @@ class EditGroupViewModel: SessionTableViewModel, NavigatableStateHolder, Editabl
                                     case (.moderator, _, _): return
                                     case (.admin, _, _):
                                         self?.showToast(
-                                            text: "EDIT_GROUP_MEMBERS_ERROR_REMOVE_ADMIN".localized(),
+                                            text: "adminCannotBeRemoved".localized(),
                                             backgroundColor: .backgroundSecondary
                                         )
                                         
@@ -433,7 +433,7 @@ class EditGroupViewModel: SessionTableViewModel, NavigatableStateHolder, Editabl
         .map { selectedIds in
             SessionButton.Info(
                 style: .destructive,
-                title: "GROUP_ACTION_REMOVE".localized(),
+                title: "remove".localized(),
                 isEnabled: !selectedIds.isEmpty,
                 accessibility: Accessibility(
                     identifier: "Remove contact button"
@@ -452,7 +452,7 @@ class EditGroupViewModel: SessionTableViewModel, NavigatableStateHolder, Editabl
             DisplayPictureManager.displayPicture(db, id: .group(threadId), using: dependencies)
         }
         let editDisplayPictureModalInfo: ConfirmationModal.Info = ConfirmationModal.Info(
-            title: "EDIT_GROUP_DISPLAY_PICTURE".localized(),
+            title: "groupSetDisplayPicture".localized(),
             body: .image(
                 placeholderData: UIImage(named: "profile_placeholder")?.pngData(),
                 valueData: existingImageData,
@@ -464,16 +464,31 @@ class EditGroupViewModel: SessionTableViewModel, NavigatableStateHolder, Editabl
                 ),
                 onClick: { [weak self] in self?.showPhotoLibraryForAvatar() }
             ),
-            confirmTitle: "update_profile_modal_save".localized(),
-            confirmEnabled: false,
-            cancelTitle: "update_profile_modal_remove".localized(),
-            cancelEnabled: (existingImageData != nil),
+            confirmTitle: "save".localized(),
+            confirmEnabled: .afterChange { info in
+                switch info.body {
+                    case .image(_, let valueData, _, _, _, _): return (valueData != nil)
+                    default: return false
+                }
+            },
+            cancelTitle: "remove".localized(),
+            cancelEnabled: .bool(existingImageData != nil),
             hasCloseButton: true,
             dismissOnConfirm: false,
-            onConfirm: { modal in modal.close() },
+            onConfirm: { [weak self] modal in
+                switch modal.info.body {
+                    case .image(_, .some(let valueData), _, _, _, _):
+                        self?.updateDisplayPicture(
+                            displayPictureUpdate: .groupUploadImageData(valueData),
+                            onComplete: { [weak modal] in modal?.close() }
+                        )
+                        
+                    default: modal.close()
+                }
+            },
             onCancel: { [weak self] modal in
                 self?.updateDisplayPicture(
-                    displayPictureUpdate: .remove,
+                    displayPictureUpdate: .groupRemove,
                     onComplete: { [weak modal] in modal?.close() }
                 )
             },
@@ -498,7 +513,7 @@ class EditGroupViewModel: SessionTableViewModel, NavigatableStateHolder, Editabl
                     placeholderData: UIImage(named: "profile_placeholder")?.pngData(),
                     valueData: {
                         switch update {
-                            case .uploadImageData(let imageData): return imageData
+                            case .groupUploadImageData(let imageData): return imageData
                             default: return nil
                         }
                     }(),
@@ -509,20 +524,13 @@ class EditGroupViewModel: SessionTableViewModel, NavigatableStateHolder, Editabl
                         label: "Image picker"
                     ),
                     onClick: { [weak self] in self?.showPhotoLibraryForAvatar() }
-                ),
-                confirmEnabled: true,
-                onConfirm: { [weak self] modal in
-                    self?.updateDisplayPicture(
-                        displayPictureUpdate: update,
-                        onComplete: { [weak modal] in modal?.close() }
-                    )
-                }
+                )
             )
         )
     }
     
     private func showPhotoLibraryForAvatar() {
-        Permissions.requestLibraryPermissionIfNeeded(using: dependencies) { [weak self] in
+        Permissions.requestLibraryPermissionIfNeeded(isSavingMedia: false, using: dependencies) { [weak self] in
             DispatchQueue.main.async {
                 let picker: UIImagePickerController = UIImagePickerController()
                 picker.sourceType = .photoLibrary
@@ -576,42 +584,37 @@ class EditGroupViewModel: SessionTableViewModel, NavigatableStateHolder, Editabl
         
         let viewController = ModalActivityIndicatorViewController(canCancel: false) { [weak self, dependencies] viewController in
             switch displayPictureUpdate {
-                case .none: break // Shouldn't get called
-                case .remove, .updateTo: performChanges(viewController, displayPictureUpdate)
-                case .uploadImageData(let data):
+                case .none, .currentUserRemove, .currentUserUploadImageData, .currentUserUpdateTo,
+                    .contactRemove, .contactUpdateTo:
+                    viewController.dismiss(animated: true) // Shouldn't get called
+                
+                case .groupRemove, .groupUpdateTo: performChanges(viewController, displayPictureUpdate)
+                case .groupUploadImageData(let data):
                     DisplayPictureManager.prepareAndUploadDisplayPicture(
                         queue: DispatchQueue.global(qos: .background),
                         imageData: data,
                         success: { url, fileName, key in
-                            performChanges(viewController, .updateTo(url: url, key: key, fileName: fileName))
+                            performChanges(viewController, .groupUpdateTo(url: url, key: key, fileName: fileName))
                         },
                         failure: { error in
                             DispatchQueue.main.async {
                                 viewController.dismiss {
-                                    let title: String = {
+                                    let message: String = {
                                         switch (displayPictureUpdate, error) {
+                                            case (.groupRemove, _): return "profileDisplayPictureRemoveError".localized()
                                             case (_, .uploadMaxFileSizeExceeded):
-                                                return "update_profile_modal_max_size_error_title".localized()
+                                                return "profileDisplayPictureSizeError".localized()
                                             
-                                            default: return "ALERT_ERROR_TITLE".localized()
-                                        }
-                                    }()
-                                    let message: String? = {
-                                        switch (displayPictureUpdate, error) {
-                                            case (.remove, _): return "EDIT_DISPLAY_PICTURE_ERROR_REMOVE".localized()
-                                            case (_, .uploadMaxFileSizeExceeded):
-                                                return "update_profile_modal_max_size_error_message".localized()
-                                            
-                                            default: return "EDIT_DISPLAY_PICTURE_ERROR".localized()
+                                            default: return "profileErrorUpdate".localized()
                                         }
                                     }()
                                     
                                     self?.transitionToScreen(
                                         ConfirmationModal(
                                             info: ConfirmationModal.Info(
-                                                title: title,
-                                                body: (message.map { .text($0) } ?? .none),
-                                                cancelTitle: "BUTTON_OK".localized(),
+                                                title: "deleteAfterLegacyGroupsGroupUpdateErrorTitle".localized(),
+                                                body: .text(message),
+                                                cancelTitle: "okay".localized(),
                                                 cancelStyle: .alert_text,
                                                 dismissType: .single
                                             )
@@ -636,16 +639,13 @@ class EditGroupViewModel: SessionTableViewModel, NavigatableStateHolder, Editabl
         self.transitionToScreen(
             ConfirmationModal(
                 info: ConfirmationModal.Info(
-                    title: (isUpdatedGroup && dependencies[feature: .updatedGroupsAllowDescriptionEditing] ?
-                        "EDIT_GROUP_INFO_TITLE".localized() :
-                        "EDIT_LEGACY_GROUP_INFO_TITLE".localized()
-                    ),
+                    title: "groupInformationSet".localized(),
                     body: { [weak self, dependencies] in
                         guard isUpdatedGroup && dependencies[feature: .updatedGroupsAllowDescriptionEditing] else {
                             return .input(
-                                explanation: NSAttributedString(string: "EDIT_LEGACY_GROUP_INFO_MESSAGE".localized()),
+                                explanation: NSAttributedString(string: "EDIT_LEGACY_GROUP_INFO_MESSAGE"),//.localized()),
                                 info: ConfirmationModal.Info.Body.InputInfo(
-                                    placeholder: "EDIT_GROUP_NAME_PLACEHOLDER".localized(),
+                                    placeholder: "groupNameEnter".localized(),
                                     initialValue: currentName
                                 ),
                                 onChange: { updatedName in
@@ -655,13 +655,13 @@ class EditGroupViewModel: SessionTableViewModel, NavigatableStateHolder, Editabl
                         }
                         
                         return .dualInput(
-                            explanation: NSAttributedString(string: "EDIT_GROUP_INFO_MESSAGE".localized()),
+                            explanation: NSAttributedString(string: "EDIT_GROUP_INFO_MESSAGE"),//.localized()),
                             firstInfo: ConfirmationModal.Info.Body.InputInfo(
-                                placeholder: "EDIT_GROUP_NAME_PLACEHOLDER".localized(),
+                                placeholder: "groupNameEnter".localized(),
                                 initialValue: currentName
                             ),
                             secondInfo: ConfirmationModal.Info.Body.InputInfo(
-                                placeholder: "EDIT_GROUP_DESCRIPTION_PLACEHOLDER".localized(),
+                                placeholder: "groupDescriptionEnter".localized(),
                                 initialValue: currentDescription
                             ),
                             onChange: { updatedName, updatedDescription in
@@ -670,33 +670,36 @@ class EditGroupViewModel: SessionTableViewModel, NavigatableStateHolder, Editabl
                             }
                         )
                     }(),
-                    confirmTitle: "update_profile_modal_save".localized(),
+                    confirmTitle: "save".localized(),
+                    confirmEnabled: .afterChange { [weak self] _ in
+                        self?.newDisplayName?.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty == false
+                    },
                     cancelStyle: .danger,
                     dismissOnConfirm: false,
                     onConfirm: { [weak self, dependencies, threadId] modal in
-                        let finalName: String = (self?.newDisplayName ?? "")
-                            .trimmingCharacters(in: .whitespacesAndNewlines)
+                        guard
+                            let finalName: String = (self?.newDisplayName ?? "")
+                                .trimmingCharacters(in: .whitespacesAndNewlines)
+                                .nullIfEmpty
+                        else { return }
+                        
                         let finalDescription: String? = self?.newGroupDescription
                             .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
                         
                         /// Check if the data violates any of the size constraints
                         let maybeErrorString: String? = {
-                            guard !finalName.isEmpty else { return "EDIT_GROUP_NAME_ERROR_MISSING".localized() }
-                            guard !Profile.isTooLong(profileName: finalName) else { return "EDIT_GROUP_NAME_ERROR_LONG".localized() }
-                            guard !LibSession.isTooLong(groupDescription: (finalDescription ?? "")) else {
-                                return "EDIT_GROUP_DESCRIPTION_ERROR_LONG".localized()
-                            }
+                            guard !Profile.isTooLong(profileName: finalName) else { return "groupNameEnterShorter".localized() }
                             
-                            return nil
+                            return "deleteAfterLegacyGroupsGroupUpdateErrorTitle".localized()
                         }()
                         
                         if let errorString: String = maybeErrorString {
                             self?.transitionToScreen(
                                 ConfirmationModal(
                                     info: ConfirmationModal.Info(
-                                        title: "ALERT_ERROR_TITLE".localized(),
+                                        title: "theError".localized(),
                                         body: .text(errorString),
-                                        cancelTitle: "BUTTON_OK".localized(),
+                                        cancelTitle: "okay".localized(),
                                         cancelStyle: .alert_text,
                                         dismissType: .single
                                     )
@@ -722,9 +725,9 @@ class EditGroupViewModel: SessionTableViewModel, NavigatableStateHolder, Editabl
                                             self?.transitionToScreen(
                                                 ConfirmationModal(
                                                     info: ConfirmationModal.Info(
-                                                        title: "ALERT_ERROR_TITLE".localized(),
-                                                        body: .text("DEFAULT_OPEN_GROUP_LOAD_ERROR_SUBTITLE".localized()),
-                                                        cancelTitle: "BUTTON_OK".localized(),
+                                                        title: "theError".localized(),
+                                                        body: .text("deleteAfterLegacyGroupsGroupUpdateErrorTitle".localized()),
+                                                        cancelTitle: "okay".localized(),
                                                         cancelStyle: .alert_text
                                                     )
                                                 ),
@@ -760,9 +763,9 @@ class EditGroupViewModel: SessionTableViewModel, NavigatableStateHolder, Editabl
         self.transitionToScreen(
             SessionTableViewController(
                 viewModel: UserListViewModel<Contact>(
-                    title: "GROUP_ACTION_INVITE_CONTACTS".localized(),
+                    title: "membersInvite".localized(),
                     infoBanner: EditGroupViewModel.minVersionBannerInfo,
-                    emptyState: "GROUP_ACTION_INVITE_EMPTY_STATE".localized(),
+                    emptyState: "contactNone".localized(),
                     showProfileIcons: true,
                     request: SQLRequest("""
                         SELECT \(contact.allColumns)
@@ -773,20 +776,28 @@ class EditGroupViewModel: SessionTableViewModel, NavigatableStateHolder, Editabl
                         )
                         WHERE \(groupMember[.profileId]) IS NULL
                     """),
-                    footerTitle: "GROUP_ACTION_INVITE".localized(),
-                    onSubmit: {
+                    footerTitle: "membersInviteTitle".localized(),
+                    onSubmit: { [weak self, threadId, dependencies] in
                         switch try? SessionId.Prefix(from: threadId) {
                             case .group:
-                                return .callback { [dependencies, threadId] viewModel, selectedMemberInfo in
+                                return .callback { viewModel, selectedMemberInfo in
                                     let updatedMemberIds: Set<String> = currentMemberIds
                                         .inserting(contentsOf: selectedMemberInfo.map { $0.profileId }.asSet())
                                     
                                     guard updatedMemberIds.count <= LibSession.sizeMaxGroupMemberCount else {
-                                        throw UserListError.error(
-                                            "vc_create_closed_group_too_many_group_members_error".localized()
-                                        )
+                                        throw UserListError.error("groupAddMemberMaximum".localized())
                                     }
                                     
+                                    /// Show a toast that we have sent the invitations
+                                    self?.showToast(
+                                        text: (selectedMemberInfo.count == 1 ?
+                                            "groupInviteSending".localized() :
+                                            "groupInviteSending".localized()
+                                        ),
+                                        backgroundColor: .backgroundSecondary
+                                    )
+                                    
+                                    /// Actually trigger the sending
                                     MessageSender
                                         .addGroupMembers(
                                             groupSessionId: threadId,
@@ -797,6 +808,7 @@ class EditGroupViewModel: SessionTableViewModel, NavigatableStateHolder, Editabl
                                         .sinkUntilComplete(
                                             receiveCompletion: { result in
                                                 switch result {
+                                                    case .finished: break
                                                     case .failure:
                                                         viewModel?.showToast(
                                                             text: GroupInviteMemberJob.failureMessage(
@@ -806,15 +818,6 @@ class EditGroupViewModel: SessionTableViewModel, NavigatableStateHolder, Editabl
                                                                     .reduce(into: [:]) { result, next in
                                                                         result[next.profileId] = next.profile
                                                                     }
-                                                            ),
-                                                            backgroundColor: .backgroundSecondary
-                                                        )
-
-                                                    case .finished:
-                                                        viewModel?.showToast(
-                                                            text: (selectedMemberInfo.count == 1 ?
-                                                                "GROUP_ACTION_INVITE_SENDING".localized() :
-                                                                "GROUP_ACTION_INVITE_SENDING_MULTIPLE".localized()
                                                             ),
                                                             backgroundColor: .backgroundSecondary
                                                         )
@@ -829,7 +832,7 @@ class EditGroupViewModel: SessionTableViewModel, NavigatableStateHolder, Editabl
                                         .inserting(contentsOf: selectedMemberInfo.map { $0.profileId }.asSet())
                                     
                                     guard updatedMemberIds.count <= LibSession.sizeMaxGroupMemberCount else {
-                                        return Fail(error: .error("vc_create_closed_group_too_many_group_members_error".localized()))
+                                        return Fail(error: .error("groupAddMemberMaximum".localized()))
                                             .eraseToAnyPublisher()
                                     }
                                     
@@ -839,7 +842,7 @@ class EditGroupViewModel: SessionTableViewModel, NavigatableStateHolder, Editabl
                                         name: currentGroupName,
                                         using: dependencies
                                     )
-                                    .mapError { _ in UserListError.error("GROUP_UPDATE_ERROR_TITLE".localized()) }
+                                    .mapError { _ in UserListError.error("deleteAfterLegacyGroupsGroupUpdateErrorTitle".localized()) }
                                     .eraseToAnyPublisher()
                                 }
                                 
@@ -858,9 +861,9 @@ class EditGroupViewModel: SessionTableViewModel, NavigatableStateHolder, Editabl
         func showError(_ errorString: String) {
             let modal: ConfirmationModal = ConfirmationModal(
                 info: ConfirmationModal.Info(
-                    title: "ALERT_ERROR_TITLE".localized(),
+                    title: "theError".localized(),
                     body: .text(errorString),
-                    cancelTitle: "BUTTON_OK".localized(),
+                    cancelTitle: "okay".localized(),
                     cancelStyle: .alert_text,
                     dismissType: .single
                 )
@@ -878,15 +881,14 @@ class EditGroupViewModel: SessionTableViewModel, NavigatableStateHolder, Editabl
                 members: [(accountId, nil)],
                 allowAccessToHistoricMessages: dependencies[feature: .updatedGroupsAllowHistoricAccessOnInvite],
                 using: dependencies
-            )
+            ).sinkUntilComplete()
             modal.dismiss(animated: true) { [weak self] in
                 self?.showToast(
-                    text: "GROUP_ACTION_INVITE_SENDING".localized(),
+                    text: "groupInviteSending".localized(),
                     backgroundColor: .backgroundSecondary
                 )
             }
         }
-        
         
         let currentMemberIds: Set<String> = (tableData
             .first(where: { $0.model == .members })?
@@ -902,42 +904,33 @@ class EditGroupViewModel: SessionTableViewModel, NavigatableStateHolder, Editabl
         
         // Make sure inviting another member wouldn't hit the member limit
         guard (currentMemberIds.count + 1) <= LibSession.sizeMaxGroupMemberCount else {
-            return showError("vc_create_closed_group_too_many_group_members_error".localized())
+            return showError("groupAddMemberMaximum".localized())
         }
         
         self.transitionToScreen(
             ConfirmationModal(
                 info: ConfirmationModal.Info(
-                    title: "Invite Account ID or ONS",  // FIXME: Localise this
+                    title: "accountIdOrOnsInvite".localized(),
                     body: .input(
                         explanation: nil,
                         info: ConfirmationModal.Info.Body.InputInfo(
-                            placeholder: "Enter Account ID or ONS"  // FIXME: Localise this
+                            placeholder: "accountIdOrOnsEnter".localized()
                         ),
                         onChange: { [weak self] updatedString in self?.inviteByIdValue = updatedString }
                     ),
-                    confirmTitle: "Invite",  // FIXME: Localise this
+                    confirmTitle: "membersInviteTitle".localized(),
                     confirmStyle: .danger,
                     cancelStyle: .alert_text,
                     dismissOnConfirm: false,
                     onConfirm: { [weak self, dependencies] modal in
                         // FIXME: Consolidate this with the logic in `NewDMVC`
                         switch Result(catching: { try SessionId(from: self?.inviteByIdValue) }) {
-                            case .success(let sessionId) where sessionId.prefix == .standard:
-                                inviteMember(sessionId.hexString, modal)
-                                
-                            case .success(let sessionId) where (sessionId.prefix == .blinded15 || sessionId.prefix == .blinded25):
-                                // FIXME: Localise this
-                                return showError("Unable to invite members using their Blinded IDs")
-                                
-                            case .success:
-                                // FIXME: Localise this
-                                return showError("The value entered is not a valid Account ID or ONS")
+                            case .success(let sessionId) where sessionId.prefix == .standard: inviteMember(sessionId.hexString, modal)
+                            case .success: return showError("accountIdErrorInvalid".localized())
                                 
                             case .failure:
                                 guard let inviteByIdValue: String = self?.inviteByIdValue else {
-                                    // FIXME: Localise this
-                                    return showError("Please enter a valid Account ID or ONS")
+                                    return showError("accountIdErrorInvalid".localized())
                                 }
                                 
                                 // This could be an ONS name
@@ -950,10 +943,14 @@ class EditGroupViewModel: SessionTableViewModel, NavigatableStateHolder, Editabl
                                             receiveCompletion: { result in
                                                 switch result {
                                                     case .finished: break
-                                                    case .failure:
+                                                    case .failure(let error):
                                                         modalActivityIndicator.dismiss {
-                                                            // FIXME: Localise this
-                                                            return showError("Unable to find ONS provided.")
+                                                            switch error {
+                                                                case SnodeAPIError.onsNotFound:
+                                                                    return showError("onsErrorNotRecognized".localized())
+                                                                default:
+                                                                    return showError("onsErrorUnableToSearch".localized())
+                                                            }
                                                         }
                                                 }
                                             },
@@ -980,7 +977,7 @@ class EditGroupViewModel: SessionTableViewModel, NavigatableStateHolder, Editabl
             memberId: memberId,
             using: dependencies
         )
-        self.showToast(text: "GROUP_ACTION_INVITE_SENDING".localized())
+        self.showToast(text: "groupInviteSending".localized())
     }
     
     private func removeMembers(memberIds: Set<String>) {
@@ -1023,7 +1020,7 @@ class EditGroupViewModel: SessionTableViewModel, NavigatableStateHolder, Editabl
                                 .asRequest(of: String.self)
                                 .fetchOne(db)
                         }
-                        .defaulting(to: "GROUP_TITLE_FALLBACK".localized())
+                        .defaulting(to: "groupUnknown".localized())
                     
                         MessageSender
                             .update(
@@ -1044,9 +1041,9 @@ class EditGroupViewModel: SessionTableViewModel, NavigatableStateHolder, Editabl
                                                 self?.transitionToScreen(
                                                     ConfirmationModal(
                                                         info: ConfirmationModal.Info(
-                                                            title: "ALERT_ERROR_TITLE".localized(),
-                                                            body: .text("GROUP_UPDATE_ERROR_TITLE".localized()),
-                                                            cancelTitle: "BUTTON_OK".localized(),
+                                                            title: "theError".localized(),
+                                                            body: .text("deleteAfterLegacyGroupsGroupUpdateErrorTitle".localized()),
+                                                            cancelTitle: "okay".localized(),
                                                             cancelStyle: .alert_text
                                                         )
                                                     ),
@@ -1063,9 +1060,9 @@ class EditGroupViewModel: SessionTableViewModel, NavigatableStateHolder, Editabl
                 self.transitionToScreen(
                     ConfirmationModal(
                         info: ConfirmationModal.Info(
-                            title: "ALERT_ERROR_TITLE".localized(),
-                            body: .text("GROUP_UPDATE_ERROR_TITLE".localized()),
-                            cancelTitle: "BUTTON_OK".localized(),
+                            title: "theError".localized(),
+                            body: .text("deleteAfterLegacyGroupsGroupUpdateErrorTitle".localized()),
+                            cancelTitle: "okay".localized(),
                             cancelStyle: .alert_text
                         )
                     ),

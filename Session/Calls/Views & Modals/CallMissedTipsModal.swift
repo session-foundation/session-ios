@@ -25,7 +25,9 @@ final class CallMissedTipsModal: Modal {
     private lazy var titleLabel: UILabel = {
         let result: UILabel = UILabel()
         result.font = .boldSystemFont(ofSize: Values.mediumFontSize)
-        result.text = "modal_call_missed_tips_title".localized()
+        result.text = "callsMissedCallFrom"
+            .put(key: "name", value: caller)
+            .localized()
         result.themeTextColor = .textPrimary
         result.textAlignment = .center
         
@@ -35,11 +37,13 @@ final class CallMissedTipsModal: Modal {
     private lazy var messageLabel: UILabel = {
         let result: UILabel = UILabel()
         result.font = .systemFont(ofSize: Values.smallFontSize)
-        result.text = String(format: "modal_call_missed_tips_explanation".localized(), caller)
         result.themeTextColor = .textPrimary
         result.textAlignment = .natural
         result.lineBreakMode = .byWordWrapping
         result.numberOfLines = 0
+        result.attributedText = "callsYouMissedCallPermissions"
+            .put(key: "name", value: caller)
+            .localizedFormatted(in: result)
         
         return result
     }()
@@ -83,7 +87,7 @@ final class CallMissedTipsModal: Modal {
     }
 
     override func populateContentView() {
-        cancelButton.setTitle("BUTTON_OK".localized(), for: .normal)
+        cancelButton.setTitle("okay".localized(), for: .normal)
         
         contentView.addSubview(mainStackView)
         tipsIconContainerView.addSubview(tipsIconImageView)

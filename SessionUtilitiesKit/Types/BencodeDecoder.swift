@@ -550,31 +550,6 @@ extension _BencodeDecoder.SingleValueContainer: SingleValueDecodingContainer {
         )
     }
     
-    func decode(_ type: Int.Type) throws -> Int {
-        var mutableData: Data = data
-        var intData: [UInt8] = []
-        _ = mutableData.popFirst()                                                      // drop `i`
-        
-        // Pop until after `e`
-        while let next: UInt8 = mutableData.popFirst(), Bencode.Element(next) != .endIndicator {
-            intData.append(next)
-        }
-        
-        guard
-            let intString: String = String(data: Data(intData), encoding: .ascii),
-            let result: Int = Int(intString, radix: 10)
-        else {
-            throw DecodingError.dataCorrupted(
-                DecodingError.Context(
-                    codingPath: codingPath,
-                    debugDescription: "failed to decode Int"
-                )
-            )
-        }
-        
-        return result
-    }
-    
     func decode(_ type: String.Type) throws -> String {
         guard
             let decodedData = _BencodeDecoder.decodeString(data),
@@ -591,7 +566,66 @@ extension _BencodeDecoder.SingleValueContainer: SingleValueDecodingContainer {
         return result
     }
     
+    func decode(_ type: Double.Type) throws -> Double {
+        let intValue: Int = try decodeFixedInt(Int.self)
+        
+        return Double(intValue)
+    }
+
+    func decode(_ type: Float.Type) throws -> Float {
+        let intValue: Int = try decodeFixedInt(Int.self)
+        
+        return Float(intValue)
+    }
+    
+    func decode(_ type: Int.Type) throws -> Int { return try decodeFixedInt(type) }
+    func decode(_ type: Int8.Type) throws -> Int8 { return try decodeFixedInt(type) }
+    func decode(_ type: Int16.Type) throws -> Int16 { return try decodeFixedInt(type) }
+    func decode(_ type: Int32.Type) throws -> Int32 { return try decodeFixedInt(type) }
+    func decode(_ type: Int64.Type) throws -> Int64 { return try decodeFixedInt(type) }
+    func decode(_ type: UInt.Type) throws -> UInt { return try decodeFixedInt(type) }
+    func decode(_ type: UInt8.Type) throws -> UInt8 { return try decodeFixedInt(type) }
+    func decode(_ type: UInt16.Type) throws -> UInt16 { return try decodeFixedInt(type) }
+    func decode(_ type: UInt32.Type) throws -> UInt32 { return try decodeFixedInt(type) }
+    func decode(_ type: UInt64.Type) throws -> UInt64 { return try decodeFixedInt(type) }
+    
+    func decodeFixedInt<T: FixedWidthInteger>(_ type: T.Type) throws -> T {
+        var mutableData: Data = data
+        var intData: [UInt8] = []
+        _ = mutableData.popFirst()                                                      // drop `i`
+        
+        // Pop until after `e`
+        while let next: UInt8 = mutableData.popFirst(), Bencode.Element(next) != .endIndicator {
+            intData.append(next)
+        }
+        
+        guard
+            let intString: String = String(data: Data(intData), encoding: .ascii),
+            let result: T = T(intString, radix: 10)
+        else {
+            throw DecodingError.dataCorrupted(
+                DecodingError.Context(
+                    codingPath: codingPath,
+                    debugDescription: "failed to decode Int"
+                )
+            )
+        }
+        
+        return result
+    }
+    
     func decode<T>(_ type: T.Type) throws -> T where T: Decodable {
+        if T.self is any FixedWidthInteger.Type {
+            // This will be handled by the integer-specific decode function
+            throw DecodingError.typeMismatch(
+                T.self,
+                DecodingError.Context(
+                    codingPath: codingPath,
+                    debugDescription: "attempted to use generic decode function instead of integer-specific one for integer type"
+                )
+            )
+        }
+        
         let decoder = _BencodeDecoder(data: data, userInfo: userInfo, using: dependencies)
         let value = try T(from: decoder)
         

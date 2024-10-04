@@ -19,9 +19,9 @@ public extension Preferences {
         
         public var name: String {
             switch self {
-                case .nameAndPreview: return "NOTIFICATIONS_STYLE_CONTENT_OPTION_NAME_AND_CONTENT".localized()
-                case .nameNoPreview: return "NOTIFICATIONS_STYLE_CONTENT_OPTION_NAME_ONLY".localized()
-                case .noNameNoPreview: return "NOTIFICATIONS_STYLE_CONTENT_OPTION_NO_NAME_OR_CONTENT".localized()
+                case .nameAndPreview: return "notificationsContentShowNameAndContent".localized()
+                case .nameNoPreview: return "notificationsContentShowNameOnly".localized()
+                case .noNameNoPreview: return "notificationsContentShowNoNameOrContent".localized()
             }
         }
     }

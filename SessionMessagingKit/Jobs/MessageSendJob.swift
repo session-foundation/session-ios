@@ -6,6 +6,14 @@ import GRDB
 import SessionUtilitiesKit
 import SessionSnodeKit
 
+// MARK: - Log.Category
+
+private extension Log.Category {
+    static let cat: Log.Category = .create("MessageSendJob", defaultLevel: .info)
+}
+
+// MARK: - MessageSendJob
+
 public enum MessageSendJob: JobExecutor {
     public static var maxFailureCount: Int = 10
     public static var requiresThreadId: Bool = true
@@ -24,9 +32,15 @@ public enum MessageSendJob: JobExecutor {
             let details: Details = try? JSONDecoder(using: dependencies).decode(Details.self, from: detailsData)
         else { return failure(job, JobRunnerError.missingRequiredDetails, true) }
         
-        // We need to include 'fileIds' when sending messages with attachments to Open Groups
-        // so extract them from any associated attachments
+        /// We need to include `fileIds` when sending messages with attachments to Open Groups so extract them from any
+        /// associated attachments
         var messageFileIds: [String] = []
+        let messageType: String = {
+            switch details.destination {
+                case .syncMessage: return "\(type(of: details.message)) (SyncMessage)"
+                default: return "\(type(of: details.message))"
+            }
+        }()
         
         /// Ensure any associated attachments have already been uploaded before sending the message
         ///
@@ -50,7 +64,7 @@ public enum MessageSendJob: JobExecutor {
                     // If the original interaction no longer exists then don't bother sending the message (ie. the
                     // message was deleted before it even got sent)
                     guard try Interaction.exists(db, id: interactionId) else {
-                        Log.warn("[MessageSendJob] Failing due to missing interaction")
+                        Log.warn(.cat, "Failing (\(job.id ?? -1)) due to missing interaction")
                         return (StorageError.objectNotFound, [], [])
                     }
 
@@ -66,7 +80,7 @@ public enum MessageSendJob: JobExecutor {
                     // If there were failed attachments then this job should fail (can't send a
                     // message which has associated attachments if the attachments fail to upload)
                     guard !allAttachmentStateInfo.contains(where: { $0.state == .failedDownload }) else {
-                        Log.info("[MessageSendJob] Failing due to failed attachment upload")
+                        Log.info(.cat, "Failing (\(job.id ?? -1)) due to failed attachment upload")
                         return (AttachmentError.notUploaded, [], fileIds)
                     }
 
@@ -100,7 +114,7 @@ public enum MessageSendJob: JobExecutor {
             /// If we got an error when trying to retrieve the attachment state then this job is actually invalid so it
             /// should permanently fail
             guard attachmentState.error == nil else {
-                SNLog("[MessageSendJob] Failed due to invalid attachment state")
+                Log.error(.cat, "Failed due to invalid attachment state")
                 return failure(job, (attachmentState.error ?? MessageSenderError.invalidMessage), true)
             }
 
@@ -146,7 +160,7 @@ public enum MessageSendJob: JobExecutor {
                         }
                 }
 
-                Log.info("[MessageSendJob] Deferring due to pending attachment uploads")
+                Log.info(.cat, "Deferring (\(job.id ?? -1)) due to pending attachment uploads")
                 return deferred(job)
             }
 
@@ -182,11 +196,11 @@ public enum MessageSendJob: JobExecutor {
                 receiveCompletion: { result in
                     switch result {
                         case .finished:
-                            Log.info("[MessageSendJob] Completed sending \(type(of: details.message)) after \(.seconds(dependencies.dateNow.timeIntervalSince1970 - startTime), unit: .s).")
+                            Log.info(.cat, "Completed sending \(messageType) (\(job.id ?? -1)) after \(.seconds(dependencies.dateNow.timeIntervalSince1970 - startTime), unit: .s).")
                             success(job, false)
                             
                         case .failure(let error):
-                            Log.info("[MessageSendJob] Failed to send \(type(of: details.message)) after \(.seconds(dependencies.dateNow.timeIntervalSince1970 - startTime), unit: .s) due to error: \(error).")
+                            Log.info(.cat, "Failed to send \(messageType) (\(job.id ?? -1)) after \(.seconds(dependencies.dateNow.timeIntervalSince1970 - startTime), unit: .s) due to error: \(error).")
                             
                             // Actual error handling
                             switch (error, details.message) {
@@ -197,7 +211,7 @@ public enum MessageSendJob: JobExecutor {
                                     failure(job, error, true)
                                     
                                 case (SnodeAPIError.clockOutOfSync, _):
-                                    Log.error("[MessageSendJob] \(originalSentTimestamp != nil ? "Permanently Failing" : "Failing") to send \(type(of: details.message)) due to clock out of sync issue.")
+                                    Log.error(.cat, "\(originalSentTimestamp != nil ? "Permanently Failing" : "Failing") to send \(messageType) (\(job.id ?? -1)) due to clock out of sync issue.")
                                     failure(job, error, (originalSentTimestamp != nil))
                                     
                                 // Don't bother retrying (it can just send a new one later but allowing retries
@@ -256,7 +270,7 @@ extension MessageSendJob {
             let container: KeyedDecodingContainer<CodingKeys> = try decoder.container(keyedBy: CodingKeys.self)
             
             guard let variant: Message.Variant = try? container.decode(Message.Variant.self, forKey: .variant) else {
-                SNLog("Unable to decode messageSend job due to missing variant")
+                Log.error(.cat, "Unable to decode messageSend job due to missing variant")
                 throw StorageError.decodingFailed
             }
             
@@ -270,7 +284,7 @@ extension MessageSendJob {
             var container: KeyedEncodingContainer<CodingKeys> = encoder.container(keyedBy: CodingKeys.self)
             
             guard let variant: Message.Variant = Message.Variant(from: message) else {
-                SNLog("Unable to encode messageSend job due to unsupported variant")
+                Log.error(.cat, "Unable to encode messageSend job due to unsupported variant")
                 throw StorageError.objectNotFound
             }
 

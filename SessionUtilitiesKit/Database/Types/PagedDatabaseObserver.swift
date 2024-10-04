@@ -7,6 +7,12 @@ import Combine
 import GRDB
 import DifferenceKit
 
+// MARK: - Log.Category
+
+private extension Log.Category {
+    static let cat: Log.Category = .create("PagedDatabaseObserver", defaultLevel: .info)
+}
+
 // MARK: - PagedDatabaseObserver
 
 /// This type manages observation and paging for the provided dataQuery
@@ -232,7 +238,7 @@ public class PagedDatabaseObserver<ObservedTable, T>: TransactionObserver where 
         
         // Process and retrieve the updated data
         let updatedData: UpdatedData = dependencies[singleton: .storage]
-            .read { db -> UpdatedData in
+            .read { [dependencies] db -> UpdatedData in
                 // If there aren't any direct or related changes then early-out
                 guard !directChanges.isEmpty || !relatedChanges.isEmpty || !relatedDeletions.isEmpty else {
                     return (dataCache, pageInfo, false, getAssociatedDataInfo(db, pageInfo))
@@ -412,7 +418,6 @@ public class PagedDatabaseObserver<ObservedTable, T>: TransactionObserver where 
                         updatedPageInfo.totalCount +
                         changesToQuery
                             .filter { $0.kind == .insert }
-                            .filter { validChangeRowIds.contains($0.rowId) }
                             .count
                     )
                 )
@@ -429,7 +434,11 @@ public class PagedDatabaseObserver<ObservedTable, T>: TransactionObserver where 
                 let updatedItems: [T] = {
                     do { return try dataQuery(targetRowIds).fetchAll(db) }
                     catch {
-                        SNLog("[PagedDatabaseObserver] Error fetching data during change: \(error)")
+                        // If the database is suspended then don't bother logging (as we already know why)
+                        if !dependencies[singleton: .storage].isSuspended {
+                            Log.error(.cat, "Error fetching data during change: \(error)")
+                        }
+                        
                         return []
                     }
                 }()
@@ -739,7 +748,7 @@ public class PagedDatabaseObserver<ObservedTable, T>: TransactionObserver where 
                 }
             }
             catch {
-                SNLog("[PagedDatabaseObserver] Error loading data: \(error)")
+                Log.error(.cat, "Error loading data: \(error)")
                 throw error
             }
 
@@ -1021,9 +1030,20 @@ public enum PagedData {
         updatedData: [SectionModel]?,
         currentDataRetriever: @escaping (() -> [SectionModel]?),
         onDataChangeRetriever: @escaping (() -> (([SectionModel], StagedChangeset<[SectionModel]>) -> ())?),
-        onUnobservedDataChange: @escaping (([SectionModel], StagedChangeset<[SectionModel]>) -> Void)
+        onUnobservedDataChange: @escaping (([SectionModel]) -> Void)
     ) {
         guard let updatedData: [SectionModel] = updatedData else { return }
+        
+        /// If we don't have a callback then store the changes to be sent back through this function if we ever start
+        /// observing again (when we have the callback it needs to do the data updating as it's tied to UI updates
+        /// and can cause crashes if not updated in the correct order)
+        ///
+        /// **Note:** We do this even if the 'changeset' is empty because if this change reverts a previous change we
+        /// need to ensure the `onUnobservedDataChange` gets cleared so it doesn't end up in an invalid state
+        guard let onDataChange: (([SectionModel], StagedChangeset<[SectionModel]>) -> ()) = onDataChangeRetriever() else {
+            onUnobservedDataChange(updatedData)
+            return
+        }
         
         // Note: While it would be nice to generate the changeset on a background thread it introduces
         // a multi-threading issue where a data change can come in while the table is processing multiple
@@ -1036,17 +1056,6 @@ public enum PagedData {
                 source: currentData,
                 target: updatedData
             )
-            
-            /// If we have the callback then trigger it, otherwise just store the changes to be sent to the callback if we ever
-            /// start observing again (when we have the callback it needs to do the data updating as it's tied to UI updates
-            /// and can cause crashes if not updated in the correct order)
-            ///
-            /// **Note:** We do this even if the 'changeset' is empty because if this change reverts a previous change we
-            /// need to ensure the `onUnobservedDataChange` gets cleared so it doesn't end up in an invalid state
-            guard let onDataChange: (([SectionModel], StagedChangeset<[SectionModel]>) -> ()) = onDataChangeRetriever() else {
-                onUnobservedDataChange(updatedData, changeset)
-                return
-            }
             
             // No need to do anything if there were no changes
             guard !changeset.isEmpty else { return }
@@ -1088,10 +1097,7 @@ public enum PagedData {
             // No need to do anything if there were no changes
             guard !changeset.isEmpty else { return }
             
-            // Need to send an event with the changes and then a second event to clear out the `StagedChangeset`
-            // value otherwise resubscribing will result with the changes coming through a second time
             valueSubject?.send((updatedData, changeset))
-            valueSubject?.send((updatedData, StagedChangeset()))
         }
         
         // No need to dispatch to the next run loop if we are already on the main thread
@@ -1404,7 +1410,7 @@ public class AssociatedRecord<T, PagedType>: ErasedAssociatedRecord where T: Fet
             return true
         }
         catch {
-            SNLog("[PagedDatabaseObserver] Error loading associated data: \(error)")
+            Log.error(.cat, "Error loading associated data: \(error)")
             return hasOtherChanges
         }
     }

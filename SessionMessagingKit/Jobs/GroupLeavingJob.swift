@@ -6,6 +6,14 @@ import GRDB
 import SessionUtilitiesKit
 import SessionSnodeKit
 
+// MARK: - Log.Category
+
+private extension Log.Category {
+    static let cat: Log.Category = .create("GroupLeavingJob", defaultLevel: .info)
+}
+
+// MARK: - GroupLeavingJob
+
 public enum GroupLeavingJob: JobExecutor {
     public static var maxFailureCount: Int = 0
     public static var requiresThreadId: Bool = true
@@ -37,11 +45,11 @@ public enum GroupLeavingJob: JobExecutor {
                         .asRequest(of: SessionThread.Variant.self)
                         .fetchOne(db)
                 else {
-                    Log.error("[GroupLeavingJob] Failed due to non-existent group conversation")
+                    Log.error(.cat, "Failed due to non-existent group conversation")
                     throw MessageSenderError.noThread
                 }
                 guard (try? ClosedGroup.exists(db, id: threadId)) == true else {
-                    Log.error("[GroupLeavingJob] Failed due to non-existent group")
+                    Log.error(.cat, "Failed due to non-existent group")
                     throw MessageSenderError.invalidClosedGroupUpdate
                 }
                 
@@ -149,15 +157,21 @@ public enum GroupLeavingJob: JobExecutor {
                 receiveCompletion: { result in
                     switch result {
                         case .failure(let error):
-                            let updatedBody: String = {
-                                switch details.behaviour {
-                                    case .leave: return "group_unable_to_leave".localized()
-                                    case .delete: return "group_unable_to_delete".localized()
-                                }
-                            }()
-                            
                             // Update the interaction to indicate we failed to leave the group
                             dependencies[singleton: .storage].writeAsync { db in
+                                let updatedBody: String = {
+                                    switch details.behaviour {
+                                        case .leave:
+                                            return "groupLeaveErrorFailed"
+                                                .put(key: "group_name", value: ((try? ClosedGroup.fetchOne(db, id: threadId))?.name ?? ""))
+                                                .localized()
+                                        case .delete:
+                                            return "groupLeaveErrorFailed"
+                                                .put(key: "group_name", value: ((try? ClosedGroup.fetchOne(db, id: threadId))?.name ?? ""))
+                                                .localized()
+                                    }
+                                }()
+                                
                                 try Interaction
                                     .filter(id: interactionId)
                                     .updateAll(

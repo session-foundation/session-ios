@@ -19,7 +19,7 @@ public enum AttachmentDownloadJob: JobExecutor {
         using dependencies: Dependencies
     ) {
         guard
-            dependencies.hasInitialised(singleton: .appContext),
+            dependencies[singleton: .appContext].isValid,
             let threadId: String = job.threadId,
             let detailsData: Data = job.details,
             let details: Details = try? JSONDecoder(using: dependencies).decode(Details.self, from: detailsData),
@@ -235,8 +235,8 @@ extension AttachmentDownloadJob {
 
         public var errorDescription: String? {
             switch self {
-                case .failedToSaveFile: return "Failed to save file"
-                case .invalidUrl: return "Invalid file URL"
+                case .failedToSaveFile: return "Failed to save file" // stringlint:disable
+                case .invalidUrl: return "Invalid file URL" // stringlint:disable
             }
         }
     }

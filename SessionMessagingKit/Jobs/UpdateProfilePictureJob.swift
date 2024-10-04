@@ -4,6 +4,14 @@ import Foundation
 import GRDB
 import SessionUtilitiesKit
 
+// MARK: - Log.Category
+
+private extension Log.Category {
+    static let cat: Log.Category = .create("UpdateProfilePictureJob", defaultLevel: .info)
+}
+
+// MARK: - UpdateProfilePictureJob
+
 public enum UpdateProfilePictureJob: JobExecutor {
     public static let maxFailureCount: Int = -1
     public static let requiresThreadId: Bool = false
@@ -37,25 +45,26 @@ public enum UpdateProfilePictureJob: JobExecutor {
                 }
             }
 
-            Log.info("[UpdateProfilePictureJob] Deferred as not enough time has passed since the last update")
+            Log.info(.cat, "Deferred as not enough time has passed since the last update")
             return deferred(job)
         }
         
         // Note: The user defaults flag is updated in DisplayPictureManager
         let profile: Profile = Profile.fetchOrCreateCurrentUser(using: dependencies)
-        let displayPictureData: Data? = profile.profilePictureFileName
+        let displayPictureUpdate: DisplayPictureManager.Update = profile.profilePictureFileName
             .map { DisplayPictureManager.loadDisplayPictureFromDisk(for: $0, using: dependencies) }
+            .map { .currentUserUploadImageData($0) }
+            .defaulting(to: .none)
         
         Profile.updateLocal(
             queue: queue,
-            profileName: profile.name,
-            displayPictureUpdate: (displayPictureData.map { .uploadImageData($0) } ?? .none),
+            displayPictureUpdate: displayPictureUpdate,
             success: { db in
                 // Need to call the 'success' closure asynchronously on the queue to prevent a reentrancy
                 // issue as it will write to the database and this closure is already called within
                 // another database write
                 queue.async {
-                    Log.info("[UpdateProfilePictureJob] Profile successfully updated")
+                    Log.info(.cat, "Profile successfully updated")
                     success(job, false)
                 }
             },

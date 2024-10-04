@@ -10,6 +10,14 @@ import SessionUIKit
 import SessionMessagingKit
 import SessionUtilitiesKit
 
+// MARK: - Log.Category
+
+private extension Log.Category {
+    static let cat: Log.Category = .create("AttachmentApprovalViewController", defaultLevel: .info)
+}
+
+// MARK: - AttachmentApprovalViewControllerDelegate
+
 public protocol AttachmentApprovalViewControllerDelegate: AnyObject {
     func attachmentApproval(
         _ attachmentApproval: AttachmentApprovalViewController,
@@ -63,10 +71,6 @@ public class AttachmentApprovalViewController: UIPageViewController, UIPageViewC
     private let isAddMoreVisible: Bool
 
     public weak var approvalDelegate: AttachmentApprovalViewControllerDelegate?
-
-    public var isEditingCaptions = false {
-        didSet { updateContents() }
-    }
     
     let attachmentItemCollection: AttachmentItemCollection
 
@@ -95,7 +99,7 @@ public class AttachmentApprovalViewController: UIPageViewController, UIPageViewC
         set { setCurrentItem(newValue, direction: .forward, animated: false) }
     }
     
-    private var cachedPages: [SignalAttachmentItem: AttachmentPrepViewController] = [:]
+    private var cachedPages: [UUID: AttachmentPrepViewController] = [:]
 
     public var shouldHideControls: Bool {
         guard let pageViewController: AttachmentPrepViewController = pageViewControllers?.first else {
@@ -202,20 +206,6 @@ public class AttachmentApprovalViewController: UIPageViewController, UIPageViewC
 
     private var galleryRailView: GalleryRailView { return bottomToolView.galleryRailView }
 
-    private lazy var touchInterceptorView: UIView = {
-        let view: UIView = UIView()
-        view.translatesAutoresizingMaskIntoConstraints = false
-        view.isHidden = true
-        
-        let tapGesture = UITapGestureRecognizer(
-            target: self,
-            action: #selector(didTapTouchInterceptorView(gesture:))
-        )
-        view.addGestureRecognizer(tapGesture)
-        
-        return view
-    }()
-
     private lazy var pagerScrollView: UIScrollView? = {
         // This is kind of a hack. Since we don't have first class access to the superview's `scrollView`
         // we traverse the view hierarchy until we find it.
@@ -236,13 +226,11 @@ public class AttachmentApprovalViewController: UIPageViewController, UIPageViewC
         pagerScrollView?.isScrollEnabled = (attachmentItems.count > 1)
 
         guard let firstItem = attachmentItems.first else {
-            Log.error("[AttachmentApprovalViewController] firstItem was unexpectedly nil")
+            Log.error(.cat, "firstItem was unexpectedly nil")
             return
         }
 
         self.setCurrentItem(firstItem, direction: .forward, animated: false)
-        
-        view.addSubview(touchInterceptorView)
 
         // layout immediately to avoid animating the layout process during the transition
         UIView.performWithoutAnimation {
@@ -254,8 +242,6 @@ public class AttachmentApprovalViewController: UIPageViewController, UIPageViewC
         if firstItem.attachment.isText || (firstItem.attachment.isUrl && LinkPreview.previewUrl(for: firstItem.attachment.text(), using: dependencies) == nil) {
             bottomToolView.attachmentTextToolbar.messageText = firstItem.attachment.text()
         }
-
-        setupLayout()
     }
 
     override public func viewWillAppear(_ animated: Bool) {
@@ -268,12 +254,6 @@ public class AttachmentApprovalViewController: UIPageViewController, UIPageViewC
         super.viewDidAppear(animated)
 
         updateContents()
-    }
-    
-    // MARK: - Layout
-    
-    private func setupLayout() {
-        touchInterceptorView.pin(to: view)
     }
     
     // MARK: - Notifications
@@ -289,8 +269,6 @@ public class AttachmentApprovalViewController: UIPageViewController, UIPageViewC
     private func updateContents() {
         updateNavigationBar()
         updateInputAccessory()
-
-        touchInterceptorView.isHidden = !isEditingCaptions
     }
 
     // MARK: - Input Accessory
@@ -311,7 +289,6 @@ public class AttachmentApprovalViewController: UIPageViewController, UIPageViewC
         }
 
         bottomToolView.update(
-            isEditingCaptions: isEditingCaptions,
             currentAttachmentItem: currentAttachmentItem,
             shouldHideControls: shouldHideControls
         )
@@ -326,46 +303,17 @@ public class AttachmentApprovalViewController: UIPageViewController, UIPageViewC
             return
         }
 
-        guard !isEditingCaptions else {
-            // Hide all navigation bar items while the caption view is open.
-            self.navigationItem.leftBarButtonItem = UIBarButtonItem(
-                //"Title for 'caption' mode of the attachment approval view."
-                title: "ATTACHMENT_APPROVAL_CAPTION_TITLE".localized(),
-                style: .plain,
-                target: nil,
-                action: nil
-            )
-
-            let doneButton = navigationBarButton(
-                imageName: "image_editor_checkmark_full",
-                selector: #selector(didTapCaptionDone(sender:))
-            )
-            let navigationBarItems = [doneButton]
-            updateNavigationBar(navigationBarItems: navigationBarItems)
-            return
-        }
-
         var navigationBarItems = [UIView]()
 
         if viewControllers?.count == 1, let firstViewController: AttachmentPrepViewController = viewControllers?.first as? AttachmentPrepViewController {
             navigationBarItems = firstViewController.navigationBarItems()
-
-            // Show the caption UI if there's more than one attachment
-            // OR if the attachment already has a caption.
-            if attachmentItemCollection.count > 0, (firstViewController.attachmentItem.captionText?.count ?? 0) > 0 {
-                let captionButton = navigationBarButton(
-                    imageName: "image_editor_caption",
-                    selector: #selector(didTapCaption(sender:))
-                )
-                navigationBarItems.append(captionButton)
-            }
         }
 
         updateNavigationBar(navigationBarItems: navigationBarItems)
 
         if mode != .sharedNavigation {
             // Mimic a UIBarButtonItem of type .cancel, but with a shadow.
-            let cancelButton = OWSButton(title: CommonStrings.cancelButton) { [weak self] in
+            let cancelButton = OWSButton(title: "cancel".localized()) { [weak self] in
                 self?.cancelPressed()
             }
             cancelButton.titleLabel?.font = .systemFont(ofSize: 17.0)
@@ -390,7 +338,7 @@ public class AttachmentApprovalViewController: UIPageViewController, UIPageViewC
                 setCurrentItem(prevItem, direction: .reverse, animated: true)
             }
             else {
-                Log.error("[AttachmentApprovalViewController] removing last item shouldn't be possible because rail should not be visible")
+                Log.error(.cat, "Removing last item shouldn't be possible because rail should not be visible")
                 return
             }
         }
@@ -407,7 +355,7 @@ public class AttachmentApprovalViewController: UIPageViewController, UIPageViewC
         assert(pendingViewControllers.count == 1)
         pendingViewControllers.forEach { viewController in
             guard let pendingPage = viewController as? AttachmentPrepViewController else {
-                Log.error("[AttachmentApprovalViewController] unexpected viewController: \(viewController)")
+                Log.error(.cat, "Unexpected viewController: \(viewController)")
                 return
             }
 
@@ -421,7 +369,7 @@ public class AttachmentApprovalViewController: UIPageViewController, UIPageViewC
         assert(previousViewControllers.count == 1)
         previousViewControllers.forEach { viewController in
             guard let previousPage = viewController as? AttachmentPrepViewController else {
-                Log.error("[AttachmentApprovalViewController] unexpected viewController: \(viewController)")
+                Log.error(.cat, "Unexpected viewController: \(viewController)")
                 return
             }
 
@@ -436,7 +384,7 @@ public class AttachmentApprovalViewController: UIPageViewController, UIPageViewC
 
     public func pageViewController(_ pageViewController: UIPageViewController, viewControllerBefore viewController: UIViewController) -> UIViewController? {
         guard let currentViewController = viewController as? AttachmentPrepViewController else {
-            Log.error("[AttachmentApprovalViewController] unexpected viewController: \(viewController)")
+            Log.error(.cat, "Unexpected viewController: \(viewController)")
             return nil
         }
 
@@ -451,7 +399,7 @@ public class AttachmentApprovalViewController: UIPageViewController, UIPageViewC
 
     public func pageViewController(_ pageViewController: UIPageViewController, viewControllerAfter viewController: UIViewController) -> UIViewController? {
         guard let currentViewController = viewController as? AttachmentPrepViewController else {
-            Log.error("[AttachmentApprovalViewController] unexpected viewController: \(viewController)")
+            Log.error(.cat, "Unexpected viewController: \(viewController)")
             return nil
         }
 
@@ -477,22 +425,22 @@ public class AttachmentApprovalViewController: UIPageViewController, UIPageViewC
     }
 
     private func buildPage(item: SignalAttachmentItem) -> AttachmentPrepViewController? {
-        if let cachedPage = cachedPages[item] {
-            Log.debug("[AttachmentApprovalViewController] cache hit.")
+        if let cachedPage = cachedPages[item.uniqueIdentifier] {
+            Log.debug(.cat, "Cache hit.")
             return cachedPage
         }
 
-        Log.debug("[AttachmentApprovalViewController] cache miss.")
+        Log.debug(.cat, "Cache miss.")
         let viewController = AttachmentPrepViewController(attachmentItem: item, using: dependencies)
         viewController.prepDelegate = self
-        cachedPages[item] = viewController
+        cachedPages[item.uniqueIdentifier] = viewController
 
         return viewController
     }
 
     private func setCurrentItem(_ item: SignalAttachmentItem?, direction: UIPageViewController.NavigationDirection, animated isAnimated: Bool) {
         guard let item: SignalAttachmentItem = item, let page = self.buildPage(item: item) else {
-            Log.error("[AttachmentApprovalViewController] unexpectedly unable to build new page")
+            Log.error(.cat, "Unexpectedly unable to build new page")
             return
         }
 
@@ -504,7 +452,7 @@ public class AttachmentApprovalViewController: UIPageViewController, UIPageViewC
 
     func updateMediaRail() {
         guard let currentItem = self.currentItem else {
-            Log.error("[AttachmentApprovalViewController] currentItem was unexpectedly nil")
+            Log.error(.cat, "currentItem was unexpectedly nil")
             return
         }
 
@@ -519,7 +467,7 @@ public class AttachmentApprovalViewController: UIPageViewController, UIPageViewC
                     return cell
                     
                 default:
-                    Log.error("[AttachmentApprovalViewController] unexpted rail item type: \(railItem)")
+                    Log.error(.cat, "Unexpted rail item type: \(railItem)")
                     return GalleryRailCellView()
             }
         }
@@ -563,46 +511,46 @@ public class AttachmentApprovalViewController: UIPageViewController, UIPageViewC
             return attachmentItem.attachment
         }
         guard let dstImage = ImageEditorCanvasView.renderForOutput(model: imageEditorModel, transform: imageEditorModel.currentTransform()) else {
-            Log.error("[AttachmentApprovalViewController] Could not render for output.")
+            Log.error(.cat, "Could not render for output.")
             return attachmentItem.attachment
         }
-        var dataUTI = kUTTypeImage as String
+        var dataType: UTType = .image
         let maybeDstData: Data? = {
             let isLossy: Bool = (
-                attachmentItem.attachment.mimeType.caseInsensitiveCompare(MimeTypeUtil.MimeType.imageJpeg) == .orderedSame
+                attachmentItem.attachment.mimeType.caseInsensitiveCompare(UTType.mimeTypeJpeg) == .orderedSame
             )
             
             if isLossy {
-                dataUTI = kUTTypeJPEG as String
+                dataType = .jpeg
                 return dstImage.jpegData(compressionQuality: 0.9)
             }
             else {
-                dataUTI = kUTTypePNG as String
+                dataType = .png
                 return dstImage.pngData()
             }
         }()
         
         guard let dstData: Data = maybeDstData else {
-            Log.error("[AttachmentApprovalViewController] Could not export for output.")
+            Log.error(.cat, "Could not export for output.")
             return attachmentItem.attachment
         }
-        guard let dataSource = DataSourceValue(data: dstData, utiType: dataUTI, using: dependencies) else {
-            Log.error("[AttachmentApprovalViewController] Could not prepare data source for output.")
+        guard let dataSource = DataSourceValue(data: dstData, dataType: dataType, using: dependencies) else {
+            Log.error(.cat, "Could not prepare data source for output.")
             return attachmentItem.attachment
         }
 
         // Rewrite the filename's extension to reflect the output file format.
         var filename: String? = attachmentItem.attachment.sourceFilename
         if let sourceFilename = attachmentItem.attachment.sourceFilename {
-            if let fileExtension: String = MimeTypeUtil.fileExtension(forUtiType: dataUTI) {
+            if let fileExtension: String = dataType.sessionFileExtension {
                 filename = (sourceFilename as NSString).deletingPathExtension.appendingFileExtension(fileExtension)
             }
         }
         dataSource.sourceFilename = filename
 
-        let dstAttachment = SignalAttachment.attachment(dataSource: dataSource, dataUTI: dataUTI, imageQuality: .medium, using: dependencies)
+        let dstAttachment = SignalAttachment.attachment(dataSource: dataSource, type: dataType, imageQuality: .medium, using: dependencies)
         if let attachmentError = dstAttachment.error {
-            Log.error("[AttachmentApprovalViewController] Could not prepare attachment for output: \(attachmentError).")
+            Log.error(.cat, "Could not prepare attachment for output: \(attachmentError).")
             return attachmentItem.attachment
         }
         // Preserve caption text.
@@ -612,7 +560,7 @@ public class AttachmentApprovalViewController: UIPageViewController, UIPageViewC
 
     func attachmentItem(before currentItem: SignalAttachmentItem) -> SignalAttachmentItem? {
         guard let currentIndex = attachmentItems.firstIndex(of: currentItem) else {
-            Log.error("[AttachmentApprovalViewController] currentIndex was unexpectedly nil")
+            Log.error(.cat, "currentIndex was unexpectedly nil")
             return nil
         }
 
@@ -627,7 +575,7 @@ public class AttachmentApprovalViewController: UIPageViewController, UIPageViewC
 
     func attachmentItem(after currentItem: SignalAttachmentItem) -> SignalAttachmentItem? {
         guard let currentIndex = attachmentItems.firstIndex(of: currentItem) else {
-            Log.error("[AttachmentApprovalViewController] currentIndex was unexpectedly nil")
+            Log.error(.cat, "currentIndex was unexpectedly nil")
             return nil
         }
 
@@ -641,22 +589,9 @@ public class AttachmentApprovalViewController: UIPageViewController, UIPageViewC
     }
 
     // MARK: - Event Handlers
-
-    @objc
-    func didTapTouchInterceptorView(gesture: UITapGestureRecognizer) {
-        isEditingCaptions = false
-    }
-
+    
     private func cancelPressed() {
         self.approvalDelegate?.attachmentApprovalDidCancel(self)
-    }
-
-    @objc func didTapCaption(sender: UIButton) {
-        isEditingCaptions = true
-    }
-
-    @objc func didTapCaptionDone(sender: UIButton) {
-        isEditingCaptions = false
     }
 }
 
@@ -730,17 +665,17 @@ extension AttachmentApprovalViewController: GalleryRailViewDelegate {
         }
 
         guard let targetItem = imageRailItem as? SignalAttachmentItem else {
-            Log.error("[AttachmentApprovalViewController] unexpected imageRailItem: \(imageRailItem)")
+            Log.error(.cat, "Unexpected imageRailItem: \(imageRailItem)")
             return
         }
 
         guard let currentItem: SignalAttachmentItem = currentItem, let currentIndex = attachmentItems.firstIndex(of: currentItem) else {
-            Log.error("[AttachmentApprovalViewController] currentIndex was unexpectedly nil")
+            Log.error(.cat, "currentIndex was unexpectedly nil")
             return
         }
 
         guard let targetIndex = attachmentItems.firstIndex(of: targetItem) else {
-            Log.error("[AttachmentApprovalViewController] targetIndex was unexpectedly nil")
+            Log.error(.cat, "targetIndex was unexpectedly nil")
             return
         }
 
@@ -767,13 +702,5 @@ extension AttachmentApprovalViewController: ApprovalRailCellViewDelegate {
 extension AttachmentApprovalViewController: AttachmentApprovalInputAccessoryViewDelegate {
     public func attachmentApprovalInputUpdateMediaRail() {
         updateMediaRail()
-    }
-
-    public func attachmentApprovalInputStartEditingCaptions() {
-        isEditingCaptions = true
-    }
-
-    public func attachmentApprovalInputStopEditingCaptions() {
-        isEditingCaptions = false
     }
 }

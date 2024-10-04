@@ -33,7 +33,6 @@ public extension EndpointType {
 public struct Request<T: Encodable, Endpoint: EndpointType> {
     public let endpoint: Endpoint
     public let destination: Network.Destination
-    public let headers: [HTTPHeader: String]
     
     /// This is the body value sent during the request
     ///
@@ -46,12 +45,10 @@ public struct Request<T: Encodable, Endpoint: EndpointType> {
     public init(
         endpoint: Endpoint,
         destination: Network.Destination,
-        headers: [HTTPHeader: String] = [:],
         body: T? = nil
-    ) {
+    ) throws {
         self.endpoint = endpoint
-        self.destination = destination
-        self.headers = headers
+        self.destination = try destination.withGeneratedUrl(for: endpoint)
         self.body = body
     }
     

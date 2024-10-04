@@ -64,10 +64,15 @@ public struct Interaction: Codable, Identifiable, Equatable, FetchableRecord, Mu
         case openGroupWhisperTo
     }
     
-    public enum Variant: Int, Codable, Hashable, DatabaseValueConvertible {
+    public enum Variant: Int, Codable, Hashable, DatabaseValueConvertible, CaseIterable {
         case standardIncoming
         case standardOutgoing
-        case standardIncomingDeleted
+        
+        // Deleted message variants
+        case standardIncomingDeleted = 3
+        case standardIncomingDeletedLocally
+        case standardOutgoingDeleted
+        case standardOutgoingDeletedLocally
         
         // Info Message Types (spacing the values out to make it easier to extend)
         case infoLegacyGroupCreated = 1000
@@ -94,6 +99,16 @@ public struct Interaction: Codable, Identifiable, Equatable, FetchableRecord, Mu
             .standardIncoming, .infoCall
         ]
         
+        public var isDeletedMessage: Bool {
+            switch self {
+                case .standardIncomingDeleted, .standardIncomingDeletedLocally,
+                    .standardOutgoingDeleted, .standardOutgoingDeletedLocally:
+                    return true
+                    
+                default: return false
+            }
+        }
+        
         public var isInfoMessage: Bool {
             switch self {
                 case .infoLegacyGroupCreated, .infoLegacyGroupUpdated, .infoLegacyGroupCurrentUserLeft,
@@ -103,7 +118,8 @@ public struct Interaction: Codable, Identifiable, Equatable, FetchableRecord, Mu
                     .infoGroupMembersUpdated:
                     return true
                     
-                case .standardIncoming, .standardOutgoing, .standardIncomingDeleted:
+                case .standardIncoming, .standardOutgoing, .standardIncomingDeleted, .standardIncomingDeletedLocally,
+                    .standardOutgoingDeleted, .standardOutgoingDeletedLocally:
                     return false
             }
         }
@@ -114,8 +130,8 @@ public struct Interaction: Codable, Identifiable, Equatable, FetchableRecord, Mu
                     .infoGroupCurrentUserLeaving, .infoGroupCurrentUserErrorLeaving, .infoGroupInfoInvited,
                     .infoGroupInfoUpdated, .infoGroupMembersUpdated:
                     return true
-                default:
-                    return false
+                
+                default: return false
             }
         }
         
@@ -123,8 +139,8 @@ public struct Interaction: Codable, Identifiable, Equatable, FetchableRecord, Mu
             switch self {
                 case .infoLegacyGroupCurrentUserLeft, .infoGroupCurrentUserLeaving, .infoGroupCurrentUserErrorLeaving:
                     return true
-                default:
-                    return false
+                
+                default: return false
             }
         }
         
@@ -141,7 +157,9 @@ public struct Interaction: Codable, Identifiable, Equatable, FetchableRecord, Mu
                     /// after being read (if we don't do this their expiration timer will start immediately when received)
                     return true
                 
-                case .standardOutgoing, .standardIncomingDeleted: return false
+                case .standardOutgoing, .standardIncomingDeleted, .standardIncomingDeletedLocally,
+                    .standardOutgoingDeleted, .standardOutgoingDeletedLocally:
+                    return false
                 
                 case .infoLegacyGroupCreated, .infoLegacyGroupUpdated, .infoLegacyGroupCurrentUserLeft,
                     .infoGroupCurrentUserLeaving, .infoGroupCurrentUserErrorLeaving,
@@ -285,7 +303,7 @@ public struct Interaction: Codable, Identifiable, Equatable, FetchableRecord, Mu
     
     // MARK: - Initialization
     
-    private init(
+    internal init(
         id: Int64? = nil,
         serverHash: String?,
         messageUuid: String?,
@@ -926,14 +944,21 @@ public extension Interaction {
         return "\(threadId)-\(id)"
     }
     
-    func markingAsDeleted() -> Interaction {
+    func markingAsDeleted(localOnly: Bool) -> Interaction {
         return Interaction(
             id: id,
             serverHash: nil,
             messageUuid: messageUuid,
             threadId: threadId,
             authorId: authorId,
-            variant: .standardIncomingDeleted,
+            variant: {
+                switch (variant, localOnly) {
+                    case (.standardOutgoing, true): return .standardOutgoingDeletedLocally
+                    case (.standardOutgoing, false): return .standardOutgoingDeleted
+                    case (_, true): return .standardIncomingDeletedLocally
+                    default: return .standardIncomingDeleted
+                }
+            }(),
             body: nil,
             timestampMs: timestampMs,
             receivedAtTimestampMs: receivedAtTimestampMs,
@@ -993,7 +1018,7 @@ public extension Interaction {
         return publicKeysToCheck.contains { publicKey in
             (
                 body != nil &&
-                (body ?? "").contains("@\(publicKey)")
+                (body ?? "").contains("@\(publicKey)") // stringlint:disable
             ) || (
                 quoteAuthorId == publicKey
             )
@@ -1048,90 +1073,49 @@ public extension Interaction {
         isOpenGroupInvitation: Bool = false,
         using dependencies: Dependencies
     ) -> String {
-        return attributedPreviewText(
-            variant: variant,
-            body: body,
-            threadContactDisplayName: threadContactDisplayName,
-            authorDisplayName: authorDisplayName,
-            attachmentDescriptionInfo: attachmentDescriptionInfo,
-            attachmentCount: attachmentCount,
-            isOpenGroupInvitation: isOpenGroupInvitation,
-            using: dependencies
-        ).string
-    }
-    
-    static func attributedPreviewText(
-        variant: Variant,
-        body: String?,
-        threadContactDisplayName: String = "",
-        authorDisplayName: String = "",
-        attachmentDescriptionInfo: Attachment.DescriptionInfo? = nil,
-        attachmentCount: Int? = nil,
-        isOpenGroupInvitation: Bool = false,
-        using dependencies: Dependencies
-    ) -> NSAttributedString {
         switch variant {
-            case .standardIncomingDeleted: return NSAttributedString(string: "")
+            case .standardIncomingDeleted, .standardIncomingDeletedLocally,
+                .standardOutgoingDeleted, .standardOutgoingDeletedLocally:
+                return ""
                 
             case .standardIncoming, .standardOutgoing:
                 let attachmentDescription: String? = Attachment.description(
                     for: attachmentDescriptionInfo,
                     count: attachmentCount
                 )
-                
-                if
-                    let attachmentDescription: String = attachmentDescription,
-                    let body: String = body,
-                    !attachmentDescription.isEmpty,
-                    !body.isEmpty
-                {
-                    if Dependencies.isRTL {
-                        return NSAttributedString(string: "\(body): \(attachmentDescription)")
-                    }
-                    
-                    return NSAttributedString(string: "\(attachmentDescription): \(body)")
+            
+                if let attachmentDescription: String = attachmentDescription, !attachmentDescription.isEmpty {
+                    return attachmentDescription
                 }
                 
                 if let body: String = body, !body.isEmpty {
-                    return NSAttributedString(string: body)
-                }
-                
-                if let attachmentDescription: String = attachmentDescription, !attachmentDescription.isEmpty {
-                    return NSAttributedString(string: attachmentDescription)
+                    return body
                 }
                 
                 if isOpenGroupInvitation {
-                    return NSAttributedString(string: "😎 Open group invitation")
+                    return "communityInvitation".localized()
                 }
                 
                 // TODO: We should do better here
-                return NSAttributedString(string: "")
+                return ""
                 
             case .infoMediaSavedNotification:
                 // TODO: Use referencedAttachmentTimestamp to tell the user * which * media was saved
-                return NSAttributedString(string: String(format: "media_saved".localized(), authorDisplayName))
+                return "attachmentsMediaSaved"
+                    .put(key: "name", value: authorDisplayName)
+                    .localized()
                 
             case .infoScreenshotNotification:
-                return NSAttributedString(string: String(format: "screenshot_taken".localized(), authorDisplayName))
+                return "screenshotTaken"
+                    .put(key: "name", value: authorDisplayName)
+                    .localized()
                 
-            case .infoLegacyGroupCreated:
-                return NSAttributedString(string: "GROUP_CREATED".localized())
-                
-            case .infoLegacyGroupCurrentUserLeft:
-                return NSAttributedString(string: "GROUP_YOU_LEFT".localized())
-                
-            case .infoGroupCurrentUserLeaving:
-                return NSAttributedString(string: "group_you_leaving".localized())
-                
-            case .infoGroupCurrentUserErrorLeaving:
-                return NSAttributedString(string: "group_unable_to_leave".localized())
-                
-            case .infoLegacyGroupUpdated:
-                return NSAttributedString(string: (body ?? "GROUP_UPDATED".localized()))
-                
-            case .infoMessageRequestAccepted:
-                return NSAttributedString(string: (body ?? "MESSAGE_REQUESTS_ACCEPTED".localized()))
-                
+            case .infoLegacyGroupCreated: return (body ?? "") // Deprecated
+            case .infoLegacyGroupCurrentUserLeft: return "groupMemberYouLeft".localized()
+            case .infoGroupCurrentUserLeaving: return "leaving".localized()
+            case .infoGroupCurrentUserErrorLeaving: return (body ?? "")
+            case .infoLegacyGroupUpdated: return (body ?? "groupUpdated".localized())
+            case .infoMessageRequestAccepted: return (body ?? "messageRequestsAccepted".localized())
             case .infoGroupInfoInvited, .infoGroupInfoUpdated, .infoGroupMembersUpdated:
                 guard
                     let infoMessageData: Data = (body ?? "").data(using: .utf8),
@@ -1139,9 +1123,9 @@ public extension Interaction {
                         ClosedGroup.MessageInfo.self,
                         from: infoMessageData
                     )
-                else { return NSAttributedString(string: (body ?? "")) }
+                else { return (body ?? "") }
                 
-                return messageInfo.attributedPreviewText
+                return messageInfo.previewText
             
             case .infoDisappearingMessagesUpdate:
                 guard
@@ -1150,9 +1134,9 @@ public extension Interaction {
                         DisappearingMessagesConfiguration.MessageInfo.self,
                         from: infoMessageData
                     )
-                else { return NSAttributedString(string: (body ?? "")) }
+                else { return (body ?? "") }
                 
-                return messageInfo.attributedPreviewText(using: dependencies)
+                return messageInfo.previewText
                 
             case .infoCall:
                 guard
@@ -1161,11 +1145,9 @@ public extension Interaction {
                         CallMessage.MessageInfo.self,
                         from: infoMessageData
                     )
-                else { return NSAttributedString(string: (body ?? "")) }
+                else { return (body ?? "") }
                 
-                return NSAttributedString(
-                    string: messageInfo.previewText(threadContactDisplayName: threadContactDisplayName)
-                )
+                return messageInfo.previewText(threadContactDisplayName: threadContactDisplayName)
         }
     }
     

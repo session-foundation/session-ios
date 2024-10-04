@@ -18,12 +18,21 @@ extension ContextMenuVC {
         
         // MARK: - UI
         
-        private lazy var iconImageView: UIImageView = {
+        private lazy var iconContainerView: UIImageView = {
             let result: UIImageView = UIImageView()
-            result.contentMode = .center
             result.themeTintColor = action.themeColor
             result.set(.width, to: ActionView.iconImageViewSize)
             result.set(.height, to: ActionView.iconImageViewSize)
+            
+            return result
+        }()
+        
+        private lazy var iconImageView: UIImageView = {
+            let result: UIImageView = UIImageView()
+            result.contentMode = .scaleAspectFit
+            result.themeTintColor = action.themeColor
+            result.set(.width, to: ActionView.iconSize)
+            result.set(.height, to: ActionView.iconSize)
             
             return result
         }()
@@ -80,14 +89,15 @@ extension ContextMenuVC {
         private func setUpViewHierarchy() {
             themeBackgroundColor = .clear
             
-            iconImageView.image = action.icon?
-                .resized(to: CGSize(width: ActionView.iconSize, height: ActionView.iconSize))?
-                .withRenderingMode(.alwaysTemplate)
+            iconImageView.image = action.icon?.withRenderingMode(.alwaysTemplate)
+            iconContainerView.addSubview(iconImageView)
+            iconImageView.center(in: iconContainerView)
+            
             titleLabel.text = action.title
             setUpSubtitle()
             
             // Stack view
-            let stackView: UIStackView = UIStackView(arrangedSubviews: [ iconImageView, labelContainer ])
+            let stackView: UIStackView = UIStackView(arrangedSubviews: [ iconContainerView, labelContainer ])
             stackView.axis = .horizontal
             stackView.spacing = Values.smallSpacing
             stackView.alignment = .center
@@ -122,14 +132,18 @@ extension ContextMenuVC {
             subtitleWidthConstraint.isActive = true
             // To prevent a negative timer
             let timeToExpireInSeconds: TimeInterval =  max(0, (expiresStartedAtMs + expiresInSeconds * 1000 - dependencies[cache: .snodeAPI].currentOffsetTimestampMs()) / 1000)
-            subtitleLabel.text = String(format: "DISAPPEARING_MESSAGES_AUTO_DELETES_COUNT_DOWN".localized(), timeToExpireInSeconds.formatted(format: .twoUnits))
+            subtitleLabel.text = "disappearingMessagesCountdownBigMobile"
+                .put(key: "time_large", value: timeToExpireInSeconds.formatted(format: .twoUnits))
+                .localized()
             
             timer = Timer.scheduledTimerOnMainThread(withTimeInterval: 1, repeats: true, using: dependencies, block: { [weak self, dependencies] _ in
                 let timeToExpireInSeconds: TimeInterval =  (expiresStartedAtMs + expiresInSeconds * 1000 - dependencies[cache: .snodeAPI].currentOffsetTimestampMs()) / 1000
                 if timeToExpireInSeconds <= 0 {
                     self?.dismissWithTimerInvalidationIfNeeded()
                 } else {
-                    self?.subtitleLabel.text = String(format: "DISAPPEARING_MESSAGES_AUTO_DELETES_COUNT_DOWN".localized(), timeToExpireInSeconds.formatted(format: .twoUnits))
+                    self?.subtitleLabel.text = "disappearingMessagesCountdownBigMobile"
+                        .put(key: "time_large", value: timeToExpireInSeconds.formatted(format: .twoUnits))
+                        .localized()
                 }
             })
         }

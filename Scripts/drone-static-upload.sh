@@ -34,12 +34,15 @@ else
 fi
 
 if [ -n "$DRONE_TAG" ]; then
-    # For a tag build use something like `session-ios-v1.2.3`
+    # For a tag build use something like `session-ios-v1.2.3`, stored directly in the repo directory
     base="session-ios-$DRONE_TAG-$suffix"
+    upload_to="oxen.rocks/${DRONE_REPO// /_}"
 else
     # Otherwise build a length name from the datetime and commit hash, such as:
     # session-ios-20200522T212342Z-04d7dcc54
+    # stored in a branch directory for the repo
     base="session-ios-$(date --date=@$DRONE_BUILD_CREATED +%Y%m%dT%H%M%SZ)-${DRONE_COMMIT:0:9}-$suffix"
+    upload_to="oxen.rocks/${DRONE_REPO// /_}/${DRONE_BRANCH// /_}"
 fi
 
 # Copy over the build products
@@ -50,8 +53,6 @@ cp -av $target_path "$base"
 # tar dat shiz up yo
 archive="$base.tar.xz"
 tar cJvf "$archive" "$base"
-
-upload_to="oxen.rocks/${DRONE_REPO// /_}/${DRONE_BRANCH// /_}"
 
 # sftp doesn't have any equivalent to mkdir -p, so we have to split the above up into a chain of
 # -mkdir a/, -mkdir a/b/, -mkdir a/b/c/, ... commands.  The leading `-` allows the command to fail

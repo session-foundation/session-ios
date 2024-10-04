@@ -102,31 +102,32 @@ public class NotificationPresenter: NSObject, UNUserNotificationCenterDelegate, 
         
         switch previewType {
             case .noNameNoPreview:
-                notificationTitle = "Session"
+                notificationTitle = Constants.app_name
                 
             case .nameNoPreview, .nameAndPreview:
                 switch (thread.variant, isMessageRequest) {
-                    case (.contact, true), (.group, true): notificationTitle = "Session"
+                    case (.contact, true), (.group, true): notificationTitle = Constants.app_name
                     case (.contact, false): notificationTitle = senderName
                         
                     case (.legacyGroup, _), (.group, false), (.community, _):
-                        notificationTitle = String(
-                            format: NotificationStrings.incomingGroupMessageTitleFormat,
-                            senderName,
-                            groupName
-                        )
+                        notificationTitle = "notificationsIosGroup"
+                            .put(key: "name", value: senderName)
+                            .put(key: "conversation_name", value: groupName)
+                            .localized()
                 }
         }
         
         switch previewType {
-            case .noNameNoPreview, .nameNoPreview: notificationBody = NotificationStrings.incomingMessageBody
+            case .noNameNoPreview, .nameNoPreview: notificationBody = "messageNewYouveGot"
+                .putNumber(1)
+                .localized()
             case .nameAndPreview: notificationBody = messageText
         }
         
         // If it's a message request then overwrite the body to be something generic (only show a notification
         // when receiving a new message request if there aren't any others or the user had hidden them)
         if isMessageRequest {
-            notificationBody = "MESSAGE_REQUESTS_NOTIFICATION".localized()
+            notificationBody = "messageRequestsNew".localized()
         }
         
         guard notificationBody != nil || notificationTitle != nil else {
@@ -213,7 +214,10 @@ public class NotificationPresenter: NSObject, UNUserNotificationCenterDelegate, 
         else { return }
         
         // Only notify missed calls
-        guard messageInfo.state == .missed || messageInfo.state == .permissionDenied else { return }
+        switch messageInfo.state {
+            case .missed, .permissionDenied, .permissionDeniedMicrophone: break
+            default: return
+        }
         
         let category = AppNotificationCategory.errorMessage
         let previewType: Preferences.NotificationPreviewType = db[.preferencesNotificationPreviewType]
@@ -224,20 +228,18 @@ public class NotificationPresenter: NSObject, UNUserNotificationCenterDelegate, 
             AppNotificationUserInfoKey.threadVariantRaw: thread.variant.rawValue
         ]
         
-        let notificationTitle: String = "Session"
+        let notificationTitle: String = Constants.app_name
         let senderName: String = Profile.displayName(db, id: interaction.authorId, threadVariant: thread.variant, using: dependencies)
         let notificationBody: String? = {
             switch messageInfo.state {
                 case .permissionDenied:
-                    return String(
-                        format: "modal_call_missed_tips_explanation".localized(),
-                        senderName
-                    )
-                case .missed:
-                    return String(
-                        format: "call_missed".localized(),
-                        senderName
-                    )
+                    return "callsYouMissedCallPermissions"
+                        .put(key: "name", value: senderName)
+                        .localizedDeformatted()
+                case .permissionDeniedMicrophone, .missed:
+                    return "callsMissedCallFrom"
+                        .put(key: "name", value: senderName)
+                        .localized()
                 default:
                     return nil
             }
@@ -287,9 +289,10 @@ public class NotificationPresenter: NSObject, UNUserNotificationCenterDelegate, 
         else { return }
         guard !isMessageRequest else { return }
         
-        let senderName: String = Profile.displayName(db, id: reaction.authorId, threadVariant: thread.variant, using: dependencies)
-        let notificationTitle = "Session"
-        var notificationBody = String(format: "EMOJI_REACTS_NOTIFICATION".localized(), senderName, reaction.emoji)
+        let notificationTitle = Profile.displayName(db, id: reaction.authorId, threadVariant: thread.variant, using: dependencies)
+        var notificationBody = "emojiReactsNotification"
+            .put(key: "emoji", value: reaction.emoji)
+            .localized()
         
         // Title & body
         let previewType: Preferences.NotificationPreviewType = db[.preferencesNotificationPreviewType]
@@ -297,7 +300,9 @@ public class NotificationPresenter: NSObject, UNUserNotificationCenterDelegate, 
         
         switch previewType {
             case .nameAndPreview: break
-            default: notificationBody = NotificationStrings.incomingMessageBody
+            default: notificationBody = "messageNewYouveGot"
+                .putNumber(1)
+                .localized()
         }
         
         let category = AppNotificationCategory.incomingMessage
@@ -362,9 +367,8 @@ public class NotificationPresenter: NSObject, UNUserNotificationCenterDelegate, 
             case .noNameNoPreview: notificationTitle = nil
             case .nameNoPreview, .nameAndPreview: notificationTitle = threadName
         }
-        
-        let notificationBody = NotificationStrings.failedToSendBody
-        
+
+        let notificationBody = "messageErrorDelivery".localized()
         let userInfo: [AnyHashable: Any] = [
             AppNotificationUserInfoKey.threadId: thread.id,
             AppNotificationUserInfoKey.threadVariantRaw: thread.variant.rawValue
@@ -470,10 +474,9 @@ private extension NotificationPresenter {
                         content.title :
                         threadName
                     )
-                    content.body = String(
-                        format: NotificationStrings.incomingCollapsedMessagesBody,
-                        "\(numberOfNotifications)"
-                    )
+                    content.body = "messageNewYouveGot"
+                        .putNumber(numberOfNotifications)
+                        .localized()
                 }
                 
                 content.userInfo[AppNotificationUserInfoKey.threadNotificationCounter] = numberOfNotifications
@@ -526,7 +529,6 @@ private extension NotificationPresenter {
         /// would belong to then we don't want to show the notification, so retrieve the `frontMostViewController` (from the main
         /// thread) and check
         guard
-            dependencies.hasInitialised(singleton: .appContext),
             let frontMostViewController: UIViewController = DispatchQueue.main.sync(execute: {
                 dependencies[singleton: .appContext].frontMostViewController
             }),

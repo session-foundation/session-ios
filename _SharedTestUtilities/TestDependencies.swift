@@ -10,7 +10,6 @@ public class TestDependencies: Dependencies {
     private var cacheInstances: [String: MutableCacheType] = [:]
     private var defaultsInstances: [String: (any UserDefaultsType)] = [:]
     private var featureInstances: [String: (any FeatureType)] = [:]
-    private var mockedValues: [Int: Any] = [:]
     
     // MARK: - Subscript Access
     
@@ -106,24 +105,12 @@ public class TestDependencies: Dependencies {
     // MARK: - Initialization
     
     public init(initialState: ((TestDependencies) -> ())? = nil) {
-        super.init()
+        super.init(forTesting: true)
         
         initialState?(self)
     }
     
     // MARK: - Functions
-    
-    public override func mockableValue<T>(key: String? = nil, _ defaultValue: T) -> T {
-        let key: Int = (key?.hashValue ?? ObjectIdentifier(T.self).hashValue)
-
-        return ((mockedValues[key] as? T) ?? defaultValue)
-    }
-    
-    public func setMockableValue<T>(key: String? = nil, _ value: T) {
-        let key: Int = (key?.hashValue ?? ObjectIdentifier(T.self).hashValue)
-        
-        return mockedValues[key] = value
-    }
     
     override public func async(at timestamp: TimeInterval, closure: @escaping () -> Void) {
         asyncExecutions.append(closure, toArrayOn: Int(ceil(timestamp)))
@@ -134,6 +121,8 @@ public class TestDependencies: Dependencies {
         _ mutation: (inout M) -> R
     ) -> R {
         var value: M = ((cacheInstances[cache.identifier] as? M) ?? cache.createInstance(self))
+        let mutableInstance: MutableCacheType = cache.mutableInstance(value)
+        cacheInstances[cache.identifier] = mutableInstance
         return mutation(&value)
     }
     
@@ -142,6 +131,8 @@ public class TestDependencies: Dependencies {
         _ mutation: (inout M) throws -> R
     ) throws -> R {
         var value: M = ((cacheInstances[cache.identifier] as? M) ?? cache.createInstance(self))
+        let mutableInstance: MutableCacheType = cache.mutableInstance(value)
+        cacheInstances[cache.identifier] = mutableInstance
         return try mutation(&value)
     }
     
@@ -189,6 +180,14 @@ public class TestDependencies: Dependencies {
     public override func set<S>(singleton: SingletonConfig<S>, to instance: S) {
         singletonInstances[singleton.identifier] = instance
     }
+    
+    public override func set<M, I>(cache: CacheConfig<M, I>, to instance: M) {
+        cacheInstances[cache.identifier] = cache.mutableInstance(instance)
+    }
+    
+    public override func remove<M, I>(cache: CacheConfig<M, I>) {
+        cacheInstances[cache.identifier] = nil
+    }
 }
 
 // MARK: - TestState Convenience
@@ -197,11 +196,13 @@ internal extension TestState {
     init<M, I>(
         wrappedValue: @escaping @autoclosure () -> T?,
         cache: CacheConfig<M, I>,
-        in dependencies: @escaping @autoclosure () -> TestDependencies?
+        in dependenciesRetriever: @escaping @autoclosure () -> TestDependencies?
     ) where T: MutableCacheType {
         self.init(wrappedValue: {
+            let dependencies: TestDependencies? = dependenciesRetriever()
             let value: T? = wrappedValue()
-            dependencies()![cache: cache] = (value as! M)
+            (value as? DependenciesSettable)?.setDependencies(dependencies)
+            dependencies?[cache: cache] = (value as! M)
             
             return value
         }())
@@ -210,11 +211,13 @@ internal extension TestState {
     init<S>(
         wrappedValue: @escaping @autoclosure () -> T?,
         singleton: SingletonConfig<S>,
-        in dependencies: @escaping @autoclosure () -> TestDependencies?
+        in dependenciesRetriever: @escaping @autoclosure () -> TestDependencies?
     ) {
         self.init(wrappedValue: {
+            let dependencies: TestDependencies? = dependenciesRetriever()
             let value: T? = wrappedValue()
-            dependencies()![singleton: singleton] = (value as! S)
+            (value as? DependenciesSettable)?.setDependencies(dependencies)
+            dependencies?[singleton: singleton] = (value as! S)
             
             return value
         }())
@@ -223,11 +226,13 @@ internal extension TestState {
     init(
         wrappedValue: @escaping @autoclosure () -> T?,
         defaults: UserDefaultsConfig,
-        in dependencies: @escaping @autoclosure () -> TestDependencies?
+        in dependenciesRetriever: @escaping @autoclosure () -> TestDependencies?
     ) where T: UserDefaultsType {
         self.init(wrappedValue: {
+            let dependencies: TestDependencies? = dependenciesRetriever()
             let value: T? = wrappedValue()
-            dependencies()![defaults: defaults] = value
+            (value as? DependenciesSettable)?.setDependencies(dependencies)
+            dependencies?[defaults: defaults] = value
             
             return value
         }())

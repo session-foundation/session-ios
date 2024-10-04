@@ -18,6 +18,12 @@ public extension Cache {
     )
 }
 
+// MARK: - Log.Category
+
+public extension Log.Category {
+    static let onboarding: Log.Category = .create("Onboarding", defaultLevel: .info)
+}
+
 // MARK: - Onboarding
 
 public enum Onboarding {
@@ -40,9 +46,20 @@ public enum Onboarding {
     public enum Flow {
         case none
         case register
-        case loadAccount
-        case link   // TODO: [GROUPS REBUILD] Remove me after onbarding merge
+        case restore
         case devSettings
+    }
+    
+    enum SeedSource {
+        case qrCode
+        case mnemonic
+        
+        var genericErrorMessage: String {
+            switch self {
+                case .qrCode: "qrNotRecoveryPassword".localized()
+                case .mnemonic: "recoveryPasswordErrorMessageGeneric".localized()
+            }
+        }
     }
 }
 
@@ -54,7 +71,7 @@ extension Onboarding {
         public let id: UUID = UUID()
         public let initialFlow: Onboarding.Flow
         public var state: State
-        private let suppressDidRegisterNotification: Bool
+        private let completionSubject: CurrentValueSubject<Bool, Never> = CurrentValueSubject(false)
         
         public var seed: Data
         public var ed25519KeyPair: KeyPair
@@ -71,13 +88,20 @@ extension Onboarding {
             _displayNamePublisher ?? Fail(error: NetworkError.notFound).eraseToAnyPublisher()
         }
         
+        public var onboardingCompletePublisher: AnyPublisher<Void, Never> {
+            completionSubject
+                .filter { $0 }
+                .map { _ in () }
+                .eraseToAnyPublisher()
+        }
+        
         // MARK: - Initialization
         
         init(flow: Onboarding.Flow, using dependencies: Dependencies) {
             self.dependencies = dependencies
             self.initialFlow = flow
-            self.suppressDidRegisterNotification = false
             
+            /// Determine the current state based on what's in the database
             typealias StoredData = (
                 state: State,
                 displayName: String,
@@ -95,20 +119,20 @@ extension Onboarding {
                 // app crashed during onboarding which would leave the user in an invalid
                 // state with no display name)
                 let displayName: String = Profile.fetchOrCreateCurrentUser(db, using: dependencies).name
-                guard !displayName.isEmpty else { return (.missingName, "Anonymous", x25519KeyPair, ed25519KeyPair) }
+                guard !displayName.isEmpty else { return (.missingName, "anonymous".localized(), x25519KeyPair, ed25519KeyPair) }
                 
                 // Otherwise we have enough for a full user and can start the app
                 return (.completed, displayName, x25519KeyPair, ed25519KeyPair)
             }.defaulting(to: (.noUser, "", KeyPair.empty, KeyPair.empty))
-            
+
             /// Store the initial `displayName` value in case we need it
             self.displayName = storedData.displayName
             
             /// Update the cached values depending on the `initialState`
             switch storedData.state {
                 case .noUser, .noUserFailedIdentity:
-                    /// Reset the `PushNotificationAPI` keys (just in case they were left over from a prior install)
-                    PushNotificationAPI.deleteKeys(using: dependencies)
+                    /// Remove the `LibSession.Cache` just in case (to ensure no previous state remains)
+                    dependencies.remove(cache: .libSession)
                     
                     /// Try to generate the identity data
                     guard
@@ -144,6 +168,11 @@ extension Onboarding {
                     self.x25519KeyPair = storedData.x25519KeyPair
                     self.userSessionId = dependencies[cache: .general].sessionId
                     self.useAPNS = dependencies[defaults: .standard, key: .isUsingFullAPNs]
+                    
+                    /// If we are already in a completed state then updated the completion subject accordingly
+                    if self.state == .completed {
+                        self.completionSubject.send(true)
+                    }
             }
         }
         
@@ -164,9 +193,6 @@ extension Onboarding {
             self.useAPNS = dependencies[defaults: .standard, key: .isUsingFullAPNs]
             self.displayName = displayName
             self._displayNamePublisher = nil
-            
-            /// Don't trigger the `Identity.didRegister` notification in this case
-            self.suppressDidRegisterNotification = true
         }
         
         // MARK: - Functions
@@ -188,25 +214,24 @@ extension Onboarding {
             /// **Note:** We trigger this as a "background poll" as doing so means the received messages will be
             /// processed immediately rather than async as part of a Job
             let poller: CurrentUserPoller = CurrentUserPoller(
-                swarmPublicKey: userSessionId.hexString,
+                pollerName: "Onboarding Poller", // stringlint:disable
+                pollerQueue: Threading.pollerQueue,
+                pollerDestination: .swarm(self.userSessionId.hexString),
+                pollerDrainBehaviour: .alwaysRandom,
+                namespaces: [.configUserProfile],
                 shouldStoreMessages: false,
                 logStartAndStopCalls: false,
                 customAuthMethod: Authentication.standard(
                     sessionId: userSessionId,
                     ed25519KeyPair: identity.ed25519KeyPair
                 ),
-                drainBehaviour: .alwaysRandom,
                 using: dependencies
             )
-
+            
             typealias PollResult = (configMessage: ProcessedMessage, displayName: String)
             let publisher: AnyPublisher<String?, Error> = poller
-                .poll(
-                    namespaces: [.configUserProfile],
-                    calledFromBackgroundPoller: true,
-                    isBackgroundPollValid: { true }
-                )
-                .tryMap { [userSessionId, dependencies] messages, _, _, _, _ -> PollResult? in
+                .poll(forceSynchronousProcessing: true)
+                .tryMap { [userSessionId, dependencies] messages, _, _, _ -> PollResult? in
                     guard
                         let targetMessage: ProcessedMessage = messages.last, /// Just in case there are multiple
                         case let .config(_, _, serverHash, serverTimestampMs, data) = targetMessage
@@ -251,7 +276,7 @@ extension Onboarding {
                 )
                 .map { result -> String? in result?.displayName }
                 .catch { error -> AnyPublisher<String?, Error> in
-                    Log.warn("[Onboarding] Failed to retrieve existing profile information due to error: \(error).")
+                    Log.warn(.onboarding, "Failed to retrieve existing profile information due to error: \(error).")
                     return Just(nil)
                         .setFailureType(to: Error.self)
                         .eraseToAnyPublisher()
@@ -276,13 +301,13 @@ extension Onboarding {
         }
         
         func completeRegistration(onComplete: @escaping (() -> Void)) {
-            DispatchQueue.global(qos: .userInitiated).async(using: dependencies) { [weak self, initialFlow, userSessionId, ed25519KeyPair, x25519KeyPair, useAPNS, displayName, userProfileConfigMessage, suppressDidRegisterNotification, dependencies] in
+            DispatchQueue.global(qos: .userInitiated).async(using: dependencies) { [weak self, initialFlow, userSessionId, ed25519KeyPair, x25519KeyPair, useAPNS, displayName, userProfileConfigMessage, dependencies] in
                 /// Cache the users session id (so we don't need to fetch it from the database every time)
                 dependencies.mutate(cache: .general) {
                     $0.setCachedSessionId(sessionId: userSessionId)
                 }
                 
-                /// If we had a proper `initialFlow` then create a new `libSession` cache (to ensure no previous state remains)
+                /// If we had a proper `initialFlow` then create a new `libSession` cache for the user
                 if initialFlow != .none {
                     dependencies.set(
                         cache: .libSession,
@@ -294,13 +319,13 @@ extension Onboarding {
                 }
                 
                 dependencies[singleton: .storage].write { db in
-                    /// Only update the cached state if we have a proper `initialFlow`
+                    /// Only update the identity/contact/Note to Self state if we have a proper `initialFlow`
                     if initialFlow != .none {
                         /// Store the user identity information
                         try Identity.store(db, ed25519KeyPair: ed25519KeyPair, x25519KeyPair: x25519KeyPair)
                         
-                        /// No need to show the seed again if the user is restoring or linking
-                        db[.hasViewedSeed] = (initialFlow == .loadAccount || initialFlow == .link)
+                        /// No need to show the seed again if the user is restoring
+                        db[.hasViewedSeed] = (initialFlow == .restore)
                         
                         /// Create a contact for the current user and set their approval/trusted statuses so they don't get weird behaviours
                         try Contact
@@ -320,6 +345,7 @@ extension Onboarding {
                             db,
                             id: userSessionId.hexString,
                             variant: .contact,
+                            creationDateTimestamp: (dependencies[cache: .snodeAPI].currentOffsetTimestampMs() / 1000),
                             shouldBeVisible: false,
                             calledFromConfig: nil,
                             using: dependencies
@@ -336,10 +362,7 @@ extension Onboarding {
                                     db,
                                     swarmPublicKey: userSessionId.hexString,
                                     messages: ConfigMessageReceiveJob
-                                        .Details(
-                                            messages: [userProfileConfigMessage],
-                                            calledFromBackgroundPoller: false
-                                        )
+                                        .Details(messages: [userProfileConfigMessage])
                                         .messages
                                 )
                             }
@@ -354,7 +377,7 @@ extension Onboarding {
                         try Profile.updateIfNeeded(
                             db,
                             publicKey: userSessionId.hexString,
-                            name: displayName,
+                            displayNameUpdate: .currentUserUpdate(displayName),
                             displayPictureUpdate: .none,
                             sentTimestamp: dependencies.dateNow.timeIntervalSince1970,
                             calledFromConfig: nil,
@@ -362,7 +385,9 @@ extension Onboarding {
                         )
                     }
                     
-                    /// Now that everything is saved we should update the `Onboarding.Cache` `state` to be `completed`
+                    /// Now that everything is saved we should update the `Onboarding.Cache` `state` to be `completed` (we do
+                    /// this within the db write query because then `updateAllAndConfig` below will trigger a config sync which is
+                    /// dependant on this `state` being updated)
                     self?.state = .completed
                     
                     /// We need to explicitly `updateAllAndConfig` the `shouldBeVisible` value to `false` for new accounts otherwise it
@@ -374,6 +399,7 @@ extension Onboarding {
                             .updateAllAndConfig(
                                 db,
                                 SessionThread.Columns.shouldBeVisible.set(to: false),
+                                SessionThread.Columns.pinnedPriority.set(to: LibSession.hiddenPriority),
                                 calledFromConfig: nil,
                                 using: dependencies
                             )
@@ -388,10 +414,8 @@ extension Onboarding {
                 /// there'll be a configuration in their swarm.
                 dependencies[defaults: .standard, key: .hasSyncedInitialConfiguration] = (initialFlow == .register)
                 
-                /// Notify the app that registration is complete
-                if !suppressDidRegisterNotification {
-                    Identity.didRegister()
-                }
+                /// Send an event indicating that registration is complete
+                self?.completionSubject.send(true)
              
                 DispatchQueue.main.async(using: dependencies) {
                     onComplete()
@@ -417,6 +441,7 @@ public protocol OnboardingImmutableCacheType: ImmutableCacheType {
     
     var displayName: String { get }
     var displayNamePublisher: AnyPublisher<String?, Error> { get }
+    var onboardingCompletePublisher: AnyPublisher<Void, Never> { get }
 }
 
 public protocol OnboardingCacheType: OnboardingImmutableCacheType, MutableCacheType {
@@ -432,6 +457,7 @@ public protocol OnboardingCacheType: OnboardingImmutableCacheType, MutableCacheT
     
     var displayName: String { get }
     var displayNamePublisher: AnyPublisher<String?, Error> { get }
+    var onboardingCompletePublisher: AnyPublisher<Void, Never> { get }
     
     func setSeedData(_ seedData: Data) throws
     func setUserAPNS(_ useAPNS: Bool)

@@ -1,9 +1,23 @@
 // Copyright © 2022 Rangeproof Pty Ltd. All rights reserved.
+//
+// stringlint:disable
 
 import Foundation
 import Combine
 
 public protocol CombineCompatible {}
+
+public enum PublisherError: Error, CustomStringConvertible {
+    case targetPublisherIsNull
+    case invalidCollectionType
+    
+    public var description: String {
+        switch self {
+            case .targetPublisherIsNull: return "The target publisher is null, likely due to a 'weak self' (PublisherError.targetPublisherIsNull)."
+            case .invalidCollectionType: return "Failed to convert array literal to desired Publisher type (PublisherError.invalidCollectionType)."
+        }
+    }
+}
 
 public extension Publisher {
     /// Provides a subject that shares a single subscription to the upstream publisher and replays at most
@@ -26,6 +40,28 @@ public extension Publisher {
         )
     }
     
+    func flatMapOptional<T, P>(
+        maxPublishers: Subscribers.Demand = .unlimited,
+        _ transform: @escaping (Self.Output) -> P?
+    ) -> AnyPublisher<T, Error> where T == P.Output, P : Publisher, P.Failure == Error {
+        return self
+            .mapError { $0 }
+            .flatMap(maxPublishers: maxPublishers) { output -> AnyPublisher<P.Output, Error> in
+                do {
+                    guard let result: AnyPublisher<T, Error> = transform(output)?.eraseToAnyPublisher() else {
+                        throw PublisherError.targetPublisherIsNull
+                    }
+                    
+                    return result
+                }
+                catch {
+                    return Fail<P.Output, Error>(error: error)
+                        .eraseToAnyPublisher()
+                }
+            }
+            .eraseToAnyPublisher()
+    }
+    
     func tryFlatMap<T, P>(
         maxPublishers: Subscribers.Demand = .unlimited,
         _ transform: @escaping (Self.Output) throws -> P
@@ -41,6 +77,43 @@ public extension Publisher {
                     return Fail<P.Output, Error>(error: error)
                         .eraseToAnyPublisher()
                 }
+            }
+            .eraseToAnyPublisher()
+    }
+    
+    func tryFlatMapOptional<T, P>(
+        maxPublishers: Subscribers.Demand = .unlimited,
+        _ transform: @escaping (Self.Output) throws -> P?
+    ) -> AnyPublisher<T, Error> where T == P.Output, P : Publisher, P.Failure == Error {
+        return self
+            .mapError { $0 }
+            .flatMap(maxPublishers: maxPublishers) { output -> AnyPublisher<P.Output, Error> in
+                do {
+                    guard let result: AnyPublisher<T, Error> = try transform(output)?.eraseToAnyPublisher() else {
+                        throw PublisherError.targetPublisherIsNull
+                    }
+                    
+                    return result
+                }
+                catch {
+                    return Fail<P.Output, Error>(error: error)
+                        .eraseToAnyPublisher()
+                }
+            }
+            .eraseToAnyPublisher()
+    }
+    
+    func catchOptional<P>(
+        _ handler: @escaping (Self.Failure) -> P?
+    ) -> AnyPublisher<P.Output, Error> where P : Publisher, Self.Output == P.Output, P.Failure == Error {
+        return self
+            .catch { error in
+                guard let result: AnyPublisher<P.Output, Error> = handler(error)?.eraseToAnyPublisher() else {
+                    return Fail<P.Output, Error>(error: PublisherError.targetPublisherIsNull)
+                        .eraseToAnyPublisher()
+                }
+                
+                return result
             }
             .eraseToAnyPublisher()
     }
@@ -125,16 +198,8 @@ public extension Publisher {
     }
 }
 
-extension AnyPublisher: ExpressibleByArrayLiteral where Output: Collection {
+extension AnyPublisher: @retroactive ExpressibleByArrayLiteral where Output: RangeReplaceableCollection {
     public init(arrayLiteral elements: Output.Element...) {
-        guard let convertedElements: Output = Array(elements) as? Output else {
-            SNLog("Failed to convery array literal to Publisher due to invalid type conversation of \(type(of: Output.self))")
-            guard let empty: Output = [] as? Output else { preconditionFailure("Invalid type") }
-            
-            self = Just(empty).setFailureType(to: Failure.self).eraseToAnyPublisher()
-            return
-        }
-        
-        self = Just(convertedElements).setFailureType(to: Failure.self).eraseToAnyPublisher()
+        self = Just(Output(elements)).setFailureType(to: Failure.self).eraseToAnyPublisher()
     }
 }

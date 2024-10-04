@@ -6,6 +6,14 @@ import SessionUIKit
 import SessionUtilitiesKit
 import SessionSnodeKit
 
+// MARK: - Log.Category
+
+public extension Log.Category {
+    static let messageReceiver: Log.Category = .create("MessageReceiver", defaultLevel: .info)
+}
+
+// MARK: - MessageReceiver
+
 public enum MessageReceiver {
     private static var lastEncryptionKeyPairRequest: [String: Date] = [:]
     
@@ -21,6 +29,7 @@ public enum MessageReceiver {
         var customMessage: Message? = nil
         let sender: String
         let sentTimestamp: UInt64
+        let serverHash: String?
         let openGroupServerMessageId: UInt64?
         let threadVariant: SessionThread.Variant
         let threadIdGenerator: (Message) throws -> String
@@ -40,6 +49,7 @@ public enum MessageReceiver {
                 plaintext = data.removePadding()   // Remove the padding
                 sender = messageSender
                 sentTimestamp = UInt64(floor(timestamp * 1000)) // Convert to ms for database consistency
+                serverHash = nil
                 openGroupServerMessageId = UInt64(messageServerId)
                 threadVariant = .community
                 threadIdGenerator = { message in
@@ -63,18 +73,19 @@ public enum MessageReceiver {
                 
                 plaintext = plaintext.removePadding()   // Remove the padding
                 sentTimestamp = UInt64(floor(timestamp * 1000)) // Convert to ms for database consistency
+                serverHash = nil
                 openGroupServerMessageId = UInt64(messageServerId)
                 threadVariant = .contact
                 threadIdGenerator = { _ in sender }
                 
-            case (_, .swarm(let publicKey, let namespace, _, _, _)):
+            case (_, .swarm(let publicKey, let namespace, let swarmServerHash, _, _)):
                 switch namespace {
                     case .default:
                         guard
                             let envelope: SNProtoEnvelope = try? MessageWrapper.unwrap(data: data),
                             let ciphertext: Data = envelope.content
                         else {
-                            SNLog("Failed to unwrap data for message from 'default' namespace.")
+                            Log.warn(.messageReceiver, "Failed to unwrap data for message from 'default' namespace.")
                             throw MessageReceiverError.invalidMessage
                         }
                         
@@ -87,12 +98,12 @@ public enum MessageReceiver {
                         )
                         plaintext = plaintext.removePadding()   // Remove the padding
                         sentTimestamp = envelope.timestamp
+                        serverHash = swarmServerHash
                         openGroupServerMessageId = nil
                         threadVariant = .contact
                         threadIdGenerator = { message in
                             switch message {
                                 case let message as VisibleMessage: return (message.syncTarget ?? sender)
-                                case let message as ExpirationTimerUpdate: return (message.syncTarget ?? sender)
                                 default: return sender
                             }
                         }
@@ -113,11 +124,12 @@ public enum MessageReceiver {
                             ),
                             let envelopeContent: Data = envelope.content
                         else {
-                            SNLog("Failed to unwrap data for message from 'default' namespace.")
+                            Log.warn(.messageReceiver, "Failed to unwrap data for message from 'default' namespace.")
                             throw MessageReceiverError.invalidMessage
                         }
                         plaintext = envelopeContent // Padding already removed for updated groups
                         sentTimestamp = envelope.timestamp
+                        serverHash = swarmServerHash
                         openGroupServerMessageId = nil
                         threadVariant = .group
                         threadIdGenerator = { _ in publicKey }
@@ -128,6 +140,7 @@ public enum MessageReceiver {
                         customMessage = LibSessionMessage(ciphertext: data)
                         sender = publicKey  // The "group" sends these messages
                         sentTimestamp = 0
+                        serverHash = swarmServerHash
                         openGroupServerMessageId = nil
                         threadVariant = .group
                         threadIdGenerator = { _ in publicKey }
@@ -139,7 +152,7 @@ public enum MessageReceiver {
                             let ciphertext: Data = envelope.content,
                             let closedGroup: ClosedGroup = try? ClosedGroup.fetchOne(db, id: publicKey)
                         else {
-                            SNLog("Failed to unwrap data for message from 'legacyClosedGroup' namespace.")
+                            Log.warn(.messageReceiver, "Failed to unwrap data for message from 'legacyClosedGroup' namespace.")
                             throw MessageReceiverError.invalidMessage
                         }
                         
@@ -178,6 +191,16 @@ public enum MessageReceiver {
                         (plaintext, sender) = try decrypt(keyPairs: encryptionKeyPairs)
                         plaintext = plaintext.removePadding()   // Remove the padding
                         sentTimestamp = envelope.timestamp
+                        
+                        /// If we weren't given a `serverHash` then compute one locally using the same logic the swarm would
+                        switch swarmServerHash.isEmpty {
+                            case false: serverHash = swarmServerHash
+                            case true:
+                                serverHash = dependencies[singleton: .crypto].generate(
+                                    .messageServerHash(swarmPubkey: publicKey, namespace: namespace, data: data)
+                                ).defaulting(to: "")
+                        }
+                        
                         openGroupServerMessageId = nil
                         threadVariant = .legacyGroup
                         threadIdGenerator = { _ in publicKey }
@@ -189,18 +212,18 @@ public enum MessageReceiver {
                         throw MessageReceiverError.invalidConfigMessageHandling
                         
                     case .all, .unknown:
-                        SNLog("Couldn't process message due to invalid namespace.")
+                        Log.warn(.messageReceiver, "Couldn't process message due to invalid namespace.")
                         throw MessageReceiverError.unknownMessage
                 }
         }
         
         let proto: SNProtoContent = try (customProto ?? Result(catching: { try SNProtoContent.parseData(plaintext) })
-           .onFailure { SNLog("Couldn't parse proto due to error: \($0).") }
-           .successOrThrow())
+            .onFailure { Log.error(.messageReceiver, "Couldn't parse proto due to error: \($0).") }
+            .successOrThrow())
         let message: Message = try (customMessage ?? Message.createMessageFrom(proto, sender: sender, using: dependencies))
         message.sender = sender
         message.recipient = userSessionId.hexString
-        message.serverHash = origin.serverHash
+        message.serverHash = serverHash
         message.sentTimestamp = sentTimestamp
         message.receivedTimestamp = dependencies[cache: .snodeAPI].currentOffsetTimestampMs()
         message.openGroupServerMessageId = openGroupServerMessageId
@@ -262,7 +285,13 @@ public enum MessageReceiver {
         // the config then the message will be dropped)
         guard
             !Message.requiresExistingConversation(message: message, threadVariant: threadVariant) ||
-            LibSession.conversationInConfig(db, threadId: threadId, threadVariant: threadVariant, visibleOnly: false, using: dependencies)
+            LibSession.conversationInConfig(
+                db,
+                threadId: threadId,
+                threadVariant: threadVariant,
+                visibleOnly: false,
+                using: dependencies
+            )
         else { throw MessageReceiverError.requiredThreadNotInConfig }
         
         // Throw if the message is outdated and shouldn't be processed
@@ -334,14 +363,6 @@ public enum MessageReceiver {
                 )
                 
             case let message as ExpirationTimerUpdate:
-                try MessageReceiver.handleExpirationTimerUpdate(
-                    db,
-                    threadId: threadId,
-                    threadVariant: threadVariant,
-                    message: message,
-                    using: dependencies
-                )
-            
                 try MessageReceiver.handleExpirationTimerUpdate(
                     db,
                     threadId: threadId,
@@ -455,6 +476,7 @@ public enum MessageReceiver {
         if threadVariant != .community {
             db.afterNextTransactionNestedOnce(
                 dedupeId: "PostInsertDisappearingMessagesJob",  // stringlint:disable
+                using: dependencies,
                 onCommit: { db in
                     dependencies[singleton: .jobRunner].upsert(
                         db,

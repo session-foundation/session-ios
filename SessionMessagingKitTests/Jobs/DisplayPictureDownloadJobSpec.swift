@@ -30,10 +30,10 @@ class DisplayPictureDownloadJobSpec: QuickSpec {
             ],
             using: dependencies,
             initialData: { db in
-                try Identity(variant: .x25519PublicKey, data: Data.data(fromHex: TestConstants.publicKey)!).insert(db)
-                try Identity(variant: .x25519PrivateKey, data: Data.data(fromHex: TestConstants.privateKey)!).insert(db)
-                try Identity(variant: .ed25519PublicKey, data: Data.data(fromHex: TestConstants.edPublicKey)!).insert(db)
-                try Identity(variant: .ed25519SecretKey, data: Data.data(fromHex: TestConstants.edSecretKey)!).insert(db)
+                try Identity(variant: .x25519PublicKey, data: Data(hex: TestConstants.publicKey)).insert(db)
+                try Identity(variant: .x25519PrivateKey, data: Data(hex: TestConstants.privateKey)).insert(db)
+                try Identity(variant: .ed25519PublicKey, data: Data(hex: TestConstants.edPublicKey)).insert(db)
+                try Identity(variant: .ed25519SecretKey, data: Data(hex: TestConstants.edSecretKey)).insert(db)
             }
         )
         @TestState var imageData: Data! = Data(
@@ -48,11 +48,11 @@ class DisplayPictureDownloadJobSpec: QuickSpec {
             "673120e153a5cb6b869380744d493068ebc418266d6596d728cfc60b30662a089376" +
             "f2761e3bb6ee837a26b24b5"
         )
-        @TestState var filenameUuid: UUID! = UUID(uuidString: "00000000-0000-0000-0000-000000001234")
+        let filenameHash: String = "TestHash".bytes.toHexString()
         @TestState(singleton: .network, in: dependencies) var mockNetwork: MockNetwork! = MockNetwork(
             initialSetup: { network in
                 network
-                    .when { $0.send(.selectedNetworkRequest(.any, to: .any, with: .any, timeout: .any, using: .any)) }
+                    .when { $0.send(.any, to: .any, requestTimeout: .any, requestAndPathBuildTimeout: .any) }
                     .thenReturn(MockNetwork.response(data: encryptedData))
             }
         )
@@ -77,11 +77,11 @@ class DisplayPictureDownloadJobSpec: QuickSpec {
         )
         @TestState(singleton: .crypto, in: dependencies) var mockCrypto: MockCrypto! = MockCrypto(
             initialSetup: { crypto in
-                crypto.when { $0.generate(.uuid()) }.thenReturn(filenameUuid)
+                crypto.when { $0.generate(.uuid()) }.thenReturn(UUID(uuidString: "00000000-0000-0000-0000-000000001234"))
                 crypto
                     .when { $0.generate(.decryptedDataDisplayPicture(data: .any, key: .any, using: .any)) }
                     .thenReturn(imageData)
-                crypto.when { $0.generate(.hash(message: .any, length: .any)) }.thenReturn([])
+                crypto.when { $0.generate(.hash(message: .any, length: .any)) }.thenReturn("TestHash".bytes)
                 crypto
                     .when { $0.generate(.blinded15KeyPair(serverPublicKey: .any, ed25519SecretKey: .any)) }
                     .thenReturn(
@@ -117,12 +117,12 @@ class DisplayPictureDownloadJobSpec: QuickSpec {
                 DisplayPictureDownloadJob.run(
                     job,
                     queue: .main,
-                    success: { _, _, _ in },
-                    failure: { _, runError, runPermanentFailure, _ in
+                    success: { _, _ in },
+                    failure: { _, runError, runPermanentFailure in
                         error = runError
                         permanentFailure = runPermanentFailure
                     },
-                    deferred: { _, _ in },
+                    deferred: { _ in },
                     using: dependencies
                 )
                 
@@ -489,46 +489,40 @@ class DisplayPictureDownloadJobSpec: QuickSpec {
                     details: DisplayPictureDownloadJob.Details(
                         target: .profile(
                             id: "",
-                            url: "http://oxen.io/1234/",
+                            url: "http://filev2.getsession.org/file/1234",
                             encryptionKey: encryptionKey
                         ),
                         timestamp: 0
                     )
                 )
-                let expectedRequest: URLRequest = try FileServerAPI
-                    .preparedDownload(
-                        fileId: "1234",
-                        useOldServer: false,
-                        using: dependencies
-                    )
-                    .request
+                let expectedRequest: Network.PreparedRequest<Data> = try Network.preparedDownload(
+                    url: URL(string: "http://filev2.getsession.org/file/1234")!,
+                    using: dependencies
+                )
                 
                 DisplayPictureDownloadJob.run(
                     job,
                     queue: .main,
-                    success: { _, _, _ in },
-                    failure: { _, _, _, _ in },
-                    deferred: { _, _ in },
+                    success: { _, _ in },
+                    failure: { _, _, _ in },
+                    deferred: { _ in },
                     using: dependencies
                 )
                 
                 expect(mockNetwork)
                     .to(call(.exactly(times: 1), matchingParameters: .all) { network in
                         network.send(
-                            .selectedNetworkRequest(
-                                expectedRequest,
-                                to: FileServerAPI.server,
-                                with: FileServerAPI.serverPublicKey,
-                                timeout: FileServerAPI.fileDownloadTimeout,
-                                using: .any
-                            )
+                            expectedRequest.body,
+                            to: expectedRequest.destination,
+                            requestTimeout: expectedRequest.requestTimeout,
+                            requestAndPathBuildTimeout: expectedRequest.requestAndPathBuildTimeout
                         )
                     })
             }
             
             // MARK: -- generates a SOGS download request correctly
             it("generates a SOGS download request correctly") {
-                mockStorage.write(using: dependencies) { db in
+                mockStorage.write { db in
                     try OpenGroup(
                         server: "testServer",
                         roomToken: "testRoom",
@@ -552,37 +546,32 @@ class DisplayPictureDownloadJobSpec: QuickSpec {
                         timestamp: 0
                     )
                 )
-                let expectedRequest: URLRequest = mockStorage
-                    .read { db in
-                        try OpenGroupAPI.preparedDownloadFile(
-                            db,
-                            fileId: "12",
-                            from: "testRoom",
-                            on: "testserver",
-                            using: dependencies
-                        )
-                    }!
-                    .request
+                let expectedRequest: Network.PreparedRequest<Data> = mockStorage.read { db in
+                    try OpenGroupAPI.preparedDownload(
+                        db,
+                        fileId: "12",
+                        from: "testRoom",
+                        on: "testserver",
+                        using: dependencies
+                    )
+                }!
                 
                 DisplayPictureDownloadJob.run(
                     job,
                     queue: .main,
-                    success: { _, _, _ in },
-                    failure: { _, _, _, _ in },
-                    deferred: { _, _ in },
+                    success: { _, _ in },
+                    failure: { _, _, _ in },
+                    deferred: { _ in },
                     using: dependencies
                 )
                 
                 expect(mockNetwork)
                     .to(call(.exactly(times: 1), matchingParameters: .all) { network in
                         network.send(
-                            .selectedNetworkRequest(
-                                expectedRequest,
-                                to: "testserver",
-                                with: TestConstants.serverPublicKey,
-                                timeout: FileServerAPI.fileDownloadTimeout,
-                                using: .any
-                            )
+                            expectedRequest.body,
+                            to: expectedRequest.destination,
+                            requestTimeout: expectedRequest.requestTimeout,
+                            requestAndPathBuildTimeout: expectedRequest.requestAndPathBuildTimeout
                         )
                     })
             }
@@ -600,7 +589,7 @@ class DisplayPictureDownloadJobSpec: QuickSpec {
                         profileEncryptionKey: nil,
                         lastProfilePictureUpdate: nil
                     )
-                    mockStorage.write(using: dependencies) { db in try profile.insert(db) }
+                    mockStorage.write { db in try profile.insert(db) }
                     job = Job(
                         variant: .displayPictureDownload,
                         shouldBeUnique: true,
@@ -619,9 +608,9 @@ class DisplayPictureDownloadJobSpec: QuickSpec {
                     DisplayPictureDownloadJob.run(
                         job,
                         queue: .main,
-                        success: { _, _, _ in jobResult = .succeeded },
-                        failure: { _, error, permanent, _ in jobResult = .failed(error, permanent) },
-                        deferred: { _, _ in jobResult = .deferred },
+                        success: { _, _ in jobResult = .succeeded },
+                        failure: { _, error, permanent in jobResult = .failed(error, permanent) },
+                        deferred: { _ in jobResult = .deferred },
                         using: dependencies
                     )
                 }
@@ -680,7 +669,7 @@ class DisplayPictureDownloadJobSpec: QuickSpec {
                     expect(mockFileManager)
                         .to(call(.exactly(times: 1), matchingParameters: .all) { mockFileManager in
                             mockFileManager.createFile(
-                                atPath: "/test/ProfileAvatars/\(filenameUuid.uuidString).jpg",
+                                atPath: "/test/ProfileAvatars/\(filenameHash).jpg",
                                 contents: imageData,
                                 attributes: nil
                             )
@@ -691,7 +680,7 @@ class DisplayPictureDownloadJobSpec: QuickSpec {
                 it("adds the image data to the displayPicture cache") {
                     expect(mockDisplayPictureCache)
                         .to(call(.exactly(times: 1), matchingParameters: .all) {
-                            $0.imageData = ["\(filenameUuid.uuidString).jpg": imageData]
+                            $0.imageData = ["\(filenameHash).jpg": imageData]
                         })
                 }
                 
@@ -711,7 +700,7 @@ class DisplayPictureDownloadJobSpec: QuickSpec {
                             profileEncryptionKey: encryptionKey,
                             lastProfilePictureUpdate: 1234567890
                         )
-                        mockStorage.write(using: dependencies) { db in
+                        mockStorage.write { db in
                             _ = try Profile.deleteAll(db)
                             try profile.insert(db)
                         }
@@ -732,7 +721,7 @@ class DisplayPictureDownloadJobSpec: QuickSpec {
                     // MARK: ------ that does not exist
                     context("that does not exist") {
                         beforeEach {
-                            mockStorage.write(using: dependencies) { db in try Profile.deleteAll(db) }
+                            mockStorage.write { db in try Profile.deleteAll(db) }
                         }
                         
                         // MARK: -------- does not save the picture
@@ -751,7 +740,7 @@ class DisplayPictureDownloadJobSpec: QuickSpec {
                     // MARK: ------ that has a different encryption key and more recent update
                     context("that has a different encryption key and more recent update") {
                         beforeEach {
-                            mockStorage.write(using: dependencies) { db in
+                            mockStorage.write { db in
                                 try Profile
                                     .updateAll(
                                         db,
@@ -776,7 +765,7 @@ class DisplayPictureDownloadJobSpec: QuickSpec {
                                         id: "1234",
                                         name: "test",
                                         profilePictureUrl: "http://oxen.io/100/",
-                                        profilePictureFileName: "\(filenameUuid.uuidString).jpg",
+                                        profilePictureFileName: "\(filenameHash).jpg",
                                         profileEncryptionKey: encryptionKey,
                                         lastProfilePictureUpdate: 1234567891
                                     )
@@ -787,7 +776,7 @@ class DisplayPictureDownloadJobSpec: QuickSpec {
                     // MARK: ------ that has a different url and more recent update
                     context("that has a different url and more recent update") {
                         beforeEach {
-                            mockStorage.write(using: dependencies) { db in
+                            mockStorage.write { db in
                                 try Profile
                                     .updateAll(
                                         db,
@@ -812,7 +801,7 @@ class DisplayPictureDownloadJobSpec: QuickSpec {
                                         id: "1234",
                                         name: "test",
                                         profilePictureUrl: "http://oxen.io/100/",
-                                        profilePictureFileName: "\(filenameUuid.uuidString).jpg",
+                                        profilePictureFileName: "\(filenameHash).jpg",
                                         profileEncryptionKey: encryptionKey,
                                         lastProfilePictureUpdate: 1234567891
                                     )
@@ -823,7 +812,7 @@ class DisplayPictureDownloadJobSpec: QuickSpec {
                     // MARK: ------ that has a more recent update but the same url and encryption key
                     context("that has a more recent update but the same url and encryption key") {
                         beforeEach {
-                            mockStorage.write(using: dependencies) { db in
+                            mockStorage.write { db in
                                 try Profile
                                     .updateAll(
                                         db,
@@ -840,13 +829,13 @@ class DisplayPictureDownloadJobSpec: QuickSpec {
                                 })
                             expect(mockFileManager).to(call(.exactly(times: 1), matchingParameters: .all) {
                                 $0.createFile(
-                                    atPath: "/test/ProfileAvatars/\(filenameUuid.uuidString).jpg",
+                                    atPath: "/test/ProfileAvatars/\(filenameHash).jpg",
                                     contents: imageData,
                                     attributes: nil
                                 )
                             })
                             expect(mockDisplayPictureCache).to(call(.exactly(times: 1), matchingParameters: .all) {
-                                $0.imageData = ["\(filenameUuid.uuidString).jpg": imageData]
+                                $0.imageData = ["\(filenameHash).jpg": imageData]
                             })
                             expect(mockStorage.read { db in try Profile.fetchOne(db) })
                                 .to(equal(
@@ -854,7 +843,7 @@ class DisplayPictureDownloadJobSpec: QuickSpec {
                                         id: "1234",
                                         name: "test",
                                         profilePictureUrl: "http://oxen.io/100/",
-                                        profilePictureFileName: "\(filenameUuid.uuidString).jpg",
+                                        profilePictureFileName: "\(filenameHash).jpg",
                                         profileEncryptionKey: encryptionKey,
                                         lastProfilePictureUpdate: 1234567891
                                     )
@@ -870,7 +859,7 @@ class DisplayPictureDownloadJobSpec: QuickSpec {
                                     id: "1234",
                                     name: "test",
                                     profilePictureUrl: "http://oxen.io/100/",
-                                    profilePictureFileName: "\(filenameUuid.uuidString).jpg",
+                                    profilePictureFileName: "\(filenameHash).jpg",
                                     profileEncryptionKey: encryptionKey,
                                     lastProfilePictureUpdate: 1234567891
                                 )
@@ -895,14 +884,16 @@ class DisplayPictureDownloadJobSpec: QuickSpec {
                             authData: Data([1, 2, 3]),
                             invited: false
                         )
-                        mockStorage.write(using: dependencies) { db in
+                        mockStorage.write { db in
                             _ = try ClosedGroup.deleteAll(db)
                             try SessionThread.fetchOrCreate(
                                 db,
                                 id: "03cbd569f56fb13ea95a3f0c05c331cc24139c0090feb412069dc49fab34406ece",
                                 variant: .group,
+                                creationDateTimestamp: 1234567890,
                                 shouldBeVisible: true,
-                                calledFromConfig: nil
+                                calledFromConfig: nil,
+                                using: dependencies
                             ).upsert(db)
                             try group.insert(db)
                         }
@@ -923,7 +914,7 @@ class DisplayPictureDownloadJobSpec: QuickSpec {
                     // MARK: ------ that does not exist
                     context("that does not exist") {
                         beforeEach {
-                            mockStorage.write(using: dependencies) { db in try ClosedGroup.deleteAll(db) }
+                            mockStorage.write { db in try ClosedGroup.deleteAll(db) }
                         }
                         
                         // MARK: -------- does not save the picture
@@ -942,7 +933,7 @@ class DisplayPictureDownloadJobSpec: QuickSpec {
                     // MARK: ------ that has a different encryption key and more recent update
                     context("that has a different encryption key and more recent update") {
                         beforeEach {
-                            mockStorage.write(using: dependencies) { db in
+                            mockStorage.write { db in
                                 try ClosedGroup
                                     .updateAll(
                                         db,
@@ -969,7 +960,7 @@ class DisplayPictureDownloadJobSpec: QuickSpec {
                                         groupDescription: nil,
                                         formationTimestamp: 1234567890,
                                         displayPictureUrl: "http://oxen.io/100/",
-                                        displayPictureFilename: "\(filenameUuid.uuidString).jpg",
+                                        displayPictureFilename: "\(filenameHash).jpg",
                                         displayPictureEncryptionKey: encryptionKey,
                                         lastDisplayPictureUpdate: 1234567891,
                                         shouldPoll: true,
@@ -984,7 +975,7 @@ class DisplayPictureDownloadJobSpec: QuickSpec {
                     // MARK: ------ that has a different url and more recent update
                     context("that has a different url and more recent update") {
                         beforeEach {
-                            mockStorage.write(using: dependencies) { db in
+                            mockStorage.write { db in
                                 try ClosedGroup
                                     .updateAll(
                                         db,
@@ -1011,7 +1002,7 @@ class DisplayPictureDownloadJobSpec: QuickSpec {
                                         groupDescription: nil,
                                         formationTimestamp: 1234567890,
                                         displayPictureUrl: "http://oxen.io/100/",
-                                        displayPictureFilename: "\(filenameUuid.uuidString).jpg",
+                                        displayPictureFilename: "\(filenameHash).jpg",
                                         displayPictureEncryptionKey: encryptionKey,
                                         lastDisplayPictureUpdate: 1234567891,
                                         shouldPoll: true,
@@ -1026,7 +1017,7 @@ class DisplayPictureDownloadJobSpec: QuickSpec {
                     // MARK: ------ that has a more recent update but the same url and encryption key
                     context("that has a more recent update but the same url and encryption key") {
                         beforeEach {
-                            mockStorage.write(using: dependencies) { db in
+                            mockStorage.write { db in
                                 try ClosedGroup
                                     .updateAll(
                                         db,
@@ -1043,13 +1034,13 @@ class DisplayPictureDownloadJobSpec: QuickSpec {
                                 })
                             expect(mockFileManager).to(call(.exactly(times: 1), matchingParameters: .all) {
                                 $0.createFile(
-                                    atPath: "/test/ProfileAvatars/\(filenameUuid.uuidString).jpg",
+                                    atPath: "/test/ProfileAvatars/\(filenameHash).jpg",
                                     contents: imageData,
                                     attributes: nil
                                 )
                             })
                             expect(mockDisplayPictureCache).to(call(.exactly(times: 1), matchingParameters: .all) {
-                                $0.imageData = ["\(filenameUuid.uuidString).jpg": imageData]
+                                $0.imageData = ["\(filenameHash).jpg": imageData]
                             })
                             expect(mockStorage.read { db in try ClosedGroup.fetchOne(db) })
                                 .to(equal(
@@ -1059,7 +1050,7 @@ class DisplayPictureDownloadJobSpec: QuickSpec {
                                         groupDescription: nil,
                                         formationTimestamp: 1234567890,
                                         displayPictureUrl: "http://oxen.io/100/",
-                                        displayPictureFilename: "\(filenameUuid.uuidString).jpg",
+                                        displayPictureFilename: "\(filenameHash).jpg",
                                         displayPictureEncryptionKey: encryptionKey,
                                         lastDisplayPictureUpdate: 1234567891,
                                         shouldPoll: true,
@@ -1081,7 +1072,7 @@ class DisplayPictureDownloadJobSpec: QuickSpec {
                                     groupDescription: nil,
                                     formationTimestamp: 1234567890,
                                     displayPictureUrl: "http://oxen.io/100/",
-                                    displayPictureFilename: "\(filenameUuid.uuidString).jpg",
+                                    displayPictureFilename: "\(filenameHash).jpg",
                                     displayPictureEncryptionKey: encryptionKey,
                                     lastDisplayPictureUpdate: 1234567891,
                                     shouldPoll: true,
@@ -1108,14 +1099,16 @@ class DisplayPictureDownloadJobSpec: QuickSpec {
                             displayPictureFilename: nil,
                             lastDisplayPictureUpdate: 1234567890
                         )
-                        mockStorage.write(using: dependencies) { db in
+                        mockStorage.write { db in
                             _ = try OpenGroup.deleteAll(db)
                             try SessionThread.fetchOrCreate(
                                 db,
                                 id: OpenGroup.idFor(roomToken: "testRoom", server: "testServer"),
                                 variant: .community,
+                                creationDateTimestamp: 1234567890,
                                 shouldBeVisible: true,
-                                calledFromConfig: nil
+                                calledFromConfig: nil,
+                                using: dependencies
                             ).upsert(db)
                             try community.insert(db)
                         }
@@ -1134,14 +1127,14 @@ class DisplayPictureDownloadJobSpec: QuickSpec {
                         
                         // SOGS doesn't encrypt it's images so replace the encrypted mock response
                         mockNetwork
-                            .when { $0.send(.selectedNetworkRequest(.any, to: .any, with: .any, timeout: .any, using: .any)) }
+                            .when { $0.send(.any, to: .any, requestTimeout: .any, requestAndPathBuildTimeout: .any) }
                             .thenReturn(MockNetwork.response(data: imageData))
                     }
                     
                     // MARK: ------ that does not exist
                     context("that does not exist") {
                         beforeEach {
-                            mockStorage.write(using: dependencies) { db in try OpenGroup.deleteAll(db) }
+                            mockStorage.write { db in try OpenGroup.deleteAll(db) }
                         }
                         
                         // MARK: -------- does not save the picture
@@ -1156,7 +1149,7 @@ class DisplayPictureDownloadJobSpec: QuickSpec {
                     // MARK: ------ that has a different imageId and more recent update
                     context("that has a different imageId and more recent update") {
                         beforeEach {
-                            mockStorage.write(using: dependencies) { db in
+                            mockStorage.write { db in
                                 try OpenGroup
                                     .updateAll(
                                         db,
@@ -1182,7 +1175,7 @@ class DisplayPictureDownloadJobSpec: QuickSpec {
                                         imageId: "100",
                                         userCount: 1,
                                         infoUpdates: 1,
-                                        displayPictureFilename: "\(filenameUuid.uuidString).jpg",
+                                        displayPictureFilename: "\(filenameHash).jpg",
                                         lastDisplayPictureUpdate: 1234567891
                                     )
                                 ))
@@ -1192,7 +1185,7 @@ class DisplayPictureDownloadJobSpec: QuickSpec {
                     // MARK: ------ that has a more recent update but the same imageId
                     context("that has a more recent update but the same imageId") {
                         beforeEach {
-                            mockStorage.write(using: dependencies) { db in
+                            mockStorage.write { db in
                                 try OpenGroup
                                     .updateAll(
                                         db,
@@ -1206,13 +1199,13 @@ class DisplayPictureDownloadJobSpec: QuickSpec {
                         it("saves the picture") {
                             expect(mockFileManager).to(call(.exactly(times: 1), matchingParameters: .all) {
                                 $0.createFile(
-                                    atPath: "/test/ProfileAvatars/\(filenameUuid.uuidString).jpg",
+                                    atPath: "/test/ProfileAvatars/\(filenameHash).jpg",
                                     contents: imageData,
                                     attributes: nil
                                 )
                             })
                             expect(mockDisplayPictureCache).to(call(.exactly(times: 1), matchingParameters: .all) {
-                                $0.imageData = ["\(filenameUuid.uuidString).jpg": imageData]
+                                $0.imageData = ["\(filenameHash).jpg": imageData]
                             })
                             expect(mockStorage.read { db in try OpenGroup.fetchOne(db) })
                                 .to(equal(
@@ -1225,7 +1218,7 @@ class DisplayPictureDownloadJobSpec: QuickSpec {
                                         imageId: "100",
                                         userCount: 1,
                                         infoUpdates: 1,
-                                        displayPictureFilename: "\(filenameUuid.uuidString).jpg",
+                                        displayPictureFilename: "\(filenameHash).jpg",
                                         lastDisplayPictureUpdate: 1234567891
                                     )
                                 ))
@@ -1245,7 +1238,7 @@ class DisplayPictureDownloadJobSpec: QuickSpec {
                                     imageId: "100",
                                     userCount: 1,
                                     infoUpdates: 1,
-                                    displayPictureFilename: "\(filenameUuid.uuidString).jpg",
+                                    displayPictureFilename: "\(filenameHash).jpg",
                                     lastDisplayPictureUpdate: 1234567891
                                 )
                             ))

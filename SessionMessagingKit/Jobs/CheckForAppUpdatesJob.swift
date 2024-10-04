@@ -5,6 +5,14 @@ import Combine
 import SessionSnodeKit
 import SessionUtilitiesKit
 
+// MARK: - Log.Category
+
+private extension Log.Category {
+    static let cat: Log.Category = .create("CheckForAppUpdatesJob", defaultLevel: .info)
+}
+
+// MARK: - CheckForAppUpdatesJob
+
 public enum CheckForAppUpdatesJob: JobExecutor {
     private static let updateCheckFrequency: TimeInterval = (4 * 60 * 60)  // Max every 4 hours
     public static var maxFailureCount: Int = -1
@@ -19,6 +27,26 @@ public enum CheckForAppUpdatesJob: JobExecutor {
         deferred: @escaping (Job) -> Void,
         using dependencies: Dependencies
     ) {
+        // Just defer the update check when running tests or in the simulator
+#if targetEnvironment(simulator)
+        let shouldCheckForUpdates: Bool = false
+#else
+        let shouldCheckForUpdates: Bool = !SNUtilitiesKit.isRunningTests
+#endif
+        
+        guard shouldCheckForUpdates else {
+            var updatedJob: Job = job.with(
+                failureCount: 0,
+                nextRunTimestamp: (dependencies.dateNow.timeIntervalSince1970 + updateCheckFrequency)
+            )
+            dependencies[singleton: .storage].write { db in
+                try updatedJob.save(db)
+            }
+            
+            Log.info(.cat, "Deferred due to test/simulator build.")
+            return deferred(updatedJob)
+        }
+        
         dependencies[singleton: .storage]
             .readPublisher { db -> [UInt8]? in Identity.fetchUserEd25519KeyPair(db)?.secretKey }
             .subscribe(on: queue)
@@ -44,9 +72,9 @@ public enum CheckForAppUpdatesJob: JobExecutor {
                 },
                 receiveValue: { _, versionInfo in
                     switch versionInfo.prerelease {
-                        case .none: Log.info("[CheckForAppUpdatesJob] Latest version: \(versionInfo.version)")
+                        case .none: Log.info(.cat, "Latest version: \(versionInfo.version)")
                         case .some(let prerelease):
-                            Log.info("[CheckForAppUpdatesJob] Latest version: \(versionInfo.version), pre-release version: \(prerelease.version)")
+                            Log.info(.cat, "Latest version: \(versionInfo.version), pre-release version: \(prerelease.version)")
                     }
                 }
             )

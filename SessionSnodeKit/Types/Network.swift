@@ -24,7 +24,8 @@ public protocol NetworkType {
     func send(
         _ body: Data?,
         to destination: Network.Destination,
-        timeout: TimeInterval
+        requestTimeout: TimeInterval,
+        requestAndPathBuildTimeout: TimeInterval?
     ) -> AnyPublisher<(ResponseInfoType, Data?), Error>
     
     func checkClientVersion(ed25519SecretKey: [UInt8]) -> AnyPublisher<(ResponseInfoType, AppVersionResponse), Error>
@@ -78,6 +79,20 @@ public extension Network {
             }
         }
         
+        static func fileServerPubkey(url: String? = nil) -> String {
+            switch url?.contains(legacyFileServer) {
+                case true: return legacyFileServerPublicKey
+                default: return fileServerPublicKey
+            }
+        }
+        
+        static func isFileServerUrl(url: URL) -> Bool {
+            return (
+                url.absoluteString.starts(with: fileServer) ||
+                url.absoluteString.starts(with: legacyFileServer)
+            )
+        }
+        
         public static func downloadUrlString(for url: String, fileId: String) -> String {
             switch url.contains(legacyFileServer) {
                 case true: return "\(fileServer)/\(Endpoint.fileIndividual(fileId).path)"
@@ -99,14 +114,13 @@ public extension Network {
                 endpoint: FileServer.Endpoint.file,
                 destination: .serverUpload(
                     server: FileServer.fileServer,
-                    endpoint: FileServer.Endpoint.file,
                     x25519PublicKey: FileServer.fileServerPublicKey,
                     fileName: nil
                 ),
                 body: data
             ),
             responseType: FileUploadResponse.self,
-            timeout: Network.fileUploadTimeout,
+            requestTimeout: Network.fileUploadTimeout,
             using: dependencies
         )
     }
@@ -125,7 +139,7 @@ public extension Network {
                 )
             ),
             responseType: Data.self,
-            timeout: Network.fileUploadTimeout,
+            requestTimeout: Network.fileUploadTimeout,
             using: dependencies
         )
     }

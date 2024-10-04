@@ -4,17 +4,17 @@ import UIKit
 
 public class TopBannerController: UIViewController {
     public enum Warning: String, Codable {
-        case outdatedUserConfig
+        case invalid
         
         var shouldAppearOnResume: Bool {
             switch self {
-                case .outdatedUserConfig: return true
+                case .invalid: return false
             }
         }
         
         var text: String {
             switch self {
-                case .outdatedUserConfig: return NSLocalizedString("USER_CONFIG_OUTDATED_WARNING", comment: "")
+                case .invalid: return ""
             }
         }
     }

@@ -99,7 +99,7 @@ public extension Preferences {
                 
                 // Other
                 case .messageSent: return "Message Sent"
-                case .none: return "SOUNDS_NONE".localized()
+                case .none: return "none".localized()
             }
         }
         

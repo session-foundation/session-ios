@@ -60,7 +60,7 @@ public final class WebRTCSession : NSObject, RTCPeerConnectionDelegate {
     }()
     
     internal lazy var audioTrack: RTCAudioTrack = {
-        return factory.audioTrack(with: audioSource, trackId: "ARDAMSa0")
+        return factory.audioTrack(with: audioSource, trackId: Self.Constants.audio_track_id)
     }()
     
     // Video
@@ -71,7 +71,7 @@ public final class WebRTCSession : NSObject, RTCPeerConnectionDelegate {
     }()
     
     internal lazy var localVideoTrack: RTCVideoTrack = {
-        return factory.videoTrack(with: localVideoSource, trackId: "ARDAMSv0")
+        return factory.videoTrack(with: localVideoSource, trackId: Self.Constants.local_video_track_id)
     }()
     
     internal lazy var remoteVideoTrack: RTCVideoTrack? = {
@@ -88,7 +88,7 @@ public final class WebRTCSession : NSObject, RTCPeerConnectionDelegate {
         
         public var errorDescription: String? {
             switch self {
-                case .noThread: return "Couldn't find thread for contact."
+                case .noThread: return "Couldn't find thread for contact." // stringlint:disable
             }
         }
     }
@@ -106,7 +106,7 @@ public final class WebRTCSession : NSObject, RTCPeerConnectionDelegate {
         
         super.init()
         
-        let mediaStreamTrackIDS = ["ARDAMS"]
+        let mediaStreamTrackIDS = [Self.Constants.media_stream_track_id]
         
         peerConnection?.add(audioTrack, streamIds: mediaStreamTrackIDS)
         peerConnection?.add(localVideoTrack, streamIds: mediaStreamTrackIDS)
@@ -129,7 +129,7 @@ public final class WebRTCSession : NSObject, RTCPeerConnectionDelegate {
         interactionId: Int64?,
         in thread: SessionThread
     ) throws -> AnyPublisher<Void, Error> {
-        Log.info("[Calls] Sending pre-offer message.")
+        Log.info(.calls, "Sending pre-offer message.")
         
         return try MessageSender
             .preparedSend(
@@ -145,7 +145,7 @@ public final class WebRTCSession : NSObject, RTCPeerConnectionDelegate {
             )
             .send(using: dependencies)
             .map { _ in () }
-            .handleEvents(receiveOutput: { _ in Log.info("[Calls] Pre-offer message has been sent.") })
+            .handleEvents(receiveOutput: { _ in Log.info(.calls, "Pre-offer message has been sent.") })
             .eraseToAnyPublisher()
     }
     
@@ -153,7 +153,7 @@ public final class WebRTCSession : NSObject, RTCPeerConnectionDelegate {
         to thread: SessionThread,
         isRestartingICEConnection: Bool = false
     ) -> AnyPublisher<Void, Error> {
-        Log.info("[Calls] Sending offer message.")
+        Log.info(.calls, "Sending offer message.")
         let uuid: String = self.uuid
         let mediaConstraints: RTCMediaConstraints = mediaConstraints(isRestartingICEConnection)
         
@@ -168,7 +168,7 @@ public final class WebRTCSession : NSObject, RTCPeerConnectionDelegate {
                     
                     self?.peerConnection?.setLocalDescription(sdp) { error in
                         if let error = error {
-                            Log.error("[Calls] Couldn't initiate call due to error: \(error).")
+                            Log.error(.calls, "Couldn't initiate call due to error: \(error).")
                             resolver(Result.failure(error))
                             return
                         }
@@ -216,7 +216,7 @@ public final class WebRTCSession : NSObject, RTCPeerConnectionDelegate {
     }
     
     public func sendAnswer(to sessionId: String) -> AnyPublisher<Void, Error> {
-        Log.info("[Calls] Sending answer message.")
+        Log.info(.calls, "Sending answer message.")
         let uuid: String = self.uuid
         let mediaConstraints: RTCMediaConstraints = mediaConstraints(false)
         
@@ -242,7 +242,7 @@ public final class WebRTCSession : NSObject, RTCPeerConnectionDelegate {
                         
                         self?.peerConnection?.setLocalDescription(sdp) { error in
                             if let error = error {
-                                Log.error("[Calls] Couldn't accept call due to error: \(error).")
+                                Log.error(.calls, "Couldn't accept call due to error: \(error).")
                                 return resolver(Result.failure(error))
                             }
                         }
@@ -311,7 +311,7 @@ public final class WebRTCSession : NSObject, RTCPeerConnectionDelegate {
                     throw WebRTCSessionError.noThread
                 }
                 
-                Log.info("[Calls] Batch sending \(candidates.count) ICE candidates.")
+                Log.info(.calls, "Batch sending \(candidates.count) ICE candidates.")
                 
                 return try MessageSender
                     .preparedSend(
@@ -346,7 +346,7 @@ public final class WebRTCSession : NSObject, RTCPeerConnectionDelegate {
     public func endCall(_ db: Database, with sessionId: String) throws {
         guard let thread: SessionThread = try SessionThread.fetchOne(db, id: sessionId) else { return }
         
-        Log.info("[Calls] Sending end call message.")
+        Log.info(.calls, "Sending end call message.")
         
         try MessageSender
             .preparedSend(
@@ -389,30 +389,30 @@ public final class WebRTCSession : NSObject, RTCPeerConnectionDelegate {
     
     private func correctSessionDescription(sdp: RTCSessionDescription?) -> RTCSessionDescription? {
         guard let sdp = sdp else { return nil }
-        let cbrSdp = sdp.sdp.description.replace(regex: "(a=fmtp:111 ((?!cbr=).)*)\r?\n", with: "$1;cbr=1\r\n")
-        let finalSdp = cbrSdp.replace(regex: ".+urn:ietf:params:rtp-hdrext:ssrc-audio-level.*\r?\n", with: "")
+        let cbrSdp = sdp.sdp.description.replace(regex: "(a=fmtp:111 ((?!cbr=).)*)\r?\n", with: "$1;cbr=1\r\n") // stringlint:disable
+        let finalSdp = cbrSdp.replace(regex: ".+urn:ietf:params:rtp-hdrext:ssrc-audio-level.*\r?\n", with: "") // stringlint:disable
         return RTCSessionDescription(type: sdp.type, sdp: finalSdp)
     }
     
     // MARK: Peer connection delegate
     public func peerConnection(_ peerConnection: RTCPeerConnection, didChange state: RTCSignalingState) {
-        Log.info("[Calls] Signaling state changed to: \(state).")
+        Log.info(.calls, "Signaling state changed to: \(state).")
     }
     
     public func peerConnection(_ peerConnection: RTCPeerConnection, didAdd stream: RTCMediaStream) {
-        Log.info("[Calls] Peer connection did add stream.")
+        Log.info(.calls, "Peer connection did add stream.")
     }
     
     public func peerConnection(_ peerConnection: RTCPeerConnection, didRemove stream: RTCMediaStream) {
-        Log.info("[Calls] Peer connection did remove stream.")
+        Log.info(.calls, "Peer connection did remove stream.")
     }
     
     public func peerConnectionShouldNegotiate(_ peerConnection: RTCPeerConnection) {
-        Log.info("[Calls] Peer connection should negotiate.")
+        Log.info(.calls, "Peer connection should negotiate.")
     }
     
     public func peerConnection(_ peerConnection: RTCPeerConnection, didChange state: RTCIceConnectionState) {
-        Log.info("[Calls] ICE connection state changed to: \(state).")
+        Log.info(.calls, "ICE connection state changed to: \(state).")
         if state == .connected {
             delegate?.webRTCIsConnected()
         } else if state == .disconnected {
@@ -423,7 +423,7 @@ public final class WebRTCSession : NSObject, RTCPeerConnectionDelegate {
     }
     
     public func peerConnection(_ peerConnection: RTCPeerConnection, didChange state: RTCIceGatheringState) {
-        Log.info("[Calls] ICE gathering state changed to: \(state).")
+        Log.info(.calls, "ICE gathering state changed to: \(state).")
     }
     
     public func peerConnection(_ peerConnection: RTCPeerConnection, didGenerate candidate: RTCIceCandidate) {
@@ -431,11 +431,11 @@ public final class WebRTCSession : NSObject, RTCPeerConnectionDelegate {
     }
     
     public func peerConnection(_ peerConnection: RTCPeerConnection, didRemove candidates: [RTCIceCandidate]) {
-        Log.info("[Calls] \(candidates.count) ICE candidate(s) removed.")
+        Log.info(.calls, "\(candidates.count) ICE candidate(s) removed.")
     }
     
     public func peerConnection(_ peerConnection: RTCPeerConnection, didOpen dataChannel: RTCDataChannel) {
-        Log.info("[Calls] Data channel opened.")
+        Log.info(.calls, "Data channel opened.")
     }
 }
 
@@ -449,7 +449,7 @@ extension WebRTCSession {
             try audioSession.overrideOutputAudioPort(outputAudioPort)
             try audioSession.setActive(true)
         } catch let error {
-            Log.error("[Calls] Couldn't set up WebRTC audio session due to error: \(error)")
+            Log.error(.calls, "Couldn't set up WebRTC audio session due to error: \(error)")
         }
         audioSession.unlockForConfiguration()
     }
@@ -475,15 +475,15 @@ extension WebRTCSession {
     
     public func turnOffVideo() {
         localVideoTrack.isEnabled = false
-        sendJSON(["video": false])
+        sendJSON([Self.Constants.video: false])
     }
     
     public func turnOnVideo() {
         localVideoTrack.isEnabled = true
-        sendJSON(["video": true])
+        sendJSON([Self.Constants.video: true])
     }
     
     public func hangUp() {
-        sendJSON(["hangup": true])
+        sendJSON([Self.Constants.hang_up: true])
     }
 }

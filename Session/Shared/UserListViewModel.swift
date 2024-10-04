@@ -66,7 +66,7 @@ class UserListViewModel<T: ProfileAssociated & FetchableRecord>: SessionTableVie
         case callback((UserListViewModel<T>?, WithProfile<T>) -> Void)
         case radio
         case conditionalAction(action: (WithProfile<T>) -> OnTapAction)
-        case custom(rightAccessory: (WithProfile<T>) -> SessionCell.Accessory, onTap: (UserListViewModel<T>?, WithProfile<T>) -> Void)
+        case custom(trailingAccessory: (WithProfile<T>) -> SessionCell.Accessory, onTap: (UserListViewModel<T>?, WithProfile<T>) -> Void)
     }
     
     public enum OnSubmitAction {
@@ -125,7 +125,7 @@ class UserListViewModel<T: ProfileAssociated & FetchableRecord>: SessionTableVie
                             let finalAction: OnTapAction = finalAction(for: onTapAction)
                             let trailingAccessory: SessionCell.Accessory? = generateAccessory(finalAction)
                             let title: String = {
-                                guard userInfo.profileId != userSessionId.hexString else { return "CURRENT_USER".localized() }
+                                guard userInfo.profileId != userSessionId.hexString else { return "you".localized() }
                                 
                                 return (
                                     userInfo.profile?.displayName() ??
@@ -215,9 +215,9 @@ class UserListViewModel<T: ProfileAssociated & FetchableRecord>: SessionTableVie
                     transitionToScreen(
                         ConfirmationModal(
                             info: ConfirmationModal.Info(
-                                title: "ALERT_ERROR_TITLE".localized(),
+                                title: "theError".localized(),
                                 body: .text(error.localizedDescription),
-                                cancelTitle: "BUTTON_OK".localized(),
+                                cancelTitle: "okay".localized(),
                                 cancelStyle: .alert_text
                             )
                         ),
@@ -244,9 +244,9 @@ class UserListViewModel<T: ProfileAssociated & FetchableRecord>: SessionTableVie
                                                 self?.transitionToScreen(
                                                     ConfirmationModal(
                                                         info: ConfirmationModal.Info(
-                                                            title: "ALERT_ERROR_TITLE".localized(),
+                                                            title: "theError".localized(),
                                                             body: .text(error.localizedDescription),
-                                                            cancelTitle: "BUTTON_OK".localized(),
+                                                            cancelTitle: "okay".localized(),
                                                             cancelStyle: .alert_text
                                                         )
                                                     ),

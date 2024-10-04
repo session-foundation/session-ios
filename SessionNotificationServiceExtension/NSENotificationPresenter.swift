@@ -41,6 +41,7 @@ public class NSENotificationPresenter: NotificationsManagerType {
         
         // Ensure we should be showing a notification for the thread
         guard thread.shouldShowNotification(db, for: interaction, isMessageRequest: isMessageRequest, using: dependencies) else {
+            Log.info("Ignoring notification because thread reported that we shouldn't show it.")
             return
         }
         
@@ -59,18 +60,20 @@ public class NSENotificationPresenter: NotificationsManagerType {
                 return
             }
             
-            notificationTitle = String(
-                format: NotificationStrings.incomingGroupMessageTitleFormat,
-                senderName,
-                groupName
-            )
+            notificationTitle = "notificationsIosGroup"
+                .put(key: "name", value: senderName)
+                .put(key: "conversation_name", value: groupName)
+                .localized()
         }
         
         let snippet: String = (interaction.previewText(db, using: dependencies)
             .filteredForDisplay
             .nullIfEmpty?
             .replacingMentions(for: thread.id, using: dependencies))
-            .defaulting(to: "APN_Message".localized())
+            .defaulting(to: "messageNewYouveGot"
+                .putNumber(1)
+                .localized()
+            )
         
         let userInfo: [String: Any] = [
             NotificationServiceExtension.isFromRemoteKey: true,
@@ -98,18 +101,22 @@ public class NSENotificationPresenter: NotificationsManagerType {
         
             case .nameNoPreview:
                 notificationContent.title = notificationTitle
-                notificationContent.body = NotificationStrings.incomingMessageBody
+                notificationContent.body = "messageNewYouveGot"
+                    .putNumber(1)
+                    .localized()
                 
             case .noNameNoPreview:
-                notificationContent.title = "Session"
-                notificationContent.body = NotificationStrings.incomingMessageBody
+                notificationContent.title = Constants.app_name
+                notificationContent.body = "messageNewYouveGot"
+                    .putNumber(1)
+                    .localized()
         }
         
         // If it's a message request then overwrite the body to be something generic (only show a notification
         // when receiving a new message request if there aren't any others or the user had hidden them)
         if isMessageRequest {
-            notificationContent.title = "Session"
-            notificationContent.body = "MESSAGE_REQUESTS_NOTIFICATION".localized()
+            notificationContent.title = Constants.app_name
+            notificationContent.body = "messageRequestsNew".localized()
         }
         
         // Add request (try to group notifications for interactions from open groups)
@@ -137,10 +144,9 @@ public class NSENotificationPresenter: NotificationsManagerType {
                     notificationContent.title :
                     groupName
                 )
-                notificationContent.body = String(
-                    format: NotificationStrings.incomingCollapsedMessagesBody,
-                    "\(numberOfNotifications)"
-                )
+                notificationContent.body = "messageNewYouveGot"
+                    .putNumber(numberOfNotifications)
+                    .localized()
             }
             
             notificationContent.userInfo[NotificationServiceExtension.threadNotificationCounter] = numberOfNotifications
@@ -171,7 +177,10 @@ public class NSENotificationPresenter: NotificationsManagerType {
         else { return }
         
         // Only notify missed calls
-        guard messageInfo.state == .missed || messageInfo.state == .permissionDenied else { return }
+        switch messageInfo.state {
+            case .missed, .permissionDenied, .permissionDeniedMicrophone: break
+            default: return
+        }
         
         let userInfo: [String: Any] = [
             NotificationServiceExtension.isFromRemoteKey: true,
@@ -188,14 +197,19 @@ public class NSENotificationPresenter: NotificationsManagerType {
             .map { NSNumber(value: $0) }
             .defaulting(to: NSNumber(value: 0))
         
-        notificationContent.title = "Session"
+        notificationContent.title = Constants.app_name
         notificationContent.body = ""
         
         let senderName: String = Profile.displayName(db, id: interaction.authorId, threadVariant: thread.variant, using: dependencies)
         
         if messageInfo.state == .permissionDenied {
+            notificationContent.body = "callsYouMissedCallPermissions"
+                .put(key: "name", value: senderName)
+                .localizedDeformatted()
+        }
+        else if messageInfo.state == .permissionDeniedMicrophone {
             notificationContent.body = String(
-                format: "modal_call_missed_tips_explanation".localized(),
+                format: "callsMissedCallFrom".localized(),
                 senderName
             )
         }
@@ -224,9 +238,10 @@ public class NSENotificationPresenter: NotificationsManagerType {
         else { return }
         guard !isMessageRequest else { return }
         
-        let senderName: String = Profile.displayName(db, id: reaction.authorId, threadVariant: thread.variant, using: dependencies)
-        let notificationTitle = "Session"
-        var notificationBody = String(format: "EMOJI_REACTS_NOTIFICATION".localized(), senderName, reaction.emoji)
+        let notificationTitle = Profile.displayName(db, id: reaction.authorId, threadVariant: thread.variant, using: dependencies)
+        var notificationBody = "emojiReactsNotification"
+            .put(key: "emoji", value: reaction.emoji)
+            .localized()
         
         // Title & body
         let previewType: Preferences.NotificationPreviewType = db[.preferencesNotificationPreviewType]
@@ -234,7 +249,9 @@ public class NSENotificationPresenter: NotificationsManagerType {
         
         switch previewType {
             case .nameAndPreview: break
-            default: notificationBody = NotificationStrings.incomingMessageBody
+            default: notificationBody = "messageNewYouveGot"
+                .putNumber(1)
+                .localized()
         }
 
         let userInfo: [String: Any] = [
@@ -278,16 +295,16 @@ private extension NSENotificationPresenter {
     func addNotifcationRequest(identifier: String, notificationContent: UNNotificationContent, trigger: UNNotificationTrigger?) {
         let request = UNNotificationRequest(identifier: identifier, content: notificationContent, trigger: trigger)
         
-        SNLog("Add remote notification request: \(identifier)")
+        Log.info("Add remote notification request: \(identifier)")
         let semaphore = DispatchSemaphore(value: 0)
         UNUserNotificationCenter.current().add(request) { error in
             if let error = error {
-                SNLog("Failed to add notification request '\(identifier)' due to error: \(error)")
+                Log.error("Failed to add notification request '\(identifier)' due to error: \(error)")
             }
             semaphore.signal()
         }
         semaphore.wait()
-        SNLog("Finish adding remote notification request '\(identifier)")
+        Log.info("Finish adding remote notification request '\(identifier)")
     }
 }
 
@@ -303,7 +320,7 @@ private extension String {
             var matchEnd = m1.range.location + m1.range.length
             
             if let displayName: String = Profile.displayNameNoFallback(id: publicKey, using: dependencies) {
-                result = (result as NSString).replacingCharacters(in: m1.range, with: "@\(displayName)")
+                result = (result as NSString).replacingCharacters(in: m1.range, with: "@\(displayName)") // stringlint:disable
                 mentions.append((range: NSRange(location: m1.range.location, length: displayName.utf16.count + 1), publicKey: publicKey)) // + 1 to include the @
                 matchEnd = m1.range.location + displayName.utf16.count
             }
@@ -313,3 +330,10 @@ private extension String {
     }
 }
 
+// MARK: - Localization Styling
+
+internal extension NSENotificationPresenter {
+    static func localizedDeformatted(_ helper: LocalizationHelper) -> String {
+        return NSAttributedString(stringWithHTMLTags: helper.localized(), font: .systemFont(ofSize: 14)).string
+    }
+}

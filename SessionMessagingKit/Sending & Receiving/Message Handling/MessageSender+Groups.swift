@@ -66,6 +66,7 @@ extension MessageSender {
                             db,
                             id: createdInfo.group.id,
                             variant: .group,
+                            creationDateTimestamp: createdInfo.group.formationTimestamp,
                             shouldBeVisible: true,
                             calledFromConfig: nil,
                             using: dependencies
@@ -297,7 +298,7 @@ extension MessageSender {
                 let changeTimestampMs: Int64 = dependencies[cache: .snodeAPI].currentOffsetTimestampMs()
                 
                 switch displayPictureUpdate {
-                    case .remove:
+                    case .groupRemove:
                         try ClosedGroup
                             .filter(id: groupSessionId)
                             .updateAllAndConfig(
@@ -310,7 +311,7 @@ extension MessageSender {
                                 using: dependencies
                             )
                         
-                    case .updateTo(let url, let key, let fileName):
+                    case .groupUpdateTo(let url, let key, let fileName):
                         try ClosedGroup
                             .filter(id: groupSessionId)
                             .updateAllAndConfig(
@@ -711,10 +712,13 @@ extension MessageSender {
                         variant: .infoGroupMembersUpdated,
                         body: ClosedGroup.MessageInfo
                             .removedUsers(
-                                names: memberIds.map { id in
-                                    removedMemberProfiles[id]?.displayName(for: .group) ??
-                                    Profile.truncated(id: id, truncating: .middle)
-                                }
+                                hasCurrentUser: memberIds.contains(userSessionId.hexString),
+                                names: memberIds
+                                    .sorted { lhs, rhs in lhs == userSessionId.hexString }
+                                    .map { id in
+                                        removedMemberProfiles[id]?.displayName(for: .group) ??
+                                        Profile.truncated(id: id, truncating: .middle)
+                                    }
                             )
                             .infoString(using: dependencies),
                         timestampMs: targetChangeTimestampMs,
@@ -822,10 +826,13 @@ extension MessageSender {
                     variant: .infoGroupMembersUpdated,
                     body: ClosedGroup.MessageInfo
                         .promotedUsers(
-                            names: members.map { id, profile in
-                                profile?.displayName(for: .group) ??
-                                Profile.truncated(id: id, truncating: .middle)
-                            }
+                            hasCurrentUser: members.map { $0.id }.contains(userSessionId.hexString),
+                            names: members
+                                .sorted { lhs, rhs in lhs.id == userSessionId.hexString }
+                                .map { id, profile in
+                                    profile?.displayName(for: .group) ??
+                                    Profile.truncated(id: id, truncating: .middle)
+                                }
                         )
                         .infoString(using: dependencies),
                     timestampMs: changeTimestampMs,
@@ -862,18 +869,19 @@ extension MessageSender {
     /// unregisters from push notifications.
     public static func leave(
         _ db: Database,
-        groupPublicKey: String,
+        threadId: String,
+        threadVariant: SessionThread.Variant,
         using dependencies: Dependencies
     ) throws {
         let userSessionId: SessionId = dependencies[cache: .general].sessionId
         
         // Notify the user
         let interaction: Interaction = try Interaction(
-            threadId: groupPublicKey,
-            threadVariant: .group,
+            threadId: threadId,
+            threadVariant: threadVariant,
             authorId: userSessionId.hexString,
             variant: .infoGroupCurrentUserLeaving,
-            body: "group_you_leaving".localized(),
+            body: "leaving".localized(),
             timestampMs: dependencies[cache: .snodeAPI].currentOffsetTimestampMs(),
             using: dependencies
         ).inserted(db)
@@ -882,7 +890,7 @@ extension MessageSender {
             db,
             job: Job(
                 variant: .groupLeaving,
-                threadId: groupPublicKey,
+                threadId: threadId,
                 interactionId: interaction.id,
                 details: GroupLeavingJob.Details(
                     behaviour: .leave

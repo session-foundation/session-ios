@@ -33,15 +33,14 @@ public extension FeatureStorage {
 public enum Log {
     fileprivate typealias LogInfo = (
         level: Log.Level,
+        categories: [Category],
         message: String,
-        withPrefixes: Bool,
-        silenceForTests: Bool,
         file: StaticString,
         function: StaticString,
         line: UInt
     )
     
-    public enum Level: CaseIterable {
+    public enum Level: Comparable, CaseIterable {
         case verbose
         case debug
         case info
@@ -92,11 +91,13 @@ public enum Log {
     private static var pendingStartupLogs: Atomic<[LogInfo]> = Atomic([])
     
     public static func setup(with logger: Logger) {
-        logger.retrievePendingStartupLogs = {
-            pendingStartupLogs.mutate { pendingStartupLogs in
-                let logs: [LogInfo] = pendingStartupLogs
-                pendingStartupLogs = []
-                return logs
+        logger.retrievePendingStartupLogs.mutate {
+            $0 = {
+                pendingStartupLogs.mutate { pendingStartupLogs in
+                    let logs: [LogInfo] = pendingStartupLogs
+                    pendingStartupLogs = []
+                    return logs
+                }
             }
         }
         Log.logger.mutate { $0 = logger }
@@ -185,71 +186,131 @@ public enum Log {
     }
     
     public static func verbose(
-        _ message: String,
-        withPrefixes: Bool = true,
-        silenceForTests: Bool = false,
+        _ msg: String,
         file: StaticString = #file,
         function: StaticString = #function,
         line: UInt = #line
-    ) {
-        custom(.verbose, [], message, withPrefixes: withPrefixes, silenceForTests: silenceForTests, file: file, function: function, line: line)
-    }
+    ) { custom(.verbose, [], msg, file: file, function: function, line: line) }
+    public static func verbose(
+        _ cat: Category
+        , _ msg: String,
+        file: StaticString = #file,
+        function: StaticString = #function,
+        line: UInt = #line
+    ) { custom(.verbose, [cat], msg, file: file, function: function, line: line) }
+    public static func verbose(
+        _ cats: [Category],
+        _ msg: String,
+        file: StaticString = #file,
+        function: StaticString = #function,
+        line: UInt = #line
+    ) { custom(.verbose, cats, msg, file: file, function: function, line: line) }
     
     public static func debug(
-        _ message: String,
-        withPrefixes: Bool = true,
-        silenceForTests: Bool = false,
+        _ msg: String,
         file: StaticString = #file,
         function: StaticString = #function,
         line: UInt = #line
-    ) {
-        custom(.debug, [], message, withPrefixes: withPrefixes, silenceForTests: silenceForTests, file: file, function: function, line: line)
-    }
+    ) { custom(.debug, [], msg, file: file, function: function, line: line) }
+    public static func debug(
+        _ cat: Category,
+        _ msg: String,
+        file: StaticString = #file,
+        function: StaticString = #function,
+        line: UInt = #line
+    ) { custom(.debug, [cat], msg, file: file, function: function, line: line) }
+    public static func debug(
+        _ cats: [Category],
+        _ msg: String,
+        file: StaticString = #file,
+        function: StaticString = #function,
+        line: UInt = #line
+    ) { custom(.debug, cats, msg, file: file, function: function, line: line) }
     
     public static func info(
-        _ message: String,
-        withPrefixes: Bool = true,
-        silenceForTests: Bool = false,
+        _ msg: String,
         file: StaticString = #file,
         function: StaticString = #function,
         line: UInt = #line
-    ) {
-        custom(.info, [], message, withPrefixes: withPrefixes, silenceForTests: silenceForTests, file: file, function: function, line: line)
-    }
+    ) { custom(.info, [], msg, file: file, function: function, line: line) }
+    public static func info(
+        _ cat: Category,
+        _ msg: String,
+        file: StaticString = #file,
+        function: StaticString = #function,
+        line: UInt = #line
+    ) { custom(.info, [cat], msg, file: file, function: function, line: line) }
+    public static func info(
+        _ cats: [Category],
+        _ msg: String,
+        file: StaticString = #file,
+        function: StaticString = #function,
+        line: UInt = #line
+    ) { custom(.info, cats, msg, file: file, function: function, line: line) }
     
     public static func warn(
-        _ message: String,
-        withPrefixes: Bool = true,
-        silenceForTests: Bool = false,
+        _ msg: String,
         file: StaticString = #file,
         function: StaticString = #function,
         line: UInt = #line
-    ) {
-        custom(.warn, [], message, withPrefixes: withPrefixes, silenceForTests: silenceForTests, file: file, function: function, line: line)
-    }
+    ) { custom(.warn, [], msg, file: file, function: function, line: line) }
+    public static func warn(
+        _ cat: Category,
+        _ msg: String,
+        file: StaticString = #file,
+        function: StaticString = #function,
+        line: UInt = #line
+    ) { custom(.warn, [cat], msg, file: file, function: function, line: line) }
+    public static func warn(
+        _ cats: [Category],
+        _ msg: String,
+        file: StaticString = #file,
+        function: StaticString = #function,
+        line: UInt = #line
+    ) { custom(.warn, cats, msg, file: file, function: function, line: line) }
     
     public static func error(
-        _ message: String,
-        withPrefixes: Bool = true,
-        silenceForTests: Bool = false,
+        _ msg: String,
         file: StaticString = #file,
         function: StaticString = #function,
         line: UInt = #line
-    ) {
-        custom(.error, [], message, withPrefixes: withPrefixes, silenceForTests: silenceForTests, file: file, function: function, line: line)
-    }
+    ) { custom(.error, [], msg, file: file, function: function, line: line) }
+    public static func error(
+        _ cat: Category,
+        _ msg: String,
+        file: StaticString = #file,
+        function: StaticString = #function,
+        line: UInt = #line
+    ) { custom(.error, [cat], msg, file: file, function: function, line: line) }
+    public static func error(
+        _ cats: [Category],
+        _ msg: String,
+        file: StaticString = #file,
+        function: StaticString = #function,
+        line: UInt = #line
+    ) { custom(.error, cats, msg, file: file, function: function, line: line) }
     
     public static func critical(
-        _ message: String,
-        withPrefixes: Bool = true,
-        silenceForTests: Bool = false,
+        _ msg: String,
         file: StaticString = #file,
         function: StaticString = #function,
         line: UInt = #line
-    ) {
-        custom(.critical, [], message, withPrefixes: withPrefixes, silenceForTests: silenceForTests, file: file, function: function, line: line)
-    }
-    
+    ) { custom(.critical, [], msg, file: file, function: function, line: line) }
+    public static func critical(
+        _ cat: Category,
+        _ msg: String,
+        file: StaticString = #file,
+        function: StaticString = #function,
+        line: UInt = #line
+    ) { custom(.critical, [cat], msg, file: file, function: function, line: line) }
+    public static func critical(
+        _ cats: [Category],
+        _ msg: String,
+        file: StaticString = #file,
+        function: StaticString = #function,
+        line: UInt = #line
+    ) { custom(.critical, cats, msg, file: file, function: function, line: line) }
+
     public static func assert(
         _ condition: Bool,
         _ message: @autoclosure () -> String = String(),
@@ -263,7 +324,7 @@ public enum Log {
         let message: String = message()
         let logMessage: String = (message.isEmpty ? "Assertion failed." : message)
         let formattedMessage: String = "[\(filename):\(line) \(function)] \(logMessage)"
-        custom(.critical, [], formattedMessage, withPrefixes: true, silenceForTests: false, file: file, function: function, line: line)
+        custom(.critical, [], formattedMessage, file: file, function: function, line: line)
         assertionFailure(formattedMessage)
     }
     
@@ -276,7 +337,7 @@ public enum Log {
         
         let filename: String = URL(fileURLWithPath: "\(file)").lastPathComponent
         let formattedMessage: String = "[\(filename):\(line) \(function)] Must be on main thread."
-        custom(.critical, [], formattedMessage, withPrefixes: true, silenceForTests: false, file: file, function: function, line: line)
+        custom(.critical, [], formattedMessage, file: file, function: function, line: line)
         assertionFailure(formattedMessage)
     }
     
@@ -284,8 +345,6 @@ public enum Log {
         _ level: Level,
         _ categories: [Category],
         _ message: String,
-        withPrefixes: Bool,
-        silenceForTests: Bool,
         file: StaticString = #file,
         function: StaticString = #function,
         line: UInt = #line
@@ -293,32 +352,34 @@ public enum Log {
         guard
             let logger: Logger = logger.wrappedValue,
             !logger.isSuspended.wrappedValue
-        else {
-            return pendingStartupLogs.mutate {
-                $0.append((level, message, withPrefixes, silenceForTests, file, function, line))
-            }
-        }
+        else { return pendingStartupLogs.mutate { $0.append((level, categories, message, file, function, line)) } }
         
-        logger.log(level, categories, message, withPrefixes: withPrefixes, silenceForTests: silenceForTests, file: file, function: function, line: line)
+        logger.log(level, categories, message, file: file, function: function, line: line)
     }
 }
 
 // MARK: - Logger
 
 public class Logger {
-    private let isRunningTests: Bool = (ProcessInfo.processInfo.environment["XCTestConfigurationFilePath"] == nil)
+    private let dependencies: Dependencies
     private let primaryPrefix: String
     private let forceNSLog: Bool
+    private let level: Atomic<Log.Level>
+    private let systemLoggers: Atomic<[String: SystemLoggerType]> = Atomic([:])
     fileprivate let fileLogger: DDFileLogger
     fileprivate let isSuspended: Atomic<Bool> = Atomic(true)
-    fileprivate var retrievePendingStartupLogs: (() -> [Log.LogInfo])?
+    fileprivate let retrievePendingStartupLogs: Atomic<(() -> [Log.LogInfo])?> = Atomic(nil)
     
     public init(
         primaryPrefix: String,
+        level: Log.Level,
         customDirectory: String? = nil,
-        forceNSLog: Bool = false
+        forceNSLog: Bool = false,
+        using dependencies: Dependencies
     ) {
+        self.dependencies = dependencies
         self.primaryPrefix = primaryPrefix
+        self.level = Atomic(level)
         self.forceNSLog = forceNSLog
         
         switch customDirectory {
@@ -358,9 +419,16 @@ public class Logger {
         // to a local directory (so they can be exported via XCode) - the below code reads any
         // logs from the shared directly and attempts to add them to the main app logs to make
         // debugging user issues in extensions easier
-        DispatchQueue.global(qos: .utility).async { [weak self] in
+        DispatchQueue.global(qos: .utility).async { [weak self, dependencies] in
             guard let currentLogFileInfo: DDLogFileInfo = self?.fileLogger.currentLogFileInfo else {
                 self?.completeResumeLogging(error: "Unable to retrieve current log file.")
+                return
+            }
+            
+            // We only want to append extension logs to the main app logs (so just early out if this isn't
+            // the main app)
+            guard dependencies[singleton: .appContext].isMainApp else {
+                self?.completeResumeLogging()
                 return
             }
             
@@ -427,7 +495,7 @@ public class Logger {
                         }
                 }
                 catch {
-                    self?.completeResumeLogging(error: "Unable to write extension logs to current log file")
+                    self?.completeResumeLogging(error: "Unable to write extension logs to current log file due to error: \(error)")
                     return
                 }
                 
@@ -439,13 +507,19 @@ public class Logger {
     private func completeResumeLogging(error: String? = nil) {
         let pendingLogs: [Log.LogInfo] = isSuspended.mutate { isSuspended in
             isSuspended = false
-            return (retrievePendingStartupLogs?() ?? [])
+            
+            // Retrieve any logs that were added during
+            return retrievePendingStartupLogs.mutate { retriever in
+                let result: [Log.LogInfo] = (retriever?() ?? [])
+                retriever = nil
+                return result
+            }
         }
         
         // If we had an error loading the extension logs then actually log it
         if let error: String = error {
             Log.empty()
-            log(.error, [], error, withPrefixes: true, silenceForTests: false, file: #file, function: #function, line: #line)
+            log(.error, [], error, file: #file, function: #function, line: #line)
         }
         
         // After creating a new logger we want to log two empty lines to make it easier to read
@@ -453,8 +527,8 @@ public class Logger {
         Log.empty()
         
         // Add any logs that were pending during the startup process
-        pendingLogs.forEach { level, message, withPrefixes, silenceForTests, file, function, line in
-            log(level, [], message, withPrefixes: withPrefixes, silenceForTests: silenceForTests, file: file, function: function, line: line)
+        pendingLogs.forEach { level, categories, message, file, function, line in
+            log(level, categories, message, file: file, function: function, line: line)
         }
     }
     
@@ -462,18 +536,14 @@ public class Logger {
         _ level: Log.Level,
         _ categories: [Log.Category],
         _ message: String,
-        withPrefixes: Bool,
-        silenceForTests: Bool,
         file: StaticString,
         function: StaticString,
         line: UInt
     ) {
-        guard !silenceForTests || !isRunningTests else { return }
+        guard level >= self.level.wrappedValue else { return }
         
         // Sort out the prefixes
         let logPrefix: String = {
-            guard withPrefixes else { return "" }
-            
             let prefixes: String = [
                 primaryPrefix,
                 (Thread.isMainThread ? "Main" : nil),
@@ -504,12 +574,45 @@ public class Logger {
             case .critical: DDLogError("🔥 \(logMessage)", file: file, function: function, line: line)
         }
         
+        let mainCategory: String = (categories.first?.rawValue ?? "General")
+        var systemLogger: SystemLoggerType? = systemLoggers.wrappedValue[mainCategory]
+        
+        if systemLogger == nil {
+            systemLogger = systemLoggers.mutate {
+                $0[mainCategory] = SystemLogger(category: mainCategory)
+                return $0[mainCategory]
+            }
+        }
+        
         #if DEBUG
-        print(logMessage)
+        systemLogger?.log(level, logMessage)
         #endif
+    }
+}
 
-        if forceNSLog {
-            NSLog(message)
+// MARK: - SystemLogger
+
+private protocol SystemLoggerType {
+    func log(_ level: Log.Level, _ log: String)
+}
+
+private class SystemLogger: SystemLoggerType {
+    private static let subsystem: String = Bundle.main.bundleIdentifier!
+    private let logger: os.Logger
+    
+    init(category: String) {
+        logger = os.Logger(subsystem: SystemLogger.subsystem, category: category)
+    }
+    
+    public func log(_ level: Log.Level, _ log: String) {
+        switch level {
+            case .off, .default: return
+            case .verbose: logger.trace("\(log)")
+            case .debug: logger.debug("\(log)")
+            case .info: logger.info("\(log)")
+            case .warn: logger.warning("\(log)")
+            case .error: logger.error("\(log)")
+            case .critical: logger.critical("\(log)")
         }
     }
 }
@@ -543,11 +646,6 @@ private extension DispatchQueue {
         /// https://forums.swift.org/t/gcd-getting-current-dispatch-queue-name-with-swift-3/3039/2
         return (String(cString: __dispatch_queue_get_label(nil)) == "\(Storage.queuePrefix).writer")
     }
-}
-
-// FIXME: Remove this once everything has been updated to use the new `Log.x()` methods
-public func SNLog(_ message: String, forceNSLog: Bool = false) {
-    Log.info(message)
 }
 
 // MARK: - Log.Level FeatureOption
@@ -629,7 +727,7 @@ public struct AllLoggingCategories: FeatureOption {
                 /// **Note:** We only want to use the `rawValue` to distinguish between logging categories
                 /// as the `defaultLevel` can change via the dev settings and any additional metadata could
                 /// be file/class specific
-                category.rawValue != cat.rawValue
+                category.rawValue == cat.rawValue
             })
         else { return }
         
@@ -651,4 +749,9 @@ public struct AllLoggingCategories: FeatureOption {
     
     public var title: String = "AllLoggingCategories"
     public let subtitle: String? = nil
+}
+
+// FIXME: Remove this once everything has been updated to use the new `Log.x()` methods.
+public func SNLog(_ message: String, forceNSLog: Bool = false) {
+    Log.info(message)
 }

@@ -19,11 +19,11 @@ public enum ParameterMatchType {
 
 fileprivate extension String.StringInterpolation {
     mutating func appendInterpolation(times: Int) {
-        appendInterpolation("\(times) time\(plural: times)")
+        appendInterpolation("\(times) time\(times == 1 ? "" : "s")")
     }
     
     mutating func appendInterpolation(parameters: Int) {
-        appendInterpolation("\(parameters) parameter\(plural: parameters)")
+        appendInterpolation("\(parameters) parameter\(parameters == 1 ? "" : "s")")
     }
 }
 
@@ -284,7 +284,7 @@ fileprivate struct CallInfo {
 }
 
 fileprivate func generateCallInfo<M, T, R>(
-    _ actualExpression: Expression<M>,
+    _ actualExpression: Nimble.Expression<M>,
     _ functionBlock: @escaping (inout T) throws -> R
 ) -> CallInfo where M: Mock<T> {
     var maybeTargetFunction: MockFunction?

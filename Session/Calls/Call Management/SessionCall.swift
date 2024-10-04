@@ -179,13 +179,13 @@ public final class SessionCall: CurrentCallProtocol, WebRTCSessionDelegate {
             dependencies[singleton: .callManager].setCurrentCall(self)
         }
         else {
-            SNLog("[Calls] A call is ongoing.")
+            Log.info(.calls, "A call is ongoing.")
         }
     }
     
     func reportIncomingCallIfNeeded(completion: @escaping (Error?) -> Void) {
         guard case .answer = mode else {
-            SessionCallManager.reportFakeCall(info: "Call not in answer mode", using: dependencies)
+            SessionCallManager.reportFakeCall(info: "Call not in answer mode", using: dependencies) // stringlint:disable
             return
         }
         
@@ -203,7 +203,7 @@ public final class SessionCall: CurrentCallProtocol, WebRTCSessionDelegate {
             return
         }
         
-        SNLog("[Calls] Did receive remote sdp.")
+        Log.info(.calls, "Did receive remote sdp.")
         remoteSDP = sdp
         if hasStartedConnecting {
             webRTCSession.handleRemoteSDP(sdp, from: sessionId) // This sends an answer message internally
@@ -406,7 +406,7 @@ public final class SessionCall: CurrentCallProtocol, WebRTCSessionDelegate {
         self.hasEnded = true
         DispatchQueue.main.async { [dependencies] in
             if let currentBanner = IncomingCallBanner.current { currentBanner.dismiss() }
-            guard dependencies.hasInitialised(singleton: .appContext) else { return }
+            guard dependencies[singleton: .appContext].isValid else { return }
             if let callVC = dependencies[singleton: .appContext].frontMostViewController as? CallVC { callVC.handleEndCallMessage() }
             if let miniCallView = MiniCallView.current { miniCallView.dismiss() }
             dependencies[singleton: .callManager].reportCurrentCallEnded(reason: .remoteEnded)

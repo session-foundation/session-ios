@@ -27,8 +27,7 @@ class SessionThreadViewModelSpec: QuickSpec {
                     
                     t.column(TestMessage.Columns.body.name)
                 }
-            },
-            using: Dependencies()
+            }
         )
         
         // MARK: - a SessionThreadViewModel
@@ -67,7 +66,7 @@ class SessionThreadViewModelSpec: QuickSpec {
                 
                 // MARK: ---- keeps words within quotes together
                 it("keeps words within quotes together") {
-                    expect(SessionThreadViewModel.searchTermParts("This \"is a Test\" Message"))
+                    expect(SessionThreadViewModel.searchTermParts("This ”is a Test“ Message"))
                         .to(equal([
                             "\"This\"",
                             "\"is a Test\"",
@@ -103,7 +102,7 @@ class SessionThreadViewModelSpec: QuickSpec {
                 
                 // MARK: ---- keeps words within weird quotes together
                 it("keeps words within weird quotes together") {
-                    expect(SessionThreadViewModel.searchTermParts("This ”is a Test“ Message"))
+                    expect(SessionThreadViewModel.searchTermParts("This \"is a Test\" Message"))
                         .to(equal([
                             "\"This\"",
                             "\"is a Test\"",

@@ -1,10 +1,19 @@
 // Copyright © 2022 Rangeproof Pty Ltd. All rights reserved.
 
 import Foundation
+import AVFAudio
 import GRDB
 import WebRTC
 import SessionUtilitiesKit
 import SessionSnodeKit
+
+// MARK: - Log.Category
+
+public extension Log.Category {
+    static let calls: Log.Category = .create("Calls", defaultLevel: .info)
+}
+
+// MARK: - MessageReceiver
 
 extension MessageReceiver {
     public static func handleCallMessage(
@@ -21,7 +30,7 @@ extension MessageReceiver {
             case .preOffer: try MessageReceiver.handleNewCallMessage(db, message: message, using: dependencies)
             case .offer: MessageReceiver.handleOfferCallMessage(db, message: message, using: dependencies)
             case .answer: MessageReceiver.handleAnswerCallMessage(db, message: message, using: dependencies)
-            case .provisionalAnswer: break // TODO: Implement
+            case .provisionalAnswer: break // TODO: [CALLS] Implement
                 
             case let .iceCandidates(sdpMLineIndexes, sdpMids):
                 dependencies[singleton: .callManager].handleICECandidates(
@@ -41,7 +50,7 @@ extension MessageReceiver {
         message: CallMessage,
         using dependencies: Dependencies
     ) throws {
-        SNLog("[Calls] Received pre-offer message.")
+        Log.info(.calls, "Received pre-offer message.")
         
         // Determine whether the app is active based on the prefs rather than the UIApplication state to avoid
         // requiring main-thread execution
@@ -50,7 +59,6 @@ extension MessageReceiver {
         // It is enough just ignoring the pre offers, other call messages
         // for this call would be dropped because of no Session call instance
         guard
-            dependencies.hasInitialised(singleton: .appContext),
             dependencies[singleton: .appContext].isMainApp,
             let sender: String = message.sender,
             (try? Contact
@@ -67,6 +75,7 @@ extension MessageReceiver {
                     db,
                     id: sender,
                     variant: .contact,
+                    creationDateTimestamp: TimeInterval(dependencies[cache: .snodeAPI].currentOffsetTimestampMs() / 1000),
                     shouldBeVisible: nil,
                     calledFromConfig: nil,
                     using: dependencies
@@ -84,12 +93,16 @@ extension MessageReceiver {
             return
         }
         
-        guard db[.areCallsEnabled] else {
-            if let interaction: Interaction = try MessageReceiver.insertCallInfoMessage(db, for: message, state: .permissionDenied, using: dependencies) {
+        let hasMicrophonePermission: Bool = (AVAudioSession.sharedInstance().recordPermission == .granted)
+        guard db[.areCallsEnabled] && hasMicrophonePermission else {
+            let state: CallMessage.MessageInfo.State = (db[.areCallsEnabled] ? .permissionDeniedMicrophone : .permissionDenied)
+            
+            if let interaction: Interaction = try MessageReceiver.insertCallInfoMessage(db, for: message, state: state, using: dependencies) {
                 let thread: SessionThread = try SessionThread.fetchOrCreate(
                     db,
                     id: sender,
                     variant: .contact,
+                    creationDateTimestamp: TimeInterval(dependencies[cache: .snodeAPI].currentOffsetTimestampMs() / 1000),
                     shouldBeVisible: nil,
                     calledFromConfig: nil,
                     using: dependencies
@@ -136,7 +149,7 @@ extension MessageReceiver {
     }
     
     private static func handleOfferCallMessage(_ db: Database, message: CallMessage, using dependencies: Dependencies) {
-        SNLog("[Calls] Received offer message.")
+        Log.info(.calls, "Received offer message.")
         
         // Ensure we have a call manager before continuing
         guard
@@ -154,7 +167,7 @@ extension MessageReceiver {
         message: CallMessage,
         using dependencies: Dependencies
     ) {
-        SNLog("[Calls] Received answer message.")
+        Log.info(.calls, "Received answer message.")
         
         guard
             dependencies[singleton: .callManager].currentWebRTCSessionMatches(callId: message.uuid),
@@ -183,7 +196,7 @@ extension MessageReceiver {
         message: CallMessage,
         using dependencies: Dependencies
     ) {
-        SNLog("[Calls] Received end call message.")
+        Log.info(.calls, "Received end call message.")
         
         guard
             dependencies[singleton: .callManager].currentWebRTCSessionMatches(callId: message.uuid),
@@ -221,7 +234,7 @@ extension MessageReceiver {
             let thread: SessionThread = try SessionThread.fetchOne(db, id: caller)
         else { return }
         
-        SNLog("[Calls] Sending end call message because there is an ongoing call.")
+        Log.info(.calls, "Sending end call message because there is an ongoing call.")
         
         let messageSentTimestamp: Int64 = (
             message.sentTimestamp.map { Int64($0) } ??

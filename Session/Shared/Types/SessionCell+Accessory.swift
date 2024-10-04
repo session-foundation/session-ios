@@ -61,11 +61,11 @@ public extension SessionCell.Accessory {
             accessibility: accessibility
         )
     }
-        
+    
     static func toggle(
         _ value: Bool,
         oldValue: Bool?,
-        accessibility: Accessibility? = nil
+        accessibility: Accessibility = Accessibility(identifier: "Switch")
     ) -> SessionCell.Accessory {
         return SessionCell.AccessoryConfig.Toggle(
             value: value,
@@ -89,7 +89,7 @@ public extension SessionCell.Accessory {
         isSelected: Bool? = nil,
         liveIsSelected: (() -> Bool)? = nil,
         wasSavedSelection: Bool = false,
-        accessibility: Accessibility? = nil
+        accessibility: Accessibility = Accessibility(identifier: "Radio")
     ) -> SessionCell.Accessory {
         return SessionCell.AccessoryConfig.Radio(
             size: size,

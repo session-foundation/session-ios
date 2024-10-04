@@ -189,8 +189,8 @@ class ThreadSettingsViewModel: SessionTableViewModel, NavigationItemSource, Navi
     
     var title: String {
         switch threadVariant {
-            case .contact: return "vc_settings_title".localized()
-            case .legacyGroup, .group, .community: return "vc_group_settings_title".localized()
+            case .contact: return "sessionSettings".localized()
+            case .legacyGroup, .group, .community: return "deleteAfterGroupPR1GroupSettings".localized()
         }
     }
     
@@ -272,7 +272,7 @@ class ThreadSettingsViewModel: SessionTableViewModel, NavigationItemSource, Navi
                             threadViewModel.displayName,
                             font: .titleLarge,
                             alignment: .center,
-                            editingPlaceholder: "CONTACT_NICKNAME_PLACEHOLDER".localized(),
+                            editingPlaceholder: "nicknameEnter".localized(),
                             interaction: (threadViewModel.threadVariant == .contact ? .editable : .none)
                         ),
                         styling: SessionCell.StyleInfo(
@@ -361,8 +361,8 @@ class ThreadSettingsViewModel: SessionTableViewModel, NavigationItemSource, Navi
                                     .withRenderingMode(.alwaysTemplate)
                             ),
                             title: (threadViewModel.threadVariant == .community ?
-                                "COPY_GROUP_URL".localized() :
-                                "vc_conversation_settings_copy_session_id_button_title".localized()
+                                "communityUrlCopy".localized() :
+                                "accountIDCopy".localized()
                             ),
                             accessibility: Accessibility(
                                 identifier: "\(ThreadSettingsViewModel.self).copy_thread_id",
@@ -399,7 +399,7 @@ class ThreadSettingsViewModel: SessionTableViewModel, NavigationItemSource, Navi
                             UIImage(named: "actionsheet_camera_roll_black")?
                                 .withRenderingMode(.alwaysTemplate)
                         ),
-                        title: MediaStrings.allMedia,
+                        title: "conversationsSettingsAllMedia".localized(),
                         accessibility: Accessibility(
                             identifier: "\(ThreadSettingsViewModel.self).all_media",
                             label: "All media"
@@ -422,7 +422,7 @@ class ThreadSettingsViewModel: SessionTableViewModel, NavigationItemSource, Navi
                             UIImage(named: "conversation_settings_search")?
                                 .withRenderingMode(.alwaysTemplate)
                         ),
-                        title: "CONVERSATION_SETTINGS_SEARCH".localized(),
+                        title: "searchConversation".localized(),
                         accessibility: Accessibility(
                             identifier: "\(ThreadSettingsViewModel.self).search",
                             label: "Search"
@@ -437,7 +437,7 @@ class ThreadSettingsViewModel: SessionTableViewModel, NavigationItemSource, Navi
                                 UIImage(named: "ic_plus_24")?
                                     .withRenderingMode(.alwaysTemplate)
                             ),
-                            title: "vc_conversation_settings_invite_button_title".localized(),
+                            title: "membersInvite".localized(),
                             accessibility: Accessibility(
                                 identifier: "\(ThreadSettingsViewModel.self).add_to_open_group"
                             ),
@@ -452,25 +452,16 @@ class ThreadSettingsViewModel: SessionTableViewModel, NavigationItemSource, Navi
                                 UIImage(systemName: "timer")?
                                     .withRenderingMode(.alwaysTemplate)
                             ),
-                            title: "DISAPPEARING_MESSAGES".localized(),
+                            title: "disappearingMessages".localized(),
                             subtitle: {
                                 guard current.disappearingMessagesConfig.isEnabled else {
-                                    return "DISAPPEARING_MESSAGES_SUBTITLE_OFF".localized()
-                                }
-                                guard dependencies[feature: .updatedDisappearingMessages] else {
-                                    return String(
-                                        format: "DISAPPEARING_MESSAGES_SUBTITLE_DISAPPEAR_AFTER_LEGACY".localized(),
-                                        current.disappearingMessagesConfig.durationString
-                                    )
+                                    return "off".localized()
                                 }
                                 
-                                return String(
-                                    format: (current.disappearingMessagesConfig.type == .disappearAfterRead ?
-                                        "DISAPPEARING_MESSAGES_SUBTITLE_DISAPPEAR_AFTER_READ".localized() :
-                                        "DISAPPEARING_MESSAGES_SUBTITLE_DISAPPEAR_AFTER_SEND".localized()
-                                    ),
-                                    current.disappearingMessagesConfig.durationString
-                                )
+                                return (current.disappearingMessagesConfig.type ?? .unknown)
+                                    .localizedState(
+                                        durationString: current.disappearingMessagesConfig.durationString
+                                    )
                             }(),
                             accessibility: Accessibility(
                                 identifier: "Disappearing messages",
@@ -500,7 +491,7 @@ class ThreadSettingsViewModel: SessionTableViewModel, NavigationItemSource, Navi
                                 UIImage(named: "icon_members")?
                                     .withRenderingMode(.alwaysTemplate)
                             ),
-                            title: "GROUP_MEMBERS".localized(),
+                            title: "groupMembers".localized(),
                             accessibility: Accessibility(
                                 identifier: "Group members",
                                 label: "Group members"
@@ -516,7 +507,7 @@ class ThreadSettingsViewModel: SessionTableViewModel, NavigationItemSource, Navi
                                 UIImage(named: "table_ic_group_edit")?
                                     .withRenderingMode(.alwaysTemplate)
                             ),
-                            title: "EDIT_GROUP_ACTION".localized(),
+                            title: "groupEdit".localized(),
                             accessibility: Accessibility(
                                 identifier: "Edit group",
                                 label: "Edit group"
@@ -541,7 +532,7 @@ class ThreadSettingsViewModel: SessionTableViewModel, NavigationItemSource, Navi
                                 UIImage(named: "table_ic_group_edit")?
                                     .withRenderingMode(.alwaysTemplate)
                             ),
-                            title: "GROUP_ACTION_PROMOTE_ADMINS".localized(),
+                            title: "adminPromote".localized(),
                             accessibility: Accessibility(
                                 identifier: "Promote admins",
                                 label: "Promote admins"
@@ -557,32 +548,19 @@ class ThreadSettingsViewModel: SessionTableViewModel, NavigationItemSource, Navi
                                 UIImage(named: "table_ic_group_leave")?
                                     .withRenderingMode(.alwaysTemplate)
                             ),
-                            title: "LEAVE_GROUP_ACTION".localized(),
+                            title: "groupLeave".localized(),
                             accessibility: Accessibility(
                                 identifier: "Leave group",
                                 label: "Leave group"
                             ),
                             confirmationInfo: ConfirmationModal.Info(
-                                title: "leave_group_confirmation_alert_title".localized(),
-                                body: .attributedText({
-                                    if currentUserIsClosedGroupAdmin {
-                                        return NSAttributedString(string: "admin_group_leave_warning".localized())
-                                    }
-                                    
-                                    let mutableAttributedString = NSMutableAttributedString(
-                                        string: String(
-                                            format: "leave_community_confirmation_alert_message".localized(),
-                                            threadViewModel.displayName
-                                        )
-                                    )
-                                    mutableAttributedString.addAttribute(
-                                        .font,
-                                        value: UIFont.boldSystemFont(ofSize: Values.smallFontSize),
-                                        range: (mutableAttributedString.string as NSString).range(of: threadViewModel.displayName)
-                                    )
-                                    return mutableAttributedString
-                                }()),
-                                confirmTitle: "LEAVE_BUTTON_TITLE".localized(),
+                                title: "groupLeave".localized(),
+                                body: .attributedText(
+                                    (currentUserIsClosedGroupAdmin ? "groupDeleteDescription" : "groupLeaveDescription")
+                                        .put(key: "group_name", value: threadViewModel.displayName)
+                                        .localizedFormatted(baseFont: .boldSystemFont(ofSize: Values.smallFontSize))
+                                ),
+                                confirmTitle: "leave".localized(),
                                 confirmStyle: .danger,
                                 cancelStyle: .alert_text
                             ),
@@ -609,11 +587,14 @@ class ThreadSettingsViewModel: SessionTableViewModel, NavigationItemSource, Navi
                                 UIImage(named: "NotifyMentions")?
                                     .withRenderingMode(.alwaysTemplate)
                             ),
-                            title: "vc_conversation_settings_notify_for_mentions_only_title".localized(),
-                            subtitle: "vc_conversation_settings_notify_for_mentions_only_explanation".localized(),
-                            trailingAccessory: .toggle(
-                                threadViewModel.threadOnlyNotifyForMentions == true,
-                                oldValue: (previous?.threadViewModel?.threadOnlyNotifyForMentions == true)
+                            title: "deleteAfterGroupPR1MentionsOnly".localized(),
+                            subtitle: "deleteAfterGroupPR1MentionsOnlyDescription".localized(),
+                                trailingAccessory: .toggle(
+                                    threadViewModel.threadOnlyNotifyForMentions == true,
+                                    oldValue: (previous?.threadViewModel?.threadOnlyNotifyForMentions == true),
+                                accessibility: Accessibility(
+                                    identifier: "Notify for Mentions Only - Switch"
+                                )
                             ),
                             isEnabled: (
                                 (
@@ -649,10 +630,13 @@ class ThreadSettingsViewModel: SessionTableViewModel, NavigationItemSource, Navi
                                 UIImage(named: "Mute")?
                                     .withRenderingMode(.alwaysTemplate)
                             ),
-                            title: "CONVERSATION_SETTINGS_MUTE_LABEL".localized(),
+                            title: "notificationsMute".localized(),
                             trailingAccessory: .toggle(
                                 threadViewModel.threadMutedUntilTimestamp != nil,
-                                oldValue: (previous?.threadViewModel?.threadMutedUntilTimestamp != nil)
+                                oldValue: (previous?.threadViewModel?.threadMutedUntilTimestamp != nil),
+                                accessibility: Accessibility(
+                                    identifier: "Mute - Switch"
+                                )
                             ),
                             isEnabled: (
                                 (
@@ -696,10 +680,13 @@ class ThreadSettingsViewModel: SessionTableViewModel, NavigationItemSource, Navi
                                 UIImage(named: "table_ic_block")?
                                     .withRenderingMode(.alwaysTemplate)
                             ),
-                            title: "CONVERSATION_SETTINGS_BLOCK_THIS_USER".localized(),
-                            trailingAccessory: .toggle(
+                            title: "deleteAfterGroupPR1BlockThisUser".localized(),
+                                trailingAccessory: .toggle(
                                 threadViewModel.threadIsBlocked == true,
-                                oldValue: (previous?.threadViewModel?.threadIsBlocked == true)
+                                oldValue: (previous?.threadViewModel?.threadIsBlocked == true),
+                                accessibility: Accessibility(
+                                    identifier: "Block This User - Switch"
+                                )
                             ),
                             accessibility: Accessibility(
                                 identifier: "\(ThreadSettingsViewModel.self).block",
@@ -709,22 +696,31 @@ class ThreadSettingsViewModel: SessionTableViewModel, NavigationItemSource, Navi
                                 title: {
                                     guard threadViewModel.threadIsBlocked == true else {
                                         return String(
-                                            format: "BLOCK_LIST_BLOCK_USER_TITLE_FORMAT".localized(),
+                                            format: "block".localized(),
                                             threadViewModel.displayName
                                         )
                                     }
                                     
                                     return String(
-                                        format: "BLOCK_LIST_UNBLOCK_TITLE_FORMAT".localized(),
+                                        format: "blockUnblock".localized(),
                                         threadViewModel.displayName
                                     )
                                 }(),
-                                body: (threadViewModel.threadIsBlocked == true ? .none :
-                                    .text("BLOCK_USER_BEHAVIOR_EXPLANATION".localized())
+                                body: (threadViewModel.threadIsBlocked == true ?
+                                    .attributedText(
+                                        "blockUnblockName"
+                                            .put(key: "name", value: threadViewModel.displayName)
+                                            .localizedFormatted(baseFont: .systemFont(ofSize: Values.smallFontSize))
+                                    ) :
+                                    .attributedText(
+                                        "blockDescription"
+                                            .put(key: "name", value: threadViewModel.displayName)
+                                            .localizedFormatted(baseFont: .systemFont(ofSize: Values.smallFontSize))
+                                    )
                                 ),
                                 confirmTitle: (threadViewModel.threadIsBlocked == true ?
-                                    "BLOCK_LIST_UNBLOCK_BUTTON".localized() :
-                                    "BLOCK_LIST_BLOCK_BUTTON".localized()
+                                    "blockUnblock".localized() :
+                                    "block".localized()
                                 ),
                                 confirmAccessibility: Accessibility(identifier: "Confirm block"),
                                 confirmStyle: .danger,
@@ -737,8 +733,7 @@ class ThreadSettingsViewModel: SessionTableViewModel, NavigationItemSource, Navi
                                     from: isBlocked,
                                     isBlocked: !isBlocked,
                                     threadId: threadViewModel.threadId,
-                                    displayName: threadViewModel.displayName,
-                                    using: dependencies
+                                    displayName: threadViewModel.displayName
                                 )
                             }
                         )
@@ -789,14 +784,14 @@ class ThreadSettingsViewModel: SessionTableViewModel, NavigationItemSource, Navi
         self.transitionToScreen(
             SessionTableViewController(
                 viewModel: UserListViewModel<Contact>(
-                    title: "vc_conversation_settings_invite_button_title".localized(),
-                    emptyState: "GROUP_ACTION_INVITE_EMPTY_STATE".localized(),
+                    title: "membersInvite".localized(),
+                    emptyState: "contactNone".localized(),
                     showProfileIcons: false,
                     request: Contact
                         .filter(Contact.Columns.isApproved == true)
                         .filter(Contact.Columns.didApproveMe == true)
                         .filter(Contact.Columns.id != threadViewModel.currentUserSessionId),
-                    footerTitle: "GROUP_ACTION_INVITE".localized(),
+                    footerTitle: "membersInvite".localized(),
                     onSubmit: .publisher { [dependencies] _, selectedUserInfo in
                         dependencies[singleton: .storage]
                             .writePublisher { db in
@@ -805,6 +800,7 @@ class ThreadSettingsViewModel: SessionTableViewModel, NavigationItemSource, Navi
                                         db,
                                         id: userInfo.profileId,
                                         variant: .contact,
+                                        creationDateTimestamp: (dependencies[cache: .snodeAPI].currentOffsetTimestampMs() / 1000),
                                         shouldBeVisible: nil,
                                         calledFromConfig: nil,
                                         using: dependencies
@@ -870,7 +866,7 @@ class ThreadSettingsViewModel: SessionTableViewModel, NavigationItemSource, Navi
         self.transitionToScreen(
             SessionTableViewController(
                 viewModel: UserListViewModel(
-                    title: "GROUP_MEMBERS".localized(),
+                    title: "groupMembers".localized(),
                     showProfileIcons: true,
                     request: GroupMember
                         .filter(GroupMember.Columns.groupId == threadId),
@@ -880,6 +876,7 @@ class ThreadSettingsViewModel: SessionTableViewModel, NavigationItemSource, Navi
                                 db,
                                 id: memberInfo.profileId,
                                 variant: .contact,
+                                creationDateTimestamp: (dependencies[cache: .snodeAPI].currentOffsetTimestampMs() / 1000),
                                 shouldBeVisible: nil,
                                 calledFromConfig: nil,
                                 using: dependencies
@@ -920,8 +917,8 @@ class ThreadSettingsViewModel: SessionTableViewModel, NavigationItemSource, Navi
             )
             viewModel?.showToast(
                 text: (memberInfo.count == 1 ?
-                    "GROUP_ACTION_PROMOTE_SENDING".localized() :
-                    "GROUP_ACTION_PROMOTE_SENDING_MULTIPLE".localized()
+                    "adminSendingPromotion".localized() :
+                    "adminSendingPromotion".localized()
                 ),
                 backgroundColor: .backgroundSecondary
             )
@@ -931,8 +928,8 @@ class ThreadSettingsViewModel: SessionTableViewModel, NavigationItemSource, Navi
         self.transitionToScreen(
             SessionTableViewController(
                 viewModel: UserListViewModel<GroupMember>(
-                    title: "GROUP_ACTION_PROMOTE_ADMINS".localized(),
-                    emptyState: "GROUP_ACTION_PROMOTE_EMPTY_STATE".localized(),
+                    title: "promote".localized(),
+                    emptyState: "GROUP_ACTION_PROMOTE_EMPTY_STATE",//.localized(),
                     showProfileIcons: true,
                     request: SQLRequest("""
                         SELECT \(groupMember.allColumns)
@@ -948,16 +945,16 @@ class ThreadSettingsViewModel: SessionTableViewModel, NavigationItemSource, Navi
                             )
                         )
                     """),
-                    footerTitle: "GROUP_ACTION_PROMOTE".localized(),
+                    footerTitle: "promote".localized(),
                     onTap: .conditionalAction(
                         action: { memberInfo in
                             switch memberInfo.value.roleStatus {
                                 case .accepted: return .radio
                                 default:
                                     return .custom(
-                                        rightAccessory: { _ in
+                                        trailingAccessory: { _ in
                                             .highlightingBackgroundLabel(
-                                                title: "context_menu_resend".localized()
+                                                title: "resend".localized()
                                             )
                                         },
                                         onTap: { viewModel, info in
@@ -981,52 +978,19 @@ class ThreadSettingsViewModel: SessionTableViewModel, NavigationItemSource, Navi
         from oldBlockedState: Bool,
         isBlocked: Bool,
         threadId: String,
-        displayName: String,
-        using dependencies: Dependencies
+        displayName: String
     ) {
         guard oldBlockedState != isBlocked else { return }
         
-        dependencies[singleton: .storage].writeAsync(
-            updates: { db in
-                try Contact
-                    .filter(id: threadId)
-                    .updateAllAndConfig(
-                        db,
-                        Contact.Columns.isBlocked.set(to: isBlocked),
-                        calledFromConfig: nil,
-                        using: dependencies
-                    )
-            },
-            completion: { [weak self] db, _ in
-                DispatchQueue.main.async {
-                    let modal: ConfirmationModal = ConfirmationModal(
-                        info: ConfirmationModal.Info(
-                            title: (oldBlockedState == false ?
-                                "BLOCK_LIST_VIEW_BLOCKED_ALERT_TITLE".localized() :
-                                String(
-                                    format: "BLOCK_LIST_VIEW_UNBLOCKED_ALERT_TITLE_FORMAT".localized(),
-                                    displayName
-                                )
-                            ),
-                            body: (oldBlockedState == true ? .none : .text(
-                                String(
-                                    format: "BLOCK_LIST_VIEW_BLOCKED_ALERT_MESSAGE_FORMAT".localized(),
-                                    displayName
-                                )
-                            )),
-                            accessibility: Accessibility(
-                                identifier: "Test_name",
-                                label: (oldBlockedState == false ? "User blocked" : "Confirm unblock")
-                            ),
-                            cancelTitle: "BUTTON_OK".localized(),
-                            cancelAccessibility: Accessibility(identifier: "OK_BUTTON"),
-                            cancelStyle: .alert_text
-                        )
-                    )
-                    
-                    self?.transitionToScreen(modal, transitionType: .present)
-                }
-            }
-        )
+        dependencies[singleton: .storage].writeAsync { [dependencies] db in
+            try Contact
+                .filter(id: threadId)
+                .updateAllAndConfig(
+                    db,
+                    Contact.Columns.isBlocked.set(to: isBlocked),
+                    calledFromConfig: nil,
+                    using: dependencies
+                )
+        }
     }
 }

@@ -6,7 +6,7 @@ public extension JSONEncoder {
     convenience init(using dependencies: Dependencies) {
         self.init()
         self.userInfo = [ Dependencies.userInfoKey: dependencies ]
-        self.outputFormatting = dependencies.mockableValue(self.outputFormatting)
+        self.outputFormatting = .sortedKeys  // Default to sorted for deterministic ordering
     }
     
     func with(outputFormatting: JSONEncoder.OutputFormatting) -> JSONEncoder {

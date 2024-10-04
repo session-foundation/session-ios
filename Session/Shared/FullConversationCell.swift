@@ -7,7 +7,7 @@ import SessionMessagingKit
 import SessionUtilitiesKit
 
 public final class FullConversationCell: UITableViewCell, SwipeActionOptimisticCell {
-    public static let mutePrefix: String = "\u{e067}  "
+    public static let mutePrefix: String = "\u{e067}  " // stringlint:disable
     public static let unreadCountViewSize: CGFloat = 20
     private static let statusIndicatorSize: CGFloat = 14
     
@@ -105,7 +105,7 @@ public final class FullConversationCell: UITableViewCell, SwipeActionOptimisticC
         let result: UILabel = UILabel()
         result.font = .boldSystemFont(ofSize: Values.verySmallFontSize)
         result.themeTextColor = .conversationButton_unreadBubbleText
-        result.text = "@"
+        result.text = "@" // stringlint:disable
         result.textAlignment = .center
         
         return result
@@ -267,6 +267,33 @@ public final class FullConversationCell: UITableViewCell, SwipeActionOptimisticC
     // MARK: - Content
     
     // MARK: --Search Results
+    public func updateForDefaultContacts(with cellViewModel: SessionThreadViewModel, using dependencies: Dependencies) {
+        profilePictureView.update(
+            publicKey: cellViewModel.threadId,
+            threadVariant: cellViewModel.threadVariant,
+            displayPictureFilename: cellViewModel.displayPictureFilename,
+            profile: cellViewModel.profile,
+            additionalProfile: cellViewModel.additionalProfile,
+            using: dependencies
+        )
+        
+        isPinnedIcon.isHidden = true
+        unreadCountView.isHidden = true
+        unreadImageView.isHidden = true
+        hasMentionView.isHidden = true
+        timestampLabel.isHidden = true
+        timestampLabel.text = cellViewModel.lastInteractionDate.formattedForDisplay
+        bottomLabelStackView.isHidden = true
+        
+        ThemeManager.onThemeChange(observer: displayNameLabel) { [weak displayNameLabel] theme, _ in
+            guard let textColor: UIColor = theme.color(for: .textPrimary) else { return }
+                
+            displayNameLabel?.attributedText = NSMutableAttributedString(
+                string: cellViewModel.displayName,
+                attributes: [ .foregroundColor: textColor ]
+            )
+        }
+    }
     
     public func updateForMessageSearchResult(
         with cellViewModel: SessionThreadViewModel,
@@ -415,7 +442,7 @@ public final class FullConversationCell: UITableViewCell, SwipeActionOptimisticC
         unreadImageView.isHidden = (!unreadCountView.isHidden || !threadIsUnread)
         unreadCountLabel.text = (unreadCount <= 0 ?
             "" :
-            (unreadCount < 10000 ? "\(unreadCount)" : "9999+")
+            (unreadCount < 10000 ? "\(unreadCount)" : "9999+") // stringlint:disable
         )
         unreadCountLabel.font = .boldSystemFont(
             ofSize: (unreadCount < 10000 ? Values.verySmallFontSize : 8)
@@ -485,7 +512,8 @@ public final class FullConversationCell: UITableViewCell, SwipeActionOptimisticC
         
         let stateInfo = cellViewModel.interactionState?.statusIconInfo(
             variant: (cellViewModel.interactionVariant ?? .standardOutgoing),
-            hasAtLeastOneReadReceipt: (cellViewModel.interactionHasAtLeastOneReadReceipt ?? false)
+            hasAtLeastOneReadReceipt: (cellViewModel.interactionHasAtLeastOneReadReceipt ?? false),
+            hasAttachments: ((cellViewModel.interactionAttachmentCount ?? 0) > 0)
         )
         statusIndicatorView.image = stateInfo?.image
         statusIndicatorView.themeTintColor = stateInfo?.themeTintColor
@@ -544,7 +572,7 @@ public final class FullConversationCell: UITableViewCell, SwipeActionOptimisticC
         if let hasUnread: Bool = hasUnread {
             if hasUnread {
                 unreadCountView.isHidden = false
-                unreadCountLabel.text = "1"
+                unreadCountLabel.text = "1" // stringlint:disable
                 unreadCountLabel.font = .boldSystemFont(ofSize: Values.verySmallFontSize)
                 accentLineView.alpha = 1
             } else {
@@ -593,18 +621,25 @@ public final class FullConversationCell: UITableViewCell, SwipeActionOptimisticC
         
         if
             (cellViewModel.threadVariant == .legacyGroup || cellViewModel.threadVariant == .group || cellViewModel.threadVariant == .community) &&
-            (cellViewModel.interactionVariant?.isGroupControlMessage == false)
+            (cellViewModel.interactionVariant?.isInfoMessage == false)
         {
             let authorName: String = cellViewModel.authorName(for: cellViewModel.threadVariant)
             
             result.append(NSAttributedString(
-                string: "\(authorName): ",
+                string: "messageSnippetGroup"
+                    .put(key: "author", value: authorName)
+                    .put(key: "message_snippet", value: "")
+                    .localized(),
                 attributes: [ .foregroundColor: textColor ]
             ))
         }
         
         let previewText: String = {
-            if cellViewModel.interactionVariant == .infoGroupCurrentUserErrorLeaving { return "group_leave_error".localized() }
+            if cellViewModel.interactionVariant == .infoGroupCurrentUserErrorLeaving {
+                return "groupLeaveErrorFailed"
+                    .put(key: "group_name", value: cellViewModel.displayName)
+                    .localized()
+            }
             return Interaction.previewText(
                 variant: (cellViewModel.interactionVariant ?? .standardIncoming),
                 body: cellViewModel.interactionBody,
@@ -643,12 +678,19 @@ public final class FullConversationCell: UITableViewCell, SwipeActionOptimisticC
         textColor: UIColor,
         using dependencies: Dependencies
     ) -> NSAttributedString {
-        guard !content.isEmpty, content != "NOTE_TO_SELF".localized() else {
+        guard !content.isEmpty, content != "noteToSelf".localized() else {
+            if let authorName: String = authorName, !authorName.isEmpty {
+                return NSMutableAttributedString(
+                    string: "messageSnippetGroup"
+                        .put(key: "author", value: authorName)
+                        .put(key: "message_snippet", value: content)
+                        .localized(),
+                    attributes: [ .foregroundColor: textColor ]
+                )
+            }
+            
             return NSMutableAttributedString(
-                string: (authorName != nil && authorName?.isEmpty != true ?
-                    "\(authorName ?? ""): \(content)" :
-                    content
-                ),
+                string: content,
                 attributes: [ .foregroundColor: textColor ]
             )
         }
@@ -679,9 +721,9 @@ public final class FullConversationCell: UITableViewCell, SwipeActionOptimisticC
         
         SessionThreadViewModel.searchTermParts(searchText)
             .map { part -> String in
-                guard part.hasPrefix("\"") && part.hasSuffix("\"") else { return part }
+                guard part.hasPrefix("\"") && part.hasSuffix("\"") else { return part } // stringlint:disable
                 
-                return part.trimmingCharacters(in: CharacterSet(charactersIn: "\""))
+                return part.trimmingCharacters(in: CharacterSet(charactersIn: "\""))    // stringlint:disable
             }
             .forEach { part in
                 // Highlight all ranges of the text (Note: The search logic only finds results that start
@@ -689,8 +731,8 @@ public final class FullConversationCell: UITableViewCell, SwipeActionOptimisticC
                 normalizedSnippet
                     .ranges(
                         of: (Dependencies.isRTL ?
-                             "(\(part.lowercased()))(^|[^a-zA-Z0-9])" :
-                             "(^|[^a-zA-Z0-9])(\(part.lowercased()))"
+                             "(\(part.lowercased()))(^|[^a-zA-Z0-9])" : // stringlint:disable
+                             "(^|[^a-zA-Z0-9])(\(part.lowercased()))" // stringlint:disable
                         ),
                         options: [.regularExpression]
                     )
@@ -725,7 +767,10 @@ public final class FullConversationCell: UITableViewCell, SwipeActionOptimisticC
                 guard !authorName.isEmpty else { return nil }
                 
                 let authorPrefix: NSAttributedString = NSAttributedString(
-                    string: "\(authorName): ",
+                    string: "messageSnippetGroup"
+                        .put(key: "author", value: authorName)
+                        .put(key: "message_snippet", value: "")
+                        .localized(),
                     attributes: [ .foregroundColor: textColor ]
                 )
                 

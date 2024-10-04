@@ -21,7 +21,7 @@ extension SessionCallManager {
     public func answerCallAction() -> Bool {
         guard
             let call: SessionCall = (self.currentCall as? SessionCall),
-            dependencies.hasInitialised(singleton: .appContext)
+            dependencies[singleton: .appContext].isValid
         else { return false }
         
         if dependencies[singleton: .appContext].frontMostViewController is CallVC {

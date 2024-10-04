@@ -2,6 +2,7 @@
 
 import Foundation
 import SessionUtilitiesKit
+import Combine
 
 // MARK: - MockError
 
@@ -11,9 +12,12 @@ public enum MockError: Error {
 
 // MARK: - Mock<T>
 
-public class Mock<T> {
+public class Mock<T>: DependenciesSettable {
+    private var _dependencies: Dependencies!
     private let functionHandler: MockFunctionHandler
     internal let functionConsumer: FunctionConsumer
+    
+    public var dependencies: Dependencies { _dependencies }
     
     // MARK: - Initialization
     
@@ -24,6 +28,12 @@ public class Mock<T> {
         self.functionConsumer = FunctionConsumer()
         self.functionHandler = (functionHandler ?? self.functionConsumer)
         initialSetup?(self)
+    }
+    
+    // MARK: - DependenciesSettable
+    
+    public func setDependencies(_ dependencies: Dependencies?) {
+        self._dependencies = dependencies
     }
     
     // MARK: - MockFunctionHandler
@@ -61,7 +71,7 @@ public class Mock<T> {
         )
     }
     
-    @discardableResult internal func mockThrowingNoReturn(funcName: String = #function, args: [Any?] = [], untrackedArgs: [Any?] = []) throws {
+    internal func mockThrowingNoReturn(funcName: String = #function, args: [Any?] = [], untrackedArgs: [Any?] = []) throws {
         try functionHandler.mockThrowingNoReturn(
             funcName,
             parameterCount: args.count,
@@ -101,6 +111,11 @@ public class Mock<T> {
     }
     
     private func summary(for argument: Any) -> String {
+        if
+            let customDescribable: CustomArgSummaryDescribable = argument as? CustomArgSummaryDescribable,
+            let customArgSummaryDescribable: String = customDescribable.customArgSummaryDescribable
+        { return customArgSummaryDescribable }
+        
         switch argument {
             case let string as String: return string
             case let array as [Any]: return "[\(array.map { summary(for: $0) }.joined(separator: ", "))]"
@@ -115,8 +130,98 @@ public class Mock<T> {
                 
             case let data as Data: return "Data(base64Encoded: \(data.base64EncodedString()))"
                 
-            default: return String(reflecting: argument)    // Default to the `debugDescription` if available
+            default:
+                // Default to the `debugDescription` if available but sort any dictionary content by keys
+                return sortDictionariesInReflectedString(String(reflecting: argument))
         }
+    }
+    
+    private func sortDictionariesInReflectedString(_ input: String) -> String {
+        // Regular expression to match the headers dictionary
+        let pattern = "\\[(.+?)\\]"
+        let regex = try! NSRegularExpression(pattern: pattern, options: [])
+        
+        var result = ""
+        var lastRange = input.startIndex..<input.startIndex
+        
+        regex.enumerateMatches(in: input, options: [], range: NSRange(input.startIndex..<input.endIndex, in: input)) { match, _, _ in
+            guard let match = match, let range = Range(match.range, in: input) else { return }
+            
+            // Append the text before this match
+            result += input[lastRange.upperBound..<range.lowerBound]
+            
+            // Extract the dictionary string
+            if let innerRange = Range(match.range(at: 1), in: input) {
+                let dictionaryString = String(input[innerRange])
+                let sortedDictionaryString = sortDictionaryString(dictionaryString)
+                result += (sortedDictionaryString.isEmpty ? "[:]" : "[\(sortedDictionaryString)]")
+            } else {
+                // If we can't extract the inner part, just use the original matched text
+                result += input[range]
+            }
+            
+            lastRange = range
+        }
+
+        // Append any remaining text after the last match
+        result += input[lastRange.upperBound..<input.endIndex]
+        
+        return result
+    }
+    
+    private func sortDictionaryString(_ dictionaryString: String) -> String {
+        var pairs: [(String, String)] = []
+        var currentKey = ""
+        var currentValue = ""
+        var inQuotes = false
+        var parsingKey = true
+        var nestedLevel = 0
+        
+        for char in dictionaryString {
+            switch char {
+                case "\"":
+                    inQuotes.toggle()
+                    if nestedLevel > 0 {
+                        currentKey.append(char)
+                        continue
+                    }
+                
+                case ":":
+                    if !inQuotes && nestedLevel == 0 {
+                        parsingKey = false
+                        continue
+                    }
+                
+                case ",":
+                    if !inQuotes && nestedLevel == 0 {
+                        pairs.append((currentKey.trimmingCharacters(in: .whitespaces), currentValue.trimmingCharacters(in: .whitespaces)))
+                        currentKey = ""
+                        currentValue = ""
+                        parsingKey = true
+                        continue
+                    }
+                
+                case "[", "{": nestedLevel += (parsingKey ? 0 : 1)
+                case "]", "}": nestedLevel -= (parsingKey ? 0 : 1)
+                default: break
+            }
+            
+            switch parsingKey {
+                case true: currentKey.append(char)
+                case false: currentValue.append(char)
+            }
+        }
+        
+        // Add the last pair if exists
+        if !currentKey.isEmpty || !currentValue.isEmpty {
+            pairs.append((currentKey.trimmingCharacters(in: .whitespaces), currentValue.trimmingCharacters(in: .whitespaces)))
+        }
+        
+        // Sort pairs by key
+        let sortedPairs = pairs.sorted { $0.0 < $1.0 }
+        
+        // Join sorted pairs back into a string
+        return sortedPairs.map { "\($0): \($1)" }.joined(separator: ", ")
     }
 }
 
@@ -351,6 +456,42 @@ internal class MockFunctionBuilder<T, R>: MockFunctionHandler {
     }
 }
 
+// MARK: - Combine Convenience
+
+extension MockFunctionBuilder {
+    func thenReturn<Element>(_ value: [Element]) where R == AnyPublisher<[Element], Never> {
+        returnValue = Just(value)
+            .setFailureType(to: Never.self)
+            .eraseToAnyPublisher()
+    }
+    
+    func thenReturn<Element>(_ value: [Element]) where R == AnyPublisher<[Element], Error> {
+        returnValue = Just(value)
+            .setFailureType(to: Error.self)
+            .eraseToAnyPublisher()
+    }
+    
+    func thenReturn<Element>(_ value: Set<Element>) where R == AnyPublisher<Set<Element>, Never> {
+        returnValue = Just(value)
+            .setFailureType(to: Never.self)
+            .eraseToAnyPublisher()
+    }
+    
+    func thenReturn<Element>(_ value: Set<Element>) where R == AnyPublisher<Set<Element>, Error> {
+        returnValue = Just(value)
+            .setFailureType(to: Error.self)
+            .eraseToAnyPublisher()
+    }
+}
+
+// MARK: - DependenciesSettable
+
+protocol DependenciesSettable {
+    var dependencies: Dependencies { get }
+    
+    func setDependencies(_ dependencies: Dependencies?)
+}
+
 // MARK: - FunctionConsumer
 
 internal class FunctionConsumer: MockFunctionHandler {
@@ -437,7 +578,18 @@ internal class FunctionConsumer: MockFunctionHandler {
             untrackedArgs: untrackedArgs
         )
         
-        return (expectation.returnValue as! Output)
+        switch expectation.returnValue {
+            case .some(let value as Output): return value
+            case .some(let value as (any Numeric)):
+                guard
+                    let numericType: (any Numeric.Type) = Output.self as? any Numeric.Type,
+                    let convertedValue: Output = convertNumeric(value, to: numericType) as? Output
+                else { return (expectation.returnValue as! Output) }
+                
+                return convertedValue
+            
+            default: return (expectation.returnValue as! Output)
+        }
     }
     
     func mockNoReturn(
@@ -478,7 +630,15 @@ internal class FunctionConsumer: MockFunctionHandler {
         switch (expectation.returnError, expectation.returnValue) {
             case (.some(let error), _): throw error
             case (_, .some(let value as Output)): return value
-            default: throw MockError.mockedData
+            case (_, .some(let value as (any Numeric))):
+                guard
+                    let numericType: (any Numeric.Type) = Output.self as? any Numeric.Type,
+                    let convertedValue: Output = convertNumeric(value, to: numericType) as? Output
+                else { throw MockError.mockedData }
+                
+                return convertedValue
+            
+            default: return try Optional<Any>.none as? Output ?? { throw MockError.mockedData }()
         }
     }
     
@@ -534,4 +694,48 @@ internal class FunctionConsumer: MockFunctionHandler {
         
         return expectation
     }
+}
+
+// MARK: - Conversion Convenience
+
+private extension MockFunctionHandler {
+    func convertNumeric(_ value: Any, to type: any Numeric.Type) -> (any Numeric)? {
+        switch (value, type) {
+            case (let x as any BinaryInteger, is Int64.Type): return Int64(x)
+            case (let x as any BinaryInteger, is Int32.Type): return Int32(x)
+            case (let x as any BinaryInteger, is Int16.Type): return Int16(x)
+            case (let x as any BinaryInteger, is Int8.Type): return Int8(x)
+            case (let x as any BinaryInteger, is Int.Type): return Int(x)
+            case (let x as any BinaryInteger, is UInt64.Type): return UInt64(x)
+            case (let x as any BinaryInteger, is UInt32.Type): return UInt32(x)
+            case (let x as any BinaryInteger, is UInt16.Type): return UInt16(x)
+            case (let x as any BinaryInteger, is UInt8.Type): return UInt8(x)
+            case (let x as any BinaryInteger, is UInt.Type): return UInt(x)
+            case (let x as any BinaryInteger, is Float.Type): return Float(x)
+            case (let x as any BinaryInteger, is Double.Type): return Double(x)
+            case (let x as any BinaryInteger, is TimeInterval.Type): return TimeInterval(x)
+                
+            case (let x as any BinaryFloatingPoint, is Int64.Type): return Int64(x)
+            case (let x as any BinaryFloatingPoint, is Int32.Type): return Int32(x)
+            case (let x as any BinaryFloatingPoint, is Int16.Type): return Int16(x)
+            case (let x as any BinaryFloatingPoint, is Int8.Type): return Int8(x)
+            case (let x as any BinaryFloatingPoint, is Int.Type): return Int(x)
+            case (let x as any BinaryFloatingPoint, is UInt64.Type): return UInt64(x)
+            case (let x as any BinaryFloatingPoint, is UInt32.Type): return UInt32(x)
+            case (let x as any BinaryFloatingPoint, is UInt16.Type): return UInt16(x)
+            case (let x as any BinaryFloatingPoint, is UInt8.Type): return UInt8(x)
+            case (let x as any BinaryFloatingPoint, is UInt.Type): return UInt(x)
+            case (let x as any BinaryFloatingPoint, is Float.Type): return Float(x)
+            case (let x as any BinaryFloatingPoint, is Double.Type): return Double(x)
+            case (let x as any BinaryFloatingPoint, is TimeInterval.Type): return TimeInterval(x)
+            
+            default: return nil
+        }
+    }
+}
+
+// MARK: - CustomArgSummaryDescribable
+
+protocol CustomArgSummaryDescribable {
+    var customArgSummaryDescribable: String? { get }
 }

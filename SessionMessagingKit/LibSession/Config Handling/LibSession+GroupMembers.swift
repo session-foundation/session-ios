@@ -19,22 +19,23 @@ internal extension LibSession {
         GroupMember.Columns.role,
         GroupMember.Columns.roleStatus
     ]
-    
-    // MARK: - Incoming Changes
-    
-    static func handleGroupMembersUpdate(
+}
+
+// MARK: - Incoming Changes
+
+internal extension LibSessionCacheType {
+    func handleGroupMembersUpdate(
         _ db: Database,
-        in config: Config?,
+        in config: LibSession.Config?,
         groupSessionId: SessionId,
-        serverTimestampMs: Int64,
-        using dependencies: Dependencies
+        serverTimestampMs: Int64
     ) throws {
-        guard config.needsDump(using: dependencies) else { return }
+        guard configNeedsDump(config) else { return }
         guard case .object(let conf) = config else { throw LibSessionError.invalidConfigObject }
         
         // Get the two member sets
         let userSessionId: SessionId = dependencies[cache: .general].sessionId
-        let updatedMembers: Set<GroupMember> = try extractMembers(from: conf, groupSessionId: groupSessionId)
+        let updatedMembers: Set<GroupMember> = try LibSession.extractMembers(from: conf, groupSessionId: groupSessionId)
         let existingMembers: Set<GroupMember> = (try? GroupMember
             .filter(GroupMember.Columns.groupId == groupSessionId.hexString)
             .fetchSet(db))
@@ -67,7 +68,7 @@ internal extension LibSession {
             .deleteAll(db)
         
         // Schedule a job to process the removals
-        if (try? extractPendingRemovals(from: conf, groupSessionId: groupSessionId))?.isEmpty == false {
+        if (try? LibSession.extractPendingRemovals(from: conf, groupSessionId: groupSessionId))?.isEmpty == false {
             dependencies[singleton: .jobRunner].add(
                 db,
                 job: Job(
@@ -97,7 +98,7 @@ internal extension LibSession {
                     calledFromConfig: .groupMembers,
                     using: dependencies
                 )
-            try updateMemberStatus(
+            try LibSession.updateMemberStatus(
                 memberId: userSessionId.hexString,
                 role: .admin,
                 status: .accepted,
@@ -109,7 +110,7 @@ internal extension LibSession {
         // if we don't have newer data locally
         guard !updatedMembers.isEmpty else { return }
         
-        let groupProfiles: Set<Profile>? = try? extractProfiles(
+        let groupProfiles: Set<Profile>? = try? LibSession.extractProfiles(
             from: conf,
             groupSessionId: groupSessionId,
             serverTimestampMs: serverTimestampMs
@@ -119,14 +120,14 @@ internal extension LibSession {
             try? Profile.updateIfNeeded(
                 db,
                 publicKey: profile.id,
-                name: profile.name,
+                displayNameUpdate: .contactUpdate(profile.name),
                 displayPictureUpdate: {
                     guard
                         let profilePictureUrl: String = profile.profilePictureUrl,
                         let profileKey: Data = profile.profileEncryptionKey
                     else { return .none }
                     
-                    return .updateTo(
+                    return .contactUpdateTo(
                         url: profilePictureUrl,
                         key: profileKey,
                         fileName: nil
@@ -193,18 +194,6 @@ internal extension LibSession {
             guard case .object(let conf) = config else { throw LibSessionError.invalidConfigObject }
             
             try members.forEach { memberId, profile in
-                var profilePic: user_profile_pic = user_profile_pic()
-                
-                if
-                    let picUrl: String = profile?.profilePictureUrl,
-                    let picKey: Data = profile?.profileEncryptionKey,
-                    !picUrl.isEmpty,
-                    picKey.count == DisplayPictureManager.aes256KeyByteLength
-                {
-                    profilePic.url = picUrl.toLibSession()
-                    profilePic.key = picKey.toLibSession()
-                }
-                
                 var cMemberId: [CChar] = try memberId.cString(using: .utf8) ?? { throw LibSessionError.invalidCConversion }()
                 var member: config_group_member = config_group_member()
                 
@@ -212,16 +201,27 @@ internal extension LibSession {
                     throw LibSessionError(
                         conf,
                         fallbackError: .getOrConstructFailedUnexpectedly,
-                        logMessage: "[LibSession] Failed to add member to group: \(groupSessionId), error"
+                        logMessage: "Failed to add member to group: \(groupSessionId), error"
                     )
                 }
                 
                 // Don't override the existing name with an empty one
                 if let memberName: String = profile?.name, !memberName.isEmpty {
-                    member.name = memberName.toLibSession()
+                    member.set(\.name, to: memberName)
                 }
-                member.profile_pic = profilePic
-                member.supplement = allowAccessToHistoricMessages
+                
+                if
+                    let picUrl: String = profile?.profilePictureUrl,
+                    let picKey: Data = profile?.profileEncryptionKey,
+                    !picUrl.isEmpty,
+                    picKey.count == DisplayPictureManager.aes256KeyByteLength
+                {
+                    member.set(\.profile_pic.url, to: picUrl)
+                    member.set(\.profile_pic.key, to: picKey)
+                }
+                
+                member.set(\.invited, to: GroupMember.RoleStatus.notSentYet.libSessionValue)
+                member.set(\.supplement, to: allowAccessToHistoricMessages)
                 groups_members_set(conf, &member)
                 try LibSessionError.throwIfNeeded(conf)
             }
@@ -413,20 +413,16 @@ internal extension LibSession {
             // Ignore members pending removal
             guard member.removed == 0 else { continue }
             
-            let memberId: String = String(cString: withUnsafeBytes(of: member.session_id) { [UInt8]($0) }
-                .map { CChar($0) }
-                .nullTerminated()
-            )
-            
             result.append(
                 GroupMember(
                     groupId: groupSessionId.hexString,
-                    profileId: memberId,
+                    profileId: member.get(\.session_id),
                     role: (member.admin || (member.promoted > 0) ? .admin : .standard),
                     roleStatus: {
                         switch (member.invited, member.promoted, member.admin) {
                             case (2, _, _), (_, 2, _): return .failed               // Explicitly failed
-                            case (1..., _, _), (_, 1..., _): return .pending        // Pending if not accepted
+                            case (3, _, _), (_, 3, _): return .notSentYet           // Explicitly notSentYet
+                            case (1..., _, _), (_, 1..., _): return .pending        // Pending if not one of the above
                             default: return .accepted                               // Otherwise it's accepted
                         }
                     }(),
@@ -458,12 +454,7 @@ internal extension LibSession {
                 continue
             }
             
-            let memberId: String = String(cString: withUnsafeBytes(of: member.session_id) { [UInt8]($0) }
-                .map { CChar($0) }
-                .nullTerminated()
-            )
-            
-            result[memberId] = (member.removed == 2)
+            result[member.get(\.session_id)] = (member.removed == 2)
             groups_members_iterator_advance(membersIterator)
         }
         groups_members_iterator_free(membersIterator) // Need to free the iterator
@@ -487,24 +478,15 @@ internal extension LibSession {
             // Ignore members pending removal
             guard member.removed == 0 else { continue }
             
-            let memberId: String = String(cString: withUnsafeBytes(of: member.session_id) { [UInt8]($0) }
-                .map { CChar($0) }
-                .nullTerminated()
-            )
-            let profilePictureUrl: String? = String(libSessionVal: member.profile_pic.url, nullIfEmpty: true)
-            
             result.append(
                 Profile(
-                    id: memberId,
-                    name: String(libSessionVal: member.name),
+                    id: member.get(\.session_id),
+                    name: member.get(\.name),
                     lastNameUpdate: TimeInterval(Double(serverTimestampMs) / 1000),
                     nickname: nil,
-                    profilePictureUrl: profilePictureUrl,
-                    profileEncryptionKey: (profilePictureUrl == nil ? nil :
-                        Data(
-                            libSessionVal: member.profile_pic.key,
-                            count: DisplayPictureManager.aes256KeyByteLength
-                        )
+                    profilePictureUrl: member.get(\.profile_pic.url, nullIfEmpty: true),
+                    profileEncryptionKey: (member.get(\.profile_pic.url, nullIfEmpty: true) == nil ? nil :
+                        member.get(\.profile_pic.key)
                     ),
                     lastProfilePictureUpdate: TimeInterval(Double(serverTimestampMs) / 1000),
                     lastBlocksCommunityMessageRequests: nil

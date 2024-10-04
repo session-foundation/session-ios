@@ -111,16 +111,41 @@ public extension Identity {
             secretKey: secretKey.bytes
         )
     }
-}
+    
+    static func mnemonic(using dependencies: Dependencies) throws -> String {
+        guard
+            let ed25519KeyPair: KeyPair = dependencies[singleton: .storage]
+                .read({ db in Identity.fetchUserEd25519KeyPair(db) }),
+            let seedData: Data = dependencies[singleton: .crypto].generate(
+                .ed25519Seed(ed25519SecretKey: ed25519KeyPair.secretKey)
+            ),
+            seedData.count >= 16    // Just to be safe
+        else {
+            let dbIsValid: Bool = dependencies[singleton: .storage].isValid
+            let dbHasRead: Bool = dependencies[singleton: .storage].hasSuccessfullyRead
+            let dbHasWritten: Bool = dependencies[singleton: .storage].hasSuccessfullyWritten
+            let dbIsSuspended: Bool = dependencies[singleton: .storage].isSuspended
+            let (hasStoredXKeyPair, hasStoredEdKeyPair) = dependencies[singleton: .storage].read { db -> (Bool, Bool) in
+                (
+                    (Identity.fetchUserKeyPair(db) != nil),
+                    (Identity.fetchUserEd25519KeyPair(db) != nil)
+                )
+            }.defaulting(to: (false, false))
+            let dbStates: [String] = [
+                "dbIsValid: \(dbIsValid)",                      // stringlint:disable
+                "dbHasRead: \(dbHasRead)",                      // stringlint:disable
+                "dbHasWritten: \(dbHasWritten)",                // stringlint:disable
+                "dbIsSuspended: \(dbIsSuspended)",              // stringlint:disable
+                "userXKeyPair: \(hasStoredXKeyPair)",           // stringlint:disable
+                "userEdKeyPair: \(hasStoredEdKeyPair)"          // stringlint:disable
+            ]
 
-// MARK: - Convenience
+            SNLog("Failed to retrieve keys for mnemonic generation (\(dbStates.joined(separator: ", ")))")
+            throw StorageError.objectNotFound
+        }
 
-public extension Notification.Name {
-    static let registrationStateDidChange = Notification.Name("registrationStateDidChange")
-}
-
-public extension Identity {
-    static func didRegister() {
-        NotificationCenter.default.post(name: .registrationStateDidChange, object: nil, userInfo: nil)
+        // Our account is generated with a 16-byte seed where the second 16-bytes are just padding so
+        // only use the first 16 bytes to generate the mnemonic
+        return Mnemonic.encode(hexEncodedString: Data(seedData[0..<16]).toHexString())
     }
 }

@@ -11,11 +11,17 @@ public enum LibSession {
     public static var version: String { String(cString: LIBSESSION_UTIL_VERSION_STR) }
 }
 
+// MARK: - Log.Category
+
+public extension Log.Category {
+    static let libSession: Log.Category = .create("LibSession", defaultLevel: .info)
+}
+
 // MARK: - Logging
 
 extension LibSession {
     public static func setupLogger(using dependencies: Dependencies) {
-        /// Setup any custom category defaul log levels for libSession
+        /// Setup any custom category default log levels for libSession
         Log.Category.create("config", defaultLevel: .info)
         Log.Category.create("network", defaultLevel: .info)
         
@@ -52,28 +58,32 @@ extension LibSession {
                 let cat: String = String(pointer: catPtr, length: catLen, encoding: .utf8)
             else { return }
             
-            /// Logs from libSession come through in the format:
-            /// `[yyyy-MM-dd hh:mm:ss] [+{lifetime}s] [{cat}:{lvl}|log.hpp:{line}] {message}`
-            /// We want to remove the extra data because it doesn't help the logs
-            let processedMessage: String = {
-                let logParts: [String] = msg.components(separatedBy: "] ")
+            /// Dispatch to another thread so we don't block thread triggering the log
+            DispatchQueue.global(qos: .background).async {
+                /// Logs from libSession come through in the format:
+                /// `[yyyy-MM-dd hh:mm:ss] [+{lifetime}s] [{cat}:{lvl}|log.hpp:{line}] {message}`
+                /// We want to remove the extra data because it doesn't help the logs
+                let processedMessage: String = {
+                    let logParts: [String] = msg.components(separatedBy: "] ")
+                    
+                    guard logParts.count == 4 else { return msg.trimmingCharacters(in: .whitespacesAndNewlines) }
+                    
+                    let message: String = String(logParts[3]).trimmingCharacters(in: .whitespacesAndNewlines)
+                    
+                    return "\(logParts[1])] \(message)"
+                }()
                 
-                guard logParts.count == 4 else { return msg.trimmingCharacters(in: .whitespacesAndNewlines) }
-                
-                let message: String = String(logParts[3]).trimmingCharacters(in: .whitespacesAndNewlines)
-                
-                /// Omit the leading square bracket as it'll be removed by the code above
-                return "\(logParts[1])] \(message)"
-            }()
-            
-            Log.custom(
-                Log.Level(lvl),
-                [Log.Category(rawValue: cat, customPrefix: "libSession-")],
-                processedMessage,
-                withPrefixes: true,
-                silenceForTests: false
-            )
+                Log.custom(
+                    Log.Level(lvl),
+                    [Log.Category(rawValue: cat, customPrefix: "libSession:")],
+                    processedMessage
+                )
+            }
         })
+    }
+    
+    public static func clearLoggers() {
+        session_clear_loggers()
     }
 }
 

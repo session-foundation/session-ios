@@ -56,12 +56,11 @@ final class ReactionContainerView: UIView {
     
     lazy var collapseButton: UIView = {
         let arrow: UIImageView = UIImageView(
-            image: UIImage(named: "ic_chevron_up")?
-                .resized(to: ReactionContainerView.arrowSize)?
-                .withRenderingMode(.alwaysTemplate)
+            image: UIImage(named: "ic_chevron_up")?.withRenderingMode(.alwaysTemplate)
         )
         arrow.themeTintColor = .textPrimary
-        arrow.setContentHuggingPriority(.required, for: .horizontal)
+        arrow.set(.width, to: ReactionContainerView.arrowSize.width)
+        arrow.set(.height, to: ReactionContainerView.arrowSize.height)
         
         let textLabel: UILabel = UILabel()
         textLabel.setContentHuggingPriority(.required, for: .vertical)
@@ -69,7 +68,7 @@ final class ReactionContainerView: UIView {
         textLabel.setContentCompressionResistancePriority(.required, for: .vertical)
         textLabel.setContentCompressionResistancePriority(.required, for: .horizontal)
         textLabel.font = .systemFont(ofSize: Values.verySmallFontSize)
-        textLabel.text = "EMOJI_REACTS_SHOW_LESS".localized()
+        textLabel.text = "showLess".localized()
         textLabel.themeTextColor = .textPrimary
         
         let result: UIView = UIView()

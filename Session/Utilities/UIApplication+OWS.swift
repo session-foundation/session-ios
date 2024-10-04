@@ -9,10 +9,7 @@ public extension UIApplication {
         ignoringAlerts: Bool = false,
         using dependencies: Dependencies
     ) -> UIViewController? {
-        guard
-            dependencies.hasInitialised(singleton: .appContext),
-            let window: UIWindow = dependencies[singleton: .appContext].mainWindow
-        else { return nil }
+        guard let window: UIWindow = dependencies[singleton: .appContext].mainWindow else { return nil }
         
         guard let viewController: UIViewController = window.rootViewController else {
             Log.error("[UIApplication] Missing root view controller.")

@@ -85,7 +85,7 @@ public enum LibSessionError: Error, CustomStringConvertible {
         self = (LibSessionError(conf) ?? fallbackError)
 
         if let logMessage: String = logMessage {
-            Log.error("\(logMessage): \(self)")
+            Log.error(.libSession, "\(logMessage): \(self)")
         }
     }
     
@@ -104,7 +104,7 @@ public enum LibSessionError: Error, CustomStringConvertible {
     }
     
     public func logging(_ logMessage: String) -> LibSessionError {
-        Log.error("\(logMessage): \(self)")
+        Log.error(.libSession, "\(logMessage): \(self)")
         return self
     }
     

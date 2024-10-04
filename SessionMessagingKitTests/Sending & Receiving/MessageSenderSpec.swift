@@ -2,6 +2,7 @@
 
 import Foundation
 import GRDB
+import SessionSnodeKit
 import SessionUtilitiesKit
 
 import Quick
@@ -54,7 +55,7 @@ class MessageSenderSpec: QuickSpec {
                 
                 // MARK: ---- can encrypt correctly
                 it("can encrypt correctly") {
-                    let result: HTTP.PreparedRequest<Void>? = mockStorage.read { db in
+                    let result: Network.PreparedRequest<Void>? = mockStorage.read { db in
                         try? MessageSender.preparedSend(
                             db,
                             message: VisibleMessage(

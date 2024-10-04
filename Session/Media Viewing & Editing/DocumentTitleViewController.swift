@@ -2,6 +2,7 @@
 
 import UIKit
 import QuartzCore
+import UniformTypeIdentifiers
 import GRDB
 import DifferenceKit
 import SessionUIKit
@@ -66,11 +67,8 @@ public class DocumentTileViewController: UIViewController, UITableViewDelegate, 
         result.dataSource = self
         // Feels a bit weird to have content smashed all the way to the bottom edge.
         result.contentInset = UIEdgeInsets(top: 0, left: 0, bottom: 20, right: 0)
-        
-        if #available(iOS 15.0, *) {
-            result.sectionHeaderTopPadding = 0
-        }
-        
+        result.sectionHeaderTopPadding = 0
+
         return result
     }()
     
@@ -87,7 +85,7 @@ public class DocumentTileViewController: UIViewController, UITableViewDelegate, 
         
         ViewControllerUtilities.setUpDefaultSessionStyle(
             for: self,
-            title: MediaStrings.document,
+            title:"files".localized(),
             hasCustomBackButton: false
         )
 
@@ -305,9 +303,9 @@ public class DocumentTileViewController: UIViewController, UITableViewDelegate, 
                 headerView.configure(
                     title: {
                         switch section.model {
-                            case .emptyGallery: return "DOCUMENT_TILES_EMPTY_DOCUMENT".localized()
-                            case .loadOlder: return "DOCUMENT_TILES_LOADING_OLDER_LABEL".localized()
-                            case .loadNewer: return "DOCUMENT_TILES_LOADING_MORE_RECENT_LABEL".localized()
+                            case .emptyGallery: return "attachmentsFilesEmpty".localized()
+                            case .loadOlder: return "attachmentsLoadingOlderFiles".localized()
+                            case .loadNewer: return "attachmentsLoadingNewerFiles".localized()
                             case .galleryMonth: return ""   // Impossible case
                         }
                     }()
@@ -344,7 +342,7 @@ public class DocumentTileViewController: UIViewController, UITableViewDelegate, 
         if
             attachment.isText ||
             attachment.isMicrosoftDoc ||
-            attachment.contentType == MimeTypeUtil.MimeType.applicationPdf
+            attachment.contentType == UTType.mimeTypePdf
         {
             
             delegate?.preview(fileUrl: fileUrl)

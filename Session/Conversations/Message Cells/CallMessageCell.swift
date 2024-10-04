@@ -1,6 +1,7 @@
 // Copyright © 2022 Rangeproof Pty Ltd. All rights reserved.
 
 import UIKit
+import AVFAudio
 import SessionUIKit
 import SessionMessagingKit
 import SessionUtilitiesKit
@@ -149,14 +150,15 @@ final class CallMessageCell: MessageCell {
             switch messageInfo.state {
                 case .outgoing: return UIImage(named: "CallOutgoing")?.withRenderingMode(.alwaysTemplate)
                 case .incoming: return UIImage(named: "CallIncoming")?.withRenderingMode(.alwaysTemplate)
-                case .missed, .permissionDenied: return UIImage(named: "CallMissed")?.withRenderingMode(.alwaysTemplate)
+                case .missed, .permissionDenied, .permissionDeniedMicrophone:
+                    return UIImage(named: "CallMissed")?.withRenderingMode(.alwaysTemplate)
                 default: return nil
             }
         }()
         iconImageView.themeTintColor = {
             switch messageInfo.state {
                 case .outgoing, .incoming: return .textPrimary
-                case .missed, .permissionDenied: return .danger
+                case .missed, .permissionDenied, .permissionDeniedMicrophone: return .danger
                 default: return nil
             }
         }()
@@ -164,8 +166,13 @@ final class CallMessageCell: MessageCell {
         iconImageViewHeightConstraint.constant = (iconImageView.image != nil ? CallMessageCell.iconSize : 0)
         
         let shouldShowInfoIcon: Bool = (
-            messageInfo.state == .permissionDenied &&
-            !dependencies[singleton: .storage, key: .areCallsEnabled]
+            (
+                messageInfo.state == .permissionDenied &&
+                !dependencies[singleton: .storage, key: .areCallsEnabled]
+            ) || (
+                messageInfo.state == .permissionDeniedMicrophone &&
+                AVAudioSession.sharedInstance().recordPermission != .granted
+            )
         )
         infoImageViewWidthConstraint.constant = (shouldShowInfoIcon ? CallMessageCell.iconSize : 0)
         infoImageViewHeightConstraint.constant = (shouldShowInfoIcon ? CallMessageCell.iconSize : 0)
@@ -221,7 +228,15 @@ final class CallMessageCell: MessageCell {
         else { return }
         
         // Should only be tappable if the info icon is visible
-        guard messageInfo.state == .permissionDenied && !dependencies[singleton: .storage, key: .areCallsEnabled] else { return }
+        guard
+            (
+                messageInfo.state == .permissionDenied &&
+                !dependencies[singleton: .storage, key: .areCallsEnabled]
+            ) || (
+                messageInfo.state == .permissionDeniedMicrophone &&
+                AVAudioSession.sharedInstance().recordPermission != .granted
+            )
+        else { return }
         
         self.delegate?.handleItemTapped(cellViewModel, cell: self, cellLocation: gestureRecognizer.location(in: self))
     }

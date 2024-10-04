@@ -6,12 +6,27 @@ import GRDB
 import SessionSnodeKit
 import SessionUtilitiesKit
 
+// MARK: - Log.Category
+
+public extension Log.Category {
+    static let displayPictureManager: Log.Category = .create("DisplayPictureManager", defaultLevel: .info)
+}
+
+// MARK: - DisplayPictureManager
 public struct DisplayPictureManager {
     public enum Update {
         case none
-        case remove
-        case uploadImageData(Data)
-        case updateTo(url: String, key: Data, fileName: String?)
+        
+        case contactRemove
+        case contactUpdateTo(url: String, key: Data, fileName: String?)
+        
+        case currentUserRemove
+        case currentUserUploadImageData(Data)
+        case currentUserUpdateTo(url: String, key: Data, fileName: String?)
+        
+        case groupRemove
+        case groupUploadImageData(Data)
+        case groupUpdateTo(url: String, key: Data, fileName: String?)
     }
     
     public static let maxBytes: UInt = (5 * 1000 * 1000)
@@ -24,6 +39,10 @@ public struct DisplayPictureManager {
     private static let scheduleDownloadsTrigger: PassthroughSubject<(), Never> = PassthroughSubject()
     
     public static func isTooLong(profileUrl: String) -> Bool {
+        /// String.utf8CString will include the null terminator (Int8)0 as the end of string buffer.
+        /// When the string is exactly 100 bytes String.utf8CString.count will be 101.
+        /// However in LibSession, the Contact C API supports 101 characters in order to account for
+        /// the null terminator - char name[101]. So it is OK to use String.utf8.count
         return (profileUrl.utf8CString.count > LibSession.sizeMaxProfileUrlBytes)
     }
     
@@ -96,7 +115,9 @@ public struct DisplayPictureManager {
     }
     
     public static func loadDisplayPictureFromDisk(for fileName: String, using dependencies: Dependencies) -> Data? {
-        let filePath: String = DisplayPictureManager.filepath(for: fileName, using: dependencies)
+        guard let filePath: String = try? DisplayPictureManager.filepath(for: fileName, using: dependencies) else {
+            return nil
+        }
 
         return try? Data(contentsOf: URL(fileURLWithPath: filePath))
     }
@@ -118,7 +139,15 @@ public struct DisplayPictureManager {
             .asRequest(of: String.self)
             .fetchOne(db)
         
-        return maybeFileName.map { DisplayPictureManager.filepath(for: $0, using: dependencies) }
+        return maybeFileName.map { try? DisplayPictureManager.filepath(for: $0, using: dependencies) }
+    }
+    
+    public static func generateFilename(for url: String, using dependencies: Dependencies) -> String {
+        return (dependencies[singleton: .crypto]
+            .generate(.hash(message: url.bytes))?
+            .toHexString())
+            .defaulting(to: UUID().uuidString)
+            .appendingFileExtension("jpg")  // stringlint:disable
     }
     
     public static func generateFilename(using dependencies: Dependencies) -> String {
@@ -129,8 +158,8 @@ public struct DisplayPictureManager {
             .appendingFileExtension("jpg")  // stringlint:disable
     }
     
-    public static func filepath(for filename: String, using dependencies: Dependencies) -> String {
-        guard !filename.isEmpty else { return "" }
+    public static func filepath(for filename: String, using dependencies: Dependencies) throws -> String {
+        guard !filename.isEmpty else { throw DisplayPictureError.invalidCall }
         
         return URL(fileURLWithPath: sharedDataDisplayPictureDirPath(using: dependencies))
             .appendingPathComponent(filename)
@@ -222,7 +251,7 @@ public struct DisplayPictureManager {
                                 // Our avatar dimensions are so small that it's incredibly unlikely we wouldn't
                                 // be able to fit our profile photo (eg. generating pure noise at our resolution
                                 // compresses to ~200k)
-                                Log.error("[DisplayPictureManager] Updating service with profile failed: \(DisplayPictureError.uploadMaxFileSizeExceeded).")
+                                Log.error(.displayPictureManager, "Updating service with profile failed: \(DisplayPictureError.uploadMaxFileSizeExceeded).")
                                 throw DisplayPictureError.uploadMaxFileSizeExceeded
                             }
                             
@@ -240,12 +269,12 @@ public struct DisplayPictureManager {
                     if image.size.width != DisplayPictureManager.maxDiameter || image.size.height != DisplayPictureManager.maxDiameter {
                         // To help ensure the user is being shown the same cropping of their avatar as
                         // everyone else will see, we want to be sure that the image was resized before this point.
-                        Log.verbose("[DisplayPictureManager] Avatar image should have been resized before trying to upload.")
+                        Log.verbose(.displayPictureManager, "Avatar image should have been resized before trying to upload.")
                         image = image.resized(toFillPixelSize: CGSize(width: DisplayPictureManager.maxDiameter, height: DisplayPictureManager.maxDiameter))
                     }
                     
                     guard let data: Data = image.jpegData(compressionQuality: 0.95) else {
-                        Log.error("[DisplayPictureManager] Updating service with profile failed.")
+                        Log.error(.displayPictureManager, "Updating service with profile failed.")
                         throw DisplayPictureError.writeFailed
                     }
                     
@@ -253,8 +282,8 @@ public struct DisplayPictureManager {
                         // Our avatar dimensions are so small that it's incredibly unlikely we wouldn't
                         // be able to fit our profile photo (eg. generating pure noise at our resolution
                         // compresses to ~200k)
-                        Log.verbose("[DisplayPictureManager] Suprised to find profile avatar was too large. Was it scaled properly? image: \(image)")
-                        Log.error("[DisplayPictureManager] Updating service with profile failed.")
+                        Log.verbose(.displayPictureManager, "Suprised to find profile avatar was too large. Was it scaled properly? image: \(image)")
+                        Log.error(.displayPictureManager, "Updating service with profile failed.")
                         throw DisplayPictureError.uploadMaxFileSizeExceeded
                     }
                     
@@ -280,18 +309,22 @@ public struct DisplayPictureManager {
             // * Encrypt it
             // * Upload it to asset service
             // * Send asset service info to Signal Service
-            Log.verbose("[DisplayPictureManager] Updating local profile on service with new avatar.")
+            Log.verbose(.displayPictureManager, "Updating local profile on service with new avatar.")
             
             let fileName: String = dependencies[singleton: .crypto].generate(.uuid())
                 .defaulting(to: UUID())
                 .uuidString
                 .appendingFileExtension(fileExtension)
-            let filePath: String = DisplayPictureManager.filepath(for: fileName, using: dependencies)
+            
+            guard let filePath: String = try? DisplayPictureManager.filepath(for: fileName, using: dependencies) else {
+                failure?(.invalidFilename)
+                return
+            }
             
             // Write the avatar to disk
             do { try finalImageData.write(to: URL(fileURLWithPath: filePath), options: [.atomic]) }
             catch {
-                Log.error("[DisplayPictureManager] Updating service with profile failed.")
+                Log.error(.displayPictureManager, "Updating service with profile failed.")
                 failure?(.writeFailed)
                 return
             }
@@ -302,14 +335,14 @@ public struct DisplayPictureManager {
                     .encryptedDataDisplayPicture(data: finalImageData, key: newEncryptionKey, using: dependencies)
                 )
             else {
-                Log.error("[DisplayPictureManager] Updating service with profile failed.")
+                Log.error(.displayPictureManager, "Updating service with profile failed.")
                 failure?(.encryptionFailed)
                 return
             }
             
             // Upload the avatar to the FileServer
             guard let preparedUpload: Network.PreparedRequest<FileUploadResponse> = try? Network.preparedUpload(data: encryptedData, using: dependencies) else {
-                Log.error("[DisplayPictureManager] Updating service with profile failed.")
+                Log.error(.displayPictureManager, "Updating service with profile failed.")
                 failure?(.uploadFailed)
                 return
             }
@@ -323,7 +356,7 @@ public struct DisplayPictureManager {
                         switch result {
                             case .finished: break
                             case .failure(let error):
-                                Log.error("[DisplayPictureManager] Updating service with profile failed with error: \(error).")
+                                Log.error(.displayPictureManager, "Updating service with profile failed with error: \(error).")
                                 
                                 let isMaxFileSizeExceeded: Bool = ((error as? NetworkError) == .maxFileSizeExceeded)
                                 failure?(isMaxFileSizeExceeded ? .uploadMaxFileSizeExceeded : .uploadFailed)
@@ -335,7 +368,7 @@ public struct DisplayPictureManager {
                         // Update the cached avatar image value
                         dependencies.mutate(cache: .displayPicture) { $0.imageData[fileName] = finalImageData }
                         
-                        Log.verbose("[DisplayPictureManager] Successfully uploaded avatar image.")
+                        Log.verbose(.displayPictureManager, "Successfully uploaded avatar image.")
                         success((downloadUrl, fileName, newEncryptionKey))
                     }
                 )

@@ -12,7 +12,14 @@
     "testTimeoutsEnabled" : true
   },
   "testTargets" : [
-
+    {
+      "parallelizable" : true,
+      "target" : {
+        "containerPath" : "container:Session.xcodeproj",
+        "identifier" : "FDC4388D27B9FFC700C60D73",
+        "name" : "SessionMessagingKitTests"
+      }
+    }
   ],
   "version" : 1
 }

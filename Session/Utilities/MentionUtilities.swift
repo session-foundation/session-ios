@@ -7,6 +7,15 @@ import SessionMessagingKit
 import SessionUtilitiesKit
 
 public enum MentionUtilities {
+    public enum MentionLocation {
+        case incomingMessage
+        case outgoingMessage
+        case incomingQuote
+        case outgoingQuote
+        case quoteDraft
+        case styleFree
+    }
+    
     public static func highlightMentionsNoAttributes(
         in string: String,
         threadVariant: SessionThread.Variant,
@@ -22,13 +31,15 @@ public enum MentionUtilities {
             currentUserSessionId: currentUserSessionId,
             currentUserBlinded15SessionId: currentUserBlinded15SessionId,
             currentUserBlinded25SessionId: currentUserBlinded25SessionId,
-            isOutgoingMessage: false,
+            location: .styleFree,
             textColor: .black,
             theme: .classicDark,
             primaryColor: Theme.PrimaryColor.green,
             attributes: [:],
             using: dependencies
-        ).string
+        )
+        .string
+        .deformatted()
     }
 
     public static func highlightMentions(
@@ -37,7 +48,7 @@ public enum MentionUtilities {
         currentUserSessionId: String?,
         currentUserBlinded15SessionId: String?,
         currentUserBlinded25SessionId: String?,
-        isOutgoingMessage: Bool,
+        location: MentionLocation,
         textColor: UIColor,
         theme: Theme,
         primaryColor: Theme.PrimaryColor,
@@ -45,7 +56,7 @@ public enum MentionUtilities {
         using dependencies: Dependencies
     ) -> NSAttributedString {
         guard
-            let regex: NSRegularExpression = try? NSRegularExpression(pattern: "@[0-9a-fA-F]{66}", options: [])
+            let regex: NSRegularExpression = try? NSRegularExpression(pattern: "@[0-9a-fA-F]{66}", options: []) // stringlint:disable
         else {
             return NSAttributedString(string: string)
         }
@@ -72,7 +83,7 @@ public enum MentionUtilities {
             let isCurrentUser: Bool = currentUserSessionIds.contains(sessionId)
             
             guard let targetString: String = {
-                guard !isCurrentUser else { return "MEDIA_GALLERY_SENDER_NAME_YOU".localized() }
+                guard !isCurrentUser else { return "you".localized() }
                 guard let displayName: String = Profile.displayNameNoFallback(id: sessionId, threadVariant: threadVariant, using: dependencies) else {
                     lastMatchEnd = (match.range.location + match.range.length)
                     return nil
@@ -82,7 +93,7 @@ public enum MentionUtilities {
             }()
             else { continue }
             
-            string = string.replacingCharacters(in: range, with: "@\(targetString)")
+            string = string.replacingCharacters(in: range, with: "@\(targetString)") // stringlint:disable
             lastMatchEnd = (match.range.location + targetString.utf16.count)
             
             mentions.append((
@@ -97,27 +108,36 @@ public enum MentionUtilities {
         mentions.forEach { mention in
             result.addAttribute(.font, value: UIFont.boldSystemFont(ofSize: Values.smallFontSize), range: mention.range)
             
-            if mention.isCurrentUser {
+            if mention.isCurrentUser && location == .incomingMessage {
                 // Note: The designs don't match with the dynamic sizing so these values need to be calculated
                 // to maintain a "rounded rect" effect rather than a "pill" effect
                 result.addAttribute(.currentUserMentionBackgroundCornerRadius, value: (8 * sizeDiff), range: mention.range)
                 result.addAttribute(.currentUserMentionBackgroundPadding, value: (3 * sizeDiff), range: mention.range)
                 result.addAttribute(.currentUserMentionBackgroundColor, value: primaryColor.color, range: mention.range)
-                result.addAttribute(
-                    .foregroundColor,
-                    value: UIColor.black,   // Note: This text should always be black
-                    range: mention.range
-                )
             }
-            else {
-                result.addAttribute(
-                    .foregroundColor,
-                    value: (isOutgoingMessage || theme.interfaceStyle == .light ?
-                        textColor :
-                        primaryColor.color
-                    ),
-                    range: mention.range
-                )
+            
+            switch (location, mention.isCurrentUser, theme.interfaceStyle) {
+                // 1 - Incoming messages where the mention is for the current user
+                case (.incomingMessage, true, .dark): result.addAttribute(.foregroundColor, value: UIColor.black, range: mention.range)
+                case (.incomingMessage, true, _): result.addAttribute(.foregroundColor, value: textColor, range: mention.range)
+                
+                // 2 - Incoming messages where the mention is for another user
+                case (.incomingMessage, false, .dark): result.addAttribute(.foregroundColor, value: primaryColor.color, range: mention.range)
+                case (.incomingMessage, false, _): result.addAttribute(.foregroundColor, value: textColor, range: mention.range)
+                    
+                // 3 - Outgoing messages
+                case (.outgoingMessage, _, .dark): result.addAttribute(.foregroundColor, value: UIColor.black, range: mention.range)
+                case (.outgoingMessage, _, _): result.addAttribute(.foregroundColor, value: textColor, range: mention.range)
+                
+                // 4 - Mentions in quotes
+                case (.outgoingQuote, _, .dark): result.addAttribute(.foregroundColor, value: UIColor.black, range: mention.range)
+                case (.outgoingQuote, _, _): result.addAttribute(.foregroundColor, value: textColor, range: mention.range)
+                case (.incomingQuote, _, .dark): result.addAttribute(.foregroundColor, value: primaryColor.color, range: mention.range)
+                case (.incomingQuote, _, _): result.addAttribute(.foregroundColor, value: textColor, range: mention.range)
+                    
+                // 5 - Mentions in quote drafts
+                case (.quoteDraft, _, _), (.styleFree, _, _):
+                    result.addAttribute(.foregroundColor, value: textColor, range: mention.range)
             }
         }
         

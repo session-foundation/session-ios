@@ -31,14 +31,14 @@ extension MessageReceiver {
             try Profile.updateIfNeeded(
                 db,
                 publicKey: senderId,
-                name: profile.displayName,
+                displayNameUpdate: .contactUpdate(profile.displayName),
                 displayPictureUpdate: {
                     guard
                         let profilePictureUrl: String = profile.profilePictureUrl,
                         let profileKey: Data = profile.profileKey
                     else { return .none }
                     
-                    return .updateTo(
+                    return .contactUpdateTo(
                         url: profilePictureUrl,
                         key: profileKey,
                         fileName: nil
@@ -49,16 +49,6 @@ extension MessageReceiver {
                 using: dependencies
             )
         }
-        
-        // Prep the unblinded thread
-        let unblindedThread: SessionThread = try SessionThread.fetchOrCreate(
-            db,
-            id: senderId,
-            variant: .contact,
-            shouldBeVisible: nil,
-            calledFromConfig: nil,
-            using: dependencies
-        )
         
         // Need to handle a `MessageRequestResponse` sent to a blinded thread (ie. check if the sender matches
         // the blinded ids of any threads)
@@ -76,6 +66,22 @@ extension MessageReceiver {
             .filter(blindedThreadIds.contains(BlindedIdLookup.Columns.blindedId))
             .fetchAll(db))
             .defaulting(to: [])
+        let earliestCreationTimestamp: TimeInterval = (try? SessionThread
+            .filter(blindedThreadIds.contains(SessionThread.Columns.id))
+            .select(max(SessionThread.Columns.creationDateTimestamp))
+            .fetchOne(db))
+            .defaulting(to: (dependencies[cache: .snodeAPI].currentOffsetTimestampMs() / 1000))
+        
+        // Prep the unblinded thread
+        let unblindedThread: SessionThread = try SessionThread.fetchOrCreate(
+            db,
+            id: senderId,
+            variant: .contact,
+            creationDateTimestamp: earliestCreationTimestamp,
+            shouldBeVisible: nil,
+            calledFromConfig: nil,
+            using: dependencies
+        )
         
         // Loop through all blinded threads and extract any interactions relating to the user accepting
         // the message request

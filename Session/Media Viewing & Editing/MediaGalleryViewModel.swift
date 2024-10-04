@@ -45,20 +45,21 @@ public class MediaGalleryViewModel {
     public private(set) var pagedDataObserver: PagedDatabaseObserver<Attachment, Item>?
     
     /// This value is the current state of a gallery view
-    private var unobservedGalleryDataChanges: ([SectionModel], StagedChangeset<[SectionModel]>)?
+    private var unobservedGalleryDataChanges: [SectionModel]?
     public private(set) var galleryData: [SectionModel] = []
     public var onGalleryChange: (([SectionModel], StagedChangeset<[SectionModel]>) -> ())? {
         didSet {
             // When starting to observe interaction changes we want to trigger a UI update just in case the
             // data was changed while we weren't observing
-            if let changes: ([SectionModel], StagedChangeset<[SectionModel]>) = self.unobservedGalleryDataChanges {
-                let performChange: (([SectionModel], StagedChangeset<[SectionModel]>) -> ())? = onGalleryChange
-                
-                switch Thread.isMainThread {
-                    case true: performChange?(changes.0, changes.1)
-                    case false: DispatchQueue.main.async { performChange?(changes.0, changes.1) }
-                }
-                
+            if let changes: [SectionModel] = self.unobservedGalleryDataChanges {
+                PagedData.processAndTriggerUpdates(
+                    updatedData: changes,
+                    currentDataRetriever: { [weak self] in self?.galleryData },
+                    onDataChangeRetriever: { [weak self] in self?.onGalleryChange },
+                    onUnobservedDataChange: { [weak self] updatedData in
+                        self?.unobservedGalleryDataChanges = updatedData
+                    }
+                )
                 self.unobservedGalleryDataChanges = nil
             }
         }
@@ -108,11 +109,8 @@ public class MediaGalleryViewModel {
                     updatedData: self?.process(data: updatedData, for: updatedPageInfo),
                     currentDataRetriever: { self?.galleryData },
                     onDataChangeRetriever: { self?.onGalleryChange },
-                    onUnobservedDataChange: { updatedData, changeset in
-                        self?.unobservedGalleryDataChanges = (changeset.isEmpty ?
-                            nil :
-                            (updatedData, changeset)
-                        )
+                    onUnobservedDataChange: { updatedData in
+                        self?.unobservedGalleryDataChanges = updatedData
                     }
                 )
             },
@@ -137,7 +135,7 @@ public class MediaGalleryViewModel {
         // we don't want to mess with the initial view controller behaviour)
         guard !performInitialQuerySync else {
             loadInitialData()
-            updateGalleryData(self.unobservedGalleryDataChanges?.0 ?? [])
+            updateGalleryData(self.unobservedGalleryDataChanges ?? [])
             return
         }
         
@@ -181,7 +179,7 @@ public class MediaGalleryViewModel {
             let galleryDate: Date = (self.date ?? Date())
             
             switch (isSameMonth, isCurrentYear) {
-                case (true, true): return "MEDIA_GALLERY_THIS_MONTH_HEADER".localized()
+                case (true, true): return "attachmentsThisMonth".localized()
                 case (false, true): return GalleryDate.thisYearFormatter.string(from: galleryDate)
                 default: return GalleryDate.olderFormatter.string(from: galleryDate)
             }

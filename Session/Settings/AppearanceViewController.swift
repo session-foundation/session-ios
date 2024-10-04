@@ -44,7 +44,7 @@ final class AppearanceViewController: BaseVC {
         result.translatesAutoresizingMaskIntoConstraints = false
         result.font = UIFont.systemFont(ofSize: Values.mediumFontSize, weight: .regular)
         result.themeTextColor = .textSecondary
-        result.text = "APPEARANCE_THEMES_TITLE".localized()
+        result.text = "appearanceThemes".localized()
         
         return result
     }()
@@ -74,7 +74,7 @@ final class AppearanceViewController: BaseVC {
         result.translatesAutoresizingMaskIntoConstraints = false
         result.font = UIFont.systemFont(ofSize: Values.mediumFontSize, weight: .regular)
         result.themeTextColor = .textSecondary
-        result.text = "APPEARANCE_PRIMARY_COLOR_TITLE".localized()
+        result.text = "appearancePrimaryColor".localized()
         
         return result
     }()
@@ -140,7 +140,7 @@ final class AppearanceViewController: BaseVC {
         result.translatesAutoresizingMaskIntoConstraints = false
         result.font = UIFont.systemFont(ofSize: Values.mediumFontSize, weight: .regular)
         result.themeTextColor = .textSecondary
-        result.text = "APPEARANCE_NIGHT_MODE_TITLE".localized()
+        result.text = "appearanceAutoDarkMode".localized()
         
         return result
     }()
@@ -168,7 +168,7 @@ final class AppearanceViewController: BaseVC {
         result.translatesAutoresizingMaskIntoConstraints = false
         result.font = UIFont.systemFont(ofSize: Values.mediumFontSize, weight: .regular)
         result.themeTextColor = .textPrimary
-        result.text = "APPEARANCE_NIGHT_MODE_TOGGLE".localized()
+        result.text = "followSystemSettings".localized()
         
         return result
     }()
@@ -190,7 +190,7 @@ final class AppearanceViewController: BaseVC {
         
         ViewControllerUtilities.setUpDefaultSessionStyle(
             for: self,
-            title: "APPEARANCE_TITLE".localized(),
+            title: "sessionAppearance".localized(),
             hasCustomBackButton: false
         )
         

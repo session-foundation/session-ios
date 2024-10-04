@@ -6,6 +6,14 @@ import GRDB
 import SessionSnodeKit
 import SessionUtilitiesKit
 
+// MARK: - Log.Category
+
+private extension Log.Category {
+    static let cat: Log.Category = .create("ConfigurationSyncJob", defaultLevel: .info)
+}
+
+// MARK: - ConfigurationSyncJob
+
 public enum ConfigurationSyncJob: JobExecutor {
     public static let maxFailureCount: Int = -1
     public static let requiresThreadId: Bool = true
@@ -21,7 +29,7 @@ public enum ConfigurationSyncJob: JobExecutor {
         deferred: @escaping (Job) -> Void,
         using dependencies: Dependencies
     ) {
-        guard Identity.userCompletedRequiredOnboarding(using: dependencies) else {
+        guard !dependencies[cache: .libSession].isEmpty else {
             return success(job, true)
         }
         
@@ -46,7 +54,7 @@ public enum ConfigurationSyncJob: JobExecutor {
                     .upserted(db)
             }
             
-            SNLog("[ConfigurationSyncJob] For \(job.threadId ?? "UnknownId") deferred due to in progress job")
+            Log.info(.cat, "For \(job.threadId ?? "UnknownId") deferred due to in progress job")
             return deferred(updatedJob ?? job)
         }
         
@@ -56,29 +64,27 @@ public enum ConfigurationSyncJob: JobExecutor {
         guard
             let swarmPublicKey: String = job.threadId,
             let pendingChanges: LibSession.PendingChanges = dependencies[singleton: .storage].read({ db in
-                try LibSession.pendingChanges(
-                    db,
-                    swarmPubkey: swarmPublicKey,
-                    using: dependencies
-                )
+                try dependencies.mutate(cache: .libSession) {
+                    try $0.pendingChanges(db, swarmPubkey: swarmPublicKey)
+                }
             })
         else {
-            SNLog("[ConfigurationSyncJob] For \(job.threadId ?? "UnknownId") failed due to invalid data")
+            Log.info(.cat, "For \(job.threadId ?? "UnknownId") failed due to invalid data")
             return failure(job, StorageError.generic, false)
         }
         
         // If there are no pending changes then the job can just complete (next time something
         // is updated we want to try and run immediately so don't scuedule another run in this case)
         guard !pendingChanges.pushData.isEmpty || !pendingChanges.obsoleteHashes.isEmpty else {
-            SNLog("[ConfigurationSyncJob] For \(swarmPublicKey) completed with no pending changes")
+            Log.info(.cat, "For \(swarmPublicKey) completed with no pending changes")
             return success(job, true)
         }
         
         let jobStartTimestamp: TimeInterval = dependencies.dateNow.timeIntervalSince1970
         let messageSendTimestamp: Int64 = dependencies[cache: .snodeAPI].currentOffsetTimestampMs()
-        SNLog("[ConfigurationSyncJob] For \(swarmPublicKey) started with \(pendingChanges.pushData.count) change\( plural: pendingChanges.pushData.count), \(pendingChanges.obsoleteHashes.count) old hash\(pluralES: pendingChanges.obsoleteHashes.count)")
+        Log.info(.cat, "For \(swarmPublicKey) started with changes: \(pendingChanges.pushData.count), old hashes: \(pendingChanges.obsoleteHashes.count)")
         
-        // TODO: Seems like the conversation list will randomly not get the last message (Lokinet updates???)
+        // TODO: Seems like the conversation list will randomly not get the last message (Lokinet updates???).
         dependencies[singleton: .storage]
             .readPublisher { db -> Network.PreparedRequest<Network.BatchResponse> in
                 try SnodeAPI.preparedSequence(
@@ -140,22 +146,23 @@ public enum ConfigurationSyncJob: JobExecutor {
                         
                         /// Since this change was successful we need to mark it as pushed and generate any config dumps
                         /// which need to be stored
-                        return LibSession.markingAsPushed(
-                            seqNo: pushData.seqNo,
-                            serverHash: sendMessageResponse.hash,
-                            sentTimestamp: messageSendTimestamp,
-                            variant: pushData.variant,
-                            swarmPublicKey: swarmPublicKey,
-                            using: dependencies
-                        )
+                        return dependencies.mutate(cache: .libSession) { cache in
+                            cache.markingAsPushed(
+                                seqNo: pushData.seqNo,
+                                serverHash: sendMessageResponse.hash,
+                                sentTimestamp: messageSendTimestamp,
+                                variant: pushData.variant,
+                                swarmPublicKey: swarmPublicKey
+                            )
+                        }
                     }
             }
             .sinkUntilComplete(
                 receiveCompletion: { result in
                     switch result {
-                        case .finished: SNLog("[ConfigurationSyncJob] For \(swarmPublicKey) completed")
+                        case .finished: Log.info(.cat, "For \(swarmPublicKey) completed")
                         case .failure(let error):
-                            SNLog("[ConfigurationSyncJob] For \(swarmPublicKey) failed due to error: \(error)")
+                            Log.error(.cat, "For \(swarmPublicKey) failed due to error: \(error)")
                             failure(job, error, false)
                     }
                 },

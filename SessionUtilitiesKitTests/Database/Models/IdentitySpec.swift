@@ -65,7 +65,7 @@ class IdentitySpec: QuickSpec {
                 }
 
                 mockStorage.read { db in
-                    expect(Identity.userExists(db))
+                    expect(Identity.userExists(db, using: dependencies))
                         .to(equal(true))
                 }
             }

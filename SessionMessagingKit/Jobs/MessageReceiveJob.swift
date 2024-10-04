@@ -4,6 +4,14 @@ import Foundation
 import GRDB
 import SessionUtilitiesKit
 
+// MARK: - Log.Category
+
+private extension Log.Category {
+    static let cat: Log.Category = .create("MessageReceiveJob", defaultLevel: .info)
+}
+
+// MARK: - MessageReceiveJob
+
 public enum MessageReceiveJob: JobExecutor {
     public static var maxFailureCount: Int = 10
     public static var requiresThreadId: Bool = true
@@ -32,7 +40,7 @@ public enum MessageReceiveJob: JobExecutor {
                     return (messageInfo, try SNProtoContent.parseData(messageInfo.serializedProtoData))
                 }
                 catch {
-                    Log.error("[MessageReceiveJob] Couldn't receive message due to error: \(error)")
+                    Log.error(.cat, "Couldn't receive message due to error: \(error)")
                     lastError = error
                     
                     // We failed to process this message but it is a retryable error
@@ -71,11 +79,11 @@ public enum MessageReceiveJob: JobExecutor {
                             break
                         
                         case let receiverError as MessageReceiverError where !receiverError.isRetryable:
-                            Log.error("[MessageReceiveJob] Permanently failed message due to error: \(error)")
+                            Log.error(.cat, "Permanently failed message due to error: \(error)")
                             continue
                         
                         default:
-                            Log.error("[MessageReceiveJob] Couldn't receive message due to error: \(error)")
+                            Log.error(.cat, "Couldn't receive message due to error: \(error)")
                             lastError = error
                             
                             // We failed to process this message but it is a retryable error
@@ -90,12 +98,7 @@ public enum MessageReceiveJob: JobExecutor {
             guard !remainingMessagesToProcess.isEmpty else { return }
             
             updatedJob = try job
-                .with(
-                    details: Details(
-                        messages: remainingMessagesToProcess,
-                        calledFromBackgroundPoller: details.calledFromBackgroundPoller
-                    )
-                )
+                .with(details: Details(messages: remainingMessagesToProcess))
                 .defaulting(to: job)
                 .upserted(db)
         }
@@ -162,7 +165,7 @@ extension MessageReceiveJob {
                 let container: KeyedDecodingContainer<CodingKeys> = try decoder.container(keyedBy: CodingKeys.self)
                 
                 guard let variant: Message.Variant = try? container.decode(Message.Variant.self, forKey: .variant) else {
-                    SNLog("Unable to decode messageReceive job due to missing variant")
+                    Log.error(.cat, "Unable to decode messageReceive job due to missing variant")
                     throw StorageError.decodingFailed
                 }
                 
@@ -179,7 +182,7 @@ extension MessageReceiveJob {
                 var container: KeyedEncodingContainer<CodingKeys> = encoder.container(keyedBy: CodingKeys.self)
                 
                 guard let variant: Message.Variant = Message.Variant(from: message) else {
-                    SNLog("Unable to encode messageReceive job due to unsupported variant")
+                    Log.error(.cat, "Unable to encode messageReceive job due to unsupported variant")
                     throw StorageError.objectNotFound
                 }
 
@@ -192,31 +195,18 @@ extension MessageReceiveJob {
         }
         
         public let messages: [MessageInfo]
-        private let isBackgroundPoll: Bool
         
-        // Renamed variable for clarity (and didn't want to migrate old MessageReceiveJob
-        // values so didn't rename the original)
-        public var calledFromBackgroundPoller: Bool { isBackgroundPoll }
-        
-        public init(
-            messages: [ProcessedMessage],
-            calledFromBackgroundPoller: Bool
-        ) {
+        public init(messages: [ProcessedMessage]) {
             self.messages = messages.compactMap { processedMessage in
                 switch processedMessage {
                     case .config: return nil
                     case .standard(_, _, _, let messageInfo): return messageInfo
                 }
             }
-            self.isBackgroundPoll = calledFromBackgroundPoller
         }
         
-        public init(
-            messages: [MessageInfo],
-            calledFromBackgroundPoller: Bool
-        ) {
+        public init(messages: [MessageInfo]) {
             self.messages = messages
-            self.isBackgroundPoll = calledFromBackgroundPoller
         }
     }
 }

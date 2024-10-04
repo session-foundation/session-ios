@@ -13,8 +13,8 @@ public extension Request where Endpoint == SnodeAPI.Endpoint {
         snode: LibSession.Snode,
         swarmPublicKey: String? = nil,
         body: B
-    ) where T == SnodeRequest<B> {
-        self = Request(
+    ) throws where T == SnodeRequest<B> {
+        self = try Request(
             endpoint: endpoint,
             destination: .snode(
                 snode,
@@ -32,8 +32,8 @@ public extension Request where Endpoint == SnodeAPI.Endpoint {
         swarmPublicKey: String,
         body: B,
         snodeRetrievalRetryCount: Int = SnodeAPI.maxRetryCount
-    ) where T == SnodeRequest<B> {
-        self = Request(
+    ) throws where T == SnodeRequest<B> {
+        self = try Request(
             endpoint: endpoint,
             destination: .randomSnode(
                 swarmPublicKey: swarmPublicKey,
@@ -49,19 +49,17 @@ public extension Request where Endpoint == SnodeAPI.Endpoint {
     init<B>(
         endpoint: Endpoint,
         swarmPublicKey: String,
-        headers: [HTTPHeader: String] = [:],
         requiresLatestNetworkTime: Bool,
         body: B,
         snodeRetrievalRetryCount: Int = SnodeAPI.maxRetryCount
-    ) where T == SnodeRequest<B>, B: Encodable & UpdatableTimestamp {
-        self = Request(
+    ) throws where T == SnodeRequest<B>, B: Encodable & UpdatableTimestamp {
+        self = try Request(
             endpoint: endpoint,
             destination: .randomSnodeLatestNetworkTimeTarget(
                 swarmPublicKey: swarmPublicKey,
                 snodeRetrievalRetryCount: snodeRetrievalRetryCount,
                 bodyWithUpdatedTimestampMs: { timestampMs, dependencies in body.with(timestampMs: timestampMs) }
             ),
-            headers: headers,
             body: SnodeRequest<B>(
                 endpoint: endpoint,
                 body: body

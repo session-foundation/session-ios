@@ -71,7 +71,7 @@ extension MessageReceiver {
                 
             case (_, true):
                 try interaction
-                    .markingAsDeleted()
+                    .markingAsDeleted(localOnly: false)
                     .upserted(db)
                 
                 _ = try interaction.attachments

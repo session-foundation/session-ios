@@ -24,7 +24,7 @@ class ThreadSettingsViewModelSpec: QuickSpec {
                 SNUtilitiesKit.self,
                 SNSnodeKit.self,
                 SNMessagingKit.self,
-                SNUIKit.self
+                DeprecatedUIKitMigrationTarget.self
             ],
             using: dependencies,
             initialData: { db in
@@ -33,7 +33,7 @@ class ThreadSettingsViewModelSpec: QuickSpec {
                     data: Data(hex: TestConstants.publicKey)
                 ).insert(db)
                 
-                try SessionThread(id: "TestId",variant: .contact).insert(db)
+                try SessionThread(id: "TestId", variant: .contact, creationDateTimestamp: 0, using: dependencies).insert(db)
                 try Profile(id: "05\(TestConstants.publicKey)", name: "TestMe").insert(db)
                 try Profile(id: "TestId", name: "TestUser").insert(db)
             }
@@ -58,7 +58,7 @@ class ThreadSettingsViewModelSpec: QuickSpec {
                 .receive(on: ImmediateScheduler.shared)
                 .sink(
                     receiveCompletion: { _ in },
-                    receiveValue: { viewModel.updateTableData($0.0) }
+                    receiveValue: { viewModel.updateTableData($0) }
                 )
         ]
         
@@ -133,7 +133,9 @@ class ThreadSettingsViewModelSpec: QuickSpec {
                         
                         try SessionThread(
                             id: "05\(TestConstants.publicKey)",
-                            variant: .contact
+                            variant: .contact,
+                            creationDateTimestamp: 0,
+                            using: dependencies
                         ).insert(db)
                     }
                     
@@ -150,14 +152,14 @@ class ThreadSettingsViewModelSpec: QuickSpec {
                             .receive(on: ImmediateScheduler.shared)
                             .sink(
                                 receiveCompletion: { _ in },
-                                receiveValue: { viewModel.updateTableData($0.0) }
+                                receiveValue: { viewModel.updateTableData($0) }
                             )
                     )
                 }
                 
                 // MARK: ---- has the correct title
                 it("has the correct title") {
-                    expect(viewModel.title).to(equal("vc_settings_title".localized()))
+                    expect(viewModel.title).to(equal("sessionSettings".localized()))
                 }
                 
                 // MARK: ---- starts in the standard nav state
@@ -297,14 +299,16 @@ class ThreadSettingsViewModelSpec: QuickSpec {
                         
                         try SessionThread(
                             id: "TestId",
-                            variant: .contact
+                            variant: .contact,
+                            creationDateTimestamp: 0,
+                            using: dependencies
                         ).insert(db)
                     }
                 }
                 
                 // MARK: ---- has the correct title
                 it("has the correct title") {
-                    expect(viewModel.title).to(equal("vc_settings_title".localized()))
+                    expect(viewModel.title).to(equal("sessionSettings".localized()))
                 }
                 
                 // MARK: ---- starts in the standard nav state
@@ -430,7 +434,9 @@ class ThreadSettingsViewModelSpec: QuickSpec {
                         
                         try SessionThread(
                             id: "TestId",
-                            variant: .legacyGroup
+                            variant: .legacyGroup,
+                            creationDateTimestamp: 0,
+                            using: dependencies
                         ).insert(db)
                     }
                     
@@ -447,14 +453,14 @@ class ThreadSettingsViewModelSpec: QuickSpec {
                             .receive(on: ImmediateScheduler.shared)
                             .sink(
                                 receiveCompletion: { _ in },
-                                receiveValue: { viewModel.updateTableData($0.0) }
+                                receiveValue: { viewModel.updateTableData($0) }
                             )
                     )
                 }
                 
                 // MARK: ---- has the correct title
                 it("has the correct title") {
-                    expect(viewModel.title).to(equal("vc_group_settings_title".localized()))
+                    expect(viewModel.title).to(equal("deleteAfterGroupPR1GroupSettings".localized()))
                 }
                 
                 // MARK: ---- starts in the standard nav state
@@ -475,7 +481,9 @@ class ThreadSettingsViewModelSpec: QuickSpec {
                         
                         try SessionThread(
                             id: "TestId",
-                            variant: .community
+                            variant: .community,
+                            creationDateTimestamp: 0,
+                            using: dependencies
                         ).insert(db)
                     }
                     
@@ -492,14 +500,14 @@ class ThreadSettingsViewModelSpec: QuickSpec {
                             .receive(on: ImmediateScheduler.shared)
                             .sink(
                                 receiveCompletion: { _ in },
-                                receiveValue: { viewModel.updateTableData($0.0) }
+                                receiveValue: { viewModel.updateTableData($0) }
                             )
                     )
                 }
                 
                 // MARK: ---- has the correct title
                 it("has the correct title") {
-                    expect(viewModel.title).to(equal("vc_group_settings_title".localized()))
+                    expect(viewModel.title).to(equal("deleteAfterGroupPR1GroupSettings".localized()))
                 }
                 
                 // MARK: ---- starts in the standard nav state

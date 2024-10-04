@@ -53,6 +53,7 @@ enum MockDataGenerator {
             db,
             id: "MockDatabaseThread",
             variant: .contact,
+            creationDateTimestamp: timestampNow,
             shouldBeVisible: false,
             calledFromConfig: nil,
             using: dependencies
@@ -85,6 +86,7 @@ enum MockDataGenerator {
                         db,
                         id: randomSessionId,
                         variant: .contact,
+                        creationDateTimestamp: TimeInterval(floor(timestampNow - Double(index * 5))),
                         shouldBeVisible: true,
                         calledFromConfig: nil,
                         using: dependencies
@@ -202,6 +204,7 @@ enum MockDataGenerator {
                         db,
                         id: randomLegacyGroupPublicKey,
                         variant: .legacyGroup,
+                        creationDateTimestamp: TimeInterval(floor(timestampNow - Double(index * 5))),
                         shouldBeVisible: true,
                         calledFromConfig: nil,
                         using: dependencies
@@ -209,7 +212,7 @@ enum MockDataGenerator {
                 try! ClosedGroup(
                     threadId: randomLegacyGroupPublicKey,
                     name: groupName,
-                    formationTimestamp: timestampNow,
+                    formationTimestamp: TimeInterval(floor(timestampNow - Double(index * 5))),
                     shouldPoll: true,
                     invited: false
                 )
@@ -340,6 +343,7 @@ enum MockDataGenerator {
                         db,
                         id: randomGroupPublicKey,
                         variant: .community,
+                        creationDateTimestamp: TimeInterval(floor(timestampNow - Double(index * 5))),
                         shouldBeVisible: true,
                         calledFromConfig: nil,
                         using: dependencies

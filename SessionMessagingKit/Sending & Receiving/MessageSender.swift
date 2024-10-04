@@ -1,10 +1,20 @@
 // Copyright © 2022 Rangeproof Pty Ltd. All rights reserved.
+//
+// stringlint:disable
 
 import Foundation
 import Combine
 import GRDB
 import SessionSnodeKit
 import SessionUtilitiesKit
+
+// MARK: - Log.Category
+
+public extension Log.Category {
+    static let messageSender: Log.Category = .create("MessageSender", defaultLevel: .info)
+}
+
+// MARK: - MessageSender
 
 public final class MessageSender {
     // MARK: - Message Preparation
@@ -157,7 +167,7 @@ public final class MessageSender {
                                 default: return serialisedData.paddedMessageBody()
                             }
                         }
-                        .mapError { MessageSenderError.other("Couldn't serialize proto", $0) }
+                        .mapError { MessageSenderError.other(nil, "Couldn't serialize proto", $0) }
                         .successOrThrow()
             }
         }()
@@ -173,7 +183,7 @@ public final class MessageSender {
                             wrapInWebSocketMessage: false
                         )
                     )
-                    .mapError { MessageSenderError.other("Couldn't wrap message", $0) }
+                    .mapError { MessageSenderError.other(nil, "Couldn't wrap message", $0) }
                     .successOrThrow()
                     
                     let ciphertext: Data = try dependencies[singleton: .crypto].tryGenerate(
@@ -222,7 +232,7 @@ public final class MessageSender {
                             base64EncodedContent: ciphertext.base64EncodedString()
                         )
                     )
-                    .mapError { MessageSenderError.other("Couldn't wrap message", $0) }
+                    .mapError { MessageSenderError.other(nil, "Couldn't wrap message", $0) }
                     .successOrThrow()
                     .base64EncodedString()
                     
@@ -315,7 +325,7 @@ public final class MessageSender {
                                     db,
                                     message: message,
                                     destination: destination,
-                                    error: .other("Couldn't send message", error),     // stringlint:disable
+                                    error: .other(nil, "Couldn't send message", error),
                                     interactionId: interactionId,
                                     using: dependencies
                                 )
@@ -353,7 +363,7 @@ public final class MessageSender {
             server,
             roomToken,
             whisperTo,
-            (whisperMods ? "mods" : nil)    // stringlint:disable
+            (whisperMods ? "mods" : nil)
         ]
         .compactMap { $0 }
         .joined(separator: ".")
@@ -399,10 +409,9 @@ public final class MessageSender {
         }
         
         // Serialize the protobuf
-        let plaintext: Data
-        
-        do { plaintext = try proto.serializedData().paddedMessageBody() }
-        catch { throw MessageSenderError.other("Couldn't serialize proto", error) }
+        let plaintext: Data = try Result(proto.serializedData().paddedMessageBody())
+            .mapError { MessageSenderError.other(nil, "Couldn't serialize proto", $0) }
+            .successOrThrow()
         
         return try OpenGroupAPI
             .preparedSend(
@@ -442,7 +451,7 @@ public final class MessageSender {
                                     db,
                                     message: message,
                                     destination: destination,
-                                    error: .other("Couldn't send message", error),   // stringlint:disable
+                                    error: .other(nil, "Couldn't send message", error),
                                     interactionId: interactionId,
                                     using: dependencies
                                 )
@@ -497,10 +506,9 @@ public final class MessageSender {
         }
         
         // Serialize the protobuf
-        let plaintext: Data
-        
-        do { plaintext = try proto.serializedData().paddedMessageBody() }
-        catch { throw MessageSenderError.other("Couldn't serialize proto", error) }
+        let plaintext: Data = try Result(proto.serializedData().paddedMessageBody())
+            .mapError { MessageSenderError.other(nil, "Couldn't serialize proto", $0) }
+            .successOrThrow()
         
         // Encrypt the serialized protobuf
         let ciphertext: Data = try dependencies[singleton: .crypto].generateResult(
@@ -512,7 +520,7 @@ public final class MessageSender {
                 using: dependencies
             )
         )
-        .mapError { MessageSenderError.other("Couldn't encrypt message for destination: \(destination)", $0) }
+        .mapError { MessageSenderError.other(nil, "Couldn't encrypt message for destination: \(destination)", $0) }
         .successOrThrow()
         
         return try OpenGroupAPI
@@ -549,7 +557,7 @@ public final class MessageSender {
                                     db,
                                     message: message,
                                     destination: destination,
-                                    error: .other("Couldn't send message", error),   // stringlint:disable
+                                    error: .other(nil, "Couldn't send message", error),
                                     interactionId: interactionId,
                                     using: dependencies
                                 )
@@ -740,7 +748,8 @@ public final class MessageSender {
     ) -> Error {
         // Log a message for any 'other' errors
         switch error {
-            case .other(let description, let error): Log.error("[MessageSender] \(description) due to error: \(error).")
+            case .other(let cat, let description, let error):
+                Log.error([.messageSender, cat].compactMap { $0 }, "\(description) due to error: \(error).")
             default: break
         }
         
@@ -846,7 +855,6 @@ public final class MessageSender {
             Message.shouldSync(message: message)
         {
             if let message = message as? VisibleMessage { message.syncTarget = publicKey }
-            if let message = message as? ExpirationTimerUpdate { message.syncTarget = publicKey }
             
             dependencies[singleton: .jobRunner].add(
                 db,

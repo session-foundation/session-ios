@@ -65,30 +65,6 @@ public extension SnodeReceivedMessageInfo {
 // MARK: - GRDB Interactions
 
 public extension SnodeReceivedMessageInfo {
-    /// Delete any expired SnodeReceivedMessageInfo values associated to a specific node
-    static func pruneExpiredMessageHashInfo(
-        _ db: Database,
-        for snode: LibSession.Snode,
-        namespace: SnodeAPI.Namespace,
-        swarmPublicKey: String,
-        using dependencies: Dependencies
-    ) throws {
-        let currentOffsetTimestampMs: Int64 = dependencies[cache: .snodeAPI].currentOffsetTimestampMs()
-        let rowIds: [Int64] = try SnodeReceivedMessageInfo
-            .select(Column.rowID)
-            .filter(SnodeReceivedMessageInfo.Columns.key == key(for: snode, swarmPublicKey: swarmPublicKey, namespace: namespace))
-            .filter(SnodeReceivedMessageInfo.Columns.expirationDateMs <= currentOffsetTimestampMs)
-            .asRequest(of: Int64.self)
-            .fetchAll(db)
-        
-        // If there are no rowIds to delete then do nothing
-        guard !rowIds.isEmpty else { return }
-        
-        try SnodeReceivedMessageInfo
-            .filter(rowIds.contains(Column.rowID))
-            .deleteAll(db)
-    }
-    
     /// This method fetches the last non-expired hash from the database for message retrieval
     static func fetchLastNotExpired(
         _ db: Database,
@@ -98,6 +74,7 @@ public extension SnodeReceivedMessageInfo {
         using dependencies: Dependencies
     ) throws -> SnodeReceivedMessageInfo? {
         let currentOffsetTimestampMs: Int64 = dependencies[cache: .snodeAPI].currentOffsetTimestampMs()
+
         return try SnodeReceivedMessageInfo
             .filter(
                 SnodeReceivedMessageInfo.Columns.wasDeletedOrInvalid == nil ||

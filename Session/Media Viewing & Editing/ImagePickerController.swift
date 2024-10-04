@@ -31,6 +31,7 @@ class ImagePickerGridController: UICollectionViewController, PhotoLibraryDelegat
     private var photoCollection: PhotoCollection
     private var photoCollectionContents: PhotoCollectionContents
     private let photoMediaSize = PhotoMediaSize()
+    private var firstSelectedIndexPath: IndexPath?
 
     var collectionViewFlowLayout: UICollectionViewFlowLayout
     var titleView: TitleView!
@@ -74,7 +75,7 @@ class ImagePickerGridController: UICollectionViewController, PhotoLibraryDelegat
         // quickly toggle between the Capture and the Picker VC's, we use the same custom "X"
         // icon here rather than the system "stop" icon so that the spacing matches exactly.
         // Otherwise there's a noticable shift in the icon placement.
-        let cancelImage = UIImage(imageLiteralResourceName: "X")
+        let cancelImage = #imageLiteral(resourceName: "X")
         let cancelButton = UIBarButtonItem(image: cancelImage, style: .plain, target: self, action: #selector(didPressCancel))
 
         cancelButton.themeTintColor = .textPrimary
@@ -93,18 +94,14 @@ class ImagePickerGridController: UICollectionViewController, PhotoLibraryDelegat
         self.selectionPanGesture = selectionPanGesture
         collectionView.addGestureRecognizer(selectionPanGesture)
         
-        if #available(iOS 14, *) {
-            if PHPhotoLibrary.authorizationStatus(for: .readWrite) == .limited {
-                let addSeletedPhotoButton = UIBarButtonItem.init(barButtonSystemItem: .add, target: self, action: #selector(addSelectedPhoto))
-                self.navigationItem.rightBarButtonItem = addSeletedPhotoButton
-            }
+        if PHPhotoLibrary.authorizationStatus(for: .readWrite) == .limited {
+            let addSeletedPhotoButton = UIBarButtonItem.init(barButtonSystemItem: .add, target: self, action: #selector(addSelectedPhoto))
+            self.navigationItem.rightBarButtonItem = addSeletedPhotoButton
         }
     }
     
     @objc func addSelectedPhoto(_ sender: Any) {
-        if #available(iOS 14, *) {
-            PHPhotoLibrary.shared().presentLimitedLibraryPicker(from: self)
-        }
+        PHPhotoLibrary.shared().presentLimitedLibraryPicker(from: self)
     }
 
     var selectionPanGesture: UIPanGestureRecognizer?
@@ -214,6 +211,12 @@ class ImagePickerGridController: UICollectionViewController, PhotoLibraryDelegat
         let cellSize = collectionViewFlowLayout.itemSize
         photoMediaSize.thumbnailSize = CGSize(width: cellSize.width * scale, height: cellSize.height * scale)
  
+        // When we select the first item we immediately deselect it so it doesn't look odd when pushing to the
+        // next screen, but this in turn looks odd if the user returns and the item is deselected
+        if let firstSelectedIndexPath: IndexPath = firstSelectedIndexPath {
+            collectionView.cellForItem(at: firstSelectedIndexPath)?.isSelected = true
+        }
+        
         if !hasEverAppeared {
             scrollToBottom(animated: false)
         }
@@ -251,6 +254,13 @@ class ImagePickerGridController: UICollectionViewController, PhotoLibraryDelegat
         DispatchQueue.main.async {
             // pre-layout collectionPicker for snappier response
             self.collectionPickerController.view.layoutIfNeeded()
+            
+            // We also need to actually inform the collectionView that the item should be selected (if we don't
+            // then the user won't be able to deselect it)
+            if let firstSelectedIndexPath: IndexPath = self.firstSelectedIndexPath {
+                self.collectionView.selectItem(at: firstSelectedIndexPath, animated: false, scrollPosition: .centeredHorizontally)
+                self.collectionView.cellForItem(at: firstSelectedIndexPath)?.isSelected = true
+            }
         }
     }
 
@@ -366,10 +376,7 @@ class ImagePickerGridController: UICollectionViewController, PhotoLibraryDelegat
             return
         }
 
-        let toastFormat = NSLocalizedString("IMAGE_PICKER_CAN_SELECT_NO_MORE_TOAST_FORMAT",
-                                            comment: "Momentarily shown to the user when attempting to select more images than is allowed. Embeds {{max number of items}} that can be shared.")
-
-        let toastText = String(format: toastFormat, NSNumber(value: SignalAttachment.maxAttachmentsAllowed))
+        let toastText = "attachmentsErrorNumber".localized()
 
         let toastController = ToastController(text: toastText, background: .backgroundPrimary)
 
@@ -486,9 +493,11 @@ class ImagePickerGridController: UICollectionViewController, PhotoLibraryDelegat
             didSelectAsset: asset,
             attachmentPublisher: photoCollectionContents.outgoingAttachment(for: asset, using: dependencies)
         )
+        firstSelectedIndexPath = nil
 
         if !delegate.isInBatchSelectMode {
             // Don't show "selected" badge unless we're in batch mode
+            firstSelectedIndexPath = indexPath
             collectionView.deselectItem(at: indexPath, animated: false)
             delegate.imagePickerDidCompleteSelection(self)
         }
@@ -507,6 +516,7 @@ class ImagePickerGridController: UICollectionViewController, PhotoLibraryDelegat
         }
         
         delegate.imagePicker(self, didDeselectAsset: asset)
+        firstSelectedIndexPath = nil
     }
 
     override func collectionView(_ collectionView: UICollectionView, numberOfItemsInSection section: Int) -> Int {

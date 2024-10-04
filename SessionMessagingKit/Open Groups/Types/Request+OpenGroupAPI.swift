@@ -25,17 +25,15 @@ public extension Request where Endpoint == OpenGroupAPI.Endpoint {
 
         guard let publicKey: String = maybePublicKey else { throw OpenGroupAPIError.noPublicKey }
         
-        self = Request(
+        self = try Request(
             endpoint: endpoint,
             destination: try .server(
                 method: method,
                 server: server,
-                endpoint: endpoint,
                 queryParameters: queryParameters,
                 headers: headers,
                 x25519PublicKey: publicKey
             ),
-            headers: headers,
             body: body
         )
     }

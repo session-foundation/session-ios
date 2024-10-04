@@ -55,7 +55,7 @@ struct QuoteView_SwiftUI: View {
         return nil
     }
     private var author: String? {
-        guard !isCurrentUser else { return "MEDIA_GALLERY_SENDER_NAME_YOU".localized() }
+        guard !isCurrentUser else { return "you".localized() }
         guard quotedText != nil else {
             // When we can't find the quoted message we want to hide the author label
             return Profile.displayNameNoFallback(
@@ -101,28 +101,36 @@ struct QuoteView_SwiftUI: View {
                         return thumbnail
                     }
                     
-                    let fallbackImageName: String = (MimeTypeUtil.isAudio(attachment.contentType) ? "attachment_audio" : "actionsheet_document_black")
+                    let fallbackImageName: String = (attachment.isAudio ? "attachment_audio" : "actionsheet_document_black")
                     return UIImage(named: fallbackImageName)?
-                        .resized(to: CGSize(width: Self.iconSize, height: Self.iconSize))?
                         .withRenderingMode(.alwaysTemplate)
                 }() {
-                    Image(uiImage: image)
-                        .foregroundColor(themeColor: {
-                            switch info.mode {
-                                case .regular: return (info.direction == .outgoing ?
-                                        .messageBubble_outgoingText :
-                                        .messageBubble_incomingText
-                                    )
-                                case .draft: return .textPrimary
-                            }
-                        }())
+                    ZStack() {
+                        RoundedRectangle(
+                            cornerRadius: Self.cornerRadius
+                        )
+                        .fill(themeColor: .messageBubble_overlay)
                         .frame(
                             width: Self.thumbnailSize,
-                            height: Self.thumbnailSize,
-                            alignment: .center
+                            height: Self.thumbnailSize
                         )
-                        .background(themeColor: .messageBubble_overlay)
-                        .cornerRadius(Self.cornerRadius)
+                        
+                        Image(uiImage: image)
+                            .foregroundColor(themeColor: {
+                                switch info.mode {
+                                    case .regular: return (info.direction == .outgoing ?
+                                        .messageBubble_outgoingText :
+                                            .messageBubble_incomingText
+                                    )
+                                    case .draft: return .textPrimary
+                                }
+                            }())
+                            .frame(
+                                width: Self.iconSize,
+                                height: Self.iconSize,
+                                alignment: .center
+                            )
+                    }
                 }
             } else {
                 // Line view
@@ -168,7 +176,13 @@ struct QuoteView_SwiftUI: View {
                             currentUserSessionId: info.currentUserSessionId,
                             currentUserBlinded15SessionId: info.currentUserBlinded15SessionId,
                             currentUserBlinded25SessionId: info.currentUserBlinded25SessionId,
-                            isOutgoingMessage: (info.direction == .outgoing),
+                            location: {
+                                switch (info.mode, info.direction) {
+                                    case (.draft, _): return .quoteDraft
+                                    case (_, .outgoing): return .outgoingQuote
+                                    case (_, .incoming): return .incomingQuote
+                                }
+                            }(),
                             textColor: textColor,
                             theme: ThemeManager.currentTheme,
                             primaryColor: ThemeManager.primaryColor,
@@ -181,7 +195,7 @@ struct QuoteView_SwiftUI: View {
                     )
                     .lineLimit(2)
                 } else {
-                    Text("QUOTED_MESSAGE_NOT_FOUND".localized())
+                    Text("messageErrorOriginal".localized())
                         .font(.system(size: Values.smallFontSize))
                         .foregroundColor(themeColor: targetThemeColor)
                 }
@@ -215,22 +229,36 @@ struct QuoteView_SwiftUI: View {
 struct QuoteView_SwiftUI_Previews: PreviewProvider {
     static var previews: some View {
         ZStack {
-            if #available(iOS 14.0, *) {
-                ThemeManager.currentTheme.colorSwiftUI(for: .backgroundPrimary).ignoresSafeArea()
-            } else {
-                ThemeManager.currentTheme.colorSwiftUI(for: .backgroundPrimary)
+            ThemeManager.currentTheme.colorSwiftUI(for: .backgroundPrimary).ignoresSafeArea()
+            VStack(spacing: 20) {
+                QuoteView_SwiftUI(
+                    info: QuoteView_SwiftUI.Info(
+                        mode: .draft,
+                        authorId: "",
+                        threadVariant: .contact,
+                        direction: .outgoing
+                    ),
+                    using: Dependencies.createEmpty()
+                )
+                .frame(height: 40)
+                
+                QuoteView_SwiftUI(
+                    info: QuoteView_SwiftUI.Info(
+                        mode: .regular,
+                        authorId: "",
+                        threadVariant: .contact,
+                        direction: .incoming,
+                        attachment: Attachment(
+                            variant: .standard,
+                            state: .downloaded,
+                            contentType: "audio/wav",
+                            byteCount: 0
+                        )
+                    ),
+                    using: Dependencies.createEmpty()
+                )
+                .previewLayout(.sizeThatFits)
             }
-            
-            QuoteView_SwiftUI(
-                info: QuoteView_SwiftUI.Info(
-                    mode: .draft,
-                    authorId: "",
-                    threadVariant: .contact,
-                    direction: .outgoing
-                ),
-                using: Dependencies.createEmpty()
-            )
-            .frame(height: 40)
         }
     }
 }

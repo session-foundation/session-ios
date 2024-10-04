@@ -34,41 +34,41 @@ final class IncomingCallBanner: UIView, UIGestureRecognizerDelegate {
         return result
     }()
     
-    private lazy var answerButton: UIButton = {
-        let result = UIButton(type: .custom)
-        result.setImage(
-            UIImage(named: "AnswerCall")?
-                .resized(to: CGSize(width: 24.8, height: 24.8))?
-                .withRenderingMode(.alwaysTemplate),
-            for: .normal
+    private lazy var answerButton: UIButton = UIButton(primaryAction: UIAction { [weak self] _ in self?.answerCall() })
+        .withConfiguration(
+            UIButton.Configuration
+                .plain()
+                .withImage(UIImage(named: "AnswerCall")?.withRenderingMode(.alwaysTemplate))
+                .withContentInsets(NSDirectionalEdgeInsets(top: 6, leading: 6, bottom: 6, trailing: 6))
         )
-        result.themeTintColor = .white
-        result.themeBackgroundColor = .callAccept_background
-        result.layer.cornerRadius = 24
-        result.addTarget(self, action: #selector(answerCall), for: .touchUpInside)
-        result.set(.width, to: 48)
-        result.set(.height, to: 48)
-        
-        return result
-    }()
+        .withImageViewContentMode(.scaleAspectFit)
+        .withThemeTintColor(.white)
+        .withThemeBackgroundColor(.callAccept_background)
+        .withAccessibility(
+            identifier: "Close button",
+            label: "Close button"
+        )
+        .withCornerRadius(24)
+        .with(.width, of: 48)
+        .with(.height, of: 48)
     
-    private lazy var hangUpButton: UIButton = {
-        let result = UIButton(type: .custom)
-        result.setImage(
-            UIImage(named: "EndCall")?
-                .resized(to: CGSize(width: 29.6, height: 11.2))?
-                .withRenderingMode(.alwaysTemplate),
-            for: .normal
+    private lazy var hangUpButton: UIButton = UIButton(primaryAction: UIAction { [weak self] _ in self?.endCall() })
+        .withConfiguration(
+            UIButton.Configuration
+                .plain()
+                .withImage(UIImage(named: "EndCall")?.withRenderingMode(.alwaysTemplate))
+                .withContentInsets(NSDirectionalEdgeInsets(top: 13, leading: 9, bottom: 13, trailing: 9))
         )
-        result.themeTintColor = .white
-        result.themeBackgroundColor = .callDecline_background
-        result.layer.cornerRadius = 24
-        result.addTarget(self, action: #selector(endCall), for: .touchUpInside)
-        result.set(.width, to: 48)
-        result.set(.height, to: 48)
-        
-        return result
-    }()
+        .withImageViewContentMode(.scaleAspectFit)
+        .withThemeTintColor(.white)
+        .withThemeBackgroundColor(.callDecline_background)
+        .withAccessibility(
+            identifier: "Close button",
+            label: "Close button"
+        )
+        .withCornerRadius(24)
+        .with(.width, of: 48)
+        .with(.height, of: 48)
     
     private lazy var panGestureRecognizer: UIPanGestureRecognizer = {
         let result = UIPanGestureRecognizer(target: self, action: #selector(handlePan))
@@ -174,7 +174,7 @@ final class IncomingCallBanner: UIView, UIGestureRecognizerDelegate {
                         showCallVC(answer: false)
                     }
                     else {
-                        endCall()   // TODO: Or just put the call on hold?
+                        endCall()   // TODO: [CALLS] Or just put the call on hold?
                     }
                 }
                 else {
@@ -185,11 +185,11 @@ final class IncomingCallBanner: UIView, UIGestureRecognizerDelegate {
         }
     }
     
-    @objc private func answerCall() {
+    private func answerCall() {
         showCallVC(answer: true)
     }
     
-    @objc private func endCall() {
+    private func endCall() {
         dependencies[singleton: .callManager].endCall(call) { [weak self, dependencies] error in
             if let _ = error {
                 self?.call.endSessionCall()
@@ -202,10 +202,10 @@ final class IncomingCallBanner: UIView, UIGestureRecognizerDelegate {
     
     public func showCallVC(answer: Bool) {
         dismiss()
-        guard
-            dependencies.hasInitialised(singleton: .appContext),
-            let presentingVC: UIViewController = dependencies[singleton: .appContext].frontMostViewController
-        else { preconditionFailure() } // FIXME: Handle more gracefully
+        guard let presentingVC: UIViewController = dependencies[singleton: .appContext].frontMostViewController else {
+            Log.critical(.calls, "Failed to retrieve front view controller when showing the call UI")
+            return endCall()
+        }
         
         let callVC = CallVC(for: self.call, using: dependencies)
         if let conversationVC = (presentingVC as? TopBannerController)?.wrappedViewController() as? ConversationVC {
@@ -224,10 +224,7 @@ final class IncomingCallBanner: UIView, UIGestureRecognizerDelegate {
     public func show() {
         self.alpha = 0.0
         
-        guard
-            dependencies.hasInitialised(singleton: .appContext),
-            let window: UIWindow = dependencies[singleton: .appContext].mainWindow
-        else { return }
+        guard let window: UIWindow = dependencies[singleton: .appContext].mainWindow else { return }
 
         window.addSubview(self)
         

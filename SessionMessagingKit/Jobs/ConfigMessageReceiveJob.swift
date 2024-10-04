@@ -5,6 +5,14 @@ import GRDB
 import SessionSnodeKit
 import SessionUtilitiesKit
 
+// MARK: - Log.Category
+
+private extension Log.Category {
+    static let cat: Log.Category = .create("ConfigMessageReceiveJob", defaultLevel: .info)
+}
+
+// MARK: - ConfigMessageReceiveJob
+
 public enum ConfigMessageReceiveJob: JobExecutor {
     public static var maxFailureCount: Int = 0
     public static var requiresThreadId: Bool = true
@@ -65,7 +73,7 @@ public enum ConfigMessageReceiveJob: JobExecutor {
         // Handle the result
         switch lastError {
             case .some(let error):
-                Log.error("[ConfigMessageReceiveJob] Couldn't receive config message due to error: \(error)")
+                Log.error(.cat, "Couldn't receive config message due to error: \(error)")
                 removeDependencyOnMessageReceiveJobs()
                 failure(job, error, true)
 
@@ -105,12 +113,8 @@ extension ConfigMessageReceiveJob {
         }
         
         public let messages: [MessageInfo]
-        private let calledFromBackgroundPoller: Bool
         
-        public init(
-            messages: [ProcessedMessage],
-            calledFromBackgroundPoller: Bool
-        ) {
+        public init(messages: [ProcessedMessage]) {
             self.messages = messages
                 .compactMap { processedMessage -> MessageInfo? in
                     switch processedMessage {
@@ -124,7 +128,6 @@ extension ConfigMessageReceiveJob {
                             )
                     }
             }
-            self.calledFromBackgroundPoller = calledFromBackgroundPoller
         }
     }
 }

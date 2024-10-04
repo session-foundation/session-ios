@@ -29,7 +29,10 @@ enum _014_GenerateInitialUserConfigDumps: Migration {
         // Create the initial config state        
         let userSessionId: SessionId = dependencies[cache: .general].sessionId
         let timestampMs: Int64 = Int64(dependencies.dateNow.timeIntervalSince1970 * TimeInterval(1000))
-        dependencies.set(cache: .libSession, to: LibSession.Cache(userSessionId: userSessionId, using: dependencies))
+        let cache: LibSession.Cache = LibSession.Cache(userSessionId: userSessionId, using: dependencies)
+        
+        // Setup the initial state
+        cache.loadState(db)
         
         // Retrieve all threads (we are going to base the config dump data on the active
         // threads rather than anything else in the database)
@@ -39,7 +42,7 @@ enum _014_GenerateInitialUserConfigDumps: Migration {
         
         // MARK: - UserProfile Config Dump
         
-        try dependencies[cache: .libSession]
+        try cache
             .config(for: .userProfile, sessionId: userSessionId)
             .mutate { config in
                 try LibSession.update(
@@ -56,22 +59,19 @@ enum _014_GenerateInitialUserConfigDumps: Migration {
                     in: config
                 )
                 
-                if config.needsDump(using: dependencies) {
-                    try LibSession
-                        .createDump(
-                            config: config,
-                            for: .userProfile,
-                            sessionId: userSessionId,
-                            timestampMs: timestampMs,
-                            using: dependencies
-                        )?
-                        .upsert(db)
+                if cache.configNeedsDump(config) {
+                    try cache.createDump(
+                        config: config,
+                        for: .userProfile,
+                        sessionId: userSessionId,
+                        timestampMs: timestampMs
+                    )?.upsert(db)
                 }
             }
         
         // MARK: - Contact Config Dump
         
-        try dependencies[cache: .libSession]
+        try cache
             .config(for: .contacts, sessionId: userSessionId)
             .mutate { config in
                 // Exclude Note to Self, community, group and outgoing blinded message requests
@@ -124,22 +124,19 @@ enum _014_GenerateInitialUserConfigDumps: Migration {
                     using: dependencies
                 )
                 
-                if config.needsDump(using: dependencies) {
-                    try LibSession
-                        .createDump(
-                            config: config,
-                            for: .contacts,
-                            sessionId: userSessionId,
-                            timestampMs: timestampMs,
-                            using: dependencies
-                        )?
-                        .upsert(db)
+                if cache.configNeedsDump(config) {
+                    try cache.createDump(
+                        config: config,
+                        for: .contacts,
+                        sessionId: userSessionId,
+                        timestampMs: timestampMs
+                    )?.upsert(db)
                 }
             }
         
         // MARK: - ConvoInfoVolatile Config Dump
         
-        try dependencies[cache: .libSession]
+        try cache
             .config(for: .convoInfoVolatile, sessionId: userSessionId)
             .mutate { config in
                 let volatileThreadInfo: [LibSession.VolatileThreadInfo] = LibSession.VolatileThreadInfo
@@ -147,26 +144,22 @@ enum _014_GenerateInitialUserConfigDumps: Migration {
                 
                 try LibSession.upsert(
                     convoInfoVolatileChanges: volatileThreadInfo,
-                    in: config,
-                    using: dependencies
+                    in: config
                 )
                 
-                if config.needsDump(using: dependencies) {
-                    try LibSession
-                        .createDump(
-                            config: config,
-                            for: .convoInfoVolatile,
-                            sessionId: userSessionId,
-                            timestampMs: timestampMs,
-                            using: dependencies
-                        )?
-                        .upsert(db)
+                if cache.configNeedsDump(config) {
+                    try cache.createDump(
+                        config: config,
+                        for: .convoInfoVolatile,
+                        sessionId: userSessionId,
+                        timestampMs: timestampMs
+                    )?.upsert(db)
                 }
             }
         
         // MARK: - UserGroups Config Dump
         
-        try dependencies[cache: .libSession]
+        try cache
             .config(for: .userGroups, sessionId: userSessionId)
             .mutate { config in
                 let legacyGroupData: [LibSession.LegacyGroupInfo] = try LibSession.LegacyGroupInfo.fetchAll(db)
@@ -175,8 +168,7 @@ enum _014_GenerateInitialUserConfigDumps: Migration {
                 
                 try LibSession.upsert(
                     legacyGroups: legacyGroupData,
-                    in: config,
-                    using: dependencies
+                    in: config
                 )
                 try LibSession.upsert(
                     communities: communityData
@@ -186,31 +178,32 @@ enum _014_GenerateInitialUserConfigDumps: Migration {
                                 priority: Int32(allThreads[urlInfo.threadId]?.pinnedPriority ?? 0)
                             )
                         },
-                    in: config,
-                    using: dependencies
+                    in: config
                 )
                 
-                if config.needsDump(using: dependencies) {
-                    try LibSession
-                        .createDump(
-                            config: config,
-                            for: .userGroups,
-                            sessionId: userSessionId,
-                            timestampMs: timestampMs,
-                            using: dependencies
-                        )?
-                        .upsert(db)
+                if cache.configNeedsDump(config) {
+                    try cache.createDump(
+                        config: config,
+                        for: .userGroups,
+                        sessionId: userSessionId,
+                        timestampMs: timestampMs
+                    )?.upsert(db)
                 }
         }
+        
+        // MARK: - Store cache in dependencies
+        
+        dependencies.set(cache: .libSession, to: cache)
                 
         // MARK: - Threads
         
+        // This needs to happen after we have stored the cache in dependencies
         try LibSession.updatingThreads(db, Array(allThreads.values), using: dependencies)
         
         // MARK: - Syncing
         
         // Enqueue a config sync job to ensure the generated configs get synced
-        db.afterNextTransactionNestedOnce(dedupeId: LibSession.syncDedupeId(userSessionId.hexString)) { db in
+        db.afterNextTransactionNestedOnce(dedupeId: LibSession.syncDedupeId(userSessionId.hexString), using: dependencies) { db in
             ConfigurationSyncJob.enqueue(db, swarmPublicKey: userSessionId.hexString, using: dependencies)
         }
         

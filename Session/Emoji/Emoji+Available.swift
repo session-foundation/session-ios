@@ -16,10 +16,7 @@ extension Emoji {
     static func warmAvailableCache(using dependencies: Dependencies) {
         Log.assertOnMainThread()
 
-        guard
-            dependencies.hasInitialised(singleton: .appContext) &&
-            dependencies[singleton: .appContext].isMainAppAndActive
-        else { return }
+        guard dependencies[singleton: .appContext].isMainAppAndActive else { return }
 
         var availableCache = [Emoji: Bool]()
         var uncachedEmoji = [Emoji]()

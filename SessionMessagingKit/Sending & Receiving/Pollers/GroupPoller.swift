@@ -21,35 +21,33 @@ public extension Cache {
 
 // MARK: - GroupPoller
 
-public final class GroupPoller: Poller {
-    public static var legacyNamespaces: [SnodeAPI.Namespace] = [.legacyClosedGroup ]
-    public static var namespaces: [SnodeAPI.Namespace] = [
-        .groupMessages, .configGroupInfo, .configGroupMembers, .configGroupKeys, .revokedRetrievableGroupMessages
-    ]
-
-    // MARK: - Settings
-    
+public final class GroupPoller: SwarmPoller {
     private let minPollInterval: Double = 3
     private let maxPollInterval: Double = 30
-    override var pollerQueue: DispatchQueue { Threading.groupPollerQueue }
-    override var namespaces: [SnodeAPI.Namespace] {
+    
+    public static func namespaces(swarmPublicKey: String) -> [SnodeAPI.Namespace] {
         guard (try? SessionId.Prefix(from: swarmPublicKey)) == .group else {
-            return GroupPoller.legacyNamespaces
+            return [.legacyClosedGroup]
         }
         
-        return GroupPoller.namespaces
+        return [
+            .groupMessages,
+            .configGroupInfo,
+            .configGroupMembers,
+            .configGroupKeys,
+            .revokedRetrievableGroupMessages
+        ]
     }
-    override var pollerName: String { "Closed group poller with public key: \(swarmPublicKey)" }   // stringlint:disable
 
     // MARK: - Abstract Methods
 
-    override func nextPollDelay() -> TimeInterval {
+    override public func nextPollDelay() -> TimeInterval {
         // Get the received date of the last message in the thread. If we don't have
         // any messages yet, pick some reasonable fake time interval to use instead
         let lastMessageDate: Date = dependencies[singleton: .storage]
-            .read { [swarmPublicKey] db in
+            .read { [pollerDestination] db in
                 try Interaction
-                    .filter(Interaction.Columns.threadId == swarmPublicKey)
+                    .filter(Interaction.Columns.threadId == pollerDestination.target)
                     .select(.receivedAtTimestampMs)
                     .order(Interaction.Columns.timestampMs.desc)
                     .asRequest(of: Int64.self)
@@ -70,7 +68,7 @@ public final class GroupPoller: Poller {
         return nextPollInterval
     }
 
-    override func handlePollError(_ error: Error) -> PollerErrorResponse {
+    override public func handlePollError(_ error: Error, _ lastError: Error?) -> PollerErrorResponse {
         return .continuePolling
     }
 }
@@ -80,7 +78,7 @@ public final class GroupPoller: Poller {
 public extension GroupPoller {
     class Cache: GroupPollerCacheType {
         private let dependencies: Dependencies
-        private var _pollers: [String: PollerType] = [:] // One for each swarm
+        private var _pollers: [String: GroupPoller] = [:] // One for each swarm
         
         // MARK: - Initialization
         
@@ -96,26 +94,30 @@ public extension GroupPoller {
         // MARK: - Functions
         
         public func startAllPollers() {
-            // Fetch all closed groups (excluding any don't contain the current user as a
-            // GroupMemeber and any which are in the 'invited' state)
-            dependencies[singleton: .storage]
-                .read { db -> Set<String> in
-                    try ClosedGroup
-                        .select(.threadId)
-                        .filter(ClosedGroup.Columns.shouldPoll == true)
-                        .asRequest(of: String.self)
-                        .fetchSet(db)
-                }?
-                .forEach { swarmPublicKey in getOrCreatePoller(for: swarmPublicKey).startIfNeeded() }
+            // On the group poller queue fetch all closed groups which should poll and start the pollers
+            Threading.groupPollerQueue.async(using: dependencies) { [dependencies] in
+                dependencies[singleton: .storage]
+                    .read { db -> Set<String> in
+                        try ClosedGroup
+                            .select(.threadId)
+                            .filter(ClosedGroup.Columns.shouldPoll == true)
+                            .asRequest(of: String.self)
+                            .fetchSet(db)
+                    }?
+                    .forEach { [weak self] swarmPublicKey in self?.getOrCreatePoller(for: swarmPublicKey).startIfNeeded() }
+            }
         }
         
-        @discardableResult public func getOrCreatePoller(for swarmPublicKey: String) -> PollerType {
-            guard let poller: PollerType = _pollers[swarmPublicKey.lowercased()] else {
-                let poller: Poller = GroupPoller(
-                    swarmPublicKey: swarmPublicKey,
+        @discardableResult public func getOrCreatePoller(for swarmPublicKey: String) -> SwarmPollerType {
+            guard let poller: GroupPoller = _pollers[swarmPublicKey.lowercased()] else {
+                let poller: GroupPoller = GroupPoller(
+                    pollerName: "Closed group poller with public key: \(swarmPublicKey)", // stringlint:disable
+                    pollerQueue: Threading.groupPollerQueue,
+                    pollerDestination: .swarm(swarmPublicKey),
+                    pollerDrainBehaviour: .alwaysRandom,
+                    namespaces: GroupPoller.namespaces(swarmPublicKey: swarmPublicKey),
                     shouldStoreMessages: true,
                     logStartAndStopCalls: false,
-                    drainBehaviour: .alwaysRandom,
                     using: dependencies
                 )
                 _pollers[swarmPublicKey.lowercased()] = poller
@@ -144,7 +146,7 @@ public protocol GroupPollerImmutableCacheType: ImmutableCacheType {}
 
 public protocol GroupPollerCacheType: GroupPollerImmutableCacheType, MutableCacheType {
     func startAllPollers()
-    @discardableResult func getOrCreatePoller(for swarmPublicKey: String) -> PollerType
+    @discardableResult func getOrCreatePoller(for swarmPublicKey: String) -> SwarmPollerType
     func stopAndRemovePoller(for swarmPublicKey: String)
     func stopAndRemoveAllPollers()
 }

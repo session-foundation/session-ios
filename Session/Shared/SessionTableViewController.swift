@@ -66,11 +66,8 @@ class SessionTableViewController<ViewModel>: BaseVC, UITableViewDataSource, UITa
         result.registerHeaderFooterView(view: SessionFooterView.self)
         result.dataSource = self
         result.delegate = self
-        
-        if #available(iOS 15.0, *) {
-            result.sectionHeaderTopPadding = 0
-        }
-        
+        result.sectionHeaderTopPadding = 0
+
         return result
     }()
     
@@ -234,7 +231,7 @@ class SessionTableViewController<ViewModel>: BaseVC, UITableViewDataSource, UITa
                 receiveCompletion: { [weak self] result in
                     switch result {
                         case .failure(let error):
-                            let title: String = (self?.viewModel.title ?? "unknown")    // stringlint:disable
+                            let title: String = (self?.viewModel.title ?? "unknown".localized())
                             
                             // If we got an error then try to restart the stream once, otherwise log the error
                             guard self?.dataStreamJustFailed == false else {
@@ -249,9 +246,9 @@ class SessionTableViewController<ViewModel>: BaseVC, UITableViewDataSource, UITa
                         case .finished: break
                     }
                 },
-                receiveValue: { [weak self] updatedData, changeset in
+                receiveValue: { [weak self] updatedData in
                     self?.dataStreamJustFailed = false
-                    self?.handleDataUpdates(updatedData, changeset: changeset)
+                    self?.handleDataUpdates(updatedData)
                 }
             )
         
@@ -264,57 +261,28 @@ class SessionTableViewController<ViewModel>: BaseVC, UITableViewDataSource, UITa
         dataChangeCancellable?.cancel()
     }
     
-    private func handleDataUpdates(
-        _ updatedData: [SectionModel],
-        changeset: StagedChangeset<[SectionModel]>,
-        initialLoad: Bool = false
-    ) {
+    private func handleDataUpdates(_ updatedData: [SectionModel]) {
         // Determine if we have any items for the empty state
         let itemCount: Int = updatedData
             .map { $0.elements.count }
             .reduce(0, +)
         
-        // Ensure the first load runs without animations (if we don't do this the cells will animate
-        // in from a frame of CGRect.zero)
-        guard hasLoadedInitialTableData else {
-            UIView.performWithoutAnimation {
-                // Update the initial/empty state
-                initialLoadLabel.isHidden = true
-                emptyStateLabel.isHidden = (itemCount > 0)
-                
-                // Update the content
-                viewModel.updateTableData(updatedData)
-                tableView.reloadData()
-                hasLoadedInitialTableData = true
-            }
-            return
-        }
-        
-        // Update the empty state
-        self.emptyStateLabel.isHidden = (itemCount > 0)
-        
-        CATransaction.begin()
-        CATransaction.setCompletionBlock { [weak self] in
+        // Ensure the reloads run without animations (if we don't do this the cells will animate
+        // in from a frame of CGRect.zero on at least the first load)
+        UIView.performWithoutAnimation {
+            // Update the initial/empty state
+            initialLoadLabel.isHidden = true
+            emptyStateLabel.isHidden = (itemCount > 0)
+            
+            // Update the content
+            viewModel.updateTableData(updatedData)
+            tableView.reloadData()
+            hasLoadedInitialTableData = true
+            
             // Complete page loading
-            self?.isLoadingMore = false
-            self?.autoLoadNextPageIfNeeded()
+            isLoadingMore = false
+            autoLoadNextPageIfNeeded()
         }
-        
-        // Reload the table content (animate changes after the first load)
-        tableView.reload(
-            using: changeset,
-            deleteSectionsAnimation: .none,
-            insertSectionsAnimation: .none,
-            reloadSectionsAnimation: .none,
-            deleteRowsAnimation: .fade,
-            insertRowsAnimation: .fade,
-            reloadRowsAnimation: .none,
-            interrupt: { $0.changeCount > 100 }    // Prevent too many changes from causing performance issues
-        ) { [weak self] updatedData in
-            self?.viewModel.updateTableData(updatedData)
-        }
-        
-        CATransaction.commit()
     }
     
     private func autoLoadNextPageIfNeeded() {

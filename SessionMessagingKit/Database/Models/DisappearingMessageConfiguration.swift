@@ -41,6 +41,17 @@ public struct DisappearingMessagesConfiguration: Codable, Identifiable, Equatabl
         case unknown
         case disappearAfterRead
         case disappearAfterSend
+        
+        public var localizedName: String {
+            switch self {
+                case .unknown:
+                    return ""
+                case .disappearAfterRead:
+                    return "disappearingMessagesTypeRead".localized()
+                case .disappearAfterSend:
+                    return "disappearingMessagesTypeSent".localized()
+            }
+        }
 
         init(protoType: SNProtoContent.SNProtoContentExpirationType) {
             switch protoType {
@@ -71,6 +82,21 @@ public struct DisappearingMessagesConfiguration: Codable, Identifiable, Equatabl
                 case .unknown:            return CONVO_EXPIRATION_NONE
                 case .disappearAfterRead: return CONVO_EXPIRATION_AFTER_READ
                 case .disappearAfterSend: return CONVO_EXPIRATION_AFTER_SEND
+            }
+        }
+        
+        public func localizedState(durationString: String) -> String {
+            switch self {
+                case .unknown:
+                    return ""
+                case .disappearAfterRead:
+                    return "disappearingMessagesDisappearAfterReadState"
+                        .put(key: "time", value: durationString)
+                        .localized()
+                case .disappearAfterSend:
+                    return "disappearingMessagesDisappearAfterSendState"
+                        .put(key: "time", value: durationString)
+                        .localized()
             }
         }
     }
@@ -133,69 +159,39 @@ public extension DisappearingMessagesConfiguration {
         public let durationSeconds: TimeInterval
         public let type: DisappearingMessageType?
         
-        func attributedPreviewText(using dependencies: Dependencies) -> NSAttributedString {
-            guard dependencies[feature: .updatedDisappearingMessages] && self.threadVariant != nil else {
-                return NSAttributedString(string: legacyPreviewText)
-            }
-            
+        var previewText: String {
             guard let senderName: String = senderName else {
                 guard isEnabled, durationSeconds > 0 else {
-                    return NSAttributedString(string: "YOU_DISAPPEARING_MESSAGES_INFO_DISABLE".localized())
+                    switch threadVariant {
+                        case .legacyGroup, .group: return "disappearingMessagesTurnedOffYouGroup".localized()
+                        default: return "disappearingMessagesTurnedOffYou".localized()
+                    }
                 }
                 
-                return NSAttributedString(
-                    string: String(
-                        format: "YOU_DISAPPEARING_MESSAGES_INFO_ENABLE".localized(),
-                        floor(durationSeconds).formatted(format: .long),
-                        (type == .disappearAfterRead ? "DISAPPEARING_MESSAGE_STATE_READ".localized() : "DISAPPEARING_MESSAGE_STATE_SENT".localized())
-                    )
-                )
+                return "disappearingMessagesSetYou"
+                    .put(key: "time", value: floor(durationSeconds).formatted(format: .long))
+                    .put(key: "disappearing_messages_type", value: (type ?? .unknown).localizedName)
+                    .localized()
             }
             
             guard isEnabled, durationSeconds > 0 else {
-                return NSAttributedString(
-                    format: "DISAPPERING_MESSAGES_INFO_DISABLE".localized(),
-                    .font(senderName, .boldSystemFont(ofSize: Values.verySmallFontSize))
-                )
+                switch threadVariant {
+                    case .legacyGroup, .group:
+                        return "disappearingMessagesTurnedOffGroup"
+                            .put(key: "name", value: senderName)
+                            .localized()
+                    default:
+                        return "disappearingMessagesTurnedOff"
+                            .put(key: "name", value: senderName)
+                            .localized()
+                }
             }
             
-            return NSAttributedString(
-                format: "DISAPPERING_MESSAGES_INFO_ENABLE".localized(),
-                .font(senderName, .boldSystemFont(ofSize: Values.verySmallFontSize)),
-                .font(
-                    floor(durationSeconds).formatted(format: .long),
-                    .boldSystemFont(ofSize: Values.verySmallFontSize)
-                ),
-                .font(
-                    (type == .disappearAfterRead ?
-                        "DISAPPEARING_MESSAGE_STATE_READ".localized() :
-                        "DISAPPEARING_MESSAGE_STATE_SENT".localized()
-                    ),
-                    .boldSystemFont(ofSize: Values.verySmallFontSize)
-                )
-            )
-        }
-        
-        private var legacyPreviewText: String {
-            guard let senderName: String = senderName else {
-                // Changed by this device or via synced transcript
-                guard isEnabled, durationSeconds > 0 else { return "YOU_DISABLED_DISAPPEARING_MESSAGES_CONFIGURATION".localized() }
-                
-                return String(
-                    format: "YOU_UPDATED_DISAPPEARING_MESSAGES_CONFIGURATION".localized(),
-                    floor(durationSeconds).formatted(format: .long)
-                )
-            }
-            
-            guard isEnabled, durationSeconds > 0 else {
-                return String(format: "OTHER_DISABLED_DISAPPEARING_MESSAGES_CONFIGURATION".localized(), senderName)
-            }
-            
-            return String(
-                format: "OTHER_UPDATED_DISAPPEARING_MESSAGES_CONFIGURATION".localized(),
-                senderName,
-                floor(durationSeconds).formatted(format: .long)
-            )
+            return "disappearingMessagesSet"
+                .put(key: "name", value: senderName)
+                .put(key: "time", value: floor(durationSeconds).formatted(format: .long))
+                .put(key: "disappearing_messages_type", value: (type ?? .unknown).localizedName)
+                .localized()
         }
     }
     
@@ -287,24 +283,19 @@ public extension DisappearingMessagesConfiguration {
         serverExpirationTimestamp: TimeInterval?,
         using dependencies: Dependencies
     ) throws -> Int64? {
-        if dependencies[feature: .updatedDisappearingMessages] {
-            switch threadVariant {
-                case .contact:
-                    _ = try Interaction
-                        .filter(Interaction.Columns.threadId == threadId)
-                        .filter(Interaction.Columns.variant == Interaction.Variant.infoDisappearingMessagesUpdate)
-                        .filter(Interaction.Columns.authorId == authorId)
-                        .deleteAll(db)
-                    
-                case .legacyGroup:
-                    _ = try Interaction
-                        .filter(Interaction.Columns.threadId == threadId)
-                        .filter(Interaction.Columns.variant == Interaction.Variant.infoDisappearingMessagesUpdate)
-                        .deleteAll(db)
-                    
-                default:
-                    break
-            }
+        switch threadVariant {
+            case .contact:
+                _ = try Interaction
+                    .filter(Interaction.Columns.threadId == threadId)
+                    .filter(Interaction.Columns.variant == Interaction.Variant.infoDisappearingMessagesUpdate)
+                    .filter(Interaction.Columns.authorId == authorId)
+                    .deleteAll(db)
+            case .legacyGroup, .group:
+                _ = try Interaction
+                    .filter(Interaction.Columns.threadId == threadId)
+                    .filter(Interaction.Columns.variant == Interaction.Variant.infoDisappearingMessagesUpdate)
+                    .deleteAll(db)
+            case .community: break
         }
         
         let userSessionId: SessionId = dependencies[cache: .general].sessionId
@@ -389,6 +380,7 @@ extension DisappearingMessagesConfiguration {
                 return [
                     (dependencies[feature: .debugDisappearingMessageDurations] ? 10 : nil),
                     (dependencies[feature: .debugDisappearingMessageDurations] ? 30 : nil),
+                    (dependencies[feature: .debugDisappearingMessageDurations] ? 60 : nil),
                     (12 * 60 * 60),
                     (24 * 60 * 60),
                     (7 * 24 * 60 * 60),

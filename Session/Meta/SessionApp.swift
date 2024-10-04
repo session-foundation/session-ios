@@ -22,6 +22,24 @@ public class SessionApp: SessionAppType {
     private let dependencies: Dependencies
     private var homeViewController: HomeVC?
     
+    static var versionInfo: String {
+        let buildNumber: String = (Bundle.main.infoDictionary?["CFBundleVersion"] as? String)
+            .map { " (\($0))" } // stringlint:disable
+            .defaulting(to: "")
+        let appVersion: String? = (Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String)
+            .map { "App: \($0)\(buildNumber)" } // stringlint:disable
+        let commitInfo: String? = (Bundle.main.infoDictionary?["GitCommitHash"] as? String).map { "Commit: \($0)" }
+        
+        let versionInfo: [String] = [
+            "iOS \(UIDevice.current.systemVersion)",        // stringlint:disable
+            appVersion,
+            "libSession: \(LibSession.version)",            // stringlint:disable
+            commitInfo
+        ].compactMap { $0 }
+        
+        return versionInfo.joined(separator: ", ")
+    }
+    
     // MARK: - Initialization
     
     init(using dependencies: Dependencies) {
@@ -50,6 +68,7 @@ public class SessionApp: SessionAppType {
     public func presentConversationCreatingIfNeeded(
         for threadId: String,
         variant: SessionThread.Variant,
+        action: ConversationViewModel.Action = .none,
         dismissing presentingViewController: UIViewController?,
         animated: Bool
     ) {
@@ -88,6 +107,7 @@ public class SessionApp: SessionAppType {
                     threadId: threadId,
                     threadVariant: variant,
                     isMessageRequest: (threadInfo?.isMessageRequest == true),
+                    action: action,
                     dismissing: presentingViewController,
                     homeViewController: homeViewController,
                     animated: animated
@@ -99,8 +119,14 @@ public class SessionApp: SessionAppType {
     public func createNewConversation() {
         guard let homeViewController: HomeVC = self.homeViewController else { return }
         
-        let newConversationVC = NewConversationVC(using: dependencies)
-        let navigationController = StyledNavigationController(rootViewController: newConversationVC)
+        let viewController = SessionHostingViewController(
+            rootView: StartConversationScreen(using: dependencies),
+            customizedNavigationBackground: .backgroundSecondary
+        )
+        viewController.setNavBarTitle("conversationsStart".localized())
+        viewController.setUpDismissingButton(on: .right)
+        
+        let navigationController = StyledNavigationController(rootViewController: viewController)
         if UIDevice.current.isIPad {
             navigationController.modalPresentationStyle = .fullScreen
         }
@@ -110,21 +136,27 @@ public class SessionApp: SessionAppType {
     
     public func resetData(onReset: (() -> ())) {
         homeViewController = nil
-        LibSession.clearMemoryState(using: dependencies)
+        LibSession.clearLoggers()
+        dependencies.remove(cache: .libSession)
         dependencies.mutate(cache: .libSessionNetwork) {
             $0.clearSnodeCache()
             $0.suspendNetworkAccess()
         }
-        PushNotificationAPI.deleteKeys(using: dependencies)
-        Storage.resetAllStorage(using: dependencies)
+        dependencies[singleton: .storage].resetAllStorage()
         DisplayPictureManager.resetStorage(using: dependencies)
         Attachment.resetAttachmentStorage()
         dependencies[singleton: .notificationsManager].clearAllNotifications()
         try? dependencies[singleton: .keychain].removeAll()
-        Log.flush()
-
+        
         onReset()
-        exit(0)
+        Log.info("Data Reset Complete.")
+        Log.flush()
+        
+        /// Wait until the next run loop to kill the app (hoping to avoid a crash due to the connection closes
+        /// triggering logs)
+        DispatchQueue.main.async {
+            exit(0)
+        }
     }
     
     // MARK: - Internal Functions
@@ -157,6 +189,7 @@ public class SessionApp: SessionAppType {
                 db,
                 id: threadId,
                 variant: variant,
+                creationDateTimestamp: (dependencies[cache: .snodeAPI].currentOffsetTimestampMs() / 1000),
                 shouldBeVisible: nil,
                 calledFromConfig: nil,
                 using: dependencies
@@ -172,6 +205,7 @@ public class SessionApp: SessionAppType {
         threadId: String,
         threadVariant: SessionThread.Variant,
         isMessageRequest: Bool,
+        action: ConversationViewModel.Action,
         dismissing presentingViewController: UIViewController?,
         homeViewController: HomeVC,
         animated: Bool
@@ -181,8 +215,9 @@ public class SessionApp: SessionAppType {
         homeViewController.navigationController?.setViewControllers(
             [
                 homeViewController,
-                (!isMessageRequest ? nil :
-                    SessionTableViewController(viewModel: MessageRequestsViewModel(using: dependencies))
+                (isMessageRequest && action != .compose ?
+                    SessionTableViewController(viewModel: MessageRequestsViewModel(using: dependencies)) :
+                    nil
                 ),
                 ConversationVC(
                     threadId: threadId,
@@ -204,6 +239,7 @@ public protocol SessionAppType {
     func presentConversationCreatingIfNeeded(
         for threadId: String,
         variant: SessionThread.Variant,
+        action: ConversationViewModel.Action,
         dismissing presentingViewController: UIViewController?,
         animated: Bool
     )

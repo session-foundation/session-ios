@@ -57,7 +57,7 @@ final class NewClosedGroupVC: BaseVC, UITableViewDataSource, UITableViewDelegate
     
     private lazy var nameTextField: TextField = {
         let result = TextField(
-            placeholder: "vc_create_closed_group_text_field_hint".localized(),
+            placeholder: "groupNameEnter".localized(),
             usesDefaultHeight: false,
             customHeight: NewClosedGroupVC.textFieldHeight
         )
@@ -125,10 +125,7 @@ final class NewClosedGroupVC: BaseVC, UITableViewDataSource, UITableViewDelegate
         result.touchDelegate = self
         result.dataSource = self
         result.delegate = self
-        
-        if #available(iOS 15.0, *) {
-            result.sectionHeaderTopPadding = 0
-        }
+        result.sectionHeaderTopPadding = 0
         
         return result
     }()
@@ -150,7 +147,7 @@ final class NewClosedGroupVC: BaseVC, UITableViewDataSource, UITableViewDelegate
     private lazy var createGroupButton: SessionButton = {
         let result = SessionButton(style: .bordered, size: .large)
         result.translatesAutoresizingMaskIntoConstraints = false
-        result.setTitle("CREATE_GROUP_BUTTON_TITLE".localized(), for: .normal)
+        result.setTitle("create".localized(), for: .normal)
         result.addTarget(self, action: #selector(createClosedGroup), for: .touchUpInside)
         result.accessibilityIdentifier = "Create group"
         result.isAccessibilityElement = true
@@ -167,7 +164,7 @@ final class NewClosedGroupVC: BaseVC, UITableViewDataSource, UITableViewDelegate
         view.themeBackgroundColor = .newConversation_background
         
         let customTitleFontSize = Values.largeFontSize
-        setNavBarTitle("vc_create_closed_group_title".localized(), customFontSize: customTitleFontSize)
+        setNavBarTitle("groupCreate".localized(), customFontSize: customTitleFontSize)
         
         let closeButton = UIBarButtonItem(image: #imageLiteral(resourceName: "X"), style: .plain, target: self, action: #selector(close))
         closeButton.themeTintColor = .textPrimary
@@ -183,7 +180,7 @@ final class NewClosedGroupVC: BaseVC, UITableViewDataSource, UITableViewDelegate
         guard !contactProfiles.isEmpty else {
             let explanationLabel: UILabel = UILabel()
             explanationLabel.font = .systemFont(ofSize: Values.smallFontSize)
-            explanationLabel.text = "vc_create_closed_group_empty_state_message".localized()
+            explanationLabel.text = "contactNone".localized()
             explanationLabel.themeTextColor = .textSecondary
             explanationLabel.textAlignment = .center
             explanationLabel.lineBreakMode = .byWordWrapping
@@ -288,7 +285,7 @@ final class NewClosedGroupVC: BaseVC, UITableViewDataSource, UITableViewDelegate
     
     func textFieldDidEndEditing(_ textField: UITextField) {
         crossfadeLabel.text = (textField.text?.isEmpty == true ?
-            "vc_create_closed_group_title".localized() :
+            "groupCreate".localized() :
             textField.text
         )
     }
@@ -322,7 +319,7 @@ final class NewClosedGroupVC: BaseVC, UITableViewDataSource, UITableViewDelegate
                 info: ConfirmationModal.Info(
                     title: title,
                     body: .text(message),
-                    cancelTitle: "BUTTON_OK".localized(),
+                    cancelTitle: "okay".localized(),
                     cancelStyle: .alert_text
                     
                 )
@@ -333,22 +330,24 @@ final class NewClosedGroupVC: BaseVC, UITableViewDataSource, UITableViewDelegate
             let name: String = nameTextField.text?.trimmingCharacters(in: .whitespacesAndNewlines),
             name.count > 0
         else {
-            return showError(title: "vc_create_closed_group_group_name_missing_error".localized())
+            return showError(title: "groupNameEnterPlease".localized())
         }
         guard name.utf8CString.count < LibSession.sizeMaxGroupNameBytes else {
-            return showError(title: "vc_create_closed_group_group_name_too_long_error".localized())
+            return showError(title: "groupNameEnterShorter".localized())
         }
         guard selectedProfiles.count >= 1 else {
-            return showError(title: "GROUP_ERROR_NO_MEMBER_SELECTION".localized())
+            return showError(title: "groupCreateErrorNoMembers".localized())
         }
         /// Minus one because we're going to include self later
         guard selectedProfiles.count < (LibSession.sizeMaxGroupMemberCount - 1) else {
-            return showError(title: "vc_create_closed_group_too_many_group_members_error".localized())
+            return showError(title: "groupAddMemberMaximum".localized())
         }
         let selectedProfiles: [(String, Profile?)] = self.selectedProfiles
             .reduce(into: []) { result, next in result.append((next.key, next.value)) }
-        
-        ModalActivityIndicatorViewController.present(fromViewController: navigationController!) { [weak self, dependencies] _ in
+        let message: String? = (dependencies[feature: .updatedGroups] || selectedProfiles.count <= 20 ? nil : "deleteAfterLegacyGroupsGroupCreation".localized()
+        )
+
+        ModalActivityIndicatorViewController.present(fromViewController: navigationController!, message: message) { [weak self, dependencies] _ in
             let createPublisher: AnyPublisher<SessionThread, Error> = {
                 switch dependencies[feature: .updatedGroups] {
                     case true:
@@ -382,9 +381,9 @@ final class NewClosedGroupVC: BaseVC, UITableViewDataSource, UITableViewDelegate
                                 let modal: ConfirmationModal = ConfirmationModal(
                                     targetView: self?.view,
                                     info: ConfirmationModal.Info(
-                                        title: "GROUP_CREATION_ERROR_TITLE".localized(),
-                                        body: .text("GROUP_CREATION_ERROR_MESSAGE".localized()),
-                                        cancelTitle: "BUTTON_OK".localized(),
+                                        title: "groupError".localized(),
+                                        body: .text("groupErrorCreate".localized()),
+                                        cancelTitle: "okay".localized(),
                                         cancelStyle: .alert_text
                                     )
                                 )
@@ -395,6 +394,7 @@ final class NewClosedGroupVC: BaseVC, UITableViewDataSource, UITableViewDelegate
                         dependencies[singleton: .app].presentConversationCreatingIfNeeded(
                             for: thread.id,
                             variant: thread.variant,
+                            action: .none,
                             dismissing: self?.presentingViewController,
                             animated: false
                         )

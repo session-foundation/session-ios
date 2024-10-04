@@ -29,6 +29,7 @@ public struct MessageViewModel: FetchableRecordWithRowId, Decodable, Equatable, 
 
         case rowId
         case id
+        case serverHash
         case openGroupServerMessageId
         case variant
         case timestampMs
@@ -112,6 +113,7 @@ public struct MessageViewModel: FetchableRecordWithRowId, Decodable, Equatable, 
     
     public let rowId: Int64
     public let id: Int64
+    public let serverHash: String?
     public let openGroupServerMessageId: Int64?
     public let variant: Interaction.Variant
     public let timestampMs: Int64
@@ -221,6 +223,7 @@ public struct MessageViewModel: FetchableRecordWithRowId, Decodable, Equatable, 
             threadContactNameInternal: self.threadContactNameInternal,
             rowId: self.rowId,
             id: self.id,
+            serverHash: self.serverHash,
             openGroupServerMessageId: self.openGroupServerMessageId,
             variant: self.variant,
             timestampMs: self.timestampMs,
@@ -392,6 +395,7 @@ public struct MessageViewModel: FetchableRecordWithRowId, Decodable, Equatable, 
             threadContactNameInternal: self.threadContactNameInternal,
             rowId: self.rowId,
             id: self.id,
+            serverHash: self.serverHash,
             openGroupServerMessageId: self.openGroupServerMessageId,
             variant: self.variant,
             timestampMs: self.timestampMs,
@@ -494,42 +498,6 @@ public struct MessageViewModel: FetchableRecordWithRowId, Decodable, Equatable, 
             optimisticMessageId: self.optimisticMessageId
         )
     }
-    
-    // MARK: - Functions
-    
-    public func attributedBody(using dependencies: Dependencies) -> NSAttributedString? {
-        let authorDisplayName: String = Profile.displayName(
-            for: self.threadVariant,
-            id: self.authorId,
-            name: self.authorNameInternal,
-            nickname: nil,      // Folded into 'authorName' within the Query
-            suppressId: false   // Show the id next to the author name if desired
-        )
-        
-        return Interaction.attributedPreviewText(
-            variant: self.variant,
-            body: self.body,
-            threadContactDisplayName: Profile.displayName(
-                for: self.threadVariant,
-                id: self.threadId,
-                name: self.threadContactNameInternal,
-                nickname: nil,      // Folded into 'threadContactNameInternal' within the Query
-                suppressId: false   // Show the id next to the author name if desired
-            ),
-            authorDisplayName: authorDisplayName,
-            attachmentDescriptionInfo: self.attachments?.first.map { firstAttachment in
-                Attachment.DescriptionInfo(
-                    id: firstAttachment.id,
-                    variant: firstAttachment.variant,
-                    contentType: firstAttachment.contentType,
-                    sourceFilename: firstAttachment.sourceFilename
-                )
-            },
-            attachmentCount: self.attachments?.count,
-            isOpenGroupInvitation: (self.linkPreview?.variant == .openGroupInvitation),
-            using: dependencies
-        )
-    }
 }
 
 // MARK: - DisappeaingMessagesUpdateControlMessage
@@ -556,6 +524,7 @@ public extension MessageViewModel {
     }
     
     func canDoFollowingSetting() -> Bool {
+        guard self.variant == .infoDisappearingMessagesUpdate else { return false }
         guard self.authorId != self.currentUserSessionId else { return false }
         guard self.threadVariant == .contact else { return false }
         return self.messageDisappearingConfiguration() != self.threadDisappearingConfiguration()
@@ -679,6 +648,7 @@ public extension MessageViewModel {
         }()
         self.rowId = targetId
         self.id = targetId
+        self.serverHash = nil
         self.openGroupServerMessageId = nil
         self.variant = variant
         self.timestampMs = timestampMs
@@ -763,6 +733,7 @@ public extension MessageViewModel {
         
         self.rowId = MessageViewModel.optimisticUpdateId
         self.id = MessageViewModel.optimisticUpdateId
+        self.serverHash = nil
         self.openGroupServerMessageId = nil
         self.variant = .standardOutgoing
         self.timestampMs = timestampMs
@@ -898,7 +869,7 @@ public extension MessageViewModel {
             let linkPreviewAttachment: TypedTableAlias<Attachment> = TypedTableAlias(ViewModel.self, column: .linkPreviewAttachment)
             let readReceipt: TypedTableAlias<RecipientState> = TypedTableAlias(name: "readReceipt")
             
-            let numColumnsBeforeLinkedRecords: Int = 23
+            let numColumnsBeforeLinkedRecords: Int = 24
             let finalGroupSQL: SQL = (groupSQL ?? "")
             let request: SQLRequest<ViewModel> = """
                 SELECT
@@ -914,6 +885,7 @@ public extension MessageViewModel {
             
                     \(interaction[.rowId]) AS \(ViewModel.Columns.rowId),
                     \(interaction[.id]),
+                    \(interaction[.serverHash]),
                     \(interaction[.openGroupServerMessageId]),
                     \(interaction[.variant]),
                     \(interaction[.timestampMs]),

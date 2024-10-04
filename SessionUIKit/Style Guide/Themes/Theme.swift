@@ -15,10 +15,10 @@ public enum Theme: String, CaseIterable, Codable {
     
     public var title: String {
         switch self {
-            case .classicDark: return "Classic Dark"
-            case .classicLight: return "Classic Light"
-            case .oceanDark: return "Ocean Dark"
-            case .oceanLight: return "Ocean Light"
+            case .classicDark: return "appearanceThemesClassicDark".localized()
+            case .classicLight: return "appearanceThemesClassicLight".localized()
+            case .oceanDark: return "appearanceThemesOceanDark".localized()
+            case .oceanLight: return "appearanceThemesOceanLight".localized()
         }
     }
     
@@ -100,7 +100,7 @@ public protocol ThemeColors {
 // MARK: - ThemedNavigation
 
 public protocol ThemedNavigation {
-    var navigationBackground: ThemeValue { get }
+    var navigationBackground: ThemeValue? { get }
 }
 
 // MARK: - ThemeValue
@@ -176,6 +176,8 @@ public indirect enum ThemeValue: Hashable, Equatable {
     case sessionButton_destructiveBackground
     case sessionButton_destructiveHighlight
     case sessionButton_destructiveBorder
+    case sessionButton_primaryFilledText
+    case sessionButton_primaryFilledBackground
     
     // SolidButton
     case solidButton_background
@@ -192,6 +194,7 @@ public indirect enum ThemeValue: Hashable, Equatable {
     case alert_text
     case alert_background
     case alert_buttonBackground
+    case toast_background
     
     // ConversationButton
     case conversationButton_background

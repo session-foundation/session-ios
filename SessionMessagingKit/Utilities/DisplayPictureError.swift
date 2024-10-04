@@ -11,6 +11,7 @@ public enum DisplayPictureError: LocalizedError {
     case uploadFailed
     case uploadMaxFileSizeExceeded
     case invalidCall
+    case invalidFilename
     
     var localizedDescription: String {
         switch self {
@@ -20,6 +21,7 @@ public enum DisplayPictureError: LocalizedError {
             case .uploadFailed: return "Display picture upload failed."
             case .uploadMaxFileSizeExceeded: return "Maximum file size exceeded."
             case .invalidCall: return "Attempted to remove display picture using the wrong method."
+            case .invalidFilename: return "Filename would have resulted in an invalid path."
         }
     }
 }

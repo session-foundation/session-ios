@@ -10,6 +10,8 @@ import SessionUtilitiesKit
 import SessionSnodeKit
 
 class ThreadDisappearingMessagesSettingsViewModel: SessionTableViewModel, NavigationItemSource, NavigatableStateHolder, ObservableTableSource {
+    typealias TableItem = String
+    
     public let dependencies: Dependencies
     public let navigatableState: NavigatableState = NavigatableState()
     public let state: TableDataState<Section, TableItem> = TableDataState()
@@ -59,11 +61,11 @@ class ThreadDisappearingMessagesSettingsViewModel: SessionTableViewModel, Naviga
         
         var title: String? {
             switch self {
-                case .type: return "DISAPPERING_MESSAGES_TYPE_TITLE".localized()
+                case .type: return "disappearingMessagesDeleteType".localized()
                 // We need to keep these although the titles of them are the same
                 // because we need them to trigger timer section to refresh when
                 // the user selects different disappearing messages type
-                case .timerLegacy, .timerDisappearAfterSend, .timerDisappearAfterRead: return "DISAPPERING_MESSAGES_TIMER_TITLE".localized()
+                case .timerLegacy, .timerDisappearAfterSend, .timerDisappearAfterRead: return "disappearingMessagesTimer".localized()
                 case .noteToSelf: return nil
                 case .group: return nil
             }
@@ -73,35 +75,22 @@ class ThreadDisappearingMessagesSettingsViewModel: SessionTableViewModel, Naviga
         
         var footer: String? {
             switch self {
-                case .group: return "DISAPPERING_MESSAGES_GROUP_WARNING_ADMIN_ONLY".localized()
+                case .group: 
+                    return "\("disappearingMessagesDescription".localized())\n\("disappearingMessagesOnlyAdmins".localized())"
                 default: return nil
             }
         }
     }
     
-    public struct TableItem: Hashable, Differentiable {
-        private let title: String
-        
-        init(title: String) {
-            self.title = title
-        }
-    }
-    
     // MARK: - Content
     
-    let title: String = "DISAPPEARING_MESSAGES".localized()
+    let title: String = "disappearingMessages".localized()
     lazy var subtitle: String? = {
         switch (threadVariant, isNoteToSelf) {
-            case (.contact, false): return "DISAPPERING_MESSAGES_SUBTITLE_CONTACTS".localized()
-            case (.group, _): return "DISAPPERING_MESSAGES_SUBTITLE_GROUPS".localized()
+            case (.contact, false): return "disappearingMessagesDescription1".localized()
+            case (.group, _), (.legacyGroup, _): return "disappearingMessagesDisappearAfterSendDescription".localized()
             case (.community, _): return nil
-                
-            case (.legacyGroup, _), (_, true):
-                guard dependencies[feature: .updatedDisappearingMessages] else {
-                    return (isNoteToSelf ? nil : "DISAPPERING_MESSAGES_SUBTITLE_CONTACTS".localized())
-                }
-                
-                return "DISAPPERING_MESSAGES_SUBTITLE_GROUPS".localized()
+            case (_, true): return "disappearingMessagesDescription".localized()
         }
     }()
     
@@ -120,7 +109,7 @@ class ThreadDisappearingMessagesSettingsViewModel: SessionTableViewModel, Naviga
             
             return SessionButton.Info(
                 style: .bordered,
-                title: "DISAPPERING_MESSAGES_SAVE_TITLE".localized(),
+                title: "set".localized(),
                 isEnabled: true,
                 accessibility: Accessibility(
                     identifier: "Set button",
@@ -147,10 +136,13 @@ class ThreadDisappearingMessagesSettingsViewModel: SessionTableViewModel, Naviga
                         model: .type,
                         elements: [
                             SessionCell.Info(
-                                id: TableItem(title: "DISAPPEARING_MESSAGES_OFF".localized()),
-                                title: "DISAPPEARING_MESSAGES_OFF".localized(),
+                                id: "off".localized(),
+                                title: "off".localized(),
                                 trailingAccessory: .radio(
-                                    isSelected: !currentConfig.isEnabled
+                                    isSelected: !currentConfig.isEnabled,
+                                    accessibility: Accessibility(
+                                        identifier: "Off - Radio"
+                                    )
                                 ),
                                 accessibility: Accessibility(
                                     identifier: "Disable disappearing messages (Off option)",
@@ -165,49 +157,19 @@ class ThreadDisappearingMessagesSettingsViewModel: SessionTableViewModel, Naviga
                                     )
                                 }
                             ),
-                            (dependencies[feature: .updatedDisappearingMessages] ? nil :
-                                SessionCell.Info(
-                                    id: TableItem(title: "DISAPPEARING_MESSAGES_TYPE_LEGACY_TITLE".localized()),
-                                    title: "DISAPPEARING_MESSAGES_TYPE_LEGACY_TITLE".localized(),
-                                    subtitle: "DISAPPEARING_MESSAGES_TYPE_LEGACY_DESCRIPTION".localized(),
-                                    trailingAccessory: .radio(
-                                        isSelected: (
-                                            currentConfig.isEnabled &&
-                                            !dependencies[feature: .updatedDisappearingMessages]
-                                        )
-                                    ),
-                                    onTap: { [weak self, originalConfig] in
-                                        switch (originalConfig.isEnabled, originalConfig.type) {
-                                            case (true, .disappearAfterRead): self?.configSubject.send(originalConfig)
-                                            default: self?.configSubject.send(
-                                                currentConfig.with(
-                                                    isEnabled: true,
-                                                    durationSeconds: DisappearingMessagesConfiguration.DefaultDuration.legacy.seconds,
-                                                    type: .disappearAfterRead // Default for 1-1
-                                                )
-                                            )
-                                        }
-                                    }
-                                )
-                            ),
                             SessionCell.Info(
-                                id: TableItem(title: "DISAPPERING_MESSAGES_TYPE_AFTER_READ_TITLE".localized()),
-                                title: "DISAPPERING_MESSAGES_TYPE_AFTER_READ_TITLE".localized(),
-                                subtitle: "DISAPPERING_MESSAGES_TYPE_AFTER_READ_DESCRIPTION".localized(),
+                                id: "disappearingMessagesDisappearAfterRead".localized(),
+                                title: "disappearingMessagesDisappearAfterRead".localized(),
+                                subtitle: "disappearingMessagesDisappearAfterReadDescription".localized(),
                                 trailingAccessory: .radio(
                                     isSelected: (
                                         currentConfig.isEnabled &&
-                                        currentConfig.type == .disappearAfterRead &&
-                                        dependencies[feature: .updatedDisappearingMessages]
+                                        currentConfig.type == .disappearAfterRead
+                                    ),
+                                    accessibility: Accessibility(
+                                        identifier: "Disappear After Read - Radio"
                                     )
                                 ),
-                                styling: SessionCell.StyleInfo(
-                                    tintColor: (dependencies[feature: .updatedDisappearingMessages] ?
-                                        .textPrimary :
-                                        .disabled
-                                    )
-                                ),
-                                isEnabled: dependencies[feature: .updatedDisappearingMessages],
                                 accessibility: Accessibility(
                                     identifier: "Disappear after read option",
                                     label: "Disappear after read option"
@@ -226,23 +188,18 @@ class ThreadDisappearingMessagesSettingsViewModel: SessionTableViewModel, Naviga
                                 }
                             ),
                             SessionCell.Info(
-                                id: TableItem(title: "DISAPPERING_MESSAGES_TYPE_AFTER_SEND_TITLE".localized()),
-                                title: "DISAPPERING_MESSAGES_TYPE_AFTER_SEND_TITLE".localized(),
-                                subtitle: "DISAPPERING_MESSAGES_TYPE_AFTER_SEND_DESCRIPTION".localized(),
+                                id: "disappearingMessagesDisappearAfterSend".localized(),
+                                title: "disappearingMessagesDisappearAfterSend".localized(),
+                                subtitle: "disappearingMessagesDisappearAfterSendDescription".localized(),
                                 trailingAccessory: .radio(
                                     isSelected: (
                                         currentConfig.isEnabled &&
-                                        currentConfig.type == .disappearAfterSend &&
-                                        dependencies[feature: .updatedDisappearingMessages]
+                                        currentConfig.type == .disappearAfterSend
+                                    ),
+                                    accessibility: Accessibility(
+                                        identifier: "Disappear After Send - Radio"
                                     )
                                 ),
-                                styling: SessionCell.StyleInfo(
-                                    tintColor: (dependencies[feature: .updatedDisappearingMessages] ?
-                                        .textPrimary :
-                                        .disabled
-                                    )
-                                ),
-                                isEnabled: dependencies[feature: .updatedDisappearingMessages],
                                 accessibility: Accessibility(
                                     identifier: "Disappear after send option",
                                     label: "Disappear after send option"
@@ -264,32 +221,25 @@ class ThreadDisappearingMessagesSettingsViewModel: SessionTableViewModel, Naviga
                     ),
                     (!currentConfig.isEnabled ? nil :
                         SectionModel(
-                            model: {
-                                guard dependencies[feature: .updatedDisappearingMessages] else { return .timerLegacy }
-
-                                return (currentConfig.type == .disappearAfterSend ?
-                                    .timerDisappearAfterSend :
-                                    .timerDisappearAfterRead
-                                )
-                            }(),
+                            model: (currentConfig.type == .disappearAfterSend ?
+                                .timerDisappearAfterSend :
+                                .timerDisappearAfterRead
+                            ),
                             elements: DisappearingMessagesConfiguration
-                                .validDurationsSeconds({
-                                    guard dependencies[feature: .updatedDisappearingMessages] else {
-                                        return .disappearAfterSend
-                                    }
-
-                                    return (currentConfig.type ?? .disappearAfterSend)
-                                }(), using: dependencies)
+                                .validDurationsSeconds(currentConfig.type ?? .disappearAfterSend, using: dependencies)
                                 .map { duration in
                                     let title: String = duration.formatted(format: .long)
 
                                     return SessionCell.Info(
-                                        id: TableItem(title: title),
+                                        id: title,
                                         title: title,
                                         trailingAccessory: .radio(
                                             isSelected: (
                                                 currentConfig.isEnabled &&
                                                 currentConfig.durationSeconds == duration
+                                            ),
+                                            accessibility: Accessibility(
+                                                identifier: "\(title) - Radio"
                                             )
                                         ),
                                         accessibility: Accessibility(
@@ -308,19 +258,25 @@ class ThreadDisappearingMessagesSettingsViewModel: SessionTableViewModel, Naviga
                         )
                     )
                 ].compactMap { $0 }
-                
-            case (.group, _):
+            
+            case (.legacyGroup, _), (.group, _), (_, true):
                 return [
                     SectionModel(
-                        model: .group,
+                        model: (isNoteToSelf ? .noteToSelf : .group),
                         elements: [
                             SessionCell.Info(
-                                id: TableItem(title: "DISAPPEARING_MESSAGES_OFF".localized()),
-                                title: "DISAPPEARING_MESSAGES_OFF".localized(),
+                                id: "off".localized(),
+                                title: "off".localized(),
                                 trailingAccessory: .radio(
-                                    isSelected: !currentConfig.isEnabled
+                                    isSelected: !currentConfig.isEnabled,
+                                    accessibility: Accessibility(
+                                        identifier: "Off - Radio"
+                                    )
                                 ),
-                                isEnabled: (currentUserIsClosedGroupAdmin == true),
+                                isEnabled: (
+                                    isNoteToSelf ||
+                                    currentUserIsClosedGroupAdmin == true
+                                ),
                                 accessibility: Accessibility(
                                     identifier: "Disable disappearing messages (Off option)",
                                     label: "Disable disappearing messages (Off option)"
@@ -335,6 +291,7 @@ class ThreadDisappearingMessagesSettingsViewModel: SessionTableViewModel, Naviga
                                 }
                             )
                         ]
+                        .compactMap { $0 }
                         .appending(
                             contentsOf: DisappearingMessagesConfiguration
                                 .validDurationsSeconds(.disappearAfterSend, using: dependencies)
@@ -342,24 +299,23 @@ class ThreadDisappearingMessagesSettingsViewModel: SessionTableViewModel, Naviga
                                     let title: String = duration.formatted(format: .long)
 
                                     return SessionCell.Info(
-                                        id: TableItem(title: title),
+                                        id: title,
                                         title: title,
                                         trailingAccessory: .radio(
                                             isSelected: (
                                                 currentConfig.isEnabled &&
                                                 currentConfig.durationSeconds == duration
+                                            ),
+                                            accessibility: Accessibility(
+                                                identifier: "\(title) - Radio"
                                             )
                                         ),
-                                        isEnabled: (currentUserIsClosedGroupAdmin == true),
+                                        isEnabled: (isNoteToSelf || currentUserIsClosedGroupAdmin == true),
                                         accessibility: Accessibility(
                                             identifier: "Time option",
                                             label: "Time option"
                                         ),
                                         onTap: { [weak self] in
-                                            // If the new disappearing messages config feature flag isn't
-                                            // enabled then the 'isEnabled' and 'type' values are set via
-                                            // the first section so pass `nil` values to keep the existing
-                                            // setting
                                             self?.configSubject.send(
                                                 currentConfig.with(
                                                     isEnabled: true,
@@ -370,170 +326,6 @@ class ThreadDisappearingMessagesSettingsViewModel: SessionTableViewModel, Naviga
                                         }
                                     )
                                 }
-                        )
-                    )
-                ]
-
-            case (.legacyGroup, _), (_, true):
-                return [
-                    (dependencies[feature: .updatedDisappearingMessages] ? nil :
-                        SectionModel(
-                            model: .type,
-                            elements: [
-                                SessionCell.Info(
-                                    id: TableItem(title: "DISAPPEARING_MESSAGES_OFF".localized()),
-                                    title: "DISAPPEARING_MESSAGES_OFF".localized(),
-                                    trailingAccessory: .radio(
-                                        isSelected: !currentConfig.isEnabled
-                                    ),
-                                    isEnabled: (
-                                        isNoteToSelf ||
-                                        currentUserIsClosedGroupMember == true
-                                    ),
-                                    accessibility: Accessibility(
-                                        identifier: "Disable disappearing messages (Off option)",
-                                        label: "Disable disappearing messages (Off option)"
-                                    ),
-                                    onTap: { [weak self] in
-                                        self?.configSubject.send(
-                                            currentConfig.with(
-                                                isEnabled: false,
-                                                durationSeconds: DisappearingMessagesConfiguration.DefaultDuration.off.seconds
-                                            )
-                                        )
-                                    }
-                                ),
-                                SessionCell.Info(
-                                    id: TableItem(title: "DISAPPEARING_MESSAGES_TYPE_LEGACY_TITLE".localized()),
-                                    title: "DISAPPEARING_MESSAGES_TYPE_LEGACY_TITLE".localized(),
-                                    subtitle: "DISAPPEARING_MESSAGES_TYPE_LEGACY_DESCRIPTION".localized(),
-                                    trailingAccessory: .radio(
-                                        isSelected: (
-                                            currentConfig.isEnabled &&
-                                            !dependencies[feature: .updatedDisappearingMessages]
-                                        )
-                                    ),
-                                    isEnabled: (
-                                        isNoteToSelf ||
-                                        currentUserIsClosedGroupMember == true
-                                    ),
-                                    onTap: { [weak self, originalConfig] in
-                                        switch (originalConfig.isEnabled, originalConfig.type) {
-                                            case (true, .disappearAfterSend): self?.configSubject.send(originalConfig)
-                                            default: self?.configSubject.send(
-                                                currentConfig.with(
-                                                    isEnabled: true,
-                                                    durationSeconds: DisappearingMessagesConfiguration.DefaultDuration.disappearAfterSend.seconds, // Default for legscy groups
-                                                    type: .disappearAfterSend
-                                                )
-                                            )
-                                        }
-                                    }
-                                ),
-                                SessionCell.Info(
-                                    id: TableItem(title: "DISAPPERING_MESSAGES_TYPE_AFTER_SEND_TITLE".localized()),
-                                    title: "DISAPPERING_MESSAGES_TYPE_AFTER_SEND_TITLE".localized(),
-                                    subtitle: "DISAPPERING_MESSAGES_TYPE_AFTER_SEND_DESCRIPTION".localized(),
-                                    trailingAccessory: .radio(isSelected: false),
-                                    styling: SessionCell.StyleInfo(tintColor: .disabled),
-                                    isEnabled: false,
-                                    accessibility: Accessibility(
-                                        identifier: "Disappear after send option",
-                                        label: "Disappear after send option"
-                                    )
-                                )
-                            ]
-                        )
-                    ),
-                    (!dependencies[feature: .updatedDisappearingMessages] && !currentConfig.isEnabled ? nil :
-                        SectionModel(
-                            model: {
-                                guard dependencies[feature: .updatedDisappearingMessages] else {
-                                    return (currentConfig.type == .disappearAfterSend ?
-                                        .timerDisappearAfterSend :
-                                        .timerDisappearAfterRead
-                                    )
-                                }
-
-                                return (isNoteToSelf ? .noteToSelf : .group)
-                            }(),
-                            elements: [
-                                (!dependencies[feature: .updatedDisappearingMessages] ? nil :
-                                    SessionCell.Info(
-                                        id: TableItem(title: "DISAPPEARING_MESSAGES_OFF".localized()),
-                                        title: "DISAPPEARING_MESSAGES_OFF".localized(),
-                                        trailingAccessory: .radio(
-                                            isSelected: !currentConfig.isEnabled
-                                        ),
-                                        isEnabled: (
-                                            isNoteToSelf ||
-                                            currentUserIsClosedGroupMember == true
-                                        ),
-                                        accessibility: Accessibility(
-                                            identifier: "Disable disappearing messages (Off option)",
-                                            label: "Disable disappearing messages (Off option)"
-                                        ),
-                                        onTap: { [weak self] in
-                                            self?.configSubject.send(
-                                                currentConfig.with(
-                                                    isEnabled: false,
-                                                    durationSeconds: DisappearingMessagesConfiguration.DefaultDuration.off.seconds
-                                                )
-                                            )
-                                        }
-                                    )
-                                )
-                            ]
-                            .compactMap { $0 }
-                            .appending(
-                                contentsOf: DisappearingMessagesConfiguration
-                                    .validDurationsSeconds(.disappearAfterSend, using: dependencies)
-                                    .map { duration in
-                                        let title: String = duration.formatted(format: .long)
-
-                                        return SessionCell.Info(
-                                            id: TableItem(title: title),
-                                            title: title,
-                                            trailingAccessory: .radio(
-                                                isSelected: (
-                                                    currentConfig.isEnabled &&
-                                                    currentConfig.durationSeconds == duration
-                                                )
-                                            ),
-                                            isEnabled: (
-                                                isNoteToSelf ||
-                                                (
-                                                    currentUserIsClosedGroupMember == true &&
-                                                    !dependencies[feature: .updatedDisappearingMessages]
-                                                ) ||
-                                                currentUserIsClosedGroupAdmin == true
-                                            ),
-                                            accessibility: Accessibility(
-                                                identifier: "Time option",
-                                                label: "Time option"
-                                            ),
-                                            onTap: { [weak self, dependencies] in
-                                                // If the new disappearing messages config feature flag isn't
-                                                // enabled then the 'isEnabled' and 'type' values are set via
-                                                // the first section so pass `nil` values to keep the existing
-                                                // setting
-                                                self?.configSubject.send(
-                                                    currentConfig.with(
-                                                        isEnabled: (dependencies[feature: .updatedDisappearingMessages] ?
-                                                            true :
-                                                            nil
-                                                        ),
-                                                        durationSeconds: duration,
-                                                        type: (dependencies[feature: .updatedDisappearingMessages] ?
-                                                            .disappearAfterSend :
-                                                           nil
-                                                        )
-                                                    )
-                                                )
-                                            }
-                                        )
-                                    }
-                            )
                         )
                     )
                 ].compactMap { $0 }
@@ -551,6 +343,7 @@ class ThreadDisappearingMessagesSettingsViewModel: SessionTableViewModel, Naviga
         guard self.originalConfig != updatedConfig else { return }
 
         dependencies[singleton: .storage].writeAsync { [threadId, threadVariant, dependencies] db in
+            // Update the local state
             try updatedConfig.upserted(db)
             
             let currentOffsetTimestampMs: Int64 = dependencies[cache: .snodeAPI].currentOffsetTimestampMs()
@@ -565,6 +358,35 @@ class ThreadDisappearingMessagesSettingsViewModel: SessionTableViewModel, Naviga
                     serverExpirationTimestamp: nil,
                     using: dependencies
                 )
+            
+            // Update libSession
+            switch threadVariant {
+                case .contact:
+                    try LibSession.update(
+                        db,
+                        sessionId: threadId,
+                        disappearingMessagesConfig: updatedConfig,
+                        using: dependencies
+                    )
+                
+                case .legacyGroup:
+                    try LibSession.update(
+                        db,
+                        legacyGroupSessionId: threadId,
+                        disappearingConfig: updatedConfig,
+                        using: dependencies
+                    )
+                    
+                case .group:
+                    try LibSession.update(
+                        db,
+                        groupSessionId: SessionId(.group, hex: threadId),
+                        disappearingConfig: updatedConfig,
+                        using: dependencies
+                    )
+                    
+                default: break
+            }
             
             // Send a control message that the disappearing messages setting changed
             switch threadVariant {
@@ -589,15 +411,9 @@ class ThreadDisappearingMessagesSettingsViewModel: SessionTableViewModel, Naviga
                     )
                     
                 default:
-                    let duration: UInt32? = {
-                        guard !dependencies[feature: .updatedDisappearingMessages] else { return nil }
-                        return UInt32(floor(updatedConfig.isEnabled ? updatedConfig.durationSeconds : 0))
-                    }()
-
-
                     try MessageSender.send(
                         db,
-                        message: ExpirationTimerUpdate(syncTarget: nil, duration: duration)
+                        message: ExpirationTimerUpdate()
                             .with(sentTimestamp: UInt64(currentOffsetTimestampMs))
                             .with(updatedConfig),
                         interactionId: interactionId,
@@ -607,39 +423,7 @@ class ThreadDisappearingMessagesSettingsViewModel: SessionTableViewModel, Naviga
                     )
             }
         }
-        
-        // Contacts & legacy closed groups need to update the LibSession
-        dependencies[singleton: .storage].writeAsync { [threadId, threadVariant, dependencies] db in
-            switch threadVariant {
-                case .contact:
-                    try LibSession
-                        .update(
-                            db,
-                            sessionId: threadId,
-                            disappearingMessagesConfig: updatedConfig,
-                            using: dependencies
-                        )
-                
-                case .legacyGroup:
-                    try LibSession
-                        .update(
-                            db,
-                            legacyGroupSessionId: threadId,
-                            disappearingConfig: updatedConfig,
-                            using: dependencies
-                        )
-                    
-                case .group:
-                    try LibSession
-                        .update(
-                            db,
-                            groupSessionId: SessionId(.group, hex: threadId),
-                            disappearingConfig: updatedConfig,
-                            using: dependencies
-                        )
-                    
-                default: break
-            }
-        }
     }
 }
+
+extension String: Differentiable {}

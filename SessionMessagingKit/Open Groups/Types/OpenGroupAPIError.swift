@@ -4,14 +4,14 @@
 
 import Foundation
 
-public enum OpenGroupAPIError: LocalizedError {
+public enum OpenGroupAPIError: Error, CustomStringConvertible {
     case decryptionFailed
     case signingFailed
     case noPublicKey
     case invalidEmoji
     case invalidPoll
     
-    public var errorDescription: String? {
+    public var description: String {
         switch self {
             case .decryptionFailed: return "Couldn't decrypt response."
             case .signingFailed: return "Couldn't sign message."

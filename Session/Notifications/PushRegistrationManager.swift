@@ -154,14 +154,22 @@ public class PushRegistrationManager: NSObject, PKPushRegistryDelegate {
                                     .eraseToAnyPublisher()
                             }
                             
+                            // Give the original publisher another 10 seconds to complete before we timeout (we
+                            // don't want this to run forever as it could block other jobs)
                             return originalPublisher
+                                .timeout(
+                                    .seconds(10),
+                                    scheduler: DispatchQueue.global(qos: .default),
+                                    customError: { PushRegistrationError.timeout }
+                                )
+                                .eraseToAnyPublisher()
                         }
                         
                         // If we've timed out on a device known to be susceptible to failures, quit trying
                         // so the user doesn't remain indefinitely hung for no good reason.
                         return Fail(
                             error: PushRegistrationError.pushNotSupported(
-                                description: "Device configuration disallows push notifications"
+                                description: "Device configuration disallows push notifications" // stringlint:disable
                             )
                         ).eraseToAnyPublisher()
                         
@@ -257,7 +265,7 @@ public class PushRegistrationManager: NSObject, PKPushRegistryDelegate {
     // NOTE: This function MUST report an incoming call.
     public func pushRegistry(_ registry: PKPushRegistry, didReceiveIncomingPushWith payload: PKPushPayload, for type: PKPushType) {
         Log.info("[PushRegistrationManager] Receive new voip notification.")
-        Log.assert(dependencies.hasInitialised(singleton: .appContext) && dependencies[singleton: .appContext].isMainApp)
+        Log.assert(dependencies[singleton: .appContext].isMainApp)
         Log.assert(type == .voIP)
         let payload = payload.dictionaryPayload
         
@@ -266,7 +274,7 @@ public class PushRegistrationManager: NSObject, PKPushRegistryDelegate {
             let caller: String = payload["caller"] as? String,
             let timestampMs: Int64 = payload["timestamp"] as? Int64
         else {
-            SessionCallManager.reportFakeCall(info: "Missing payload data", using: dependencies)
+            SessionCallManager.reportFakeCall(info: "Missing payload data", using: dependencies) // stringlint:disable
             return
         }
         
@@ -285,7 +293,9 @@ public class PushRegistrationManager: NSObject, PKPushRegistryDelegate {
                 if let messageInfoData: Data = try? JSONEncoder(using: dependencies).encode(messageInfo) {
                    return String(data: messageInfoData, encoding: .utf8)
                 } else {
-                    return "Incoming call." // TODO: We can do better here.
+                    return "callsIncoming"
+                        .put(key: "name", value: caller)
+                        .localized()
                 }
             }()
             
@@ -294,6 +304,7 @@ public class PushRegistrationManager: NSObject, PKPushRegistryDelegate {
                 db,
                 id: caller,
                 variant: .contact,
+                creationDateTimestamp: TimeInterval(dependencies[cache: .snodeAPI].currentOffsetTimestampMs() / 1000),
                 shouldBeVisible: nil,
                 calledFromConfig: nil,
                 using: dependencies
@@ -318,7 +329,7 @@ public class PushRegistrationManager: NSObject, PKPushRegistryDelegate {
         }
         
         guard let call: SessionCall = maybeCall else {
-            SessionCallManager.reportFakeCall(info: "Could not retrieve call from database", using: dependencies)
+            SessionCallManager.reportFakeCall(info: "Could not retrieve call from database", using: dependencies) // stringlint:disable
             return
         }
         
@@ -327,7 +338,7 @@ public class PushRegistrationManager: NSObject, PKPushRegistryDelegate {
         
         call.reportIncomingCallIfNeeded { error in
             if let error = error {
-                Log.error("[Calls] Failed to report incoming call to CallKit due to error: \(error)")
+                Log.error(.calls, "Failed to report incoming call to CallKit due to error: \(error)")
             }
         }
     }

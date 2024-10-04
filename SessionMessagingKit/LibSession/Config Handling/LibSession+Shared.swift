@@ -13,6 +13,12 @@ public extension LibSession {
     enum Crypto {
         public typealias Domain = String
     }
+
+    /// A `0` `priority` value indicates visible, but not pinned
+    static let visiblePriority: Int32 = 0
+    
+    /// A negative `priority` value indicates hidden
+    static let hiddenPriority: Int32 = -1
 }
 
 internal extension LibSession {
@@ -42,12 +48,6 @@ internal extension LibSession {
         
         return !allColumnsThatTriggerConfigUpdate.isDisjoint(with: targetColumns)
     }
-    
-    /// A `0` `priority` value indicates visible, but not pinned
-    static let visiblePriority: Int32 = 0
-    
-    /// A negative `priority` value indicates hidden
-    static let hiddenPriority: Int32 = -1
     
     static func shouldBeVisible(priority: Int32) -> Bool {
         return (priority >= LibSession.visiblePriority)
@@ -85,28 +85,29 @@ internal extension LibSession {
                     try LibSessionError.throwIfNeeded(config)
 
                     // If we don't need to dump the data the we can finish early
-                    guard config.needsDump(using: dependencies) else { return config.needsPush }
+                    guard dependencies[cache: .libSession].configNeedsDump(config) else { return config.needsPush }
 
-                    try LibSession.createDump(
-                        config: config,
-                        for: variant,
-                        sessionId: sessionId,
-                        timestampMs: dependencies[cache: .snodeAPI].currentOffsetTimestampMs(),
-                        using: dependencies
-                    )?.upsert(db)
+                    try dependencies.mutate(cache: .libSession) { cache in
+                        try cache.createDump(
+                            config: config,
+                            for: variant,
+                            sessionId: sessionId,
+                            timestampMs: dependencies[cache: .snodeAPI].currentOffsetTimestampMs()
+                        )?.upsert(db)
+                    }
 
                     return config.needsPush
                 }
         }
         catch {
-            SNLog("[LibSession] Failed to update/dump updated \(variant) config data due to error: \(error)")
+            Log.error(.libSession, "Failed to update/dump updated \(variant) config data due to error: \(error)")
             throw error
         }
         
         // Make sure we need a push before scheduling one
         guard needsPush else { return }
         
-        db.afterNextTransactionNestedOnce(dedupeId: LibSession.syncDedupeId(sessionId.hexString)) { db in
+        db.afterNextTransactionNestedOnce(dedupeId: LibSession.syncDedupeId(sessionId.hexString), using: dependencies) { db in
             ConfigurationSyncJob.enqueue(db, swarmPublicKey: sessionId.hexString, using: dependencies)
         }
     }
@@ -208,8 +209,7 @@ internal extension LibSession {
                                         )
                                     }
                                 },
-                            in: config,
-                            using: dependencies
+                            in: config
                         )
                     }
                     
@@ -230,8 +230,7 @@ internal extension LibSession {
                                             .defaulting(to: LibSession.visiblePriority)
                                     )
                                 },
-                            in: config,
-                            using: dependencies
+                            in: config
                         )
                     }
                 
@@ -318,7 +317,6 @@ internal extension LibSession {
         // we just deleted then return to the home screen
         DispatchQueue.main.async {
             guard
-                dependencies.hasInitialised(singleton: .appContext),
                 let rootViewController: UIViewController = dependencies[singleton: .appContext].mainWindow?.rootViewController,
                 let topBannerController: TopBannerController = (rootViewController as? TopBannerController),
                 !topBannerController.children.isEmpty,
@@ -435,7 +433,7 @@ internal extension LibSession {
         loopCounter += 1
         
         guard loopCounter < maxLoopCount else {
-            SNLog("[LibSession] Got stuck in infinite loop processing '\(variant)' data")
+            Log.critical(.libSession, "Got stuck in infinite loop processing '\(variant)' data")
             throw LibSessionError.processingLoopLimitReached
         }
     }

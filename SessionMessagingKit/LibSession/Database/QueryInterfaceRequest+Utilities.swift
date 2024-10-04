@@ -126,7 +126,7 @@ public extension QueryInterfaceRequest where RowDecoder: FetchableRecord & Table
             // per transaction - doing it more than once is pointless)
             let userSessionId: SessionId = dependencies[cache: .general].sessionId
             
-            db.afterNextTransactionNestedOnce(dedupeId: LibSession.syncDedupeId(userSessionId.hexString)) { db in
+            db.afterNextTransactionNestedOnce(dedupeId: LibSession.syncDedupeId(userSessionId.hexString), using: dependencies) { db in
                 ConfigurationSyncJob.enqueue(db, swarmPublicKey: userSessionId.hexString, using: dependencies)
             }
         }

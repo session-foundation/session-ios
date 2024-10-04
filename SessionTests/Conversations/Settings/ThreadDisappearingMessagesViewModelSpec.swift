@@ -18,7 +18,6 @@ class ThreadDisappearingMessagesSettingsViewModelSpec: QuickSpec {
         @TestState var dependencies: TestDependencies! = TestDependencies { dependencies in
             dependencies.forceSynchronous = true
             dependencies[singleton: .scheduler] = .immediate
-            dependencies[feature: .updatedDisappearingMessages] = true
         }
         @TestState(singleton: .storage, in: dependencies) var mockStorage: Storage! = SynchronousStorage(
             customWriter: try! DatabaseQueue(),
@@ -26,20 +25,25 @@ class ThreadDisappearingMessagesSettingsViewModelSpec: QuickSpec {
                 SNUtilitiesKit.self,
                 SNSnodeKit.self,
                 SNMessagingKit.self,
-                SNUIKit.self
+                DeprecatedUIKitMigrationTarget.self
             ],
             using: dependencies,
             initialData: { db in
                 try SessionThread(
                     id: "TestId",
-                    variant: .contact
+                    variant: .contact,
+                    creationDateTimestamp: 0,
+                    using: dependencies
                 ).insert(db)
             }
         )
         @TestState(singleton: .jobRunner, in: dependencies) var mockJobRunner: MockJobRunner! = MockJobRunner(
             initialSetup: { jobRunner in
                 jobRunner
-                    .when { $0.add(.any, job: .any, dependantJob: .any, canStartJob: .any, using: .any) }
+                    .when { $0.add(.any, job: .any, dependantJob: .any, canStartJob: .any) }
+                    .thenReturn(nil)
+                jobRunner
+                    .when { $0.upsert(.any, job: .any, canStartJob: .any) }
                     .thenReturn(nil)
             }
         )
@@ -57,7 +61,7 @@ class ThreadDisappearingMessagesSettingsViewModelSpec: QuickSpec {
                 .receive(on: ImmediateScheduler.shared)
                 .sink(
                     receiveCompletion: { _ in },
-                    receiveValue: { viewModel.updateTableData($0.0) }
+                    receiveValue: { viewModel.updateTableData($0) }
                 )
         ]
         
@@ -65,7 +69,7 @@ class ThreadDisappearingMessagesSettingsViewModelSpec: QuickSpec {
         describe("a ThreadDisappearingMessagesSettingsViewModel") {
             // MARK: -- has the correct title
             it("has the correct title") {
-                expect(viewModel.title).to(equal("DISAPPEARING_MESSAGES".localized()))
+                expect(viewModel.title).to(equal("disappearingMessages".localized()))
             }
             
             // MARK: -- has the correct number of items
@@ -74,18 +78,10 @@ class ThreadDisappearingMessagesSettingsViewModelSpec: QuickSpec {
                 // Should only show one section of Disappearing Messages Type
                 expect(viewModel.tableData.count).to(equal(1))
                 
-                if dependencies[feature: .updatedDisappearingMessages] {
-                    // Off
-                    // Disappear After Read
-                    // Disappear After Send
-                    expect(viewModel.tableData.first?.elements.count).to(equal(3))
-                } else {
-                    // Off
-                    // Legacy
-                    // Disappear After Read
-                    // Disappear After Send
-                    expect(viewModel.tableData.first?.elements.count).to(equal(4))
-                }
+                // Off
+                // Disappear After Read
+                // Disappear After Send
+                expect(viewModel.tableData.first?.elements.count).to(equal(3))
             }
             
             // MARK: -- has the correct default state
@@ -95,11 +91,14 @@ class ThreadDisappearingMessagesSettingsViewModelSpec: QuickSpec {
                     .to(
                         equal(
                             SessionCell.Info(
-                                id: "DISAPPEARING_MESSAGES_OFF".localized(),
+                                id: "off".localized(),
                                 position: .top,
-                                title: "DISAPPEARING_MESSAGES_OFF".localized(),
+                                title: "off".localized(),
                                 trailingAccessory: .radio(
-                                    isSelected: true
+                                    isSelected: true,
+                                    accessibility: Accessibility(
+                                        identifier: "Off - Radio"
+                                    )
                                 ),
                                 accessibility: Accessibility(
                                     identifier: "Disable disappearing messages (Off option)",
@@ -113,14 +112,16 @@ class ThreadDisappearingMessagesSettingsViewModelSpec: QuickSpec {
                     .to(
                         equal(
                             SessionCell.Info(
-                                id: "DISAPPERING_MESSAGES_TYPE_AFTER_SEND_TITLE".localized(),
+                                id: "disappearingMessagesDisappearAfterSend".localized(),
                                 position: .bottom,
-                                title: "DISAPPERING_MESSAGES_TYPE_AFTER_SEND_TITLE".localized(),
-                                subtitle: "DISAPPERING_MESSAGES_TYPE_AFTER_SEND_DESCRIPTION".localized(),
+                                title: "disappearingMessagesDisappearAfterSend".localized(),
+                                subtitle: "disappearingMessagesDisappearAfterSendDescription".localized(),
                                 trailingAccessory: .radio(
-                                    isSelected: false
+                                    isSelected: false,
+                                    accessibility: Accessibility(
+                                        identifier: "Disappear After Send - Radio"
+                                    )
                                 ),
-                                isEnabled: dependencies[feature: .updatedDisappearingMessages],
                                 accessibility: Accessibility(
                                     identifier: "Disappear after send option",
                                     label: "Disappear after send option"
@@ -158,7 +159,7 @@ class ThreadDisappearingMessagesSettingsViewModelSpec: QuickSpec {
                         .receive(on: ImmediateScheduler.shared)
                         .sink(
                             receiveCompletion: { _ in },
-                            receiveValue: { viewModel.updateTableData($0.0) }
+                            receiveValue: { viewModel.updateTableData($0) }
                         )
                 )
                 
@@ -170,11 +171,14 @@ class ThreadDisappearingMessagesSettingsViewModelSpec: QuickSpec {
                     .to(
                         equal(
                             SessionCell.Info(
-                                id: "DISAPPEARING_MESSAGES_OFF".localized(),
+                                id: "off".localized(),
                                 position: .top,
-                                title: "DISAPPEARING_MESSAGES_OFF".localized(),
+                                title: "off".localized(),
                                 trailingAccessory: .radio(
-                                    isSelected: false
+                                    isSelected: false,
+                                    accessibility: Accessibility(
+                                        identifier: "Off - Radio"
+                                    )
                                 ),
                                 accessibility: Accessibility(
                                     identifier: "Disable disappearing messages (Off option)",
@@ -188,12 +192,15 @@ class ThreadDisappearingMessagesSettingsViewModelSpec: QuickSpec {
                     .to(
                         equal(
                             SessionCell.Info(
-                                id: "DISAPPERING_MESSAGES_TYPE_AFTER_SEND_TITLE".localized(),
+                                id: "disappearingMessagesDisappearAfterSend".localized(),
                                 position: .bottom,
-                                title: "DISAPPERING_MESSAGES_TYPE_AFTER_SEND_TITLE".localized(),
-                                subtitle: "DISAPPERING_MESSAGES_TYPE_AFTER_SEND_DESCRIPTION".localized(),
+                                title: "disappearingMessagesDisappearAfterSend".localized(),
+                                subtitle: "disappearingMessagesDisappearAfterSendDescription".localized(),
                                 trailingAccessory: .radio(
-                                    isSelected: true
+                                    isSelected: true,
+                                    accessibility: Accessibility(
+                                        identifier: "Disappear After Send - Radio"
+                                    )
                                 ),
                                 accessibility: Accessibility(
                                     identifier: "Disappear after send option",
@@ -216,7 +223,10 @@ class ThreadDisappearingMessagesSettingsViewModelSpec: QuickSpec {
                                 position: .bottom,
                                 title: title,
                                 trailingAccessory: .radio(
-                                    isSelected: true
+                                    isSelected: true,
+                                    accessibility: Accessibility(
+                                        identifier: "2 weeks - Radio"
+                                    )
                                 ),
                                 accessibility: Accessibility(
                                     identifier: "Time option",
@@ -271,7 +281,7 @@ class ThreadDisappearingMessagesSettingsViewModelSpec: QuickSpec {
                         .receive(on: ImmediateScheduler.shared)
                         .sink(
                             receiveCompletion: { _ in },
-                            receiveValue: { viewModel.updateTableData($0.0) }
+                            receiveValue: { viewModel.updateTableData($0) }
                         )
                 )
                 
@@ -284,12 +294,15 @@ class ThreadDisappearingMessagesSettingsViewModelSpec: QuickSpec {
                     .to(
                         equal(
                             SessionCell.Info(
-                                id: "DISAPPERING_MESSAGES_TYPE_AFTER_SEND_TITLE".localized(),
+                                id: "disappearingMessagesDisappearAfterSend".localized(),
                                 position: .bottom,
-                                title: "DISAPPERING_MESSAGES_TYPE_AFTER_SEND_TITLE".localized(),
-                                subtitle: "DISAPPERING_MESSAGES_TYPE_AFTER_SEND_DESCRIPTION".localized(),
+                                title: "disappearingMessagesDisappearAfterSend".localized(),
+                                subtitle: "disappearingMessagesDisappearAfterSendDescription".localized(),
                                 trailingAccessory: .radio(
-                                    isSelected: true
+                                    isSelected: true,
+                                    accessibility: Accessibility(
+                                        identifier: "Disappear After Send - Radio"
+                                    )
                                 ),
                                 accessibility: Accessibility(
                                     identifier: "Disappear after send option",
@@ -312,7 +325,10 @@ class ThreadDisappearingMessagesSettingsViewModelSpec: QuickSpec {
                                 position: .bottom,
                                 title: title,
                                 trailingAccessory: .radio(
-                                    isSelected: true
+                                    isSelected: true,
+                                    accessibility: Accessibility(
+                                        identifier: "2 weeks - Radio"
+                                    )
                                 ),
                                 accessibility: Accessibility(
                                     identifier: "Time option",
@@ -360,7 +376,7 @@ class ThreadDisappearingMessagesSettingsViewModelSpec: QuickSpec {
                             equal(
                                 SessionButton.Info(
                                     style: .bordered,
-                                    title: "DISAPPERING_MESSAGES_SAVE_TITLE".localized(),
+                                    title: "set".localized(),
                                     isEnabled: true,
                                     accessibility: Accessibility(
                                         identifier: "Set button",

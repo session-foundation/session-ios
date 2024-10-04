@@ -36,10 +36,9 @@ internal extension LibSessionCacheType {
     func handleContactsUpdate(
         _ db: Database,
         in config: LibSession.Config?,
-        serverTimestampMs: Int64,
-        using dependencies: Dependencies
+        serverTimestampMs: Int64
     ) throws {
-        guard config.needsDump(using: dependencies) else { return }
+        guard configNeedsDump(config) else { return }
         guard case .object(let conf) = config else { throw LibSessionError.invalidConfigObject }
         
         // The current users contact data is handled separately so exclude it if it's present (as that's
@@ -188,12 +187,8 @@ internal extension LibSessionCacheType {
                 let localConfig: DisappearingMessagesConfiguration = try DisappearingMessagesConfiguration
                     .fetchOne(db, id: sessionId)
                     .defaulting(to: DisappearingMessagesConfiguration.defaultWith(sessionId))
-                let isValid: Bool = (dependencies[feature: .updatedDisappearingMessages] ?
-                    data.config.isValidV2Config() :
-                    true
-                )
                 
-                if isValid && data.config != localConfig {
+                if data.config.isValidV2Config() && data.config != localConfig {
                     try data.config
                         .saved(db)
                         .clearUnrelatedControlMessages(
@@ -337,22 +332,24 @@ internal extension LibSession {
                 // Update the profile data (if there is one - users we have sent a message request to may
                 // not have profile info in certain situations)
                 if let updatedProfile: Profile = info.profile {
-                    let oldAvatarUrl: String? = String(libSessionVal: contact.profile_pic.url)
-                    let oldAvatarKey: Data? = Data(
-                        libSessionVal: contact.profile_pic.key,
-                        count: DisplayPictureManager.aes256KeyByteLength
-                    )
+                    let oldAvatarUrl: String? = contact.get(\.profile_pic.url)
+                    let oldAvatarKey: Data? = contact.get(\.profile_pic.key)
                     
-                    contact.name = updatedProfile.name.toLibSession()
-                    contact.nickname = updatedProfile.nickname.toLibSession()
-                    contact.profile_pic.url = updatedProfile.profilePictureUrl.toLibSession()
-                    contact.profile_pic.key = updatedProfile.profileEncryptionKey.toLibSession()
+                    contact.set(\.name, to: updatedProfile.name)
+                    contact.set(\.nickname, to: updatedProfile.nickname)
+                    contact.set(\.profile_pic.url, to: updatedProfile.profilePictureUrl)
+                    contact.set(\.profile_pic.key, to: updatedProfile.profileEncryptionKey)
                     
                     // Attempts retrieval of the profile picture (will schedule a download if
                     // needed via a throttled subscription on another thread to prevent blocking)
+                    //
+                    // Note: Only trigger the avatar download if we are in the main app (don't
+                    // want the extensions to trigger this as it can clog up their networking)
                     if
-                        oldAvatarUrl != (updatedProfile.profilePictureUrl ?? "") ||
-                        oldAvatarKey != (updatedProfile.profileEncryptionKey ?? Data(repeating: 0, count: DisplayPictureManager.aes256KeyByteLength))
+                        dependencies[singleton: .appContext].isMainApp && (
+                            oldAvatarUrl != (updatedProfile.profilePictureUrl ?? "") ||
+                            oldAvatarKey != (updatedProfile.profileEncryptionKey ?? Data(repeating: 0, count: DisplayPictureManager.aes256KeyByteLength))
+                        )
                     {
                         DisplayPictureManager.displayPicture(owner: .user(updatedProfile), using: dependencies)
                     }
@@ -419,7 +416,7 @@ internal extension LibSession {
                     guard
                         var cContactId: [CChar] = contactData.id.cString(using: .utf8),
                         contacts_get(conf, &contact, &cContactId),
-                        String(libSessionVal: contact.name, nullIfEmpty: true) != nil
+                        contact.get(\.name, nullIfEmpty: true) != nil
                     else {
                         LibSessionError.clear(conf)
                         return contactData.id
@@ -741,10 +738,7 @@ private extension LibSession {
         while !contacts_iterator_done(contactIterator, &contact) {
             try LibSession.checkLoopLimitReached(&infiniteLoopGuard, for: .contacts)
             
-            let contactId: String = String(cString: withUnsafeBytes(of: contact.session_id) { [UInt8]($0) }
-                .map { CChar($0) }
-                .nullTerminated()
-            )
+            let contactId: String = contact.get(\.session_id)
             let contactResult: Contact = Contact(
                 id: contactId,
                 isApproved: contact.approved,
@@ -752,20 +746,15 @@ private extension LibSession {
                 didApproveMe: contact.approved_me,
                 using: dependencies
             )
-            let profilePictureUrl: String? = String(libSessionVal: contact.profile_pic.url, nullIfEmpty: true)
+            let profilePictureUrl: String? = contact.get(\.profile_pic.url, nullIfEmpty: true)
             let profileResult: Profile = Profile(
                 id: contactId,
-                name: String(libSessionVal: contact.name),
-                lastNameUpdate: TimeInterval(Double(serverTimestampMs) / 1000),
-                nickname: String(libSessionVal: contact.nickname, nullIfEmpty: true),
+                name: contact.get(\.name),
+                lastNameUpdate: (TimeInterval(serverTimestampMs) / 1000),
+                nickname: contact.get(\.nickname, nullIfEmpty: true),
                 profilePictureUrl: profilePictureUrl,
-                profileEncryptionKey: (profilePictureUrl == nil ? nil :
-                    Data(
-                        libSessionVal: contact.profile_pic.key,
-                        count: DisplayPictureManager.aes256KeyByteLength
-                    )
-                ),
-                lastProfilePictureUpdate: TimeInterval(Double(serverTimestampMs) / 1000)
+                profileEncryptionKey: (profilePictureUrl == nil ? nil : contact.get(\.profile_pic.key)),
+                lastProfilePictureUpdate: (TimeInterval(serverTimestampMs) / 1000)
             )
             let configResult: DisappearingMessagesConfiguration = DisappearingMessagesConfiguration(
                 threadId: contactId,
@@ -788,3 +777,7 @@ private extension LibSession {
         return result
     }
 }
+
+// MARK: - C Conformance
+
+extension contacts_contact: CAccessible & CMutable {}

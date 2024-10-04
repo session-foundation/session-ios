@@ -7,46 +7,74 @@ import SessionUtilitiesKit
 
 @testable import SessionMessagingKit
 
+extension PollerDestination: Mocked { static var mock: PollerDestination { .swarm(TestConstants.publicKey) } }
+
 class MockPoller: Mock<PollerType>, PollerType {
-    func start(using dependencies: Dependencies) {
-        mockNoReturn(untrackedArgs: [dependencies])
+    typealias PollResponse = Void
+    
+    var pollerQueue: DispatchQueue { DispatchQueue.main }
+    var pollerName: String { mock() }
+    var pollerDestination: PollerDestination { mock() }
+    var logStartAndStopCalls: Bool { mock() }
+    var receivedPollResponse: AnyPublisher<Void, Never> { mock() }
+    var isPolling: Bool {
+        get { mock() }
+        set { mockNoReturn(args: [newValue]) }
+    }
+    var pollCount: Int {
+        get { mock() }
+        set { mockNoReturn(args: [newValue]) }
+    }
+    var failureCount: Int {
+        get { mock() }
+        set { mockNoReturn(args: [newValue]) }
+    }
+    var lastPollStart: TimeInterval {
+        get { mock() }
+        set { mockNoReturn(args: [newValue]) }
+    }
+    var cancellable: AnyCancellable? {
+        get { mock() }
+        set { mockNoReturn(args: [newValue]) }
     }
     
-    func startIfNeeded(for publicKey: String, using dependencies: Dependencies) {
-        mockNoReturn(args: [publicKey], untrackedArgs: [dependencies])
-    }
-    
-    func stopAllPollers() {
-        mockNoReturn(args: [])
-    }
-    
-    func stopPolling(for publicKey: String) {
-        mockNoReturn(args: [publicKey])
-    }
-    
-    func poll(
+    required init(
+        pollerName: String,
+        pollerQueue: DispatchQueue,
+        pollerDestination: PollerDestination,
+        pollerDrainBehaviour: SwarmDrainBehaviour,
         namespaces: [SnodeAPI.Namespace],
-        for publicKey: String,
-        calledFromBackgroundPoller: Bool,
-        isBackgroundPollValid: @escaping () -> Bool,
-        drainBehaviour: Atomic<SwarmDrainBehaviour>,
+        failureCount: Int,
+        shouldStoreMessages: Bool,
+        logStartAndStopCalls: Bool,
+        customAuthMethod: (any AuthenticationMethod)?,
         using dependencies: Dependencies
-    ) -> AnyPublisher<[ProcessedMessage], Error> {
-        mock(args: [
-            namespaces,
-            publicKey,
-            calledFromBackgroundPoller,
-            isBackgroundPollValid,
-            drainBehaviour,
-            dependencies
-        ])
+    ) {
+        super.init()
+        
+        mockNoReturn(
+            args: [
+                pollerName,
+                pollerQueue,
+                pollerDestination,
+                pollerDrainBehaviour,
+                namespaces,
+                failureCount,
+                shouldStoreMessages,
+                logStartAndStopCalls,
+                customAuthMethod
+            ],
+            untrackedArgs: [dependencies]
+        )
     }
     
-    func afterNextPoll(
-        for publicKey: String,
-        closure: @escaping ([ProcessedMessage]) -> ()
-    ) {
-        mockNoReturn(args: [publicKey], untrackedArgs: [closure])
-        closure([])
+    internal required init(functionHandler: MockFunctionHandler? = nil, initialSetup: ((Mock<any PollerType>) -> ())? = nil) {
+        super.init(functionHandler: functionHandler, initialSetup: initialSetup)
     }
+    
+    func startIfNeeded() { mockNoReturn() }
+    func stop() { mockNoReturn() }
+    func poll(forceSynchronousProcessing: Bool) -> AnyPublisher<PollResult, Error> { mock(args: [forceSynchronousProcessing]) }
+    func nextPollDelay() -> TimeInterval { mock() }
+    func handlePollError(_ error: Error, _ lastError: Error?) -> PollerErrorResponse { mock(args: [error, lastError]) }
 }

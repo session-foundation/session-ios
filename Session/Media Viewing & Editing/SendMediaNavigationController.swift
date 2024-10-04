@@ -155,7 +155,7 @@ class SendMediaNavigationController: UINavigationController {
     }
 
     private func didTapMediaLibraryModeButton() {
-        Permissions.requestLibraryPermissionIfNeeded(using: dependencies) { [weak self] in
+        Permissions.requestLibraryPermissionIfNeeded(isSavingMedia: false, using: dependencies) { [weak self] in
             DispatchQueue.main.async {
                 self?.fadeTo(viewControllers: ((self?.mediaLibraryViewController).map { [$0] } ?? []))
             }
@@ -250,23 +250,7 @@ class SendMediaNavigationController: UINavigationController {
     }
 
     private func didRequestExit() {
-        guard attachmentDraftCollection.count > 0 else {
-            self.sendMediaNavDelegate?.sendMediaNavDidCancel(self)
-            return
-        }
-        
-        let modal: ConfirmationModal = ConfirmationModal(
-            info: ConfirmationModal.Info(
-                title: "SEND_MEDIA_ABANDON_TITLE".localized(),
-                confirmTitle: "SEND_MEDIA_CONFIRM_ABANDON_ALBUM".localized(),
-                confirmStyle: .danger,
-                cancelStyle: .alert_text,
-                onConfirm: { [weak self] _ in
-                    self?.sendMediaNavDelegate?.sendMediaNavDidCancel(self)
-                }
-            )
-        )
-        self.present(modal, animated: true)
+        self.sendMediaNavDelegate?.sendMediaNavDidCancel(self)
     }
 }
 
@@ -310,8 +294,8 @@ extension SendMediaNavigationController: PhotoCaptureViewControllerDelegate {
             if !pushApprovalViewController() {
                 let modal: ConfirmationModal = ConfirmationModal(
                     info: ConfirmationModal.Info(
-                        title: "IMAGE_PICKER_FAILED_TO_PROCESS_ATTACHMENTS".localized(),
-                        cancelTitle: "BUTTON_OK".localized(),
+                        title: "attachmentsErrorMediaSelection".localized(),
+                        cancelTitle: "okay".localized(),
                         cancelStyle: .alert_text
                     )
                 )
@@ -362,8 +346,8 @@ extension SendMediaNavigationController: ImagePickerGridControllerDelegate {
                                     let modal: ConfirmationModal = ConfirmationModal(
                                         targetView: self?.view,
                                         info: ConfirmationModal.Info(
-                                            title: "IMAGE_PICKER_FAILED_TO_PROCESS_ATTACHMENTS".localized(),
-                                            cancelTitle: "BUTTON_OK".localized(),
+                                            title: "attachmentsErrorMediaSelection".localized(),
+                                            cancelTitle: "okay".localized(),
                                             cancelStyle: .alert_text
                                         )
                                     )
@@ -379,8 +363,8 @@ extension SendMediaNavigationController: ImagePickerGridControllerDelegate {
                             guard self?.pushApprovalViewController() == true else {
                                 let modal: ConfirmationModal = ConfirmationModal(
                                     info: ConfirmationModal.Info(
-                                        title: "IMAGE_PICKER_FAILED_TO_PROCESS_ATTACHMENTS".localized(),
-                                        cancelTitle: "BUTTON_OK".localized(),
+                                        title: "attachmentsErrorMediaSelection".localized(),
+                                        cancelTitle: "okay".localized(),
                                         cancelStyle: .alert_text
                                     )
                                 )
@@ -430,8 +414,8 @@ extension SendMediaNavigationController: ImagePickerGridControllerDelegate {
         let modal: ConfirmationModal = ConfirmationModal(
             targetView: self.view,
             info: ConfirmationModal.Info(
-                title: "IMAGE_PICKER_FAILED_TO_PROCESS_ATTACHMENTS".localized(),
-                cancelTitle: "BUTTON_OK".localized(),
+                title: "attachmentsErrorMediaSelection".localized(),
+                cancelTitle: "okay".localized(),
                 cancelStyle: .alert_text
             )
         )
@@ -715,6 +699,7 @@ private class DoneButton: UIView {
     func updateCount() {
         guard let delegate = delegate else { return }
 
+        badge.themeBackgroundColor = (delegate.doneButtonCount > 0 ? .primary : .disabled)
         badgeLabel.text = numberFormatter.string(for: delegate.doneButtonCount)
     }
     
@@ -753,11 +738,14 @@ private class DoneButton: UIView {
     }
 
     @objc func didTap(tapGesture: UITapGestureRecognizer) {
+        guard (delegate?.doneButtonCount ?? 0) > 0 else { return }
+        
         delegate?.doneButtonWasTapped(self)
     }
     
     override func touchesBegan(_ touches: Set<UITouch>, with event: UIEvent?) {
         guard
+            (delegate?.doneButtonCount ?? 0) > 0,
             isUserInteractionEnabled,
             let location: CGPoint = touches.first?.location(in: self),
             bounds.contains(location)

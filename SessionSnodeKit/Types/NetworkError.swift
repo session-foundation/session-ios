@@ -8,6 +8,7 @@ public enum NetworkError: Error, Equatable, CustomStringConvertible {
     case invalidState
     case invalidURL
     case invalidPreparedRequest
+    case forbidden
     case notFound
     case parsingFailed
     case invalidResponse
@@ -19,7 +20,7 @@ public enum NetworkError: Error, Equatable, CustomStringConvertible {
     case gatewayTimeout
     case badRequest(error: String, rawData: Data?)
     case requestFailed(error: String, rawData: Data?)
-    case timeout
+    case timeout(error: String, rawData: Data?)
     case suspended
     case unknown
     
@@ -28,6 +29,7 @@ public enum NetworkError: Error, Equatable, CustomStringConvertible {
             case .invalidState: return "The network is in an invalid state (NetworkError.invalidState)."
             case .invalidURL: return "Invalid URL (NetworkError.invalidURL)."
             case .invalidPreparedRequest: return "Invalid PreparedRequest provided (NetworkError.invalidPreparedRequest)."
+            case .forbidden: return "Forbidden (NetworkError.forbidden)."
             case .notFound: return "Not Found (NetworkError.notFound)."
             case .parsingFailed: return "Invalid response (NetworkError.parsingFailed)."
             case .invalidResponse: return "Invalid response (NetworkError.invalidResponse)."
@@ -38,7 +40,7 @@ public enum NetworkError: Error, Equatable, CustomStringConvertible {
             case .serviceUnavailable: return "Service unavailable (NetworkError.serviceUnavailable)."
             case .gatewayTimeout: return "Gateway timeout (NetworkError.gatewayTimeout)."
             case .badRequest(let error, _), .requestFailed(let error, _): return error
-            case .timeout: return "The request timed out (NetworkError.timeout)."
+            case .timeout(let error, _): return "The request timed out with error: \(error) (NetworkError.timeout)."
             case .suspended: return "Network requests are suspended (NetworkError.suspended)."
             case .unknown: return "An unknown error occurred (NetworkError.unknown)."
         }

@@ -30,20 +30,20 @@ extension MessageReceiver {
             try Profile.updateIfNeeded(
                 db,
                 publicKey: sender,
-                name: profile.displayName,
-                blocksCommunityMessageRequests: profile.blocksCommunityMessageRequests,
+                displayNameUpdate: .contactUpdate(profile.displayName),
                 displayPictureUpdate: {
                     guard
                         let profilePictureUrl: String = profile.profilePictureUrl,
                         let profileKey: Data = profile.profileKey
-                    else { return .remove }
+                    else { return .contactRemove }
                     
-                    return .updateTo(
+                    return .contactUpdateTo(
                         url: profilePictureUrl,
                         key: profileKey,
                         fileName: nil
                     )
                 }(),
+                blocksCommunityMessageRequests: profile.blocksCommunityMessageRequests,
                 sentTimestamp: messageSentTimestamp,
                 calledFromConfig: nil,
                 using: dependencies
@@ -72,6 +72,7 @@ extension MessageReceiver {
             db,
             id: threadId,
             variant: threadVariant,
+            creationDateTimestamp: messageSentTimestamp,
             shouldBeVisible: nil,
             calledFromConfig: nil,
             using: dependencies

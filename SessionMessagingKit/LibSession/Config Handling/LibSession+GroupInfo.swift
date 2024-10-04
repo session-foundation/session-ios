@@ -37,10 +37,9 @@ internal extension LibSessionCacheType {
         _ db: Database,
         in config: LibSession.Config?,
         groupSessionId: SessionId,
-        serverTimestampMs: Int64,
-        using dependencies: Dependencies
+        serverTimestampMs: Int64
     ) throws {
-        guard config.needsDump(using: dependencies) else { return }
+        guard configNeedsDump(config) else { return }
         guard case .object(let conf) = config else { throw LibSessionError.invalidConfigObject }
         
         // If the group is destroyed then remove the group date (want to keep the group itself around because
@@ -72,13 +71,8 @@ internal extension LibSessionCacheType {
         // The `displayPic.key` can contain junk data so if the `displayPictureUrl` is null then just
         // set the `displayPictureKey` to null as well
         let displayPic: user_profile_pic = groups_info_get_pic(conf)
-        let displayPictureUrl: String? = String(libSessionVal: displayPic.url, nullIfEmpty: true)
-        let displayPictureKey: Data? = (displayPictureUrl == nil ? nil :
-            Data(
-                libSessionVal: displayPic.key,
-                count: DisplayPictureManager.aes256KeyByteLength
-            )
-        )
+        let displayPictureUrl: String? = displayPic.get(\.url, nullIfEmpty: true)
+        let displayPictureKey: Data? = (displayPictureUrl == nil ? nil : displayPic.get(\.key, nullIfEmpty: true))
 
         // Update the group name
         let existingGroup: ClosedGroup? = try? ClosedGroup
@@ -195,7 +189,7 @@ internal extension LibSessionCacheType {
                 .deleteAll(db)
             
             if deletionCount > 0 {
-                SNLog("[LibSession] Deleted \(deletionCount) message\(plural: deletionCount) from \(groupSessionId.hexString) due to 'delete_before' value.")
+                Log.info(.libSession, "Deleted \(deletionCount) message(s) from \(groupSessionId.hexString) due to 'delete_before' value.")
             }
         }
         
@@ -223,7 +217,7 @@ internal extension LibSessionCacheType {
                 .deleteAll(db)
             
             if deletionCount > 0 {
-                SNLog("[LibSession] Deleted \(deletionCount) message\(plural: deletionCount) with attachments from \(groupSessionId.hexString) due to 'attach_delete_before' value.")
+                Log.info(.libSession, "Deleted \(deletionCount) message(s) with attachments from \(groupSessionId.hexString) due to 'attach_delete_before' value.")
                 
                 // Schedule a grabage collection job to clean up any now-orphaned attachment files
                 dependencies[singleton: .jobRunner].add(
@@ -302,8 +296,8 @@ internal extension LibSession {
                 
                 // Either assign the updated display pic, or sent a blank pic (to remove the current one)
                 var displayPic: user_profile_pic = user_profile_pic()
-                displayPic.url = group.displayPictureUrl.toLibSession()
-                displayPic.key = group.displayPictureEncryptionKey.toLibSession()
+                displayPic.set(\.url, to: group.displayPictureUrl)
+                displayPic.set(\.key, to: group.displayPictureEncryptionKey)
                 groups_info_set_pic(conf, displayPic)
             }
         }

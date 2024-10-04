@@ -55,7 +55,7 @@ public extension Crypto.Generator {
     static func x25519KeyPair() -> Crypto.Generator<KeyPair> {
         return Crypto.Generator<KeyPair>(id: "x25519KeyPair") { () -> KeyPair in
             var pubkey: [UInt8] = [UInt8](repeating: 0, count: 32)
-            var seckey: [UInt8] = [UInt8](repeating: 0, count: 64)
+            var seckey: [UInt8] = [UInt8](repeating: 0, count: 32)
             
             guard session_curve25519_key_pair(&pubkey, &seckey) else { throw CryptoError.keyGenerationFailed }
             

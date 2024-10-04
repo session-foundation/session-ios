@@ -29,7 +29,9 @@ final class SAEScreenLockViewController: ScreenLockViewController {
     private lazy var titleLabel: UILabel = {
         let titleLabel: UILabel = UILabel()
         titleLabel.font = UIFont.boldSystemFont(ofSize: Values.veryLargeFontSize)
-        titleLabel.text = "vc_share_title".localized()
+        titleLabel.text = "shareToSession"
+            .put(key: "app_name", value: Constants.app_name)
+            .localized()
         titleLabel.themeTextColor = .textPrimary
         
         return titleLabel
@@ -119,7 +121,7 @@ final class SAEScreenLockViewController: ScreenLockViewController {
                 
                 self?.isShowingAuthUI = false
                 self?.ensureUI()
-                self?.showScreenLockFailureAlert(message: error.localizedDescription)
+                self?.showScreenLockFailureAlert(message: "\(error)")
             },
             unexpectedFailure: { [weak self] error in
                 Log.assertOnMainThread()
@@ -156,9 +158,9 @@ final class SAEScreenLockViewController: ScreenLockViewController {
         let modal: ConfirmationModal = ConfirmationModal(
             targetView: self.view,
             info: ConfirmationModal.Info(
-                title: "SCREEN_LOCK_UNLOCK_FAILED".localized(),
+                title: "authenticateFailed".localized(),
                 body: .text(message),
-                cancelTitle: "BUTTON_OK".localized(),
+                cancelTitle: "okay".localized(),
                 cancelStyle: .alert_text,
                 afterClosed: { [weak self] in self?.ensureUI() } // After the alert, update the UI
             )

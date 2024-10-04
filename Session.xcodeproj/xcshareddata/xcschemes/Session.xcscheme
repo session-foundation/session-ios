@@ -133,7 +133,7 @@
       </CodeCoverageTargets>
       <TestPlans>
          <TestPlanReference
-            reference = "container:SessionTests/_Session.xctestplan"
+            reference = "container:SessionTests/Session.xctestplan"
             default = "YES">
          </TestPlanReference>
       </TestPlans>
@@ -240,6 +240,11 @@
          <EnvironmentVariable
             key = "DYLD_PRINT_WARNINGS"
             value = "1"
+            isEnabled = "YES">
+         </EnvironmentVariable>
+         <EnvironmentVariable
+            key = "IDEPreferLogStreaming"
+            value = "YES"
             isEnabled = "YES">
          </EnvironmentVariable>
       </EnvironmentVariables>

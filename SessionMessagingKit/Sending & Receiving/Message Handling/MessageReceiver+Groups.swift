@@ -119,20 +119,20 @@ extension MessageReceiver {
             try Profile.updateIfNeeded(
                 db,
                 publicKey: sender,
-                name: profile.displayName,
-                blocksCommunityMessageRequests: profile.blocksCommunityMessageRequests,
+                displayNameUpdate: .contactUpdate(profile.displayName),
                 displayPictureUpdate: {
                     guard
                         let profilePictureUrl: String = profile.profilePictureUrl,
                         let profileKey: Data = profile.profileKey
-                    else { return .remove }
+                    else { return .contactRemove }
                     
-                    return .updateTo(
+                    return .contactUpdateTo(
                         url: profilePictureUrl,
                         key: profileKey,
                         fileName: nil
                     )
                 }(),
+                blocksCommunityMessageRequests: profile.blocksCommunityMessageRequests,
                 sentTimestamp: TimeInterval(Double(sentTimestampMs) / 1000),
                 calledFromConfig: nil,
                 using: dependencies
@@ -164,12 +164,13 @@ extension MessageReceiver {
         cacheToLoadStateInto: LibSessionCacheType?,
         config: LibSession.Config?,
         using dependencies: Dependencies
-    ) throws -> AnyPublisher<Poller.PollResult, Never> {
+    ) throws -> AnyPublisher<GroupPoller.PollResponse, Never> {
         // Create the group
         try SessionThread.fetchOrCreate(
             db,
             id: groupSessionId,
             variant: .group,
+            creationDateTimestamp: joinedAt,
             shouldBeVisible: true,
             calledFromConfig: configTriggeringChange,
             using: dependencies
@@ -211,7 +212,7 @@ extension MessageReceiver {
         }()
         
         /// If the group wasn't already approved, is not in the invite state and the user hasn't been kicked from it then handle the approval process
-        guard !groupAlreadyApproved && !invited && !wasKickedFromGroup else { return Just(([], [])).eraseToAnyPublisher() }
+        guard !groupAlreadyApproved && !invited && !wasKickedFromGroup else { return Just([]).eraseToAnyPublisher() }
         
         return try ClosedGroup.approveGroup(
             db,
@@ -242,20 +243,20 @@ extension MessageReceiver {
             try Profile.updateIfNeeded(
                 db,
                 publicKey: sender,
-                name: profile.displayName,
-                blocksCommunityMessageRequests: profile.blocksCommunityMessageRequests,
+                displayNameUpdate: .contactUpdate(profile.displayName),
                 displayPictureUpdate: {
                     guard
                         let profilePictureUrl: String = profile.profilePictureUrl,
                         let profileKey: Data = profile.profileKey
-                    else { return .remove }
+                    else { return .contactRemove }
                     
-                    return .updateTo(
+                    return .contactUpdateTo(
                         url: profilePictureUrl,
                         key: profileKey,
                         fileName: nil
                     )
                 }(),
+                blocksCommunityMessageRequests: profile.blocksCommunityMessageRequests,
                 sentTimestamp: TimeInterval(Double(sentTimestampMs) / 1000),
                 calledFromConfig: nil,
                 using: dependencies
@@ -285,8 +286,8 @@ extension MessageReceiver {
         // so don't bother trying
         guard !groupInInvitedState else { return }
         
-        // Actually update the group state to indicate the promotion was accepted
-        // Load the admin key into libSession
+        // Load the admin key into libSession (the users member role and status will be updated after
+        // receiving the GROUP_MEMBERS config message)
         try LibSession.loadAdminKey(
             db,
             groupIdentitySeed: message.groupIdentitySeed,
@@ -425,36 +426,46 @@ extension MessageReceiver {
         
         // Add a record of the specific change to the conversation (the actual change is handled via
         // config messages so these are only for record purposes)
-        _ = try Interaction(
-            threadId: groupSessionId.hexString,
-            threadVariant: .group,
-            authorId: sender,
-            variant: .infoGroupMembersUpdated,
-            body: {
-                switch message.changeType {
-                    case .added:
-                        return ClosedGroup.MessageInfo
-                            .addedUsers(
-                                hasCurrentUser: message.memberSessionIds.contains(userSessionId.hexString),
-                                names: names,
-                                historyShared: message.historyShared
-                            )
-                            .infoString(using: dependencies)
-                        
-                    case .removed:
-                        return ClosedGroup.MessageInfo
-                            .removedUsers(names: names)
-                            .infoString(using: dependencies)
-                        
-                    case .promoted:
-                        return ClosedGroup.MessageInfo
-                            .promotedUsers(names: names)
-                            .infoString(using: dependencies)
-                }
-            }(),
-            timestampMs: Int64(sentTimestampMs),
-            using: dependencies
-        ).inserted(db)
+        let messageContainsCurrentUser: Bool = message.memberSessionIds.contains(userSessionId.hexString)
+        let messageInfo: ClosedGroup.MessageInfo = {
+            switch message.changeType {
+                case .added:
+                    return ClosedGroup.MessageInfo
+                        .addedUsers(
+                            hasCurrentUser: messageContainsCurrentUser,
+                            names: names,
+                            historyShared: message.historyShared
+                        )
+                    
+                case .removed:
+                    return ClosedGroup.MessageInfo
+                        .removedUsers(
+                            hasCurrentUser: messageContainsCurrentUser,
+                            names: names
+                        )
+                    
+                case .promoted:
+                    return ClosedGroup.MessageInfo
+                        .promotedUsers(
+                            hasCurrentUser: messageContainsCurrentUser,
+                            names: names
+                        )
+            }
+        }()
+        
+        switch messageInfo.infoString(using: dependencies) {
+            case .none: Log.warn(.messageReceiver, "Failed to encode member change info string.")
+            case .some(let messageBody):
+                _ = try Interaction(
+                    threadId: groupSessionId.hexString,
+                    threadVariant: .group,
+                    authorId: sender,
+                    variant: .infoGroupMembersUpdated,
+                    body: messageBody,
+                    timestampMs: Int64(sentTimestampMs),
+                    using: dependencies
+                ).inserted(db)
+        }
     }
     
     private static func handleGroupMemberLeft(
@@ -476,7 +487,7 @@ extension MessageReceiver {
         else { throw MessageReceiverError.invalidMessage }
         
         // Trigger this removal in a separate process because it requires a number of requests to be made
-        db.afterNextTransactionNested { _ in
+        db.afterNextTransactionNested(using: dependencies) { _ in
             MessageSender
                 .removeGroupMembers(
                     groupSessionId: groupSessionId.hexString,
@@ -511,6 +522,7 @@ extension MessageReceiver {
             variant: .infoGroupMembersUpdated,
             body: ClosedGroup.MessageInfo
                 .memberLeft(
+                    wasCurrentUser: (sender == dependencies[cache: .general].sessionId.hexString),
                     name: (
                         (try? Profile.fetchOne(db, id: sender)?.displayName(for: .group)) ??
                         Profile.truncated(id: sender, truncating: .middle)
@@ -539,20 +551,20 @@ extension MessageReceiver {
             try Profile.updateIfNeeded(
                 db,
                 publicKey: sender,
-                name: profile.displayName,
-                blocksCommunityMessageRequests: profile.blocksCommunityMessageRequests,
+                displayNameUpdate: .contactUpdate(profile.displayName),
                 displayPictureUpdate: {
                     guard
                         let profilePictureUrl: String = profile.profilePictureUrl,
                         let profileKey: Data = profile.profileKey
-                    else { return .remove }
+                    else { return .contactRemove }
                     
-                    return .updateTo(
+                    return .contactUpdateTo(
                         url: profilePictureUrl,
                         key: profileKey,
                         fileName: nil
                     )
                 }(),
+                blocksCommunityMessageRequests: profile.blocksCommunityMessageRequests,
                 sentTimestamp: TimeInterval(Double(sentTimestampMs) / 1000),
                 calledFromConfig: nil,
                 using: dependencies
@@ -701,7 +713,7 @@ extension MessageReceiver {
             .map { config in try LibSession.groupName(in: config) }
         
         switch groupName {
-            case .none: Log.warn("[MessageReceiver] Failed to update group name before being kicked.")
+            case .none: Log.warn(.messageReceiver, "Failed to update group name before being kicked.")
             case .some(let name):
                 try dependencies[cache: .libSession]
                     .config(for: .userGroups, sessionId: userSessionId)
@@ -774,7 +786,7 @@ extension MessageReceiver {
             groupSessionId: groupSessionId,
             using: dependencies
         )
-        let initialPollPublisher: AnyPublisher<Poller.PollResult, Never> = try MessageReceiver.handleNewGroup(
+        let initialPollPublisher: AnyPublisher<GroupPoller.PollResponse, Never> = try MessageReceiver.handleNewGroup(
             db,
             groupSessionId: groupSessionId.hexString,
             groupIdentityPrivateKey: groupIdentityPrivateKey,
@@ -875,7 +887,7 @@ extension MessageReceiver {
                 /// If we aren't creating a new thread (ie. sending a message request) then send a
                 /// `GroupUpdateInviteResponseMessage` to the group (this allows other members
                 /// to know that the user has joined the group)
-                db.afterNextTransactionNested { _ in
+                db.afterNextTransactionNested(using: dependencies) { _ in
                     initialPollPublisher
                         .first()
                         .subscribe(on: DispatchQueue.global(qos: .background), using: dependencies)
@@ -908,6 +920,7 @@ extension MessageReceiver {
                         db,
                         id: groupSessionId.hexString,
                         variant: .group,
+                        creationDateTimestamp: (dependencies[cache: .snodeAPI].currentOffsetTimestampMs() / 1000),
                         shouldBeVisible: nil,
                         calledFromConfig: nil,
                         using: dependencies

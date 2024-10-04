@@ -4,30 +4,34 @@ import Foundation
 import SessionUtilitiesKit
 
 class MockKeychain: Mock<KeychainStorageType>, KeychainStorageType {
-    func string(forService service: KeychainStorage.ServiceKey, key: KeychainStorage.StringKey) throws -> String {
-        return try mockThrowing(args: [service, key])
+    func string(forKey key: KeychainStorage.StringKey) throws -> String {
+        return try mockThrowing(args: [key])
     }
     
-    func set(string: String, service: KeychainStorage.ServiceKey, key: KeychainStorage.StringKey) throws {
-        return try mockThrowing(args: [service, key])
+    func set(string: String, forKey key: KeychainStorage.StringKey) throws {
+        return try mockThrowing(args: [key])
     }
     
-    func remove(service: KeychainStorage.ServiceKey, key: KeychainStorage.StringKey) throws {
-        return try mockThrowing(args: [service, key])
+    func remove(key: KeychainStorage.StringKey) throws {
+        return try mockThrowing(args: [key])
     }
     
-    func data(forService service: KeychainStorage.ServiceKey, key: KeychainStorage.DataKey) throws -> Data {
-        return try mockThrowing(args: [service, key])
+    func data(forKey key: KeychainStorage.DataKey) throws -> Data {
+        return try mockThrowing(args: [key])
     }
     
-    func set(data: Data, service: KeychainStorage.ServiceKey, key: KeychainStorage.DataKey) throws {
-        return try mockThrowing(args: [service, key])
+    func set(data: Data, forKey key: KeychainStorage.DataKey) throws {
+        return try mockThrowing(args: [key])
     }
     
-    func remove(service: KeychainStorage.ServiceKey, key: KeychainStorage.DataKey) throws {
-        return try mockThrowing(args: [service, key])
+    func remove(key: KeychainStorage.DataKey) throws {
+        return try mockThrowing(args: [key])
     }
     
-    func removeAll() { mockNoReturn() }
+    func removeAll() throws { try mockThrowingNoReturn() }
+    
+    func migrateLegacyKeyIfNeeded(legacyKey: String, legacyService: String?, toKey key: KeychainStorage.DataKey) throws {
+        try mockThrowingNoReturn(args: [legacyKey, legacyService, key])
+    }
 }
 

@@ -6,6 +6,14 @@ import GRDB
 import SessionSnodeKit
 import SessionUtilitiesKit
 
+// MARK: - Log.Category
+
+private extension Log.Category {
+    static let cat: Log.Category = .create("AttachmentUploadJob", defaultLevel: .info)
+}
+
+// MARK: - AttachmentUploadJob
+
 public enum AttachmentUploadJob: JobExecutor {
     public static var maxFailureCount: Int = 10
     public static var requiresThreadId: Bool = true
@@ -31,13 +39,13 @@ public enum AttachmentUploadJob: JobExecutor {
         // If the original interaction no longer exists then don't bother uploading the attachment (ie. the
         // message was deleted before it even got sent)
         guard dependencies[singleton: .storage].read({ db in try Interaction.exists(db, id: interactionId) }) == true else {
-            SNLog("[AttachmentUploadJob] Failed due to missing interaction")
+            Log.info(.cat, "Failed due to missing interaction")
             return failure(job, StorageError.objectNotFound, true)
         }
         
         // If the attachment is still pending download the hold off on running this job
         guard attachment.state != .pendingDownload && attachment.state != .downloading else {
-            SNLog("[AttachmentUploadJob] Deferred as attachment is still being downloaded")
+            Log.info(.cat, "Deferred as attachment is still being downloaded")
             return deferred(job)
         }
         
@@ -65,7 +73,7 @@ public enum AttachmentUploadJob: JobExecutor {
         // will attempt to update the state of the job immediately
         dependencies[singleton: .storage]
             .writePublisher { db -> Network.PreparedRequest<String> in
-                try attachment.preparedUpload(db, threadId: threadId, using: dependencies)
+                try attachment.preparedUpload(db, threadId: threadId, logCategory: .cat, using: dependencies)
             }
             .flatMap { $0.send(using: dependencies) }
             .subscribe(on: queue, using: dependencies)
@@ -91,7 +99,7 @@ public enum AttachmentUploadJob: JobExecutor {
                                     db,
                                     message: details.message,
                                     destination: nil,
-                                    error: .other("[AttachmentUploadJob] Failed", error),
+                                    error: .other(.cat, "Failed", error),
                                     interactionId: interactionId,
                                     using: dependencies
                                 )
@@ -99,7 +107,7 @@ public enum AttachmentUploadJob: JobExecutor {
                             }
                             
                             // If we didn't log an error above then log it now
-                            if !didLogError { Log.error("[AttachmentUploadJob] Failed due to error: \(error)") }
+                            if !didLogError { Log.error(.cat, "Failed due to error: \(error)") }
                             failure(job, error, false)
                         
                         case .finished: success(job, false)

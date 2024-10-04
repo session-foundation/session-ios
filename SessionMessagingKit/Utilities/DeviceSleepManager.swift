@@ -87,9 +87,6 @@ public class DeviceSleepManager: NSObject {
             $0.blockObject != nil
         }
         let shouldBlock = blocks.count > 0
-
-        guard dependencies.hasInitialised(singleton: .appContext) else { return }
-
         dependencies[singleton: .appContext].ensureSleepBlocking(shouldBlock, blockingObjects: blocks)
     }
 }

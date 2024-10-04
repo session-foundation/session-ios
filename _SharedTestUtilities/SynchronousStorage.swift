@@ -57,7 +57,34 @@ class SynchronousStorage: Storage {
         // database without worrying about reentrant access during tests because we can be
         // confident that the tests are running on the correct thread
         guard !dependencies.forceSynchronous else {
-            return try? dbWriter.unsafeReentrantWrite(updates)
+            let result: T?
+            let didThrow: Bool
+            do {
+                result = try dbWriter.unsafeReentrantWrite(updates)
+                didThrow = false
+            }
+            catch {
+                result = nil
+                didThrow = true
+            }
+            
+            dbWriter.unsafeReentrantWrite { db in
+                // Forcibly call the transaction observer when forcing synchronous logic
+                dependencies.mutate(cache: .transactionObserver) { cache in
+                    let handlers = cache.registeredHandlers
+                    handlers.forEach { identifier, observer in
+                        if didThrow {
+                            observer.databaseDidRollback(db)
+                        }
+                        else {
+                            observer.databaseDidCommit(db)
+                        }
+                        cache.remove(for: identifier)
+                    }
+                }
+            }
+            
+            return result
         }
         
         return super.write(
@@ -81,7 +108,34 @@ class SynchronousStorage: Storage {
         // database without worrying about reentrant access during tests because we can be
         // confident that the tests are running on the correct thread
         guard !dependencies.forceSynchronous else {
-            return try? dbWriter.unsafeReentrantRead(value)
+            let result: T?
+            let didThrow: Bool
+            do {
+                result = try dbWriter.unsafeReentrantRead(value)
+                didThrow = false
+            }
+            catch {
+                result = nil
+                didThrow = true
+            }
+            
+            try? dbWriter.unsafeReentrantRead { db in
+                // Forcibly call the transaction observer when forcing synchronous logic
+                dependencies.mutate(cache: .transactionObserver) { cache in
+                    let handlers = cache.registeredHandlers
+                    handlers.forEach { identifier, observer in
+                        if didThrow {
+                            observer.databaseDidRollback(db)
+                        }
+                        else {
+                            observer.databaseDidCommit(db)
+                        }
+                        cache.remove(for: identifier)
+                    }
+                }
+            }
+            
+            return result
         }
         
         return super.read(
@@ -113,6 +167,24 @@ class SynchronousStorage: Storage {
             return Just(())
                 .setFailureType(to: Error.self)
                 .tryMap { _ in try dbWriter.unsafeReentrantRead(value) }
+                .handleEvents(
+                    receiveCompletion: { [dependencies] result in
+                        try? dbWriter.unsafeReentrantRead { db in
+                            // Forcibly call the transaction observer when forcing synchronous logic
+                            dependencies.mutate(cache: .transactionObserver) { cache in
+                                let handlers = cache.registeredHandlers
+                                handlers.forEach { identifier, observer in
+                                    switch result {
+                                        case .finished: observer.databaseDidCommit(db)
+                                        case .failure: observer.databaseDidRollback(db)
+                                    }
+                                    cache.remove(for: identifier)
+                                }
+                            }
+                        }
+                        
+                    }
+                )
                 .eraseToAnyPublisher()
         }
         
@@ -154,6 +226,24 @@ class SynchronousStorage: Storage {
             return Just(())
                 .setFailureType(to: Error.self)
                 .tryMap { _ in try dbWriter.unsafeReentrantWrite(updates) }
+                .handleEvents(
+                    receiveCompletion: { [dependencies] result in
+                        dbWriter.unsafeReentrantWrite { db in
+                            // Forcibly call the transaction observer when forcing synchronous logic
+                            dependencies.mutate(cache: .transactionObserver) { cache in
+                                let handlers = cache.registeredHandlers
+                                handlers.forEach { identifier, observer in
+                                    switch result {
+                                        case .finished: observer.databaseDidCommit(db)
+                                        case .failure: observer.databaseDidRollback(db)
+                                    }
+                                    cache.remove(for: identifier)
+                                }
+                            }
+                        }
+                        
+                    }
+                )
                 .eraseToAnyPublisher()
         }
         

@@ -26,6 +26,12 @@ public extension Cache {
     )
 }
 
+// MARK: - Log.Category
+
+public extension Log.Category {
+    static let openGroup: Log.Category = .create("OpenGroup", defaultLevel: .info)
+}
+
 // MARK: - OpenGroupManager
 
 public final class OpenGroupManager {
@@ -37,58 +43,13 @@ public final class OpenGroupManager {
     
     init(using dependencies: Dependencies) {
         self.dependencies = dependencies
-    }
-    
-    // MARK: - Polling
-
-    public func startPolling() {
-        // Run on the 'workQueue' to ensure any 'Atomic' access doesn't block the main thread
-        // on startup
-        OpenGroupAPI.workQueue.async(using: dependencies) { [dependencies] in
-            guard !dependencies[cache: .openGroupManager].isPolling else { return }
-        
-            let servers: Set<String> = dependencies[singleton: .storage]
-                .read { db in
-                    // The default room promise creates an OpenGroup with an empty `roomToken` value,
-                    // we don't want to start a poller for this as the user hasn't actually joined a room
-                    try OpenGroup
-                        .select(.server)
-                        .filter(OpenGroup.Columns.isActive == true)
-                        .filter(OpenGroup.Columns.roomToken != "")
-                        .distinct()
-                        .asRequest(of: String.self)
-                        .fetchSet(db)
-                }
-                .defaulting(to: [])
-            
-            // Update the cache state and re-create all of the pollers
-            let pollers: [OpenGroupAPI.PollerType] = dependencies.mutate(cache: .openGroupManager) { cache in
-                cache.isPolling = true
-                
-                return servers.map { server -> OpenGroupAPI.PollerType in cache.getOrCreatePoller(for: server.lowercased()) }
-            }
-            
-            // Need to do this outside of the mutate as the poller will attempt to read from the
-            // 'openGroupManager' cache which is not allowed
-            pollers.forEach { poller in
-                poller.stop() // Should never be an issue
-                poller.startIfNeeded(using: dependencies)
-            }
-        }
-    }
-
-    public func stopPolling() {
-        dependencies.mutate(cache: .openGroupManager) {
-            $0.stopAndRemoveAllPollers()
-            $0.isPolling = false
-        }
-    }
+    }    
 
     // MARK: - Adding & Removing
     
     private static func port(for server: String, serverUrl: URL) -> String {
         if let port: Int = serverUrl.port {
-            return ":\(port)"
+            return ":\(port)" // stringlint:disable
         }
         
         let components: [String] = server.components(separatedBy: ":")
@@ -101,7 +62,7 @@ public final class OpenGroupManager {
             )
         else { return "" }
         
-        return ":\(port)"
+        return ":\(port)" // stringlint:disable
     }
     
     public static func isSessionRunOpenGroup(server: String) -> Bool {
@@ -127,11 +88,20 @@ public final class OpenGroupManager {
     }
     
     public func hasExistingOpenGroup(
+        roomToken: String,
+        server: String,
+        publicKey: String
+    ) -> Bool? {
+        return dependencies[singleton: .storage].read { [weak self] db in
+            self?.hasExistingOpenGroup(db, roomToken: roomToken, server: server, publicKey: publicKey)
+        }
+    }
+    
+    public func hasExistingOpenGroup(
         _ db: Database,
         roomToken: String,
         server: String,
-        publicKey: String,
-        using dependencies: Dependencies
+        publicKey: String
     ) -> Bool {
         guard let serverUrl: URL = URL(string: server.lowercased()) else { return false }
         
@@ -164,7 +134,7 @@ public final class OpenGroupManager {
         }
         
         // First check if there is no poller for the specified server
-        if Set(dependencies[cache: .openGroupManager].serversBeingPolled).intersection(serverOptions).isEmpty {
+        if Set(dependencies[cache: .communityPollers].serversBeingPolled).intersection(serverOptions).isEmpty {
             return false
         }
         
@@ -189,8 +159,8 @@ public final class OpenGroupManager {
         calledFromConfig configTriggeringChange: ConfigDump.Variant?
     ) -> Bool {
         // If we are currently polling for this server and already have a TSGroupThread for this room the do nothing
-        if hasExistingOpenGroup(db, roomToken: roomToken, server: server, publicKey: publicKey, using: dependencies) {
-            SNLog("Ignoring join open group attempt (already joined), user initiated: \(configTriggeringChange == nil)")
+        if hasExistingOpenGroup(db, roomToken: roomToken, server: server, publicKey: publicKey) {
+            Log.info(.openGroup, "Ignoring join open group attempt (already joined), user initiated: \(configTriggeringChange == nil)")
             return false
         }
         
@@ -211,6 +181,7 @@ public final class OpenGroupManager {
                 db,
                 id: threadId,
                 variant: .community,
+                creationDateTimestamp: (dependencies[cache: .snodeAPI].currentOffsetTimestampMs() / 1000),
                 /// If we didn't add this open group via config handling then flag it to be visible (if it did come via config handling then
                 /// we want to wait until it actually has messages before making it visible)
                 ///
@@ -267,45 +238,42 @@ public final class OpenGroupManager {
         
         return dependencies[singleton: .storage]
             .readPublisher { [dependencies] db in
-                try OpenGroupAPI
-                    .preparedCapabilitiesAndRoom(
-                        db,
-                        for: roomToken,
-                        on: targetServer,
-                        using: dependencies
-                    )
+                try OpenGroupAPI.preparedCapabilitiesAndRoom(
+                    db,
+                    for: roomToken,
+                    on: targetServer,
+                    using: dependencies
+                )
             }
             .flatMap { [dependencies] request in request.send(using: dependencies) }
-            .flatMap { [dependencies] info, response -> AnyPublisher<Void, Error> in
-                dependencies[singleton: .storage].writePublisher { db in
-                    // Add the new open group to libSession
-                    if configTriggeringChange != .userGroups {
-                        try LibSession.add(
-                            db,
-                            server: server,
-                            rootToken: roomToken,
-                            publicKey: publicKey,
-                            using: dependencies
-                        )
-                    }
-                    
-                    // Store the capabilities first
-                    OpenGroupManager.handleCapabilities(
+            .flatMapStorageWritePublisher(using: dependencies) { [dependencies] (db: Database, response: (info: ResponseInfoType, value: OpenGroupAPI.CapabilitiesAndRoomResponse)) -> Void in
+                // Add the new open group to libSession
+                if configTriggeringChange != .userGroups {
+                    try LibSession.add(
                         db,
-                        capabilities: response.capabilities.data,
-                        on: targetServer
-                    )
-                    
-                    // Then the room
-                    try OpenGroupManager.handlePollInfo(
-                        db,
-                        pollInfo: OpenGroupAPI.RoomPollInfo(room: response.room.data),
+                        server: server,
+                        rootToken: roomToken,
                         publicKey: publicKey,
-                        for: roomToken,
-                        on: targetServer,
                         using: dependencies
                     )
                 }
+                
+                // Store the capabilities first
+                OpenGroupManager.handleCapabilities(
+                    db,
+                    capabilities: response.value.capabilities.data,
+                    on: targetServer
+                )
+                
+                // Then the room
+                try OpenGroupManager.handlePollInfo(
+                    db,
+                    pollInfo: OpenGroupAPI.RoomPollInfo(room: response.value.room.data),
+                    publicKey: publicKey,
+                    for: roomToken,
+                    on: targetServer,
+                    using: dependencies
+                )
             }
             .handleEvents(
                 receiveCompletion: { [dependencies] result in
@@ -313,16 +281,13 @@ public final class OpenGroupManager {
                         case .finished:
                             // (Re)start the poller if needed (want to force it to poll immediately in the next
                             // run loop to avoid a big delay before the next poll)
-                            let poller: OpenGroupAPI.PollerType = dependencies.mutate(cache: .openGroupManager) {
-                                $0.getOrCreatePoller(for: server.lowercased())
+                            dependencies.mutate(cache: .communityPollers) { cache in
+                                let poller: CommunityPollerType = cache.getOrCreatePoller(for: server.lowercased())
+                                poller.stop()
+                                poller.startIfNeeded()
                             }
                             
-                            // Need to do this outside of the mutate as the poller will attempt to read from the
-                            // 'openGroupManager' cache which is not allowed
-                            poller.stop()
-                            poller.startIfNeeded(using: dependencies)
-                            
-                        case .failure(let error): SNLog("Failed to join open group with error: \(error).")
+                        case .failure(let error): Log.error(.openGroup, "Failed to join open group with error: \(error).")
                     }
                 }
             )
@@ -357,7 +322,7 @@ public final class OpenGroupManager {
             .defaulting(to: 1)
         
         if numActiveRooms == 1, let server: String = server?.lowercased() {
-            dependencies.mutate(cache: .openGroupManager) {
+            dependencies.mutate(cache: .communityPollers) {
                 $0.stopAndRemovePoller(for: server)
             }
         }
@@ -557,7 +522,7 @@ public final class OpenGroupManager {
         using dependencies: Dependencies
     ) {
         guard let openGroup: OpenGroup = try? OpenGroup.fetchOne(db, id: OpenGroup.idFor(roomToken: roomToken, server: server)) else {
-            SNLog("Couldn't handle open group messages.")
+            Log.error(.openGroup, "Couldn't handle open group messages due to missing group.")
             return
         }
         
@@ -618,7 +583,7 @@ public final class OpenGroupManager {
                             MessageReceiverError.selfSend:
                             break
                         
-                        default: SNLog("Couldn't receive open group message due to error: \(error).")
+                        default: Log.error(.openGroup, "Couldn't receive open group message due to error: \(error).")
                     }
                 }
             }
@@ -653,7 +618,7 @@ public final class OpenGroupManager {
                     largestValidSeqNo = max(largestValidSeqNo, message.seqNo)
                 }
                 catch {
-                    SNLog("Couldn't handle open group reactions due to error: \(error).")
+                    Log.error(.openGroup, "Couldn't handle open group reactions due to error: \(error).")
                 }
             }
         }
@@ -693,7 +658,7 @@ public final class OpenGroupManager {
         // Don't need to do anything if we have no messages (it's a valid case)
         guard !messages.isEmpty else { return }
         guard let openGroup: OpenGroup = try? OpenGroup.filter(OpenGroup.Columns.server == server.lowercased()).fetchOne(db) else {
-            SNLog("Couldn't receive inbox message.")
+            Log.error(.openGroup, "Couldn't receive inbox message due to missing group.")
             return
         }
         
@@ -719,7 +684,7 @@ public final class OpenGroupManager {
         // Process the messages
         sortedMessages.forEach { message in
             guard let messageData = Data(base64Encoded: message.base64EncodedMessage) else {
-                SNLog("Couldn't receive inbox message.")
+                Log.error(.openGroup, "Couldn't receive inbox message.")
                 return
             }
 
@@ -769,12 +734,7 @@ public final class OpenGroupManager {
                             let syncTarget: String = (lookup.sessionId ?? message.recipient)
                             
                             switch messageInfo.variant {
-                                case .visibleMessage:
-                                    (messageInfo.message as? VisibleMessage)?.syncTarget = syncTarget
-                                    
-                                case .expirationTimerUpdate:
-                                    (messageInfo.message as? ExpirationTimerUpdate)?.syncTarget = syncTarget
-                                    
+                                case .visibleMessage: (messageInfo.message as? VisibleMessage)?.syncTarget = syncTarget
                                 default: break
                             }
                         }
@@ -802,7 +762,7 @@ public final class OpenGroupManager {
                         break
                         
                     default:
-                        SNLog("Couldn't receive inbox message due to error: \(error).")
+                        Log.error(.openGroup, "Couldn't receive inbox message due to error: \(error).")
                 }
             }
         }
@@ -961,7 +921,7 @@ public final class OpenGroupManager {
                     .filter(possibleKeys.contains(GroupMember.Columns.profileId))
                     .filter(targetRoles.contains(GroupMember.Columns.role))
                     .isNotEmpty(db)
-                
+            
             case .group: return false
         }
     }
@@ -1095,32 +1055,6 @@ public extension OpenGroupManager {
     class Cache: OGMCacheType {
         public var defaultRoomsPublisher: AnyPublisher<[DefaultRoomInfo], Error>?
         
-        public var isPolling: Bool = false
-        public var serversBeingPolled: Set<String> { return Set(_pollers.keys) }
-        
-        /// Server URL to value
-        public var hasPerformedInitialPoll: [String: Bool] = [:]
-        public var timeSinceLastPoll: [String: TimeInterval] = [:]
-        
-        private var _pollers: [String: OpenGroupAPI.PollerType] = [:] // One for each server
-        public func getOrCreatePoller(for server: String) -> OpenGroupAPI.PollerType {
-            guard let poller: OpenGroupAPI.PollerType = _pollers[server.lowercased()] else {
-                let poller: OpenGroupAPI.Poller = OpenGroupAPI.Poller(for: server.lowercased())
-                _pollers[server.lowercased()] = poller
-                return poller
-            }
-            
-            return poller
-        }
-        public func stopAndRemovePoller(for server: String) {
-            _pollers[server.lowercased()]?.stop()
-            _pollers[server.lowercased()] = nil
-        }
-        public func stopAndRemoveAllPollers() {
-            _pollers.forEach { _, poller in poller.stop() }
-            _pollers.removeAll()
-        }
-
         fileprivate var _timeSinceLastOpen: TimeInterval?
         public func getTimeSinceLastOpen(using dependencies: Dependencies) -> TimeInterval {
             if let storedTimeSinceLastOpen: TimeInterval = _timeSinceLastOpen {
@@ -1146,29 +1080,13 @@ public extension OpenGroupManager {
 public protocol OGMImmutableCacheType: ImmutableCacheType {
     var defaultRoomsPublisher: AnyPublisher<[OpenGroupManager.DefaultRoomInfo], Error>? { get }
     
-    var isPolling: Bool { get }
-    var serversBeingPolled: Set<String> { get }
-    
-    var hasPerformedInitialPoll: [String: Bool] { get }
-    var timeSinceLastPoll: [String: TimeInterval] { get }
-    
     var pendingChanges: [OpenGroupAPI.PendingChange] { get }
 }
 
 public protocol OGMCacheType: OGMImmutableCacheType, MutableCacheType {
     var defaultRoomsPublisher: AnyPublisher<[OpenGroupManager.DefaultRoomInfo], Error>? { get set }
     
-    var isPolling: Bool { get set }
-    var serversBeingPolled: Set<String> { get }
-    
-    var hasPerformedInitialPoll: [String: Bool] { get set }
-    var timeSinceLastPoll: [String: TimeInterval] { get set }
-    
     var pendingChanges: [OpenGroupAPI.PendingChange] { get set }
-    
-    func getOrCreatePoller(for server: String) -> OpenGroupAPI.PollerType
-    func stopAndRemovePoller(for server: String)
-    func stopAndRemoveAllPollers()
     
     func getTimeSinceLastOpen(using dependencies: Dependencies) -> TimeInterval
 }

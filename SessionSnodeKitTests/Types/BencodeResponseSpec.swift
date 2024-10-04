@@ -10,6 +10,10 @@ import Nimble
 
 class BencodeResponseSpec: QuickSpec {
     override class func spec() {
+        // MARK: Configuration
+        
+        @TestState var dependencies: TestDependencies! = TestDependencies()
+        
         // MARK: - BencodeResponse
         describe("BencodeResponse") {
             // MARK: -- when decoding
@@ -20,7 +24,7 @@ class BencodeResponseSpec: QuickSpec {
                     it("decodes successfully") {
                         let data: Data = "ld8:intValuei100e11:stringValue4:Teste5:\u{01}\u{02}\u{03}\u{04}\u{05}e"
                             .data(using: .utf8)!
-                        let result: BencodeResponse<TestType>? = try? BencodeDecoder()
+                        let result: BencodeResponse<TestType>? = try? BencodeDecoder(using: dependencies)
                             .decode(BencodeResponse<TestType>.self, from: data)
                         
                         expect(result)
@@ -39,7 +43,7 @@ class BencodeResponseSpec: QuickSpec {
                     it("decodes successfully with no body") {
                         let data: Data = "ld8:intValuei100e11:stringValue4:Teste"
                             .data(using: .utf8)!
-                        let result: BencodeResponse<TestType>? = try? BencodeDecoder()
+                        let result: BencodeResponse<TestType>? = try? BencodeDecoder(using: dependencies)
                             .decode(BencodeResponse<TestType>.self, from: data)
                         
                         expect(result)
@@ -61,7 +65,7 @@ class BencodeResponseSpec: QuickSpec {
                     it("decodes successfully") {
                         let data: Data = "l37:{\"intValue\":100,\"stringValue\":\"Test\"}5:\u{01}\u{02}\u{03}\u{04}\u{05}e"
                             .data(using: .utf8)!
-                        let result: BencodeResponse<TestType>? = try? BencodeDecoder()
+                        let result: BencodeResponse<TestType>? = try? BencodeDecoder(using: dependencies)
                             .decode(BencodeResponse<TestType>.self, from: data)
                         
                         expect(result)
@@ -80,7 +84,7 @@ class BencodeResponseSpec: QuickSpec {
                     it("decodes successfully with no body") {
                         let data: Data = "l37:{\"intValue\":100,\"stringValue\":\"Test\"}e"
                             .data(using: .utf8)!
-                        let result: BencodeResponse<TestType>? = try? BencodeDecoder()
+                        let result: BencodeResponse<TestType>? = try? BencodeDecoder(using: dependencies)
                             .decode(BencodeResponse<TestType>.self, from: data)
                         
                         expect(result)
@@ -101,7 +105,7 @@ class BencodeResponseSpec: QuickSpec {
                             .data(using: .utf8)!
                         
                         expect {
-                            try BencodeDecoder().decode(BencodeResponse<TestType>.self, from: data)
+                            try BencodeDecoder(using: dependencies).decode(BencodeResponse<TestType>.self, from: data)
                         }.to(throwError(DecodingError.keyNotFound(TestType.CodingKeys.intValue, DecodingError.Context(codingPath: [], debugDescription: "No value associated with key \(TestType.CodingKeys.intValue)"))))
                     }
                 }
@@ -111,7 +115,7 @@ class BencodeResponseSpec: QuickSpec {
                     // MARK: ------ decodes successfully
                     it("decodes successfully") {
                         let data: Data = "l4:Test5:\u{01}\u{02}\u{03}\u{04}\u{05}e".data(using: .utf8)!
-                        let result: BencodeResponse<String>? = try? BencodeDecoder()
+                        let result: BencodeResponse<String>? = try? BencodeDecoder(using: dependencies)
                             .decode(BencodeResponse<String>.self, from: data)
 
                         expect(result)
@@ -126,7 +130,7 @@ class BencodeResponseSpec: QuickSpec {
                     // MARK: ------ decodes successfully with no body
                     it("decodes successfully with no body") {
                         let data: Data = "l4:Teste".data(using: .utf8)!
-                        let result: BencodeResponse<String>? = try? BencodeDecoder()
+                        let result: BencodeResponse<String>? = try? BencodeDecoder(using: dependencies)
                             .decode(BencodeResponse<String>.self, from: data)
 
                         expect(result)
@@ -143,7 +147,7 @@ class BencodeResponseSpec: QuickSpec {
                         let data: Data = "l10:Teste".data(using: .utf8)!
 
                         expect {
-                            try BencodeDecoder().decode(BencodeResponse<String>.self, from: data)
+                            try BencodeDecoder(using: dependencies).decode(BencodeResponse<String>.self, from: data)
                         }.to(throwError(DecodingError.dataCorrupted(DecodingError.Context(codingPath: [], debugDescription: "failed to decode String"))))
                     }
                 }
@@ -153,7 +157,7 @@ class BencodeResponseSpec: QuickSpec {
                     // MARK: ------ decodes successfully
                     it("decodes successfully") {
                         let data: Data = "li100e5:\u{01}\u{02}\u{03}\u{04}\u{05}e".data(using: .utf8)!
-                        let result: BencodeResponse<Int>? = try? BencodeDecoder()
+                        let result: BencodeResponse<Int>? = try? BencodeDecoder(using: dependencies)
                             .decode(BencodeResponse<Int>.self, from: data)
 
                         expect(result)
@@ -168,7 +172,7 @@ class BencodeResponseSpec: QuickSpec {
                     // MARK: ------ decodes successfully with no body
                     it("decodes successfully with no body") {
                         let data: Data = "li100ee".data(using: .utf8)!
-                        let result: BencodeResponse<Int>? = try? BencodeDecoder()
+                        let result: BencodeResponse<Int>? = try? BencodeDecoder(using: dependencies)
                             .decode(BencodeResponse<Int>.self, from: data)
 
                         expect(result)
@@ -185,7 +189,7 @@ class BencodeResponseSpec: QuickSpec {
                         let data: Data = "l4:Teste".data(using: .utf8)!
 
                         expect {
-                            try BencodeDecoder().decode(BencodeResponse<Int>.self, from: data)
+                            try BencodeDecoder(using: dependencies).decode(BencodeResponse<Int>.self, from: data)
                         }.to(throwError(DecodingError.dataCorrupted(DecodingError.Context(
                             codingPath: [],
                             debugDescription: "The given data was not valid JSON",

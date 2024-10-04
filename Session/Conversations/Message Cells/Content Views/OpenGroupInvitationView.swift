@@ -40,7 +40,7 @@ final class OpenGroupInvitationView: UIView {
         // Subtitle
         let subtitleLabel = UILabel()
         subtitleLabel.font = .systemFont(ofSize: Values.smallFontSize)
-        subtitleLabel.text = "view_open_group_invitation_description".localized()
+        subtitleLabel.text = "communityInvitation".localized()
         subtitleLabel.themeTextColor = textColor
         subtitleLabel.lineBreakMode = .byTruncatingTail
         
@@ -48,7 +48,7 @@ final class OpenGroupInvitationView: UIView {
         let urlLabel = UILabel()
         urlLabel.font = .systemFont(ofSize: Values.verySmallFontSize)
         urlLabel.text = {
-            if let range = rawUrl.range(of: "?public_key=") {
+            if let range = rawUrl.range(of: "?public_key=") { // stringlint:disable
                 return String(rawUrl[..<range.lowerBound])
             }
 
@@ -63,24 +63,25 @@ final class OpenGroupInvitationView: UIView {
         labelStackView.axis = .vertical
         
         // Icon
-        let iconSize = OpenGroupInvitationView.iconSize
-        let iconName = (isOutgoing ? "Globe" : "Plus")
-        let iconImageViewSize = OpenGroupInvitationView.iconImageViewSize
+        let iconContainerView: UIView = UIView()
+        iconContainerView.layer.cornerRadius = (OpenGroupInvitationView.iconImageViewSize / 2)
+        iconContainerView.themeBackgroundColor = (isOutgoing ? .messageBubble_overlay : .primary)
+        iconContainerView.set(.width, to: OpenGroupInvitationView.iconImageViewSize)
+        iconContainerView.set(.height, to: OpenGroupInvitationView.iconImageViewSize)
+        
+        let iconName = (isOutgoing ? "Globe" : "Plus") // stringlint:disable
         let iconImageView = UIImageView(
-            image: UIImage(named: iconName)?
-                .resized(to: CGSize(width: iconSize, height: iconSize))?
-                .withRenderingMode(.alwaysTemplate)
+            image: UIImage(named: iconName)?.withRenderingMode(.alwaysTemplate)
         )
         iconImageView.themeTintColor = (isOutgoing ? .messageBubble_outgoingText : .textPrimary)
-        iconImageView.contentMode = .center
-        iconImageView.layer.cornerRadius = iconImageViewSize / 2
-        iconImageView.layer.masksToBounds = true
-        iconImageView.themeBackgroundColor = (isOutgoing ? .messageBubble_overlay : .primary)
-        iconImageView.set(.width, to: iconImageViewSize)
-        iconImageView.set(.height, to: iconImageViewSize)
+        iconImageView.contentMode = .scaleAspectFit
+        iconImageView.set(.width, to: OpenGroupInvitationView.iconSize)
+        iconImageView.set(.height, to: OpenGroupInvitationView.iconSize)
+        iconContainerView.addSubview(iconImageView)
+        iconImageView.center(in: iconContainerView)
         
         // Main stack
-        let mainStackView = UIStackView(arrangedSubviews: [ iconImageView, labelStackView ])
+        let mainStackView = UIStackView(arrangedSubviews: [ iconContainerView, labelStackView ])
         mainStackView.axis = .horizontal
         mainStackView.spacing = Values.mediumSpacing
         mainStackView.alignment = .center

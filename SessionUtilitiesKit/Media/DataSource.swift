@@ -1,10 +1,11 @@
 // Copyright © 2024 Rangeproof Pty Ltd. All rights reserved.
 
 import Foundation
+import UniformTypeIdentifiers
 
 // MARK: - DataSource
 
-public protocol DataSource: Equatable, Hashable {
+public protocol DataSource: Equatable {
     var data: Data { get }
     var dataUrl: URL? { get }
 
@@ -34,11 +35,7 @@ public protocol DataSource: Equatable, Hashable {
 
 public class DataSourceValue: DataSource {
     public static func empty(using dependencies: Dependencies) -> DataSourceValue {
-        return DataSourceValue(
-            data: Data(),
-            fileExtension: MimeTypeUtil.FileExtension.syncMessage,
-            using: dependencies
-        )
+        return DataSourceValue(data: Data(), fileExtension: UTType.fileExtensionText, using: dependencies)
     }
     
     private let dependencies: Dependencies
@@ -51,7 +48,7 @@ public class DataSourceValue: DataSource {
     public var dataUrl: URL? { dataPath.map { URL(fileURLWithPath: $0) } }
     public var dataPathIfOnDisk: String? { cachedFilePath }
     public var dataLength: Int { data.count }
-    public var mimeType: String? { MimeTypeUtil.mimeType(for: fileExtension) }
+    public var mimeType: String? { UTType.sessionMimeType(for: fileExtension) }
     
     var dataPath: String? {
         let fileExtension: String = self.fileExtension
@@ -79,7 +76,7 @@ public class DataSourceValue: DataSource {
         // if ows_isValidImage is given a file path, it will
         // avoid loading most of the data into memory, which
         // is considerably more performant, so try to do that.
-        return Data.isValidImage(at: dataPath, mimeType: mimeType, using: dependencies)
+        return Data.isValidImage(at: dataPath, type: UTType(sessionFileExtension: fileExtension), using: dependencies)
     }
     
     public var isValidVideo: Bool {
@@ -103,8 +100,8 @@ public class DataSourceValue: DataSource {
         self.init(data: data, fileExtension: fileExtension, using: dependencies)
     }
     
-    public convenience init?(data: Data?, utiType: String, using dependencies: Dependencies) {
-        guard let fileExtension: String = MimeTypeUtil.fileExtension(forUtiType: utiType) else { return nil }
+    public convenience init?(data: Data?, dataType: UTType, using dependencies: Dependencies) {
+        guard let fileExtension: String = dataType.sessionFileExtension else { return nil }
         
         self.init(data: data, fileExtension: fileExtension, using: dependencies)
     }
@@ -115,11 +112,7 @@ public class DataSourceValue: DataSource {
             let data: Data = text.filteredForDisplay.data(using: .utf8)
         else { return nil }
         
-        self.init(data: data, fileExtension: MimeTypeUtil.FileExtension.text, using: dependencies)
-    }
-    
-    convenience init(syncMessageData: Data, using dependencies: Dependencies) {
-        self.init(data: syncMessageData, fileExtension: MimeTypeUtil.FileExtension.syncMessage, using: dependencies)
+        self.init(data: data, fileExtension: UTType.fileExtensionText, using: dependencies)
     }
     
     deinit {
@@ -144,13 +137,6 @@ public class DataSourceValue: DataSource {
     
     public func write(to path: String) throws {
         try data.write(to: URL(fileURLWithPath: path), options: .atomic)
-    }
-    
-    public func hash(into hasher: inout Hasher) {
-        data.hash(into: &hasher)
-        sourceFilename.hash(into: &hasher)
-        fileExtension.hash(into: &hasher)
-        shouldDeleteOnDeinit.hash(into: &hasher)
     }
     
     public static func == (lhs: DataSourceValue, rhs: DataSourceValue) -> Bool {
@@ -205,7 +191,7 @@ public class DataSourcePath: DataSource {
         }
     }
     
-    public var mimeType: String? { MimeTypeUtil.mimeType(for: URL(fileURLWithPath: filePath).pathExtension) }
+    public var mimeType: String? { UTType.sessionMimeType(for: URL(fileURLWithPath: filePath).pathExtension) }
     
     public var isValidImage: Bool {
         guard let dataPath: String = self.dataPathIfOnDisk else {
@@ -215,7 +201,11 @@ public class DataSourcePath: DataSource {
         // if ows_isValidImage is given a file path, it will
         // avoid loading most of the data into memory, which
         // is considerably more performant, so try to do that.
-        return Data.isValidImage(at: dataPath, mimeType: mimeType, using: dependencies)
+        return Data.isValidImage(
+            at: dataPath,
+            type: UTType(sessionFileExtension: URL(fileURLWithPath: filePath).pathExtension),
+            using: dependencies
+        )
     }
     
     public var isValidVideo: Bool {
@@ -257,12 +247,6 @@ public class DataSourcePath: DataSource {
     
     public func write(to path: String) throws {
         try FileManager.default.copyItem(atPath: filePath, toPath: path)
-    }
-    
-    public func hash(into hasher: inout Hasher) {
-        filePath.hash(into: &hasher)
-        sourceFilename.hash(into: &hasher)
-        shouldDeleteOnDeinit.hash(into: &hasher)
     }
     
     public static func == (lhs: DataSourcePath, rhs: DataSourcePath) -> Bool {

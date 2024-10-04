@@ -4,6 +4,14 @@ import Foundation
 import GRDB
 import SessionUtilitiesKit
 
+// MARK: - Log.Category
+
+private extension Log.Category {
+    static let cat: Log.Category = .create("FailedAttachmentDownloadsJob", defaultLevel: .info)
+}
+
+// MARK: - FailedAttachmentDownloadsJob
+
 public enum FailedAttachmentDownloadsJob: JobExecutor {
     public static let maxFailureCount: Int = -1
     public static let requiresThreadId: Bool = false
@@ -28,7 +36,7 @@ public enum FailedAttachmentDownloadsJob: JobExecutor {
                 .updateAll(db, Attachment.Columns.state.set(to: Attachment.State.failedDownload))
         }
         
-        Log.info("[FailedAttachmentDownloadsJob] Marked \(changeCount) attachments as failed")
+        Log.info(.cat, "Marked \(changeCount) attachments as failed")
         success(job, false)
     }
 }

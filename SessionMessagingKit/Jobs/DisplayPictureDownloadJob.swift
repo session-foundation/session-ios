@@ -8,6 +8,14 @@ import GRDB
 import SessionUtilitiesKit
 import SessionSnodeKit
 
+// MARK: - Log.Category
+
+private extension Log.Category {
+    static let cat: Log.Category = .create("DisplayPictureDownloadJob", defaultLevel: .info)
+}
+
+// MARK: - DisplayPictureDownloadJob
+
 public enum DisplayPictureDownloadJob: JobExecutor {
     public static var maxFailureCount: Int = 1
     public static var requiresThreadId: Bool = false
@@ -51,8 +59,17 @@ public enum DisplayPictureDownloadJob: JobExecutor {
             }()
         else { return failure(job, JobRunnerError.missingRequiredDetails, true) }
             
-        let fileName: String = DisplayPictureManager.generateFilename(using: dependencies)
-        let filePath: String = DisplayPictureManager.filepath(for: fileName, using: dependencies)
+        let fileName: String = DisplayPictureManager.generateFilename(
+            for: (preparedDownload.destination.url?.absoluteString)
+                .defaulting(to: preparedDownload.destination.urlPathAndParamsString),
+            using: dependencies
+        )
+        
+        guard let filePath: String = try? DisplayPictureManager.filepath(for: fileName, using: dependencies) else {
+            Log.error(.cat, "Failed to generate display picture file path for \(details.target)")
+            failure(job, DisplayPictureError.invalidFilename, true)
+            return
+        }
         
         preparedDownload
             .send(using: dependencies)
@@ -82,7 +99,7 @@ public enum DisplayPictureDownloadJob: JobExecutor {
                             }
                         }()
                     else {
-                        Log.error("[DisplayPictureDownloadJob] Failed to decrypt display picture for \(details.target)")
+                        Log.error(.cat, "Failed to decrypt display picture for \(details.target)")
                         failure(job, DisplayPictureError.writeFailed, true)
                         return
                     }
@@ -95,7 +112,7 @@ public enum DisplayPictureDownloadJob: JobExecutor {
                             contents: decryptedData
                         )
                     else {
-                        Log.error("[DisplayPictureDownloadJob] Failed to load display picture for \(details.target)")
+                        Log.error(.cat, "Failed to load display picture for \(details.target)")
                         failure(job, DisplayPictureError.writeFailed, true)
                         return
                     }

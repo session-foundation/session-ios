@@ -8,11 +8,11 @@ public enum MediaError: Error {
 }
 
 public enum MediaUtils {
-    public static var maxFileSizeAnimatedImage: UInt { SNUtilitiesKitConfiguration.maxFileSize }
-    public static var maxFileSizeImage: UInt { SNUtilitiesKitConfiguration.maxFileSize }
-    public static var maxFileSizeVideo: UInt { SNUtilitiesKitConfiguration.maxFileSize }
-    public static var maxFileSizeAudio: UInt { SNUtilitiesKitConfiguration.maxFileSize }
-    public static var maxFileSizeGeneric: UInt { SNUtilitiesKitConfiguration.maxFileSize }
+    public static var maxFileSizeAnimatedImage: UInt { SNUtilitiesKit.maxFileSize }
+    public static var maxFileSizeImage: UInt { SNUtilitiesKit.maxFileSize }
+    public static var maxFileSizeVideo: UInt { SNUtilitiesKit.maxFileSize }
+    public static var maxFileSizeAudio: UInt { SNUtilitiesKit.maxFileSize }
+    public static var maxFileSizeGeneric: UInt { SNUtilitiesKit.maxFileSize }
 
     public static let maxAnimatedImageDimensions: UInt = 1 * 1024
     public static let maxStillImageDimensions: UInt = 8 * 1024
@@ -76,11 +76,11 @@ public enum MediaUtils {
             return false
         }
         let fileExtension = URL(fileURLWithPath: path).pathExtension
-        guard let contentType = MimeTypeUtil.mimeType(for: fileExtension) else {
+        guard let contentType: String = UTType.sessionMimeType(for: fileExtension) else {
             SNLog("Media file has unknown content type.")
             return false
         }
-        guard MimeTypeUtil.isVideo(contentType) else {
+        guard UTType.isVideo(contentType) else {
             SNLog("Media file has invalid content type.")
             return false
         }
@@ -89,7 +89,7 @@ public enum MediaUtils {
             SNLog("Media file has unknown length.")
             return false
         }
-        return UInt(fileSize) <= SNUtilitiesKitConfiguration.maxFileSize
+        return UInt(fileSize) <= SNUtilitiesKit.maxFileSize
     }
 
     private static func isValidVideo(asset: AVURLAsset) -> Bool {

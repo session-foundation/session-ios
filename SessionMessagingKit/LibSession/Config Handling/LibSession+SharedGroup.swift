@@ -57,7 +57,7 @@ internal extension LibSession {
         
         // Extract the conf objects from the state to load in the initial data
         guard case .groupKeys(let groupKeysConf, let groupInfoConf, let groupMembersConf) = groupState[.groupKeys] else {
-            SNLog("[LibSession] Group config objects were null")
+            Log.error(.libSession, "Group config objects were null")
             throw LibSessionError.unableToCreateConfigObject
         }
         
@@ -76,8 +76,8 @@ internal extension LibSession {
             let displayPictureEncryptionKey: Data = displayPictureEncryptionKey
         {
             var displayPic: user_profile_pic = user_profile_pic()
-            displayPic.url = displayPictureUrl.toLibSession()
-            displayPic.key = displayPictureEncryptionKey.toLibSession()
+            displayPic.set(\.url, to: displayPictureUrl)
+            displayPic.set(\.key, to: displayPictureEncryptionKey)
             groups_info_set_pic(groupInfoConf, displayPic)
         }
         
@@ -97,7 +97,11 @@ internal extension LibSession {
             .appending(MemberInfo(id: userSessionId.hexString, isAdmin: true, profile: currentUserProfile))
             .asSet()
             .forEach { memberInfo in
-                var profilePic: user_profile_pic = user_profile_pic()
+                var member: config_group_member = config_group_member()
+                member.set(\.session_id, to: memberInfo.id)
+                member.set(\.name, to: (memberInfo.profile?.name ?? ""))
+                member.set(\.admin, to: memberInfo.isAdmin)
+                member.set(\.invited, to: (memberInfo.isAdmin ? 0 : 1))  // Admins can't be in the invited state
                 
                 if
                     let picUrl: String = memberInfo.profile?.profilePictureUrl,
@@ -105,20 +109,9 @@ internal extension LibSession {
                     !picUrl.isEmpty,
                     picKey.count == DisplayPictureManager.aes256KeyByteLength
                 {
-                    profilePic.url = picUrl.toLibSession()
-                    profilePic.key = picKey.toLibSession()
+                    member.set(\.profile_pic.url, to: picUrl)
+                    member.set(\.profile_pic.key, to: picKey)
                 }
-                
-                var member: config_group_member = config_group_member(
-                    session_id: memberInfo.id.toLibSession(),
-                    name: (memberInfo.profile?.name ?? "").toLibSession(),
-                    profile_pic: profilePic,
-                    admin: memberInfo.isAdmin,
-                    invited: (memberInfo.isAdmin ? 0 : 1),  // The current user (admin) isn't invited
-                    promoted: 0,
-                    removed: 0,
-                    supplement: false
-                )
                 
                 groups_members_set(groupMembersConf, &member)
                 try LibSessionError.throwIfNeeded(groupMembersConf)
@@ -200,14 +193,15 @@ internal extension LibSession {
         using dependencies: Dependencies
     ) throws {
         // Create and save dumps for the configs
-        try groupState.forEach { variant, config in
-            try LibSession.createDump(
-                config: config,
-                for: variant,
-                sessionId: SessionId(.group, hex: group.id),
-                timestampMs: Int64(floor(group.formationTimestamp * 1000)),
-                using: dependencies
-            )?.upsert(db)
+        try dependencies.mutate(cache: .libSession) { cache in
+            try groupState.forEach { variant, config in
+                try cache.createDump(
+                    config: config,
+                    for: variant,
+                    sessionId: SessionId(.group, hex: group.id),
+                    timestampMs: Int64(floor(group.formationTimestamp * 1000))
+                )?.upsert(db)
+            }
         }
         
         // Add the new group to the USER_GROUPS config message
@@ -311,7 +305,7 @@ internal extension LibSession {
             let infoConf: UnsafeMutablePointer<config_object> = groupInfoConf,
             let membersConf: UnsafeMutablePointer<config_object> = groupMembersConf
         else {
-            SNLog("[LibSession] Group config objects were null")
+            Log.error(.libSession, "Group config objects were null")
             throw LibSessionError.unableToCreateConfigObject
         }
         
@@ -382,7 +376,11 @@ private extension Int32 {
     func orThrow(error: [CChar]) throws {
         guard self != 0 else { return }
         
-        SNLog("[LibSession] Unable to create group config objects: \(String(cString: error))")
+        Log.error(.libSession, "Unable to create group config objects: \(String(cString: error))")
         throw LibSessionError.unableToCreateConfigObject
     }
 }
+
+// MARK: - C Conformance
+
+extension config_group_member: CAccessible & CMutable {}

@@ -73,7 +73,7 @@ extension OpenGroupAPI.Message {
             
             // Verify the signature based on the SessionId.Prefix type
             let maybeSenderSessionId: SessionId? = try? SessionId(from: sender)
-            let dependencies: Dependencies = try decoder.dependencies ?? { throw CryptoError.signatureVerificationFailed }()
+            let dependencies: Dependencies = try decoder.dependencies ?? { throw DependenciesError.missingDependencies }()
             
             switch (maybeSenderSessionId, maybeSenderSessionId?.prefix) {
                 case (.some(let sessionId), .blinded15), (.some(let sessionId), .blinded25):
@@ -82,7 +82,7 @@ extension OpenGroupAPI.Message {
                             .signature(message: data.bytes, publicKey: sessionId.publicKey, signature: signature.bytes)
                         )
                     else {
-                        SNLog("Ignoring message with invalid signature.")
+                        Log.info("Ignoring message with invalid signature.")
                         throw NetworkError.parsingFailed
                     }
                     
@@ -92,12 +92,12 @@ extension OpenGroupAPI.Message {
                             .signatureXed25519(signature, curve25519PublicKey: sessionId.publicKey, data: data)
                         )
                     else {
-                        SNLog("Ignoring message with invalid signature.")
+                        Log.info("Ignoring message with invalid signature.")
                         throw NetworkError.parsingFailed
                     }
                     
                 case (.some, .none), (.none, _), (_, .group):
-                    SNLog("Ignoring message with invalid sender.")
+                    Log.info("Ignoring message with invalid sender.")
                     throw NetworkError.parsingFailed
             }
         }

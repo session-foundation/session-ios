@@ -9,6 +9,10 @@ import Nimble
 @testable import SessionMessagingKit
 @testable import SessionUtilitiesKit
 
+extension Job: @retroactive MutableIdentifiable {
+    public mutating func setId(_ id: Int64?) { self.id = id }
+}
+
 class MessageSendJobSpec: QuickSpec {
     override class func spec() {
         // MARK: Configuration
@@ -38,6 +42,7 @@ class MessageSendJobSpec: QuickSpec {
                     db,
                     id: "Test1",
                     variant: .contact,
+                    creationDateTimestamp: 1234567890,
                     shouldBeVisible: true,
                     calledFromConfig: nil,
                     using: dependencies
@@ -80,12 +85,12 @@ class MessageSendJobSpec: QuickSpec {
                 MessageSendJob.run(
                     job,
                     queue: .main,
-                    success: { _, _, _ in },
-                    failure: { _, runError, runPermanentFailure, _ in
+                    success: { _, _ in },
+                    failure: { _, runError, runPermanentFailure in
                         error = runError
                         permanentFailure = runPermanentFailure
                     },
-                    deferred: { _, _ in },
+                    deferred: { _ in },
                     using: dependencies
                 )
                 
@@ -98,8 +103,7 @@ class MessageSendJobSpec: QuickSpec {
                 job = Job(
                     variant: .messageSend,
                     details: MessageReceiveJob.Details(
-                        messages: [MessageReceiveJob.Details.MessageInfo](),
-                        calledFromBackgroundPoller: false
+                        messages: [MessageReceiveJob.Details.MessageInfo]()
                     )
                 )
                 
@@ -109,12 +113,12 @@ class MessageSendJobSpec: QuickSpec {
                 MessageSendJob.run(
                     job,
                     queue: .main,
-                    success: { _, _, _ in },
-                    failure: { _, runError, runPermanentFailure, _ in
+                    success: { _, _ in },
+                    failure: { _, runError, runPermanentFailure in
                         error = runError
                         permanentFailure = runPermanentFailure
                     },
-                    deferred: { _, _ in },
+                    deferred: { _ in },
                     using: dependencies
                 )
                 
@@ -142,7 +146,8 @@ class MessageSendJobSpec: QuickSpec {
                         linkPreviewUrl: nil,
                         openGroupServerMessageId: nil,
                         openGroupWhisperMods: false,
-                        openGroupWhisperTo: nil
+                        openGroupWhisperTo: nil,
+                        transientDependencies: nil
                     )
                     job = Job(
                         variant: .messageSend,
@@ -180,12 +185,12 @@ class MessageSendJobSpec: QuickSpec {
                     MessageSendJob.run(
                         job,
                         queue: .main,
-                        success: { _, _, _ in },
-                        failure: { _, runError, runPermanentFailure, _ in
+                        success: { _, _ in },
+                        failure: { _, runError, runPermanentFailure in
                             error = runError
                             permanentFailure = runPermanentFailure
                         },
-                        deferred: { _, _ in },
+                        deferred: { _ in },
                         using: dependencies
                     )
                     
@@ -211,12 +216,12 @@ class MessageSendJobSpec: QuickSpec {
                     MessageSendJob.run(
                         job,
                         queue: .main,
-                        success: { _, _, _ in },
-                        failure: { _, runError, runPermanentFailure, _ in
+                        success: { _, _ in },
+                        failure: { _, runError, runPermanentFailure in
                             error = runError
                             permanentFailure = runPermanentFailure
                         },
-                        deferred: { _, _ in },
+                        deferred: { _ in },
                         using: dependencies
                     )
                     
@@ -244,12 +249,12 @@ class MessageSendJobSpec: QuickSpec {
                     MessageSendJob.run(
                         job,
                         queue: .main,
-                        success: { _, _, _ in },
-                        failure: { _, runError, runPermanentFailure, _ in
+                        success: { _, _ in },
+                        failure: { _, runError, runPermanentFailure in
                             error = runError
                             permanentFailure = runPermanentFailure
                         },
-                        deferred: { _, _ in },
+                        deferred: { _ in },
                         using: dependencies
                     )
                     
@@ -275,7 +280,7 @@ class MessageSendJobSpec: QuickSpec {
                     // MARK: ------ it fails when trying to send with an attachment which previously failed to download
                     it("it fails when trying to send with an attachment which previously failed to download") {
                         mockStorage.write { db in
-                            try attachment.with(state: .failedDownload).upsert(db)
+                            try attachment.with(state: .failedDownload, using: dependencies).upsert(db)
                         }
                         
                         var error: Error? = nil
@@ -284,12 +289,12 @@ class MessageSendJobSpec: QuickSpec {
                         MessageSendJob.run(
                             job,
                             queue: .main,
-                            success: { _, _, _ in },
-                            failure: { _, runError, runPermanentFailure, _ in
+                            success: { _, _ in },
+                            failure: { _, runError, runPermanentFailure in
                                 error = runError
                                 permanentFailure = runPermanentFailure
                             },
-                            deferred: { _, _ in },
+                            deferred: { _ in },
                             using: dependencies
                         )
                         
@@ -301,7 +306,7 @@ class MessageSendJobSpec: QuickSpec {
                     context("with a pending upload") {
                         beforeEach {
                             mockStorage.write { db in
-                                try attachment.with(state: .uploading).upsert(db)
+                                try attachment.with(state: .uploading, using: dependencies).upsert(db)
                             }
                         }
                         
@@ -310,15 +315,15 @@ class MessageSendJobSpec: QuickSpec {
                             var didDefer: Bool = false
                             
                             mockStorage.write { db in
-                                try attachment.with(state: .uploading).upsert(db)
+                                try attachment.with(state: .uploading, using: dependencies).upsert(db)
                             }
                             
                             MessageSendJob.run(
                                 job,
                                 queue: .main,
-                                success: { _, _, _ in },
-                                failure: { _, _, _, _ in },
-                                deferred: { _, _ in didDefer = true },
+                                success: { _, _ in },
+                                failure: { _, _, _ in },
+                                deferred: { _ in didDefer = true },
                                 using: dependencies
                             )
                             
@@ -333,7 +338,8 @@ class MessageSendJobSpec: QuickSpec {
                                 try attachment
                                     .with(
                                         state: .uploaded,
-                                        downloadUrl: nil
+                                        downloadUrl: nil,
+                                        using: dependencies
                                     )
                                     .upsert(db)
                             }
@@ -341,9 +347,9 @@ class MessageSendJobSpec: QuickSpec {
                             MessageSendJob.run(
                                 job,
                                 queue: .main,
-                                success: { _, _, _ in },
-                                failure: { _, _, _, _ in },
-                                deferred: { _, _ in didDefer = true },
+                                success: { _, _ in },
+                                failure: { _, _, _ in },
+                                deferred: { _ in didDefer = true },
                                 using: dependencies
                             )
                             
@@ -365,9 +371,9 @@ class MessageSendJobSpec: QuickSpec {
                             MessageSendJob.run(
                                 job,
                                 queue: .main,
-                                success: { _, _, _ in },
-                                failure: { _, _, _, _ in },
-                                deferred: { _, _ in },
+                                success: { _, _ in },
+                                failure: { _, _, _ in },
+                                deferred: { _ in },
                                 using: dependencies
                             )
                             
@@ -396,9 +402,9 @@ class MessageSendJobSpec: QuickSpec {
                             MessageSendJob.run(
                                 job,
                                 queue: .main,
-                                success: { _, _, _ in },
-                                failure: { _, _, _, _ in },
-                                deferred: { _, _ in },
+                                success: { _, _ in },
+                                failure: { _, _, _ in },
+                                deferred: { _ in },
                                 using: dependencies
                             )
                             

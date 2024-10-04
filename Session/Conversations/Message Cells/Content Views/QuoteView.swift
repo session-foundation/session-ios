@@ -103,14 +103,19 @@ final class QuoteView: UIView {
         contentView.pin(to: self)
         
         if let attachment: Attachment = attachment {
-            let isAudio: Bool = MimeTypeUtil.isAudio(attachment.contentType)
-            let fallbackImageName: String = (isAudio ? "attachment_audio" : "actionsheet_document_black")
-            let imageView: UIImageView = UIImageView(
-                image: UIImage(named: fallbackImageName)?
-                    .resized(to: CGSize(width: iconSize, height: iconSize))?
-                    .withRenderingMode(.alwaysTemplate)
-            )
+            let isAudio: Bool = attachment.isAudio
+            let fallbackImageName: String = (isAudio ? "attachment_audio" : "actionsheet_document_black") // stringlint:disable
+            let imageContainerView: UIView = UIView()
+            imageContainerView.themeBackgroundColor = .messageBubble_overlay
+            imageContainerView.layer.cornerRadius = VisibleMessageCell.smallCornerRadius
+            imageContainerView.layer.masksToBounds = true
+            imageContainerView.set(.width, to: thumbnailSize)
+            imageContainerView.set(.height, to: thumbnailSize)
+            mainStackView.addArrangedSubview(imageContainerView)
             
+            let imageView: UIImageView = UIImageView(
+                image: UIImage(named: fallbackImageName)?.withRenderingMode(.alwaysTemplate)
+            )
             imageView.themeTintColor = {
                 switch mode {
                     case .regular: return (direction == .outgoing ?
@@ -120,13 +125,11 @@ final class QuoteView: UIView {
                     case .draft: return .textPrimary
                 }
             }()
-            imageView.contentMode = .center
-            imageView.themeBackgroundColor = .messageBubble_overlay
-            imageView.layer.cornerRadius = VisibleMessageCell.smallCornerRadius
-            imageView.layer.masksToBounds = true
-            imageView.set(.width, to: thumbnailSize)
-            imageView.set(.height, to: thumbnailSize)
-            mainStackView.addArrangedSubview(imageView)
+            imageView.contentMode = .scaleAspectFit
+            imageView.set(.width, to: iconSize)
+            imageView.set(.height, to: iconSize)
+            imageContainerView.addSubview(imageView)
+            imageView.center(in: imageContainerView)
             
             if (body ?? "").isEmpty {
                 body = attachment.shortDescription
@@ -197,7 +200,13 @@ final class QuoteView: UIView {
                         currentUserSessionId: currentUserSessionId,
                         currentUserBlinded15SessionId: currentUserBlinded15SessionId,
                         currentUserBlinded25SessionId: currentUserBlinded25SessionId,
-                        isOutgoingMessage: (direction == .outgoing),
+                        location: {
+                            switch (mode, direction) {
+                                case (.draft, _): return .quoteDraft
+                                case (_, .outgoing): return .outgoingQuote
+                                case (_, .incoming): return .incomingQuote
+                            }
+                        }(),
                         textColor: textColor,
                         theme: theme,
                         primaryColor: primaryColor,
@@ -212,7 +221,7 @@ final class QuoteView: UIView {
                         NSAttributedString(string: $0.shortDescription, attributes: [ .foregroundColor: textColor ])
                     }
                 )
-                .defaulting(to: NSAttributedString(string: "QUOTED_MESSAGE_NOT_FOUND".localized(), attributes: [ .foregroundColor: textColor ]))
+                .defaulting(to: NSAttributedString(string: "messageErrorOriginal".localized(), attributes: [ .foregroundColor: textColor ]))
         }
         
         // Label stack view
@@ -228,7 +237,7 @@ final class QuoteView: UIView {
         let authorLabel = UILabel()
         authorLabel.font = .boldSystemFont(ofSize: Values.smallFontSize)
         authorLabel.text = {
-            guard !isCurrentUser else { return "MEDIA_GALLERY_SENDER_NAME_YOU".localized() }
+            guard !isCurrentUser else { return "you".localized() }
             guard body != nil else {
                 // When we can't find the quoted message we want to hide the author label
                 return Profile.displayNameNoFallback(

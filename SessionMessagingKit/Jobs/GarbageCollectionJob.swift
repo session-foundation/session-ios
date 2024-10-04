@@ -5,6 +5,14 @@ import GRDB
 import SessionUtilitiesKit
 import SessionSnodeKit
 
+// MARK: - Log.Category
+
+private extension Log.Category {
+    static let cat: Log.Category = .create("GarbageCollectionJob", defaultLevel: .info)
+}
+
+// MARK: - GarbageCollectionJob
+
 /// This job deletes unused and orphaned data from the database as well as orphaned files from device storage
 ///
 /// **Note:** When sheduling this job if no `Details` are provided (with a list of `typesToCollect`) then this job will
@@ -336,6 +344,14 @@ public enum GarbageCollectionJob: JobExecutor {
                         )
                     """)
                 }
+                
+                if finalTypesToCollect.contains(.pruneExpiredLastHashRecords) {
+                    // Delete any expired SnodeReceivedMessageInfo values associated to a specific node
+                    try SnodeReceivedMessageInfo
+                        .select(Column.rowID)
+                        .filter(SnodeReceivedMessageInfo.Columns.expirationDateMs <= timestampNow)
+                        .deleteAll(db)
+                }
             },
             completion: { _, _ in
                 // Dispatch async so we can swap from the write queue to a read one (we are done writing)
@@ -443,7 +459,7 @@ public enum GarbageCollectionJob: JobExecutor {
                             catch { deletionErrors.append(error) }
                         }
                         
-                        Log.info("[GarbageCollectionJob] Removed \(orphanedAttachmentFiles.count) orphaned attachment\(plural: orphanedAttachmentFiles.count)")
+                        Log.info(.cat, "Orphaned attachments removed: \(orphanedAttachmentFiles.count)")
                     }
                     
                     // Orphaned display picture files (actual deletion)
@@ -466,7 +482,7 @@ public enum GarbageCollectionJob: JobExecutor {
                             catch { deletionErrors.append(error) }
                         }
                         
-                        Log.info("[GarbageCollectionJob] Removed \(orphanedFiles.count) orphaned display picture\(plural: orphanedFiles.count)")
+                        Log.info(.cat, "Orphaned display pictures removed: \(orphanedFiles.count)")
                     }
                     
                     // Report a single file deletion as a job failure (even if other content was successfully removed)
@@ -508,6 +524,7 @@ extension GarbageCollectionJob {
         case expiredUnreadDisappearingMessages // unread disappearing messages after 14 days
         case expiredPendingReadReceipts
         case shadowThreads
+        case pruneExpiredLastHashRecords
     }
     
     public struct Details: Codable {

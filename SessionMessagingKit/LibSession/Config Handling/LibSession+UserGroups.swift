@@ -37,10 +37,9 @@ internal extension LibSessionCacheType {
     func handleUserGroupsUpdate(
         _ db: Database,
         in config: LibSession.Config?,
-        serverTimestampMs: Int64,
-        using dependencies: Dependencies
+        serverTimestampMs: Int64
     ) throws {
-        guard config.needsDump(using: dependencies) else { return }
+        guard configNeedsDump(config) else { return }
         guard case .object(let conf) = config else { throw LibSessionError.invalidConfigObject }
         
         var infiniteLoopGuard: Int = 0
@@ -56,8 +55,8 @@ internal extension LibSessionCacheType {
             try LibSession.checkLoopLimitReached(&infiniteLoopGuard, for: .userGroups)
             
             if user_groups_it_is_community(groupsIterator, &community) {
-                let server: String = String(libSessionVal: community.base_url)
-                let roomToken: String = String(libSessionVal: community.room)
+                let server: String = community.get(\.base_url)
+                let roomToken: String = community.get(\.room)
                 
                 communities.append(
                     PrioritisedData(
@@ -65,33 +64,24 @@ internal extension LibSessionCacheType {
                             threadId: OpenGroup.idFor(roomToken: roomToken, server: server),
                             server: server,
                             roomToken: roomToken,
-                            publicKey: Data(
-                                libSessionVal: community.pubkey,
-                                count: LibSession.sizeCommunityPubkeyBytes
-                            ).toHexString()
+                            publicKey: community.getHex(\.pubkey)
                         ),
                         priority: community.priority
                     )
                 )
             }
             else if user_groups_it_is_legacy_group(groupsIterator, &legacyGroup) {
-                let groupId: String = String(libSessionVal: legacyGroup.session_id)
+                let groupId: String = legacyGroup.get(\.session_id)
                 let members: [String: Bool] = LibSession.memberInfo(in: &legacyGroup)
                 
                 legacyGroups.append(
                     LibSession.LegacyGroupInfo(
                         id: groupId,
-                        name: String(libSessionVal: legacyGroup.name),
+                        name: legacyGroup.get(\.name),
                         lastKeyPair: ClosedGroupKeyPair(
                             threadId: groupId,
-                            publicKey: Data(
-                                libSessionVal: legacyGroup.enc_pubkey,
-                                count: LibSession.sizeLegacyGroupPubkeyBytes
-                            ),
-                            secretKey: Data(
-                                libSessionVal: legacyGroup.enc_seckey,
-                                count: LibSession.sizeLegacyGroupSecretKeyBytes
-                            ),
+                            publicKey: legacyGroup.get(\.enc_pubkey),
+                            secretKey: legacyGroup.get(\.enc_seckey),
                             receivedTimestamp: (dependencies[cache: .snodeAPI].currentOffsetTimestampMs() / 1000)
                         ),
                         disappearingConfig: DisappearingMessagesConfiguration
@@ -129,26 +119,12 @@ internal extension LibSessionCacheType {
                 )
             }
             else if user_groups_it_is_group(groupsIterator, &group) {
-                let groupSessionId: String = String(libSessionVal: group.id)
-                
                 groups.append(
                     LibSession.GroupInfo(
-                        groupSessionId: groupSessionId,
-                        groupIdentityPrivateKey: (!group.have_secretkey ? nil :
-                            Data(
-                                libSessionVal: group.secretkey,
-                                count: LibSession.sizeGroupSecretKeyBytes,
-                                nullIfEmpty: true
-                            )
-                        ),
-                        name: String(libSessionVal: group.name),
-                        authData: (!group.have_auth_data ? nil :
-                            Data(
-                                libSessionVal: group.auth_data,
-                                count: LibSession.sizeGroupAuthDataBytes,
-                                nullIfEmpty: true
-                            )
-                        ),
+                        groupSessionId: group.get(\.id),
+                        groupIdentityPrivateKey: (!group.have_secretkey ? nil : group.get(\.secretkey, nullIfEmpty: true)),
+                        name: group.get(\.name),
+                        authData: (!group.have_auth_data ? nil : group.get(\.auth_data, nullIfEmpty: true)),
                         priority: group.priority,
                         joinedAt: TimeInterval(group.joined_at),
                         invited: group.invited,
@@ -157,7 +133,7 @@ internal extension LibSessionCacheType {
                 )
             }
             else {
-                SNLog("[LibSession] Ignoring unknown conversation type when iterating through volatile conversation info update")
+                Log.warn(.libSession, "Ignoring unknown conversation type when iterating through volatile conversation info update")
             }
             
             user_groups_iterator_advance(groupsIterator)
@@ -192,7 +168,7 @@ internal extension LibSessionCacheType {
             )
             
             if successfullyAddedGroup {
-                db.afterNextTransactionNested { _ in
+                db.afterNextTransactionNested(using: dependencies) { _ in
                     dependencies[singleton: .openGroupManager].performInitialRequestsAfterAdd(
                         queue: DispatchQueue.global(qos: .userInitiated),
                         successfullyAddedGroup: successfullyAddedGroup,
@@ -261,9 +237,23 @@ internal extension LibSessionCacheType {
                 let name: String = group.name,
                 let lastKeyPair: ClosedGroupKeyPair = group.lastKeyPair,
                 let members: [GroupMember] = group.groupMembers,
-                let updatedAdmins: Set<GroupMember> = group.groupAdmins?.asSet(),
-                let joinedAt: TimeInterval = group.joinedAt
+                let updatedAdmins: Set<GroupMember> = group.groupAdmins?.asSet()
             else { return }
+            
+            // There were some bugs (somewhere) where the `joinedAt` valid could be in seconds, milliseconds
+            // or even microseconds so we need to try to detect this and convert it to proper seconds (if we don't
+            // have a value then we want it to be at the bottom of the list, so default to `0`)
+            let joinedAt: TimeInterval = {
+                guard let value: Double = group.joinedAt else { return 0 }
+                
+                if value > 9_000_000_000_000 {  // Microseconds
+                    return (value / 1_000_000)
+                } else if value > 9_000_000_000 {  // Milliseconds
+                    return (value / 1000)
+                }
+                
+                return TimeInterval(value)  // Seconds
+            }()
             
             if !existingLegacyGroupIds.contains(group.id) {
                 // Add a new group if it doesn't already exist
@@ -281,7 +271,7 @@ internal extension LibSessionCacheType {
                         .map { $0.profileId },
                     admins: updatedAdmins.map { $0.profileId },
                     expirationTimer: UInt32(group.disappearingConfig?.durationSeconds ?? 0),
-                    formationTimestamp: TimeInterval((group.joinedAt ?? (Double(serverTimestampMs) / 1000))),
+                    formationTimestamp: joinedAt,
                     calledFromConfig: .userGroups,
                     using: dependencies
                 )
@@ -603,8 +593,7 @@ internal extension LibSession {
     
     static func upsert(
         legacyGroups: [LegacyGroupInfo],
-        in config: Config?,
-        using dependencies: Dependencies
+        in config: Config?
     ) throws {
         guard case .object(let conf) = config else { throw LibSessionError.invalidConfigObject }
         guard !legacyGroups.isEmpty else { return }
@@ -627,31 +616,20 @@ internal extension LibSession {
                 
                 // Assign all properties to match the updated group (if there is one)
                 if let updatedName: String = legacyGroup.name {
-                    userGroup.pointee.name = updatedName.toLibSession()
-                    
-                    // Store the updated group (needs to happen before variables go out of scope)
-                    user_groups_set_legacy_group(conf, userGroup)
-                    try LibSessionError.throwIfNeeded(conf) { ugroups_legacy_group_free(userGroup) }
+                    userGroup.set(\.name, to: updatedName)
                 }
                 
                 if let lastKeyPair: ClosedGroupKeyPair = legacyGroup.lastKeyPair {
-                    userGroup.pointee.enc_pubkey = lastKeyPair.publicKey.toLibSession()
-                    userGroup.pointee.enc_seckey = lastKeyPair.secretKey.toLibSession()
-                    userGroup.pointee.have_enc_keys = true
-                    
-                    // Store the updated group (needs to happen before variables go out of scope)
-                    user_groups_set_legacy_group(conf, userGroup)
-                    try LibSessionError.throwIfNeeded(conf) { ugroups_legacy_group_free(userGroup) }
+                    userGroup.set(\.enc_pubkey, to: lastKeyPair.publicKey)
+                    userGroup.set(\.enc_seckey, to: lastKeyPair.secretKey)
+                    userGroup.set(\.have_enc_keys, to: true)
                 }
                 
                 // Assign all properties to match the updated disappearing messages config (if there is one)
                 if let updatedConfig: DisappearingMessagesConfiguration = legacyGroup.disappearingConfig {
-                    userGroup.pointee.disappearing_timer = (!updatedConfig.isEnabled ? 0 :
+                    userGroup.set(\.disappearing_timer, to: (!updatedConfig.isEnabled ? 0 :
                         Int64(floor(updatedConfig.durationSeconds))
-                    )
-                    
-                    user_groups_set_legacy_group(conf, userGroup)
-                    try LibSessionError.throwIfNeeded(conf) { ugroups_legacy_group_free(userGroup) }
+                    ))
                 }
                 
                 // Add/Remove the group members and admins
@@ -707,11 +685,11 @@ internal extension LibSession {
                 }
                 
                 if let joinedAt: Int64 = legacyGroup.joinedAt.map({ Int64($0) }) {
-                    userGroup.pointee.joined_at = joinedAt
+                    userGroup.set(\.joined_at, to: joinedAt)
                 }
                 
                 // Store the updated group (can't be sure if we made any changes above)
-                userGroup.pointee.priority = (legacyGroup.priority ?? userGroup.pointee.priority)
+                userGroup.set(\.priority, to: (legacyGroup.priority ?? userGroup.pointee.priority))
                 
                 // Note: Need to free the legacy group pointer
                 user_groups_set_free_legacy_group(conf, userGroup)
@@ -744,7 +722,7 @@ internal extension LibSession {
                 
                 /// Assign the non-admin auth data (if it exists)
                 if let authData: Data = group.authData {
-                    userGroup.auth_data = authData.toLibSession()
+                    userGroup.set(\.auth_data, to: authData)
                     userGroup.have_auth_data = true
                 }
 
@@ -753,19 +731,13 @@ internal extension LibSession {
                 /// **Note:** We do this after assigning the `auth_data` as generally the values are mutually
                 /// exclusive and if we have a `groupIdentityPrivateKey` we want that to take priority
                 if let privateKey: Data = group.groupIdentityPrivateKey {
-                    userGroup.secretkey = privateKey.toLibSession()
+                    userGroup.set(\.secretkey, to: privateKey)
                     userGroup.have_secretkey = true
-
-                    // Store the updated group (needs to happen before variables go out of scope)
-                    user_groups_set_group(conf, &userGroup)
                 }
                 
                 /// Assign the group name
                 if let name: String = group.name {
-                    userGroup.name = name.toLibSession()
-                    
-                    // Store the updated group (needs to happen before variables go out of scope)
-                    user_groups_set_group(conf, &userGroup)
+                    userGroup.set(\.name, to: name)
                 }
 
                 // Store the updated group (can't be sure if we made any changes above)
@@ -778,8 +750,7 @@ internal extension LibSession {
     
     static func upsert(
         communities: [CommunityInfo],
-        in config: Config?,
-        using dependencies: Dependencies
+        in config: Config?
     ) throws {
         guard case .object(let conf) = config else { throw LibSessionError.invalidConfigObject }
         guard !communities.isEmpty else { return }
@@ -882,8 +853,7 @@ public extension LibSession {
                         )
                     )
                 ],
-                in: config,
-                using: dependencies
+                in: config
             )
         }
     }
@@ -930,13 +900,13 @@ public extension LibSession {
         _ db: Database,
         legacyGroupSessionId: String,
         name: String,
+        joinedAt: TimeInterval,
         latestKeyPairPublicKey: Data,
         latestKeyPairSecretKey: Data,
         latestKeyPairReceivedTimestamp: TimeInterval,
         disappearingConfig: DisappearingMessagesConfiguration,
         members: Set<String>,
         admins: Set<String>,
-        formationTimestamp: TimeInterval,
         using dependencies: Dependencies
     ) throws {
         try LibSession.performAndPushChange(
@@ -991,11 +961,10 @@ public extension LibSession {
                                     isHidden: false
                                 )
                             },
-                        joinedAt: formationTimestamp
+                        joinedAt: joinedAt
                     )
                 ],
-                in: config,
-                using: dependencies
+                in: config
             )
         }
     }
@@ -1045,8 +1014,7 @@ public extension LibSession {
                             }
                     )
                 ],
-                in: config,
-                using: dependencies
+                in: config
             )
         }
     }
@@ -1069,8 +1037,7 @@ public extension LibSession {
                         disappearingConfig: $0
                     )
                 },
-                in: config,
-                using: dependencies
+                in: config
             )
         }
     }
@@ -1448,3 +1415,9 @@ fileprivate struct PrioritisedData<T> {
     let data: T
     let priority: Int32
 }
+
+// MARK: - C Conformance
+
+extension ugroups_community_info: CAccessible & CMutable {}
+extension ugroups_legacy_group_info: CAccessible & CMutable {}
+extension ugroups_group_info: CAccessible & CMutable {}

@@ -4,4 +4,3 @@
 #define SessionUtilitiesKit_h
 
 #endif /* SessionUtilitiesKit_h */
-

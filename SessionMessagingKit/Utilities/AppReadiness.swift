@@ -44,7 +44,7 @@ public class AppReadiness {
     
     public func runNowOrWhenAppWillBecomeReady(closure: @escaping () -> ()) {
         // We don't need to do any "on app ready" work in the tests.
-        guard !SNUtilitiesKitConfiguration.isRunningTests else { return }
+        guard !SNUtilitiesKit.isRunningTests else { return }
         guard !isAppReady else {
             guard Thread.isMainThread else {
                 DispatchQueue.main.async { [weak self] in self?.runNowOrWhenAppWillBecomeReady(closure: closure) }
@@ -59,7 +59,7 @@ public class AppReadiness {
     
     public func runNowOrWhenAppDidBecomeReady(closure: @escaping () -> ()) {
         // We don't need to do any "on app ready" work in the tests.
-        guard !SNUtilitiesKitConfiguration.isRunningTests else { return }
+        guard !SNUtilitiesKit.isRunningTests else { return }
         guard !isAppReady else {
             guard Thread.isMainThread else {
                 DispatchQueue.main.async { [weak self] in self?.runNowOrWhenAppDidBecomeReady(closure: closure) }

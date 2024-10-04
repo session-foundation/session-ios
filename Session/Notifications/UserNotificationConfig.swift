@@ -31,24 +31,17 @@ class UserNotificationConfig {
             case .markAsRead:
                 return UNNotificationAction(
                     identifier: action.identifier,
-                    title: MessageStrings.markAsReadNotificationAction,
+                    title: "messageMarkRead".localized(),
                     options: []
                 )
                 
             case .reply:
                 return UNTextInputNotificationAction(
                     identifier: action.identifier,
-                    title: MessageStrings.replyNotificationAction,
+                    title: "reply".localized(),
                     options: [],
-                    textInputButtonTitle: MessageStrings.sendButton,
+                    textInputButtonTitle: "send".localized(),
                     textInputPlaceholder: ""
-                )
-                
-            case .showThread:
-                return UNNotificationAction(
-                    identifier: action.identifier,
-                    title: CallStrings.showThreadButtonTitle,
-                    options: [.foreground]
                 )
         }
     }

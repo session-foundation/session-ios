@@ -4,6 +4,14 @@ import Foundation
 import GRDB
 import SessionUtilitiesKit
 
+// MARK: - Log.Category
+
+private extension Log.Category {
+    static let cat: Log.Category = .create("FailedMessageSendsJob", defaultLevel: .info)
+}
+
+// MARK: - FailedMessageSendsJob
+
 public enum FailedMessageSendsJob: JobExecutor {
     public static let maxFailureCount: Int = -1
     public static let requiresThreadId: Bool = false
@@ -40,7 +48,7 @@ public enum FailedMessageSendsJob: JobExecutor {
             .receive(on: queue, using: dependencies)
             .sinkUntilComplete(
                 receiveCompletion: { _ in
-                    Log.info("[FailedMessageSendsJob] Marked \(changeCount) message\(plural: changeCount) as failed (\(attachmentChangeCount) upload\(plural: attachmentChangeCount) cancelled)")
+                    Log.info(.cat, "Messages marked as failed: \(changeCount), Uploads cancelled: \(attachmentChangeCount)")
                     success(job, false)
                 }
             )

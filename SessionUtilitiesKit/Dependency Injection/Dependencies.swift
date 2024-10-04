@@ -70,11 +70,10 @@ public class Dependencies {
     // MARK: - Initialization
     
     private init() {}
+    internal init(forTesting: Bool) {}
     public static func createEmpty() -> Dependencies { return Dependencies() }
     
     // MARK: - Functions
-    
-    public func mockableValue<T>(key: String? = nil, _ defaultValue: T) -> T { defaultValue }
     
     public func async(at fixedTime: Int, closure: @escaping () -> Void) {
         async(at: TimeInterval(fixedTime), closure: closure)
@@ -154,10 +153,6 @@ public class Dependencies {
     }
     
     // MARK: - Instance replacing
-    
-    public func hasInitialised<S>(singleton: SingletonConfig<S>) -> Bool {
-        return (Dependencies.singletonInstances.wrappedValue[singleton.identifier] != nil)
-    }
     
     public func warmCache<M, I>(cache: CacheConfig<M, I>) {
         _ = getValueSettingIfNull(cache: cache)
@@ -312,4 +307,8 @@ public extension Dependencies {
         get { return self[defaults: defaults].string(forKey: key.rawValue) }
         set { self[defaults: defaults].set(newValue, forKey: key.rawValue) }
     }
+}
+
+public enum DependenciesError: Error {
+    case missingDependencies
 }

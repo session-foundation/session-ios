@@ -16,12 +16,12 @@ public class ThemePreviewView: UIView {
         result.update(
             with: MessageViewModel(
                 variant: .standardIncoming,
-                body: "APPEARANCE_PRIMARY_COLOR_PREVIEW_INC_MESSAGE".localized(),
+                body: "appearancePreview2".localized(),
                 quote: Quote(
                     interactionId: -1,
                     authorId: "",
                     timestampMs: 0,
-                    body: "APPEARANCE_PRIMARY_COLOR_PREVIEW_INC_QUOTE".localized(),
+                    body: "appearancePreview1".localized(),
                     attachmentId: nil
                 ),
                 cellType: .textOnlyMessage
@@ -42,7 +42,7 @@ public class ThemePreviewView: UIView {
         result.update(
             with: MessageViewModel(
                 variant: .standardOutgoing,
-                body: "APPEARANCE_PRIMARY_COLOR_PREVIEW_OUT_MESSAGE".localized(),
+                body: "appearancePreview3".localized(),
                 cellType: .textOnlyMessage,
                 isLast: false // To hide the status indicator
             ),

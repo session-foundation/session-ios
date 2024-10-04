@@ -122,43 +122,12 @@ final class InfoMessageCell: MessageCell {
             iconImageView.image = icon.withRenderingMode(.alwaysTemplate)
             iconImageView.themeTintColor = .textSecondary
         }
-        // TODO: Need to update this to be cleaner (after strings?)
-        // TODO: Need to check this has the correct behaviour/strings for updated groups
-        switch (cellViewModel.variant, cellViewModel.threadVariant, cellViewModel.body, cellViewModel.attributedBody(using: dependencies)) {
-            case (.infoDisappearingMessagesUpdate, .contact, .some(let body), _), (.infoDisappearingMessagesUpdate, .legacyGroup, .some(let body), _):
-                self.label.attributedText = NSAttributedString(string: body)
-                    .adding(
-                        attributes: [ .font: UIFont.boldSystemFont(ofSize: Values.verySmallFontSize) ],
-                        range: (body as NSString).range(of: cellViewModel.authorName)
-                    )
-                    .adding(
-                        attributes: [ .font: UIFont.boldSystemFont(ofSize: Values.verySmallFontSize) ],
-                        range: (body as NSString).range(of: "vc_path_device_row_title".localized())
-                    )
-                    .adding(
-                        attributes: [ .font: UIFont.boldSystemFont(ofSize: Values.verySmallFontSize) ],
-                        range: (body as NSString).range(of: floor(cellViewModel.expiresInSeconds ?? 0).formatted(format: .long))
-                    )
-                    .adding(
-                        attributes: [ .font: UIFont.boldSystemFont(ofSize: Values.verySmallFontSize) ],
-                        range: (body as NSString).range(of: "DISAPPEARING_MESSAGE_STATE_READ".localized())
-                    )
-                    .adding(
-                        attributes: [ .font: UIFont.boldSystemFont(ofSize: Values.verySmallFontSize) ],
-                        range: (body as NSString).range(of: "DISAPPEARING_MESSAGE_STATE_SENT".localized())
-                    )
-                    .adding(
-                        attributes: [ .font: UIFont.boldSystemFont(ofSize: Values.verySmallFontSize) ],
-                        range: (body as NSString).range(of: "DISAPPEARING_MESSAGES_OFF".localized().lowercased())
-                    )
-                
-                if cellViewModel.canDoFollowingSetting() {
-                    self.actionLabel.isHidden = false
-                    self.actionLabel.text = "FOLLOW_SETTING_TITLE".localized()
-                }
-                
-            case (_, _, _, .some(let attrText)): self.label.attributedText = attrText
-            case (_, _, _, .none): self.label.text = cellViewModel.body
+        
+        self.label.attributedText = cellViewModel.body?.formatted(in: self.label)
+        
+        if cellViewModel.canDoFollowingSetting() {
+            self.actionLabel.isHidden = false
+            self.actionLabel.text = "disappearingMessagesFollowSetting".localized()
         }
         
         self.label.themeTextColor = (cellViewModel.variant == .infoGroupCurrentUserErrorLeaving ?

@@ -75,7 +75,7 @@ extension SendMessagesResponse: ValidatableResponse {
     /// Half of the responses in the swarm must be valid
     internal static var requiredSuccessfulResponses: Int { -2 }
     
-    @discardableResult internal func validResultMap(
+    internal func validResultMap(
         swarmPublicKey: String,
         validationData: Void,
         using dependencies: Dependencies

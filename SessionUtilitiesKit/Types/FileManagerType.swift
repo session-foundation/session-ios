@@ -24,7 +24,6 @@ public protocol FileManagerType: AnyObject {
         options: FileManager.DirectoryEnumerationOptions,
         errorHandler: ((URL, Error) -> Bool)?
     ) -> FileManager.DirectoryEnumerator?
-
     
     func fileExists(atPath: String) -> Bool
     func fileExists(atPath: String, isDirectory: UnsafeMutablePointer<ObjCBool>?) -> Bool

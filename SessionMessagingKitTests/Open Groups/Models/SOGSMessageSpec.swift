@@ -1,10 +1,11 @@
 // Copyright © 2022 Rangeproof Pty Ltd. All rights reserved.
 
 import Foundation
+import SessionSnodeKit
+import SessionUtilitiesKit
 
 import Quick
 import Nimble
-import SessionUtilitiesKit
 
 @testable import SessionMessagingKit
 
@@ -151,7 +152,7 @@ class SOGSMessageSpec: QuickSpec {
                         expect {
                             try decoder.decode(OpenGroupAPI.Message.self, from: messageData)
                         }
-                        .to(throwError(NetworkError.parsingFailed))
+                        .to(throwError(DependenciesError.missingDependencies))
                     }
                     
                     // MARK: ------ errors if the session_id value is not valid

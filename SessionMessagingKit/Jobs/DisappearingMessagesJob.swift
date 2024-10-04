@@ -6,6 +6,14 @@ import GRDB
 import SessionUtilitiesKit
 import SessionSnodeKit
 
+// MARK: - Log.Category
+
+private extension Log.Category {
+    static let cat: Log.Category = .create("DisappearingMessagesJob", defaultLevel: .info)
+}
+
+// MARK: - DisappearingMessagesJob
+
 public enum DisappearingMessagesJob: JobExecutor {
     public static let maxFailureCount: Int = -1
     public static let requiresThreadId: Bool = false
@@ -40,7 +48,7 @@ public enum DisappearingMessagesJob: JobExecutor {
                 .upserted(db)
         }
         
-        Log.info("[DisappearingMessagesJob] Deleted \(numDeleted) expired messages")
+        Log.info(.cat, "Deleted \(numDeleted) expired messages")
         success(updatedJob ?? job, false)
         
         // The 'if' is only there to prevent the "variable never read" warning from showing
@@ -64,7 +72,7 @@ public extension DisappearingMessagesJob {
                 .deleteAll(db)
         }
         
-        Log.info("[DisappearingMessagesJob] Deleted \(numDeleted) expired messages on app launch.")
+        Log.info(.cat, "Deleted \(numDeleted) expired messages on app launch.")
     }
 }
 
@@ -85,7 +93,7 @@ public extension DisappearingMessagesJob {
             .fetchOne(db)
         
         guard let nextExpirationTimestampMs: Double = nextExpirationTimestampMs else {
-            Log.info("[DisappearingMessagesJob] No remaining expiring messages")
+            Log.info(.cat, "No remaining expiring messages")
             return nil
         }
         
@@ -93,7 +101,7 @@ public extension DisappearingMessagesJob {
         /// value so we need to make sure offset the `nextRunTimestamp` accordingly to ensure it runs at the correct local time
         let clockOffsetMs: Int64 = dependencies[cache: .snodeAPI].clockOffsetMs
         
-        Log.info("[DisappearingMessagesJob] Scheduled future message expiration")
+        Log.info(.cat, "Scheduled future message expiration")
         return try? Job
             .filter(Job.Columns.variant == Job.Variant.disappearingMessages)
             .fetchOne(db)?
@@ -236,7 +244,7 @@ public extension DisappearingMessagesJob {
             )
         }
         catch {
-            Log.warn("[DisappearingMessagesJob] Failed to update the expiring messages timer on an interaction")
+            Log.warn(.cat, "Failed to update the expiring messages timer on an interaction")
             return nil
         }
     }

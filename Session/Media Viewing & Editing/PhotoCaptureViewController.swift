@@ -13,22 +13,13 @@ protocol PhotoCaptureViewControllerDelegate: AnyObject {
     func photoCaptureViewControllerDidCancel(_ photoCaptureViewController: PhotoCaptureViewController)
 }
 
-enum PhotoCaptureError: Error {
+enum PhotoCaptureError: Error, CustomStringConvertible {
     case assertionError(description: String)
     case initializationFailed
     case captureFailed
-}
-
-extension PhotoCaptureError: LocalizedError {
-    var localizedDescription: String {
-        switch self {
-        case .initializationFailed:
-            return NSLocalizedString("PHOTO_CAPTURE_UNABLE_TO_INITIALIZE_CAMERA", comment: "alert title")
-        case .captureFailed:
-            return NSLocalizedString("PHOTO_CAPTURE_UNABLE_TO_CAPTURE_IMAGE", comment: "alert title")
-        case .assertionError:
-            return NSLocalizedString("PHOTO_CAPTURE_GENERIC_ERROR", comment: "alert title, generic error preventing user from capturing a photo")
-        }
+    
+    public var description: String {
+        return "cameraErrorUnavailable".localized()
     }
 }
 
@@ -346,9 +337,9 @@ class PhotoCaptureViewController: OWSViewController {
         Log.error("[PhotoCaptureViewController] Error: \(error)")
         let modal: ConfirmationModal = ConfirmationModal(
             info: ConfirmationModal.Info(
-                title: CommonStrings.errorAlertTitle,
-                body: .text(error.localizedDescription),
-                cancelTitle: CommonStrings.dismissButton,
+                title: "theError".localized(),
+                body: .text("\(error)"),
+                cancelTitle: "dismiss".localized(),
                 cancelStyle: .alert_text,
                 afterClosed: { [weak self] in self?.dismiss(animated: true) }
             )
@@ -361,11 +352,11 @@ class PhotoCaptureViewController: OWSViewController {
         let imageName: String
         switch photoCapture.flashMode {
         case .auto:
-            imageName = "ic_flash_mode_auto"
+            imageName = "ic_flash_mode_auto" // stringlint:disable
         case .on:
-            imageName = "ic_flash_mode_on"
+            imageName = "ic_flash_mode_on" // stringlint:disable
         case .off:
-            imageName = "ic_flash_mode_off"
+            imageName = "ic_flash_mode_off" // stringlint:disable
         default: preconditionFailure()
         }
 
@@ -674,7 +665,7 @@ class RecordingTimerView: UIView {
     private lazy var timeFormatter: DateFormatter = {
         let formatter = DateFormatter()
         formatter.dateFormat = "mm:ss"
-        formatter.timeZone = TimeZone(identifier: "UTC")!
+        formatter.timeZone = TimeZone(identifier: "UTC")! // stringlint:disable
 
         return formatter
     }()

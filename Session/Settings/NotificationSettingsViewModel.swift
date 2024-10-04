@@ -28,8 +28,8 @@ class NotificationSettingsViewModel: SessionTableViewModel, NavigatableStateHold
         
         var title: String? {
             switch self {
-                case .strategy: return "NOTIFICATIONS_SECTION_STRATEGY".localized()
-                case .style: return "NOTIFICATIONS_SECTION_STYLE".localized()
+                case .strategy: return "notificationsStrategy".localized()
+                case .style: return "notificationsStyle".localized()
                 case .content: return nil
             }
         }
@@ -59,7 +59,7 @@ class NotificationSettingsViewModel: SessionTableViewModel, NavigatableStateHold
         let previewType: Preferences.NotificationPreviewType
     }
     
-    let title: String = "NOTIFICATIONS_TITLE".localized()
+    let title: String = "sessionNotifications".localized()
     
     lazy var observation: TargetObservation = ObservationBuilder
         .databaseObservation(self) { db -> State in
@@ -87,11 +87,14 @@ class NotificationSettingsViewModel: SessionTableViewModel, NavigatableStateHold
                     elements: [
                         SessionCell.Info(
                             id: .strategyUseFastMode,
-                            title: "NOTIFICATIONS_STRATEGY_FAST_MODE_TITLE".localized(),
-                            subtitle: "NOTIFICATIONS_STRATEGY_FAST_MODE_DESCRIPTION".localized(),
+                            title: "useFastMode".localized(),
+                            subtitle: "notificationsFastModeDescriptionIos".localized(),
                             trailingAccessory: .toggle(
                                 current.isUsingFullAPNs,
-                                oldValue: previous?.isUsingFullAPNs
+                                oldValue: previous?.isUsingFullAPNs,
+                                accessibility: Accessibility(
+                                    identifier: "Use Fast Mode - Switch"
+                                )
                             ),
                             styling: SessionCell.StyleInfo(
                                 allowedSeparators: [.top],
@@ -108,7 +111,7 @@ class NotificationSettingsViewModel: SessionTableViewModel, NavigatableStateHold
                         SessionCell.Info(
                             id: .strategyDeviceSettings,
                             title: SessionCell.TextInfo(
-                                "NOTIFICATIONS_STRATEGY_FAST_MODE_ACTION".localized(),
+                                "notificationsGoToDevice".localized(),
                                 font: .subtitleBold
                             ),
                             styling: SessionCell.StyleInfo(
@@ -125,7 +128,7 @@ class NotificationSettingsViewModel: SessionTableViewModel, NavigatableStateHold
                     elements: [
                         SessionCell.Info(
                             id: .styleSound,
-                            title: "NOTIFICATIONS_STYLE_SOUND_TITLE".localized(),
+                            title: "notificationsSound".localized(),
                             trailingAccessory: .dropDown { current.notificationSound.displayName },
                             onTap: { [weak self] in
                                 self?.transitionToScreen(
@@ -137,10 +140,13 @@ class NotificationSettingsViewModel: SessionTableViewModel, NavigatableStateHold
                         ),
                         SessionCell.Info(
                             id: .styleSoundWhenAppIsOpen,
-                            title: "NOTIFICATIONS_STYLE_SOUND_WHEN_OPEN_TITLE".localized(),
+                            title: "notificationsSoundDescription".localized(),
                             trailingAccessory: .toggle(
                                 current.playNotificationSoundInForeground,
-                                oldValue: previous?.playNotificationSoundInForeground
+                                oldValue: previous?.playNotificationSoundInForeground,
+                                accessibility: Accessibility(
+                                    identifier: "Sound when App is open - Switch"
+                                )
                             ),
                             onTap: {
                                 dependencies[singleton: .storage].write { db in
@@ -155,8 +161,8 @@ class NotificationSettingsViewModel: SessionTableViewModel, NavigatableStateHold
                     elements: [
                         SessionCell.Info(
                             id: .content,
-                            title: "NOTIFICATIONS_STYLE_CONTENT_TITLE".localized(),
-                            subtitle: "NOTIFICATIONS_STYLE_CONTENT_DESCRIPTION".localized(),
+                            title: "notificationsContent".localized(),
+                            subtitle: "notificationsContentDescription".localized(),
                             trailingAccessory: .dropDown { current.previewType.name },
                             onTap: { [weak self] in
                                 self?.transitionToScreen(

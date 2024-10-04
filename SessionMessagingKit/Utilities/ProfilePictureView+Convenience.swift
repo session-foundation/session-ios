@@ -155,3 +155,35 @@ public extension ProfilePictureView {
         }
     }
 }
+
+public extension ProfilePictureSwiftUI {
+    init?(
+        size: ProfilePictureView.Size,
+        publicKey: String,
+        threadVariant: SessionThread.Variant,
+        displayPictureFilename: String?,
+        profile: Profile?,
+        profileIcon: ProfilePictureView.ProfileIcon = .none,
+        additionalProfile: Profile? = nil,
+        additionalProfileIcon: ProfilePictureView.ProfileIcon = .none,
+        using dependencies: Dependencies
+    ) {
+        let (info, additionalInfo) = ProfilePictureView.getProfilePictureInfo(
+            size: size,
+            publicKey: publicKey,
+            threadVariant: threadVariant,
+            displayPictureFilename: displayPictureFilename,
+            profile: profile,
+            profileIcon: profileIcon,
+            additionalProfile: additionalProfile,
+            additionalProfileIcon: additionalProfileIcon,
+            using: dependencies
+        )
+        
+        if let info = info {
+            self.init(size: size, info: info, additionalInfo: additionalInfo)
+        } else {
+            return nil
+        }
+    }
+}

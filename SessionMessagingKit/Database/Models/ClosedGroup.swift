@@ -189,7 +189,7 @@ public extension ClosedGroup {
         calledFromConfig configTriggeringChange: ConfigDump.Variant?,
         cacheToLoadStateInto: LibSessionCacheType?,
         using dependencies: Dependencies
-    ) throws -> AnyPublisher<Poller.PollResult, Never> {
+    ) throws -> AnyPublisher<GroupPoller.PollResponse, Never> {
         guard let userED25519KeyPair: KeyPair = Identity.fetchUserEd25519KeyPair(db) else {
             throw MessageReceiverError.noUserED25519KeyPair
         }
@@ -228,7 +228,7 @@ public extension ClosedGroup {
         }
         
         /// Start the poller
-        let poller: PollerType = dependencies.mutate(cache: .groupPollers) { $0.getOrCreatePoller(for: group.id) }
+        let poller: SwarmPollerType = dependencies.mutate(cache: .groupPollers) { $0.getOrCreatePoller(for: group.id) }
         poller.startIfNeeded()
         
         /// Subscribe for group push notifications
@@ -246,7 +246,7 @@ public extension ClosedGroup {
         }
         
         /// Return a publisher for the pollers poll results
-        return poller.receivedPollResult
+        return poller.receivedPollResponse
     }
     
     static func removeData(
@@ -287,35 +287,19 @@ public extension ClosedGroup {
                     dependencies.mutate(cache: .groupPollers) { $0.stopAndRemovePoller(for: threadId) }
                 }
                 
-                if dataToRemove.contains(.poller) {
-                    threadVariants.forEach { threadIdVariant in
-                        switch threadIdVariant.variant {
-                            case .legacyGroup:
-                                try? PushNotificationAPI
-                                    .preparedUnsubscribeFromLegacyGroup(
-                                        legacyGroupId: threadId,
-                                        userSessionId: userSessionId,
-                                        using: dependencies
-                                    )
-                                    .send(using: dependencies)
-                                    .sinkUntilComplete()
-                                
-                            case .group:
-                                if let token: String = dependencies[defaults: .standard, key: .deviceToken] {
-                                    try? PushNotificationAPI
-                                        .preparedUnsubscribe(
-                                            db,
-                                            token: Data(hex: token),
-                                            sessionIds: [userSessionId],
-                                            using: dependencies
-                                        )
-                                        .send(using: dependencies)
-                                        .sinkUntilComplete()
-                                }
-                                
-                            default: break
+                if dataToRemove.contains(.pushNotifications) {
+                    threadVariants
+                        .filter { $0.variant == .legacyGroup }
+                        .forEach { threadIdVariant in
+                            try? PushNotificationAPI
+                                .preparedUnsubscribeFromLegacyGroup(
+                                    legacyGroupId: threadId,
+                                    userSessionId: userSessionId,
+                                    using: dependencies
+                                )
+                                .send(using: dependencies)
+                                .sinkUntilComplete()
                         }
-                    }
                 }
                 
                 // Ignore if called from the config handling
@@ -340,6 +324,23 @@ public extension ClosedGroup {
                                     )
                             }
                         }
+                }
+            }
+            
+            /// Bulk unsubscripe from updated groups being removed
+            if dataToRemove.contains(.pushNotifications) && threadVariants.contains(where: { $0.variant == .group }) {
+                if let token: String = dependencies[defaults: .standard, key: .deviceToken] {
+                    try? PushNotificationAPI
+                        .preparedUnsubscribe(
+                            db,
+                            token: Data(hex: token),
+                            sessionIds: threadVariants
+                                .filter { $0.variant == .group }
+                                .map { SessionId(.group, hex: $0.id) },
+                            using: dependencies
+                        )
+                        .send(using: dependencies)
+                        .sinkUntilComplete()
                 }
             }
         }
@@ -459,194 +460,157 @@ public extension ClosedGroup {
         
         /// If the added users contain the current user then `names` should be sorted to have the current users name first
         case addedUsers(hasCurrentUser: Bool, names: [String], historyShared: Bool)
-        case removedUsers(names: [String])
-        case memberLeft(name: String)
-        case promotedUsers(names: [String])
+        case removedUsers(hasCurrentUser: Bool, names: [String])
+        case memberLeft(wasCurrentUser: Bool, name: String)
+        case promotedUsers(hasCurrentUser: Bool, names: [String])
         
-        var attributedPreviewText: NSAttributedString {
-            // FIXME: Including styling within SessionMessagingKit is bad so we should remove this as part of Strings
+        var previewText: String {
             switch self {
                 case .invited(let adminName, let groupName):
-                    return NSAttributedString(
-                        format: "GROUP_MESSAGE_INFO_INVITED".localized(),
-                        .font(adminName, .boldSystemFont(ofSize: Values.verySmallFontSize)),
-                        .font(groupName, .boldSystemFont(ofSize: Values.verySmallFontSize))
-                    )
-                    
-                case .invitedFallback(let groupName):
-                    return NSAttributedString(
-                        format: "GROUP_MESSAGE_INFO_INVITED_FALLBACK".localized(),
-                        .font(groupName, .boldSystemFont(ofSize: Values.verySmallFontSize))
-                    )
+                    return "messageRequestGroupInvite"
+                        .put(key: "name", value: adminName)
+                        .put(key: "group_name", value: groupName)
+                        .localized()
+                
+                case .invitedFallback: return "groupInviteYou".localized()
                 
                 case .invitedAdmin(let adminName, let groupName):
-                    return NSAttributedString(
-                        format: "GROUP_MESSAGE_INFO_INVITED_ADMIN".localized(),
-                        .font(adminName, .boldSystemFont(ofSize: Values.verySmallFontSize)),
-                        .font(groupName, .boldSystemFont(ofSize: Values.verySmallFontSize))
-                    )
+                    return ""
                     
                 case .invitedAdminFallback(let groupName):
-                    return NSAttributedString(
-                        format: "GROUP_MESSAGE_INFO_INVITED_ADMIN_FALLBACK".localized(),
-                        .font(groupName, .boldSystemFont(ofSize: Values.verySmallFontSize))
-                    )
+                    return ""
                     
                 case .updatedName(let name):
-                    return NSAttributedString(
-                        format: "GROUP_MESSAGE_INFO_NAME_UPDATED_TO".localized(),
-                        .font(name, .boldSystemFont(ofSize: Values.verySmallFontSize))
-                    )
+                    return "groupNameNew"
+                        .put(key: "group_name", value: name)
+                        .localized()
                     
-                case .updatedNameFallback:
-                    return NSAttributedString(string: "GROUP_MESSAGE_INFO_NAME_UPDATED".localized())
-                    
-                case .updatedDisplayPicture:
-                    return NSAttributedString(string: "GROUP_MESSAGE_INFO_PICTURE_UPDATED".localized())
+                case .updatedNameFallback: return "groupNameUpdated".localized()
+                case .updatedDisplayPicture: return "groupDisplayPictureUpdated".localized()
                 
                 case .addedUsers(false, let names, false) where names.count > 2:
-                    return NSAttributedString(
-                        format: "GROUP_MESSAGE_INFO_MULTIPLE_MEMBERS_ADDED".localized(),
-                        .font(names[0], .boldSystemFont(ofSize: Values.verySmallFontSize)),
-                        .plain("\(names.count - 1)")
-                    )
+                    return "groupMemberNewMultiple"
+                        .put(key: "name", value: names[0])
+                        .put(key: "count", value: names.count - 1)
+                        .localized()
                     
                 case .addedUsers(false, let names, true) where names.count > 2:
-                    return NSAttributedString(
-                        format: "GROUP_MESSAGE_INFO_MULTIPLE_MEMBERS_ADDED_WITH_HISTORY".localized(),
-                        .font(names[0], .boldSystemFont(ofSize: Values.verySmallFontSize)),
-                        .plain("\(names.count - 1)")
-                    )
+                    return "groupMemberNewHistoryMultiple"
+                        .put(key: "name", value: names[0])
+                        .put(key: "count", value: names.count - 1)
+                        .localized()
                     
                 case .addedUsers(true, let names, false) where names.count > 2:
-                    return NSAttributedString(
-                        format: "GROUP_MESSAGE_INFO_MULTIPLE_MEMBERS_ADDED_YOU".localized(),
-                        .font(
-                            "MEDIA_GALLERY_SENDER_NAME_YOU".localized(),
-                            .boldSystemFont(ofSize: Values.verySmallFontSize)
-                        ),
-                        .plain("\(names.count - 1)")
-                    )
+                    return "groupInviteYouAndMoreNew"
+                        .put(key: "count", value: names.count - 1)
+                        .localized()
                     
                 case .addedUsers(true, let names, true) where names.count > 2:
-                    return NSAttributedString(
-                        format: "GROUP_MESSAGE_INFO_MULTIPLE_MEMBERS_ADDED_YOU_WITH_HISTORY".localized(),
-                        .font(
-                            "MEDIA_GALLERY_SENDER_NAME_YOU".localized(),
-                            .boldSystemFont(ofSize: Values.verySmallFontSize)
-                        ),
-                        .plain("\(names.count - 1)")
-                    )
+                    return "groupMemberNewYouHistoryMultiple"
+                        .put(key: "count", value: names.count - 1)
+                        .localized()
                     
                 case .addedUsers(false, let names, false) where names.count == 2:
-                    return NSAttributedString(
-                        format: "GROUP_MESSAGE_INFO_TWO_MEMBERS_ADDED".localized(),
-                        .font(names[0], .boldSystemFont(ofSize: Values.verySmallFontSize)),
-                        .font(names[1], .boldSystemFont(ofSize: Values.verySmallFontSize))
-                    )
+                    return "groupMemberNewTwo"
+                        .put(key: "name", value: names[0])
+                        .put(key: "other_name", value: names[1])
+                        .localized()
                     
                 case .addedUsers(false, let names, true) where names.count == 2:
-                    return NSAttributedString(
-                        format: "GROUP_MESSAGE_INFO_TWO_MEMBERS_ADDED_WITH_HISTORY".localized(),
-                        .font(names[0], .boldSystemFont(ofSize: Values.verySmallFontSize)),
-                        .font(names[1], .boldSystemFont(ofSize: Values.verySmallFontSize))
-                    )
+                    return "groupMemberNewHistoryTwo"
+                        .put(key: "name", value: names[0])
+                        .put(key: "other_name", value: names[1])
+                        .localized()
                     
                 case .addedUsers(true, let names, false) where names.count == 2:
-                    return NSAttributedString(
-                        format: "GROUP_MESSAGE_INFO_TWO_MEMBERS_ADDED_YOU".localized(),
-                        .font(
-                            "MEDIA_GALLERY_SENDER_NAME_YOU".localized(),
-                            .boldSystemFont(ofSize: Values.verySmallFontSize)
-                        ),
-                        .font(names[1], .boldSystemFont(ofSize: Values.verySmallFontSize))
-                    )
+                    return "groupInviteYouAndOtherNew"
+                        .put(key: "other_name", value: names[1])    // The current user will always be the first name
+                        .localized()
                     
                 case .addedUsers(true, let names, true) where names.count == 2:
-                    return NSAttributedString(
-                        format: "GROUP_MESSAGE_INFO_TWO_MEMBERS_ADDED_YOU_WITH_HISTORY".localized(),
-                        .font(
-                            "MEDIA_GALLERY_SENDER_NAME_YOU".localized(),
-                            .boldSystemFont(ofSize: Values.verySmallFontSize)
-                        ),
-                        .font(names[1], .boldSystemFont(ofSize: Values.verySmallFontSize))
-                    )
+                    return "groupMemberNewYouHistoryTwo"
+                        .put(key: "name", value: names[1])          // The current user will always be the first name
+                        .localized()
                     
                 case .addedUsers(false, let names, false):
-                    return NSAttributedString(
-                        format: "GROUP_MESSAGE_INFO_MEMBER_ADDED".localized(),
-                        .font((names.first ?? "Anonymous"), .boldSystemFont(ofSize: Values.verySmallFontSize))
-                    )
+                    return "groupMemberNew"
+                        .put(key: "name", value: names.first ?? "anonymous".localized())
+                        .localized()
                     
                 case .addedUsers(false, let names, true):
-                    return NSAttributedString(
-                        format: "GROUP_MESSAGE_INFO_MEMBER_ADDED_WITH_HISTORY".localized(),
-                        .font((names.first ?? "Anonymous"), .boldSystemFont(ofSize: Values.verySmallFontSize))
-                    )
+                    return "groupMemberNewHistory"
+                        .put(key: "name", value: names.first ?? "anonymous".localized())
+                        .localized()
                     
-                case .addedUsers(true, _, false):
-                    return NSAttributedString(
-                        format: "GROUP_MESSAGE_INFO_MEMBER_ADDED_YOU".localized(),
-                        .font(
-                            "MEDIA_GALLERY_SENDER_NAME_YOU".localized(),
-                            .boldSystemFont(ofSize: Values.verySmallFontSize)
-                        )
-                    )
+                case .addedUsers(true, _, false): return "groupInviteYou".localized()
                     
                 case .addedUsers(true, _, true):
-                    return NSAttributedString(
-                        format: "GROUP_MESSAGE_INFO_MEMBER_ADDED_YOU_WITH_HISTORY".localized(),
-                        .font(
-                            "MEDIA_GALLERY_SENDER_NAME_YOU".localized(),
-                            .boldSystemFont(ofSize: Values.verySmallFontSize)
-                        )
-                    )
+                    return "groupInviteYou".localized()
                     
-                case .removedUsers(let names) where names.count > 2:
-                    return NSAttributedString(
-                        format: "GROUP_MESSAGE_INFO_MULTIPLE_MEMBERS_REMOVED".localized(),
-                        .font(names[0], .boldSystemFont(ofSize: Values.verySmallFontSize)),
-                        .plain("\(names.count - 1)")
-                    )
+                case .removedUsers(false, let names) where names.count > 2:
+                    return "groupRemovedMultiple"
+                        .put(key: "name", value: names[0])
+                        .put(key: "count", value: names.count - 1)
+                        .localized()
                     
-                case .removedUsers(let names) where names.count == 2:
-                    return NSAttributedString(
-                        format: "GROUP_MESSAGE_INFO_TWO_MEMBERS_REMOVED".localized(),
-                        .font(names[0], .boldSystemFont(ofSize: Values.verySmallFontSize)),
-                        .font(names[1], .boldSystemFont(ofSize: Values.verySmallFontSize))
-                    )
+                case .removedUsers(true, let names) where names.count > 2:
+                    return "groupRemovedYouMultiple"
+                        .put(key: "count", value: names.count - 1)
+                        .localized()
                     
-                case .removedUsers(let names):
-                    return NSAttributedString(
-                        format: "GROUP_MESSAGE_INFO_MEMBER_REMOVED".localized(),
-                        .font(names[0], .boldSystemFont(ofSize: Values.verySmallFontSize))
-                    )
+                case .removedUsers(false, let names) where names.count == 2:
+                    return "groupRemovedTwo"
+                        .put(key: "name", value: names[0])
+                        .put(key: "other_name", value: names[1])
+                        .localized()
                     
-                case .memberLeft(let name):
-                    return NSAttributedString(
-                        format: "GROUP_MESSAGE_INFO_MEMBER_LEFT".localized(),
-                        .font(name, .boldSystemFont(ofSize: Values.verySmallFontSize))
-                    )
+                case .removedUsers(true, let names) where names.count == 2:
+                    return "groupRemovedYouTwo"
+                        .put(key: "other_name", value: names[1])          // The current user will always be the first name
+                        .localized()
                     
-                case .promotedUsers(let names) where names.count > 2:
-                    return NSAttributedString(
-                        format: "GROUP_MESSAGE_INFO_MULTIPLE_MEMBERS_PROMOTED".localized(),
-                        .font(names[0], .boldSystemFont(ofSize: Values.verySmallFontSize)),
-                        .plain("\(names.count - 1)")
-                    )
+                case .removedUsers(false, let names):
+                    return "groupRemoved"
+                        .put(key: "name", value: names.first ?? "anonymous".localized())
+                        .localized()
+                
+                case .removedUsers(true, _): return "groupRemovedYou".localized()
                     
-                case .promotedUsers(let names) where names.count == 2:
-                    return NSAttributedString(
-                        format: "GROUP_MESSAGE_INFO_TWO_MEMBERS_PROMOTED".localized(),
-                        .font(names[0], .boldSystemFont(ofSize: Values.verySmallFontSize)),
-                        .font(names[1], .boldSystemFont(ofSize: Values.verySmallFontSize))
-                    )
+                case .memberLeft(false, let name):
+                    return "groupMemberLeft"
+                        .put(key: "name", value: name)
+                        .localized()
+                
+                case .memberLeft(true, _): return "groupMemberYouLeft".localized()
                     
-                case .promotedUsers(let names):
-                    return NSAttributedString(
-                        format: "GROUP_MESSAGE_INFO_MEMBER_PROMOTED".localized(),
-                        .font(names[0], .boldSystemFont(ofSize: Values.verySmallFontSize))
-                    )
+                case .promotedUsers(false, let names) where names.count > 2:
+                    return "adminMorePromotedToAdmin"
+                        .put(key: "name", value: names[0])
+                        .put(key: "count", value: names.count - 1)
+                        .localized()
+                    
+                case .promotedUsers(true, let names) where names.count > 2:
+                    return "groupPromotedYouMultiple"
+                        .put(key: "count", value: names.count - 1)
+                        .localized()
+                    
+                case .promotedUsers(false, let names) where names.count == 2:
+                    return "adminTwoPromotedToAdmin"
+                        .put(key: "name", value: names[0])
+                        .put(key: "other_name", value: names[1])
+                        .localized()
+                    
+                case .promotedUsers(true, let names) where names.count == 2:
+                    return "groupPromotedYouTwo"
+                        .put(key: "name", value: names[1])              // The current user will always be the first name
+                        .localized()
+                    
+                case .promotedUsers(false, let names):
+                    return "adminPromotedToAdmin"
+                        .put(key: "name", value: names.first ?? "anonymous".localized())
+                        .localized()
+                    
+                case .promotedUsers(true, _): return "groupPromotedYou".localized()
             }
         }
         

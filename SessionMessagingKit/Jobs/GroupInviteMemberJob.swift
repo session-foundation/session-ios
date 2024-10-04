@@ -7,6 +7,14 @@ import SessionUIKit
 import SessionUtilitiesKit
 import SessionSnodeKit
 
+// MARK: - Log.Category
+
+private extension Log.Category {
+    static let cat: Log.Category = .create("GroupInviteMemberJob", defaultLevel: .info)
+}
+
+// MARK: - GroupInviteMemberJob
+
 public enum GroupInviteMemberJob: JobExecutor {
     public static var maxFailureCount: Int = 1
     public static var requiresThreadId: Bool = true
@@ -98,7 +106,7 @@ public enum GroupInviteMemberJob: JobExecutor {
                             success(job, false)
                             
                         case .failure(let error):
-                            Log.error("[GroupInviteMemberJob] Couldn't send message due to error: \(error).")
+                            Log.error(.cat, "Couldn't send message due to error: \(error).")
                             
                             // Update the invite status of the group member (only if the role is 'standard' and
                             // the role status isn't already 'accepted')
@@ -134,7 +142,7 @@ public enum GroupInviteMemberJob: JobExecutor {
                                     failure(job, error, true)
                                     
                                 case SnodeAPIError.clockOutOfSync:
-                                    Log.error("[GroupInviteMemberJob] Permanently Failing to send due to clock out of sync issue.")
+                                    Log.error(.cat, "Permanently Failing to send due to clock out of sync issue.")
                                     failure(job, error, true)
                                     
                                 default: failure(job, error, false)
@@ -147,53 +155,48 @@ public enum GroupInviteMemberJob: JobExecutor {
     public static func failureMessage(groupName: String, memberIds: [String], profileInfo: [String: Profile]) -> NSAttributedString {
         switch memberIds.count {
             case 1:
-                return NSAttributedString(
-                    format: "GROUP_ACTION_INVITE_FAILED_ONE".localized(),
-                    .font(
-                        (
+                return "groupInviteFailedUser"
+                    .put(
+                        key: "name",
+                        value: (
                             profileInfo[memberIds[0]]?.displayName(for: .group) ??
                             Profile.truncated(id: memberIds[0], truncating: .middle)
-                        ),
-                        ToastController.boldFont
-                    ),
-                    .font(groupName, ToastController.boldFont)
-                )
+                        )
+                    )
+                    .put(key: "group_name", value: groupName)
+                    .localizedFormatted(baseFont: ToastController.font)
 
             case 2:
-                return NSAttributedString(
-                    format: "GROUP_ACTION_INVITE_FAILED_TWO".localized(),
-                    .font(
-                        (
+                return "groupInviteFailedTwo"
+                    .put(
+                        key: "name",
+                        value: (
                             profileInfo[memberIds[0]]?.displayName(for: .group) ??
                             Profile.truncated(id: memberIds[0], truncating: .middle)
-                        ),
-                        ToastController.boldFont
-                    ),
-                    .font(
-                        (
+                        )
+                    )
+                    .put(
+                        key: "other_name",
+                        value: (
                             profileInfo[memberIds[1]]?.displayName(for: .group) ??
                             Profile.truncated(id: memberIds[1], truncating: .middle)
-                        ),
-                        ToastController.boldFont
-                    ),
-                    .font(groupName, ToastController.boldFont)
-                )
+                        )
+                    )
+                    .put(key: "group_name", value: groupName)
+                    .localizedFormatted(baseFont: ToastController.font)
 
             default:
-                let targetProfile: Profile? = profileInfo.values.first
-
-                return NSAttributedString(
-                    format: "GROUP_ACTION_INVITE_FAILED_MULTIPLE".localized(),
-                    .font(
-                        (
-                            targetProfile?.displayName(for: .group) ??
+                return "groupInviteFailedMultiple"
+                    .put(
+                        key: "name",
+                        value: (
+                            profileInfo[memberIds[0]]?.displayName(for: .group) ??
                             Profile.truncated(id: memberIds[0], truncating: .middle)
-                        ),
-                        ToastController.boldFont
-                    ),
-                    .plain("\(memberIds.count - 1)"),
-                    .font(groupName, ToastController.boldFont)
-                )
+                        )
+                    )
+                    .put(key: "count", value: memberIds.count - 1)
+                    .put(key: "group_name", value: groupName)
+                    .localizedFormatted(baseFont: ToastController.font)
         }
     }
     
@@ -218,7 +221,6 @@ public enum GroupInviteMemberJob: JobExecutor {
                         // Don't do anything if there are no 'failedIds' values or we can't get a window
                         guard
                             !failedIds.isEmpty,
-                            dependencies.hasInitialised(singleton: .appContext),
                             let mainWindow: UIWindow = dependencies[singleton: .appContext].mainWindow
                         else { return }
                         
@@ -237,11 +239,11 @@ public enum GroupInviteMemberJob: JobExecutor {
                             }
                             .map { maybeName, profiles -> FetchedData in
                                 (
-                                    (maybeName ?? "GROUP_TITLE_FALLBACK".localized()),
+                                    (maybeName ?? "groupUnknown".localized()),
                                     profiles.reduce(into: [:]) { result, next in result[next.id] = next }
                                 )
                             }
-                            .defaulting(to: ("GROUP_TITLE_FALLBACK".localized(), [:]))
+                            .defaulting(to: ("groupUnknown".localized(), [:]))
                         let message: NSAttributedString = failureMessage(
                             groupName: data.groupName,
                             memberIds: failedIds,

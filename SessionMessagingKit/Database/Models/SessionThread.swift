@@ -114,7 +114,7 @@ public struct SessionThread: Codable, Identifiable, Equatable, FetchableRecord, 
     public init(
         id: String,
         variant: Variant,
-        creationDateTimestamp: TimeInterval? = nil,
+        creationDateTimestamp: TimeInterval,
         shouldBeVisible: Bool = false,
         isPinned: Bool = false,
         messageDraft: String? = nil,
@@ -161,6 +161,7 @@ public extension SessionThread {
         _ db: Database,
         id: ID,
         variant: Variant,
+        creationDateTimestamp: TimeInterval,
         shouldBeVisible: Bool?,
         calledFromConfig configTriggeringChange: ConfigDump.Variant?,
         using dependencies: Dependencies
@@ -169,6 +170,7 @@ public extension SessionThread {
             return try SessionThread(
                 id: id,
                 variant: variant,
+                creationDateTimestamp: creationDateTimestamp,
                 shouldBeVisible: (shouldBeVisible ?? false),
                 using: dependencies
             ).upserted(db)
@@ -198,6 +200,7 @@ public extension SessionThread {
                 to: try SessionThread(
                     id: id,
                     variant: variant,
+                    creationDateTimestamp: creationDateTimestamp,
                     shouldBeVisible: desiredVisibility,
                     using: dependencies
                 ).upserted(db)
@@ -363,7 +366,7 @@ public extension SessionThread {
                 
             case (.legacyGroup, .standard), (.group, .standard):
                 try threadIds.forEach { threadId in
-                    try MessageSender.leave(db, groupPublicKey: threadId, using: dependencies)
+                    try MessageSender.leave(db, threadId: threadId, threadVariant: threadVariant, using: dependencies)
                 }
                 
             case (.legacyGroup, .silent), (.legacyGroup, .forced), (.group, .forced), (.group, .silent):
@@ -498,24 +501,27 @@ public extension SessionThread {
         
         // If the thread is a message request then we only want to notify for the first message
         if (self.variant == .contact || self.variant == .group) && isMessageRequest {
-            let hasHiddenMessageRequests: Bool = db[.hasHiddenMessageRequests]
-            
-            /// If the user hasn't hidden the message requests section then only show the notification if all the other contact message request
-            /// threads have been read, for group message requests we won't receive messages so should only ever trigger a single notification
-            if !hasHiddenMessageRequests {
-                let numUnreadMessageRequestThreads: Int = (try? SessionThread
-                    .unreadMessageRequestsCountQuery(userSessionId: userSessionId, includeNonVisible: true)
-                    .fetchOne(db))
-                    .defaulting(to: 1)
-                
-                guard numUnreadMessageRequestThreads == 1 else { return false }
-            }
+            let numInteractions: Int = {
+                switch interaction.serverHash {
+                    case .some(let serverHash):
+                        return (try? self.interactions
+                            .filter(Interaction.Columns.serverHash != serverHash)
+                            .fetchCount(db))
+                            .defaulting(to: 0)
+                    
+                    case .none:
+                        return (try? self.interactions
+                            .filter(Interaction.Columns.timestampMs != interaction.timestampMs)
+                            .fetchCount(db))
+                            .defaulting(to: 0)
+                }
+            }()
             
             // We only want to show a notification for the first interaction in the thread
-            guard ((try? self.interactions.fetchCount(db)) ?? 0) <= 1 else { return false }
+            guard numInteractions == 0 else { return false }
             
             // Need to re-show the message requests section if it had been hidden
-            if hasHiddenMessageRequests {
+            if db[.hasHiddenMessageRequests] {
                 db[.hasHiddenMessageRequests] = false
             }
         }
@@ -535,7 +541,7 @@ public extension SessionThread {
             case .legacyGroup, .group: return (closedGroupName ?? "Unknown Group")
             case .community: return (openGroupName ?? "Unknown Community")
             case .contact:
-                guard !isNoteToSelf else { return "NOTE_TO_SELF".localized() }
+                guard !isNoteToSelf else { return "noteToSelf".localized() }
                 guard let profile: Profile = profile else {
                     return Profile.truncated(id: threadId, truncating: .middle)
                 }

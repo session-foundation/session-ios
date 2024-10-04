@@ -432,10 +432,7 @@ public final class ProfilePictureView: UIView {
                 }
                 
             case .rightPlus:
-                imageView.image = UIImage(
-                    systemName: "plus",
-                    withConfiguration: UIImage.SymbolConfiguration(weight: .semibold)
-                )
+                imageView.image = UIImage(systemName: "plus", withConfiguration: UIImage.SymbolConfiguration(weight: .semibold))
                 imageView.themeTintColor = .black
                 backgroundView.themeBackgroundColor = .primary
                 imageView.isHidden = false

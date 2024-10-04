@@ -10,8 +10,8 @@ extension Message.Destination: Mocked {
     static var mock: Message.Destination = .contact(publicKey: "")
 }
 
-extension SessionUtil.Config: Mocked {
-    static var mock: SessionUtil.Config = .invalid
+extension LibSession.Config: Mocked {
+    static var mock: LibSession.Config = .invalid
 }
 
 extension ConfigDump.Variant: Mocked {
@@ -22,7 +22,7 @@ extension SessionThread: Mocked {
     static var mock: SessionThread = SessionThread(
         id: .mock,
         variant: .contact,
-        creationDateTimestamp: nil,
+        creationDateTimestamp: 0,
         shouldBeVisible: false,
         isPinned: false,
         messageDraft: nil,
@@ -53,6 +53,7 @@ extension Interaction: Mocked {
         linkPreviewUrl: nil,
         openGroupServerMessageId: nil,
         openGroupWhisperMods: false,
-        openGroupWhisperTo: nil
+        openGroupWhisperTo: nil,
+        transientDependencies: nil
     )
 }

@@ -295,6 +295,16 @@ final class VisibleMessageCell: MessageCell, TappableLabelDelegate {
             cellViewModel.threadVariant == .legacyGroup ||
             cellViewModel.threadVariant == .group
         )
+        let isIncoming: Bool = (
+            cellViewModel.variant == .standardIncoming ||
+            cellViewModel.variant == .standardIncomingDeleted ||
+            cellViewModel.variant == .standardIncomingDeletedLocally
+        )
+        let isOutgoing: Bool = (
+            cellViewModel.variant == .standardOutgoing ||
+            cellViewModel.variant == .standardOutgoingDeleted ||
+            cellViewModel.variant == .standardOutgoingDeletedLocally
+        )
         
         // Profile picture view (should always be handled as a standard 'contact' profile picture)
         let profileShouldBeVisible: Bool = (
@@ -315,23 +325,14 @@ final class VisibleMessageCell: MessageCell, TappableLabelDelegate {
         )
        
         // Bubble view
-        contentViewLeadingConstraint1.isActive = (
-            cellViewModel.variant == .standardIncoming ||
-            cellViewModel.variant == .standardIncomingDeleted
-        )
+        contentViewLeadingConstraint1.isActive = isIncoming
         contentViewLeadingConstraint1.constant = (isGroupThread ? VisibleMessageCell.groupThreadHSpacing : VisibleMessageCell.contactThreadHSpacing)
-        contentViewLeadingConstraint2.isActive = (cellViewModel.variant == .standardOutgoing)
+        contentViewLeadingConstraint2.isActive = isOutgoing
         contentViewTopConstraint.constant = (cellViewModel.senderName == nil ? 0 : VisibleMessageCell.authorLabelBottomSpacing)
-        contentViewTrailingConstraint1.isActive = (cellViewModel.variant == .standardOutgoing)
-        contentViewTrailingConstraint2.isActive = (
-            cellViewModel.variant == .standardIncoming ||
-            cellViewModel.variant == .standardIncomingDeleted
-        )
+        contentViewTrailingConstraint1.isActive = isOutgoing
+        contentViewTrailingConstraint2.isActive = isIncoming
         
-        let bubbleBackgroundColor: ThemeValue = ((
-            cellViewModel.variant == .standardIncoming ||
-            cellViewModel.variant == .standardIncomingDeleted
-        ) ? .messageBubble_incomingBackground : .messageBubble_outgoingBackground)
+        let bubbleBackgroundColor: ThemeValue = (isIncoming ? .messageBubble_incomingBackground : .messageBubble_outgoingBackground)
         bubbleView.themeBackgroundColor = bubbleBackgroundColor
         bubbleBackgroundView.themeBackgroundColor = bubbleBackgroundColor
         updateBubbleViewCorners()
@@ -376,14 +377,11 @@ final class VisibleMessageCell: MessageCell, TappableLabelDelegate {
         }
         
         // Under bubble content
-        underBubbleStackView.alignment = (cellViewModel.variant == .standardOutgoing ?
-            .trailing :
-            .leading
-        )
-        underBubbleStackViewIncomingLeadingConstraint.isActive = (cellViewModel.variant != .standardOutgoing)
-        underBubbleStackViewIncomingTrailingConstraint.isActive = (cellViewModel.variant != .standardOutgoing)
-        underBubbleStackViewOutgoingLeadingConstraint.isActive = (cellViewModel.variant == .standardOutgoing)
-        underBubbleStackViewOutgoingTrailingConstraint.isActive = (cellViewModel.variant == .standardOutgoing)
+        underBubbleStackView.alignment = (isOutgoing ?.trailing : .leading)
+        underBubbleStackViewIncomingLeadingConstraint.isActive = !isOutgoing
+        underBubbleStackViewIncomingTrailingConstraint.isActive = !isOutgoing
+        underBubbleStackViewOutgoingLeadingConstraint.isActive = isOutgoing
+        underBubbleStackViewOutgoingTrailingConstraint.isActive = isOutgoing
         
         // Reaction view
         reactionContainerView.isHidden = (cellViewModel.reactionInfo?.isEmpty != false)
@@ -399,7 +397,8 @@ final class VisibleMessageCell: MessageCell, TappableLabelDelegate {
         // Message status image view
         let (image, statusText, tintColor) = cellViewModel.state.statusIconInfo(
             variant: cellViewModel.variant,
-            hasAtLeastOneReadReceipt: cellViewModel.hasAtLeastOneReadReceipt
+            hasAtLeastOneReadReceipt: cellViewModel.hasAtLeastOneReadReceipt,
+            hasAttachments: (cellViewModel.attachments?.isEmpty == false)
         )
         messageStatusLabel.text = statusText
         messageStatusLabel.themeTextColor = tintColor
@@ -408,7 +407,7 @@ final class VisibleMessageCell: MessageCell, TappableLabelDelegate {
         messageStatusImageView.themeTintColor = tintColor
         messageStatusContainerView.isHidden = (
             (cellViewModel.expiresInSeconds ?? 0) == 0 && (
-                cellViewModel.variant != .standardOutgoing ||
+                !isOutgoing ||
                 cellViewModel.variant == .infoCall ||
                 (
                     cellViewModel.state == .sent &&
@@ -442,16 +441,10 @@ final class VisibleMessageCell: MessageCell, TappableLabelDelegate {
             messageStatusImageView.isHidden = false
         }
         
-        timerViewOutgoingMessageConstraint.isActive = (cellViewModel.variant == .standardOutgoing)
-        timerViewIncomingMessageConstraint.isActive = (
-            cellViewModel.variant == .standardIncoming ||
-            cellViewModel.variant == .standardIncomingDeleted
-        )
-        messageStatusLabelOutgoingMessageConstraint.isActive = (cellViewModel.variant == .standardOutgoing)
-        messageStatusLabelIncomingMessageConstraint.isActive = (
-            cellViewModel.variant == .standardIncoming ||
-            cellViewModel.variant == .standardIncomingDeleted
-        )
+        timerViewOutgoingMessageConstraint.isActive = isOutgoing
+        timerViewIncomingMessageConstraint.isActive = isIncoming
+        messageStatusLabelOutgoingMessageConstraint.isActive = isOutgoing
+        messageStatusLabelIncomingMessageConstraint.isActive = isIncoming
         
         // Set the height of the underBubbleStackView to 0 if it has no content (need to do this
         // otherwise it can randomly stretch)
@@ -467,15 +460,13 @@ final class VisibleMessageCell: MessageCell, TappableLabelDelegate {
         lastSearchText: String?,
         using dependencies: Dependencies
     ) {
-        let bodyLabelTextColor: ThemeValue = (cellViewModel.variant == .standardOutgoing ?
-            .messageBubble_outgoingText :
-            .messageBubble_incomingText
+        let isOutgoing: Bool = (
+            cellViewModel.variant == .standardOutgoing ||
+            cellViewModel.variant == .standardOutgoingDeleted ||
+            cellViewModel.variant == .standardOutgoingDeletedLocally
         )
-        
-        snContentView.alignment = (cellViewModel.variant == .standardOutgoing ?
-            .trailing :
-            .leading
-        )
+        let bodyLabelTextColor: ThemeValue = (isOutgoing ? .messageBubble_outgoingText : .messageBubble_incomingText)
+        snContentView.alignment = (isOutgoing ? .trailing : .leading)
         
         for subview in snContentView.arrangedSubviews {
             snContentView.removeArrangedSubview(subview)
@@ -491,8 +482,11 @@ final class VisibleMessageCell: MessageCell, TappableLabelDelegate {
         bodyTappableLabel = nil
         
         // Handle the deleted state first (it's much simpler than the others)
-        guard cellViewModel.variant != .standardIncomingDeleted else {
-            let deletedMessageView: DeletedMessageView = DeletedMessageView(textColor: bodyLabelTextColor)
+        guard !cellViewModel.variant.isDeletedMessage else {
+            let deletedMessageView: DeletedMessageView = DeletedMessageView(
+                textColor: bodyLabelTextColor,
+                variant: cellViewModel.variant
+            )
             bubbleView.addSubview(deletedMessageView)
             deletedMessageView.pin(to: bubbleView)
             snContentView.addArrangedSubview(bubbleBackgroundView)
@@ -525,7 +519,7 @@ final class VisibleMessageCell: MessageCell, TappableLabelDelegate {
                                     imageAttachment: cellViewModel.linkPreviewAttachment,
                                     using: dependencies
                                 ),
-                                isOutgoing: (cellViewModel.variant == .standardOutgoing),
+                                isOutgoing: isOutgoing,
                                 delegate: self,
                                 cellViewModel: cellViewModel,
                                 bodyLabelTextColor: bodyLabelTextColor,
@@ -543,7 +537,7 @@ final class VisibleMessageCell: MessageCell, TappableLabelDelegate {
                                 name: (linkPreview.title ?? ""),
                                 url: linkPreview.url,
                                 textColor: bodyLabelTextColor,
-                                isOutgoing: (cellViewModel.variant == .standardOutgoing)
+                                isOutgoing: isOutgoing
                             )
                             openGroupInvitationView.isAccessibilityElement = true
                             openGroupInvitationView.accessibilityIdentifier = "Community invitation"
@@ -570,10 +564,7 @@ final class VisibleMessageCell: MessageCell, TappableLabelDelegate {
                             currentUserSessionId: cellViewModel.currentUserSessionId,
                             currentUserBlinded15SessionId: cellViewModel.currentUserBlinded15SessionId,
                             currentUserBlinded25SessionId: cellViewModel.currentUserBlinded25SessionId,
-                            direction: (cellViewModel.variant == .standardOutgoing ?
-                                .outgoing :
-                                .incoming
-                            ),
+                            direction: (isOutgoing ? .outgoing : .incoming),
                             attachment: cellViewModel.quoteAttachment,
                             using: dependencies
                         )
@@ -628,7 +619,7 @@ final class VisibleMessageCell: MessageCell, TappableLabelDelegate {
                     items: (cellViewModel.attachments?
                         .filter { $0.isVisualMedia })
                         .defaulting(to: []),
-                    isOutgoing: (cellViewModel.variant == .standardOutgoing),
+                    isOutgoing: isOutgoing,
                     maxMessageWidth: maxMessageWidth,
                     using: dependencies
                 )
@@ -637,6 +628,7 @@ final class VisibleMessageCell: MessageCell, TappableLabelDelegate {
                 albumView.set(.width, to: size.width)
                 albumView.set(.height, to: size.height)
                 albumView.loadMedia()
+                albumView.accessibilityLabel = "contentDescriptionMediaMessage".localized()
                 snContentView.addArrangedSubview(albumView)
         
                 unloadContent = { albumView.unloadMedia() }
@@ -765,7 +757,7 @@ final class VisibleMessageCell: MessageCell, TappableLabelDelegate {
     }
     
     override func dynamicUpdate(with cellViewModel: MessageViewModel, playbackInfo: ConversationViewModel.PlaybackInfo?) {
-        guard cellViewModel.variant != .standardIncomingDeleted else { return }
+        guard !cellViewModel.variant.isDeletedMessage else { return }
         
         // If it's an incoming media message and the thread isn't trusted then show the placeholder view
         if cellViewModel.cellType != .textOnlyMessage && cellViewModel.variant == .standardIncoming && !cellViewModel.threadIsTrusted {
@@ -874,10 +866,7 @@ final class VisibleMessageCell: MessageCell, TappableLabelDelegate {
     }
 
     @objc private func handleTap(_ gestureRecognizer: UITapGestureRecognizer) {
-        guard
-            let dependencies: Dependencies = self.dependencies,
-            let cellViewModel: MessageViewModel = self.viewModel
-        else { return }
+        guard let cellViewModel: MessageViewModel = self.viewModel else { return }
         
         let location = gestureRecognizer.location(in: self)
         
@@ -1089,18 +1078,18 @@ final class VisibleMessageCell: MessageCell, TappableLabelDelegate {
         let oppositeEdgePadding: CGFloat = (includingOppositeGutter ? gutterSize : contactThreadHSpacing)
         
         switch cellViewModel.variant {
-            case .standardOutgoing:
+            case .standardOutgoing, .standardOutgoingDeleted, .standardOutgoingDeletedLocally:
                 return (width - contactThreadHSpacing - oppositeEdgePadding)
                 
-            case .standardIncoming, .standardIncomingDeleted:
+            case .standardIncoming, .standardIncomingDeleted, .standardIncomingDeletedLocally:
                 let isGroupThread = (
                     cellViewModel.threadVariant == .community ||
                     cellViewModel.threadVariant == .legacyGroup ||
                     cellViewModel.threadVariant == .group
                 )
-                let leftGutterSize = (isGroupThread ? leftGutterSize : contactThreadHSpacing)
+                let leftEdgeGutterSize = (isGroupThread ? leftGutterSize : contactThreadHSpacing)
                 
-                return (width - leftGutterSize - oppositeEdgePadding)
+                return (width - leftEdgeGutterSize - oppositeEdgePadding)
                 
             default: preconditionFailure()
         }
@@ -1131,7 +1120,7 @@ final class VisibleMessageCell: MessageCell, TappableLabelDelegate {
                 currentUserSessionId: cellViewModel.currentUserSessionId,
                 currentUserBlinded15SessionId: cellViewModel.currentUserBlinded15SessionId,
                 currentUserBlinded25SessionId: cellViewModel.currentUserBlinded25SessionId,
-                isOutgoingMessage: isOutgoing,
+                location: (isOutgoing ? .outgoingMessage : .incomingMessage),
                 textColor: actualTextColor,
                 theme: theme,
                 primaryColor: primaryColor,

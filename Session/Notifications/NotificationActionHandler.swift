@@ -13,22 +13,29 @@ import SessionUtilitiesKit
 public extension Singleton {
     static let notificationActionHandler: SingletonConfig<NotificationActionHandler> = Dependencies.create(
         identifier: "notificationActionHandler",
-        createInstance: { _ in NotificationActionHandler() }
+        createInstance: { dependencies in NotificationActionHandler(using: dependencies) }
     )
 }
 
 // MARK: - NotificationActionHandler
 
 public class NotificationActionHandler {
+    private let dependencies: Dependencies
+    
+    // MARK: - Initialization
+    
+    init(using dependencies: Dependencies) {
+        self.dependencies = dependencies
+    }
+    
     // MARK: - Handling
     
     func handleNotificationResponse(
         _ response: UNNotificationResponse,
-        completionHandler: @escaping () -> Void,
-        using dependencies: Dependencies
+        completionHandler: @escaping () -> Void
     ) {
         Log.assertOnMainThread()
-        handleNotificationResponse(response, using: dependencies)
+        handleNotificationResponse(response)
             .subscribe(on: DispatchQueue.global(qos: .userInitiated), using: dependencies)
             .receive(on: DispatchQueue.main, using: dependencies)
             .sinkUntilComplete(
@@ -44,10 +51,7 @@ public class NotificationActionHandler {
             )
     }
 
-    func handleNotificationResponse(
-        _ response: UNNotificationResponse,
-        using dependencies: Dependencies
-    ) -> AnyPublisher<Void, Error> {
+    func handleNotificationResponse(_ response: UNNotificationResponse) -> AnyPublisher<Void, Error> {
         Log.assertOnMainThread()
         assert(dependencies[singleton: .appReadiness].isAppReady)
 
@@ -57,7 +61,7 @@ public class NotificationActionHandler {
         switch response.actionIdentifier {
             case UNNotificationDefaultActionIdentifier:
                 Log.debug("[NotificationActionHandler] Default action")
-                return showThread(userInfo: userInfo, using: dependencies)
+                return showThread(userInfo: userInfo)
                     .setFailureType(to: Error.self)
                     .eraseToAnyPublisher()
                 
@@ -79,7 +83,7 @@ public class NotificationActionHandler {
         }
 
         switch action {
-            case .markAsRead: return markAsRead(userInfo: userInfo, using: dependencies)
+            case .markAsRead: return markAsRead(userInfo: userInfo)
                 
             case .reply:
                 guard let textInputResponse = response as? UNTextInputNotificationResponse else {
@@ -90,20 +94,14 @@ public class NotificationActionHandler {
                 return reply(
                     userInfo: userInfo,
                     replyText: textInputResponse.userText,
-                    applicationState: applicationState,
-                    using: dependencies
+                    applicationState: applicationState
                 )
-                    
-            case .showThread:
-                return showThread(userInfo: userInfo, using: dependencies)
-                    .setFailureType(to: Error.self)
-                    .eraseToAnyPublisher()
         }
     }
 
     // MARK: - Actions
 
-    func markAsRead(userInfo: [AnyHashable: Any], using dependencies: Dependencies) -> AnyPublisher<Void, Error> {
+    func markAsRead(userInfo: [AnyHashable: Any]) -> AnyPublisher<Void, Error> {
         guard let threadId: String = userInfo[AppNotificationUserInfoKey.threadId] as? String else {
             return Fail(error: NotificationError.failDebug("threadId was unexpectedly nil"))
                 .eraseToAnyPublisher()
@@ -114,14 +112,13 @@ public class NotificationActionHandler {
                 .eraseToAnyPublisher()
         }
 
-        return markAsRead(threadId: threadId, using: dependencies)
+        return markAsRead(threadId: threadId)
     }
 
     func reply(
         userInfo: [AnyHashable: Any],
         replyText: String,
-        applicationState: UIApplication.State,
-        using dependencies: Dependencies
+        applicationState: UIApplication.State
     ) -> AnyPublisher<Void, Error> {
         guard let threadId = userInfo[AppNotificationUserInfoKey.threadId] as? String else {
             return Fail<Void, Error>(error: NotificationError.failDebug("threadId was unexpectedly nil"))
@@ -134,7 +131,7 @@ public class NotificationActionHandler {
         }
         
         return dependencies[singleton: .storage]
-            .writePublisher { db -> Network.PreparedRequest<Void> in
+            .writePublisher { [dependencies] db -> Network.PreparedRequest<Void> in
                 let interaction: Interaction = try Interaction(
                     threadId: threadId,
                     threadVariant: thread.variant,
@@ -170,14 +167,14 @@ public class NotificationActionHandler {
                     using: dependencies
                 )
             }
-            .flatMap { $0.send(using: dependencies) }
+            .flatMap { [dependencies] request in request.send(using: dependencies) }
             .map { _ in () }
             .handleEvents(
-                receiveCompletion: { result in
+                receiveCompletion: { [dependencies] result in
                     switch result {
                         case .finished: break
                         case .failure:
-                            dependencies[singleton: .storage].read { [dependencies] db in
+                            dependencies[singleton: .storage].read { db in
                                 dependencies[singleton: .notificationsManager].notifyForFailedSend(
                                     db,
                                     in: thread,
@@ -190,12 +187,12 @@ public class NotificationActionHandler {
             .eraseToAnyPublisher()
     }
 
-    func showThread(userInfo: [AnyHashable: Any], using dependencies: Dependencies) -> AnyPublisher<Void, Never> {
+    func showThread(userInfo: [AnyHashable: Any]) -> AnyPublisher<Void, Never> {
         guard
             let threadId = userInfo[AppNotificationUserInfoKey.threadId] as? String,
             let threadVariantRaw = userInfo[AppNotificationUserInfoKey.threadVariantRaw] as? Int,
             let threadVariant: SessionThread.Variant = SessionThread.Variant(rawValue: threadVariantRaw)
-        else { return showHomeVC(using: dependencies) }
+        else { return showHomeVC() }
 
         // If this happens when the the app is not, visible we skip the animation so the thread
         // can be visible to the user immediately upon opening the app, rather than having to watch
@@ -203,6 +200,7 @@ public class NotificationActionHandler {
         dependencies[singleton: .app].presentConversationCreatingIfNeeded(
             for: threadId,
             variant: threadVariant,
+            action: .none,
             dismissing: nil,
             animated: (UIApplication.shared.applicationState == .active)
         )
@@ -210,17 +208,14 @@ public class NotificationActionHandler {
         return Just(()).eraseToAnyPublisher()
     }
     
-    func showHomeVC(using dependencies: Dependencies) -> AnyPublisher<Void, Never> {
+    func showHomeVC() -> AnyPublisher<Void, Never> {
         dependencies[singleton: .app].showHomeView()
         return Just(()).eraseToAnyPublisher()
     }
     
-    private func markAsRead(
-        threadId: String,
-        using dependencies: Dependencies
-    ) -> AnyPublisher<Void, Error> {
+    private func markAsRead(threadId: String) -> AnyPublisher<Void, Error> {
         return dependencies[singleton: .storage]
-            .writePublisher { db in
+            .writePublisher { [dependencies] db in
                 guard
                     let threadVariant: SessionThread.Variant = try SessionThread
                         .filter(id: threadId)

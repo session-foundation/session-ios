@@ -36,7 +36,7 @@ class HelpViewModel: SessionTableViewModel, NavigatableStateHolder, ObservableTa
     
     // MARK: - Content
     
-    let title: String = "HELP_TITLE".localized()
+    let title: String = "sessionHelp".localized()
     
     lazy var observation: TargetObservation = [
         SectionModel(
@@ -44,10 +44,12 @@ class HelpViewModel: SessionTableViewModel, NavigatableStateHolder, ObservableTa
             elements: [
                 SessionCell.Info(
                     id: .report,
-                    title: "HELP_REPORT_BUG_TITLE".localized(),
-                    subtitle: "HELP_REPORT_BUG_DESCRIPTION".localized(),
+                    title: "helpReportABug".localized(),
+                    subtitle: "helpReportABugExportLogsDescription"
+                        .put(key: "app_name", value: Constants.app_name)
+                        .localized(),
                     trailingAccessory: .highlightingBackgroundLabel(
-                        title: "HELP_REPORT_BUG_ACTION_TITLE".localized()
+                        title: "helpReportABugExportLogs".localized()
                     ),
                     onTapView: { [dependencies] view in
                         HelpViewModel.shareLogs(targetView: view, using: dependencies)
@@ -60,14 +62,16 @@ class HelpViewModel: SessionTableViewModel, NavigatableStateHolder, ObservableTa
             elements: [
                 SessionCell.Info(
                     id: .translate,
-                    title: "HELP_TRANSLATE_TITLE".localized(),
+                    title: "helpHelpUsTranslateSession"
+                        .put(key: "app_name", value: Constants.app_name)
+                        .localized(),
                     trailingAccessory: .icon(
                         UIImage(systemName: "arrow.up.forward.app")?
                             .withRenderingMode(.alwaysTemplate),
                         size: .small
                     ),
                     onTap: {
-                        guard let url: URL = URL(string: "https://crowdin.com/project/session-ios") else {
+                        guard let url: URL = URL(string: "https://getsession.org/translate") else {
                             return
                         }
                         
@@ -81,7 +85,7 @@ class HelpViewModel: SessionTableViewModel, NavigatableStateHolder, ObservableTa
             elements: [
                 SessionCell.Info(
                     id: .feedback,
-                    title: "HELP_FEEDBACK_TITLE".localized(),
+                    title: "helpWedLoveYourFeedback".localized(),
                     trailingAccessory: .icon(
                         UIImage(systemName: "arrow.up.forward.app")?
                             .withRenderingMode(.alwaysTemplate),
@@ -102,7 +106,7 @@ class HelpViewModel: SessionTableViewModel, NavigatableStateHolder, ObservableTa
             elements: [
                 SessionCell.Info(
                     id: .faq,
-                    title: "HELP_FAQ_TITLE".localized(),
+                    title: "helpFAQ".localized(),
                     trailingAccessory: .icon(
                         UIImage(systemName: "arrow.up.forward.app")?
                             .withRenderingMode(.alwaysTemplate),
@@ -123,7 +127,7 @@ class HelpViewModel: SessionTableViewModel, NavigatableStateHolder, ObservableTa
             elements: [
                 SessionCell.Info(
                     id: .support,
-                    title: "HELP_SUPPORT_TITLE".localized(),
+                    title: "helpSupport".localized(),
                     trailingAccessory: .icon(
                         UIImage(systemName: "arrow.up.forward.app")?
                             .withRenderingMode(.alwaysTemplate),
@@ -150,12 +154,57 @@ class HelpViewModel: SessionTableViewModel, NavigatableStateHolder, ObservableTa
         using dependencies: Dependencies,
         onShareComplete: (() -> ())? = nil
     ) {
+        guard
+            let latestLogFilePath: String = Log.logFilePath(),
+            let viewController: UIViewController = dependencies[singleton: .appContext].frontMostViewController
+        else { return }
+        
+        #if targetEnvironment(simulator)
+        let modal: ConfirmationModal = ConfirmationModal(
+            info: ConfirmationModal.Info(
+                title: "Export Logs",      // stringlint:disable
+                body: .text(
+                    "How would you like to export the logs?\n\n(This modal only appears on the Simulator)" // stringlint:disable
+                ),
+                confirmTitle: "Copy Path", // stringlint:disable
+                cancelTitle: "Share",      // stringlint:disable
+                cancelStyle: .alert_text,
+                onConfirm: { _ in UIPasteboard.general.string = latestLogFilePath },
+                onCancel: { _ in
+                    HelpViewModel.shareLogsInternal(
+                        viewControllerToDismiss: viewControllerToDismiss,
+                        targetView: targetView,
+                        animated: animated,
+                        using: dependencies,
+                        onShareComplete: onShareComplete
+                    )
+                }
+            )
+        )
+        viewController.present(modal, animated: animated, completion: nil)
+        #else
+        HelpViewModel.shareLogsInternal(
+            viewControllerToDismiss: viewControllerToDismiss,
+            targetView: targetView,
+            animated: animated,
+            using: dependencies,
+            onShareComplete: onShareComplete
+        )
+        #endif
+    }
+    
+    private static func shareLogsInternal(
+        viewControllerToDismiss: UIViewController? = nil,
+        targetView: UIView? = nil,
+        animated: Bool = true,
+        using dependencies: Dependencies,
+        onShareComplete: (() -> ())? = nil
+    ) {
         Log.info("[Version] \(dependencies[cache: .appVersion].versionInfo)")
         Log.flush()
         
         guard
             let latestLogFilePath: String = Log.logFilePath(),
-            dependencies.hasInitialised(singleton: .appContext),
             let viewController: UIViewController = dependencies[singleton: .appContext].frontMostViewController
         else { return }
         

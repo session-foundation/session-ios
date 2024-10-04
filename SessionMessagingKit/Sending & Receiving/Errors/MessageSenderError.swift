@@ -3,6 +3,7 @@
 // stringlint:disable
 
 import Foundation
+import SessionUtilitiesKit
 
 public enum MessageSenderError: Error, CustomStringConvertible, Equatable {
     case invalidMessage
@@ -21,7 +22,7 @@ public enum MessageSenderError: Error, CustomStringConvertible, Equatable {
     case invalidClosedGroupUpdate
     case invalidConfigMessageHandling
     
-    case other(String, Error)
+    case other(Log.Category?, String, Error)
 
     internal var isRetryable: Bool {
         switch self {
@@ -50,7 +51,7 @@ public enum MessageSenderError: Error, CustomStringConvertible, Equatable {
             case .noKeyPair: return "Couldn't find a private key associated with the given group public key (MessageSenderError.noKeyPair)."
             case .invalidClosedGroupUpdate: return "Invalid group update (MessageSenderError.invalidClosedGroupUpdate)."
             case .invalidConfigMessageHandling: return "Invalid handling of a config message (MessageSenderError.invalidConfigMessageHandling)."
-            case .other(_, let error): return "\(error)"
+            case .other(_, _, let error): return "\(error)"
         }
     }
     
@@ -69,11 +70,11 @@ public enum MessageSenderError: Error, CustomStringConvertible, Equatable {
             case (.invalidClosedGroupUpdate, .invalidClosedGroupUpdate): return true
             case (.blindingFailed, .blindingFailed): return true
             
-            case (.other(let lhsDescription, let lhsError), .other(let rhsDescription, let rhsError)):
+            case (.other(_, let lhsDescription, let lhsError), .other(_, let rhsDescription, let rhsError)):
                 // Not ideal but the best we can do
                 return (
                     lhsDescription == rhsDescription &&
-                    lhsError.localizedDescription == rhsError.localizedDescription
+                    "\(lhsError)" == "\(rhsError)"
                 )
                 
             default: return false

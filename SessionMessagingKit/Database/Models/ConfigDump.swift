@@ -21,7 +21,7 @@ public struct ConfigDump: Codable, Equatable, Hashable, FetchableRecord, Persist
         static var sessionId: CodingKeys { publicKey }
     }
     
-    public enum Variant: String, Codable, DatabaseValueConvertible {
+    public enum Variant: String, Codable, DatabaseValueConvertible, CaseIterable {
         case userProfile
         case contacts
         case convoInfoVolatile

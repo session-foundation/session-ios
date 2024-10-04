@@ -47,14 +47,13 @@ public class ConfirmationModal: Modal, UITextFieldDelegate, UITextViewDelegate {
         return result
     }()
     
-    private lazy var explanationLabel: UILabel = {
-        let result: UILabel = UILabel()
+    private lazy var explanationLabel: ScrollableLabel = {
+        let result: ScrollableLabel = ScrollableLabel()
         result.font = .systemFont(ofSize: Values.smallFontSize)
         result.themeTextColor = .alert_text
         result.textAlignment = .center
         result.lineBreakMode = .byWordWrapping
         result.numberOfLines = 0
-        result.isHidden = true
         
         return result
     }()
@@ -145,9 +144,9 @@ public class ConfirmationModal: Modal, UITextFieldDelegate, UITextViewDelegate {
         result.isLayoutMarginsRelativeArrangement = true
         result.layoutMargins = UIEdgeInsets(
             top: Values.largeSpacing,
-            left: Values.largeSpacing,
+            left: Values.veryLargeSpacing,
             bottom: Values.verySmallSpacing,
-            right: Values.largeSpacing
+            right: Values.veryLargeSpacing
         )
         
         return result
@@ -160,31 +159,28 @@ public class ConfirmationModal: Modal, UITextFieldDelegate, UITextViewDelegate {
         return result
     }()
     
-    private lazy var closeButton: UIButton = {
-        let result: UIButton = UIButton()
-        result.setImage(
-            UIImage(named: "X")?
-                .withRenderingMode(.alwaysTemplate),
-            for: .normal
+    private lazy var closeButton: UIButton = UIButton(primaryAction: UIAction { [weak self] _ in self?.close() })
+        .withConfiguration(
+            UIButton.Configuration
+                .plain()
+                .withImage(UIImage(named: "X")?.withRenderingMode(.alwaysTemplate))
+                .withContentInsets(NSDirectionalEdgeInsets(top: 6, leading: 6, bottom: 6, trailing: 6))
         )
-        result.imageView?.contentMode = .scaleAspectFit
-        result.themeTintColor = .textPrimary
-        result.contentEdgeInsets = UIEdgeInsets(
-            top: 6,
-            left: 6,
-            bottom: 6,
-            right: 6
+        .withConfigurationUpdateHandler { button in
+            switch button.state {
+                case .highlighted: button.imageView?.tintAdjustmentMode = .dimmed
+                default: button.imageView?.tintAdjustmentMode = .normal
+            }
+        }
+        .withImageViewContentMode(.scaleAspectFit)
+        .withThemeTintColor(.textPrimary)
+        .withAccessibility(
+            identifier: "Close button",
+            label: "Close button"
         )
-        result.isAccessibilityElement = true
-        result.accessibilityIdentifier = "Close button"
-        result.accessibilityLabel = "Close button"
-        result.set(.width, to: ConfirmationModal.closeSize)
-        result.set(.height, to: ConfirmationModal.closeSize)
-        result.addTarget(self, action: #selector(close), for: .touchUpInside)
-        result.isHidden = true
-        
-        return result
-    }()
+        .with(.width, of: ConfirmationModal.closeSize)
+        .with(.height, of: ConfirmationModal.closeSize)
+        .withHidden(true)
     
     // MARK: - Lifecycle
     
@@ -260,18 +256,21 @@ public class ConfirmationModal: Modal, UITextFieldDelegate, UITextViewDelegate {
             case .none:
                 mainStackView.spacing = Values.smallSpacing
                 
-            case .text(let text):
+            case .text(let text, let canScroll):
                 mainStackView.spacing = Values.smallSpacing
                 explanationLabel.text = text
+                explanationLabel.canScroll = canScroll
                 explanationLabel.isHidden = false
                 
-            case .attributedText(let attributedText):
+            case .attributedText(let attributedText, let canScroll):
                 mainStackView.spacing = Values.smallSpacing
                 explanationLabel.attributedText = attributedText
+                explanationLabel.canScroll = canScroll
                 explanationLabel.isHidden = false
                 
             case .input(let explanation, let inputInfo, let onTextChanged):
                 explanationLabel.attributedText = explanation
+                explanationLabel.canScroll = false
                 explanationLabel.isHidden = (explanation == nil)
                 textField.placeholder = inputInfo.placeholder
                 textField.text = (inputInfo.initialValue ?? "")
@@ -281,6 +280,7 @@ public class ConfirmationModal: Modal, UITextFieldDelegate, UITextViewDelegate {
                 
             case .dualInput(let explanation, let firstInputInfo, let secondInputInfo, let onTextChanged):
                 explanationLabel.attributedText = explanation
+                explanationLabel.canScroll = false
                 explanationLabel.isHidden = (explanation == nil)
                 textField.placeholder = firstInputInfo.placeholder
                 textField.text = (firstInputInfo.initialValue ?? "")
@@ -295,6 +295,7 @@ public class ConfirmationModal: Modal, UITextFieldDelegate, UITextViewDelegate {
             case .radio(let explanation, let options):
                 mainStackView.spacing = 0
                 explanationLabel.attributedText = explanation
+                explanationLabel.canScroll = false
                 explanationLabel.isHidden = (explanation == nil)
                 contentStackView.subviews.forEach { subview in
                     guard subview is RadioButton else { return }
@@ -351,14 +352,14 @@ public class ConfirmationModal: Modal, UITextFieldDelegate, UITextViewDelegate {
         confirmButton.setThemeTitleColor(info.confirmStyle, for: .normal)
         confirmButton.setThemeTitleColor(.disabled, for: .disabled)
         confirmButton.isHidden = (info.confirmTitle == nil)
-        confirmButton.isEnabled = info.confirmEnabled
+        confirmButton.isEnabled = info.confirmEnabled.isValid(with: info)
         cancelButton.accessibilityLabel = info.cancelAccessibility?.label
         cancelButton.accessibilityIdentifier = info.cancelAccessibility?.identifier
         cancelButton.isAccessibilityElement = true
         cancelButton.setTitle(info.cancelTitle, for: .normal)
         cancelButton.setThemeTitleColor(info.cancelStyle, for: .normal)
         cancelButton.setThemeTitleColor(.disabled, for: .disabled)
-        cancelButton.isEnabled = info.cancelEnabled
+        cancelButton.isEnabled = info.cancelEnabled.isValid(with: info)
         closeButton.isHidden = !info.hasCloseButton
         
         contentView.accessibilityLabel = info.accessibility?.label
@@ -431,11 +432,11 @@ public extension ConfirmationModal {
         let confirmTitle: String?
         let confirmAccessibility: Accessibility?
         let confirmStyle: ThemeValue
-        let confirmEnabled: Bool
+        let confirmEnabled: ButtonValidator
         let cancelTitle: String
         let cancelAccessibility: Accessibility?
         let cancelStyle: ThemeValue
-        let cancelEnabled: Bool
+        let cancelEnabled: ButtonValidator
         let hasCloseButton: Bool
         let dismissOnConfirm: Bool
         let dismissType: Modal.DismissType
@@ -453,13 +454,13 @@ public extension ConfirmationModal {
             confirmTitle: String? = nil,
             confirmAccessibility: Accessibility? = nil,
             confirmStyle: ThemeValue = .alert_text,
-            confirmEnabled: Bool = true,
-            cancelTitle: String = NSLocalizedString("TXT_CANCEL_TITLE", comment: ""),
+            confirmEnabled: ButtonValidator = true,
+            cancelTitle: String = SNUIKit.localizedString(for: "cancel"),
             cancelAccessibility: Accessibility? = Accessibility(
                 identifier: "Cancel button"
             ),
             cancelStyle: ThemeValue = .danger,
-            cancelEnabled: Bool = true,
+            cancelEnabled: ButtonValidator = true,
             hasCloseButton: Bool = false,
             dismissOnConfirm: Bool = true,
             dismissType: Modal.DismissType = .recursive,
@@ -491,8 +492,6 @@ public extension ConfirmationModal {
         
         public func with(
             body: Body? = nil,
-            confirmEnabled: Bool? = nil,
-            cancelEnabled: Bool? = nil,
             onConfirm: ((ConfirmationModal) -> ())? = nil,
             onCancel: ((ConfirmationModal) -> ())? = nil,
             afterClosed: (() -> ())? = nil
@@ -505,11 +504,11 @@ public extension ConfirmationModal {
                 confirmTitle: self.confirmTitle,
                 confirmAccessibility: self.confirmAccessibility,
                 confirmStyle: self.confirmStyle,
-                confirmEnabled: (confirmEnabled ?? self.confirmEnabled),
+                confirmEnabled: self.confirmEnabled,
                 cancelTitle: self.cancelTitle,
                 cancelAccessibility: self.cancelAccessibility,
                 cancelStyle: self.cancelStyle,
-                cancelEnabled: (cancelEnabled ?? self.cancelEnabled),
+                cancelEnabled: self.cancelEnabled,
                 hasCloseButton: self.hasCloseButton,
                 dismissOnConfirm: self.dismissOnConfirm,
                 dismissType: self.dismissType,
@@ -530,11 +529,11 @@ public extension ConfirmationModal {
                 lhs.confirmTitle == rhs.confirmTitle &&
                 lhs.confirmAccessibility == rhs.confirmAccessibility &&
                 lhs.confirmStyle == rhs.confirmStyle &&
-                lhs.confirmEnabled == rhs.confirmEnabled &&
+                lhs.confirmEnabled.isValid(with: lhs) == rhs.confirmEnabled.isValid(with: rhs) &&
                 lhs.cancelTitle == rhs.cancelTitle &&
                 lhs.cancelAccessibility == rhs.cancelAccessibility &&
                 lhs.cancelStyle == rhs.cancelStyle &&
-                lhs.cancelEnabled == rhs.cancelEnabled &&
+                lhs.cancelEnabled.isValid(with: lhs) == rhs.cancelEnabled.isValid(with: rhs) &&
                 lhs.hasCloseButton == rhs.hasCloseButton &&
                 lhs.dismissOnConfirm == rhs.dismissOnConfirm &&
                 lhs.dismissType == rhs.dismissType
@@ -549,11 +548,11 @@ public extension ConfirmationModal {
             confirmTitle.hash(into: &hasher)
             confirmAccessibility.hash(into: &hasher)
             confirmStyle.hash(into: &hasher)
-            confirmEnabled.hash(into: &hasher)
+            confirmEnabled.isValid(with: self).hash(into: &hasher)
             cancelTitle.hash(into: &hasher)
             cancelAccessibility.hash(into: &hasher)
             cancelStyle.hash(into: &hasher)
-            cancelEnabled.hash(into: &hasher)
+            cancelEnabled.isValid(with: self).hash(into: &hasher)
             hasCloseButton.hash(into: &hasher)
             dismissOnConfirm.hash(into: &hasher)
             dismissType.hash(into: &hasher)
@@ -562,6 +561,41 @@ public extension ConfirmationModal {
 }
 
 public extension ConfirmationModal.Info {
+    // MARK: - ButtonValidator
+    
+    class ButtonValidator: ExpressibleByBooleanLiteral {
+        public typealias BooleanLiteralType = Bool
+        
+        /// Storage for the bool literal - should only ever access this via the `isValid` function which allows us to
+        /// override the result for other validator types
+        private let boolValue: Bool
+        
+        required public init(booleanLiteral value: BooleanLiteralType) {
+            boolValue = value
+        }
+        
+        func isValid(with info: ConfirmationModal.Info) -> Bool { boolValue }
+    }
+    
+    class AfterChangeValidator: ButtonValidator {
+        let isValid: (ConfirmationModal.Info) -> Bool
+        
+        required public init(booleanLiteral value: BooleanLiteralType) {
+            isValid = { _ in value }
+            
+            super.init(booleanLiteral: value)
+        }
+        
+        public init(isValid: @escaping (ConfirmationModal.Info) -> Bool) {
+            self.isValid = isValid
+            
+            /// Default this value to false (we won't use it directly anywhere
+            super.init(booleanLiteral: false)
+        }
+        
+        public override func isValid(with info: ConfirmationModal.Info) -> Bool { return self.isValid(info) }
+    }
+        
     // MARK: - ShowCondition
     
     enum ShowCondition {
@@ -602,8 +636,14 @@ public extension ConfirmationModal.Info {
         }
         
         case none
-        case text(String)
-        case attributedText(NSAttributedString)
+        case text(
+            _ text: String,
+            canScroll: Bool = false
+        )
+        case attributedText(
+            _ attributedText: NSAttributedString,
+            canScroll: Bool = false
+        )
         case input(
             explanation: NSAttributedString?,
             info: InputInfo,
@@ -635,8 +675,8 @@ public extension ConfirmationModal.Info {
         public static func == (lhs: ConfirmationModal.Info.Body, rhs: ConfirmationModal.Info.Body) -> Bool {
             switch (lhs, rhs) {
                 case (.none, .none): return true
-                case (.text(let lhsText), .text(let rhsText)): return (lhsText == rhsText)
-                case (.attributedText(let lhsText), .attributedText(let rhsText)): return (lhsText == rhsText)
+                case (.text(let lhsText, _), .text(let rhsText, _)): return (lhsText == rhsText)
+                case (.attributedText(let lhsText, _), .attributedText(let rhsText, _)): return (lhsText == rhsText)
                 
                 case (.input(let lhsExplanation, let lhsInfo, _), .input(let rhsExplanation, let rhsInfo, _)):
                    return (
@@ -673,8 +713,8 @@ public extension ConfirmationModal.Info {
         public func hash(into hasher: inout Hasher) {
             switch self {
                 case .none: break
-                case .text(let text): text.hash(into: &hasher)
-                case .attributedText(let text): text.hash(into: &hasher)
+                case .text(let text, _): text.hash(into: &hasher)
+                case .attributedText(let text, _): text.hash(into: &hasher)
                     
                 case .input(let explanation, let info, _):
                     explanation.hash(into: &hasher)
@@ -697,5 +737,17 @@ public extension ConfirmationModal.Info {
                     accessibility.hash(into: &hasher)
             }
         }
+    }
+}
+
+// MARK: - DSL
+
+public extension ConfirmationModal.Info.ButtonValidator {
+    static func bool(_ isValid: Bool) -> ConfirmationModal.Info.ButtonValidator {
+        return ConfirmationModal.Info.ButtonValidator(booleanLiteral: isValid)
+    }
+    
+    static func afterChange(isValid: @escaping (ConfirmationModal.Info) -> Bool) -> ConfirmationModal.Info.AfterChangeValidator {
+        return ConfirmationModal.Info.AfterChangeValidator(isValid: isValid)
     }
 }

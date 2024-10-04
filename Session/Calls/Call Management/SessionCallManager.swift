@@ -75,7 +75,7 @@ public final class SessionCallManager: NSObject, CallManagerProtocol {
             with: callId,
             update: CXCallUpdate()
         ) { _ in
-            SNLog("[Calls] Reported fake incoming call to CallKit due to: \(info)")
+            Log.error(.calls, "Reported fake incoming call to CallKit due to: \(info)")
         }
         provider.reportCall(
             with: callId,
@@ -88,7 +88,7 @@ public final class SessionCallManager: NSObject, CallManagerProtocol {
         self.currentCall = call
     }
     
-    public func reportOutgoingCall(_ call: SessionCall, using dependencies: Dependencies) {
+    public func reportOutgoingCall(_ call: SessionCall) {
         Log.assertOnMainThread()
         dependencies[defaults: .appGroup, key: .isCallOngoing] = true
         dependencies[defaults: .appGroup, key: .lastCallPreOffer] = Date()
@@ -146,7 +146,7 @@ public final class SessionCallManager: NSObject, CallManagerProtocol {
             dependencies[defaults: .appGroup, key: .isCallOngoing] = false
             dependencies[defaults: .appGroup, key: .lastCallPreOffer] = nil
             
-            if dependencies.hasInitialised(singleton: .appContext) && dependencies[singleton: .appContext].isInBackground {
+            if dependencies[singleton: .appContext].isInBackground {
                 (UIApplication.shared.delegate as? AppDelegate)?.stopPollers()
                 Log.flush()
             }
@@ -200,9 +200,9 @@ public final class SessionCallManager: NSObject, CallManagerProtocol {
     }
     
     public func suspendDatabaseIfCallEndedInBackground() {
-        if dependencies.hasInitialised(singleton: .appContext) && dependencies[singleton: .appContext].isInBackground {
+        if dependencies[singleton: .appContext].isInBackground {
             // Stop all jobs except for message sending and when completed suspend the database
-            dependencies[singleton: .jobRunner].stopAndClearPendingJobs(exceptForVariant: .messageSend) { [dependencies] in
+            dependencies[singleton: .jobRunner].stopAndClearPendingJobs(exceptForVariant: .messageSend) { [dependencies] _ in
                 dependencies.mutate(cache: .libSessionNetwork) { $0.suspendNetworkAccess() }
                 dependencies[singleton: .storage].suspendDatabaseAccess()
                 Log.flush()
@@ -214,22 +214,20 @@ public final class SessionCallManager: NSObject, CallManagerProtocol {
     
     public func showCallUIForCall(caller: String, uuid: String, mode: CallMode, interactionId: Int64?) {
         guard
-            let call: SessionCall = dependencies[singleton: .storage]
-                .read({ [dependencies] db in
-                    SessionCall(db, for: caller, uuid: uuid, mode: mode, using: dependencies)
-                })
+            let call: SessionCall = dependencies[singleton: .storage].read({ [dependencies] db in
+                SessionCall(db, for: caller, uuid: uuid, mode: mode, using: dependencies)
+            })
         else { return }
         
         call.callInteractionId = interactionId
         call.reportIncomingCallIfNeeded { [dependencies] error in
             if let error = error {
-                SNLog("[Calls] Failed to report incoming call to CallKit due to error: \(error)")
+                Log.error(.calls, "Failed to report incoming call to CallKit due to error: \(error)")
                 return
             }
             
             DispatchQueue.main.async {
                 guard
-                    dependencies.hasInitialised(singleton: .appContext),
                     dependencies[singleton: .appContext].isMainAppAndActive,
                     let presentingVC: UIViewController = dependencies[singleton: .appContext].frontMostViewController
                 else { return }
@@ -271,7 +269,7 @@ public final class SessionCallManager: NSObject, CallManagerProtocol {
     }
     
     public func handleAnswerMessage(_ message: CallMessage) {
-        guard dependencies.hasInitialised(singleton: .appContext) else { return }
+        guard dependencies[singleton: .appContext].isValid else { return }
         guard Thread.isMainThread else {
             DispatchQueue.main.async {
                 self.handleAnswerMessage(message)
@@ -283,7 +281,7 @@ public final class SessionCallManager: NSObject, CallManagerProtocol {
     }
     
     public func dismissAllCallUI() {
-        guard dependencies.hasInitialised(singleton: .appContext) else { return }
+        guard dependencies[singleton: .appContext].isValid else { return }
         guard Thread.isMainThread else {
             DispatchQueue.main.async {
                 self.dismissAllCallUI()
@@ -309,7 +307,7 @@ public extension SessionCallManager {
             }
             
             let iconMaskImage: UIImage = #imageLiteral(resourceName: "SessionGreen32")
-            let configuration = CXProviderConfiguration(localizedName: "Session")
+            let configuration = CXProviderConfiguration(localizedName: "Session") // stringlint:disable
             configuration.supportsVideo = true
             configuration.maximumCallGroups = 1
             configuration.maximumCallsPerCallGroup = 1

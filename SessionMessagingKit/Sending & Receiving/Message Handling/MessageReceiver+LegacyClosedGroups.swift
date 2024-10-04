@@ -157,14 +157,16 @@ extension MessageReceiver {
         guard hasApprovedAdmin || configTriggeringChange != nil else { return }
         
         // Create the group
-        let thread: SessionThread = try SessionThread.fetchOrCreate(
-            db,
-            id: legacyGroupSessionId,
-            variant: .legacyGroup,
-            shouldBeVisible: true,
-            calledFromConfig: configTriggeringChange,
-            using: dependencies
-        )
+        let thread: SessionThread = try SessionThread
+            .fetchOrCreate(
+                db,
+                id: legacyGroupSessionId,
+                variant: .legacyGroup,
+                creationDateTimestamp: formationTimestamp,
+                shouldBeVisible: true,
+                calledFromConfig: configTriggeringChange,
+                using: dependencies
+            )
         let closedGroup: ClosedGroup = try ClosedGroup(
             threadId: legacyGroupSessionId,
             name: name,
@@ -234,13 +236,13 @@ extension MessageReceiver {
                 db,
                 legacyGroupSessionId: legacyGroupSessionId,
                 name: name,
+                joinedAt: formationTimestamp,
                 latestKeyPairPublicKey: Data(encryptionKeyPair.publicKey),
                 latestKeyPairSecretKey: Data(encryptionKeyPair.secretKey),
                 latestKeyPairReceivedTimestamp: receivedTimestamp,
                 disappearingConfig: disappearingConfig,
                 members: members.asSet(),
                 admins: admins.asSet(),
-                formationTimestamp: formationTimestamp,
                 using: dependencies
             )
         }
@@ -253,7 +255,7 @@ extension MessageReceiver {
         // Resubscribe for group push notifications
         let userSessionId: SessionId = dependencies[cache: .general].sessionId
         
-        try? PushNotificationAPI
+        (try? PushNotificationAPI
             .preparedSubscribeToLegacyGroups(
                 userSessionId: userSessionId,
                 legacyGroupIds: try ClosedGroup
@@ -267,9 +269,9 @@ extension MessageReceiver {
                     .fetchSet(db)
                     .inserting(legacyGroupSessionId),  // Insert the new key just to be sure
                 using: dependencies
-            )?
+            ))?
             .send(using: dependencies)
-            .subscribe(on: DispatchQueue.global(qos: .default), using: dependencies)
+            .subscribe(on: DispatchQueue.global(qos: .userInitiated), using: dependencies)
             .sinkUntilComplete()
     }
 

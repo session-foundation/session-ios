@@ -37,13 +37,10 @@ internal extension LibSessionCacheType {
     func handleUserProfileUpdate(
         _ db: Database,
         in config: LibSession.Config?,
-        serverTimestampMs: Int64,
-        using dependencies: Dependencies
+        serverTimestampMs: Int64
     ) throws {
-        guard config.needsDump(using: dependencies) else { return }
-        guard case .object(let conf) = config else {
-            throw LibSessionError.invalidConfigObject
-        }
+        guard configNeedsDump(config) else { return }
+        guard case .object(let conf) = config else { throw LibSessionError.invalidConfigObject }
         
         // A profile must have a name so if this is null then it's invalid and can be ignored
         guard let profileNamePtr: UnsafePointer<CChar> = user_profile_get_name(conf) else { return }
@@ -51,22 +48,19 @@ internal extension LibSessionCacheType {
         let userSessionId: SessionId = dependencies[cache: .general].sessionId
         let profileName: String = String(cString: profileNamePtr)
         let profilePic: user_profile_pic = user_profile_get_pic(conf)
-        let profilePictureUrl: String? = String(libSessionVal: profilePic.url, nullIfEmpty: true)
+        let profilePictureUrl: String? = profilePic.get(\.url, nullIfEmpty: true)
         
         // Handle user profile changes
         try Profile.updateIfNeeded(
             db,
             publicKey: userSessionId.hexString,
-            name: profileName,
+            displayNameUpdate: .currentUserUpdate(profileName),
             displayPictureUpdate: {
-                guard let profilePictureUrl: String = profilePictureUrl else { return .remove }
+                guard let profilePictureUrl: String = profilePictureUrl else { return .currentUserRemove }
                 
-                return .updateTo(
+                return .currentUserUpdateTo(
                     url: profilePictureUrl,
-                    key: Data(
-                        libSessionVal: profilePic.key,
-                        count: DisplayPictureManager.aes256KeyByteLength
-                    ),
+                    key: profilePic.get(\.key),
                     fileName: nil
                 )
             }(),
@@ -111,6 +105,7 @@ internal extension LibSessionCacheType {
                     db,
                     id: userSessionId.hexString,
                     variant: .contact,
+                    creationDateTimestamp: (dependencies[cache: .snodeAPI].currentOffsetTimestampMs() / 1000),
                     shouldBeVisible: LibSession.shouldBeVisible(priority: targetPriority),
                     calledFromConfig: .userProfile,
                     using: dependencies
@@ -203,9 +198,7 @@ internal extension LibSession {
         profile: Profile,
         in config: Config?
     ) throws {
-        guard case .object(let conf) = config else {
-            throw LibSessionError.invalidConfigObject
-        }
+        guard case .object(let conf) = config else { throw LibSessionError.invalidConfigObject }
         
         // Update the name
         var cUpdatedName: [CChar] = try profile.name.cString(using: .utf8) ?? { throw LibSessionError.invalidCConversion }()
@@ -214,8 +207,8 @@ internal extension LibSession {
         
         // Either assign the updated profile pic, or sent a blank profile pic (to remove the current one)
         var profilePic: user_profile_pic = user_profile_pic()
-        profilePic.url = profile.profilePictureUrl.toLibSession()
-        profilePic.key = profile.profileEncryptionKey.toLibSession()
+        profilePic.set(\.url, to: profile.profilePictureUrl)
+        profilePic.set(\.key, to: profile.profileEncryptionKey)
         user_profile_set_pic(conf, profilePic)
         try LibSessionError.throwIfNeeded(conf)
     }
@@ -225,9 +218,7 @@ internal extension LibSession {
         disappearingMessagesConfig: DisappearingMessagesConfiguration? = nil,
         in config: Config?
     ) throws {
-        guard case .object(let conf) = config else {
-            throw LibSessionError.invalidConfigObject
-        }
+        guard case .object(let conf) = config else { throw LibSessionError.invalidConfigObject }
         
         if let priority: Int32 = priority {
             user_profile_set_nts_priority(conf, priority)
@@ -259,3 +250,7 @@ extension LibSession {
         return user_profile_get_blinded_msgreqs(conf)
     }
 }
+
+// MARK: - C Conformance
+
+extension user_profile_pic: CAccessible & CMutable {}
