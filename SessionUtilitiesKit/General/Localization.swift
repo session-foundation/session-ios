@@ -30,8 +30,17 @@ final public class LocalizationHelper: CustomStringConvertible {
     }
 
     public func localized() -> String {
+        // Use English as the default string if the translation is empty
+        let defaultString: String = {
+            if let englishPath = Bundle.main.path(forResource: "en", ofType: "lproj"), let englishBundle = Bundle(path: englishPath) {
+                return englishBundle.localizedString(forKey: template, value: nil, table: nil)
+            } else {
+                return ""
+            }
+        }()
+        
         // If the localized string matches the key provided then the localisation failed
-        var localizedString: String = NSLocalizedString(template, comment: "")
+        var localizedString: String = NSLocalizedString(template, value: defaultString, comment: "")
         
         // Deal with plurals
         // Note: We have to deal with plurals first, so we can get the correct string
