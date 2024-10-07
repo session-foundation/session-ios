@@ -15,10 +15,10 @@ public enum Theme: String, CaseIterable, Codable {
     
     public var title: String {
         switch self {
-            case .classicDark: return "appearanceThemesClassicDark".localized()
-            case .classicLight: return "appearanceThemesClassicLight".localized()
-            case .oceanDark: return "appearanceThemesOceanDark".localized()
-            case .oceanLight: return "appearanceThemesOceanLight".localized()
+            case .classicDark: return "appearanceThemesClassicDark".localizedSNUIKit()
+            case .classicLight: return "appearanceThemesClassicLight".localizedSNUIKit()
+            case .oceanDark: return "appearanceThemesOceanDark".localizedSNUIKit()
+            case .oceanLight: return "appearanceThemesOceanLight".localizedSNUIKit()
         }
     }
     

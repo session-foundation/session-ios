@@ -4,12 +4,13 @@ import UIKit
 
 // FIXME: Refactor as part of the Groups Rebuild
 public class ConfirmationModal: Modal, UITextFieldDelegate, UITextViewDelegate {
+    public static let explanationFont: UIFont = .systemFont(ofSize: Values.smallFontSize)
     private static let closeSize: CGFloat = 24
     
     public private(set) var info: Info
     private var internalOnConfirm: ((ConfirmationModal) -> ())? = nil
     private var internalOnCancel: ((ConfirmationModal) -> ())? = nil
-    private var internalOnBodyTap: (() -> ())? = nil
+    private var internalOnBodyTap: ((@escaping (ValueUpdate) -> Void) -> Void)? = nil
     private var internalOnTextChanged: ((String, String) -> ())? = nil
     
     // MARK: - Components
@@ -49,7 +50,7 @@ public class ConfirmationModal: Modal, UITextFieldDelegate, UITextViewDelegate {
     
     private lazy var explanationLabel: ScrollableLabel = {
         let result: ScrollableLabel = ScrollableLabel()
-        result.font = .systemFont(ofSize: Values.smallFontSize)
+        result.font = ConfirmationModal.explanationFont
         result.themeTextColor = .alert_text
         result.textAlignment = .center
         result.lineBreakMode = .byWordWrapping
@@ -276,7 +277,11 @@ public class ConfirmationModal: Modal, UITextFieldDelegate, UITextViewDelegate {
                 textField.text = (inputInfo.initialValue ?? "")
                 textField.clearButtonMode = (inputInfo.clearButton ? .always : .never)
                 textFieldContainer.isHidden = false
-                internalOnTextChanged = { text, _ in onTextChanged(text) }
+                internalOnTextChanged = { [weak confirmButton, weak cancelButton] text, _ in
+                    onTextChanged(text)
+                    confirmButton?.isEnabled = info.confirmEnabled.isValid(with: info)
+                    cancelButton?.isEnabled = info.cancelEnabled.isValid(with: info)
+                }
                 
             case .dualInput(let explanation, let firstInputInfo, let secondInputInfo, let onTextChanged):
                 explanationLabel.attributedText = explanation
@@ -290,7 +295,11 @@ public class ConfirmationModal: Modal, UITextFieldDelegate, UITextViewDelegate {
                 textViewPlaceholder.text = secondInputInfo.placeholder
                 textViewPlaceholder.isHidden = !textView.text.isEmpty
                 textViewContainer.isHidden = false
-                internalOnTextChanged = onTextChanged
+                internalOnTextChanged = { [weak confirmButton, weak cancelButton] firstText, secondText in
+                    onTextChanged(firstText, secondText)
+                    confirmButton?.isEnabled = info.confirmEnabled.isValid(with: info)
+                    cancelButton?.isEnabled = info.cancelEnabled.isValid(with: info)
+                }
                 
             case .radio(let explanation, let options):
                 mainStackView.spacing = 0
@@ -405,14 +414,32 @@ public class ConfirmationModal: Modal, UITextFieldDelegate, UITextViewDelegate {
             textView.resignFirstResponder()
         }
         
-        internalOnBodyTap?()
+        internalOnBodyTap?({ _ in })
     }
     
     @objc private func imageViewTapped() {
-        internalOnBodyTap?()
+        internalOnBodyTap?({ [weak self, info = self.info] valueUpdate in
+            switch (valueUpdate, info.body) {
+                case (.image(let updatedValueData), .image(let placeholderData, _, let icon, let style, let accessibility, let onClick)):
+                    self?.updateContent(
+                        with: info.with(
+                            body: .image(
+                                placeholderData: placeholderData,
+                                valueData: updatedValueData,
+                                icon: icon,
+                                style: style,
+                                accessibility: accessibility,
+                                onClick: onClick
+                            )
+                        )
+                    )
+                    
+                default: break
+            }
+        })
     }
     
-    @objc private func confirmationPressed() {
+    @objc internal func confirmationPressed() {
         internalOnConfirm?(self)
     }
     
@@ -424,16 +451,21 @@ public class ConfirmationModal: Modal, UITextFieldDelegate, UITextViewDelegate {
 // MARK: - Types
 
 public extension ConfirmationModal {
+    enum ValueUpdate {
+        case input(String)
+        case image(Data?)
+    }
+    
     struct Info: Equatable, Hashable {
-        let title: String
+        internal let title: String
         public let body: Body
         let accessibility: Accessibility?
         public let showCondition: ShowCondition
-        let confirmTitle: String?
+        internal let confirmTitle: String?
         let confirmAccessibility: Accessibility?
         let confirmStyle: ThemeValue
         let confirmEnabled: ButtonValidator
-        let cancelTitle: String
+        internal let cancelTitle: String
         let cancelAccessibility: Accessibility?
         let cancelStyle: ThemeValue
         let cancelEnabled: ButtonValidator
@@ -669,7 +701,7 @@ public extension ConfirmationModal.Info {
             icon: ProfilePictureView.ProfileIcon = .none,
             style: ImageStyle,
             accessibility: Accessibility?,
-            onClick: (() -> ())
+            onClick: ((@escaping (ConfirmationModal.ValueUpdate) -> Void) -> Void)
         )
         
         public static func == (lhs: ConfirmationModal.Info.Body, rhs: ConfirmationModal.Info.Body) -> Bool {

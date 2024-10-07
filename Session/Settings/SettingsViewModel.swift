@@ -9,47 +9,34 @@ import SessionMessagingKit
 import SessionUtilitiesKit
 import SignalUtilitiesKit
 
-class SettingsViewModel: SessionTableViewModel, NavigationItemSource, NavigatableStateHolder, EditableStateHolder, ObservableTableSource {
+class SettingsViewModel: SessionTableViewModel, NavigationItemSource, NavigatableStateHolder, ObservableTableSource {
     public let dependencies: Dependencies
     public let navigatableState: NavigatableState = NavigatableState()
-    public let editableState: EditableState<TableItem> = EditableState()
     public let state: TableDataState<Section, TableItem> = TableDataState()
     public let observableState: ObservableTableSourceState<Section, TableItem> = ObservableTableSourceState()
     
     private let userSessionId: SessionId
+    private var updatedName: String?
+    private var onDisplayPictureSelected: ((ConfirmationModal.ValueUpdate) -> Void)?
     private lazy var imagePickerHandler: ImagePickerHandler = ImagePickerHandler(
         onTransition: { [weak self] in self?.transitionToScreen($0, transitionType: $1) },
         onImageDataPicked: { [weak self] resultImageData in
-            self?.updatedProfilePictureSelected(
-                displayPictureUpdate: .currentUserUploadImageData(resultImageData)
-            )
+            self?.onDisplayPictureSelected?(.image(resultImageData))
         }
     )
-    fileprivate var oldDisplayName: String
-    private var editedDisplayName: String?
-    private var editProfilePictureModal: ConfirmationModal?
-    private var editProfilePictureModalInfo: ConfirmationModal.Info?
     
     // MARK: - Initialization
     
     init(using dependencies: Dependencies) {
         self.dependencies = dependencies
         self.userSessionId = dependencies[cache: .general].sessionId
-        self.oldDisplayName = Profile.fetchOrCreateCurrentUser(using: dependencies).name
     }
     
     // MARK: - Config
     
-    enum NavState {
-        case standard
-        case editing
-    }
-    
     enum NavItem: Equatable {
         case close
         case qrCode
-        case cancel
-        case done
     }
     
     public enum Section: SessionTableSection {
@@ -96,122 +83,35 @@ class SettingsViewModel: SessionTableViewModel, NavigationItemSource, Navigatabl
     
     // MARK: - NavigationItemSource
     
-    lazy var navState: AnyPublisher<NavState, Never> = Publishers
-        .CombineLatest(
-            isEditing,
-            textChanged
-                .handleEvents(
-                    receiveOutput: { [weak self] value, _ in
-                        self?.editedDisplayName = value
-                    }
-                )
-                .filter { _ in false }
-                .prepend((nil, .profileName))
-        )
-        .map { isEditing, _ -> NavState in (isEditing ? .editing : .standard) }
-        .removeDuplicates()
-        .prepend(.standard)     // Initial value
-        .shareReplay(1)
-        .eraseToAnyPublisher()
-
-    lazy var leftNavItems: AnyPublisher<[SessionNavItem<NavItem>], Never> = navState
-        .map { navState -> [SessionNavItem<NavItem>] in
-            switch navState {
-                case .standard:
-                    return [
-                        SessionNavItem(
-                            id: .close,
-                            image: UIImage(named: "X")?
-                                .withRenderingMode(.alwaysTemplate),
-                            style: .plain,
-                            accessibilityIdentifier: "Close button"
-                        ) { [weak self] in self?.dismissScreen() }
-                    ]
-                   
-                case .editing:
-                    return [
-                        SessionNavItem(
-                            id: .cancel,
-                            systemItem: .cancel,
-                            accessibilityIdentifier: "Cancel button"
-                        ) { [weak self] in
-                            self?.setIsEditing(false)
-                            self?.editedDisplayName = self?.oldDisplayName
-                        }
-                    ]
-            }
-        }
-        .eraseToAnyPublisher()
+    lazy var leftNavItems: AnyPublisher<[SessionNavItem<NavItem>], Never> = [
+        SessionNavItem(
+            id: .close,
+            image: UIImage(named: "X")?
+                .withRenderingMode(.alwaysTemplate),
+            style: .plain,
+            accessibilityIdentifier: "Close button"
+        ) { [weak self] in self?.dismissScreen() }
+    ]
     
-    lazy var rightNavItems: AnyPublisher<[SessionNavItem<NavItem>], Never> = navState
-        .map { [weak self, dependencies] navState -> [SessionNavItem<NavItem>] in
-            switch navState {
-                case .standard:
-                    return [
-                        SessionNavItem(
-                            id: .qrCode,
-                            image: UIImage(named: "QRCode")?
-                                .withRenderingMode(.alwaysTemplate),
-                            style: .plain,
-                            accessibilityIdentifier: "View QR code",
-                            action: { [weak self] in
-                                let viewController: SessionHostingViewController = SessionHostingViewController(
-                                    rootView: QRCodeScreen(using: dependencies)
-                                )
-                                viewController.setNavBarTitle("qrCode".localized())
-                                self?.transitionToScreen(viewController)
-                            }
-                        )
-                    ]
-                    
-                    case .editing:
-                        return [
-                            SessionNavItem(
-                                id: .done,
-                                systemItem: .done,
-                                accessibilityIdentifier: "Done"
-                            ) { [weak self] in
-                                let updatedNickname: String = (self?.editedDisplayName ?? "")
-                                    .trimmingCharacters(in: .whitespacesAndNewlines)
-                                
-                                guard !updatedNickname.isEmpty else {
-                                    self?.transitionToScreen(
-                                        ConfirmationModal(
-                                            info: ConfirmationModal.Info(
-                                                title: "displayNameErrorDescription".localized(),
-                                                cancelTitle: "okay".localized(),
-                                                cancelStyle: .alert_text
-                                            )
-                                        ),
-                                        transitionType: .present
-                                    )
-                                    return
-                                }
-                                guard !Profile.isTooLong(profileName: updatedNickname) else {
-                                    self?.transitionToScreen(
-                                        ConfirmationModal(
-                                            info: ConfirmationModal.Info(
-                                                title: "displayNameErrorDescriptionShorter".localized(),
-                                                cancelTitle: "okay".localized(),
-                                                cancelStyle: .alert_text
-                                            )
-                                        ),
-                                        transitionType: .present
-                                    )
-                                    return
-                                }
-                                
-                                self?.setIsEditing(false)
-                                self?.oldDisplayName = updatedNickname
-                                self?.updateProfile(displayNameUpdate: .currentUserUpdate(updatedNickname))
-                            }
-                        ]
+    lazy var rightNavItems: AnyPublisher<[SessionNavItem<NavItem>], Never> = [
+        SessionNavItem(
+            id: .qrCode,
+            image: UIImage(named: "QRCode")?
+                .withRenderingMode(.alwaysTemplate),
+            style: .plain,
+            accessibilityIdentifier: "View QR code",
+            action: { [weak self, dependencies] in
+                let viewController: SessionHostingViewController = SessionHostingViewController(
+                    rootView: QRCodeScreen(using: dependencies)
+                )
+                viewController.setNavBarTitle("qrCode".localized())
+                self?.transitionToScreen(viewController)
             }
-        }
-        .eraseToAnyPublisher()
-
+        )
+    ]
     
     // MARK: - Content
+    
     private struct State: Equatable {
         let profile: Profile
         let developerModeEnabled: Bool
@@ -231,6 +131,8 @@ class SettingsViewModel: SessionTableViewModel, NavigationItemSource, Navigatabl
         .compactMap { [weak self] state -> [SectionModel]? in self?.content(state) }
     
     private func content(_ state: State) -> [SectionModel] {
+        let editIcon: UIImage? = UIImage(systemName: "pencil")
+        
         return [
             SectionModel(
                 model: .profileInfo,
@@ -260,6 +162,12 @@ class SettingsViewModel: SessionTableViewModel, NavigationItemSource, Navigatabl
                     ),
                     SessionCell.Info(
                         id: .profileName,
+                        leadingAccessory: .icon(
+                            editIcon?.withRenderingMode(.alwaysTemplate),
+                            size: .mediumAspectFill,
+                            customTint: .textSecondary,
+                            shouldFill: true
+                        ),
                         title: SessionCell.TextInfo(
                             state.profile.displayName(),
                             font: .titleLarge,
@@ -268,14 +176,18 @@ class SettingsViewModel: SessionTableViewModel, NavigationItemSource, Navigatabl
                         ),
                         styling: SessionCell.StyleInfo(
                             alignment: .centerHugging,
-                            customPadding: SessionCell.Padding(top: Values.smallSpacing),
+                            customPadding: SessionCell.Padding(
+                                top: Values.smallSpacing,
+                                leading: -((IconSize.medium.size + (Values.smallSpacing * 2)) / 2),
+                                bottom: Values.mediumSpacing
+                            ),
                             backgroundStyle: .noBackground
                         ),
                         accessibility: Accessibility(
                             identifier: "Username",
                             label: state.profile.displayName()
                         ),
-                        onTap: { [weak self] in self?.setIsEditing(true) }
+                        onTap: { [weak self] in self?.updateDisplayName(current: state.profile.displayName()) }
                     )
                 ]
             ),
@@ -530,91 +442,123 @@ class SettingsViewModel: SessionTableViewModel, NavigationItemSource, Navigatabl
     
     // MARK: - Functions
     
+    private func updateDisplayName(current: String) {
+        /// Set `updatedName` to `current` so we can disable the "save" button when there are no changes and don't need to worry
+        /// about retrieving them in the confirmation closure
+        self.updatedName = current
+        self.transitionToScreen(
+            ConfirmationModal(
+                info: ConfirmationModal.Info(
+                    title: "displayNameSet".localized(),
+                    body: .input(
+                        explanation: nil,
+                        info: ConfirmationModal.Info.Body.InputInfo(
+                            placeholder: "displayNameEnter".localized(),
+                            initialValue: current
+                        ),
+                        onChange: { [weak self] updatedName in self?.updatedName = updatedName }
+                    ),
+                    confirmTitle: "save".localized(),
+                    confirmEnabled: .afterChange { [weak self] _ in
+                        self?.updatedName?.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty == false &&
+                        self?.updatedName != current
+                    },
+                    cancelStyle: .alert_text,
+                    dismissOnConfirm: false,
+                    onConfirm: { [weak self] modal in
+                        guard
+                            let finalDisplayName: String = (self?.updatedName ?? "")
+                                .trimmingCharacters(in: .whitespacesAndNewlines)
+                                .nullIfEmpty
+                        else { return }
+                        
+                        /// Check if the data violates the size constraints
+                        guard !Profile.isTooLong(profileName: finalDisplayName) else {
+                            self?.transitionToScreen(
+                                ConfirmationModal(
+                                    info: ConfirmationModal.Info(
+                                        title: "theError".localized(),
+                                        body: .text("displayNameErrorDescriptionShorter".localized()),
+                                        cancelTitle: "okay".localized(),
+                                        cancelStyle: .alert_text,
+                                        dismissType: .single
+                                    )
+                                ),
+                                transitionType: .present
+                            )
+                            return
+                        }
+                        
+                        /// Update the nickname
+                        self?.updateProfile(displayNameUpdate: .currentUserUpdate(finalDisplayName)) {
+                            modal.dismiss(animated: true)
+                        }
+                    }
+                )
+            ),
+            transitionType: .present
+        )
+    }
+    
     private func updateProfilePicture(currentFileName: String?) {
         let existingImageData: Data? = dependencies[singleton: .storage].read { [userSessionId, dependencies] db in
             DisplayPictureManager.displayPicture(db, id: .user(userSessionId.hexString), using: dependencies)
         }
-        let editProfilePictureModalInfo: ConfirmationModal.Info = ConfirmationModal.Info(
-            title: "profileDisplayPictureSet".localized(),
-            body: .image(
-                placeholderData: UIImage(named: "profile_placeholder")?.pngData(),
-                valueData: existingImageData,
-                icon: .rightPlus,
-                style: .circular,
-                accessibility: Accessibility(
-                    identifier: "Upload",
-                    label: "Upload"
-                ),
-                onClick: { [weak self] in self?.showPhotoLibraryForAvatar() }
-            ),
-            confirmTitle: "save".localized(),
-            confirmAccessibility: Accessibility(
-                identifier: "Save button"
-            ),
-            confirmEnabled: .afterChange { info in
-                switch info.body {
-                    case .image(_, let valueData, _, _, _, _): return (valueData != nil)
-                    default: return false
-                }
-            },
-            cancelTitle: "remove".localized(),
-            cancelAccessibility: Accessibility(
-                identifier: "Remove button"
-            ),
-            cancelEnabled: .bool(existingImageData != nil),
-            hasCloseButton: true,
-            dismissOnConfirm: false,
-            onConfirm: { [weak self] modal in
-                switch modal.info.body {
-                    case .image(_, .some(let valueData), _, _, _, _):
+        self.transitionToScreen(
+            ConfirmationModal(
+                info: ConfirmationModal.Info(
+                    title: "profileDisplayPictureSet".localized(),
+                    body: .image(
+                        placeholderData: UIImage(named: "profile_placeholder")?.pngData(),
+                        valueData: existingImageData,
+                        icon: .rightPlus,
+                        style: .circular,
+                        accessibility: Accessibility(
+                            identifier: "Upload",
+                            label: "Upload"
+                        ),
+                        onClick: { [weak self] onDisplayPictureSelected in
+                            self?.onDisplayPictureSelected = onDisplayPictureSelected
+                            self?.showPhotoLibraryForAvatar()
+                        }
+                    ),
+                    confirmTitle: "save".localized(),
+                    confirmAccessibility: Accessibility(
+                        identifier: "Save button"
+                    ),
+                    confirmEnabled: .afterChange { info in
+                        switch info.body {
+                            case .image(_, let valueData, _, _, _, _): return (valueData != nil)
+                            default: return false
+                        }
+                    },
+                    cancelTitle: "remove".localized(),
+                    cancelAccessibility: Accessibility(
+                        identifier: "Remove button"
+                    ),
+                    cancelEnabled: .bool(existingImageData != nil),
+                    hasCloseButton: true,
+                    dismissOnConfirm: false,
+                    onConfirm: { [weak self] modal in
+                        switch modal.info.body {
+                            case .image(_, .some(let valueData), _, _, _, _):
+                                self?.updateProfile(
+                                    displayPictureUpdate: .currentUserUploadImageData(valueData),
+                                    onComplete: { [weak modal] in modal?.close() }
+                                )
+                                
+                            default: modal.close()
+                        }
+                    },
+                    onCancel: { [weak self] modal in
                         self?.updateProfile(
-                            displayPictureUpdate: .groupUploadImageData(valueData),
+                            displayPictureUpdate: .currentUserRemove,
                             onComplete: { [weak modal] in modal?.close() }
                         )
-                        
-                    default: modal.close()
-                }
-            },
-            onCancel: { [weak self] modal in
-                self?.updateProfile(
-                    displayPictureUpdate: .currentUserRemove,
-                    onComplete: { [weak modal] in modal?.close() }
+                    }
                 )
-            },
-            afterClosed: { [weak self] in
-                self?.editProfilePictureModal = nil
-                self?.editProfilePictureModalInfo = nil
-            }
-        )
-        let modal: ConfirmationModal = ConfirmationModal(info: editProfilePictureModalInfo)
-            
-        self.editProfilePictureModalInfo = editProfilePictureModalInfo
-        self.editProfilePictureModal = modal
-        self.transitionToScreen(modal, transitionType: .present)
-    }
-
-    fileprivate func updatedProfilePictureSelected(displayPictureUpdate: DisplayPictureManager.Update) {
-        guard let info: ConfirmationModal.Info = self.editProfilePictureModalInfo else { return }
-        
-        self.editProfilePictureModal?.updateContent(
-            with: info.with(
-                body: .image(
-                    placeholderData: UIImage(named: "profile_placeholder")?.pngData(),
-                    valueData: {
-                        switch displayPictureUpdate {
-                            case .currentUserUploadImageData(let imageData): return imageData
-                            default: return nil
-                        }
-                    }(),
-                    icon: .rightPlus,
-                    style: .circular,
-                    accessibility: Accessibility(
-                        identifier: "Image picker",
-                        label: "Image picker"
-                    ),
-                    onClick: { [weak self] in self?.showPhotoLibraryForAvatar() }
-                )
-            )
+            ),
+            transitionType: .present
         )
     }
     
@@ -634,7 +578,7 @@ class SettingsViewModel: SessionTableViewModel, NavigationItemSource, Navigatabl
     fileprivate func updateProfile(
         displayNameUpdate: Profile.DisplayNameUpdate = .none,
         displayPictureUpdate: DisplayPictureManager.Update = .none,
-        onComplete: (() -> ())? = nil
+        onComplete: @escaping () -> ()
     ) {
         let viewController = ModalActivityIndicatorViewController(canCancel: false) { [weak self, dependencies] modalActivityIndicator in
             Profile.updateLocal(
@@ -646,7 +590,7 @@ class SettingsViewModel: SessionTableViewModel, NavigationItemSource, Navigatabl
                     db.afterNextTransactionNested(using: dependencies) { _ in
                         DispatchQueue.main.async {
                             modalActivityIndicator.dismiss(completion: {
-                                onComplete?()
+                                onComplete()
                             })
                         }
                     }

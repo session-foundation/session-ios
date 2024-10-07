@@ -8,7 +8,8 @@ import SessionUtilitiesKit
 public extension Network {
     enum Destination: Equatable {
         public struct ServerInfo: Equatable {
-            private static let invalidUrl: URL = URL(fileURLWithPath: "")
+            private static let invalidServer: String = "INVALID_SERVER"
+            private static let invalidUrl: URL = URL(fileURLWithPath: "INVALID_URL")
             
             private let server: String
             private let queryParameters: [HTTPQueryParam: String]
@@ -54,17 +55,24 @@ public extension Network {
             fileprivate init(
                 method: HTTPMethod,
                 url: URL,
-                pathAndParamsString: String,
-                server: String = "",
+                server: String?,
+                pathAndParamsString: String?,
                 queryParameters: [HTTPQueryParam: String] = [:],
                 headers: [HTTPHeader: String],
                 x25519PublicKey: String
             ) {
                 self._url = url
-                self._pathAndParamsString = pathAndParamsString
+                self._pathAndParamsString = (pathAndParamsString ?? url.path)
                 
                 self.method = method
-                self.server = server
+                self.server = {
+                    if let explicitServer: String = server { return explicitServer }
+                    if let urlHost: String = url.host {
+                        return "\(url.scheme.map { "\($0)://" } ?? "")\(urlHost)"
+                    }
+                    
+                    return ServerInfo.invalidServer
+                }()
                 self.queryParameters = queryParameters
                 self.headers = headers
                 self.x25519PublicKey = x25519PublicKey
@@ -76,8 +84,8 @@ public extension Network {
                 return ServerInfo(
                     method: method,
                     url: try (URL(string: "\(server)\(pathAndParamsString)") ?? { throw NetworkError.invalidURL }()),
-                    pathAndParamsString: pathAndParamsString,
                     server: server,
+                    pathAndParamsString: pathAndParamsString,
                     queryParameters: queryParameters,
                     headers: headers,
                     x25519PublicKey: x25519PublicKey
@@ -88,8 +96,8 @@ public extension Network {
                 return ServerInfo(
                     method: method,
                     url: _url,
-                    pathAndParamsString: _pathAndParamsString,
                     server: server,
+                    pathAndParamsString: _pathAndParamsString,
                     queryParameters: queryParameters,
                     headers: self.headers.updated(with: headers),
                     x25519PublicKey: x25519PublicKey
@@ -189,7 +197,8 @@ public extension Network {
             return .serverDownload(info: ServerInfo(
                 method: .get,
                 url: url,
-                pathAndParamsString: url.path,
+                server: nil,
+                pathAndParamsString: nil,
                 headers: headers,
                 x25519PublicKey: x25519PublicKey
             ))

@@ -372,7 +372,7 @@ private class MigrationTest {
                     
                     try db.execute(
                         sql: "INSERT INTO \(name) (\(columnNames)) VALUES (\(columnArgs))",
-                        arguments: StatementArguments(columnInfo.map { column in
+                        arguments: StatementArguments(columnInfo.map { (column: Row) in
                             // If we want to allow setting nulls (and the column is nullable but not a primary
                             // key) then use null for it's value
                             guard !nullsWherePossible || column["notnull"] != 0 || column["pk"] == 1 else {

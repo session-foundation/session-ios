@@ -534,8 +534,8 @@ public extension SessionThread {
         profile: Profile? = nil
     ) -> String {
         switch variant {
-            case .legacyGroup, .group: return (closedGroupName ?? "Unknown Group")
-            case .community: return (openGroupName ?? "Unknown Community")
+            case .legacyGroup, .group: return (closedGroupName ?? "groupUnknown".localized())
+            case .community: return (openGroupName ?? "communityUnknown".localized())
             case .contact:
                 guard !isNoteToSelf else { return "noteToSelf".localized() }
                 guard let profile: Profile = profile else {

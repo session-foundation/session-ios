@@ -31,7 +31,7 @@ public struct SessionSearchBar: View {
                 
                 ZStack(alignment: .leading) {
                     if searchText.isEmpty {
-                        Text("search".localized())
+                        Text("search".localizedSNUIKit())
                             .font(.system(size: Values.smallFontSize))
                             .foregroundColor(themeColor: .textSecondary)
                     }
@@ -58,7 +58,7 @@ public struct SessionSearchBar: View {
             Button {
                 cancelAction()
             } label: {
-                Text("cancel".localized())
+                Text("cancel".localizedSNUIKit())
                     .font(.system(size: Values.smallFontSize))
                     .foregroundColor(themeColor: .textSecondary)
                     .padding(.leading, Values.mediumSpacing)

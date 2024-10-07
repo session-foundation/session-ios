@@ -73,7 +73,7 @@ public extension Network {
                 switch self {
                     case .file: return "file"
                     case .fileIndividual(let fileId): return "file/\(fileId)"
-                    case .directUrl(let url): return url.path
+                    case .directUrl(let url): return url.path.removingPrefix("/")
                     case .sessionVersion: return "session_version"
                 }
             }

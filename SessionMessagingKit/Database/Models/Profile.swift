@@ -365,8 +365,17 @@ public extension Profile {
     }
     
     /// The name to display in the UI for a given thread variant
-    func displayName(for threadVariant: SessionThread.Variant = .contact) -> String {
-        return Profile.displayName(for: threadVariant, id: id, name: name, nickname: nickname, suppressId: false)
+    func displayName(
+        for threadVariant: SessionThread.Variant = .contact,
+        ignoringNickname: Bool = false
+    ) -> String {
+        return Profile.displayName(
+            for: threadVariant,
+            id: id,
+            name: name,
+            nickname: (ignoringNickname ? nil : nickname),
+            suppressId: false
+        )
     }
     
     static func displayName(

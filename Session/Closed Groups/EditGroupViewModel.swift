@@ -30,16 +30,6 @@ class EditGroupViewModel: SessionTableViewModel, NavigatableStateHolder, Editabl
     
     private let threadId: String
     private let userSessionId: SessionId
-    private lazy var imagePickerHandler: ImagePickerHandler = ImagePickerHandler(
-        onTransition: { [weak self] in self?.transitionToScreen($0, transitionType: $1) },
-        onImageDataPicked: { [weak self] resultImageData in
-            self?.updatedDisplayPictureSelected(update: .groupUploadImageData(resultImageData))
-        }
-    )
-    fileprivate var newDisplayName: String?
-    fileprivate var newGroupDescription: String?
-    private var editDisplayPictureModal: ConfirmationModal?
-    private var editDisplayPictureModalInfo: ConfirmationModal.Info?
     private var inviteByIdValue: String?
     
     // MARK: - Initialization
@@ -200,23 +190,9 @@ class EditGroupViewModel: SessionTableViewModel, NavigatableStateHolder, Editabl
                             threadVariant: (isUpdatedGroup ? .group : .legacyGroup),
                             displayPictureFilename: state.group.displayPictureFilename,
                             profile: state.profileFront,
-                            profileIcon: {
-                                guard isUpdatedGroup && dependencies[feature: .updatedGroupsAllowDisplayPicture] else {
-                                    return .none
-                                }
-                                
-                                // If we already have a display picture then the main profile gets the icon
-                                return (state.group.displayPictureFilename != nil ? .rightPlus : .none)
-                            }(),
+                            profileIcon: .none,
                             additionalProfile: state.profileBack,
-                            additionalProfileIcon: {
-                                guard isUpdatedGroup && dependencies[feature: .updatedGroupsAllowDisplayPicture] else {
-                                    return .none
-                                }
-                                
-                                // No display picture means the dual-profile so the additionalProfile gets the icon
-                                return .rightPlus
-                            }(),
+                            additionalProfileIcon: .none,
                             accessibility: nil
                         ),
                         styling: SessionCell.StyleInfo(
@@ -226,22 +202,10 @@ class EditGroupViewModel: SessionTableViewModel, NavigatableStateHolder, Editabl
                         ),
                         accessibility: Accessibility(
                             label: "Profile picture"
-                        ),
-                        onTap: { [weak self, dependencies] in
-                            guard isUpdatedGroup && dependencies[feature: .updatedGroupsAllowDisplayPicture] else {
-                                return
-                            }
-                            
-                            self?.updateDisplayPicture(currentFileName: state.group.displayPictureFilename)
-                        }
+                        )
                     ),
                     SessionCell.Info(
                         id: .groupName,
-                        leadingAccessory: .icon(
-                            editIcon?.withRenderingMode(.alwaysTemplate),
-                            size: .medium,
-                            customTint: .textSecondary
-                        ),
                         title: SessionCell.TextInfo(
                             state.group.name,
                             font: .titleLarge,
@@ -252,23 +216,14 @@ class EditGroupViewModel: SessionTableViewModel, NavigatableStateHolder, Editabl
                             alignment: .centerHugging,
                             customPadding: SessionCell.Padding(
                                 top: Values.smallSpacing,
-                                leading: -((IconSize.medium.size + (Values.smallSpacing * 2)) / 2),
-                                bottom: Values.smallSpacing,
-                                interItem: 0
+                                bottom: Values.smallSpacing
                             ),
                             backgroundStyle: .noBackground
                         ),
                         accessibility: Accessibility(
                             identifier: "Group name text field",
                             label: state.group.name
-                        ),
-                        onTap: { [weak self] in
-                            self?.updateGroupNameAndDescription(
-                                isUpdatedGroup: isUpdatedGroup,
-                                currentName: state.group.name,
-                                currentDescription: state.group.groupDescription
-                            )
-                        }
+                        )
                     ),
                     ((state.group.groupDescription ?? "").isEmpty ? nil :
                         SessionCell.Info(
@@ -291,14 +246,7 @@ class EditGroupViewModel: SessionTableViewModel, NavigatableStateHolder, Editabl
                             accessibility: Accessibility(
                                 identifier: "Group description text field",
                                 label: (state.group.groupDescription ?? "")
-                            ),
-                            onTap: { [weak self] in
-                               self?.updateGroupNameAndDescription(
-                                   isUpdatedGroup: isUpdatedGroup,
-                                   currentName: state.group.name,
-                                   currentDescription: state.group.groupDescription
-                               )
-                           }
+                            )
                         )
                      )
                 ].compactMap { $0 }
@@ -444,307 +392,6 @@ class EditGroupViewModel: SessionTableViewModel, NavigatableStateHolder, Editabl
         .eraseToAnyPublisher()
     
     // MARK: - Functions
-    
-    private func updateDisplayPicture(currentFileName: String?) {
-        guard dependencies[feature: .updatedGroupsAllowDisplayPicture] else { return }
-        
-        let existingImageData: Data? = dependencies[singleton: .storage].read { [threadId, dependencies] db in
-            DisplayPictureManager.displayPicture(db, id: .group(threadId), using: dependencies)
-        }
-        let editDisplayPictureModalInfo: ConfirmationModal.Info = ConfirmationModal.Info(
-            title: "groupSetDisplayPicture".localized(),
-            body: .image(
-                placeholderData: UIImage(named: "profile_placeholder")?.pngData(),
-                valueData: existingImageData,
-                icon: .rightPlus,
-                style: .circular,
-                accessibility: Accessibility(
-                    identifier: "Image picker",
-                    label: "Image picker"
-                ),
-                onClick: { [weak self] in self?.showPhotoLibraryForAvatar() }
-            ),
-            confirmTitle: "save".localized(),
-            confirmEnabled: .afterChange { info in
-                switch info.body {
-                    case .image(_, let valueData, _, _, _, _): return (valueData != nil)
-                    default: return false
-                }
-            },
-            cancelTitle: "remove".localized(),
-            cancelEnabled: .bool(existingImageData != nil),
-            hasCloseButton: true,
-            dismissOnConfirm: false,
-            onConfirm: { [weak self] modal in
-                switch modal.info.body {
-                    case .image(_, .some(let valueData), _, _, _, _):
-                        self?.updateDisplayPicture(
-                            displayPictureUpdate: .groupUploadImageData(valueData),
-                            onComplete: { [weak modal] in modal?.close() }
-                        )
-                        
-                    default: modal.close()
-                }
-            },
-            onCancel: { [weak self] modal in
-                self?.updateDisplayPicture(
-                    displayPictureUpdate: .groupRemove,
-                    onComplete: { [weak modal] in modal?.close() }
-                )
-            },
-            afterClosed: { [weak self] in
-                self?.editDisplayPictureModal = nil
-                self?.editDisplayPictureModalInfo = nil
-            }
-        )
-        let modal: ConfirmationModal = ConfirmationModal(info: editDisplayPictureModalInfo)
-            
-        self.editDisplayPictureModalInfo = editDisplayPictureModalInfo
-        self.editDisplayPictureModal = modal
-        self.transitionToScreen(modal, transitionType: .present)
-    }
-
-    private func updatedDisplayPictureSelected(update: DisplayPictureManager.Update) {
-        guard let info: ConfirmationModal.Info = self.editDisplayPictureModalInfo else { return }
-        
-        self.editDisplayPictureModal?.updateContent(
-            with: info.with(
-                body: .image(
-                    placeholderData: UIImage(named: "profile_placeholder")?.pngData(),
-                    valueData: {
-                        switch update {
-                            case .groupUploadImageData(let imageData): return imageData
-                            default: return nil
-                        }
-                    }(),
-                    icon: .rightPlus,
-                    style: .circular,
-                    accessibility: Accessibility(
-                        identifier: "Image picker",
-                        label: "Image picker"
-                    ),
-                    onClick: { [weak self] in self?.showPhotoLibraryForAvatar() }
-                )
-            )
-        )
-    }
-    
-    private func showPhotoLibraryForAvatar() {
-        Permissions.requestLibraryPermissionIfNeeded(isSavingMedia: false, using: dependencies) { [weak self] in
-            DispatchQueue.main.async {
-                let picker: UIImagePickerController = UIImagePickerController()
-                picker.sourceType = .photoLibrary
-                picker.mediaTypes = [ "public.image" ]  // stringlint:disable
-                picker.delegate = self?.imagePickerHandler
-                
-                self?.transitionToScreen(picker, transitionType: .present)
-            }
-        }
-    }
-    
-    private func updateDisplayPicture(
-        displayPictureUpdate: DisplayPictureManager.Update,
-        onComplete: (() -> ())? = nil
-    ) {
-        switch displayPictureUpdate {
-            case .none: onComplete?()
-            default: break
-        }
-        
-        func performChanges(_ viewController: ModalActivityIndicatorViewController, _ displayPictureUpdate: DisplayPictureManager.Update) {
-            let existingFileName: String? = dependencies[singleton: .storage].read { [threadId] db in
-                try? ClosedGroup
-                    .filter(id: threadId)
-                    .select(.displayPictureFilename)
-                    .asRequest(of: String.self)
-                    .fetchOne(db)
-            }
-            
-            MessageSender
-                .updateGroup(
-                    groupSessionId: threadId,
-                    displayPictureUpdate: displayPictureUpdate,
-                    using: dependencies
-                )
-                .sinkUntilComplete(
-                    receiveCompletion: { [dependencies] result in
-                        // Remove any cached avatar image value
-                        if let existingFileName: String = existingFileName {
-                            dependencies.mutate(cache: .displayPicture) { $0.imageData[existingFileName] = nil }
-                        }
-                        
-                        DispatchQueue.main.async {
-                            viewController.dismiss(completion: {
-                                onComplete?()
-                            })
-                        }
-                    }
-                )
-        }
-        
-        let viewController = ModalActivityIndicatorViewController(canCancel: false) { [weak self, dependencies] viewController in
-            switch displayPictureUpdate {
-                case .none, .currentUserRemove, .currentUserUploadImageData, .currentUserUpdateTo,
-                    .contactRemove, .contactUpdateTo:
-                    viewController.dismiss(animated: true) // Shouldn't get called
-                
-                case .groupRemove, .groupUpdateTo: performChanges(viewController, displayPictureUpdate)
-                case .groupUploadImageData(let data):
-                    DisplayPictureManager.prepareAndUploadDisplayPicture(
-                        queue: DispatchQueue.global(qos: .background),
-                        imageData: data,
-                        success: { url, fileName, key in
-                            performChanges(viewController, .groupUpdateTo(url: url, key: key, fileName: fileName))
-                        },
-                        failure: { error in
-                            DispatchQueue.main.async {
-                                viewController.dismiss {
-                                    let message: String = {
-                                        switch (displayPictureUpdate, error) {
-                                            case (.groupRemove, _): return "profileDisplayPictureRemoveError".localized()
-                                            case (_, .uploadMaxFileSizeExceeded):
-                                                return "profileDisplayPictureSizeError".localized()
-                                            
-                                            default: return "profileErrorUpdate".localized()
-                                        }
-                                    }()
-                                    
-                                    self?.transitionToScreen(
-                                        ConfirmationModal(
-                                            info: ConfirmationModal.Info(
-                                                title: "deleteAfterLegacyGroupsGroupUpdateErrorTitle".localized(),
-                                                body: .text(message),
-                                                cancelTitle: "okay".localized(),
-                                                cancelStyle: .alert_text,
-                                                dismissType: .single
-                                            )
-                                        ),
-                                        transitionType: .present
-                                    )
-                                }
-                            }
-                        },
-                        using: dependencies
-                    )
-            }
-        }
-        self.transitionToScreen(viewController, transitionType: .present)
-    }
-    
-    private func updateGroupNameAndDescription(
-        isUpdatedGroup: Bool,
-        currentName: String,
-        currentDescription: String?
-    ) {
-        /// Set `newDisplayName` to `currentName` so we can disable the "save" button when there are no changes
-        self.newDisplayName = currentName
-        self.transitionToScreen(
-            ConfirmationModal(
-                info: ConfirmationModal.Info(
-                    title: "groupInformationSet".localized(),
-                    body: { [weak self, dependencies] in
-                        guard isUpdatedGroup && dependencies[feature: .updatedGroupsAllowDescriptionEditing] else {
-                            return .input(
-                                explanation: NSAttributedString(string: "EDIT_LEGACY_GROUP_INFO_MESSAGE"),//.localized()),
-                                info: ConfirmationModal.Info.Body.InputInfo(
-                                    placeholder: "groupNameEnter".localized(),
-                                    initialValue: currentName
-                                ),
-                                onChange: { updatedName in
-                                    self?.newDisplayName = updatedName
-                                }
-                            )
-                        }
-                        
-                        return .dualInput(
-                            explanation: NSAttributedString(string: "EDIT_GROUP_INFO_MESSAGE"),//.localized()),
-                            firstInfo: ConfirmationModal.Info.Body.InputInfo(
-                                placeholder: "groupNameEnter".localized(),
-                                initialValue: currentName
-                            ),
-                            secondInfo: ConfirmationModal.Info.Body.InputInfo(
-                                placeholder: "groupDescriptionEnter".localized(),
-                                initialValue: currentDescription
-                            ),
-                            onChange: { updatedName, updatedDescription in
-                                self?.newDisplayName = updatedName
-                                self?.newGroupDescription = updatedDescription
-                            }
-                        )
-                    }(),
-                    confirmTitle: "save".localized(),
-                    confirmEnabled: .afterChange { [weak self] _ in
-                        self?.newDisplayName != currentName &&
-                        self?.newDisplayName?.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty == false
-                    },
-                    cancelStyle: .danger,
-                    dismissOnConfirm: false,
-                    onConfirm: { [weak self, dependencies, threadId] modal in
-                        guard
-                            let finalName: String = (self?.newDisplayName ?? "")
-                                .trimmingCharacters(in: .whitespacesAndNewlines)
-                                .nullIfEmpty
-                        else { return }
-                        
-                        let finalDescription: String? = self?.newGroupDescription
-                            .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
-                        
-                        /// Check if the data violates any of the size constraints
-                        let maybeErrorString: String? = {
-                            guard !Profile.isTooLong(profileName: finalName) else { return "groupNameEnterShorter".localized() }
-                            
-                            return nil  // No error has occurred
-                        }()
-                        
-                        if let errorString: String = maybeErrorString {
-                            self?.transitionToScreen(
-                                ConfirmationModal(
-                                    info: ConfirmationModal.Info(
-                                        title: "theError".localized(),
-                                        body: .text(errorString),
-                                        cancelTitle: "okay".localized(),
-                                        cancelStyle: .alert_text,
-                                        dismissType: .single
-                                    )
-                                ),
-                                transitionType: .present
-                            )
-                            return
-                        }
-                        
-                        /// Update the group appropriately
-                        MessageSender
-                            .updateGroup(
-                                groupSessionId: threadId,
-                                name: finalName,
-                                groupDescription: finalDescription,
-                                using: dependencies
-                            )
-                            .sinkUntilComplete(
-                                receiveCompletion: { [weak self] result in
-                                    switch result {
-                                        case .finished: modal.dismiss(animated: true)
-                                        case .failure:
-                                            self?.transitionToScreen(
-                                                ConfirmationModal(
-                                                    info: ConfirmationModal.Info(
-                                                        title: "theError".localized(),
-                                                        body: .text("deleteAfterLegacyGroupsGroupUpdateErrorTitle".localized()),
-                                                        cancelTitle: "okay".localized(),
-                                                        cancelStyle: .alert_text
-                                                    )
-                                                ),
-                                                transitionType: .present
-                                            )
-                                    }
-                                }
-                            )
-                    }
-                )
-            ),
-            transitionType: .present
-        )
-    }
     
     private func inviteContacts(
         currentGroupName: String
