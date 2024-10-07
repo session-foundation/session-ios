@@ -2585,7 +2585,6 @@ extension ConversationVC {
                                 db,
                                 group: group,
                                 calledFromConfig: nil,
-                                cacheToLoadStateInto: nil,
                                 using: dependencies
                             )
                             .map { _ in () }

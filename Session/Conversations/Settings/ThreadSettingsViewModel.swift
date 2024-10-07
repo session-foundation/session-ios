@@ -572,7 +572,6 @@ class ThreadSettingsViewModel: SessionTableViewModel, NavigationItemSource, Navi
                                         threadVariant: threadViewModel.threadVariant,
                                         groupLeaveType: .standard,
                                         calledFromConfig: nil,
-                                        cacheToRemoveStateFrom: nil,
                                         using: dependencies
                                     )
                                 }

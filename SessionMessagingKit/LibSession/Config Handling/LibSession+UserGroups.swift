@@ -212,7 +212,6 @@ internal extension LibSessionCacheType {
                     threadVariant: .community,
                     groupLeaveType: .forced,
                     calledFromConfig: .userGroups,
-                    cacheToRemoveStateFrom: self,
                     using: dependencies
                 )
         }
@@ -410,7 +409,6 @@ internal extension LibSessionCacheType {
                     threadVariant: .legacyGroup,
                     groupLeaveType: .forced,
                     calledFromConfig: .userGroups,
-                    cacheToRemoveStateFrom: self,
                     using: dependencies
                 )
         }
@@ -438,9 +436,8 @@ internal extension LibSessionCacheType {
                         authData: group.authData,
                         joinedAt: group.joinedAt,
                         invited: group.invited,
+                        hasAlreadyBeenKicked: group.wasKickedFromGroup,
                         calledFromConfig: .userGroups,
-                        cacheToLoadStateInto: self,
-                        config: config,
                         using: dependencies
                     )
                     
@@ -544,7 +541,6 @@ internal extension LibSessionCacheType {
                     threadVariant: .group,
                     groupLeaveType: .forced,
                     calledFromConfig: .userGroups,
-                    cacheToRemoveStateFrom: self,
                     using: dependencies
                 )
             

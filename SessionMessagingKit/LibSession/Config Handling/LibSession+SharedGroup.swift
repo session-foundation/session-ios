@@ -51,7 +51,6 @@ internal extension LibSession {
             userED25519KeyPair: userED25519KeyPair,
             groupIdentityPrivateKey: Data(groupIdentityKeyPair.secretKey),
             shouldLoadState: false, // We manually load the state after populating the configs
-            cacheToLoadStateInto: nil,
             using: dependencies
         )
         
@@ -222,7 +221,6 @@ internal extension LibSession {
         userED25519KeyPair: KeyPair,
         groupIdentityPrivateKey: Data?,
         shouldLoadState: Bool,
-        cacheToLoadStateInto: LibSessionCacheType?,
         using dependencies: Dependencies
     ) throws -> [ConfigDump.Variant: Config] {
         var secretKey: [UInt8] = userED25519KeyPair.secretKey
@@ -320,21 +318,10 @@ internal extension LibSession {
         // load the state after populating the different configs incase invalid data
         // was provided)
         if shouldLoadState {
-            // We can't mutate a cache if it's already being mutated (which would be happening
-            // when merging a config) so in that case we need to pass the mutable cache along
-            // and modify it directly
-            switch cacheToLoadStateInto {
-                case .some(let cache):
-                    groupState.forEach { variant, config in
-                        cache.setConfig(for: variant, sessionId: groupSessionId, to: config)
-                    }
-                
-                case .none:
-                    dependencies.mutate(cache: .libSession) { cache in
-                        groupState.forEach { variant, config in
-                            cache.setConfig(for: variant, sessionId: groupSessionId, to: config)
-                        }
-                    }
+            dependencies.mutate(cache: .libSession) { cache in
+                groupState.forEach { variant, config in
+                    cache.setConfig(for: variant, sessionId: groupSessionId, to: config)
+                }
             }
         }
         

@@ -42,7 +42,7 @@ internal extension LibSessionCacheType {
         guard configNeedsDump(config) else { return }
         guard case .object(let conf) = config else { throw LibSessionError.invalidConfigObject }
         
-        // If the group is destroyed then remove the group date (want to keep the group itself around because
+        // If the group is destroyed then remove the group data (want to keep the group itself around because
         // the UX of conversations randomly disappearing isn't great) - no other changes matter and this
         // can't be reversed
         guard !groups_info_is_destroyed(conf) else {
@@ -54,7 +54,6 @@ internal extension LibSessionCacheType {
                     .encryptionKeys, .authDetails, .libSessionState
                 ],
                 calledFromConfig: .groupInfo,
-                cacheToRemoveStateFrom: self,
                 using: dependencies
             )
             return

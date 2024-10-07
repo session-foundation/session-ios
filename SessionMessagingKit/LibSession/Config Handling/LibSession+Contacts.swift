@@ -264,7 +264,6 @@ internal extension LibSessionCacheType {
                     threadVariant: .contact,
                     groupLeaveType: .forced,
                     calledFromConfig: .contacts,
-                    cacheToRemoveStateFrom: self,
                     using: dependencies
                 )
             

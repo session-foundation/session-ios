@@ -187,7 +187,6 @@ public extension ClosedGroup {
         _ db: Database,
         group: ClosedGroup,
         calledFromConfig configTriggeringChange: ConfigDump.Variant?,
-        cacheToLoadStateInto: LibSessionCacheType?,
         using dependencies: Dependencies
     ) throws -> AnyPublisher<GroupPoller.PollResponse, Never> {
         guard let userED25519KeyPair: KeyPair = Identity.fetchUserEd25519KeyPair(db) else {
@@ -207,15 +206,17 @@ public extension ClosedGroup {
                 )
         }
         
-        /// Create the libSession state for the group
-        try LibSession.createGroupState(
-            groupSessionId: SessionId(.group, hex: group.id),
-            userED25519KeyPair: userED25519KeyPair,
-            groupIdentityPrivateKey: group.groupIdentityPrivateKey,
-            shouldLoadState: true,
-            cacheToLoadStateInto: cacheToLoadStateInto,
-            using: dependencies
-        )
+        /// Wait until after the transaction completes before creating the group state (this is needed as it's possible that
+        /// we are already mutating the `libSessionCache` when this function gets called)
+        db.afterNextTransaction { db in
+            _ = try? LibSession.createGroupState(
+                groupSessionId: SessionId(.group, hex: group.id),
+                userED25519KeyPair: userED25519KeyPair,
+                groupIdentityPrivateKey: group.groupIdentityPrivateKey,
+                shouldLoadState: true,
+                using: dependencies
+            )
+        }
         
         /// Update the `USER_GROUPS` config
         if configTriggeringChange != .userGroups {
@@ -254,7 +255,6 @@ public extension ClosedGroup {
         threadIds: [String],
         dataToRemove: [RemovableGroupData],
         calledFromConfig configTriggeringChange: ConfigDump.Variant?,
-        cacheToRemoveStateFrom: LibSessionCacheType?,
         using dependencies: Dependencies
     ) throws {
         guard !threadIds.isEmpty && !dataToRemove.isEmpty else { return }
@@ -302,28 +302,22 @@ public extension ClosedGroup {
                         }
                 }
                 
-                // Ignore if called from the config handling
-                let configsToIgnore: [ConfigDump.Variant?] = [.groupInfo, .groupMembers, .groupKeys]
-                
-                if dataToRemove.contains(.libSessionState) && !configsToIgnore.contains(configTriggeringChange) {
-                    threadVariants
-                        .filter { $0.variant == .group }
-                        .forEach { threadIdVariant in
-                            let groupSessionId: SessionId = SessionId(.group, hex: threadIdVariant.id)
-                            
-                            // We can't mutate a cache if it's already being mutated (which would be happening
-                            // when merging a config) so in that case we need to pass the mutable cache along
-                            // and modify it directly
-                            switch cacheToRemoveStateFrom {
-                                case .some(let cache): cache.removeGroupStateIfNeeded(db, groupSessionId: groupSessionId)
-                                case .none:
-                                    LibSession.removeGroupStateIfNeeded(
-                                        db,
-                                        groupSessionId: groupSessionId,
-                                        using: dependencies
-                                    )
+                if dataToRemove.contains(.libSessionState) {
+                    /// Wait until after the transaction completes before removing the group state (this is needed as it's possible that
+                    /// we are already mutating the `libSessionCache` when this function gets called)
+                    db.afterNextTransaction { db in
+                        threadVariants
+                            .filter { $0.variant == .group }
+                            .forEach { threadIdVariant in
+                                let groupSessionId: SessionId = SessionId(.group, hex: threadIdVariant.id)
+                                
+                                LibSession.removeGroupStateIfNeeded(
+                                    db,
+                                    groupSessionId: groupSessionId,
+                                    using: dependencies
+                                )
                             }
-                        }
+                    }
                 }
             }
             
@@ -363,14 +357,6 @@ public extension ClosedGroup {
                     ClosedGroup.Columns.groupIdentityPrivateKey.set(to: nil),
                     ClosedGroup.Columns.authData.set(to: nil)
                 )
-            
-            if configTriggeringChange != .userGroups {
-                try LibSession.markAsKicked(
-                    db,
-                    groupSessionIds: threadIds,
-                    using: dependencies
-                )
-            }
         }
         
         if dataToRemove.contains(.messages) {

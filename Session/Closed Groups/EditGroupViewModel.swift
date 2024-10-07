@@ -636,6 +636,8 @@ class EditGroupViewModel: SessionTableViewModel, NavigatableStateHolder, Editabl
         currentName: String,
         currentDescription: String?
     ) {
+        /// Set `newDisplayName` to `currentName` so we can disable the "save" button when there are no changes
+        self.newDisplayName = currentName
         self.transitionToScreen(
             ConfirmationModal(
                 info: ConfirmationModal.Info(
@@ -672,6 +674,7 @@ class EditGroupViewModel: SessionTableViewModel, NavigatableStateHolder, Editabl
                     }(),
                     confirmTitle: "save".localized(),
                     confirmEnabled: .afterChange { [weak self] _ in
+                        self?.newDisplayName != currentName &&
                         self?.newDisplayName?.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty == false
                     },
                     cancelStyle: .danger,
@@ -690,7 +693,7 @@ class EditGroupViewModel: SessionTableViewModel, NavigatableStateHolder, Editabl
                         let maybeErrorString: String? = {
                             guard !Profile.isTooLong(profileName: finalName) else { return "groupNameEnterShorter".localized() }
                             
-                            return "deleteAfterLegacyGroupsGroupUpdateErrorTitle".localized()
+                            return nil  // No error has occurred
                         }()
                         
                         if let errorString: String = maybeErrorString {

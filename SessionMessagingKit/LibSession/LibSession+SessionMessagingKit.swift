@@ -203,7 +203,6 @@ public extension LibSession {
                         userED25519KeyPair: userEd25519KeyPair,
                         groupIdentityPrivateKey: group.groupIdentityPrivateKey,
                         shouldLoadState: true,
-                        cacheToLoadStateInto: nil,
                         using: dependencies
                     )
                 }

@@ -232,7 +232,6 @@ class MessageRequestsViewModel: SessionTableViewModel, NavigatableStateHolder, O
                                         threadVariant: .contact,
                                         groupLeaveType: .silent,
                                         calledFromConfig: nil,
-                                        cacheToRemoveStateFrom: nil,
                                         using: dependencies
                                     )
                                     
@@ -245,7 +244,6 @@ class MessageRequestsViewModel: SessionTableViewModel, NavigatableStateHolder, O
                                         threadVariant: .group,
                                         groupLeaveType: .silent,
                                         calledFromConfig: nil,
-                                        cacheToRemoveStateFrom: nil,
                                         using: dependencies
                                     )
                                 }

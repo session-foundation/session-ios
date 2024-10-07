@@ -152,6 +152,7 @@ extension MessageReceiver {
         )
     }
     
+    /// This returns the `resultPublisher` for the group poller so can be ignored if we don't need to wait for the first poll to succeed
     @discardableResult internal static func handleNewGroup(
         _ db: Database,
         groupSessionId: String,
@@ -160,9 +161,8 @@ extension MessageReceiver {
         authData: Data?,
         joinedAt: TimeInterval,
         invited: Bool,
+        hasAlreadyBeenKicked: Bool,
         calledFromConfig configTriggeringChange: ConfigDump.Variant?,
-        cacheToLoadStateInto: LibSessionCacheType?,
-        config: LibSession.Config?,
         using dependencies: Dependencies
     ) throws -> AnyPublisher<GroupPoller.PollResponse, Never> {
         // Create the group
@@ -201,24 +201,13 @@ extension MessageReceiver {
             )
         }
         
-        let wasKickedFromGroup: Bool = {
-            switch (cacheToLoadStateInto, config) {
-                case (.some(let cache), .some(let config)):
-                    return cache.wasKickedFromGroup(groupSessionId: SessionId(.group, hex: groupSessionId), config: config)
-                    
-                default:
-                    return LibSession.wasKickedFromGroup(groupSessionId: SessionId(.group, hex: groupSessionId), using: dependencies)
-            }
-        }()
-        
         /// If the group wasn't already approved, is not in the invite state and the user hasn't been kicked from it then handle the approval process
-        guard !groupAlreadyApproved && !invited && !wasKickedFromGroup else { return Just([]).eraseToAnyPublisher() }
+        guard !groupAlreadyApproved && !invited && !hasAlreadyBeenKicked else { return Just([]).eraseToAnyPublisher() }
         
         return try ClosedGroup.approveGroup(
             db,
             group: closedGroup,
             calledFromConfig: configTriggeringChange,
-            cacheToLoadStateInto: cacheToLoadStateInto,
             using: dependencies
         )
     }
@@ -705,31 +694,40 @@ extension MessageReceiver {
             keysGen >= currentKeysGen
         else { throw MessageReceiverError.invalidMessage }
         
-        /// Update the name of the group in `USER_GROUPS` so that if the user doesn't delete the group and links a new device, the group will have
-        /// the same name as on the current device
-        let groupName: String? = try? dependencies[cache: .libSession]
-            .config(for: .groupInfo, sessionId: groupSessionId)
-            .wrappedValue
-            .map { config in try LibSession.groupName(in: config) }
-        
-        switch groupName {
-            case .none: Log.warn(.messageReceiver, "Failed to update group name before being kicked.")
-            case .some(let name):
-                try dependencies[cache: .libSession]
-                    .config(for: .userGroups, sessionId: userSessionId)
-                    .wrappedValue
-                    .map { config in
-                        try LibSession.upsert(
-                            groups: [
-                                LibSession.GroupUpdateInfo(
-                                    groupSessionId: groupSessionId.hexString,
-                                    name: name
-                                )
-                            ],
-                            in: config,
-                            using: dependencies
-                        )
-                    }
+        /// If we haven't already handled being kicked from the group then update the name of the group in `USER_GROUPS` so
+        /// that if the user doesn't delete the group and links a new device, the group will have the same name as on the current device
+        if !LibSession.wasKickedFromGroup(groupSessionId: groupSessionId, using: dependencies) {
+            let groupName: String? = try? dependencies[cache: .libSession]
+                .config(for: .groupInfo, sessionId: groupSessionId)
+                .wrappedValue
+                .map { config in try LibSession.groupName(in: config) }
+            
+            switch groupName {
+                case .none: Log.warn(.messageReceiver, "Failed to update group name before being kicked.")
+                case .some(let name):
+                    try dependencies[cache: .libSession]
+                        .config(for: .userGroups, sessionId: userSessionId)
+                        .wrappedValue
+                        .map { config in
+                            try LibSession.upsert(
+                                groups: [
+                                    LibSession.GroupUpdateInfo(
+                                        groupSessionId: groupSessionId.hexString,
+                                        name: name
+                                    )
+                                ],
+                                in: config,
+                                using: dependencies
+                            )
+                        }
+            }
+            
+            /// Mark the group as kicked in libSession
+            try LibSession.markAsKicked(
+                db,
+                groupSessionIds: [groupSessionId.hexString],
+                using: dependencies
+            )
         }
         
         /// Delete the group data (if the group is a message request then delete it entirely, otherwise we want to keep a shell of group around because
@@ -753,7 +751,6 @@ extension MessageReceiver {
                 ]
             }(),
             calledFromConfig: nil,
-            cacheToRemoveStateFrom: nil,
             using: dependencies
         )
     }
@@ -794,9 +791,8 @@ extension MessageReceiver {
             authData: memberAuthData,
             joinedAt: TimeInterval(Double(sentTimestampMs) / 1000),
             invited: !inviteSenderIsApproved,
+            hasAlreadyBeenKicked: wasKickedFromGroup,
             calledFromConfig: nil,
-            cacheToLoadStateInto: nil,
-            config: nil,
             using: dependencies
         )
         

@@ -572,7 +572,6 @@ extension MessageReceiver {
                         threadIds: [threadId],
                         dataToRemove: .allData,
                         calledFromConfig: nil,
-                        cacheToRemoveStateFrom: nil,
                         using: dependencies
                     )
                 }
@@ -647,7 +646,6 @@ extension MessageReceiver {
                         threadIds: [threadId],
                         dataToRemove: (sender == userSessionId.hexString ? .allData : .noData),
                         calledFromConfig: nil,
-                        cacheToRemoveStateFrom: nil,
                         using: dependencies
                     )
                 }

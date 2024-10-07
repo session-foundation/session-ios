@@ -131,7 +131,6 @@ internal extension LibSessionCacheType {
                         threadVariant: .contact,
                         groupLeaveType: .silent,
                         calledFromConfig: .userProfile,
-                        cacheToRemoveStateFrom: self,
                         using: dependencies
                     )
             }
