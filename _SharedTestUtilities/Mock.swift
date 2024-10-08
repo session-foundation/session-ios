@@ -286,18 +286,24 @@ internal class MockFunction {
     var parameterCount: Int
     var parameterSummary: String
     var allParameterSummaryCombinations: [ParameterCombination]
+    var args: [Any?]?
+    var untrackedArgs: [Any?]?
     var actions: [([Any?], [Any?]) -> Void]
     var returnError: (any Error)?
     var returnValue: Any?
+    var dynamicReturnValueRetriever: (([Any?], [Any?]) -> Any?)?
     
     init(
         name: String,
         parameterCount: Int,
         parameterSummary: String,
         allParameterSummaryCombinations: [ParameterCombination],
+        args: [Any?],
+        untrackedArgs: [Any?],
         actions: [([Any?], [Any?]) -> Void],
         returnError: (any Error)?,
-        returnValue: Any?
+        returnValue: Any?,
+        dynamicReturnValueRetriever: (([Any?], [Any?]) -> Any?)?
     ) {
         self.name = name
         self.parameterCount = parameterCount
@@ -306,6 +312,7 @@ internal class MockFunction {
         self.actions = actions
         self.returnError = returnError
         self.returnValue = returnValue
+        self.dynamicReturnValueRetriever = dynamicReturnValueRetriever
     }
 }
 
@@ -318,10 +325,16 @@ internal class MockFunctionBuilder<T, R>: MockFunctionHandler {
     private var parameterCount: Int?
     private var parameterSummary: String?
     private var allParameterSummaryCombinations: [ParameterCombination]?
+    private var args: [Any?]?
+    private var untrackedArgs: [Any?]?
     private var actions: [([Any?], [Any?]) -> Void] = []
     private var returnValue: R?
-    internal var returnValueGenerator: ((String, Int, String, [ParameterCombination]) -> R?)?
+    private var dynamicReturnValueRetriever: (([Any?], [Any?]) -> R?)?
     private var returnError: Error?
+    
+    /// This value should only ever be set via the `NimbleExtensions` `generateCallInfo` function, in order to use a closure to
+    /// generate the return value the `dynamicReturnValueRetriever` value should be used instead
+    internal var returnValueGenerator: ((String, Int, String, [ParameterCombination]) -> R?)?
     
     // MARK: - Initialization
     
@@ -348,6 +361,10 @@ internal class MockFunctionBuilder<T, R>: MockFunctionHandler {
         returnValue = value
     }
     
+    func thenReturn(_ closure: @escaping (([Any?], [Any?]) -> R?)) {
+        dynamicReturnValueRetriever = closure
+    }
+    
     func thenThrow(_ error: Error) {
         returnError = error
     }
@@ -366,13 +383,27 @@ internal class MockFunctionBuilder<T, R>: MockFunctionHandler {
         self.parameterCount = parameterCount
         self.parameterSummary = parameterSummary
         self.allParameterSummaryCombinations = allParameterSummaryCombinations
+        self.args = args
+        self.untrackedArgs = untrackedArgs
         
         let result: Any? = (
             returnValue ??
+            dynamicReturnValueRetriever?(args, untrackedArgs) ??
             returnValueGenerator?(functionName, parameterCount, parameterSummary, allParameterSummaryCombinations)
         )
         
-        return (result as! Output)
+        switch result {
+            case .some(let value as Output): return value
+            case .some(let value as (any Numeric)):
+                guard
+                    let numericType: (any Numeric.Type) = Output.self as? any Numeric.Type,
+                    let convertedValue: Output = convertNumeric(value, to: numericType) as? Output
+                else { return (result as! Output) }
+                
+                return convertedValue
+            
+            default: return (result as! Output)
+        }
     }
     
     func mockNoReturn(
@@ -387,6 +418,8 @@ internal class MockFunctionBuilder<T, R>: MockFunctionHandler {
         self.parameterCount = parameterCount
         self.parameterSummary = parameterSummary
         self.allParameterSummaryCombinations = allParameterSummaryCombinations
+        self.args = args
+        self.untrackedArgs = untrackedArgs
     }
     
     func mockThrowing<Output>(
@@ -401,17 +434,28 @@ internal class MockFunctionBuilder<T, R>: MockFunctionHandler {
         self.parameterCount = parameterCount
         self.parameterSummary = parameterSummary
         self.allParameterSummaryCombinations = allParameterSummaryCombinations
+        self.args = args
+        self.untrackedArgs = untrackedArgs
         
         if let returnError: Error = returnError { throw returnError }
         
-        let anyResult: Any? = (
+        let result: Any? = (
             returnValue ??
+            dynamicReturnValueRetriever?(args, untrackedArgs) ??
             returnValueGenerator?(functionName, parameterCount, parameterSummary, allParameterSummaryCombinations)
         )
         
-        switch anyResult {
-            case let value as Output: return value
-            default: throw MockError.mockedData
+        switch result {
+            case .some(let value as Output): return value
+            case .some(let value as (any Numeric)):
+                guard
+                    let numericType: (any Numeric.Type) = Output.self as? any Numeric.Type,
+                    let convertedValue: Output = convertNumeric(value, to: numericType) as? Output
+                else { throw MockError.mockedData }
+                
+                return convertedValue
+            
+            default: return try Optional<Any>.none as? Output ?? { throw MockError.mockedData }()
         }
     }
     
@@ -427,6 +471,8 @@ internal class MockFunctionBuilder<T, R>: MockFunctionHandler {
         self.parameterCount = parameterCount
         self.parameterSummary = parameterSummary
         self.allParameterSummaryCombinations = allParameterSummaryCombinations
+        self.args = args
+        self.untrackedArgs = untrackedArgs
         
         if let returnError: Error = returnError { throw returnError }
     }
@@ -441,7 +487,9 @@ internal class MockFunctionBuilder<T, R>: MockFunctionHandler {
             let name: String = functionName,
             let parameterCount: Int = parameterCount,
             let parameterSummary: String = parameterSummary,
-            let allParameterSummaryCombinations: [ParameterCombination] = allParameterSummaryCombinations
+            let allParameterSummaryCombinations: [ParameterCombination] = allParameterSummaryCombinations,
+            let args: [Any?] = args,
+            let untrackedArgs: [Any?] = untrackedArgs
         else { preconditionFailure("Attempted to build the MockFunction before it was called") }
         
         return MockFunction(
@@ -449,9 +497,14 @@ internal class MockFunctionBuilder<T, R>: MockFunctionHandler {
             parameterCount: parameterCount,
             parameterSummary: parameterSummary,
             allParameterSummaryCombinations: allParameterSummaryCombinations,
+            args: args,
+            untrackedArgs: untrackedArgs,
             actions: actions,
             returnError: returnError,
-            returnValue: returnValue
+            returnValue: returnValue,
+            dynamicReturnValueRetriever: dynamicReturnValueRetriever.map { closure in
+                { args, untrackedArgs in closure(args, untrackedArgs) }
+            }
         )
     }
 }
@@ -578,16 +631,17 @@ internal class FunctionConsumer: MockFunctionHandler {
             untrackedArgs: untrackedArgs
         )
         
-        switch expectation.returnValue {
-            case .some(let value as Output): return value
-            case .some(let value as (any Numeric)):
+        switch (expectation.returnValue, expectation.dynamicReturnValueRetriever) {
+            case (.some(let value as Output), _): return value
+            case (.some(let value as (any Numeric)), _):
                 guard
                     let numericType: (any Numeric.Type) = Output.self as? any Numeric.Type,
                     let convertedValue: Output = convertNumeric(value, to: numericType) as? Output
-                else { return (expectation.returnValue as! Output) }
+                else { return (value as! Output) }
                 
                 return convertedValue
             
+            case (_, .some(let closure)): return closure(args, untrackedArgs) as! Output
             default: return (expectation.returnValue as! Output)
         }
     }
@@ -627,17 +681,18 @@ internal class FunctionConsumer: MockFunctionHandler {
             untrackedArgs: untrackedArgs
         )
 
-        switch (expectation.returnError, expectation.returnValue) {
-            case (.some(let error), _): throw error
-            case (_, .some(let value as Output)): return value
-            case (_, .some(let value as (any Numeric))):
+        switch (expectation.returnError, expectation.returnValue, expectation.dynamicReturnValueRetriever) {
+            case (.some(let error), _, _): throw error
+            case (_, .some(let value as Output), _): return value
+            case (_, .some(let value as (any Numeric)), _):
                 guard
                     let numericType: (any Numeric.Type) = Output.self as? any Numeric.Type,
                     let convertedValue: Output = convertNumeric(value, to: numericType) as? Output
                 else { throw MockError.mockedData }
                 
                 return convertedValue
-            
+                
+            case (_, _, .some(let closure)): return closure(args, untrackedArgs) as! Output
             default: return try Optional<Any>.none as? Output ?? { throw MockError.mockedData }()
         }
     }
@@ -688,6 +743,7 @@ internal class FunctionConsumer: MockFunctionHandler {
             // so try to find a non-nil response first
             return (
                 possibleExpectations.values.first(where: { $0.returnValue != nil }) ??
+                possibleExpectations.values.first(where: { $0.dynamicReturnValueRetriever != nil }) ??
                 possibleExpectations.values.first
             )
         }

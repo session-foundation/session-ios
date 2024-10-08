@@ -202,6 +202,21 @@ class MessageReceiverGroupsSpec: QuickSpec {
                     .when { $0.config(for: .groupKeys, sessionId: groupId) }
                     .thenReturn(Atomic(groupKeysConfig))
                 cache.when { $0.configNeedsDump(.any) }.thenReturn(false)
+                cache
+                    .when { try $0.performAndPushChange(.any, for: .any, sessionId: .any, change: { _ in }) }
+                    .then { args, untrackedArgs in
+                        let callback: ((LibSession.Config?) throws -> Void)? = (untrackedArgs[test: 1] as? (LibSession.Config?) throws -> Void)
+                        
+                        switch args[test: 0] as? ConfigDump.Variant {
+                            case .userGroups: try? callback?(userGroupsConfig)
+                            case .convoInfoVolatile: try? callback?(convoInfoVolatileConfig)
+                            case .groupInfo: try? callback?(groupInfoConfig)
+                            case .groupMembers: try? callback?(groupMembersConfig)
+                            case .groupKeys: try? callback?(groupKeysConfig)
+                            default: break
+                        }
+                    }
+                    .thenReturn(())
             }
         )
         @TestState(cache: .snodeAPI, in: dependencies) var mockSnodeAPICache: MockSnodeAPICache! = MockSnodeAPICache(
@@ -251,7 +266,7 @@ class MessageReceiverGroupsSpec: QuickSpec {
                 adminSignature: .standard(signature: "TestSignature".bytes)
             )
             result.sender = "051111111111111111111111111111111111111111111111111111111111111111"
-            result.sentTimestamp = 1234567890000
+            result.sentTimestampMs = 1234567890000
             
             return result
         }()
@@ -259,7 +274,7 @@ class MessageReceiverGroupsSpec: QuickSpec {
             let result: GroupUpdatePromoteMessage = GroupUpdatePromoteMessage(
                 groupIdentitySeed: groupSeed,
                 groupName: "TestGroup",
-                sentTimestamp: 1234567890000
+                sentTimestampMs: 1234567890000
             )
             result.sender = "051111111111111111111111111111111111111111111111111111111111111111"
             
@@ -273,7 +288,7 @@ class MessageReceiverGroupsSpec: QuickSpec {
                 adminSignature: .standard(signature: "TestSignature".bytes)
             )
             result.sender = "051111111111111111111111111111111111111111111111111111111111111111"
-            result.sentTimestamp = 1234567800000
+            result.sentTimestampMs = 1234567800000
             
             return result
         }()
@@ -285,21 +300,21 @@ class MessageReceiverGroupsSpec: QuickSpec {
                 adminSignature: .standard(signature: "TestSignature".bytes)
             )
             result.sender = "051111111111111111111111111111111111111111111111111111111111111111"
-            result.sentTimestamp = 1234567800000
+            result.sentTimestampMs = 1234567800000
             
             return result
         }()
         @TestState var memberLeftMessage: GroupUpdateMemberLeftMessage! = {
             let result: GroupUpdateMemberLeftMessage = GroupUpdateMemberLeftMessage()
             result.sender = "051111111111111111111111111111111111111111111111111111111111111112"
-            result.sentTimestamp = 1234567800000
+            result.sentTimestampMs = 1234567800000
             
             return result
         }()
         @TestState var memberLeftNotificationMessage: GroupUpdateMemberLeftNotificationMessage! = {
             let result: GroupUpdateMemberLeftNotificationMessage = GroupUpdateMemberLeftNotificationMessage()
             result.sender = "051111111111111111111111111111111111111111111111111111111111111112"
-            result.sentTimestamp = 1234567800000
+            result.sentTimestampMs = 1234567800000
             
             return result
         }()
@@ -307,7 +322,7 @@ class MessageReceiverGroupsSpec: QuickSpec {
             let result: GroupUpdateInviteResponseMessage = GroupUpdateInviteResponseMessage(
                 isApproved: true,
                 profile: VisibleMessage.VMProfile(displayName: "TestOtherMember"),
-                sentTimestamp: 1234567800000
+                sentTimestampMs: 1234567800000
             )
             result.sender = "051111111111111111111111111111111111111111111111111111111111111112"
             
@@ -324,7 +339,7 @@ class MessageReceiverGroupsSpec: QuickSpec {
                 adminSignature: .standard(signature: "TestSignature".bytes)
             )
             result.sender = "051111111111111111111111111111111111111111111111111111111111111112"
-            result.sentTimestamp = 1234567800000
+            result.sentTimestampMs = 1234567800000
             
             return result
         }()
@@ -338,11 +353,11 @@ class MessageReceiverGroupsSpec: QuickSpec {
         @TestState var visibleMessage: VisibleMessage! = {
             let result = VisibleMessage(
                 sender: "051111111111111111111111111111111111111111111111111111111111111112",
-                sentTimestamp: ((1234568890 - (60 * 10)) * 1000),
+                sentTimestampMs: ((1234568890 - (60 * 10)) * 1000),
                 recipient: groupId.hexString,
                 text: "Test"
             )
-            result.receivedTimestamp = (1234568890 * 1000)
+            result.receivedTimestampMs = (1234568890 * 1000)
             return result
         }()
         
@@ -1100,7 +1115,7 @@ class MessageReceiverGroupsSpec: QuickSpec {
                 
                 // MARK: ---- throws if there is no timestamp
                 it("throws if there is no timestamp") {
-                    infoChangedMessage.sentTimestamp = nil
+                    infoChangedMessage.sentTimestampMs = nil
                     
                     mockStorage.write { db in
                         expect {
@@ -1168,7 +1183,7 @@ class MessageReceiverGroupsSpec: QuickSpec {
                             adminSignature: .standard(signature: "TestSignature".bytes)
                         )
                         infoChangedMessage.sender = "051111111111111111111111111111111111111111111111111111111111111111"
-                        infoChangedMessage.sentTimestamp = 1234567800000
+                        infoChangedMessage.sentTimestampMs = 1234567800000
                     }
                     
                     // MARK: ------ creates the correct control message
@@ -1203,7 +1218,7 @@ class MessageReceiverGroupsSpec: QuickSpec {
                             adminSignature: .standard(signature: "TestSignature".bytes)
                         )
                         infoChangedMessage.sender = "051111111111111111111111111111111111111111111111111111111111111111"
-                        infoChangedMessage.sentTimestamp = 1234567800000
+                        infoChangedMessage.sentTimestampMs = 1234567800000
                     }
                     
                     // MARK: ------ creates the correct control message
@@ -1272,7 +1287,7 @@ class MessageReceiverGroupsSpec: QuickSpec {
                 
                 // MARK: ---- throws if there is no timestamp
                 it("throws if there is no timestamp") {
-                    memberChangedMessage.sentTimestamp = nil
+                    memberChangedMessage.sentTimestampMs = nil
                     
                     mockStorage.write { db in
                         expect {
@@ -1347,7 +1362,7 @@ class MessageReceiverGroupsSpec: QuickSpec {
                             adminSignature: .standard(signature: "TestSignature".bytes)
                         )
                         memberChangedMessage.sender = "051111111111111111111111111111111111111111111111111111111111111111"
-                        memberChangedMessage.sentTimestamp = 1234567800000
+                        memberChangedMessage.sentTimestampMs = 1234567800000
                         
                         mockStorage.write { db in
                             try MessageReceiver.handleGroupUpdateMessage(
@@ -1384,7 +1399,7 @@ class MessageReceiverGroupsSpec: QuickSpec {
                             adminSignature: .standard(signature: "TestSignature".bytes)
                         )
                         memberChangedMessage.sender = "051111111111111111111111111111111111111111111111111111111111111111"
-                        memberChangedMessage.sentTimestamp = 1234567800000
+                        memberChangedMessage.sentTimestampMs = 1234567800000
                         
                         mockStorage.write { db in
                             try MessageReceiver.handleGroupUpdateMessage(
@@ -1422,7 +1437,7 @@ class MessageReceiverGroupsSpec: QuickSpec {
                             adminSignature: .standard(signature: "TestSignature".bytes)
                         )
                         memberChangedMessage.sender = "051111111111111111111111111111111111111111111111111111111111111111"
-                        memberChangedMessage.sentTimestamp = 1234567800000
+                        memberChangedMessage.sentTimestampMs = 1234567800000
                         
                         mockStorage.write { db in
                             try MessageReceiver.handleGroupUpdateMessage(
@@ -1461,7 +1476,7 @@ class MessageReceiverGroupsSpec: QuickSpec {
                             adminSignature: .standard(signature: "TestSignature".bytes)
                         )
                         memberChangedMessage.sender = "051111111111111111111111111111111111111111111111111111111111111111"
-                        memberChangedMessage.sentTimestamp = 1234567800000
+                        memberChangedMessage.sentTimestampMs = 1234567800000
                         
                         mockStorage.write { db in
                             try MessageReceiver.handleGroupUpdateMessage(
@@ -1494,7 +1509,7 @@ class MessageReceiverGroupsSpec: QuickSpec {
                             adminSignature: .standard(signature: "TestSignature".bytes)
                         )
                         memberChangedMessage.sender = "051111111111111111111111111111111111111111111111111111111111111111"
-                        memberChangedMessage.sentTimestamp = 1234567800000
+                        memberChangedMessage.sentTimestampMs = 1234567800000
                         
                         mockStorage.write { db in
                             try MessageReceiver.handleGroupUpdateMessage(
@@ -1528,7 +1543,7 @@ class MessageReceiverGroupsSpec: QuickSpec {
                             adminSignature: .standard(signature: "TestSignature".bytes)
                         )
                         memberChangedMessage.sender = "051111111111111111111111111111111111111111111111111111111111111111"
-                        memberChangedMessage.sentTimestamp = 1234567800000
+                        memberChangedMessage.sentTimestampMs = 1234567800000
                         
                         mockStorage.write { db in
                             try MessageReceiver.handleGroupUpdateMessage(
@@ -1563,7 +1578,7 @@ class MessageReceiverGroupsSpec: QuickSpec {
                             adminSignature: .standard(signature: "TestSignature".bytes)
                         )
                         memberChangedMessage.sender = "051111111111111111111111111111111111111111111111111111111111111111"
-                        memberChangedMessage.sentTimestamp = 1234567800000
+                        memberChangedMessage.sentTimestampMs = 1234567800000
                         
                         mockStorage.write { db in
                             try MessageReceiver.handleGroupUpdateMessage(
@@ -1596,7 +1611,7 @@ class MessageReceiverGroupsSpec: QuickSpec {
                             adminSignature: .standard(signature: "TestSignature".bytes)
                         )
                         memberChangedMessage.sender = "051111111111111111111111111111111111111111111111111111111111111111"
-                        memberChangedMessage.sentTimestamp = 1234567800000
+                        memberChangedMessage.sentTimestampMs = 1234567800000
                         
                         mockStorage.write { db in
                             try MessageReceiver.handleGroupUpdateMessage(
@@ -1630,7 +1645,7 @@ class MessageReceiverGroupsSpec: QuickSpec {
                             adminSignature: .standard(signature: "TestSignature".bytes)
                         )
                         memberChangedMessage.sender = "051111111111111111111111111111111111111111111111111111111111111111"
-                        memberChangedMessage.sentTimestamp = 1234567800000
+                        memberChangedMessage.sentTimestampMs = 1234567800000
                         
                         mockStorage.write { db in
                             try MessageReceiver.handleGroupUpdateMessage(
@@ -1704,7 +1719,7 @@ class MessageReceiverGroupsSpec: QuickSpec {
                 
                 // MARK: ---- throws if there is no timestamp
                 it("throws if there is no timestamp") {
-                    memberLeftMessage.sentTimestamp = nil
+                    memberLeftMessage.sentTimestampMs = nil
                     
                     mockStorage.write { db in
                         expect {
@@ -1840,7 +1855,7 @@ class MessageReceiverGroupsSpec: QuickSpec {
                                                     "051111111111111111111111111111111111111111111111111111111111111112"
                                                 ],
                                                 historyShared: false,
-                                                sentTimestamp: 1234567800000,
+                                                sentTimestampMs: 1234567800000,
                                                 authMethod: Authentication.groupAdmin(
                                                     groupSessionId: groupId,
                                                     ed25519SecretKey: Array(groupSecretKey)
@@ -1957,7 +1972,7 @@ class MessageReceiverGroupsSpec: QuickSpec {
                 
                 // MARK: ---- throws if there is no timestamp
                 it("throws if there is no timestamp") {
-                    inviteResponseMessage.sentTimestamp = nil
+                    inviteResponseMessage.sentTimestampMs = nil
                     
                     mockStorage.write { db in
                         expect {
@@ -2225,7 +2240,7 @@ class MessageReceiverGroupsSpec: QuickSpec {
                         messageHashes: [],
                         adminSignature: nil
                     )
-                    deleteContentMessage.sentTimestamp = 1234567800000
+                    deleteContentMessage.sentTimestampMs = 1234567800000
                     
                     mockStorage.write { db in
                         expect {
@@ -2242,7 +2257,7 @@ class MessageReceiverGroupsSpec: QuickSpec {
                 
                 // MARK: ---- throws if there is no timestamp
                 it("throws if there is no timestamp") {
-                    deleteContentMessage.sentTimestamp = nil
+                    deleteContentMessage.sentTimestampMs = nil
                     
                     mockStorage.write { db in
                         expect {
@@ -2286,7 +2301,7 @@ class MessageReceiverGroupsSpec: QuickSpec {
                             adminSignature: nil
                         )
                         deleteContentMessage.sender = "051111111111111111111111111111111111111111111111111111111111111112"
-                        deleteContentMessage.sentTimestamp = 1234567800000
+                        deleteContentMessage.sentTimestampMs = 1234567800000
                         
                         mockStorage.write { db in
                             try MessageReceiver.handleGroupUpdateMessage(
@@ -2325,7 +2340,7 @@ class MessageReceiverGroupsSpec: QuickSpec {
                             adminSignature: nil
                         )
                         deleteContentMessage.sender = "051111111111111111111111111111111111111111111111111111111111111112"
-                        deleteContentMessage.sentTimestamp = 1234567800000
+                        deleteContentMessage.sentTimestampMs = 1234567800000
                         
                         mockStorage.write { db in
                             try MessageReceiver.handleGroupUpdateMessage(
@@ -2362,7 +2377,7 @@ class MessageReceiverGroupsSpec: QuickSpec {
                             adminSignature: nil
                         )
                         deleteContentMessage.sender = "051111111111111111111111111111111111111111111111111111111111111112"
-                        deleteContentMessage.sentTimestamp = 1234567800000
+                        deleteContentMessage.sentTimestampMs = 1234567800000
                         
                         mockStorage.write { db in
                             try MessageReceiver.handleGroupUpdateMessage(
@@ -2399,7 +2414,7 @@ class MessageReceiverGroupsSpec: QuickSpec {
                             adminSignature: nil
                         )
                         deleteContentMessage.sender = "051111111111111111111111111111111111111111111111111111111111111112"
-                        deleteContentMessage.sentTimestamp = 1234567800000
+                        deleteContentMessage.sentTimestampMs = 1234567800000
                         
                         mockStorage.write { db in
                             try MessageReceiver.handleGroupUpdateMessage(
@@ -2439,7 +2454,7 @@ class MessageReceiverGroupsSpec: QuickSpec {
                             adminSignature: .standard(signature: "TestSignature".bytes)
                         )
                         deleteContentMessage.sender = "051111111111111111111111111111111111111111111111111111111111111112"
-                        deleteContentMessage.sentTimestamp = 1234567800000
+                        deleteContentMessage.sentTimestampMs = 1234567800000
                         
                         mockStorage.write { db in
                             try MessageReceiver.handleGroupUpdateMessage(
@@ -2478,7 +2493,7 @@ class MessageReceiverGroupsSpec: QuickSpec {
                             adminSignature: .standard(signature: "TestSignature".bytes)
                         )
                         deleteContentMessage.sender = "051111111111111111111111111111111111111111111111111111111111111112"
-                        deleteContentMessage.sentTimestamp = 1234567800000
+                        deleteContentMessage.sentTimestampMs = 1234567800000
                         
                         mockStorage.write { db in
                             try MessageReceiver.handleGroupUpdateMessage(
@@ -2515,7 +2530,7 @@ class MessageReceiverGroupsSpec: QuickSpec {
                             adminSignature: .standard(signature: "TestSignature".bytes)
                         )
                         deleteContentMessage.sender = "051111111111111111111111111111111111111111111111111111111111111111"
-                        deleteContentMessage.sentTimestamp = 1234567800000
+                        deleteContentMessage.sentTimestampMs = 1234567800000
                         
                         mockStorage.write { db in
                             try MessageReceiver.handleGroupUpdateMessage(
@@ -2554,7 +2569,7 @@ class MessageReceiverGroupsSpec: QuickSpec {
                             adminSignature: .standard(signature: "TestSignature".bytes)
                         )
                         deleteContentMessage.sender = "051111111111111111111111111111111111111111111111111111111111111111"
-                        deleteContentMessage.sentTimestamp = 1234567800000
+                        deleteContentMessage.sentTimestampMs = 1234567800000
                         
                         mockStorage.write { db in
                             try MessageReceiver.handleGroupUpdateMessage(
@@ -2594,7 +2609,7 @@ class MessageReceiverGroupsSpec: QuickSpec {
                             adminSignature: .standard(signature: "TestSignature".bytes)
                         )
                         deleteContentMessage.sender = "051111111111111111111111111111111111111111111111111111111111111111"
-                        deleteContentMessage.sentTimestamp = 1234567800000
+                        deleteContentMessage.sentTimestampMs = 1234567800000
                         
                         mockStorage.write { db in
                             try MessageReceiver.handleGroupUpdateMessage(
@@ -2646,7 +2661,7 @@ class MessageReceiverGroupsSpec: QuickSpec {
                             adminSignature: nil
                         )
                         deleteContentMessage.sender = "051111111111111111111111111111111111111111111111111111111111111112"
-                        deleteContentMessage.sentTimestamp = 1234567800000
+                        deleteContentMessage.sentTimestampMs = 1234567800000
                         
                         let preparedRequest: Network.PreparedRequest<[String: Bool]> = try! SnodeAPI
                             .preparedDeleteMessages(
@@ -2688,7 +2703,7 @@ class MessageReceiverGroupsSpec: QuickSpec {
                             adminSignature: .standard(signature: "TestSignature".bytes)
                         )
                         deleteContentMessage.sender = "051111111111111111111111111111111111111111111111111111111111111112"
-                        deleteContentMessage.sentTimestamp = 1234567800000
+                        deleteContentMessage.sentTimestampMs = 1234567800000
                         
                         mockStorage.write { db in
                             try MessageReceiver.handleGroupUpdateMessage(
@@ -2717,7 +2732,7 @@ class MessageReceiverGroupsSpec: QuickSpec {
                             adminSignature: nil
                         )
                         deleteContentMessage.sender = "051111111111111111111111111111111111111111111111111111111111111112"
-                        deleteContentMessage.sentTimestamp = 1234567800000
+                        deleteContentMessage.sentTimestampMs = 1234567800000
                         
                         mockStorage.write { db in
                             try MessageReceiver.handleGroupUpdateMessage(

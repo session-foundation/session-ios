@@ -68,7 +68,7 @@ extension MessageReceiver {
                 .fetchOne(db))
                 .defaulting(to: false)
         else { return }
-        guard let timestamp = message.sentTimestamp, TimestampUtils.isWithinOneMinute(timestampMs: timestamp) else {
+        guard let timestampMs = message.sentTimestampMs, TimestampUtils.isWithinOneMinute(timestampMs: timestampMs) else {
             // Add missed call message for call offer messages from more than one minute
             if let interaction: Interaction = try MessageReceiver.insertCallInfoMessage(db, for: message, state: .missed, using: dependencies) {
                 let thread: SessionThread = try SessionThread.fetchOrCreate(
@@ -236,8 +236,8 @@ extension MessageReceiver {
         
         Log.info(.calls, "Sending end call message because there is an ongoing call.")
         
-        let messageSentTimestamp: Int64 = (
-            message.sentTimestamp.map { Int64($0) } ??
+        let messageSentTimestampMs: Int64 = (
+            message.sentTimestampMs.map { Int64($0) } ??
             dependencies[cache: .snodeAPI].currentOffsetTimestampMs()
         )
         _ = try Interaction(
@@ -248,11 +248,11 @@ extension MessageReceiver {
             authorId: caller,
             variant: .infoCall,
             body: String(data: messageInfoData, encoding: .utf8),
-            timestampMs: messageSentTimestamp,
+            timestampMs: messageSentTimestampMs,
             wasRead: dependencies[cache: .libSession].timestampAlreadyRead(
                 threadId: thread.id,
                 threadVariant: thread.variant,
-                timestampMs: (messageSentTimestamp * 1000),
+                timestampMs: (messageSentTimestampMs * 1000),
                 userSessionId: dependencies[cache: .general].sessionId,
                 openGroup: nil
             ),
@@ -319,7 +319,7 @@ extension MessageReceiver {
             )
         )
         let timestampMs: Int64 = (
-            message.sentTimestamp.map { Int64($0) } ??
+            message.sentTimestampMs.map { Int64($0) } ??
             dependencies[cache: .snodeAPI].currentOffsetTimestampMs()
         )
         

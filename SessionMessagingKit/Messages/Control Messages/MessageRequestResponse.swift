@@ -24,7 +24,7 @@ public final class MessageRequestResponse: ControlMessage {
         self.profile = profile
         
         super.init(
-            sentTimestamp: sentTimestampMs
+            sentTimestampMs: sentTimestampMs
         )
     }
     

@@ -332,7 +332,7 @@ final class NewClosedGroupVC: BaseVC, UITableViewDataSource, UITableViewDelegate
         else {
             return showError(title: "groupNameEnterPlease".localized())
         }
-        guard name.utf8CString.count < LibSession.sizeMaxGroupNameBytes else {
+        guard !LibSession.isTooLong(groupName: name) else {
             return showError(title: "groupNameEnterShorter".localized())
         }
         guard selectedProfiles.count >= 1 else {

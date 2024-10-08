@@ -53,65 +53,6 @@ internal extension LibSession {
         return (priority >= LibSession.visiblePriority)
     }
     
-    static func pushChangesIfNeeded(
-        _ db: Database,
-        for variant: ConfigDump.Variant,
-        sessionId: SessionId,
-        using dependencies: Dependencies
-    ) throws {
-        try performAndPushChange(db, for: variant, sessionId: sessionId, using: dependencies) { _ in }
-    }
-    
-    static func performAndPushChange(
-        _ db: Database,
-        for variant: ConfigDump.Variant,
-        sessionId: SessionId,
-        using dependencies: Dependencies,
-        change: (Config?) throws -> ()
-    ) throws {
-        // Since we are doing direct memory manipulation we are using an `Atomic`
-        // type which has blocking access in it's `mutate` closure
-        let needsPush: Bool
-        
-        do {
-            needsPush = try dependencies[cache: .libSession]
-                .config(for: variant, sessionId: sessionId)
-                .mutate { config in
-                    // Peform the change
-                    try change(config)
-                    
-                    // If an error occurred during the change then actually throw it to prevent
-                    // any database change from completing
-                    try LibSessionError.throwIfNeeded(config)
-
-                    // If we don't need to dump the data the we can finish early
-                    guard dependencies[cache: .libSession].configNeedsDump(config) else { return config.needsPush }
-
-                    try dependencies.mutate(cache: .libSession) { cache in
-                        try cache.createDump(
-                            config: config,
-                            for: variant,
-                            sessionId: sessionId,
-                            timestampMs: dependencies[cache: .snodeAPI].currentOffsetTimestampMs()
-                        )?.upsert(db)
-                    }
-
-                    return config.needsPush
-                }
-        }
-        catch {
-            Log.error(.libSession, "Failed to update/dump updated \(variant) config data due to error: \(error)")
-            throw error
-        }
-        
-        // Make sure we need a push before scheduling one
-        guard needsPush else { return }
-        
-        db.afterNextTransactionNestedOnce(dedupeId: LibSession.syncDedupeId(sessionId.hexString), using: dependencies) { db in
-            ConfigurationSyncJob.enqueue(db, swarmPublicKey: sessionId.hexString, using: dependencies)
-        }
-    }
-    
     @discardableResult static func updatingThreads<T>(
         _ db: Database,
         _ updated: [T],
@@ -141,22 +82,19 @@ internal extension LibSession {
                     // If the 'Note to Self' conversation is pinned then we need to custom handle it
                     // first as it's part of the UserProfile config
                     if let noteToSelf: SessionThread = threads.first(where: { $0.id == userSessionId.hexString }) {
-                        try LibSession.performAndPushChange(
-                            db,
-                            for: .userProfile,
-                            sessionId: userSessionId,
-                            using: dependencies
-                        ) { config in
-                            try LibSession.updateNoteToSelf(
-                                priority: {
-                                    guard noteToSelf.shouldBeVisible else { return LibSession.hiddenPriority }
-                                    
-                                    return noteToSelf.pinnedPriority
-                                        .map { Int32($0 == 0 ? LibSession.visiblePriority : max($0, 1)) }
-                                        .defaulting(to: LibSession.visiblePriority)
-                                }(),
-                                in: config
-                            )
+                        try dependencies.mutate(cache: .libSession) { cache in
+                            try cache.performAndPushChange(db, for: .userProfile, sessionId: userSessionId) { config in
+                                try LibSession.updateNoteToSelf(
+                                    priority: {
+                                        guard noteToSelf.shouldBeVisible else { return LibSession.hiddenPriority }
+                                        
+                                        return noteToSelf.pinnedPriority
+                                            .map { Int32($0 == 0 ? LibSession.visiblePriority : max($0, 1)) }
+                                            .defaulting(to: LibSession.visiblePriority)
+                                    }(),
+                                    in: config
+                                )
+                            }
                         }
                     }
                     
@@ -165,95 +103,83 @@ internal extension LibSession {
                     
                     guard !remainingThreads.isEmpty else { return }
                     
-                    try LibSession.performAndPushChange(
-                        db,
-                        for: .contacts,
-                        sessionId: userSessionId,
-                        using: dependencies
-                    ) { config in
-                        try LibSession.upsert(
-                            contactData: remainingThreads
-                                .map { thread in
-                                    SyncedContactInfo(
-                                        id: thread.id,
-                                        priority: {
-                                            guard thread.shouldBeVisible else { return LibSession.hiddenPriority }
-                                            
-                                            return thread.pinnedPriority
-                                                .map { Int32($0 == 0 ? LibSession.visiblePriority : max($0, 1)) }
-                                                .defaulting(to: LibSession.visiblePriority)
-                                        }()
-                                    )
-                                },
-                            in: config,
-                            using: dependencies
-                        )
+                    try dependencies.mutate(cache: .libSession) { cache in
+                        try cache.performAndPushChange(db, for: .contacts, sessionId: userSessionId) { config in
+                            try LibSession.upsert(
+                                contactData: remainingThreads
+                                    .map { thread in
+                                        SyncedContactInfo(
+                                            id: thread.id,
+                                            priority: {
+                                                guard thread.shouldBeVisible else { return LibSession.hiddenPriority }
+                                                
+                                                return thread.pinnedPriority
+                                                    .map { Int32($0 == 0 ? LibSession.visiblePriority : max($0, 1)) }
+                                                    .defaulting(to: LibSession.visiblePriority)
+                                            }()
+                                        )
+                                    },
+                                in: config,
+                                using: dependencies
+                            )
+                        }
                     }
                     
                 case .community:
-                    try LibSession.performAndPushChange(
-                        db,
-                        for: .userGroups,
-                        sessionId: userSessionId,
-                        using: dependencies
-                    ) { config in
-                        try LibSession.upsert(
-                            communities: threads
-                                .compactMap { thread -> CommunityInfo? in
-                                    urlInfo[thread.id].map { urlInfo in
-                                        CommunityInfo(
-                                            urlInfo: urlInfo,
+                    try dependencies.mutate(cache: .libSession) { cache in
+                        try cache.performAndPushChange(db, for: .userGroups, sessionId: userSessionId) { config in
+                            try LibSession.upsert(
+                                communities: threads
+                                    .compactMap { thread -> CommunityInfo? in
+                                        urlInfo[thread.id].map { urlInfo in
+                                            CommunityInfo(
+                                                urlInfo: urlInfo,
+                                                priority: thread.pinnedPriority
+                                                    .map { Int32($0 == 0 ? LibSession.visiblePriority : max($0, 1)) }
+                                                    .defaulting(to: LibSession.visiblePriority)
+                                            )
+                                        }
+                                    },
+                                in: config
+                            )
+                        }
+                    }
+                    
+                case .legacyGroup:
+                    try dependencies.mutate(cache: .libSession) { cache in
+                        try cache.performAndPushChange(db, for: .userGroups, sessionId: userSessionId) { config in
+                            try LibSession.upsert(
+                                legacyGroups: threads
+                                    .map { thread in
+                                        LegacyGroupInfo(
+                                            id: thread.id,
                                             priority: thread.pinnedPriority
                                                 .map { Int32($0 == 0 ? LibSession.visiblePriority : max($0, 1)) }
                                                 .defaulting(to: LibSession.visiblePriority)
                                         )
-                                    }
-                                },
-                            in: config
-                        )
-                    }
-                    
-                case .legacyGroup:
-                    try LibSession.performAndPushChange(
-                        db,
-                        for: .userGroups,
-                        sessionId: userSessionId,
-                        using: dependencies
-                    ) { config in
-                        try LibSession.upsert(
-                            legacyGroups: threads
-                                .map { thread in
-                                    LegacyGroupInfo(
-                                        id: thread.id,
-                                        priority: thread.pinnedPriority
-                                            .map { Int32($0 == 0 ? LibSession.visiblePriority : max($0, 1)) }
-                                            .defaulting(to: LibSession.visiblePriority)
-                                    )
-                                },
-                            in: config
-                        )
+                                    },
+                                in: config
+                            )
+                        }
                     }
                 
                 case .group:
-                    try LibSession.performAndPushChange(
-                        db,
-                        for: .userGroups,
-                        sessionId: userSessionId,
-                        using: dependencies
-                    ) { config in
-                        try LibSession.upsert(
-                            groups: threads
-                                .map { thread in
-                                    GroupUpdateInfo(
-                                        groupSessionId: thread.id,
-                                        priority: thread.pinnedPriority
-                                            .map { Int32($0 == 0 ? LibSession.visiblePriority : max($0, 1)) }
-                                            .defaulting(to: LibSession.visiblePriority)
-                                    )
-                                },
-                            in: config,
-                            using: dependencies
-                        )
+                    try dependencies.mutate(cache: .libSession) { cache in
+                        try cache.performAndPushChange(db, for: .userGroups, sessionId: userSessionId) { config in
+                            try LibSession.upsert(
+                                groups: threads
+                                    .map { thread in
+                                        GroupUpdateInfo(
+                                            groupSessionId: thread.id,
+                                            priority: thread.pinnedPriority
+                                                .map { Int32($0 == 0 ? LibSession.visiblePriority : max($0, 1)) }
+                                                .defaulting(to: LibSession.visiblePriority)
+                                        )
+                                    },
+                                in: config,
+                                using: dependencies
+                            )
+                        }
                     }
             }
         }
@@ -294,16 +220,13 @@ internal extension LibSession {
         // Currently the only synced setting is 'checkForCommunityMessageRequests'
         switch updatedSetting.id {
             case Setting.BoolKey.checkForCommunityMessageRequests.rawValue:
-                try LibSession.performAndPushChange(
-                    db,
-                    for: .userProfile,
-                    sessionId: userSessionId,
-                    using: dependencies
-                ) { config in
-                    try LibSession.updateSettings(
-                        checkForCommunityMessageRequests: updatedSetting.unsafeValue(as: Bool.self),
-                        in: config
-                    )
+                try dependencies.mutate(cache: .libSession) { cache in
+                    try cache.performAndPushChange(db, for: .userProfile, sessionId: userSessionId) { config in
+                        try LibSession.updateSettings(
+                            checkForCommunityMessageRequests: updatedSetting.unsafeValue(as: Bool.self),
+                            in: config
+                        )
+                    }
                 }
                 
             default: break

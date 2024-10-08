@@ -137,7 +137,7 @@ public struct ControlMessageProcessRecord: Codable, FetchableRecord, Persistable
                 default: preconditionFailure("[ControlMessageProcessRecord] Unsupported message type")
             }
         }()
-        self.timestampMs = Int64(message.sentTimestamp ?? 0)   // Default to `0` if not set
+        self.timestampMs = Int64(message.sentTimestampMs ?? 0)   // Default to `0` if not set
         self.serverExpirationTimestamp = serverExpirationTimestamp
     }
 }

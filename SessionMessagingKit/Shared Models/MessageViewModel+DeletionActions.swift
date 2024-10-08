@@ -394,7 +394,7 @@ public extension MessageViewModel.DeletionBehaviours {
                                                         message: GroupUpdateDeleteMemberContentMessage(
                                                             memberSessionIds: [],
                                                             messageHashes: serverHashes,
-                                                            sentTimestamp: dependencies[cache: .snodeAPI].currentOffsetTimestampMs(),
+                                                            sentTimestampMs: dependencies[cache: .snodeAPI].currentOffsetTimestampMs(),
                                                             authMethod: nil,
                                                             using: dependencies
                                                         ),
@@ -433,7 +433,7 @@ public extension MessageViewModel.DeletionBehaviours {
                                                         message: GroupUpdateDeleteMemberContentMessage(
                                                             memberSessionIds: [],
                                                             messageHashes: serverHashes,
-                                                            sentTimestamp: dependencies[cache: .snodeAPI].currentOffsetTimestampMs(),
+                                                            sentTimestampMs: dependencies[cache: .snodeAPI].currentOffsetTimestampMs(),
                                                             authMethod: Authentication.groupAdmin(
                                                                 groupSessionId: SessionId(.group, hex: threadData.threadId),
                                                                 ed25519SecretKey: Array(ed25519SecretKey)

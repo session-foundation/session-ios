@@ -7,9 +7,22 @@ import SessionUtilitiesKit
 
 /// Abstract base class for `VisibleMessage` and `ControlMessage`.
 public class Message: Codable {
+    public enum CodingKeys: String, CodingKey {
+        case id
+        case sentTimestampMs = "sentTimestamp"
+        case receivedTimestampMs = "receivedTimestamp"
+        case recipient
+        case sender
+        case openGroupServerMessageId
+        case serverHash
+        
+        case expiresInSeconds
+        case expiresStartedAtMs
+    }
+    
     public var id: String?
-    public var sentTimestamp: UInt64?
-    public var receivedTimestamp: UInt64?
+    public var sentTimestampMs: UInt64?
+    public var receivedTimestampMs: UInt64?
     public var recipient: String?
     public var sender: String?
     public var openGroupServerMessageId: UInt64?
@@ -27,8 +40,8 @@ public class Message: Codable {
     // MARK: - Validation
     
     public func isValid(using dependencies: Dependencies) -> Bool {
-        if let sentTimestamp = sentTimestamp { guard sentTimestamp > 0 else { return false } }
-        if let receivedTimestamp = receivedTimestamp { guard receivedTimestamp > 0 else { return false } }
+        if let sentTimestampMs = sentTimestampMs { guard sentTimestampMs > 0 else { return false } }
+        if let receivedTimestampMs = receivedTimestampMs { guard receivedTimestampMs > 0 else { return false } }
         return sender != nil && recipient != nil
     }
     
@@ -36,8 +49,8 @@ public class Message: Codable {
     
     public init(
         id: String? = nil,
-        sentTimestamp: UInt64? = nil,
-        receivedTimestamp: UInt64? = nil,
+        sentTimestampMs: UInt64? = nil,
+        receivedTimestampMs: UInt64? = nil,
         recipient: String? = nil,
         sender: String? = nil,
         openGroupServerMessageId: UInt64? = nil,
@@ -46,8 +59,8 @@ public class Message: Codable {
         expiresStartedAtMs: Double? = nil
     ) {
         self.id = id
-        self.sentTimestamp = sentTimestamp
-        self.receivedTimestamp = receivedTimestamp
+        self.sentTimestampMs = sentTimestampMs
+        self.receivedTimestampMs = receivedTimestampMs
         self.recipient = recipient
         self.sender = sender
         self.openGroupServerMessageId = openGroupServerMessageId
@@ -75,7 +88,7 @@ public class Message: Codable {
             return
         }
         
-        if let expiresStartedAtMs = self.expiresStartedAtMs, UInt64(expiresStartedAtMs) == self.sentTimestamp {
+        if let expiresStartedAtMs = self.expiresStartedAtMs, UInt64(expiresStartedAtMs) == self.sentTimestampMs {
             proto.setExpirationType(.deleteAfterSend)
         } else {
             proto.setExpirationType(.deleteAfterRead)
@@ -85,7 +98,7 @@ public class Message: Codable {
     public func attachDisappearingMessagesConfiguration(from proto: SNProtoContent) {
         let expiresInSeconds: TimeInterval? = proto.hasExpirationTimer ? TimeInterval(proto.expirationTimer) : nil
         let expiresStartedAtMs: Double? = {
-            if proto.expirationType == .deleteAfterSend, let timestamp = self.sentTimestamp {
+            if proto.expirationType == .deleteAfterSend, let timestamp = self.sentTimestampMs {
                 return Double(timestamp)
             }
             return nil
@@ -720,7 +733,7 @@ public extension Message {
                     let expiresInSeconds = message.expiresInSeconds,     // Not disappearing messages
                     expiresInSeconds > 0,                                // Not disappearing messages (0 == disabled)
                     let expiresStartedAtMs = message.expiresStartedAtMs, // Unread disappear after read message
-                    message.sentTimestamp == UInt64(expiresStartedAtMs)  // Already read disappearing messages
+                    message.sentTimestampMs == UInt64(expiresStartedAtMs)// Already read disappearing messages
                 else { return message.ttl }
                 
                 return UInt64(expiresInSeconds * 1000)
@@ -731,15 +744,15 @@ public extension Message {
 // MARK: - Mutation
 
 public extension Message {
-    func with(sentTimestamp: UInt64) -> Self {
-        self.sentTimestamp = sentTimestamp
+    func with(sentTimestampMs: UInt64) -> Self {
+        self.sentTimestampMs = sentTimestampMs
         return self
     }
     
     func with(_ disappearingMessagesConfiguration: DisappearingMessagesConfiguration?) -> Self {
         self.expiresInSeconds = disappearingMessagesConfiguration?.durationSeconds
-        if disappearingMessagesConfiguration?.type == .disappearAfterSend, let sentTimestamp = self.sentTimestamp {
-            self.expiresStartedAtMs =  Double(sentTimestamp)
+        if disappearingMessagesConfiguration?.type == .disappearAfterSend, let sentTimestampMs = self.sentTimestampMs {
+            self.expiresStartedAtMs =  Double(sentTimestampMs)
         }
         return self
     }

@@ -33,7 +33,7 @@ public final class GroupUpdateInfoChangeMessage: ControlMessage {
         changeType: ChangeType,
         updatedName: String? = nil,
         updatedExpiration: UInt32? = nil,
-        sentTimestamp: UInt64,
+        sentTimestampMs: UInt64,
         authMethod: AuthenticationMethod,
         using dependencies: Dependencies
     ) throws {
@@ -43,13 +43,13 @@ public final class GroupUpdateInfoChangeMessage: ControlMessage {
         self.adminSignature = try authMethod.generateSignature(
             with: GroupUpdateInfoChangeMessage.generateVerificationBytes(
                 changeType: changeType,
-                timestampMs: sentTimestamp
+                timestampMs: sentTimestampMs
             ),
             using: dependencies
         )
         
         super.init(
-            sentTimestamp: sentTimestamp
+            sentTimestampMs: sentTimestampMs
         )
     }
     

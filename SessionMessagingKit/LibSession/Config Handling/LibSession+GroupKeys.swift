@@ -58,23 +58,20 @@ internal extension LibSession {
         groupSessionId: SessionId,
         using dependencies: Dependencies
     ) throws {
-        try LibSession.performAndPushChange(
-            db,
-            for: .groupKeys,
-            sessionId: groupSessionId,
-            using: dependencies
-        ) { config in
-            guard case .groupKeys(let conf, let infoConf, let membersConf) = config else {
-                throw LibSessionError.invalidConfigObject
-            }
-            
-            // Performing a `rekey` returns the updated key data which we don't use directly, this updated
-            // key will now be returned by `groups_keys_pending_config` which the `ConfigurationSyncJob` uses
-            // when generating pending changes for group keys so we don't need to push it directly
-            var pushResult: UnsafePointer<UInt8>? = nil
-            var pushResultLen: Int = 0
-            guard groups_keys_rekey(conf, infoConf, membersConf, &pushResult, &pushResultLen) else {
-                throw LibSessionError.failedToRekeyGroup
+        try dependencies.mutate(cache: .libSession) { cache in
+            try cache.performAndPushChange(db, for: .groupKeys, sessionId: groupSessionId) { config in
+                guard case .groupKeys(let conf, let infoConf, let membersConf) = config else {
+                    throw LibSessionError.invalidConfigObject
+                }
+                
+                // Performing a `rekey` returns the updated key data which we don't use directly, this updated
+                // key will now be returned by `groups_keys_pending_config` which the `ConfigurationSyncJob` uses
+                // when generating pending changes for group keys so we don't need to push it directly
+                var pushResult: UnsafePointer<UInt8>? = nil
+                var pushResultLen: Int = 0
+                guard groups_keys_rekey(conf, infoConf, membersConf, &pushResult, &pushResultLen) else {
+                    throw LibSessionError.failedToRekeyGroup
+                }
             }
         }
     }
@@ -127,13 +124,8 @@ internal extension LibSession {
         groupSessionId: SessionId,
         using dependencies: Dependencies
     ) throws {
-        try LibSession
-            .performAndPushChange(
-                db,
-                for: .groupKeys,
-                sessionId: groupSessionId,
-                using: dependencies
-            ) { config in
+        try dependencies.mutate(cache: .libSession) { cache in
+            try cache.performAndPushChange(db, for: .groupKeys, sessionId: groupSessionId) { config in
                 guard case .groupKeys(let conf, let infoConf, let membersConf) = config else {
                     throw LibSessionError.invalidConfigObject
                 }
@@ -142,6 +134,7 @@ internal extension LibSession {
                 groups_keys_load_admin_key(conf, &identitySeed, infoConf, membersConf)
                 try LibSessionError.throwIfNeeded(conf)
             }
+        }
     }
     
     static func currentGeneration(

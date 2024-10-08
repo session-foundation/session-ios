@@ -517,7 +517,7 @@ extension LibSession {
 
 // MARK: - Convenience C Access
 
-extension network_service_node: CAccessible, CMutable {
+extension network_service_node: @retroactive CAccessible, @retroactive CMutable {
     var ipString: String {
         get { "\(ip.0).\(ip.1).\(ip.2).\(ip.3)" }
         set {
@@ -738,58 +738,70 @@ public extension LibSession {
                     // Store the newly created network
                     self.network = network
                     
-                    // Register for network status changes
-                    network_set_status_changed_callback(network, { cStatus, ctx in
-                        guard let ctx: UnsafeMutableRawPointer = ctx else { return }
+                    /// Register the callbacks in the next run loop (this needs to happen in a subsequent run loop because it mutates the
+                    /// `libSessionNetwork` cache and this function gets called during init so could end up with weird order-of-execution issues)
+                    ///
+                    /// **Note:** If `OperationQueue.current` is `nil` then this will be run on the main queue (ie. it'll always be run)
+                    OperationQueue.current?.addOperation { [weak self] in
+                        guard
+                            let network: UnsafeMutablePointer<network_object> = self?.network,
+                            let dependenciesPtr: UnsafeMutableRawPointer = self?.dependenciesPtr
+                        else { return }
                         
-                        let status: NetworkStatus = NetworkStatus(status: cStatus)
-                        
-                        // Dispatch async so we don't hold up the libSession thread that triggered the update
-                        // or have a reentrancy issue with the mutable cache
-                        DispatchQueue.global(qos: .default).async {
+                        // Register for network status changes
+                        network_set_status_changed_callback(network, { cStatus, ctx in
+                            guard let ctx: UnsafeMutableRawPointer = ctx else { return }
+                            
+                            let status: NetworkStatus = NetworkStatus(status: cStatus)
                             let dependencies: Dependencies = Unmanaged<Dependencies>.fromOpaque(ctx).takeUnretainedValue()
-                            dependencies.mutate(cache: .libSessionNetwork) { $0.setNetworkStatus(status: status) }
-                        }
-                    }, dependenciesPtr)
-                    
-                    // Register for path changes
-                    network_set_paths_changed_callback(network, { pathsPtr, pathsLen, ctx in
-                        guard let ctx: UnsafeMutableRawPointer = ctx else { return }
-                        
-                        var paths: [[Snode]] = []
-                        
-                        if let cPathsPtr: UnsafeMutablePointer<onion_request_path> = pathsPtr {
-                            var cPaths: [onion_request_path] = []
                             
-                            (0..<pathsLen).forEach { index in
-                                cPaths.append(cPathsPtr[index])
+                            // Dispatch async so we don't hold up the libSession thread that triggered the update
+                            // or have a reentrancy issue with the mutable cache
+                            DispatchQueue.global(qos: .default).async {
+                                dependencies.mutate(cache: .libSessionNetwork) { $0.setNetworkStatus(status: status) }
                             }
+                        }, dependenciesPtr)
+                        
+                        // Register for path changes
+                        network_set_paths_changed_callback(network, { pathsPtr, pathsLen, ctx in
+                            guard let ctx: UnsafeMutableRawPointer = ctx else { return }
                             
-                            // Copy the nodes over as the memory will be freed after the callback is run
-                            paths = cPaths.map { cPath in
-                                var nodes: [Snode] = []
-                                (0..<cPath.nodes_count).forEach { index in
-                                    nodes.append(Snode(cPath.nodes[index]))
+                            var paths: [[Snode]] = []
+                            
+                            if let cPathsPtr: UnsafeMutablePointer<onion_request_path> = pathsPtr {
+                                var cPaths: [onion_request_path] = []
+                                
+                                (0..<pathsLen).forEach { index in
+                                    cPaths.append(cPathsPtr[index])
                                 }
-                                return nodes
+                                
+                                // Copy the nodes over as the memory will be freed after the callback is run
+                                paths = cPaths.map { cPath in
+                                    var nodes: [Snode] = []
+                                    (0..<cPath.nodes_count).forEach { index in
+                                        nodes.append(Snode(cPath.nodes[index]))
+                                    }
+                                    return nodes
+                                }
+                                
+                                // Need to free the nodes within the path as we are the owner
+                                cPaths.forEach { cPath in
+                                    cPath.nodes.deallocate()
+                                }
                             }
                             
-                            // Need to free the nodes within the path as we are the owner
-                            cPaths.forEach { cPath in
-                                cPath.nodes.deallocate()
-                            }
-                        }
-                        
-                        // Need to free the cPathsPtr as we are the owner
-                        pathsPtr?.deallocate()
-                        
-                        // Dispatch async so we don't hold up the libSession thread that triggered the update
-                        // or have a reentrancy issue with the mutable cache
-                        DispatchQueue.global(qos: .default).async {
+                            // Need to free the cPathsPtr as we are the owner
+                            pathsPtr?.deallocate()
+                            
+                            // Dispatch async so we don't hold up the libSession thread that triggered the update
+                            // or have a reentrancy issue with the mutable cache
                             let dependencies: Dependencies = Unmanaged<Dependencies>.fromOpaque(ctx).takeUnretainedValue()
-                            dependencies.mutate(cache: .libSessionNetwork) { $0.setPaths(paths: paths) }
-                        }
-                    }, dependenciesPtr)
+                            
+                            DispatchQueue.global(qos: .default).async {
+                                dependencies.mutate(cache: .libSessionNetwork) { $0.setPaths(paths: paths) }
+                            }
+                        }, dependenciesPtr)
+                    }
                     
                     return Just(network)
                         .setFailureType(to: Error.self)

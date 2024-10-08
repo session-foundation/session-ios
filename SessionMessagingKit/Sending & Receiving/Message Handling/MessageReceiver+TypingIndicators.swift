@@ -40,7 +40,7 @@ extension MessageReceiver {
                     threadIsBlocked: threadIsBlocked,
                     threadIsMessageRequest: threadIsMessageRequest,
                     direction: .incoming,
-                    timestampMs: message.sentTimestamp.map { Int64($0) }
+                    timestampMs: message.sentTimestampMs.map { Int64($0) }
                 )
                 
                 if needsToStartTypingIndicator {

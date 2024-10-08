@@ -208,7 +208,23 @@ class MessageSenderGroupsSpec: QuickSpec {
                     .when { try $0.pendingChanges(.any, swarmPubkey: .any) }
                     .thenReturn(LibSession.PendingChanges(obsoleteHashes: ["testHash"]))
                 cache.when { $0.configNeedsDump(.any) }.thenReturn(false)
-                cache.when { try $0.createDump(config: .any, for: .any, sessionId: .any, timestampMs: .any) }.thenReturn(nil)
+                cache
+                    .when { try $0.createDump(config: .any, for: .any, sessionId: .any, timestampMs: .any) }
+                    .thenReturn(nil)
+                cache
+                    .when { try $0.performAndPushChange(.any, for: .any, sessionId: .any, change: { _ in }) }
+                    .then { args, untrackedArgs in
+                        let callback: ((LibSession.Config?) throws -> Void)? = (untrackedArgs[test: 1] as? (LibSession.Config?) throws -> Void)
+                        
+                        switch args[test: 0] as? ConfigDump.Variant {
+                            case .userGroups: try? callback?(userGroupsConfig)
+                            case .groupInfo: try? callback?(groupInfoConfig)
+                            case .groupMembers: try? callback?(groupMembersConfig)
+                            case .groupKeys: try? callback?(groupKeysConfig)
+                            default: break
+                        }
+                    }
+                    .thenReturn(())
             }
         )
         @TestState(cache: .snodeAPI, in: dependencies) var mockSnodeAPICache: MockSnodeAPICache! = MockSnodeAPICache(
@@ -1205,7 +1221,7 @@ class MessageSenderGroupsSpec: QuickSpec {
                                                     "051111111111111111111111111111111111111111111111111111111111111112"
                                                 ],
                                                 historyShared: true,
-                                                sentTimestamp: 1234567890000,
+                                                sentTimestampMs: 1234567890000,
                                                 authMethod: Authentication.groupAdmin(
                                                     groupSessionId: groupId,
                                                     ed25519SecretKey: Array(groupSecretKey)

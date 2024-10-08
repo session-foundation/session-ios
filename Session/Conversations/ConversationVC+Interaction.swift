@@ -1496,12 +1496,12 @@ extension ConversationVC:
         // Perform local rate limiting (don't allow more than 20 reactions within 60 seconds)
         let threadVariant: SessionThread.Variant = self.viewModel.threadData.threadVariant
         let openGroupRoom: String? = self.viewModel.threadData.openGroupRoomToken
-        let sentTimestamp: Int64 = viewModel.dependencies[cache: .snodeAPI].currentOffsetTimestampMs()
+        let sentTimestampMs: Int64 = viewModel.dependencies[cache: .snodeAPI].currentOffsetTimestampMs()
         let recentReactionTimestamps: [Int64] = viewModel.dependencies[cache: .general].recentReactionTimestamps
         
         guard
             recentReactionTimestamps.count < 20 ||
-            (sentTimestamp - (recentReactionTimestamps.first ?? sentTimestamp)) > (60 * 1000)
+            (sentTimestampMs - (recentReactionTimestamps.first ?? sentTimestampMs)) > (60 * 1000)
         else {
             let toastController: ToastController = ToastController(
                 text: "emojiReactsCoolDown".localized(),
@@ -1518,7 +1518,7 @@ extension ConversationVC:
         viewModel.dependencies.mutate(cache: .general) {
             $0.recentReactionTimestamps = Array($0.recentReactionTimestamps
                 .suffix(19))
-                .appending(sentTimestamp)
+                .appending(sentTimestampMs)
         }
         
         typealias OpenGroupInfo = (
@@ -1583,7 +1583,7 @@ extension ConversationVC:
                     return Reaction(
                         interactionId: cellViewModel.id,
                         serverHash: nil,
-                        timestampMs: sentTimestamp,
+                        timestampMs: sentTimestampMs,
                         authorId: cellViewModel.currentUserSessionId,
                         emoji: emoji,
                         count: 1,
@@ -1666,7 +1666,7 @@ extension ConversationVC:
                         return try MessageSender.preparedSend(
                             db,
                             message: VisibleMessage(
-                                sentTimestamp: UInt64(sentTimestamp),
+                                sentTimestampMs: UInt64(sentTimestampMs),
                                 text: nil,
                                 reaction: VisibleMessage.VMReaction(
                                     timestamp: UInt64(cellViewModel.timestampMs),
@@ -2424,7 +2424,7 @@ extension ConversationVC:
                 db,
                 message: DataExtractionNotification(
                     kind: kind,
-                    sentTimestamp: dependencies[cache: .snodeAPI].currentOffsetTimestampMs()
+                    sentTimestampMs: dependencies[cache: .snodeAPI].currentOffsetTimestampMs()
                 )
                 .with(DisappearingMessagesConfiguration
                     .fetchOne(db, id: threadId)?
@@ -2612,7 +2612,7 @@ extension ConversationVC {
                                             db,
                                             message: GroupUpdateInviteResponseMessage(
                                                 isApproved: true,
-                                                sentTimestamp: UInt64(timestampMs)
+                                                sentTimestampMs: UInt64(timestampMs)
                                             ),
                                             interactionId: nil,
                                             threadId: threadId,

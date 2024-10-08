@@ -284,16 +284,13 @@ internal extension LibSession {
             )
         }
 
-        try LibSession.performAndPushChange(
-            db,
-            for: .convoInfoVolatile,
-            sessionId: userSessionId,
-            using: dependencies
-        ) { config in
-            try upsert(
-                convoInfoVolatileChanges: changes,
-                in: config
-            )
+        try dependencies.mutate(cache: .libSession) { cache in
+            try cache.performAndPushChange(db, for: .convoInfoVolatile, sessionId: userSessionId) { config in
+                try upsert(
+                    convoInfoVolatileChanges: changes,
+                    in: config
+                )
+            }
         }
     }
     
@@ -302,19 +299,16 @@ internal extension LibSession {
         volatileContactIds: [String],
         using dependencies: Dependencies
     ) throws {
-        try LibSession.performAndPushChange(
-            db,
-            for: .convoInfoVolatile,
-            sessionId: dependencies[cache: .general].sessionId,
-            using: dependencies
-        ) { config in
-            guard case .object(let conf) = config else { throw LibSessionError.invalidConfigObject }
-            
-            try volatileContactIds.forEach { contactId in
-                var cSessionId: [CChar] = try contactId.cString(using: .utf8) ?? { throw LibSessionError.invalidCConversion }()
+        try dependencies.mutate(cache: .libSession) { cache in
+            try cache.performAndPushChange(db, for: .convoInfoVolatile, sessionId: dependencies[cache: .general].sessionId) { config in
+                guard case .object(let conf) = config else { throw LibSessionError.invalidConfigObject }
                 
-                // Don't care if the data doesn't exist
-                convo_info_volatile_erase_1to1(conf, &cSessionId)
+                try volatileContactIds.forEach { contactId in
+                    var cSessionId: [CChar] = try contactId.cString(using: .utf8) ?? { throw LibSessionError.invalidCConversion }()
+                    
+                    // Don't care if the data doesn't exist
+                    convo_info_volatile_erase_1to1(conf, &cSessionId)
+                }
             }
         }
     }
@@ -324,21 +318,18 @@ internal extension LibSession {
         volatileLegacyGroupIds: [String],
         using dependencies: Dependencies
     ) throws {
-        try LibSession.performAndPushChange(
-            db,
-            for: .convoInfoVolatile,
-            sessionId: dependencies[cache: .general].sessionId,
-            using: dependencies
-        ) { config in
-            guard case .object(let conf) = config else { throw LibSessionError.invalidConfigObject }
-            
-            try volatileLegacyGroupIds.forEach { legacyGroupId in
-                var cLegacyGroupId: [CChar] = try legacyGroupId.cString(using: .utf8) ?? {
-                    throw LibSessionError.invalidCConversion
-                }()
+        try dependencies.mutate(cache: .libSession) { cache in
+            try cache.performAndPushChange(db, for: .convoInfoVolatile, sessionId: dependencies[cache: .general].sessionId) { config in
+                guard case .object(let conf) = config else { throw LibSessionError.invalidConfigObject }
                 
-                // Don't care if the data doesn't exist
-                convo_info_volatile_erase_legacy_group(conf, &cLegacyGroupId)
+                try volatileLegacyGroupIds.forEach { legacyGroupId in
+                    var cLegacyGroupId: [CChar] = try legacyGroupId.cString(using: .utf8) ?? {
+                        throw LibSessionError.invalidCConversion
+                    }()
+                    
+                    // Don't care if the data doesn't exist
+                    convo_info_volatile_erase_legacy_group(conf, &cLegacyGroupId)
+                }
             }
         }
     }
@@ -348,21 +339,18 @@ internal extension LibSession {
         volatileGroupSessionIds: [SessionId],
         using dependencies: Dependencies
     ) throws {
-        try LibSession.performAndPushChange(
-            db,
-            for: .convoInfoVolatile,
-            sessionId: dependencies[cache: .general].sessionId,
-            using: dependencies
-        ) { config in
-            guard case .object(let conf) = config else { throw LibSessionError.invalidConfigObject }
-            
-            try volatileGroupSessionIds.forEach { groupSessionId in
-                var cGroupId: [CChar] = try groupSessionId.hexString.cString(using: .utf8) ?? {
-                    throw LibSessionError.invalidCConversion
-                }()
-
-                // Don't care if the data doesn't exist
-                convo_info_volatile_erase_group(conf, &cGroupId)
+        try dependencies.mutate(cache: .libSession) { cache in
+            try cache.performAndPushChange(db, for: .convoInfoVolatile, sessionId: dependencies[cache: .general].sessionId) { config in
+                guard case .object(let conf) = config else { throw LibSessionError.invalidConfigObject }
+                
+                try volatileGroupSessionIds.forEach { groupSessionId in
+                    var cGroupId: [CChar] = try groupSessionId.hexString.cString(using: .utf8) ?? {
+                        throw LibSessionError.invalidCConversion
+                    }()
+                    
+                    // Don't care if the data doesn't exist
+                    convo_info_volatile_erase_group(conf, &cGroupId)
+                }
             }
         }
     }
@@ -372,20 +360,17 @@ internal extension LibSession {
         volatileCommunityInfo: [OpenGroupUrlInfo],
         using dependencies: Dependencies
     ) throws {
-        try LibSession.performAndPushChange(
-            db,
-            for: .convoInfoVolatile,
-            sessionId: dependencies[cache: .general].sessionId,
-            using: dependencies
-        ) { config in
-            guard case .object(let conf) = config else { throw LibSessionError.invalidConfigObject }
-            
-            try volatileCommunityInfo.forEach { urlInfo in
-                var cBaseUrl: [CChar] = try urlInfo.server.cString(using: .utf8) ?? { throw LibSessionError.invalidCConversion }()
-                var cRoom: [CChar] = try urlInfo.roomToken.cString(using: .utf8) ?? { throw LibSessionError.invalidCConversion }()
+        try dependencies.mutate(cache: .libSession) { cache in
+            try cache.performAndPushChange(db, for: .convoInfoVolatile, sessionId: dependencies[cache: .general].sessionId) { config in
+                guard case .object(let conf) = config else { throw LibSessionError.invalidConfigObject }
                 
-                // Don't care if the data doesn't exist
-                convo_info_volatile_erase_community(conf, &cBaseUrl, &cRoom)
+                try volatileCommunityInfo.forEach { urlInfo in
+                    var cBaseUrl: [CChar] = try urlInfo.server.cString(using: .utf8) ?? { throw LibSessionError.invalidCConversion }()
+                    var cRoom: [CChar] = try urlInfo.roomToken.cString(using: .utf8) ?? { throw LibSessionError.invalidCConversion }()
+                    
+                    // Don't care if the data doesn't exist
+                    convo_info_volatile_erase_community(conf, &cBaseUrl, &cRoom)
+                }
             }
         }
     }
@@ -401,25 +386,22 @@ public extension LibSession {
         lastReadTimestampMs: Int64,
         using dependencies: Dependencies
     ) throws {
-        try LibSession.performAndPushChange(
-            db,
-            for: .convoInfoVolatile,
-            sessionId: dependencies[cache: .general].sessionId,
-            using: dependencies
-        ) { config in
-            try upsert(
-                convoInfoVolatileChanges: [
-                    VolatileThreadInfo(
-                        threadId: threadId,
-                        variant: threadVariant,
-                        openGroupUrlInfo: (threadVariant != .community ? nil :
-                            try OpenGroupUrlInfo.fetchOne(db, id: threadId)
-                        ),
-                        changes: [.lastReadTimestampMs(lastReadTimestampMs)]
-                    )
-                ],
-                in: config
-            )
+        try dependencies.mutate(cache: .libSession) { cache in
+            try cache.performAndPushChange(db, for: .convoInfoVolatile, sessionId: dependencies[cache: .general].sessionId) { config in
+                try upsert(
+                    convoInfoVolatileChanges: [
+                        VolatileThreadInfo(
+                            threadId: threadId,
+                            variant: threadVariant,
+                            openGroupUrlInfo: (threadVariant != .community ? nil :
+                                try OpenGroupUrlInfo.fetchOne(db, id: threadId)
+                            ),
+                            changes: [.lastReadTimestampMs(lastReadTimestampMs)]
+                        )
+                    ],
+                    in: config
+                )
+            }
         }
     }
 }

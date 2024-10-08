@@ -31,7 +31,7 @@ public final class GroupUpdateInviteMessage: ControlMessage {
         groupName: String,
         memberAuthData: Data,
         profile: VisibleMessage.VMProfile? = nil,   // Added when sending via the `MessageWithProfile` protocol
-        sentTimestamp: UInt64,
+        sentTimestampMs: UInt64,
         authMethod: AuthenticationMethod,
         using dependencies: Dependencies
     ) throws {
@@ -43,13 +43,13 @@ public final class GroupUpdateInviteMessage: ControlMessage {
         self.adminSignature = try authMethod.generateSignature(
             with: GroupUpdateInviteMessage.generateVerificationBytes(
                 inviteeSessionIdHexString: inviteeSessionIdHexString,
-                timestampMs: sentTimestamp
+                timestampMs: sentTimestampMs
             ),
             using: dependencies
         )
         
         super.init(
-            sentTimestamp: sentTimestamp
+            sentTimestampMs: sentTimestampMs
         )
     }
     

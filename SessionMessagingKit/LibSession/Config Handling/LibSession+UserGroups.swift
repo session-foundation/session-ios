@@ -19,6 +19,10 @@ public extension LibSession {
     static var sizeLegacyGroupSecretKeyBytes: Int { 32 }
     static var sizeGroupSecretKeyBytes: Int { 64 }
     static var sizeGroupAuthDataBytes: Int { 100 }
+    
+    static func isTooLong(groupName: String) -> Bool {
+        return (groupName.utf8CString.count > LibSession.sizeMaxGroupNameBytes)
+    }
 }
 
 // MARK: - UserGroups Handling
@@ -795,24 +799,21 @@ internal extension LibSession {
         guard !targetGroups.isEmpty else { return updated }
         
         // Apply the changes
-        try LibSession.performAndPushChange(
-            db,
-            for: .userGroups,
-            sessionId: userSessionId,
-            using: dependencies
-        ) { config in
-            try upsert(
-                groups: targetGroups.map { group -> GroupUpdateInfo in
-                    GroupUpdateInfo(
-                        groupSessionId: group.threadId,
-                        groupIdentityPrivateKey: group.groupIdentityPrivateKey,
-                        name: group.name,
-                        authData: group.authData
-                    )
-                },
-                in: config,
-                using: dependencies
-            )
+        try dependencies.mutate(cache: .libSession) { cache in
+            try cache.performAndPushChange(db, for: .userGroups, sessionId: userSessionId) { config in
+                try upsert(
+                    groups: targetGroups.map { group -> GroupUpdateInfo in
+                        GroupUpdateInfo(
+                            groupSessionId: group.threadId,
+                            groupIdentityPrivateKey: group.groupIdentityPrivateKey,
+                            name: group.name,
+                            authData: group.authData
+                        )
+                    },
+                    in: config,
+                    using: dependencies
+                )
+            }
         }
         
         return updated
@@ -832,25 +833,22 @@ public extension LibSession {
         publicKey: String,
         using dependencies: Dependencies
     ) throws {
-        try LibSession.performAndPushChange(
-            db,
-            for: .userGroups,
-            sessionId: dependencies[cache: .general].sessionId,
-            using: dependencies
-        ) { config in
-            try LibSession.upsert(
-                communities: [
-                    CommunityInfo(
-                        urlInfo: OpenGroupUrlInfo(
-                            threadId: OpenGroup.idFor(roomToken: rootToken, server: server),
-                            server: server,
-                            roomToken: rootToken,
-                            publicKey: publicKey
+        try dependencies.mutate(cache: .libSession) { cache in
+            try cache.performAndPushChange(db, for: .userGroups, sessionId: dependencies[cache: .general].sessionId) { config in
+                try LibSession.upsert(
+                    communities: [
+                        CommunityInfo(
+                            urlInfo: OpenGroupUrlInfo(
+                                threadId: OpenGroup.idFor(roomToken: rootToken, server: server),
+                                server: server,
+                                roomToken: rootToken,
+                                publicKey: publicKey
+                            )
                         )
-                    )
-                ],
-                in: config
-            )
+                    ],
+                    in: config
+                )
+            }
         }
     }
     
@@ -860,19 +858,16 @@ public extension LibSession {
         roomToken: String,
         using dependencies: Dependencies
     ) throws {
-        try LibSession.performAndPushChange(
-            db,
-            for: .userGroups,
-            sessionId: dependencies[cache: .general].sessionId,
-            using: dependencies
-        ) { config in
-            guard case .object(let conf) = config else { throw LibSessionError.invalidConfigObject }
-            
-            var cBaseUrl: [CChar] = try server.cString(using: .utf8) ?? { throw LibSessionError.invalidCConversion }()
-            var cRoom: [CChar] = try roomToken.cString(using: .utf8) ?? { throw LibSessionError.invalidCConversion }()
-            
-            // Don't care if the community doesn't exist
-            user_groups_erase_community(conf, &cBaseUrl, &cRoom)
+        try dependencies.mutate(cache: .libSession) { cache in
+            try cache.performAndPushChange(db, for: .userGroups, sessionId: dependencies[cache: .general].sessionId) { config in
+                guard case .object(let conf) = config else { throw LibSessionError.invalidConfigObject }
+                
+                var cBaseUrl: [CChar] = try server.cString(using: .utf8) ?? { throw LibSessionError.invalidCConversion }()
+                var cRoom: [CChar] = try roomToken.cString(using: .utf8) ?? { throw LibSessionError.invalidCConversion }()
+                
+                // Don't care if the community doesn't exist
+                user_groups_erase_community(conf, &cBaseUrl, &cRoom)
+            }
         }
         
         // Remove the volatile info as well
@@ -905,63 +900,60 @@ public extension LibSession {
         admins: Set<String>,
         using dependencies: Dependencies
     ) throws {
-        try LibSession.performAndPushChange(
-            db,
-            for: .userGroups,
-            sessionId: dependencies[cache: .general].sessionId,
-            using: dependencies
-        ) { config in
-            guard case .object(let conf) = config else { throw LibSessionError.invalidConfigObject }
-            
-            var cGroupId: [CChar] = try legacyGroupSessionId.cString(using: .utf8) ?? { throw LibSessionError.invalidCConversion }()
-            let userGroup: UnsafeMutablePointer<ugroups_legacy_group_info>? = user_groups_get_legacy_group(conf, &cGroupId)
-            
-            // Need to make sure the group doesn't already exist (otherwise we will end up overriding the
-            // content which could revert newer changes since this can be triggered from other 'NEW' messages
-            // coming in from the legacy group swarm)
-            guard userGroup == nil else {
-                ugroups_legacy_group_free(userGroup)
-                try LibSessionError.throwIfNeeded(conf)
-                return
+        try dependencies.mutate(cache: .libSession) { cache in
+            try cache.performAndPushChange(db, for: .userGroups, sessionId: dependencies[cache: .general].sessionId) { config in
+                guard case .object(let conf) = config else { throw LibSessionError.invalidConfigObject }
+                
+                var cGroupId: [CChar] = try legacyGroupSessionId.cString(using: .utf8) ?? { throw LibSessionError.invalidCConversion }()
+                let userGroup: UnsafeMutablePointer<ugroups_legacy_group_info>? = user_groups_get_legacy_group(conf, &cGroupId)
+                
+                // Need to make sure the group doesn't already exist (otherwise we will end up overriding the
+                // content which could revert newer changes since this can be triggered from other 'NEW' messages
+                // coming in from the legacy group swarm)
+                guard userGroup == nil else {
+                    ugroups_legacy_group_free(userGroup)
+                    try LibSessionError.throwIfNeeded(conf)
+                    return
+                }
+                
+                try LibSession.upsert(
+                    legacyGroups: [
+                        LegacyGroupInfo(
+                            id: legacyGroupSessionId,
+                            name: name,
+                            lastKeyPair: ClosedGroupKeyPair(
+                                threadId: legacyGroupSessionId,
+                                publicKey: latestKeyPairPublicKey,
+                                secretKey: latestKeyPairSecretKey,
+                                receivedTimestamp: latestKeyPairReceivedTimestamp
+                            ),
+                            disappearingConfig: disappearingConfig,
+                            groupMembers: members
+                                .map { memberId in
+                                    GroupMember(
+                                        groupId: legacyGroupSessionId,
+                                        profileId: memberId,
+                                        role: .standard,
+                                        roleStatus: .accepted,  // Legacy group members don't have role statuses
+                                        isHidden: false
+                                    )
+                                },
+                            groupAdmins: admins
+                                .map { memberId in
+                                    GroupMember(
+                                        groupId: legacyGroupSessionId,
+                                        profileId: memberId,
+                                        role: .admin,
+                                        roleStatus: .accepted,  // Legacy group members don't have role statuses
+                                        isHidden: false
+                                    )
+                                },
+                            joinedAt: joinedAt
+                        )
+                    ],
+                    in: config
+                )
             }
-            
-            try LibSession.upsert(
-                legacyGroups: [
-                    LegacyGroupInfo(
-                        id: legacyGroupSessionId,
-                        name: name,
-                        lastKeyPair: ClosedGroupKeyPair(
-                            threadId: legacyGroupSessionId,
-                            publicKey: latestKeyPairPublicKey,
-                            secretKey: latestKeyPairSecretKey,
-                            receivedTimestamp: latestKeyPairReceivedTimestamp
-                        ),
-                        disappearingConfig: disappearingConfig,
-                        groupMembers: members
-                            .map { memberId in
-                                GroupMember(
-                                    groupId: legacyGroupSessionId,
-                                    profileId: memberId,
-                                    role: .standard,
-                                    roleStatus: .accepted,  // Legacy group members don't have role statuses
-                                    isHidden: false
-                                )
-                            },
-                        groupAdmins: admins
-                            .map { memberId in
-                                GroupMember(
-                                    groupId: legacyGroupSessionId,
-                                    profileId: memberId,
-                                    role: .admin,
-                                    roleStatus: .accepted,  // Legacy group members don't have role statuses
-                                    isHidden: false
-                                )
-                            },
-                        joinedAt: joinedAt
-                    )
-                ],
-                in: config
-            )
         }
     }
     
@@ -975,43 +967,40 @@ public extension LibSession {
         admins: Set<String>? = nil,
         using dependencies: Dependencies
     ) throws {
-        try LibSession.performAndPushChange(
-            db,
-            for: .userGroups,
-            sessionId: dependencies[cache: .general].sessionId,
-            using: dependencies
-        ) { config in
-            try LibSession.upsert(
-                legacyGroups: [
-                    LegacyGroupInfo(
-                        id: legacyGroupSessionId,
-                        name: name,
-                        lastKeyPair: latestKeyPair,
-                        disappearingConfig: disappearingConfig,
-                        groupMembers: members?
-                            .map { memberId in
-                                GroupMember(
-                                    groupId: legacyGroupSessionId,
-                                    profileId: memberId,
-                                    role: .standard,
-                                    roleStatus: .accepted,  // Legacy group members don't have role statuses
-                                    isHidden: false
-                                )
-                            },
-                        groupAdmins: admins?
-                            .map { memberId in
-                                GroupMember(
-                                    groupId: legacyGroupSessionId,
-                                    profileId: memberId,
-                                    role: .admin,
-                                    roleStatus: .accepted,  // Legacy group members don't have role statuses
-                                    isHidden: false
-                                )
-                            }
-                    )
-                ],
-                in: config
-            )
+        try dependencies.mutate(cache: .libSession) { cache in
+            try cache.performAndPushChange(db, for: .userGroups, sessionId: dependencies[cache: .general].sessionId) { config in
+                try LibSession.upsert(
+                    legacyGroups: [
+                        LegacyGroupInfo(
+                            id: legacyGroupSessionId,
+                            name: name,
+                            lastKeyPair: latestKeyPair,
+                            disappearingConfig: disappearingConfig,
+                            groupMembers: members?
+                                .map { memberId in
+                                    GroupMember(
+                                        groupId: legacyGroupSessionId,
+                                        profileId: memberId,
+                                        role: .standard,
+                                        roleStatus: .accepted,  // Legacy group members don't have role statuses
+                                        isHidden: false
+                                    )
+                                },
+                            groupAdmins: admins?
+                                .map { memberId in
+                                    GroupMember(
+                                        groupId: legacyGroupSessionId,
+                                        profileId: memberId,
+                                        role: .admin,
+                                        roleStatus: .accepted,  // Legacy group members don't have role statuses
+                                        isHidden: false
+                                    )
+                                }
+                        )
+                    ],
+                    in: config
+                )
+            }
         }
     }
     
@@ -1020,21 +1009,18 @@ public extension LibSession {
         disappearingConfigs: [DisappearingMessagesConfiguration],
         using dependencies: Dependencies
     ) throws {
-        try LibSession.performAndPushChange(
-            db,
-            for: .userGroups,
-            sessionId: dependencies[cache: .general].sessionId,
-            using: dependencies
-        ) { config in
-            try LibSession.upsert(
-                legacyGroups: disappearingConfigs.map {
-                    LegacyGroupInfo(
-                        id: $0.id,
-                        disappearingConfig: $0
-                    )
-                },
-                in: config
-            )
+        try dependencies.mutate(cache: .libSession) { cache in
+            try cache.performAndPushChange(db, for: .userGroups, sessionId: dependencies[cache: .general].sessionId) { config in
+                try LibSession.upsert(
+                    legacyGroups: disappearingConfigs.map {
+                        LegacyGroupInfo(
+                            id: $0.id,
+                            disappearingConfig: $0
+                        )
+                    },
+                    in: config
+                )
+            }
         }
     }
     
@@ -1045,19 +1031,16 @@ public extension LibSession {
     ) throws {
         guard !legacyGroupIds.isEmpty else { return }
         
-        try LibSession.performAndPushChange(
-            db,
-            for: .userGroups,
-            sessionId: dependencies[cache: .general].sessionId,
-            using: dependencies
-        ) { config in
-            guard case .object(let conf) = config else { throw LibSessionError.invalidConfigObject }
-            
-            legacyGroupIds.forEach { legacyGroupId in
-                guard var cGroupId: [CChar] = legacyGroupId.cString(using: .utf8) else { return }
+        try dependencies.mutate(cache: .libSession) { cache in
+            try cache.performAndPushChange(db, for: .userGroups, sessionId: dependencies[cache: .general].sessionId) { config in
+                guard case .object(let conf) = config else { throw LibSessionError.invalidConfigObject }
                 
-                // Don't care if the group doesn't exist
-                user_groups_erase_legacy_group(conf, &cGroupId)
+                legacyGroupIds.forEach { legacyGroupId in
+                    guard var cGroupId: [CChar] = legacyGroupId.cString(using: .utf8) else { return }
+                    
+                    // Don't care if the group doesn't exist
+                    user_groups_erase_legacy_group(conf, &cGroupId)
+                }
             }
         }
         
@@ -1077,26 +1060,23 @@ public extension LibSession {
         invited: Bool,
         using dependencies: Dependencies
     ) throws {
-        try LibSession.performAndPushChange(
-            db,
-            for: .userGroups,
-            sessionId: dependencies[cache: .general].sessionId,
-            using: dependencies
-        ) { config in
-            try LibSession.upsert(
-                groups: [
-                    GroupUpdateInfo(
-                        groupSessionId: groupSessionId,
-                        groupIdentityPrivateKey: groupIdentityPrivateKey,
-                        name: name,
-                        authData: authData,
-                        joinedAt: joinedAt,
-                        invited: invited
-                    )
-                ],
-                in: config,
-                using: dependencies
-            )
+        try dependencies.mutate(cache: .libSession) { cache in
+            try cache.performAndPushChange(db, for: .userGroups, sessionId: dependencies[cache: .general].sessionId) { config in
+                try LibSession.upsert(
+                    groups: [
+                        GroupUpdateInfo(
+                            groupSessionId: groupSessionId,
+                            groupIdentityPrivateKey: groupIdentityPrivateKey,
+                            name: name,
+                            authData: authData,
+                            joinedAt: joinedAt,
+                            invited: invited
+                        )
+                    ],
+                    in: config,
+                    using: dependencies
+                )
+            }
         }
     }
     
@@ -1109,25 +1089,22 @@ public extension LibSession {
         invited: Bool? = nil,
         using dependencies: Dependencies
     ) throws {
-        try LibSession.performAndPushChange(
-            db,
-            for: .userGroups,
-            sessionId: dependencies[cache: .general].sessionId,
-            using: dependencies
-        ) { config in
-            try LibSession.upsert(
-                groups: [
-                    GroupUpdateInfo(
-                        groupSessionId: groupSessionId,
-                        groupIdentityPrivateKey: groupIdentityPrivateKey,
-                        name: name,
-                        authData: authData,
-                        invited: invited
-                    )
-                ],
-                in: config,
-                using: dependencies
-            )
+        try dependencies.mutate(cache: .libSession) { cache in
+            try cache.performAndPushChange(db, for: .userGroups, sessionId: dependencies[cache: .general].sessionId) { config in
+                try LibSession.upsert(
+                    groups: [
+                        GroupUpdateInfo(
+                            groupSessionId: groupSessionId,
+                            groupIdentityPrivateKey: groupIdentityPrivateKey,
+                            name: name,
+                            authData: authData,
+                            invited: invited
+                        )
+                    ],
+                    in: config,
+                    using: dependencies
+                )
+            }
         }
     }
     
@@ -1138,22 +1115,19 @@ public extension LibSession {
     ) throws {
         guard !groupSessionIds.isEmpty else { return }
         
-        try LibSession.performAndPushChange(
-            db,
-            for: .userGroups,
-            sessionId: dependencies[cache: .general].sessionId,
-            using: dependencies
-        ) { config in
-            guard case .object(let conf) = config else { throw LibSessionError.invalidConfigObject }
-            
-            try groupSessionIds.forEach { groupId in
-                var cGroupId: [CChar] = try groupId.cString(using: .utf8) ?? { throw LibSessionError.invalidCConversion }()
-                var userGroup: ugroups_group_info = ugroups_group_info()
+        try dependencies.mutate(cache: .libSession) { cache in
+            try cache.performAndPushChange(db, for: .userGroups, sessionId: dependencies[cache: .general].sessionId) { config in
+                guard case .object(let conf) = config else { throw LibSessionError.invalidConfigObject }
                 
-                guard user_groups_get_group(conf, &userGroup, &cGroupId) else { return }
-                
-                ugroups_group_set_kicked(&userGroup)
-                user_groups_set_group(conf, &userGroup)
+                try groupSessionIds.forEach { groupId in
+                    var cGroupId: [CChar] = try groupId.cString(using: .utf8) ?? { throw LibSessionError.invalidCConversion }()
+                    var userGroup: ugroups_group_info = ugroups_group_info()
+                    
+                    guard user_groups_get_group(conf, &userGroup, &cGroupId) else { return }
+                    
+                    ugroups_group_set_kicked(&userGroup)
+                    user_groups_set_group(conf, &userGroup)
+                }
             }
         }
     }
@@ -1186,21 +1160,18 @@ public extension LibSession {
     ) throws {
         guard !groupSessionIds.isEmpty else { return }
         
-        try LibSession.performAndPushChange(
-            db,
-            for: .userGroups,
-            sessionId: dependencies[cache: .general].sessionId,
-            using: dependencies
-        ) { config in
-            guard case .object(let conf) = config else { throw LibSessionError.invalidConfigObject }
-            
-            try groupSessionIds.forEach { groupSessionId in
-                var cGroupId: [CChar] = try groupSessionId.hexString.cString(using: .utf8) ?? {
-                    throw LibSessionError.invalidCConversion
-                }()
-
-                // Don't care if the group doesn't exist
-                user_groups_erase_group(conf, &cGroupId)
+        try dependencies.mutate(cache: .libSession) { cache in
+            try cache.performAndPushChange(db, for: .userGroups, sessionId: dependencies[cache: .general].sessionId) { config in
+                guard case .object(let conf) = config else { throw LibSessionError.invalidConfigObject }
+                
+                try groupSessionIds.forEach { groupSessionId in
+                    var cGroupId: [CChar] = try groupSessionId.hexString.cString(using: .utf8) ?? {
+                        throw LibSessionError.invalidCConversion
+                    }()
+                    
+                    // Don't care if the group doesn't exist
+                    user_groups_erase_group(conf, &cGroupId)
+                }
             }
         }
         

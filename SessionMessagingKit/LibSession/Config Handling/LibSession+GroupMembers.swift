@@ -185,45 +185,42 @@ internal extension LibSession {
         allowAccessToHistoricMessages: Bool,
         using dependencies: Dependencies
     ) throws {
-        try LibSession.performAndPushChange(
-            db,
-            for: .groupMembers,
-            sessionId: groupSessionId,
-            using: dependencies
-        ) { config in
-            guard case .object(let conf) = config else { throw LibSessionError.invalidConfigObject }
-            
-            try members.forEach { memberId, profile in
-                var cMemberId: [CChar] = try memberId.cString(using: .utf8) ?? { throw LibSessionError.invalidCConversion }()
-                var member: config_group_member = config_group_member()
+        try dependencies.mutate(cache: .libSession) { cache in
+            try cache.performAndPushChange(db, for: .groupMembers, sessionId: groupSessionId) { config in
+                guard case .object(let conf) = config else { throw LibSessionError.invalidConfigObject }
                 
-                guard groups_members_get_or_construct(conf, &member, &cMemberId) else {
-                    throw LibSessionError(
-                        conf,
-                        fallbackError: .getOrConstructFailedUnexpectedly,
-                        logMessage: "Failed to add member to group: \(groupSessionId), error"
-                    )
+                try members.forEach { memberId, profile in
+                    var cMemberId: [CChar] = try memberId.cString(using: .utf8) ?? { throw LibSessionError.invalidCConversion }()
+                    var member: config_group_member = config_group_member()
+                    
+                    guard groups_members_get_or_construct(conf, &member, &cMemberId) else {
+                        throw LibSessionError(
+                            conf,
+                            fallbackError: .getOrConstructFailedUnexpectedly,
+                            logMessage: "Failed to add member to group: \(groupSessionId), error"
+                        )
+                    }
+                    
+                    // Don't override the existing name with an empty one
+                    if let memberName: String = profile?.name, !memberName.isEmpty {
+                        member.set(\.name, to: memberName)
+                    }
+                    
+                    if
+                        let picUrl: String = profile?.profilePictureUrl,
+                        let picKey: Data = profile?.profileEncryptionKey,
+                        !picUrl.isEmpty,
+                        picKey.count == DisplayPictureManager.aes256KeyByteLength
+                    {
+                        member.set(\.profile_pic.url, to: picUrl)
+                        member.set(\.profile_pic.key, to: picKey)
+                    }
+                    
+                    member.set(\.invited, to: GroupMember.RoleStatus.notSentYet.libSessionValue)
+                    member.set(\.supplement, to: allowAccessToHistoricMessages)
+                    groups_members_set(conf, &member)
+                    try LibSessionError.throwIfNeeded(conf)
                 }
-                
-                // Don't override the existing name with an empty one
-                if let memberName: String = profile?.name, !memberName.isEmpty {
-                    member.set(\.name, to: memberName)
-                }
-                
-                if
-                    let picUrl: String = profile?.profilePictureUrl,
-                    let picKey: Data = profile?.profileEncryptionKey,
-                    !picUrl.isEmpty,
-                    picKey.count == DisplayPictureManager.aes256KeyByteLength
-                {
-                    member.set(\.profile_pic.url, to: picUrl)
-                    member.set(\.profile_pic.key, to: picKey)
-                }
-                
-                member.set(\.invited, to: GroupMember.RoleStatus.notSentYet.libSessionValue)
-                member.set(\.supplement, to: allowAccessToHistoricMessages)
-                groups_members_set(conf, &member)
-                try LibSessionError.throwIfNeeded(conf)
             }
         }
     }
@@ -236,13 +233,10 @@ internal extension LibSession {
         status: GroupMember.RoleStatus,
         using dependencies: Dependencies
     ) throws {
-        try LibSession.performAndPushChange(
-            db,
-            for: .groupMembers,
-            sessionId: groupSessionId,
-            using: dependencies
-        ) { config in
-            try LibSession.updateMemberStatus(memberId: memberId, role: role, status: status, in: config)
+        try dependencies.mutate(cache: .libSession) { cache in
+            try cache.performAndPushChange(db, for: .groupMembers, sessionId: groupSessionId) { config in
+                try LibSession.updateMemberStatus(memberId: memberId, role: role, status: status, in: config)
+            }
         }
     }
     
@@ -281,24 +275,21 @@ internal extension LibSession {
         removeMessages: Bool,
         using dependencies: Dependencies
     ) throws {
-        try LibSession.performAndPushChange(
-            db,
-            for: .groupMembers,
-            sessionId: groupSessionId,
-            using: dependencies
-        ) { config in
-            guard case .object(let conf) = config else { throw LibSessionError.invalidConfigObject }
-            
-            try memberIds.forEach { memberId in
-                // Only update members if they already exist in the group
-                var cMemberId: [CChar] = try memberId.cString(using: .utf8) ?? { throw LibSessionError.invalidCConversion }()
-                var groupMember: config_group_member = config_group_member()
+        try dependencies.mutate(cache: .libSession) { cache in
+            try cache.performAndPushChange(db, for: .groupMembers, sessionId: groupSessionId) { config in
+                guard case .object(let conf) = config else { throw LibSessionError.invalidConfigObject }
                 
-                guard groups_members_get(conf, &groupMember, &cMemberId) else { return }
-                
-                groupMember.removed = (removeMessages ? 2 : 1)
-                groups_members_set(conf, &groupMember)
-                try LibSessionError.throwIfNeeded(conf)
+                try memberIds.forEach { memberId in
+                    // Only update members if they already exist in the group
+                    var cMemberId: [CChar] = try memberId.cString(using: .utf8) ?? { throw LibSessionError.invalidCConversion }()
+                    var groupMember: config_group_member = config_group_member()
+                    
+                    guard groups_members_get(conf, &groupMember, &cMemberId) else { return }
+                    
+                    groupMember.removed = (removeMessages ? 2 : 1)
+                    groups_members_set(conf, &groupMember)
+                    try LibSessionError.throwIfNeeded(conf)
+                }
             }
         }
     }
@@ -309,18 +300,15 @@ internal extension LibSession {
         memberIds: Set<String>,
         using dependencies: Dependencies
     ) throws {
-        try LibSession.performAndPushChange(
-            db,
-            for: .groupMembers,
-            sessionId: groupSessionId,
-            using: dependencies
-        ) { config in
-            guard case .object(let conf) = config else { throw LibSessionError.invalidConfigObject }
-            
-            try memberIds.forEach { memberId in
-                var cMemberId: [CChar] = try memberId.cString(using: .utf8) ?? { throw LibSessionError.invalidCConversion }()
+        try dependencies.mutate(cache: .libSession) { cache in
+            try cache.performAndPushChange(db, for: .groupMembers, sessionId: groupSessionId) { config in
+                guard case .object(let conf) = config else { throw LibSessionError.invalidConfigObject }
                 
-                groups_members_erase(conf, &cMemberId)
+                try memberIds.forEach { memberId in
+                    var cMemberId: [CChar] = try memberId.cString(using: .utf8) ?? { throw LibSessionError.invalidCConversion }()
+                    
+                    groups_members_erase(conf, &cMemberId)
+                }
             }
         }
     }
@@ -339,45 +327,42 @@ internal extension LibSession {
         // If we only updated the current user contact then no need to continue
         guard
             !targetMembers.isEmpty,
-            let groupId: SessionId = targetMembers.first.map({ try? SessionId(from: $0.groupId) }),
-            groupId.prefix == .group
+            let groupSessionId: SessionId = targetMembers.first.map({ try? SessionId(from: $0.groupId) }),
+            groupSessionId.prefix == .group
         else { return updated }
         
         // Loop through each of the groups and update their settings
         try targetMembers.forEach { member in
-            try LibSession.performAndPushChange(
-                db,
-                for: .groupMembers,
-                sessionId: groupId,
-                using: dependencies
-            ) { config in
-                guard case .object(let conf) = config else { throw LibSessionError.invalidConfigObject }
-                
-                // Only update members if they already exist in the group
-                var cMemberId: [CChar] = try member.profileId.cString(using: .utf8) ?? {
-                    throw LibSessionError.invalidCConversion
-                }()
-                var groupMember: config_group_member = config_group_member()
-                
-                guard groups_members_get(conf, &groupMember, &cMemberId) else {
-                    return
+            try dependencies.mutate(cache: .libSession) { cache in
+                try cache.performAndPushChange(db, for: .groupMembers, sessionId: groupSessionId) { config in
+                    guard case .object(let conf) = config else { throw LibSessionError.invalidConfigObject }
+                    
+                    // Only update members if they already exist in the group
+                    var cMemberId: [CChar] = try member.profileId.cString(using: .utf8) ?? {
+                        throw LibSessionError.invalidCConversion
+                    }()
+                    var groupMember: config_group_member = config_group_member()
+                    
+                    guard groups_members_get(conf, &groupMember, &cMemberId) else {
+                        return
+                    }
+                    
+                    // Update the role and status to match
+                    switch member.role {
+                        case .admin:
+                            groupMember.admin = true
+                            groupMember.invited = 0
+                            groupMember.promoted = member.roleStatus.libSessionValue
+                            
+                        default:
+                            groupMember.admin = false
+                            groupMember.invited = member.roleStatus.libSessionValue
+                            groupMember.promoted = 0
+                    }
+                    
+                    groups_members_set(conf, &groupMember)
+                    try LibSessionError.throwIfNeeded(conf)
                 }
-                
-                // Update the role and status to match
-                switch member.role {
-                    case .admin:
-                        groupMember.admin = true
-                        groupMember.invited = 0
-                        groupMember.promoted = member.roleStatus.libSessionValue
-                        
-                    default:
-                        groupMember.admin = false
-                        groupMember.invited = member.roleStatus.libSessionValue
-                        groupMember.promoted = 0
-                }
-                
-                groups_members_set(conf, &groupMember)
-                try LibSessionError.throwIfNeeded(conf)
             }
         }
         

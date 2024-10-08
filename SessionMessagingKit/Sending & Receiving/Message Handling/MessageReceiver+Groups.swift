@@ -92,7 +92,7 @@ extension MessageReceiver {
         
         guard
             let sender: String = message.sender,
-            let sentTimestampMs: UInt64 = message.sentTimestamp,
+            let sentTimestampMs: UInt64 = message.sentTimestampMs,
             Authentication.verify(
                 signature: message.adminSignature,
                 publicKey: message.groupSessionId.publicKey,
@@ -219,7 +219,7 @@ extension MessageReceiver {
     ) throws {
         guard
             let sender: String = message.sender,
-            let sentTimestampMs: UInt64 = message.sentTimestamp,
+            let sentTimestampMs: UInt64 = message.sentTimestampMs,
             let groupIdentityKeyPair: KeyPair = dependencies[singleton: .crypto].generate(
                 .ed25519KeyPair(seed: Array(message.groupIdentitySeed))
             )
@@ -293,7 +293,7 @@ extension MessageReceiver {
     ) throws {
         guard
             let sender: String = message.sender,
-            let sentTimestampMs: UInt64 = message.sentTimestamp,
+            let sentTimestampMs: UInt64 = message.sentTimestampMs,
             Authentication.verify(
                 signature: message.adminSignature,
                 publicKey: groupSessionId.publicKey,
@@ -388,7 +388,7 @@ extension MessageReceiver {
     ) throws {
         guard
             let sender: String = message.sender,
-            let sentTimestampMs: UInt64 = message.sentTimestamp,
+            let sentTimestampMs: UInt64 = message.sentTimestampMs,
             Authentication.verify(
                 signature: message.adminSignature,
                 publicKey: groupSessionId.publicKey,
@@ -467,7 +467,7 @@ extension MessageReceiver {
         // "member left" message so `sendMemberChangedMessage` should be `false`
         guard
             let sender: String = message.sender,
-            let sentTimestampMs: UInt64 = message.sentTimestamp,
+            let sentTimestampMs: UInt64 = message.sentTimestampMs,
             (try? ClosedGroup
                 .filter(id: groupSessionId.hexString)
                 .select(.groupIdentityPrivateKey)
@@ -499,7 +499,7 @@ extension MessageReceiver {
     ) throws {
         guard
             let sender: String = message.sender,
-            let sentTimestampMs: UInt64 = message.sentTimestamp
+            let sentTimestampMs: UInt64 = message.sentTimestampMs
         else { throw MessageReceiverError.invalidMessage }
         
         // Add a record of the specific change to the conversation (the actual change is handled via
@@ -531,7 +531,7 @@ extension MessageReceiver {
     ) throws {
         guard
             let sender: String = message.sender,
-            let sentTimestampMs: UInt64 = message.sentTimestamp,
+            let sentTimestampMs: UInt64 = message.sentTimestampMs,
             message.isApproved  // Only process the invite response if it was an approval
         else { throw MessageReceiverError.invalidMessage }
         
@@ -575,7 +575,7 @@ extension MessageReceiver {
         message: GroupUpdateDeleteMemberContentMessage,
         using dependencies: Dependencies
     ) throws {
-        guard let sentTimestampMs: UInt64 = message.sentTimestamp else { throw MessageReceiverError.invalidMessage }
+        guard let sentTimestampMs: UInt64 = message.sentTimestampMs else { throw MessageReceiverError.invalidMessage }
         
         let memberSessionIdsToRemove: [String]
         let messageHashesToRemove: [String]
@@ -894,7 +894,7 @@ extension MessageReceiver {
                                         db,
                                         message: GroupUpdateInviteResponseMessage(
                                             isApproved: true,
-                                            sentTimestamp: dependencies[cache: .snodeAPI].currentOffsetTimestampMs()
+                                            sentTimestampMs: dependencies[cache: .snodeAPI].currentOffsetTimestampMs()
                                         ),
                                         interactionId: nil,
                                         threadId: groupSessionId.hexString,

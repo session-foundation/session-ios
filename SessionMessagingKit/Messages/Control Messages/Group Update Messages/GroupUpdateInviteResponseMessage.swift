@@ -20,13 +20,13 @@ public final class GroupUpdateInviteResponseMessage: ControlMessage {
     public init(
         isApproved: Bool,
         profile: VisibleMessage.VMProfile? = nil,   // Added when sending via the `MessageWithProfile` protocol
-        sentTimestamp: UInt64? = nil
+        sentTimestampMs: UInt64? = nil
     ) {
         self.isApproved = isApproved
         self.profile = profile
         
         super.init(
-            sentTimestamp: sentTimestamp
+            sentTimestampMs: sentTimestampMs
         )
     }
     

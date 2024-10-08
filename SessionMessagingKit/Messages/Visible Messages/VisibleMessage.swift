@@ -55,7 +55,7 @@ public final class VisibleMessage: Message {
     
     public init(
         sender: String? = nil,
-        sentTimestamp: UInt64? = nil,
+        sentTimestampMs: UInt64? = nil,
         recipient: String? = nil,
         syncTarget: String? = nil,
         text: String?,
@@ -78,7 +78,7 @@ public final class VisibleMessage: Message {
         self.reaction = reaction
         
         super.init(
-            sentTimestamp: sentTimestamp,
+            sentTimestampMs: sentTimestampMs,
             recipient: recipient,
             sender: sender
         )
@@ -240,7 +240,7 @@ public extension VisibleMessage {
         
         let visibleMessage: VisibleMessage = VisibleMessage(
             sender: interaction.authorId,
-            sentTimestamp: UInt64(interaction.timestampMs),
+            sentTimestampMs: UInt64(interaction.timestampMs),
             recipient: (try? interaction.recipientStates.fetchOne(db))?.recipientId,
             syncTarget: nil,
             text: interaction.body,

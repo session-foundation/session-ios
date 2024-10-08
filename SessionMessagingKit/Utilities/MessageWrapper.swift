@@ -25,7 +25,7 @@ public enum MessageWrapper {
     /// Wraps the given parameters in an `SNProtoEnvelope` and then a `WebSocketProtoWebSocketMessage` to match the desktop application.
     public static func wrap(
         type: SNProtoEnvelope.SNProtoEnvelopeType,
-        timestamp: UInt64,
+        timestampMs: UInt64,
         senderPublicKey: String = "",   // FIXME: Remove once legacy groups are deprecated
         base64EncodedContent: String,
         wrapInWebSocketMessage: Bool = true
@@ -33,7 +33,7 @@ public enum MessageWrapper {
         do {
             let envelope: SNProtoEnvelope = try createEnvelope(
                 type: type,
-                timestamp: timestamp,
+                timestamp: timestampMs,
                 senderPublicKey: senderPublicKey,
                 base64EncodedContent: base64EncodedContent
             )

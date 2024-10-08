@@ -79,12 +79,12 @@ extension MessageReceiver {
             return
         }
         guard
-            let sentTimestamp: UInt64 = message.sentTimestamp,
+            let sentTimestampMs: UInt64 = message.sentTimestampMs,
             LibSession.canPerformChange(
                 db,
                 threadId: publicKeyAsData.toHexString(),
                 targetConfig: .userGroups,
-                changeTimestampMs: Int64(sentTimestamp),
+                changeTimestampMs: Int64(sentTimestampMs),
                 using: dependencies
             )
         else {
@@ -121,7 +121,7 @@ extension MessageReceiver {
             members: membersAsData.map { $0.toHexString() },
             admins: adminsAsData.map { $0.toHexString() },
             expirationTimer: expirationTimer,
-            formationTimestamp: TimeInterval(Double(sentTimestamp) / 1000),
+            formationTimestamp: TimeInterval(Double(sentTimestampMs) / 1000),
             calledFromConfig: nil,
             using: dependencies
         )
@@ -683,7 +683,7 @@ extension MessageReceiver {
         }
         
         let timestampMs: Int64 = (
-            message.sentTimestamp.map { Int64($0) } ??
+            message.sentTimestampMs.map { Int64($0) } ??
             dependencies[cache: .snodeAPI].currentOffsetTimestampMs()
         )
         
@@ -695,7 +695,7 @@ extension MessageReceiver {
             switch threadVariant {
                 case .legacyGroup:
                     // Check that the message isn't from before the group was created
-                    guard Double(message.sentTimestamp ?? 0) > closedGroup.formationTimestamp else {
+                    guard Double(message.sentTimestampMs ?? 0) > closedGroup.formationTimestamp else {
                         return SNLog("Ignoring legacy group update from before thread was created.")
                     }
                     
@@ -729,7 +729,7 @@ extension MessageReceiver {
             body: messageKind
                 .infoMessage(db, sender: sender, using: dependencies),
             timestampMs: (
-                message.sentTimestamp.map { Int64($0) } ??
+                message.sentTimestampMs.map { Int64($0) } ??
                 dependencies[cache: .snodeAPI].currentOffsetTimestampMs()
             ),
             using: dependencies

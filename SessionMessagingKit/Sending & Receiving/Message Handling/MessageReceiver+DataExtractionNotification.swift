@@ -21,7 +21,7 @@ extension MessageReceiver {
         else { throw MessageReceiverError.invalidMessage }
         
         let timestampMs: Int64 = (
-            message.sentTimestamp.map { Int64($0) } ??
+            message.sentTimestampMs.map { Int64($0) } ??
             dependencies[cache: .snodeAPI].currentOffsetTimestampMs()
         )
         

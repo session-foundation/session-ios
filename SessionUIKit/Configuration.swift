@@ -111,5 +111,5 @@ public enum SNUIKit {
 }
 
 internal extension String {
-    func localized() -> String { SNUIKit.localizedString(for: self) }
+    func localizedSNUIKit() -> String { SNUIKit.localizedString(for: self) }
 }

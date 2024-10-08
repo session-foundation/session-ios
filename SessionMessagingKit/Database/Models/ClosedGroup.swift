@@ -461,10 +461,10 @@ public extension ClosedGroup {
                 case .invitedFallback: return "groupInviteYou".localized()
                 
                 case .invitedAdmin(let adminName, let groupName):
-                    return ""
+                    return "\(adminName) invited you to rejoin \(groupName), where you are an Admin."//.localized()
                     
                 case .invitedAdminFallback(let groupName):
-                    return ""
+                    return "You were invited to rejoin \(groupName), where you are an Admin."//.localized()
                     
                 case .updatedName(let name):
                     return "groupNameNew"

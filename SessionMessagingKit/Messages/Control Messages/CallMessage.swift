@@ -110,7 +110,7 @@ public final class CallMessage: ControlMessage {
         self.kind = kind
         self.sdps = sdps
         
-        super.init(sentTimestamp: sentTimestampMs)
+        super.init(sentTimestampMs: sentTimestampMs)
     }
 
     // MARK: - Codable

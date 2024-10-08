@@ -169,7 +169,7 @@ public enum MessageSendJob: JobExecutor {
         }
         
         // Store the sentTimestamp from the message in case it fails due to a clockOutOfSync error
-        let originalSentTimestamp: UInt64? = details.message.sentTimestamp
+        let originalSentTimestampMs: UInt64? = details.message.sentTimestampMs
         let startTime: TimeInterval = dependencies.dateNow.timeIntervalSince1970
         
         /// Perform the actual message sending - this will timeout if the entire process takes longer than `Network.defaultTimeout * 2`
@@ -211,8 +211,8 @@ public enum MessageSendJob: JobExecutor {
                                     failure(job, error, true)
                                     
                                 case (SnodeAPIError.clockOutOfSync, _):
-                                    Log.error(.cat, "\(originalSentTimestamp != nil ? "Permanently Failing" : "Failing") to send \(messageType) (\(job.id ?? -1)) due to clock out of sync issue.")
-                                    failure(job, error, (originalSentTimestamp != nil))
+                                    Log.error(.cat, "\(originalSentTimestampMs != nil ? "Permanently Failing" : "Failing") to send \(messageType) (\(job.id ?? -1)) due to clock out of sync issue.")
+                                    failure(job, error, (originalSentTimestampMs != nil))
                                     
                                 // Don't bother retrying (it can just send a new one later but allowing retries
                                 // can result in a large number of `MessageSendJobs` backing up)

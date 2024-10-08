@@ -231,6 +231,8 @@ class ThreadSettingsViewModel: SessionTableViewModel, NavigatableStateHolder, Ob
                         label: threadViewModel.displayName
                     ),
                     onTap: { [weak self] in
+                        guard !threadViewModel.threadIsNoteToSelf else { return }
+                        
                         switch (threadViewModel.threadVariant, currentUserIsClosedGroupAdmin) {
                             case (.contact, _):
                                 self?.updateNickname(
@@ -908,7 +910,7 @@ class ThreadSettingsViewModel: SessionTableViewModel, NavigatableStateHolder, Ob
             SessionTableViewController(
                 viewModel: UserListViewModel<GroupMember>(
                     title: "promote".localized(),
-                    emptyState: "GROUP_ACTION_PROMOTE_EMPTY_STATE",//.localized(),
+                    emptyState: "There are no group members which can be promoted.",//.localized(),
                     showProfileIcons: true,
                     request: SQLRequest("""
                         SELECT \(groupMember.allColumns)
@@ -976,7 +978,7 @@ class ThreadSettingsViewModel: SessionTableViewModel, NavigatableStateHolder, Ob
                         self?.updatedName != current &&
                         self?.updatedName?.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty == false
                     },
-                    cancelTitle: "RESET",
+                    cancelTitle: "RESET",//.localized(),
                     cancelStyle: .danger,
                     cancelEnabled: .bool(current?.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty == false),
                     hasCloseButton: true,
@@ -1054,7 +1056,7 @@ class ThreadSettingsViewModel: SessionTableViewModel, NavigatableStateHolder, Ob
                     body: { [weak self, dependencies] in
                         guard isUpdatedGroup && dependencies[feature: .updatedGroupsAllowDescriptionEditing] else {
                             return .input(
-                                explanation: NSAttributedString(string: "EDIT_LEGACY_GROUP_INFO_MESSAGE"),//.localized()),
+                                explanation: NSAttributedString(string: "Group name is visible to all group members."),//.localized()),
                                 info: ConfirmationModal.Info.Body.InputInfo(
                                     placeholder: "groupNameEnter".localized(),
                                     initialValue: currentName
@@ -1064,7 +1066,7 @@ class ThreadSettingsViewModel: SessionTableViewModel, NavigatableStateHolder, Ob
                         }
                         
                         return .dualInput(
-                            explanation: NSAttributedString(string: "EDIT_GROUP_INFO_MESSAGE"),//.localized()),
+                            explanation: NSAttributedString(string: "Group name and description are visible to all group members."),//.localized()),
                             firstInfo: ConfirmationModal.Info.Body.InputInfo(
                                 placeholder: "groupNameEnter".localized(),
                                 initialValue: currentName
@@ -1100,7 +1102,12 @@ class ThreadSettingsViewModel: SessionTableViewModel, NavigatableStateHolder, Ob
                         
                         /// Check if the data violates any of the size constraints
                         let maybeErrorString: String? = {
-                            guard !Profile.isTooLong(profileName: finalName) else { return "groupNameEnterShorter".localized() }
+                            guard !LibSession.isTooLong(groupName: finalName) else {
+                                return "groupNameEnterShorter".localized()
+                            }
+                            guard !LibSession.isTooLong(groupDescription: (finalDescription ?? "")) else {
+                                return "Please enter a shorter group description."//.localized()
+                            }
                             
                             return nil  // No error has occurred
                         }()

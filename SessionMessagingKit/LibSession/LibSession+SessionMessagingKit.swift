@@ -364,6 +364,51 @@ public extension LibSession {
         
         // MARK: - Pushes
         
+        public func performAndPushChange(
+            _ db: Database,
+            for variant: ConfigDump.Variant,
+            sessionId: SessionId,
+            change: (Config?) throws -> ()
+        ) throws {
+            // Since we are doing direct memory manipulation we are using an `Atomic`
+            // type which has blocking access in it's `mutate` closure
+            let needsPush: Bool
+            
+            do {
+                needsPush = try configStore[sessionId, variant].mutate { config in
+                    // Peform the change
+                    try change(config)
+                    
+                    // If an error occurred during the change then actually throw it to prevent
+                    // any database change from completing
+                    try LibSessionError.throwIfNeeded(config)
+
+                    // If we don't need to dump the data the we can finish early
+                    guard configNeedsDump(config) else { return config.needsPush }
+
+                    try createDump(
+                        config: config,
+                        for: variant,
+                        sessionId: sessionId,
+                        timestampMs: dependencies[cache: .snodeAPI].currentOffsetTimestampMs()
+                    )?.upsert(db)
+
+                    return config.needsPush
+                }
+            }
+            catch {
+                Log.error(.libSession, "Failed to update/dump updated \(variant) config data due to error: \(error)")
+                throw error
+            }
+            
+            // Make sure we need a push before scheduling one
+            guard needsPush else { return }
+            
+            db.afterNextTransactionNestedOnce(dedupeId: LibSession.syncDedupeId(sessionId.hexString), using: dependencies) { [dependencies] db in
+                ConfigurationSyncJob.enqueue(db, swarmPublicKey: sessionId.hexString, using: dependencies)
+            }
+        }
+        
         public func pendingChanges(
             _ db: Database,
             swarmPubkey: String
@@ -635,6 +680,12 @@ public protocol LibSessionCacheType: LibSessionImmutableCacheType, MutableCacheT
     
     // MARK: - Pushes
     
+    func performAndPushChange(
+        _ db: Database,
+        for variant: ConfigDump.Variant,
+        sessionId: SessionId,
+        change: (LibSession.Config?) throws -> ()
+    ) throws
     func pendingChanges(_ db: Database, swarmPubkey: String) throws -> LibSession.PendingChanges
     func markingAsPushed(
         seqNo: Int64,
@@ -696,6 +747,13 @@ private final class NoopLibSessionCache: LibSessionCacheType {
     }
     
     // MARK: - Pushes
+    
+    func performAndPushChange(
+        _ db: Database,
+        for variant: ConfigDump.Variant,
+        sessionId: SessionId,
+        change: (LibSession.Config?) throws -> ()
+    ) throws {}
     
     func pendingChanges(_ db: GRDB.Database, swarmPubkey: String) throws -> LibSession.PendingChanges {
         return LibSession.PendingChanges()

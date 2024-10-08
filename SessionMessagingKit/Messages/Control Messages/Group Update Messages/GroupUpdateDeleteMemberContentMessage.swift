@@ -24,7 +24,7 @@ public final class GroupUpdateDeleteMemberContentMessage: ControlMessage {
     public init(
         memberSessionIds: [String],
         messageHashes: [String],
-        sentTimestamp: UInt64,
+        sentTimestampMs: UInt64,
         authMethod: AuthenticationMethod?,
         using dependencies: Dependencies
     ) throws {
@@ -35,14 +35,14 @@ public final class GroupUpdateDeleteMemberContentMessage: ControlMessage {
                 with: GroupUpdateDeleteMemberContentMessage.generateVerificationBytes(
                     memberSessionIds: memberSessionIds,
                     messageHashes: messageHashes,
-                    timestampMs: sentTimestamp
+                    timestampMs: sentTimestampMs
                 ),
                 using: dependencies
             )
         }
         
         super.init(
-            sentTimestamp: sentTimestamp
+            sentTimestampMs: sentTimestampMs
         )
     }
     

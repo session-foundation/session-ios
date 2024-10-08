@@ -19,7 +19,7 @@ extension MessageReceiver {
         guard
             threadVariant != .community,
             let sender: String = message.sender,
-            let timestampMs: UInt64 = message.sentTimestamp
+            let timestampMs: UInt64 = message.sentTimestampMs
         else { return }
         
         let localConfig: DisappearingMessagesConfiguration = try DisappearingMessagesConfiguration

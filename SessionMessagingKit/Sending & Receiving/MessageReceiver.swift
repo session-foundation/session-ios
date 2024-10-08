@@ -28,7 +28,7 @@ public enum MessageReceiver {
         var customProto: SNProtoContent? = nil
         var customMessage: Message? = nil
         let sender: String
-        let sentTimestamp: UInt64
+        let sentTimestampMs: UInt64
         let serverHash: String?
         let openGroupServerMessageId: UInt64?
         let threadVariant: SessionThread.Variant
@@ -48,7 +48,7 @@ public enum MessageReceiver {
             case (_, .community(let openGroupId, let messageSender, let timestamp, let messageServerId)):
                 plaintext = data.removePadding()   // Remove the padding
                 sender = messageSender
-                sentTimestamp = UInt64(floor(timestamp * 1000)) // Convert to ms for database consistency
+                sentTimestampMs = UInt64(floor(timestamp * 1000)) // Convert to ms for database consistency
                 serverHash = nil
                 openGroupServerMessageId = UInt64(messageServerId)
                 threadVariant = .community
@@ -72,7 +72,7 @@ public enum MessageReceiver {
                 )
                 
                 plaintext = plaintext.removePadding()   // Remove the padding
-                sentTimestamp = UInt64(floor(timestamp * 1000)) // Convert to ms for database consistency
+                sentTimestampMs = UInt64(floor(timestamp * 1000)) // Convert to ms for database consistency
                 serverHash = nil
                 openGroupServerMessageId = UInt64(messageServerId)
                 threadVariant = .contact
@@ -97,7 +97,7 @@ public enum MessageReceiver {
                             )
                         )
                         plaintext = plaintext.removePadding()   // Remove the padding
-                        sentTimestamp = envelope.timestamp
+                        sentTimestampMs = envelope.timestamp
                         serverHash = swarmServerHash
                         openGroupServerMessageId = nil
                         threadVariant = .contact
@@ -128,7 +128,7 @@ public enum MessageReceiver {
                             throw MessageReceiverError.invalidMessage
                         }
                         plaintext = envelopeContent // Padding already removed for updated groups
-                        sentTimestamp = envelope.timestamp
+                        sentTimestampMs = envelope.timestamp
                         serverHash = swarmServerHash
                         openGroupServerMessageId = nil
                         threadVariant = .group
@@ -139,7 +139,7 @@ public enum MessageReceiver {
                         customProto = try SNProtoContent.builder().build()
                         customMessage = LibSessionMessage(ciphertext: data)
                         sender = publicKey  // The "group" sends these messages
-                        sentTimestamp = 0
+                        sentTimestampMs = 0
                         serverHash = swarmServerHash
                         openGroupServerMessageId = nil
                         threadVariant = .group
@@ -190,7 +190,7 @@ public enum MessageReceiver {
                         
                         (plaintext, sender) = try decrypt(keyPairs: encryptionKeyPairs)
                         plaintext = plaintext.removePadding()   // Remove the padding
-                        sentTimestamp = envelope.timestamp
+                        sentTimestampMs = envelope.timestamp
                         
                         /// If we weren't given a `serverHash` then compute one locally using the same logic the swarm would
                         switch swarmServerHash.isEmpty {
@@ -224,8 +224,8 @@ public enum MessageReceiver {
         message.sender = sender
         message.recipient = userSessionId.hexString
         message.serverHash = serverHash
-        message.sentTimestamp = sentTimestamp
-        message.receivedTimestamp = dependencies[cache: .snodeAPI].currentOffsetTimestampMs()
+        message.sentTimestampMs = sentTimestampMs
+        message.receivedTimestampMs = dependencies[cache: .snodeAPI].currentOffsetTimestampMs()
         message.openGroupServerMessageId = openGroupServerMessageId
         
         // Ignore disappearing message settings in communities (in case of modified clients)
@@ -576,7 +576,7 @@ public enum MessageReceiver {
             }
             
             // Note: 'sentTimestamp' is in milliseconds so convert it
-            let messageSentTimestamp: TimeInterval = TimeInterval((message.sentTimestamp ?? 0) * 1000)
+            let messageSentTimestamp: TimeInterval = TimeInterval((message.sentTimestampMs ?? 0) * 1000)
             let deleteBefore: TimeInterval = (try? LibSession
                 .groupDeleteBefore(
                     in: dependencies[cache: .libSession]
@@ -619,7 +619,7 @@ public enum MessageReceiver {
                     default: return .userGroups
                 }
             }(),
-            changeTimestampMs: message.sentTimestamp
+            changeTimestampMs: message.sentTimestampMs
                 .map { Int64($0) }
                 .defaulting(to: dependencies[cache: .snodeAPI].currentOffsetTimestampMs()),
             using: dependencies

@@ -184,7 +184,7 @@ public final class ClosedGroupControlMessage: ControlMessage {
     // MARK: - Initialization
 
     internal init(kind: Kind, sentTimestampMs: UInt64? = nil) {
-        super.init(sentTimestamp: sentTimestampMs)
+        super.init(sentTimestampMs: sentTimestampMs)
         
         self.kind = kind
     }

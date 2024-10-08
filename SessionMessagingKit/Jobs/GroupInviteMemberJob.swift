@@ -49,7 +49,7 @@ public enum GroupInviteMemberJob: JobExecutor {
             let details: Details = try? JSONDecoder(using: dependencies).decode(Details.self, from: detailsData)
         else { return failure(job, JobRunnerError.missingRequiredDetails, true) }
         
-        let sentTimestamp: Int64 = dependencies[cache: .snodeAPI].currentOffsetTimestampMs()
+        let sentTimestampMs: Int64 = dependencies[cache: .snodeAPI].currentOffsetTimestampMs()
         
         /// Perform the actual message sending
         dependencies[singleton: .storage]
@@ -65,7 +65,7 @@ public enum GroupInviteMemberJob: JobExecutor {
                             profile: currentInfo.adminProfile,
                             blocksCommunityMessageRequests: nil
                         ),
-                        sentTimestamp: UInt64(sentTimestamp),
+                        sentTimestampMs: UInt64(sentTimestampMs),
                         authMethod: try Authentication.with(
                             db,
                             swarmPublicKey: threadId,

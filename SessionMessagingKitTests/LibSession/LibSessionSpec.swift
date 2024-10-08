@@ -99,7 +99,23 @@ class LibSessionSpec: QuickSpec {
                 cache.when { $0.config(for: .groupKeys, sessionId: .any) }
                     .thenReturn(Atomic(createGroupOutput.groupState[.groupKeys]))
                 cache.when { $0.configNeedsDump(.any) }.thenReturn(false)
-                cache.when { try $0.createDump(config: .any, for: .any, sessionId: .any, timestampMs: .any) }.thenReturn(nil)
+                cache
+                    .when { try $0.createDump(config: .any, for: .any, sessionId: .any, timestampMs: .any) }
+                    .thenReturn(nil)
+                cache
+                    .when { try $0.performAndPushChange(.any, for: .any, sessionId: .any, change: { _ in }) }
+                    .then { args, untrackedArgs in
+                        let callback: ((LibSession.Config?) throws -> Void)? = (untrackedArgs[test: 1] as? (LibSession.Config?) throws -> Void)
+                        
+                        switch args[test: 0] as? ConfigDump.Variant {
+                            case .userGroups: try? callback?(.object(conf))
+                            case .groupInfo: try? callback?(createGroupOutput.groupState[.groupInfo])
+                            case .groupMembers: try? callback?(createGroupOutput.groupState[.groupMembers])
+                            case .groupKeys: try? callback?(createGroupOutput.groupState[.groupKeys])
+                            default: break
+                        }
+                    }
+                    .thenReturn(())
             }
         )
         @TestState var userGroupsConfig: LibSession.Config!
@@ -703,12 +719,15 @@ class LibSessionSpec: QuickSpec {
                         )
                     }
                     
-                    let result: [ConfigDump]? = mockStorage.read { db in
-                        try ConfigDump.fetchAll(db)
-                    }
-                    
-                    expect(result?.map { $0.variant }.asSet()).to(contain([.userGroups]))
-                    expect(result?.map { $0.timestampMs }.asSet()).to(contain([1234567890000]))
+                    expect(mockLibSessionCache)
+                        .to(call(.exactly(times: 1), matchingParameters: .all) {
+                            try $0.performAndPushChange(
+                                .any,
+                                for: .userGroups,
+                                sessionId: SessionId(.standard, hex: TestConstants.publicKey),
+                                change: { _ in }
+                            )
+                        })
                 }
             }
         }

@@ -43,6 +43,15 @@ class MockLibSessionCache: Mock<LibSessionCacheType>, LibSessionCacheType {
     
     // MARK: - Pushes
     
+    func performAndPushChange(
+        _ db: Database,
+        for variant: ConfigDump.Variant,
+        sessionId: SessionId,
+        change: @escaping (LibSession.Config?) throws -> ()
+    ) throws {
+        try mockThrowingNoReturn(args: [variant, sessionId], untrackedArgs: [db, change])
+    }
+    
     func pendingChanges(_ db: Database, swarmPubkey: String) throws -> LibSession.PendingChanges {
         return mock(args: [swarmPubkey], untrackedArgs: [db])
     }

@@ -126,6 +126,9 @@ class OpenGroupManagerSpec: QuickSpec {
                 jobRunner
                     .when { $0.upsert(.any, job: .any, canStartJob: .any) }
                     .thenReturn(nil)
+                jobRunner
+                    .when { $0.jobInfoFor(jobs: .any, state: .any, variant: .any) }
+                    .thenReturn([:])
             }
         )
         @TestState(singleton: .network, in: dependencies) var mockNetwork: MockNetwork! = MockNetwork()

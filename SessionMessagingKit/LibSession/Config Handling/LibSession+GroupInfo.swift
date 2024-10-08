@@ -274,30 +274,27 @@ internal extension LibSession {
         
         // Loop through each of the groups and update their settings
         try targetGroups.forEach { group in
-            try LibSession.performAndPushChange(
-                db,
-                for: .groupInfo,
-                sessionId: SessionId(.group, hex: group.threadId),
-                using: dependencies
-            ) { config in
-                guard case .object(let conf) = config else { throw LibSessionError.invalidConfigObject }
-                guard
-                    var cGroupName: [CChar] = group.name.cString(using: .utf8),
-                    var cGroupDesc: [CChar] = (group.groupDescription ?? "").cString(using: .utf8)
-                else { throw LibSessionError.invalidCConversion }
-                
-                /// Update the name
-                ///
-                /// **Note:** We indentionally only update the `GROUP_INFO` and not the `USER_GROUPS` as once the
-                /// group is synced between devices we want to rely on the proper group config to get display info
-                groups_info_set_name(conf, &cGroupName)
-                groups_info_set_description(conf, &cGroupDesc)
-                
-                // Either assign the updated display pic, or sent a blank pic (to remove the current one)
-                var displayPic: user_profile_pic = user_profile_pic()
-                displayPic.set(\.url, to: group.displayPictureUrl)
-                displayPic.set(\.key, to: group.displayPictureEncryptionKey)
-                groups_info_set_pic(conf, displayPic)
+            try dependencies.mutate(cache: .libSession) { cache in
+                try cache.performAndPushChange(db, for: .groupInfo, sessionId: SessionId(.group, hex: group.threadId)) { config in
+                    guard case .object(let conf) = config else { throw LibSessionError.invalidConfigObject }
+                    guard
+                        var cGroupName: [CChar] = group.name.cString(using: .utf8),
+                        var cGroupDesc: [CChar] = (group.groupDescription ?? "").cString(using: .utf8)
+                    else { throw LibSessionError.invalidCConversion }
+                    
+                    /// Update the name
+                    ///
+                    /// **Note:** We indentionally only update the `GROUP_INFO` and not the `USER_GROUPS` as once the
+                    /// group is synced between devices we want to rely on the proper group config to get display info
+                    groups_info_set_name(conf, &cGroupName)
+                    groups_info_set_description(conf, &cGroupDesc)
+                    
+                    // Either assign the updated display pic, or sent a blank pic (to remove the current one)
+                    var displayPic: user_profile_pic = user_profile_pic()
+                    displayPic.set(\.url, to: group.displayPictureUrl)
+                    displayPic.set(\.key, to: group.displayPictureEncryptionKey)
+                    groups_info_set_pic(conf, displayPic)
+                }
             }
         }
         
@@ -333,15 +330,12 @@ internal extension LibSession {
         try existingGroupIds
             .compactMap { groupId in targetUpdatedConfigs.first(where: { $0.id == groupId }).map { (groupId, $0) } }
             .forEach { groupId, updatedConfig in
-                try LibSession.performAndPushChange(
-                    db,
-                    for: .groupInfo,
-                    sessionId: SessionId(.group, hex: groupId),
-                    using: dependencies
-                ) { config in
-                    guard case .object(let conf) = config else { throw LibSessionError.invalidConfigObject }
-                    
-                    groups_info_set_expiry_timer(conf, Int32(updatedConfig.durationSeconds))
+                try dependencies.mutate(cache: .libSession) { cache in
+                    try cache.performAndPushChange(db, for: .groupInfo, sessionId: SessionId(.group, hex: groupId)) { config in
+                        guard case .object(let conf) = config else { throw LibSessionError.invalidConfigObject }
+                        
+                        groups_info_set_expiry_timer(conf, Int32(updatedConfig.durationSeconds))
+                    }
                 }
             }
         
@@ -358,16 +352,13 @@ public extension LibSession {
         disappearingConfig: DisappearingMessagesConfiguration?,
         using dependencies: Dependencies
     ) throws {
-        try LibSession.performAndPushChange(
-            db,
-            for: .groupInfo,
-            sessionId: groupSessionId,
-            using: dependencies
-        ) { config in
-            guard case .object(let conf) = config else { throw LibSessionError.invalidConfigObject }
-            
-            if let config: DisappearingMessagesConfiguration = disappearingConfig {
-                groups_info_set_expiry_timer(conf, Int32(config.durationSeconds))
+        try dependencies.mutate(cache: .libSession) { cache in
+            try cache.performAndPushChange(db, for: .groupInfo, sessionId: groupSessionId) { config in
+                guard case .object(let conf) = config else { throw LibSessionError.invalidConfigObject }
+                
+                if let config: DisappearingMessagesConfiguration = disappearingConfig {
+                    groups_info_set_expiry_timer(conf, Int32(config.durationSeconds))
+                }
             }
         }
     }
@@ -378,18 +369,15 @@ public extension LibSession {
         timestamp: TimeInterval,
         using dependencies: Dependencies
     ) throws {
-        try LibSession.performAndPushChange(
-            db,
-            for: .groupInfo,
-            sessionId: groupSessionId,
-            using: dependencies
-        ) { config in
-            guard case .object(let conf) = config else { throw LibSessionError.invalidConfigObject }
-            
-            // Do nothing if the timestamp isn't newer than the current value
-            guard Int64(timestamp) > groups_info_get_delete_before(conf) else { return }
-            
-            groups_info_set_delete_before(conf, Int64(timestamp))
+        try dependencies.mutate(cache: .libSession) { cache in
+            try cache.performAndPushChange(db, for: .groupInfo, sessionId: groupSessionId) { config in
+                guard case .object(let conf) = config else { throw LibSessionError.invalidConfigObject }
+                
+                // Do nothing if the timestamp isn't newer than the current value
+                guard Int64(timestamp) > groups_info_get_delete_before(conf) else { return }
+                
+                groups_info_set_delete_before(conf, Int64(timestamp))
+            }
         }
     }
     
@@ -399,18 +387,15 @@ public extension LibSession {
         timestamp: TimeInterval,
         using dependencies: Dependencies
     ) throws {
-        try LibSession.performAndPushChange(
-            db,
-            for: .groupInfo,
-            sessionId: groupSessionId,
-            using: dependencies
-        ) { config in
-            guard case .object(let conf) = config else { throw LibSessionError.invalidConfigObject }
-            
-            // Do nothing if the timestamp isn't newer than the current value
-            guard Int64(timestamp) > groups_info_get_attach_delete_before(conf) else { return }
-            
-            groups_info_set_attach_delete_before(conf, Int64(timestamp))
+        try dependencies.mutate(cache: .libSession) { cache in
+            try cache.performAndPushChange(db, for: .groupInfo, sessionId: groupSessionId) { config in
+                guard case .object(let conf) = config else { throw LibSessionError.invalidConfigObject }
+                
+                // Do nothing if the timestamp isn't newer than the current value
+                guard Int64(timestamp) > groups_info_get_attach_delete_before(conf) else { return }
+                
+                groups_info_set_attach_delete_before(conf, Int64(timestamp))
+            }
         }
     }
     
@@ -419,15 +404,12 @@ public extension LibSession {
         groupSessionId: SessionId,
         using dependencies: Dependencies
     ) throws {
-        try LibSession.performAndPushChange(
-            db,
-            for: .groupInfo,
-            sessionId: groupSessionId,
-            using: dependencies
-        ) { config in
-            guard case .object(let conf) = config else { throw LibSessionError.invalidConfigObject }
-            
-            groups_info_destroy_group(conf)
+        try dependencies.mutate(cache: .libSession) { cache in
+            try cache.performAndPushChange(db, for: .groupInfo, sessionId: groupSessionId) { config in
+                guard case .object(let conf) = config else { throw LibSessionError.invalidConfigObject }
+                
+                groups_info_destroy_group(conf)
+            }
         }
     }
     

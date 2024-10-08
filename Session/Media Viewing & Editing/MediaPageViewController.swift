@@ -553,7 +553,7 @@ class MediaPageViewController: UIPageViewController, UIPageViewControllerDataSou
                         kind: .mediaSaved(
                             timestamp: UInt64(currentViewController.galleryItem.interactionTimestampMs)
                         ),
-                        sentTimestamp: dependencies[cache: .snodeAPI].currentOffsetTimestampMs()
+                        sentTimestampMs: dependencies[cache: .snodeAPI].currentOffsetTimestampMs()
                     )
                     .with(DisappearingMessagesConfiguration
                         .fetchOne(db, id: threadId)?

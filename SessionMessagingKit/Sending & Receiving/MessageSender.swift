@@ -30,13 +30,13 @@ public final class MessageSender {
     ) throws -> Network.PreparedRequest<Void> {
         // Common logic for all destinations
         let userSessionId: SessionId = dependencies[cache: .general].sessionId
-        let messageSendTimestamp: Int64 = dependencies[cache: .snodeAPI].currentOffsetTimestampMs()
+        let messageSendTimestampMs: Int64 = dependencies[cache: .snodeAPI].currentOffsetTimestampMs()
         let updatedMessage: Message = message
         
         // Set the message 'sentTimestamp' (Visible messages will already have their sent timestamp set)
-        updatedMessage.sentTimestamp = (
-            updatedMessage.sentTimestamp ??
-            UInt64(messageSendTimestamp)
+        updatedMessage.sentTimestampMs = (
+            updatedMessage.sentTimestampMs ??
+            UInt64(messageSendTimestampMs)
         )
         
         do {
@@ -50,7 +50,7 @@ public final class MessageSender {
                         interactionId: interactionId,
                         fileIds: fileIds,
                         userSessionId: userSessionId,
-                        messageSendTimestamp: messageSendTimestamp,
+                        messageSendTimestampMs: messageSendTimestampMs,
                         using: dependencies
                     )
                     .map { _, _ in () }
@@ -62,7 +62,7 @@ public final class MessageSender {
                         to: destination,
                         interactionId: interactionId,
                         fileIds: fileIds,
-                        messageSendTimestamp: messageSendTimestamp,
+                        messageSendTimestampMs: messageSendTimestampMs,
                         using: dependencies
                     )
                     
@@ -74,7 +74,7 @@ public final class MessageSender {
                         interactionId: interactionId,
                         fileIds: fileIds,
                         userSessionId: userSessionId,
-                        messageSendTimestamp: messageSendTimestamp,
+                        messageSendTimestampMs: messageSendTimestampMs,
                         using: dependencies
                     )
             }
@@ -99,16 +99,16 @@ public final class MessageSender {
         interactionId: Int64?,
         fileIds: [String],
         userSessionId: SessionId,
-        messageSendTimestamp: Int64,
+        messageSendTimestampMs: Int64,
         using dependencies: Dependencies
     ) throws -> Network.PreparedRequest<SendMessagesResponse> {
         guard let namespace: SnodeAPI.Namespace = namespace else { throw MessageSenderError.invalidMessage }
         
         /// Set the sender/recipient info (needed to be valid)
         ///
-        /// **Note:** The `sentTimestamp` will differ from the `messageSendTimestamp` as it's the time the user originally
+        /// **Note:** The `sentTimestamp` will differ from the `messageSendTimestampMs` as it's the time the user originally
         /// sent the message whereas the `messageSendTimestamp` is the time it will be uploaded to the swarm
-        let sentTimestamp: UInt64 = (message.sentTimestamp ?? UInt64(messageSendTimestamp))
+        let sentTimestampMs: UInt64 = (message.sentTimestampMs ?? UInt64(messageSendTimestampMs))
         let recipient: String = {
             switch destination {
                 case .contact(let publicKey): return publicKey
@@ -119,7 +119,7 @@ public final class MessageSender {
         }()
         message.sender = userSessionId.hexString
         message.recipient = recipient
-        message.sentTimestamp = sentTimestamp
+        message.sentTimestampMs = sentTimestampMs
         
         // Ensure the message is valid
         try MessageSender.ensureValidMessage(message, destination: destination, fileIds: fileIds, using: dependencies)
@@ -178,7 +178,7 @@ public final class MessageSender {
                     let messageData: Data = try Result(
                         MessageWrapper.wrap(
                             type: .closedGroupMessage,
-                            timestamp: sentTimestamp,
+                            timestampMs: sentTimestampMs,
                             base64EncodedContent: plaintext.base64EncodedString(),
                             wrapInWebSocketMessage: false
                         )
@@ -222,7 +222,7 @@ public final class MessageSender {
                                     default: throw MessageSenderError.invalidMessage
                                 }
                             }(),
-                            timestamp: sentTimestamp,
+                            timestampMs: sentTimestampMs,
                             senderPublicKey: {
                                 switch destination {
                                     case .closedGroup: return publicKey // Needed for Android
@@ -247,7 +247,7 @@ public final class MessageSender {
             recipient: recipient,
             data: base64EncodedData,
             ttl: Message.getSpecifiedTTL(message: message, destination: destination, using: dependencies),
-            timestampMs: UInt64(messageSendTimestamp)
+            timestampMs: UInt64(messageSendTimestampMs)
         )
         
         return try SnodeAPI
@@ -341,7 +341,7 @@ public final class MessageSender {
         to destination: Message.Destination,
         interactionId: Int64?,
         fileIds: [String],
-        messageSendTimestamp: Int64,
+        messageSendTimestampMs: Int64,
         using dependencies: Dependencies
     ) throws -> Network.PreparedRequest<Void> {
         // Note: It's possible to send a message and then delete the open group you sent the message to
@@ -469,7 +469,7 @@ public final class MessageSender {
         interactionId: Int64?,
         fileIds: [String],
         userSessionId: SessionId,
-        messageSendTimestamp: Int64,
+        messageSendTimestampMs: Int64,
         using dependencies: Dependencies
     ) throws -> Network.PreparedRequest<Void> {
         // The `openGroupInbox` destination does not support attachments
@@ -828,9 +828,9 @@ public final class MessageSender {
             return try Interaction.fetchOne(db, id: interactionId)
         }
         
-        if let sentTimestamp: Double = message.sentTimestamp.map({ Double($0) }) {
+        if let sentTimestampMs: Double = message.sentTimestampMs.map({ Double($0) }) {
             return try Interaction
-                .filter(Interaction.Columns.timestampMs == sentTimestamp)
+                .filter(Interaction.Columns.timestampMs == sentTimestampMs)
                 .fetchOne(db)
         }
         

@@ -265,7 +265,7 @@ extension MessageSender {
                         message: GroupUpdateInfoChangeMessage(
                             changeType: .name,
                             updatedName: name,
-                            sentTimestamp: UInt64(changeTimestampMs),
+                            sentTimestampMs: UInt64(changeTimestampMs),
                             authMethod: try Authentication.with(
                                 db,
                                 swarmPublicKey: groupSessionId,
@@ -345,7 +345,7 @@ extension MessageSender {
                     db,
                     message: GroupUpdateInfoChangeMessage(
                         changeType: .avatar,
-                        sentTimestamp: UInt64(changeTimestampMs),
+                        sentTimestampMs: UInt64(changeTimestampMs),
                         authMethod: try Authentication.with(
                             db,
                             swarmPublicKey: groupSessionId,
@@ -536,7 +536,7 @@ extension MessageSender {
                             changeType: .added,
                             memberSessionIds: members.map { $0.id },
                             historyShared: allowAccessToHistoricMessages,
-                            sentTimestamp: UInt64(changeTimestampMs),
+                            sentTimestampMs: UInt64(changeTimestampMs),
                             authMethod: authMethod,
                             using: dependencies
                         ),
@@ -732,7 +732,7 @@ extension MessageSender {
                             changeType: .removed,
                             memberSessionIds: Array(memberIds),
                             historyShared: false,
-                            sentTimestamp: UInt64(targetChangeTimestampMs),
+                            sentTimestampMs: UInt64(targetChangeTimestampMs),
                             authMethod: Authentication.groupAdmin(
                                 groupSessionId: sessionId,
                                 ed25519SecretKey: Array(groupIdentityPrivateKey)
@@ -846,7 +846,7 @@ extension MessageSender {
                         changeType: .promoted,
                         memberSessionIds: members.map { $0.id },
                         historyShared: false,
-                        sentTimestamp: UInt64(changeTimestampMs),
+                        sentTimestampMs: UInt64(changeTimestampMs),
                         authMethod: try Authentication.with(
                             db,
                             swarmPublicKey: groupSessionId.hexString,

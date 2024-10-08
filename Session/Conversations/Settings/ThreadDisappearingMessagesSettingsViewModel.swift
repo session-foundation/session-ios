@@ -396,7 +396,7 @@ class ThreadDisappearingMessagesSettingsViewModel: SessionTableViewModel, Naviga
                         message: GroupUpdateInfoChangeMessage(
                             changeType: .disappearingMessages,
                             updatedExpiration: UInt32(updatedConfig.isEnabled ? updatedConfig.durationSeconds : 0),
-                            sentTimestamp: UInt64(currentOffsetTimestampMs),
+                            sentTimestampMs: UInt64(currentOffsetTimestampMs),
                             authMethod: try Authentication.with(
                                 db,
                                 swarmPublicKey: threadId,
@@ -414,7 +414,7 @@ class ThreadDisappearingMessagesSettingsViewModel: SessionTableViewModel, Naviga
                     try MessageSender.send(
                         db,
                         message: ExpirationTimerUpdate()
-                            .with(sentTimestamp: UInt64(currentOffsetTimestampMs))
+                            .with(sentTimestampMs: UInt64(currentOffsetTimestampMs))
                             .with(updatedConfig),
                         interactionId: interactionId,
                         threadId: threadId,

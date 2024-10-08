@@ -33,7 +33,7 @@ public final class GroupUpdateMemberChangeMessage: ControlMessage {
         changeType: ChangeType,
         memberSessionIds: [String],
         historyShared: Bool,
-        sentTimestamp: UInt64,
+        sentTimestampMs: UInt64,
         authMethod: AuthenticationMethod,
         using dependencies: Dependencies
     ) throws {
@@ -43,13 +43,13 @@ public final class GroupUpdateMemberChangeMessage: ControlMessage {
         self.adminSignature = try authMethod.generateSignature(
             with: GroupUpdateMemberChangeMessage.generateVerificationBytes(
                 changeType: changeType,
-                timestampMs: sentTimestamp
+                timestampMs: sentTimestampMs
             ),
             using: dependencies
         )
         
         super.init(
-            sentTimestamp: sentTimestamp
+            sentTimestampMs: sentTimestampMs
         )
     }
     

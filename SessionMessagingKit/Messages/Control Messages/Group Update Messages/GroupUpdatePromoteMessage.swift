@@ -23,14 +23,14 @@ public final class GroupUpdatePromoteMessage: ControlMessage {
         groupIdentitySeed: Data,
         groupName: String,
         profile: VisibleMessage.VMProfile? = nil,   // Added when sending via the `MessageWithProfile` protocol
-        sentTimestamp: UInt64? = nil
+        sentTimestampMs: UInt64? = nil
     ) {
         self.groupIdentitySeed = groupIdentitySeed
         self.groupName = groupName
         self.profile = profile
         
         super.init(
-            sentTimestamp: sentTimestamp
+            sentTimestampMs: sentTimestampMs
         )
     }
     
