@@ -275,9 +275,11 @@ public class ConfirmationModal: Modal, UITextFieldDelegate {
         
         titleLabel.isAccessibilityElement = true
         titleLabel.accessibilityIdentifier = "Modal heading" // stringlint:disable
+        titleLabel.accessibilityLabel = titleLabel.text
         
         explanationLabel.isAccessibilityElement = true
         explanationLabel.accessibilityIdentifier = "Modal description" // stringlint:disable
+        explanationLabel.accessibilityLabel = explanationLabel.text
     }
     
     // MARK: - UITextFieldDelegate
