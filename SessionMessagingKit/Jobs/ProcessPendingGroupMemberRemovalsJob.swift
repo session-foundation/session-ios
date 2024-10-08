@@ -86,6 +86,10 @@ public enum ProcessPendingGroupMemberRemovalsJob: JobExecutor {
             dependencies[cache: .snodeAPI].currentOffsetTimestampMs()
         )
         let messageSendTimestamp: Int64 = dependencies[cache: .snodeAPI].currentOffsetTimestampMs()
+        let memberIdsToRemoveContent: Set<String> = pendingRemovals
+            .filter { _, shouldRemoveContent -> Bool in shouldRemoveContent }
+            .map { memberId, _ -> String in memberId }
+            .asSet()
         
         return Just(())
             .setFailureType(to: Error.self)
@@ -139,9 +143,37 @@ public enum ProcessPendingGroupMemberRemovalsJob: JobExecutor {
                     )
                     .map { _, _ in () }
                 
+                /// If we want to remove the messages sent by the removed members then also send an instruction
+                /// to other members to remove the messages as well
+                let preparedMemberContentRemovalMessage: Network.PreparedRequest<Void>? = { () -> Network.PreparedRequest<Void>? in
+                    guard !memberIdsToRemoveContent.isEmpty else { return nil }
+                    
+                    return dependencies[singleton: .storage].write { db in
+                        try MessageSender.preparedSend(
+                            db,
+                            message: GroupUpdateDeleteMemberContentMessage(
+                                memberSessionIds: Array(memberIdsToRemoveContent),
+                                messageHashes: [],
+                                sentTimestampMs: UInt64(targetChangeTimestampMs),
+                                authMethod: Authentication.groupAdmin(
+                                    groupSessionId: groupSessionId,
+                                    ed25519SecretKey: Array(groupIdentityPrivateKey)
+                                ),
+                                using: dependencies
+                            ),
+                            to: .closedGroup(groupPublicKey: groupSessionId.hexString),
+                            namespace: .groupMessages,
+                            interactionId: nil,
+                            fileIds: [],
+                            using: dependencies
+                        )
+                    }
+                }()
+                
                 /// Combine the two requests to be sent at the same time
                 return try SnodeAPI.preparedSequence(
-                    requests: [preparedRevokeSubaccounts, preparedGroupDeleteMessage],
+                    requests: [preparedRevokeSubaccounts, preparedGroupDeleteMessage, preparedMemberContentRemovalMessage]
+                        .compactMap { $0 },
                     requireAllBatchResponses: true,
                     swarmPublicKey: groupSessionId.hexString,
                     using: dependencies
@@ -192,13 +224,8 @@ public enum ProcessPendingGroupMemberRemovalsJob: JobExecutor {
                                             .filter(pendingRemovals.keys.contains(GroupMember.Columns.profileId))
                                             .deleteAll(db)
                                         
-                                        /// If we want to remove the messages sent by the removed members then do so and send
-                                        /// an instruction to other members to remove the messages as well
-                                        let memberIdsToRemoveContent: Set<String> = pendingRemovals
-                                            .filter { _, shouldRemoveContent -> Bool in shouldRemoveContent }
-                                            .map { memberId, _ -> String in memberId }
-                                            .asSet()
-                                        
+                                        /// If we want to remove the messages sent by the removed members then do so and remove
+                                        /// them from the swarm as well
                                         if !memberIdsToRemoveContent.isEmpty {
                                             let messageHashesToRemove: Set<String> = try Interaction
                                                 .filter(Interaction.Columns.threadId == groupSessionId.hexString)
@@ -213,25 +240,6 @@ public enum ProcessPendingGroupMemberRemovalsJob: JobExecutor {
                                                 .filter(Interaction.Columns.threadId == groupSessionId.hexString)
                                                 .filter(memberIdsToRemoveContent.contains(Interaction.Columns.authorId))
                                                 .deleteAll(db)
-                                            
-                                            /// Tell other members devices to delete the messages
-                                            try MessageSender.send(
-                                                db,
-                                                message: GroupUpdateDeleteMemberContentMessage(
-                                                    memberSessionIds: Array(memberIdsToRemoveContent),
-                                                    messageHashes: [],
-                                                    sentTimestamp: UInt64(targetChangeTimestampMs),
-                                                    authMethod: Authentication.groupAdmin(
-                                                        groupSessionId: groupSessionId,
-                                                        ed25519SecretKey: Array(groupIdentityPrivateKey)
-                                                    ),
-                                                    using: dependencies
-                                                ),
-                                                interactionId: nil,
-                                                threadId: groupSessionId.hexString,
-                                                threadVariant: .group,
-                                                using: dependencies
-                                            )
                                             
                                             /// Delete the messages from the swarm so users won't download them again
                                             try? SnodeAPI
