@@ -978,7 +978,7 @@ class ThreadSettingsViewModel: SessionTableViewModel, NavigatableStateHolder, Ob
                         self?.updatedName != current &&
                         self?.updatedName?.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty == false
                     },
-                    cancelTitle: "RESET",//.localized(),
+                    cancelTitle: "Reset",//.localized(),
                     cancelStyle: .danger,
                     cancelEnabled: .bool(current?.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty == false),
                     hasCloseButton: true,

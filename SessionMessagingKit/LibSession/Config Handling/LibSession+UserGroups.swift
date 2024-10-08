@@ -1136,21 +1136,19 @@ public extension LibSession {
         groupSessionId: SessionId,
         using dependencies: Dependencies
     ) -> Bool {
-        return (try? dependencies[cache: .libSession]
-            .config(for: .userGroups, sessionId: dependencies[cache: .general].sessionId)
-            .wrappedValue
-            .map { config in
-                guard case .object(let conf) = config else { throw LibSessionError.invalidConfigObject }
-                
-                var cGroupId: [CChar] = try groupSessionId.hexString.cString(using: .utf8) ?? { throw LibSessionError.invalidCConversion }()
-                var userGroup: ugroups_group_info = ugroups_group_info()
-                
-                // If the group doesn't exist then assume the user hasn't been kicked
-                guard user_groups_get_group(conf, &userGroup, &cGroupId) else { return false }
-                
-                return ugroups_group_is_kicked(&userGroup)
-            })
-            .defaulting(to: false)
+        return dependencies.mutate(cache: .libSession) { cache in
+            guard
+                case .object(let conf) = cache.config(for: .userGroups, sessionId: dependencies[cache: .general].sessionId),
+                var cGroupId: [CChar] = groupSessionId.hexString.cString(using: .utf8)
+            else { return false }
+            
+            var userGroup: ugroups_group_info = ugroups_group_info()
+            
+            // If the group doesn't exist then assume the user hasn't been kicked
+            guard user_groups_get_group(conf, &userGroup, &cGroupId) else { return false }
+            
+            return ugroups_group_is_kicked(&userGroup)
+        }
     }
     
     static func remove(

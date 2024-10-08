@@ -6,10 +6,6 @@ import UIKit
 
 @objc
 public extension UIDevice {
-    
-    var supportsCallKit: Bool {
-        return ProcessInfo().isOperatingSystemAtLeast(OperatingSystemVersion(majorVersion: 10, minorVersion: 0, patchVersion: 0))
-    }
 
     @objc
     var hasIPhoneXNotch: Bool {
@@ -39,19 +35,6 @@ public extension UIDevice {
             // Verify all our IOS_DEVICE_CONSTANT tags make sense when adding a new device size.
             return false
         }
-    }
-
-    @objc
-    var isShorterThanIPhone5: Bool {
-        return UIScreen.main.bounds.height < 568
-    }
-
-    @objc
-    var isIPad: Bool {
-        let isNativeIPad: Bool = (userInterfaceIdiom == .pad)
-        let isCompatabilityModeIPad: Bool = (userInterfaceIdiom == .phone && self.model.hasPrefix("iPad"))
-
-        return isNativeIPad || isCompatabilityModeIPad
     }
 
     @objc

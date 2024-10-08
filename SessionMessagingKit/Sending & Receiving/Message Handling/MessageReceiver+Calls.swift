@@ -249,13 +249,15 @@ extension MessageReceiver {
             variant: .infoCall,
             body: String(data: messageInfoData, encoding: .utf8),
             timestampMs: messageSentTimestampMs,
-            wasRead: dependencies[cache: .libSession].timestampAlreadyRead(
-                threadId: thread.id,
-                threadVariant: thread.variant,
-                timestampMs: (messageSentTimestampMs * 1000),
-                userSessionId: dependencies[cache: .general].sessionId,
-                openGroup: nil
-            ),
+            wasRead: dependencies.mutate(cache: .libSession) { cache in
+                cache.timestampAlreadyRead(
+                    threadId: thread.id,
+                    threadVariant: thread.variant,
+                    timestampMs: (messageSentTimestampMs * 1000),
+                    userSessionId: dependencies[cache: .general].sessionId,
+                    openGroup: nil
+                )
+            },
             expiresInSeconds: message.expiresInSeconds,
             expiresStartedAtMs: message.expiresStartedAtMs,
             using: dependencies
@@ -336,13 +338,15 @@ extension MessageReceiver {
             variant: .infoCall,
             body: String(data: messageInfoData, encoding: .utf8),
             timestampMs: timestampMs,
-            wasRead: dependencies[cache: .libSession].timestampAlreadyRead(
-                threadId: thread.id,
-                threadVariant: thread.variant,
-                timestampMs: (timestampMs * 1000),
-                userSessionId: userSessionId,
-                openGroup: nil
-            ),
+            wasRead: dependencies.mutate(cache: .libSession) { cache in
+                cache.timestampAlreadyRead(
+                    threadId: thread.id,
+                    threadVariant: thread.variant,
+                    timestampMs: (timestampMs * 1000),
+                    userSessionId: userSessionId,
+                    openGroup: nil
+                )
+            },
             expiresInSeconds: message.expiresInSeconds,
             expiresStartedAtMs: message.expiresStartedAtMs,
             using: dependencies

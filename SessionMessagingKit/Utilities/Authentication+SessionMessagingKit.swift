@@ -65,12 +65,15 @@ public extension Authentication {
         // MARK: - SignatureGenerator
         
         public func generateSignature(with verificationBytes: [UInt8], using dependencies: Dependencies) throws -> Authentication.Signature {
-            return try LibSession.generateSubaccountSignature(
-                groupSessionId: groupSessionId,
-                verificationBytes: verificationBytes,
-                memberAuthData: authData,
-                using: dependencies
-            )
+            return try dependencies.mutate(cache: .libSession) { cache in
+                try dependencies[singleton: .crypto].tryGenerate(
+                    .signatureSubaccount(
+                        config: cache.config(for: .groupKeys, sessionId: groupSessionId),
+                        verificationBytes: verificationBytes,
+                        memberAuthData: authData
+                    )
+                )
+            }
         }
     }
 }

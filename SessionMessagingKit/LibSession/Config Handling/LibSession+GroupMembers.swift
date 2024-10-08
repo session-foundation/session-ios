@@ -148,34 +148,32 @@ internal extension LibSession {
         groupSessionId: SessionId,
         using dependencies: Dependencies
     ) throws -> Set<GroupMember> {
-        return try dependencies[cache: .libSession]
-            .config(for: .groupMembers, sessionId: groupSessionId)
-            .wrappedValue
-            .map { config in
-                guard case .object(let conf) = config else { throw LibSessionError.invalidConfigObject }
-                
-                return try extractMembers(
-                    from: conf,
-                    groupSessionId: groupSessionId
-                )
-            } ?? { throw LibSessionError.failedToRetrieveConfigData }()
+        return try dependencies.mutate(cache: .libSession) { cache in
+            guard case .object(let conf) = cache.config(for: .groupMembers, sessionId: groupSessionId) else {
+                throw LibSessionError.invalidConfigObject
+            }
+            
+            return try extractMembers(
+                from: conf,
+                groupSessionId: groupSessionId
+            )
+        } ?? { throw LibSessionError.failedToRetrieveConfigData }()
     }
     
     static func getPendingMemberRemovals(
         groupSessionId: SessionId,
         using dependencies: Dependencies
     ) throws -> [String: Bool] {
-        return try dependencies[cache: .libSession]
-            .config(for: .groupMembers, sessionId: groupSessionId)
-            .wrappedValue
-            .map { config in
-                guard case .object(let conf) = config else { throw LibSessionError.invalidConfigObject }
-                
-                return try extractPendingRemovals(
-                    from: conf,
-                    groupSessionId: groupSessionId
-                )
-            } ?? { throw LibSessionError.failedToRetrieveConfigData }()
+        return try dependencies.mutate(cache: .libSession) { cache in
+            guard case .object(let conf) = cache.config(for: .groupMembers, sessionId: groupSessionId) else {
+                throw LibSessionError.invalidConfigObject
+            }
+            
+            return try extractPendingRemovals(
+                from: conf,
+                groupSessionId: groupSessionId
+            )
+        } ?? { throw LibSessionError.failedToRetrieveConfigData }()
     }
     
     static func addMembers(

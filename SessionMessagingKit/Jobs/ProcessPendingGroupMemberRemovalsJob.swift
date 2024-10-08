@@ -97,12 +97,16 @@ public enum ProcessPendingGroupMemberRemovalsJob: JobExecutor {
                 /// Revoke the members authData from the group so the server rejects API calls from the ex-members (fire-and-forget
                 /// this request, we don't want it to be blocking)
                 let preparedRevokeSubaccounts: Network.PreparedRequest<Void> = try SnodeAPI.preparedRevokeSubaccounts(
-                    subaccountsToRevoke: try Array(pendingRemovals.keys).map { memberId in
-                        try LibSession.generateSubaccountToken(
-                            groupSessionId: groupSessionId,
-                            memberId: memberId,
-                            using: dependencies
-                        )
+                    subaccountsToRevoke: try dependencies.mutate(cache: .libSession) { cache in
+                        try Array(pendingRemovals.keys).map { memberId in
+                            try dependencies[singleton: .crypto].tryGenerate(
+                                .tokenSubaccount(
+                                    config: cache.config(for: .groupKeys, sessionId: groupSessionId),
+                                    groupSessionId: groupSessionId,
+                                    memberId: memberId
+                                )
+                            )
+                        }
                     },
                     authMethod: Authentication.groupAdmin(
                         groupSessionId: groupSessionId,

@@ -136,7 +136,7 @@ extension MessageSender {
                     .eraseToAnyPublisher()
             }
             .handleEvents(
-                receiveOutput: { _, _, thread, _, members, preparedNotificationSubscription in
+                receiveOutput: { groupSessionId, _, thread, _, members, preparedNotificationSubscription in
                     // Start polling
                     dependencies
                         .mutate(cache: .groupPollers) { $0.getOrCreatePoller(for: thread.id) }
@@ -157,11 +157,15 @@ extension MessageSender {
                             .compactMap { member -> (GroupMember, GroupInviteMemberJob.Details)? in
                                 // Generate authData for the removed member
                                 guard
-                                    let memberAuthInfo: Authentication.Info = try? LibSession.generateAuthData(
-                                        groupSessionId: SessionId(.group, hex: thread.id),
-                                        memberId: member.profileId,
-                                        using: dependencies
-                                    ),
+                                    let memberAuthInfo: Authentication.Info = try? dependencies.mutate(cache: .libSession, { cache in
+                                        try dependencies[singleton: .crypto].tryGenerate(
+                                            .memberAuthData(
+                                                config: cache.config(for: .groupKeys, sessionId: groupSessionId),
+                                                groupSessionId: groupSessionId,
+                                                memberId: member.profileId
+                                            )
+                                        )
+                                    }),
                                     let jobDetails: GroupInviteMemberJob.Details = try? GroupInviteMemberJob.Details(
                                         memberSessionIdHexString: member.profileId,
                                         authInfo: memberAuthInfo
@@ -445,22 +449,29 @@ extension MessageSender {
                 let memberJobData: [(id: String, profile: Profile?, jobDetails: GroupInviteMemberJob.Details, subaccountToken: [UInt8])] = (try? members
                     .map { id, profile in
                         // Generate authData for the newly added member
-                        let subaccountToken: [UInt8] = try LibSession.generateSubaccountToken(
-                            groupSessionId: sessionId,
-                            memberId: id,
-                            using: dependencies
-                        )
-                        let memberAuthInfo: Authentication.Info = try LibSession.generateAuthData(
-                            groupSessionId: sessionId,
-                            memberId: id,
-                            using: dependencies
-                        )
-                        let inviteDetails: GroupInviteMemberJob.Details = try GroupInviteMemberJob.Details(
-                            memberSessionIdHexString: id,
-                            authInfo: memberAuthInfo
-                        )
+                        let memberInfo: (token: [UInt8], details: GroupInviteMemberJob.Details) = try dependencies.mutate(cache: .libSession) { cache in
+                            return (
+                                try dependencies[singleton: .crypto].tryGenerate(
+                                    .tokenSubaccount(
+                                        config: cache.config(for: .groupKeys, sessionId: sessionId),
+                                        groupSessionId: sessionId,
+                                        memberId: id
+                                    )
+                                ),
+                                try GroupInviteMemberJob.Details(
+                                    memberSessionIdHexString: id,
+                                    authInfo: try dependencies[singleton: .crypto].tryGenerate(
+                                        .memberAuthData(
+                                            config: cache.config(for: .groupKeys, sessionId: sessionId),
+                                            groupSessionId: sessionId,
+                                            memberId: id
+                                        )
+                                    )
+                                )
+                            )
+                        }
                         
-                        return (id, profile, inviteDetails, subaccountToken)
+                        return (id, profile, memberInfo.details, memberInfo.token)
                     })
                     .defaulting(to: [])
                     
@@ -566,25 +577,33 @@ extension MessageSender {
                     .fetchOne(db)
             else { throw MessageSenderError.invalidClosedGroupUpdate }
             
-            let subaccountToken: [UInt8] = try LibSession.generateSubaccountToken(
-                groupSessionId: sessionId,
-                memberId: memberId,
-                using: dependencies
-            )
-            let inviteDetails: GroupInviteMemberJob.Details = try GroupInviteMemberJob.Details(
-                memberSessionIdHexString: memberId,
-                authInfo: try LibSession.generateAuthData(
-                    groupSessionId: sessionId,
-                    memberId: memberId,
-                    using: dependencies
+            let memberInfo: (token: [UInt8], details: GroupInviteMemberJob.Details) = try dependencies.mutate(cache: .libSession) { cache in
+                return (
+                    try dependencies[singleton: .crypto].tryGenerate(
+                        .tokenSubaccount(
+                            config: cache.config(for: .groupKeys, sessionId: sessionId),
+                            groupSessionId: sessionId,
+                            memberId: memberId
+                        )
+                    ),
+                    try GroupInviteMemberJob.Details(
+                        memberSessionIdHexString: memberId,
+                        authInfo: try dependencies[singleton: .crypto].tryGenerate(
+                            .memberAuthData(
+                                config: cache.config(for: .groupKeys, sessionId: sessionId),
+                                groupSessionId: sessionId,
+                                memberId: memberId
+                            )
+                        )
+                    )
                 )
-            )
+            }
             
             /// Unrevoke the member just in case they had previously gotten their access to the group revoked and the
             /// unrevoke request when initially added them failed (fire-and-forget this request, we don't want it to be blocking)
             try SnodeAPI
                 .preparedUnrevokeSubaccounts(
-                    subaccountsToUnrevoke: [subaccountToken],
+                    subaccountsToUnrevoke: [memberInfo.token],
                     authMethod: Authentication.groupAdmin(
                         groupSessionId: sessionId,
                         ed25519SecretKey: Array(groupIdentityPrivateKey)
@@ -631,7 +650,7 @@ extension MessageSender {
                 job: Job(
                     variant: .groupInviteMember,
                     threadId: groupSessionId,
-                    details: inviteDetails
+                    details: memberInfo.details
                 ),
                 canStartJob: true
             )

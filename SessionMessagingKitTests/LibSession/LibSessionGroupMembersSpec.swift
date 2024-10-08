@@ -80,13 +80,13 @@ class LibSessionGroupMembersSpec: QuickSpec {
                 
                 cache.when { $0.setConfig(for: .any, sessionId: .any, to: .any) }.thenReturn(())
                 cache.when { $0.config(for: .userGroups, sessionId: .any) }
-                    .thenReturn(Atomic(.object(conf)))
+                    .thenReturn(.object(conf))
                 cache.when { $0.config(for: .groupInfo, sessionId: .any) }
-                    .thenReturn(Atomic(createGroupOutput.groupState[.groupInfo]))
+                    .thenReturn(createGroupOutput.groupState[.groupInfo])
                 cache.when { $0.config(for: .groupMembers, sessionId: .any) }
-                    .thenReturn(Atomic(createGroupOutput.groupState[.groupMembers]))
+                    .thenReturn(createGroupOutput.groupState[.groupMembers])
                 cache.when { $0.config(for: .groupKeys, sessionId: .any) }
-                    .thenReturn(Atomic(createGroupOutput.groupState[.groupKeys]))
+                    .thenReturn(createGroupOutput.groupState[.groupKeys])
             }
         )
         

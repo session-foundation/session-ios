@@ -29,11 +29,12 @@ enum _015_BlockCommunityMessageRequests: Migration {
             Identity.userExists(db, using: dependencies),
             (try Setting.exists(db, id: Setting.BoolKey.checkForCommunityMessageRequests.rawValue)) == false
         {
-            let rawBlindedMessageRequestValue: Int32 = try dependencies[cache: .libSession]
-                .config(for: .userProfile, sessionId: dependencies[cache: .general].sessionId)
-                .wrappedValue
-                .map { config -> Int32 in try LibSession.rawBlindedMessageRequestValue(in: config) }
-                .defaulting(to: -1)
+            let userSessionId: SessionId = dependencies[cache: .general].sessionId
+            let rawBlindedMessageRequestValue: Int32 = try dependencies.mutate(cache: .libSession) { cache in
+                try LibSession.rawBlindedMessageRequestValue(
+                    in: cache.config(for: .userProfile, sessionId: userSessionId)
+                )
+            }
             
             // Use the value in the config if we happen to have one, otherwise use the default
             db[.checkForCommunityMessageRequests] = (rawBlindedMessageRequestValue < 0 ?

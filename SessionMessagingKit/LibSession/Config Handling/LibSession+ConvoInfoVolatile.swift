@@ -406,7 +406,7 @@ public extension LibSession {
     }
 }
 
-public extension LibSessionImmutableCacheType {
+public extension LibSessionCacheType {
     func timestampAlreadyRead(
         threadId: String,
         threadVariant: SessionThread.Variant,
@@ -414,65 +414,61 @@ public extension LibSessionImmutableCacheType {
         userSessionId: SessionId,
         openGroup: OpenGroup?
     ) -> Bool {
-        return config(for: .convoInfoVolatile, sessionId: userSessionId)
-            .wrappedValue
-            .map { config in
-                guard case .object(let conf) = config else { return false }
+        // If we don't have a config then just assume it's unread
+        guard case .object(let conf) = config(for: .convoInfoVolatile, sessionId: userSessionId) else { return false }
                 
-                switch threadVariant {
-                    case .contact:
-                        var oneToOne: convo_info_volatile_1to1 = convo_info_volatile_1to1()
-                        guard
-                            var cThreadId: [CChar] = threadId.cString(using: .utf8),
-                            convo_info_volatile_get_1to1(conf, &oneToOne, &cThreadId)
-                        else {
-                            LibSessionError.clear(conf)
-                            return false
-                        }
-                        
-                        return (oneToOne.last_read >= timestampMs)
-                        
-                    case .legacyGroup:
-                        var legacyGroup: convo_info_volatile_legacy_group = convo_info_volatile_legacy_group()
-                        
-                        guard
-                            var cThreadId: [CChar] = threadId.cString(using: .utf8),
-                            convo_info_volatile_get_legacy_group(conf, &legacyGroup, &cThreadId)
-                        else {
-                            LibSessionError.clear(conf)
-                            return false
-                        }
-                        
-                        return (legacyGroup.last_read >= timestampMs)
-                        
-                    case .community:
-                        guard let openGroup: OpenGroup = openGroup else { return false }
-                        
-                        var convoCommunity: convo_info_volatile_community = convo_info_volatile_community()
-                        
-                        guard
-                            var cBaseUrl: [CChar] = openGroup.server.cString(using: .utf8),
-                            var cRoomToken: [CChar] = openGroup.roomToken.cString(using: .utf8),
-                            convo_info_volatile_get_community(conf, &convoCommunity, &cBaseUrl, &cRoomToken)
-                        else {
-                            LibSessionError.clear(conf)
-                            return false
-                        }
-                        
-                        return (convoCommunity.last_read >= timestampMs)
-                        
-                    case .group:
-                        var group: convo_info_volatile_group = convo_info_volatile_group()
-
-                        guard
-                            var cThreadId: [CChar] = threadId.cString(using: .utf8),
-                            convo_info_volatile_get_group(conf, &group, &cThreadId)
-                        else { return false }
-
-                        return (group.last_read >= timestampMs)
+        switch threadVariant {
+            case .contact:
+                var oneToOne: convo_info_volatile_1to1 = convo_info_volatile_1to1()
+                guard
+                    var cThreadId: [CChar] = threadId.cString(using: .utf8),
+                    convo_info_volatile_get_1to1(conf, &oneToOne, &cThreadId)
+                else {
+                    LibSessionError.clear(conf)
+                    return false
                 }
-            }
-            .defaulting(to: false) // If we don't have a config then just assume it's unread
+                
+                return (oneToOne.last_read >= timestampMs)
+                
+            case .legacyGroup:
+                var legacyGroup: convo_info_volatile_legacy_group = convo_info_volatile_legacy_group()
+                
+                guard
+                    var cThreadId: [CChar] = threadId.cString(using: .utf8),
+                    convo_info_volatile_get_legacy_group(conf, &legacyGroup, &cThreadId)
+                else {
+                    LibSessionError.clear(conf)
+                    return false
+                }
+                
+                return (legacyGroup.last_read >= timestampMs)
+                
+            case .community:
+                guard let openGroup: OpenGroup = openGroup else { return false }
+                
+                var convoCommunity: convo_info_volatile_community = convo_info_volatile_community()
+                
+                guard
+                    var cBaseUrl: [CChar] = openGroup.server.cString(using: .utf8),
+                    var cRoomToken: [CChar] = openGroup.roomToken.cString(using: .utf8),
+                    convo_info_volatile_get_community(conf, &convoCommunity, &cBaseUrl, &cRoomToken)
+                else {
+                    LibSessionError.clear(conf)
+                    return false
+                }
+                
+                return (convoCommunity.last_read >= timestampMs)
+                
+            case .group:
+                var group: convo_info_volatile_group = convo_info_volatile_group()
+
+                guard
+                    var cThreadId: [CChar] = threadId.cString(using: .utf8),
+                    convo_info_volatile_get_group(conf, &group, &cThreadId)
+                else { return false }
+
+                return (group.last_read >= timestampMs)
+        }
     }
 }
 

@@ -5,19 +5,7 @@ import GRDB
 import SessionUtil
 import SessionUtilitiesKit
 
-// MARK: - LibSessionImmutableCacheType
-
-public extension LibSessionImmutableCacheType {
-    var userProfileDisplayName: String {
-        guard
-            let config: LibSession.Config = self.config(for: .userProfile, sessionId: userSessionId).wrappedValue,
-            case .object(let conf) = config,
-            let profileNamePtr: UnsafePointer<CChar> = user_profile_get_name(conf)
-        else { return "" }
-        
-        return String(cString: profileNamePtr)
-    }
-}
+// MARK: - LibSession
 
 internal extension LibSession {
     static let columnsRelatedToUserProfile: [Profile.Columns] = [
@@ -29,6 +17,19 @@ internal extension LibSession {
     static let syncedSettings: [String] = [
         Setting.BoolKey.checkForCommunityMessageRequests.rawValue
     ]
+}
+
+// MARK: - LibSessionCacheType
+
+public extension LibSessionCacheType {
+    var userProfileDisplayName: String {
+        guard
+            case .object(let conf) = config(for: .userProfile, sessionId: userSessionId),
+            let profileNamePtr: UnsafePointer<CChar> = user_profile_get_name(conf)
+        else { return "" }
+        
+        return String(cString: profileNamePtr)
+    }
 }
 
 // MARK: - Incoming Changes

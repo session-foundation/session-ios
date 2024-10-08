@@ -25,13 +25,15 @@ extension MessageReceiver {
             dependencies[cache: .snodeAPI].currentOffsetTimestampMs()
         )
         
-        let wasRead: Bool = dependencies[cache: .libSession].timestampAlreadyRead(
-            threadId: threadId,
-            threadVariant: threadVariant,
-            timestampMs: (timestampMs * 1000),
-            userSessionId: dependencies[cache: .general].sessionId,
-            openGroup: nil
-        )
+        let wasRead: Bool = dependencies.mutate(cache: .libSession) { cache in
+            cache.timestampAlreadyRead(
+                threadId: threadId,
+                threadVariant: threadVariant,
+                timestampMs: (timestampMs * 1000),
+                userSessionId: dependencies[cache: .general].sessionId,
+                openGroup: nil
+            )
+        }
         let messageExpirationInfo: Message.MessageExpirationInfo = Message.getMessageExpirationInfo(
             threadVariant: threadVariant,
             wasRead: wasRead,

@@ -127,7 +127,7 @@ public enum AppSetup {
             onComplete: { result, needsConfigSync in
                 // The 'needsConfigSync' flag should be based on whether either a migration or the
                 // configs need to be sync'ed
-                migrationsCompletion(result, (needsConfigSync || dependencies[cache: .libSession].needsSync))
+                migrationsCompletion(result, (needsConfigSync || dependencies.mutate(cache: .libSession) { $0.needsSync }))
                 
                 // The 'if' is only there to prevent the "variable never read" warning from showing
                 if backgroundTask != nil { backgroundTask = nil }

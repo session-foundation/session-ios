@@ -197,11 +197,11 @@ internal extension LibSession {
         // Currently the only synced setting is 'checkForCommunityMessageRequests'
         switch key {
             case Setting.BoolKey.checkForCommunityMessageRequests.rawValue:
-                return try dependencies[cache: .libSession]
-                    .config(for: .userProfile, sessionId: userSessionId)
-                    .wrappedValue
-                    .map { config -> Bool in (try LibSession.rawBlindedMessageRequestValue(in: config) >= 0) }
-                    .defaulting(to: false)
+                return dependencies.mutate(cache: .libSession) { cache in
+                    let config: LibSession.Config? = cache.config(for: .userProfile, sessionId: userSessionId)
+                    
+                    return (((try? LibSession.rawBlindedMessageRequestValue(in: config)) ?? 0) >= 0)
+                }
                 
             default: return false
         }
@@ -389,76 +389,72 @@ public extension LibSession {
             }
         }()
         
-        return dependencies[cache: .libSession]
-            .config(for: configVariant, sessionId: userSessionId)
-            .wrappedValue
-            .map { config in
-                guard
-                    case .object(let conf) = config,
-                    var cThreadId: [CChar] = threadId.cString(using: .utf8)
-                else { return false }
-                
-                switch threadVariant {
-                    case .contact:
-                        // The 'Note to Self' conversation is stored in the 'userProfile' config
-                        guard threadId != userSessionId.hexString else {
-                            return (
-                                !visibleOnly ||
-                                LibSession.shouldBeVisible(priority: user_profile_get_nts_priority(conf))
-                            )
-                        }
-                        
-                        var contact: contacts_contact = contacts_contact()
-                        
-                        guard contacts_get(conf, &contact, &cThreadId) else {
-                            LibSessionError.clear(conf)
-                            return false
-                        }
-                        
-                        /// If the user opens a conversation with an existing contact but doesn't send them a message
-                        /// then the one-to-one conversation should remain hidden so we want to delete the `SessionThread`
-                        /// when leaving the conversation
-                        return (!visibleOnly || LibSession.shouldBeVisible(priority: contact.priority))
-                        
-                    case .community:
-                        let maybeUrlInfo: OpenGroupUrlInfo? = dependencies[singleton: .storage]
-                            .read { db in try OpenGroupUrlInfo.fetchAll(db, ids: [threadId]) }?
-                            .first
-                        
-                        guard
-                            let urlInfo: OpenGroupUrlInfo = maybeUrlInfo,
-                            var cBaseUrl: [CChar] = urlInfo.server.cString(using: .utf8),
-                            var cRoom: [CChar] = urlInfo.roomToken.cString(using: .utf8)
-                        else { return false }
-                        
-                        var community: ugroups_community_info = ugroups_community_info()
-                        
-                        /// Not handling the `hidden` behaviour for communities so just indicate the existence
-                        let result: Bool = user_groups_get_community(conf, &community, &cBaseUrl, &cRoom)
+        return dependencies.mutate(cache: .libSession) { cache in
+            guard
+                case .object(let conf) = cache.config(for: configVariant, sessionId: userSessionId),
+                var cThreadId: [CChar] = threadId.cString(using: .utf8)
+            else { return false }
+            
+            switch threadVariant {
+                case .contact:
+                    // The 'Note to Self' conversation is stored in the 'userProfile' config
+                    guard threadId != userSessionId.hexString else {
+                        return (
+                            !visibleOnly ||
+                            LibSession.shouldBeVisible(priority: user_profile_get_nts_priority(conf))
+                        )
+                    }
+                    
+                    var contact: contacts_contact = contacts_contact()
+                    
+                    guard contacts_get(conf, &contact, &cThreadId) else {
                         LibSessionError.clear(conf)
-                        
-                        return result
-                        
-                    case .legacyGroup:
-                        let groupInfo: UnsafeMutablePointer<ugroups_legacy_group_info>? = user_groups_get_legacy_group(conf, &cThreadId)
-                        LibSessionError.clear(conf)
-                        
-                        /// Not handling the `hidden` behaviour for legacy groups so just indicate the existence
-                        if groupInfo != nil {
-                            ugroups_legacy_group_free(groupInfo)
-                            return true
-                        }
-                        
                         return false
-                        
-                    case .group:
-                        var group: ugroups_group_info = ugroups_group_info()
-                        
-                        /// Not handling the `hidden` behaviour for legacy groups so just indicate the existence
-                        return user_groups_get_group(conf, &group, &cThreadId)
-                }
+                    }
+                    
+                    /// If the user opens a conversation with an existing contact but doesn't send them a message
+                    /// then the one-to-one conversation should remain hidden so we want to delete the `SessionThread`
+                    /// when leaving the conversation
+                    return (!visibleOnly || LibSession.shouldBeVisible(priority: contact.priority))
+                    
+                case .community:
+                    let maybeUrlInfo: OpenGroupUrlInfo? = dependencies[singleton: .storage]
+                        .read { db in try OpenGroupUrlInfo.fetchAll(db, ids: [threadId]) }?
+                        .first
+                    
+                    guard
+                        let urlInfo: OpenGroupUrlInfo = maybeUrlInfo,
+                        var cBaseUrl: [CChar] = urlInfo.server.cString(using: .utf8),
+                        var cRoom: [CChar] = urlInfo.roomToken.cString(using: .utf8)
+                    else { return false }
+                    
+                    var community: ugroups_community_info = ugroups_community_info()
+                    
+                    /// Not handling the `hidden` behaviour for communities so just indicate the existence
+                    let result: Bool = user_groups_get_community(conf, &community, &cBaseUrl, &cRoom)
+                    LibSessionError.clear(conf)
+                    
+                    return result
+                    
+                case .legacyGroup:
+                    let groupInfo: UnsafeMutablePointer<ugroups_legacy_group_info>? = user_groups_get_legacy_group(conf, &cThreadId)
+                    LibSessionError.clear(conf)
+                    
+                    /// Not handling the `hidden` behaviour for legacy groups so just indicate the existence
+                    if groupInfo != nil {
+                        ugroups_legacy_group_free(groupInfo)
+                        return true
+                    }
+                    
+                    return false
+                    
+                case .group:
+                    var group: ugroups_group_info = ugroups_group_info()
+                    
+                    /// Not handling the `hidden` behaviour for legacy groups so just indicate the existence
+                    return user_groups_get_group(conf, &group, &cThreadId)
             }
-            .defaulting(to: false)
+        }
     }
 }
 

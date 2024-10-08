@@ -437,7 +437,7 @@ public final class NotificationServiceExtension: UNNotificationServiceExtension 
         for callMessage: CallMessage
     ) {
         if #available(iOSApplicationExtension 14.5, *), Preferences.isCallKitSupported {
-            guard let caller: String = callMessage.sender, let timestamp = callMessage.sentTimestamp else { return }
+            guard let caller: String = callMessage.sender, let timestamp = callMessage.sentTimestampMs else { return }
             
             let reportCall: () -> () = { [weak self, dependencies] in
                 let payload: [String: Any] = [

@@ -42,153 +42,141 @@ enum _014_GenerateInitialUserConfigDumps: Migration {
         
         // MARK: - UserProfile Config Dump
         
-        try cache
-            .config(for: .userProfile, sessionId: userSessionId)
-            .mutate { config in
-                try LibSession.update(
-                    profile: Profile.fetchOrCreateCurrentUser(db, using: dependencies),
-                    in: config
-                )
+        let userProfileConfig: LibSession.Config? = cache.config(for: .userProfile, sessionId: userSessionId)
+        
+        try LibSession.update(
+            profile: Profile.fetchOrCreateCurrentUser(db, using: dependencies),
+            in: userProfileConfig
+        )
+        
+        try LibSession.updateNoteToSelf(
+            priority: {
+                guard allThreads[userSessionId.hexString]?.shouldBeVisible == true else { return LibSession.hiddenPriority }
                 
-                try LibSession.updateNoteToSelf(
-                    priority: {
-                        guard allThreads[userSessionId.hexString]?.shouldBeVisible == true else { return LibSession.hiddenPriority }
-                        
-                        return Int32(allThreads[userSessionId.hexString]?.pinnedPriority ?? 0)
-                    }(),
-                    in: config
-                )
-                
-                if cache.configNeedsDump(config) {
-                    try cache.createDump(
-                        config: config,
-                        for: .userProfile,
-                        sessionId: userSessionId,
-                        timestampMs: timestampMs
-                    )?.upsert(db)
-                }
-            }
+                return Int32(allThreads[userSessionId.hexString]?.pinnedPriority ?? 0)
+            }(),
+            in: userProfileConfig
+        )
+        
+        if cache.configNeedsDump(userProfileConfig) {
+            try cache.createDump(
+                config: userProfileConfig,
+                for: .userProfile,
+                sessionId: userSessionId,
+                timestampMs: timestampMs
+            )?.upsert(db)
+        }
         
         // MARK: - Contact Config Dump
         
-        try cache
-            .config(for: .contacts, sessionId: userSessionId)
-            .mutate { config in
-                // Exclude Note to Self, community, group and outgoing blinded message requests
-                let validContactIds: [String] = allThreads
-                    .values
-                    .filter { thread in
-                        thread.variant == .contact &&
-                        thread.id != userSessionId.hexString &&
-                        (try? SessionId(from: thread.id))?.prefix == .standard
-                    }
-                    .map { $0.id }
-                let contactsData: [ContactInfo] = try Contact
-                    .filter(
-                        Contact.Columns.isBlocked == true ||
-                        validContactIds.contains(Contact.Columns.id)
-                    )
-                    .including(optional: Contact.profile)
-                    .asRequest(of: ContactInfo.self)
-                    .fetchAll(db)
-                let threadIdsNeedingContacts: [String] = validContactIds
-                    .filter { contactId in !contactsData.contains(where: { $0.contact.id == contactId }) }
-                
-                try LibSession.upsert(
-                    contactData: contactsData
-                        .appending(
-                            contentsOf: threadIdsNeedingContacts
-                                .map { contactId in
-                                    ContactInfo(
-                                        contact: Contact.fetchOrCreate(db, id: contactId, using: dependencies),
-                                        profile: nil
-                                    )
-                                }
-                        )
-                        .map { data in
-                            LibSession.SyncedContactInfo(
-                                id: data.contact.id,
-                                contact: data.contact,
-                                profile: data.profile,
-                                priority: {
-                                    guard allThreads[data.contact.id]?.shouldBeVisible == true else {
-                                        return LibSession.hiddenPriority
-                                    }
-                                    
-                                    return Int32(allThreads[data.contact.id]?.pinnedPriority ?? 0)
-                                }(),
-                                created: allThreads[data.contact.id]?.creationDateTimestamp
-                            )
-                        },
-                    in: config,
-                    using: dependencies
-                )
-                
-                if cache.configNeedsDump(config) {
-                    try cache.createDump(
-                        config: config,
-                        for: .contacts,
-                        sessionId: userSessionId,
-                        timestampMs: timestampMs
-                    )?.upsert(db)
-                }
+        // Exclude Note to Self, community, group and outgoing blinded message requests
+        let contactsConfig: LibSession.Config? = cache.config(for: .contacts, sessionId: userSessionId)
+        let validContactIds: [String] = allThreads
+            .values
+            .filter { thread in
+                thread.variant == .contact &&
+                thread.id != userSessionId.hexString &&
+                (try? SessionId(from: thread.id))?.prefix == .standard
             }
+            .map { $0.id }
+        let contactsData: [ContactInfo] = try Contact
+            .filter(
+                Contact.Columns.isBlocked == true ||
+                validContactIds.contains(Contact.Columns.id)
+            )
+            .including(optional: Contact.profile)
+            .asRequest(of: ContactInfo.self)
+            .fetchAll(db)
+        let threadIdsNeedingContacts: [String] = validContactIds
+            .filter { contactId in !contactsData.contains(where: { $0.contact.id == contactId }) }
+        
+        try LibSession.upsert(
+            contactData: contactsData
+                .appending(
+                    contentsOf: threadIdsNeedingContacts
+                        .map { contactId in
+                            ContactInfo(
+                                contact: Contact.fetchOrCreate(db, id: contactId, using: dependencies),
+                                profile: nil
+                            )
+                        }
+                )
+                .map { data in
+                    LibSession.SyncedContactInfo(
+                        id: data.contact.id,
+                        contact: data.contact,
+                        profile: data.profile,
+                        priority: {
+                            guard allThreads[data.contact.id]?.shouldBeVisible == true else {
+                                return LibSession.hiddenPriority
+                            }
+                            
+                            return Int32(allThreads[data.contact.id]?.pinnedPriority ?? 0)
+                        }(),
+                        created: allThreads[data.contact.id]?.creationDateTimestamp
+                    )
+                },
+            in: contactsConfig,
+            using: dependencies
+        )
+        
+        if cache.configNeedsDump(contactsConfig) {
+            try cache.createDump(
+                config: contactsConfig,
+                for: .contacts,
+                sessionId: userSessionId,
+                timestampMs: timestampMs
+            )?.upsert(db)
+        }
         
         // MARK: - ConvoInfoVolatile Config Dump
         
-        try cache
-            .config(for: .convoInfoVolatile, sessionId: userSessionId)
-            .mutate { config in
-                let volatileThreadInfo: [LibSession.VolatileThreadInfo] = LibSession.VolatileThreadInfo
-                    .fetchAll(db, ids: Array(allThreads.keys))
-                
-                try LibSession.upsert(
-                    convoInfoVolatileChanges: volatileThreadInfo,
-                    in: config
-                )
-                
-                if cache.configNeedsDump(config) {
-                    try cache.createDump(
-                        config: config,
-                        for: .convoInfoVolatile,
-                        sessionId: userSessionId,
-                        timestampMs: timestampMs
-                    )?.upsert(db)
-                }
-            }
+        let convoInfoVolatileConfig: LibSession.Config? = cache.config(for: .convoInfoVolatile, sessionId: userSessionId)
+        let volatileThreadInfo: [LibSession.VolatileThreadInfo] = LibSession.VolatileThreadInfo
+            .fetchAll(db, ids: Array(allThreads.keys))
+        
+        try LibSession.upsert(
+            convoInfoVolatileChanges: volatileThreadInfo,
+            in: convoInfoVolatileConfig
+        )
+        
+        if cache.configNeedsDump(convoInfoVolatileConfig) {
+            try cache.createDump(
+                config: convoInfoVolatileConfig,
+                for: .convoInfoVolatile,
+                sessionId: userSessionId,
+                timestampMs: timestampMs
+            )?.upsert(db)
+        }
         
         // MARK: - UserGroups Config Dump
         
-        try cache
-            .config(for: .userGroups, sessionId: userSessionId)
-            .mutate { config in
-                let legacyGroupData: [LibSession.LegacyGroupInfo] = try LibSession.LegacyGroupInfo.fetchAll(db)
-                let communityData: [LibSession.OpenGroupUrlInfo] = try LibSession.OpenGroupUrlInfo
-                    .fetchAll(db, ids: Array(allThreads.keys))
-                
-                try LibSession.upsert(
-                    legacyGroups: legacyGroupData,
-                    in: config
+        let userGroupsConfig: LibSession.Config? = cache.config(for: .userGroups, sessionId: userSessionId)
+        let legacyGroupData: [LibSession.LegacyGroupInfo] = try LibSession.LegacyGroupInfo.fetchAll(db)
+        let communityData: [LibSession.OpenGroupUrlInfo] = try LibSession.OpenGroupUrlInfo
+            .fetchAll(db, ids: Array(allThreads.keys))
+        
+        try LibSession.upsert(
+            legacyGroups: legacyGroupData,
+            in: userGroupsConfig
+        )
+        try LibSession.upsert(
+            communities: communityData.map { urlInfo in
+                LibSession.CommunityInfo(
+                    urlInfo: urlInfo,
+                    priority: Int32(allThreads[urlInfo.threadId]?.pinnedPriority ?? 0)
                 )
-                try LibSession.upsert(
-                    communities: communityData
-                        .map { urlInfo in
-                            LibSession.CommunityInfo(
-                                urlInfo: urlInfo,
-                                priority: Int32(allThreads[urlInfo.threadId]?.pinnedPriority ?? 0)
-                            )
-                        },
-                    in: config
-                )
-                
-                if cache.configNeedsDump(config) {
-                    try cache.createDump(
-                        config: config,
-                        for: .userGroups,
-                        sessionId: userSessionId,
-                        timestampMs: timestampMs
-                    )?.upsert(db)
-                }
+            },
+            in: userGroupsConfig
+        )
+        
+        if cache.configNeedsDump(userGroupsConfig) {
+            try cache.createDump(
+                config: userGroupsConfig,
+                for: .userGroups,
+                sessionId: userSessionId,
+                timestampMs: timestampMs
+            )?.upsert(db)
         }
         
         // MARK: - Store cache in dependencies

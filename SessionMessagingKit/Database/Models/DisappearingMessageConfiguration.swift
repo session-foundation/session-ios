@@ -301,13 +301,15 @@ public extension DisappearingMessagesConfiguration {
         let userSessionId: SessionId = dependencies[cache: .general].sessionId
         let wasRead: Bool = (
             authorId == userSessionId.hexString ||
-            dependencies[cache: .libSession].timestampAlreadyRead(
-                threadId: threadId,
-                threadVariant: threadVariant,
-                timestampMs: timestampMs,
-                userSessionId: userSessionId,
-                openGroup: nil
-            )
+            dependencies.mutate(cache: .libSession) { cache in
+                cache.timestampAlreadyRead(
+                    threadId: threadId,
+                    threadVariant: threadVariant,
+                    timestampMs: timestampMs,
+                    userSessionId: userSessionId,
+                    openGroup: nil
+                )
+            }
         )
         let messageExpirationInfo: Message.MessageExpirationInfo = Message.getMessageExpirationInfo(
             threadVariant: threadVariant,

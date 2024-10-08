@@ -19,14 +19,15 @@ public extension LibSession {
 internal extension LibSession {
     /// `libSession` manages keys entirely so there is no need for a DB presence
     static let columnsRelatedToGroupKeys: [ColumnExpression] = []
-    
-    // MARK: - Incoming Changes
-    
-    static func handleGroupKeysUpdate(
+}
+
+// MARK: - Incoming Changes
+
+internal extension LibSessionCacheType {
+    func handleGroupKeysUpdate(
         _ db: Database,
-        in config: Config?,
-        groupSessionId: SessionId,
-        using dependencies: Dependencies
+        in config: LibSession.Config?,
+        groupSessionId: SessionId
     ) throws {
         guard case .groupKeys(let conf, let infoConf, let membersConf) = config else {
             throw LibSessionError.invalidConfigObject
@@ -82,40 +83,39 @@ internal extension LibSession {
         memberIds: Set<String>,
         using dependencies: Dependencies
     ) throws -> Data {
-        return try dependencies[cache: .libSession]
-            .config(for: .groupKeys, sessionId: groupSessionId)
-            .wrappedValue
-            .mapOrThrow(error: LibSessionError.invalidConfigObject) { config -> Data in
-                guard case .groupKeys(let conf, _, _) = config else { throw LibSessionError.invalidConfigObject }
-                
-                var cMemberIds: [UnsafePointer<CChar>?] = ( try? (memberIds
-                    .map { id in id.cString(using: .utf8) }
-                    .unsafeCopyCStringArray()))
-                .defaulting(to: [])
-                
-                defer { cMemberIds.forEach { $0?.deallocate() } }
-                
-                // Performing a `key_supplement` returns the supplemental key changes, since our state doesn't care
-                // about the `GROUP_KEYS` needed for other members this change won't result in the `GROUP_KEYS` config
-                // going into a pending state or the `ConfigurationSyncJob` getting triggered so return the data so that
-                // the caller can push it directly
-                var cSupplementData: UnsafeMutablePointer<UInt8>!
-                var cSupplementDataLen: Int = 0
-                
-                guard
-                    groups_keys_key_supplement(conf, &cMemberIds, cMemberIds.count, &cSupplementData, &cSupplementDataLen),
-                    let cSupplementData: UnsafeMutablePointer<UInt8> = cSupplementData
-                else { throw LibSessionError.failedToKeySupplementGroup }
-                
-                // Must deallocate on success
-                let supplementData: Data = Data(
-                    bytes: cSupplementData,
-                    count: cSupplementDataLen
-                )
-                cSupplementData.deallocate()
-                
-                return supplementData
+        return try dependencies.mutate(cache: .libSession) { cache in
+            guard case .groupKeys(let conf, _, _) = cache.config(for: .groupKeys, sessionId: groupSessionId) else {
+                throw LibSessionError.invalidConfigObject
             }
+            
+            var cMemberIds: [UnsafePointer<CChar>?] = ( try? (memberIds
+                .map { id in id.cString(using: .utf8) }
+                .unsafeCopyCStringArray()))
+            .defaulting(to: [])
+            
+            defer { cMemberIds.forEach { $0?.deallocate() } }
+            
+            // Performing a `key_supplement` returns the supplemental key changes, since our state doesn't care
+            // about the `GROUP_KEYS` needed for other members this change won't result in the `GROUP_KEYS` config
+            // going into a pending state or the `ConfigurationSyncJob` getting triggered so return the data so that
+            // the caller can push it directly
+            var cSupplementData: UnsafeMutablePointer<UInt8>!
+            var cSupplementDataLen: Int = 0
+            
+            guard
+                groups_keys_key_supplement(conf, &cMemberIds, cMemberIds.count, &cSupplementData, &cSupplementDataLen),
+                let cSupplementData: UnsafeMutablePointer<UInt8> = cSupplementData
+            else { throw LibSessionError.failedToKeySupplementGroup }
+            
+            // Must deallocate on success
+            let supplementData: Data = Data(
+                bytes: cSupplementData,
+                count: cSupplementDataLen
+            )
+            cSupplementData.deallocate()
+            
+            return supplementData
+        }
     }
     
     static func loadAdminKey(
@@ -141,62 +141,12 @@ internal extension LibSession {
         groupSessionId: SessionId,
         using dependencies: Dependencies
     ) throws -> Int {
-        return try dependencies[cache: .libSession]
-            .config(for: .groupKeys, sessionId: groupSessionId)
-            .wrappedValue
-            .mapOrThrow(error: LibSessionError.invalidConfigObject) { config -> Int in
-                guard case .groupKeys(let conf, _, _) = config else { throw LibSessionError.invalidConfigObject }
-                
-                return Int(groups_keys_current_generation(conf))
+        return try dependencies.mutate(cache: .libSession) { cache in
+            guard case .groupKeys(let conf, _, _) = cache.config(for: .groupKeys, sessionId: groupSessionId) else {
+                throw LibSessionError.invalidConfigObject
             }
-    }
-    
-    static func generateSubaccountToken(
-        groupSessionId: SessionId,
-        memberId: String,
-        using dependencies: Dependencies
-    ) throws -> [UInt8] {
-        return try dependencies[singleton: .crypto].tryGenerate(
-            .tokenSubaccount(
-                config: dependencies[cache: .libSession]
-                    .config(for: .groupKeys, sessionId: groupSessionId)
-                    .wrappedValue,
-                groupSessionId: groupSessionId,
-                memberId: memberId
-            )
-        )
-    }
-    
-    static func generateAuthData(
-        groupSessionId: SessionId,
-        memberId: String,
-        using dependencies: Dependencies
-    ) throws -> Authentication.Info {
-        return try dependencies[singleton: .crypto].tryGenerate(
-            .memberAuthData(
-                config: dependencies[cache: .libSession]
-                    .config(for: .groupKeys, sessionId: groupSessionId)
-                    .wrappedValue,
-                groupSessionId: groupSessionId,
-                memberId: memberId
-            )
-        )
-    }
-    
-    static func generateSubaccountSignature(
-        groupSessionId: SessionId,
-        verificationBytes: [UInt8],
-        memberAuthData: Data,
-        using dependencies: Dependencies
-    ) throws -> Authentication.Signature {
-        return try dependencies[singleton: .crypto].tryGenerate(
-            .signatureSubaccount(
-                config: dependencies[cache: .libSession]
-                    .config(for: .groupKeys, sessionId: groupSessionId)
-                    .wrappedValue,
-                verificationBytes: verificationBytes,
-                memberAuthData: memberAuthData
-            )
-        )
+            
+            return Int(groups_keys_current_generation(conf))
+        }
     }
 }

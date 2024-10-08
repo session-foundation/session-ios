@@ -367,13 +367,15 @@ extension MessageReceiver {
                         using: dependencies
                     ),
                     timestampMs: Int64(sentTimestampMs),
-                    wasRead: dependencies[cache: .libSession].timestampAlreadyRead(
-                        threadId: groupSessionId.hexString,
-                        threadVariant: .group,
-                        timestampMs: Int64(sentTimestampMs),
-                        userSessionId: userSessionId,
-                        openGroup: nil
-                    ),
+                    wasRead: dependencies.mutate(cache: .libSession) { cache in
+                        cache.timestampAlreadyRead(
+                            threadId: groupSessionId.hexString,
+                            threadVariant: .group,
+                            timestampMs: Int64(sentTimestampMs),
+                            userSessionId: userSessionId,
+                            openGroup: nil
+                        )
+                    },
                     expiresInSeconds: (relevantConfig.isEnabled ? nil : localConfig.durationSeconds),
                     using: dependencies
                 ).inserted(db)
@@ -697,29 +699,24 @@ extension MessageReceiver {
         /// If we haven't already handled being kicked from the group then update the name of the group in `USER_GROUPS` so
         /// that if the user doesn't delete the group and links a new device, the group will have the same name as on the current device
         if !LibSession.wasKickedFromGroup(groupSessionId: groupSessionId, using: dependencies) {
-            let groupName: String? = try? dependencies[cache: .libSession]
-                .config(for: .groupInfo, sessionId: groupSessionId)
-                .wrappedValue
-                .map { config in try LibSession.groupName(in: config) }
-            
-            switch groupName {
-                case .none: Log.warn(.messageReceiver, "Failed to update group name before being kicked.")
-                case .some(let name):
-                    try dependencies[cache: .libSession]
-                        .config(for: .userGroups, sessionId: userSessionId)
-                        .wrappedValue
-                        .map { config in
-                            try LibSession.upsert(
-                                groups: [
-                                    LibSession.GroupUpdateInfo(
-                                        groupSessionId: groupSessionId.hexString,
-                                        name: name
-                                    )
-                                ],
-                                in: config,
-                                using: dependencies
-                            )
-                        }
+            dependencies.mutate(cache: .libSession) { cache in
+                let config: LibSession.Config? = cache.config(for: .groupInfo, sessionId: groupSessionId)
+                let groupName: String? = try? LibSession.groupName(in: config)
+                
+                switch groupName {
+                    case .none: Log.warn(.messageReceiver, "Failed to update group name before being kicked.")
+                    case .some(let name):
+                        try? LibSession.upsert(
+                            groups: [
+                                LibSession.GroupUpdateInfo(
+                                    groupSessionId: groupSessionId.hexString,
+                                    name: name
+                                )
+                            ],
+                            in: config,
+                            using: dependencies
+                        )
+                }
             }
             
             /// Mark the group as kicked in libSession
@@ -865,13 +862,15 @@ extension MessageReceiver {
                 }
             }(),
             timestampMs: sentTimestampMs,
-            wasRead: dependencies[cache: .libSession].timestampAlreadyRead(
-                threadId: groupSessionId.hexString,
-                threadVariant: .group,
-                timestampMs: sentTimestampMs,
-                userSessionId: userSessionId,
-                openGroup: nil
-            ),
+            wasRead: dependencies.mutate(cache: .libSession) { cache in
+                cache.timestampAlreadyRead(
+                    threadId: groupSessionId.hexString,
+                    threadVariant: .group,
+                    timestampMs: sentTimestampMs,
+                    userSessionId: userSessionId,
+                    openGroup: nil
+                )
+            },
             using: dependencies
         ).inserted(db)
         

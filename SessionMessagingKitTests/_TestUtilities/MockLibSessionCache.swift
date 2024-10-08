@@ -24,7 +24,7 @@ class MockLibSessionCache: Mock<LibSessionCacheType>, LibSessionCacheType {
         mockNoReturn(args: [userConfigVariants, groups, userSessionId, userEd25519KeyPair])
     }
     
-    func config(for variant: ConfigDump.Variant, sessionId: SessionId) -> Atomic<LibSession.Config?> {
+    func config(for variant: ConfigDump.Variant, sessionId: SessionId) -> LibSession.Config? {
         return mock(args: [variant, sessionId])
     }
     

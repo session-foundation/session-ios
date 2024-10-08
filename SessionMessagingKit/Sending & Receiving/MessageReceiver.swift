@@ -577,23 +577,19 @@ public enum MessageReceiver {
             
             // Note: 'sentTimestamp' is in milliseconds so convert it
             let messageSentTimestamp: TimeInterval = TimeInterval((message.sentTimestampMs ?? 0) * 1000)
-            let deleteBefore: TimeInterval = (try? LibSession
-                .groupDeleteBefore(
-                    in: dependencies[cache: .libSession]
-                        .config(for: .groupInfo, sessionId: SessionId(.group, hex: threadId))
-                        .wrappedValue
-                )).defaulting(to: 0)
-            let deleteAttachmentsBefore: TimeInterval = (try? LibSession
-                .groupAttachmentDeleteBefore(
-                    in: dependencies[cache: .libSession]
-                        .config(for: .groupInfo, sessionId: SessionId(.group, hex: threadId))
-                        .wrappedValue
-                )).defaulting(to: 0)
+            let deletionInfo: (deleteBefore: TimeInterval, deleteAttachmentsBefore: TimeInterval) = dependencies.mutate(cache: .libSession) { cache in
+                let config: LibSession.Config? = cache.config(for: .groupInfo, sessionId: SessionId(.group, hex: threadId))
+                
+                return (
+                    ((try? LibSession.groupDeleteBefore(in: config)) ?? 0),
+                    ((try? LibSession.groupAttachmentDeleteBefore(in: config)) ?? 0)
+                )
+            }
             
             return (
-                deleteBefore > messageSentTimestamp || (
+                deletionInfo.deleteBefore > messageSentTimestamp || (
                     (message as? VisibleMessage)?.dataMessageHasAttachments == true &&
-                    deleteAttachmentsBefore > messageSentTimestamp
+                    deletionInfo.deleteAttachmentsBefore > messageSentTimestamp
                 )
             )
         }()

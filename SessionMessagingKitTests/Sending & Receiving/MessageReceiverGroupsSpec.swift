@@ -188,19 +188,19 @@ class MessageReceiverGroupsSpec: QuickSpec {
                     .thenReturn(())
                 cache
                     .when { $0.config(for: .userGroups, sessionId: userSessionId) }
-                    .thenReturn(Atomic(userGroupsConfig))
+                    .thenReturn(userGroupsConfig)
                 cache
                     .when { $0.config(for: .convoInfoVolatile, sessionId: userSessionId) }
-                    .thenReturn(Atomic(convoInfoVolatileConfig))
+                    .thenReturn(convoInfoVolatileConfig)
                 cache
                     .when { $0.config(for: .groupInfo, sessionId: groupId) }
-                    .thenReturn(Atomic(groupInfoConfig))
+                    .thenReturn(groupInfoConfig)
                 cache
                     .when { $0.config(for: .groupMembers, sessionId: groupId) }
-                    .thenReturn(Atomic(groupMembersConfig))
+                    .thenReturn(groupMembersConfig)
                 cache
                     .when { $0.config(for: .groupKeys, sessionId: groupId) }
-                    .thenReturn(Atomic(groupKeysConfig))
+                    .thenReturn(groupKeysConfig)
                 cache.when { $0.configNeedsDump(.any) }.thenReturn(false)
                 cache
                     .when { try $0.performAndPushChange(.any, for: .any, sessionId: .any, change: { _ in }) }

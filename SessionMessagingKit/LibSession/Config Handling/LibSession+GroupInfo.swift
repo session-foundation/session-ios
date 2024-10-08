@@ -417,15 +417,11 @@ public extension LibSession {
         groupSessionId: SessionId,
         using dependencies: Dependencies
     ) -> Bool {
-        return dependencies[cache: .libSession]
-            .config(for: .groupInfo, sessionId: groupSessionId)
-            .wrappedValue
-            .map { config in
-                guard case .object(let conf) = config else { return false }
-                
-                return groups_info_is_destroyed(conf)
-            }
-            .defaulting(to: false)
+        return dependencies.mutate(cache: .libSession) { cache in
+            guard case .object(let conf) = cache.config(for: .groupInfo, sessionId: groupSessionId) else { return false }
+            
+            return groups_info_is_destroyed(conf)
+        }
     }
 }
 

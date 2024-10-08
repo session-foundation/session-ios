@@ -41,6 +41,12 @@ final class IncomingCallBanner: UIView, UIGestureRecognizerDelegate {
                 .withImage(UIImage(named: "AnswerCall")?.withRenderingMode(.alwaysTemplate))
                 .withContentInsets(NSDirectionalEdgeInsets(top: 6, leading: 6, bottom: 6, trailing: 6))
         )
+        .withConfigurationUpdateHandler { button in
+            switch button.state {
+                case .highlighted: button.imageView?.tintAdjustmentMode = .dimmed
+                default: button.imageView?.tintAdjustmentMode = .normal
+            }
+        }
         .withImageViewContentMode(.scaleAspectFit)
         .withThemeTintColor(.white)
         .withThemeBackgroundColor(.callAccept_background)
@@ -59,6 +65,12 @@ final class IncomingCallBanner: UIView, UIGestureRecognizerDelegate {
                 .withImage(UIImage(named: "EndCall")?.withRenderingMode(.alwaysTemplate))
                 .withContentInsets(NSDirectionalEdgeInsets(top: 13, leading: 9, bottom: 13, trailing: 9))
         )
+        .withConfigurationUpdateHandler { button in
+            switch button.state {
+                case .highlighted: button.imageView?.tintAdjustmentMode = .dimmed
+                default: button.imageView?.tintAdjustmentMode = .normal
+            }
+        }
         .withImageViewContentMode(.scaleAspectFit)
         .withThemeTintColor(.white)
         .withThemeBackgroundColor(.callDecline_background)
@@ -132,7 +144,8 @@ final class IncomingCallBanner: UIView, UIGestureRecognizerDelegate {
         self.addSubview(stackView)
         
         stackView.center(.vertical, in: self)
-        stackView.set(.width, to: .width, of: self, withOffset: Values.mediumSpacing)
+        stackView.pin(.leading, to: .leading, of: self, withInset: Values.mediumSpacing)
+        stackView.pin(.trailing, to: .trailing, of: self, withInset: -Values.mediumSpacing)
     }
     
     private func setUpGestureRecognizers() {
@@ -229,7 +242,7 @@ final class IncomingCallBanner: UIView, UIGestureRecognizerDelegate {
         window.addSubview(self)
         
         let topMargin = window.safeAreaInsets.top - Values.smallSpacing
-        self.set(.width, to: .width, of: window, withOffset: Values.smallSpacing)
+        self.set(.width, to: .width, of: window, withOffset: -Values.smallSpacing)
         self.pin(.top, to: .top, of: window, withInset: topMargin)
         
         UIView.animate(withDuration: 0.5, delay: 0, options: [], animations: {

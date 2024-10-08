@@ -194,16 +194,16 @@ class MessageSenderGroupsSpec: QuickSpec {
                     .thenReturn(())
                 cache
                     .when { $0.config(for: .userGroups, sessionId: userSessionId) }
-                    .thenReturn(Atomic(userGroupsConfig))
+                    .thenReturn(userGroupsConfig)
                 cache
                     .when { $0.config(for: .groupInfo, sessionId: groupId) }
-                    .thenReturn(Atomic(groupInfoConfig))
+                    .thenReturn(groupInfoConfig)
                 cache
                     .when { $0.config(for: .groupMembers, sessionId: groupId) }
-                    .thenReturn(Atomic(groupMembersConfig))
+                    .thenReturn(groupMembersConfig)
                 cache
                     .when { $0.config(for: .groupKeys, sessionId: groupId) }
-                    .thenReturn(Atomic(groupKeysConfig))
+                    .thenReturn(groupKeysConfig)
                 cache
                     .when { try $0.pendingChanges(.any, swarmPubkey: .any) }
                     .thenReturn(LibSession.PendingChanges(obsoleteHashes: ["testHash"]))

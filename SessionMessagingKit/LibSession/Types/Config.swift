@@ -340,55 +340,6 @@ public extension LibSession {
     }
 }
 
-// MARK: - Optional Convenience
-
-public extension Optional where Wrapped == LibSession.Config {
-    // MARK: - Variables
-    
-    var needsPush: Bool {
-        switch self {
-            case .some(let config): return config.needsPush
-            case .none: return false
-        }
-    }
-    
-    var lastError: LibSessionError? {
-        switch self {
-            case .some(let config): return config.lastError
-            case .none: return LibSessionError.invalidConfigObject
-        }
-    }
-    
-    // MARK: - Functions
-    
-    func confirmPushed(seqNo: Int64, hash: String) {
-        switch self {
-            case .some(let config): return config.confirmPushed(seqNo: seqNo, hash: hash)
-            case .none: return
-        }
-    }
-    
-    func dump() throws -> Data? {
-        switch self {
-            case .some(let config): return try config.dump()
-            case .none: return nil
-        }
-    }
-    
-    func currentHashes() -> [String] {
-        switch self {
-            case .some(let config): return config.currentHashes()
-            case .none: return []
-        }
-    }
-}
-
-// MARK: - Atomic Convenience
-
-public extension Atomic where Value == Optional<LibSession.Config> {
-    var needsPush: Bool { return wrappedValue.needsPush }
-}
-
 // MARK: - LibSessionError Convenience
 
 public extension LibSessionError {

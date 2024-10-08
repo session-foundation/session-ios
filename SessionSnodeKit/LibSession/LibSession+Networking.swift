@@ -741,8 +741,10 @@ public extension LibSession {
                     /// Register the callbacks in the next run loop (this needs to happen in a subsequent run loop because it mutates the
                     /// `libSessionNetwork` cache and this function gets called during init so could end up with weird order-of-execution issues)
                     ///
-                    /// **Note:** If `OperationQueue.current` is `nil` then this will be run on the main queue (ie. it'll always be run)
-                    OperationQueue.current?.addOperation { [weak self] in
+                    /// **Note:** We do it this way because `DispatchQueue.async` can be optimised out if the code is already running in a
+                    /// queue with the same `qos`, this approach ensures the code will run in a subsequent run loop regardless
+                    let concurrentQueue = DispatchQueue(label: "Network.callback.registration", attributes: .concurrent)
+                    concurrentQueue.async(flags: .barrier) { [weak self] in
                         guard
                             let network: UnsafeMutablePointer<network_object> = self?.network,
                             let dependenciesPtr: UnsafeMutableRawPointer = self?.dependenciesPtr

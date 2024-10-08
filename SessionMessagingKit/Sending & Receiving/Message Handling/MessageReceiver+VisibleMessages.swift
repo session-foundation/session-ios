@@ -143,13 +143,15 @@ extension MessageReceiver {
         // Auto-mark sent messages or messages older than the 'lastReadTimestampMs' as read
         let wasRead: Bool = (
             variant == .standardOutgoing ||
-            dependencies[cache: .libSession].timestampAlreadyRead(
-                threadId: thread.id,
-                threadVariant: thread.variant,
-                timestampMs: Int64(messageSentTimestamp * 1000),
-                userSessionId: userSessionId,
-                openGroup: maybeOpenGroup
-            )
+            dependencies.mutate(cache: .libSession) { cache in
+                cache.timestampAlreadyRead(
+                    threadId: thread.id,
+                    threadVariant: thread.variant,
+                    timestampMs: Int64(messageSentTimestamp * 1000),
+                    userSessionId: userSessionId,
+                    openGroup: maybeOpenGroup
+                )
+            }
         )
         let messageExpirationInfo: Message.MessageExpirationInfo = Message.getMessageExpirationInfo(
             threadVariant: thread.variant,
@@ -446,13 +448,15 @@ extension MessageReceiver {
                     count: 1,
                     sortId: sortId
                 ).inserted(db)
-                let timestampAlreadyRead: Bool = dependencies[cache: .libSession].timestampAlreadyRead(
-                    threadId: thread.id,
-                    threadVariant: thread.variant,
-                    timestampMs: timestampMs,
-                    userSessionId: userSessionId,
-                    openGroup: openGroup
-                )
+                let timestampAlreadyRead: Bool = dependencies.mutate(cache: .libSession) { cache in
+                    cache.timestampAlreadyRead(
+                        threadId: thread.id,
+                        threadVariant: thread.variant,
+                        timestampMs: timestampMs,
+                        userSessionId: userSessionId,
+                        openGroup: openGroup
+                    )
+                }
                 
                 // Don't notify if the reaction was added before the lastest read timestamp for
                 // the conversation

@@ -332,15 +332,13 @@ internal extension LibSession {
         groupSessionId: SessionId,
         using dependencies: Dependencies
     ) -> Bool {
-        return (try? dependencies[cache: .libSession]
-            .config(for: .groupKeys, sessionId: groupSessionId)
-            .wrappedValue
-            .map { config in
-                guard case .groupKeys(let conf, _, _) = config else { throw LibSessionError.invalidConfigObject }
-                
-                return groups_keys_is_admin(conf)
-            })
-            .defaulting(to: false)
+        return dependencies.mutate(cache: .libSession) { cache in
+            guard case .groupKeys(let conf, _, _) = cache.config(for: .groupKeys, sessionId: groupSessionId) else {
+                return false
+            }
+            
+            return groups_keys_is_admin(conf)
+        }
     }
 }
 
