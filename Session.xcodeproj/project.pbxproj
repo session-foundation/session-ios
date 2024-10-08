@@ -4634,7 +4634,6 @@
 				FD5E93D52C12D8120038C25A /* Add Commit Hash To Build Info Plist */,
 				FD5E93D72C12DA400038C25A /* Add App Group To Build Info Plist */,
 				FDC498C12AC1775400EDD897 /* Ensure Localizable.strings included */,
-				943BC5A02C6F26370066A56A /* Ensure InfoPlist.xcstrings updated */,
 			);
 			buildRules = (
 			);
@@ -4777,6 +4776,7 @@
 				FDD82C422A2085B900425F05 /* Add Commit Hash To Build Info Plist */,
 				FD5E93D32C12D3990038C25A /* Add App Group To Build Info Plist */,
 				FDC498BF2AC1747900EDD897 /* Ensure Localizable.strings included */,
+				FD0B1FA92CA3805C00F60F46 /* Ensure InfoPlist.xcstrings updated */,
 			);
 			buildRules = (
 			);
@@ -5263,7 +5263,7 @@
 /* End PBXResourcesBuildPhase section */
 
 /* Begin PBXShellScriptBuildPhase section */
-		943BC5A02C6F26370066A56A /* Ensure InfoPlist.xcstrings updated */ = {
+		FD0B1FA92CA3805C00F60F46 /* Ensure InfoPlist.xcstrings updated */ = {
 			isa = PBXShellScriptBuildPhase;
 			alwaysOutOfDate = 1;
 			buildActionMask = 2147483647;
@@ -5301,6 +5301,7 @@
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
 			shellScript = "INFO_PLIST=\"${TARGET_BUILD_DIR}\"/\"${INFOPLIST_PATH}\"\nENTITLEMENTS_FILE=\"${SRCROOT}/${CODE_SIGN_ENTITLEMENTS}\"\n\n# Wait for Info.plist to be processed\nwhile [[ ! -f \"${INFO_PLIST}\" ]] && [[ ! -f \"${ENTITLEMENTS_FILE}\" ]]; do\n    echo \"Waiting for plist and entitlements to be copied\"\n    sleep 1\ndone\n\n# Query and save the value; suppress any error message, if key not found.\nvalue=$(/usr/libexec/PlistBuddy -c 'print :AppGroupsId' \"${INFO_PLIST}\" 2>/dev/null)\n\n# Check if value is empty\nif [ -z \"$value\" ] \nthen\n   /usr/libexec/PlistBuddy -c \"Add :AppGroupsId string\" \"${INFO_PLIST}\"\nfi\n\napp_group_id=$(xmllint --xpath 'string(//key[.=\"com.apple.security.application-groups\"]/following-sibling::array/string)' \"$ENTITLEMENTS_FILE\")\n\n/usr/libexec/PlistBuddy -c \"Set :AppGroupsId ${app_group_id}\" \"${INFO_PLIST}\"\n";
+			showEnvVarsInLog = 0;
 		};
 		FD5E93D42C12D3CB0038C25A /* Add Commit Hash To Build Info Plist */ = {
 			isa = PBXShellScriptBuildPhase;
@@ -5364,6 +5365,7 @@
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
 			shellScript = "INFO_PLIST=\"${TARGET_BUILD_DIR}\"/\"${INFOPLIST_PATH}\"\nENTITLEMENTS_FILE=\"${SRCROOT}/${CODE_SIGN_ENTITLEMENTS}\"\n\n# Wait for Info.plist to be processed\nwhile [[ ! -f \"${INFO_PLIST}\" ]] && [[ ! -f \"${ENTITLEMENTS_FILE}\" ]]; do\n    echo \"Waiting for plist and entitlements to be copied\"\n    sleep 1\ndone\n\n# Query and save the value; suppress any error message, if key not found.\nvalue=$(/usr/libexec/PlistBuddy -c 'print :AppGroupsId' \"${INFO_PLIST}\" 2>/dev/null)\n\n# Check if value is empty\nif [ -z \"$value\" ] \nthen\n   /usr/libexec/PlistBuddy -c \"Add :AppGroupsId string\" \"${INFO_PLIST}\"\nfi\n\napp_group_id=$(xmllint --xpath 'string(//key[.=\"com.apple.security.application-groups\"]/following-sibling::array/string)' \"$ENTITLEMENTS_FILE\")\n\n/usr/libexec/PlistBuddy -c \"Set :AppGroupsId ${app_group_id}\" \"${INFO_PLIST}\"\n";
+			showEnvVarsInLog = 0;
 		};
 		FD5E93D72C12DA400038C25A /* Add App Group To Build Info Plist */ = {
 			isa = PBXShellScriptBuildPhase;
@@ -5505,6 +5507,7 @@
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
 			shellScript = "INFO_PLIST=\"${TARGET_BUILD_DIR}\"/\"${INFOPLIST_PATH}\"\n\n# Wait for Info.plist to be processed\nwhile [[ ! -f \"${INFO_PLIST}\" ]]; do\n    echo \"Waiting for plist to be copied\"\n    sleep 1\ndone\n\n# Query and save the value; suppress any error message, if key not found.\nvalue=$(/usr/libexec/PlistBuddy -c 'print :GitCommitHash' \"${INFO_PLIST}\" 2>/dev/null)\n\n# Check if value is empty\nif [ -z \"$value\" ] \nthen\n   /usr/libexec/PlistBuddy -c \"Add :GitCommitHash string\" \"${INFO_PLIST}\"\nfi\n\n/usr/libexec/PlistBuddy -c \"Set :GitCommitHash `git rev-parse --short=7 HEAD`\" \"${INFO_PLIST}\"\n";
+			showEnvVarsInLog = 0;
 		};
 		FDE7214D287E50820093DF33 /* Lint Localizable.strings */ = {
 			isa = PBXShellScriptBuildPhase;

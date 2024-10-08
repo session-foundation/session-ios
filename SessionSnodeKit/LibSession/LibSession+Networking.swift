@@ -167,6 +167,12 @@ public extension LibSession {
         network_clear_cache(network)
     }
     
+    static func snodeCacheSize() -> Int {
+        guard let network: UnsafeMutablePointer<network_object> = networkCache.wrappedValue else { return 0 }
+        
+        return network_get_snode_cache_size(network)
+    }
+    
     static func getSwarm(swarmPublicKey: String) -> AnyPublisher<Set<Snode>, Error> {
         typealias Output = Result<Set<Snode>, Error>
         

@@ -33,8 +33,8 @@ public enum SNUtilitiesKit: MigratableTarget { // Just to make the external API 
         )
     }
 
-    public static func configure(maxFileSize: UInt) {
-        SNUtilitiesKitConfiguration.maxFileSize = maxFileSize
+    public static func configure(networkMaxFileSize: UInt) {
+        SNUtilitiesKitConfiguration.maxFileSize = networkMaxFileSize
     }
 }
 
