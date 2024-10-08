@@ -9,7 +9,7 @@ import SessionUtilitiesKit
 public enum Configuration {
     public static func performMainSetup() {
         // Need to do this first to ensure the legacy database exists
-        SNUtilitiesKit.configure(maxFileSize: UInt(Network.maxFileSize))
+        SNUtilitiesKit.configure(networkMaxFileSize: UInt(Network.maxFileSize))
         SNMessagingKit.configure()
         SNUIKit.configure()
         
