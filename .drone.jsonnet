@@ -6,6 +6,7 @@ local version_info = {
   name: 'Version Information',
   environment: { LANG: 'en_US.UTF-8' },
   commands: [
+    'which xcresultparser',
     'git --version',
     'xcodebuild -version',
     'xcbeautify --version',
@@ -76,7 +77,6 @@ local sim_delete_cmd = 'if [ -f build/artifacts/sim_uuid ]; then rm -f /Users/$U
         commands: [
           sim_delete_cmd,
           |||
-            which xcresultparser
             if [[ -d ./build/artifacts/testResults.xcresult ]]; then
               xcresultparser --output-format cli --failed-tests-only ./build/artifacts/testResults.xcresult
             else
@@ -92,7 +92,6 @@ local sim_delete_cmd = 'if [ -f build/artifacts/sim_uuid ]; then rm -f /Users/$U
       {
         name: 'Convert xcresult to xml',
         commands: [
-          'which xcresultparser',
           'xcresultparser --output-format cobertura ./build/artifacts/testResults.xcresult > ./build/artifacts/coverage.xml',
         ],
         depends_on: ['Build and Run Tests'],
