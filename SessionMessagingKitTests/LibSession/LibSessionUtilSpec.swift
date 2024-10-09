@@ -526,7 +526,7 @@ fileprivate extension LibSessionUtilSpec {
                 expect(pushData9.pointee.seqno).to(equal(pushData8.pointee.seqno))
                 
                 let pushData8Str: String? = String(pointer: pushData8.pointee.config, length: pushData8.pointee.config_len, encoding: .ascii)
-                let pushData9Str: String = String(pointer: pushData9.pointee.config, length: pushData9.pointee.config_len, encoding: .ascii)?
+                let pushData9Str: String? = String(pointer: pushData9.pointee.config, length: pushData9.pointee.config_len, encoding: .ascii)
                 expect(pushData8Str).toNot(beNil())
                 expect(pushData9Str).toNot(beNil())
                 expect(pushData8Str).to(equal(pushData9Str))
