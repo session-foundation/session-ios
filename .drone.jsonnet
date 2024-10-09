@@ -6,7 +6,6 @@ local version_info = {
   name: 'Version Information',
   environment: { LANG: 'en_US.UTF-8' },
   commands: [
-    'which xcresultparser',
     'git --version',
     'xcodebuild -version',
     'xcbeautify --version',
