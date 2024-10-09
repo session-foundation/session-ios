@@ -480,11 +480,9 @@ fileprivate extension LibSessionUtilSpec {
                 let pushData7: UnsafeMutablePointer<config_push_data> = config_push(conf2)
                 expect(pushData7.pointee.seqno).to(equal(3))
                 
-                let pushData6Str: String? = String(pointer: pushData6.pointee.config, length: pushData6.pointee.config_len, encoding: .ascii)
-                let pushData7Str: String? = String(pointer: pushData7.pointee.config, length: pushData7.pointee.config_len, encoding: .ascii)
-                expect(pushData6Str).toNot(beNil())
-                expect(pushData7Str).toNot(beNil())
-                expect(pushData6Str).toNot(equal(pushData7Str))
+                let pushData6Data: Data = Data(bytes: pushData6.pointee.config, count: pushData6.pointee.config_len)
+                let pushData7Data: Data = Data(bytes: pushData7.pointee.config, count: pushData7.pointee.config_len)
+                expect(pushData6Data).toNot(equal(pushData7Data))
                 expect([String](pointer: pushData6.pointee.obsolete, count: pushData6.pointee.obsolete_len))
                     .to(equal([fakeHash2]))
                 expect([String](pointer: pushData7.pointee.obsolete, count: pushData7.pointee.obsolete_len))
@@ -525,11 +523,9 @@ fileprivate extension LibSessionUtilSpec {
                 let pushData9: UnsafeMutablePointer<config_push_data> = config_push(conf2)
                 expect(pushData9.pointee.seqno).to(equal(pushData8.pointee.seqno))
                 
-                let pushData8Str: String? = String(pointer: pushData8.pointee.config, length: pushData8.pointee.config_len, encoding: .ascii)
-                let pushData9Str: String? = String(pointer: pushData9.pointee.config, length: pushData9.pointee.config_len, encoding: .ascii)
-                expect(pushData8Str).toNot(beNil())
-                expect(pushData9Str).toNot(beNil())
-                expect(pushData8Str).to(equal(pushData9Str))
+                let pushData8Data: Data = Data(bytes: pushData8.pointee.config, count: pushData8.pointee.config_len)
+                let pushData9Data: Data = Data(bytes: pushData9.pointee.config, count: pushData9.pointee.config_len)
+                expect(pushData8Data).to(equal(pushData9Data))
                 expect([String](pointer: pushData8.pointee.obsolete, count: pushData8.pointee.obsolete_len))
                     .to(equal([fakeHash3b, fakeHash3a]))
                 expect([String](pointer: pushData9.pointee.obsolete, count: pushData9.pointee.obsolete_len))
@@ -818,9 +814,9 @@ fileprivate extension LibSessionUtilSpec {
                 
                 // Since we set different things, we're going to get back different serialized data to be
                 // pushed:
-                let pushData3Str: String? = String(pointer: pushData3.pointee.config, length: pushData3.pointee.config_len, encoding: .ascii)
-                let pushData4Str: String? = String(pointer: pushData4.pointee.config, length: pushData4.pointee.config_len, encoding: .ascii)
-                expect(pushData3Str).toNot(equal(pushData4Str))
+                let pushData3Data: Data = Data(bytes: pushData3.pointee.config, count: pushData3.pointee.config_len)
+                let pushData4Data: Data = Data(bytes: pushData4.pointee.config, count: pushData4.pointee.config_len)
+                expect(pushData3Data).toNot(equal(pushData4Data))
                 
                 // Now imagine that each client pushed its `seqno=2` config to the swarm, but then each client
                 // also fetches new messages and pulls down the other client's `seqno=2` value.
