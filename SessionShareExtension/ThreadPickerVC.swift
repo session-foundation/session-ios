@@ -307,7 +307,7 @@ final class ThreadPickerVC: UIViewController, UITableViewDataSource, UITableView
                                 attachmentId: LinkPreview
                                     .generateAttachmentIfPossible(
                                         imageData: linkPreviewDraft.jpegImageData,
-                                        mimeType: MimeTypeUtil.MimeType.imageJpeg
+                                        type: .jpeg
                                     )?
                                     .inserted(db)
                                     .id

@@ -639,7 +639,7 @@
 		FD6A38F72C2A6C0100762359 /* CryptoError.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD6A38F62C2A6C0100762359 /* CryptoError.swift */; };
 		FD6A38F92C2A8AF700762359 /* DataSource.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD6A38F82C2A8AF700762359 /* DataSource.swift */; };
 		FD6A38FE2C2A8B7E00762359 /* MediaUtils.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD6A38FD2C2A8B7E00762359 /* MediaUtils.swift */; };
-		FD6A39002C2A8B9100762359 /* MimeTypeUtil.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD6A38FF2C2A8B9100762359 /* MimeTypeUtil.swift */; };
+		FD6A39002C2A8B9100762359 /* UTType+Utilities.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD6A38FF2C2A8B9100762359 /* UTType+Utilities.swift */; };
 		FD6A39022C2A8BDE00762359 /* UIImage+Utilities.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD6A39012C2A8BDE00762359 /* UIImage+Utilities.swift */; };
 		FD6A39042C2A8C0300762359 /* CGFloat+Utilities.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD6A39032C2A8C0300762359 /* CGFloat+Utilities.swift */; };
 		FD6A39062C2A8C1600762359 /* CGPoint+Utilities.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD6A39052C2A8C1600762359 /* CGPoint+Utilities.swift */; };
@@ -1383,6 +1383,7 @@
 		94367C422C6C828500814252 /* Localizable.xcstrings */ = {isa = PBXFileReference; lastKnownFileType = text.json.xcstrings; path = Localizable.xcstrings; sourceTree = "<group>"; };
 		943C6D812B75E061004ACE64 /* Message+DisappearingMessages.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Message+DisappearingMessages.swift"; sourceTree = "<group>"; };
 		943C6D832B86B5F1004ACE64 /* Localization.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Localization.swift; sourceTree = "<group>"; };
+		9471CAA72CACFB4E00090FB7 /* GenerateLicenses.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GenerateLicenses.swift; sourceTree = "<group>"; };
 		9473386D2BDF5F3E00B9E169 /* InfoPlist.xcstrings */ = {isa = PBXFileReference; lastKnownFileType = text.json.xcstrings; path = InfoPlist.xcstrings; sourceTree = "<group>"; };
 		947AD68F2C8968FF000B2730 /* Constants.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Constants.swift; sourceTree = "<group>"; };
 		94B3DC162AF8592200C88531 /* QuoteView_SwiftUI.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = QuoteView_SwiftUI.swift; sourceTree = "<group>"; };
@@ -1804,7 +1805,7 @@
 		FD6A38F62C2A6C0100762359 /* CryptoError.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CryptoError.swift; sourceTree = "<group>"; };
 		FD6A38F82C2A8AF700762359 /* DataSource.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DataSource.swift; sourceTree = "<group>"; };
 		FD6A38FD2C2A8B7E00762359 /* MediaUtils.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MediaUtils.swift; sourceTree = "<group>"; };
-		FD6A38FF2C2A8B9100762359 /* MimeTypeUtil.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MimeTypeUtil.swift; sourceTree = "<group>"; };
+		FD6A38FF2C2A8B9100762359 /* UTType+Utilities.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "UTType+Utilities.swift"; sourceTree = "<group>"; };
 		FD6A39012C2A8BDE00762359 /* UIImage+Utilities.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "UIImage+Utilities.swift"; sourceTree = "<group>"; };
 		FD6A39032C2A8C0300762359 /* CGFloat+Utilities.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "CGFloat+Utilities.swift"; sourceTree = "<group>"; };
 		FD6A39052C2A8C1600762359 /* CGPoint+Utilities.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "CGPoint+Utilities.swift"; sourceTree = "<group>"; };
@@ -2673,7 +2674,7 @@
 				FD6A38F82C2A8AF700762359 /* DataSource.swift */,
 				FD09797827FAB7E800936362 /* ImageFormat.swift */,
 				FD6A38FD2C2A8B7E00762359 /* MediaUtils.swift */,
-				FD6A38FF2C2A8B9100762359 /* MimeTypeUtil.swift */,
+				FD6A38FF2C2A8B9100762359 /* UTType+Utilities.swift */,
 			);
 			path = Media;
 			sourceTree = "<group>";
@@ -4387,6 +4388,7 @@
 				FDE72150287E50D50093DF33 /* LintLocalizableStrings.swift */,
 				FD5CE3442A3C5D96001A6DE3 /* DecryptExportedKey.swift */,
 				FDEF57642C44B8C200131302 /* ProcessIP2CountryData.swift */,
+				9471CAA72CACFB4E00090FB7 /* GenerateLicenses.swift */,
 			);
 			path = Scripts;
 			sourceTree = "<group>";
@@ -4777,6 +4779,7 @@
 				FD5E93D32C12D3990038C25A /* Add App Group To Build Info Plist */,
 				FDC498BF2AC1747900EDD897 /* Ensure Localizable.strings included */,
 				FD0B1FA92CA3805C00F60F46 /* Ensure InfoPlist.xcstrings updated */,
+				9471CAA62CACFB0600090FB7 /* Generate Licenses Plist */,
 			);
 			buildRules = (
 			);
@@ -5283,6 +5286,26 @@
 			shellScript = "\"${SRCROOT}/Scripts/LintLocalizableStrings.swift\" update\n";
 			showEnvVarsInLog = 0;
 		};
+		9471CAA62CACFB0600090FB7 /* Generate Licenses Plist */ = {
+			isa = PBXShellScriptBuildPhase;
+			alwaysOutOfDate = 1;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputFileListPaths = (
+			);
+			inputPaths = (
+			);
+			name = "Generate Licenses Plist";
+			outputFileListPaths = (
+			);
+			outputPaths = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "\"${SRCROOT}/Scripts/GenerateLicenses.swift\"\n";
+			showEnvVarsInLog = 0;
+		};
 		FD5E93D32C12D3990038C25A /* Add App Group To Build Info Plist */ = {
 			isa = PBXShellScriptBuildPhase;
 			alwaysOutOfDate = 1;
@@ -5751,7 +5774,7 @@
 				7B1D74B027C365960030B423 /* Timer+MainThread.swift in Sources */,
 				FDE049032C76A09700B6F9BB /* UIAlertAction+Utilities.swift in Sources */,
 				FD428B192B4B576F006D0888 /* AppContext.swift in Sources */,
-				FD6A39002C2A8B9100762359 /* MimeTypeUtil.swift in Sources */,
+				FD6A39002C2A8B9100762359 /* UTType+Utilities.swift in Sources */,
 				FD6A38F92C2A8AF700762359 /* DataSource.swift in Sources */,
 				FD559DF52A7368CB00C7C62A /* DispatchQueue+Utilities.swift in Sources */,
 				FDF8488329405A12007DCAE5 /* BatchResponse.swift in Sources */,

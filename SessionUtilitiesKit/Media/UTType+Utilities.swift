@@ -4,386 +4,199 @@
 
 import UIKit
 import MobileCoreServices
+import UniformTypeIdentifiers
 
-public extension MimeTypeUtil.MimeType {
-    static let imageGif: MimeTypeUtil.MimeType = "image/gif"
-    static let imagePng: MimeTypeUtil.MimeType = "image/png"
-    static let imageJpeg: MimeTypeUtil.MimeType = "image/jpeg"
-    static let imageWebp: MimeTypeUtil.MimeType = "image/webp"
-    static let imageTiff1: MimeTypeUtil.MimeType = "image/tiff"
-    static let imageTiff2: MimeTypeUtil.MimeType = "image/x-tiff"
-    static let imageBmp1: MimeTypeUtil.MimeType = "image/bmp"
-    static let imageBmp2: MimeTypeUtil.MimeType = "image/x-windows-bmp"
+public extension UTType {
+    /// This is an invalid type used to improve DSL for UTType usage
+    static let invalid: UTType = UTType(exportedAs: "invalid")
+    static let fileExtensionText: String = "txt"
+    static let fileExtensionDefault: String = "bin"
+    static let fileExtensionDefaultImage: String = "png"
+    static let mimeTypeDefault: String = "application/octet-stream"
+    static let mimeTypeJpeg: String = "image/jpeg"
+    static let mimeTypePdf: String = "application/pdf"
     
-    static let applicationPdf: MimeTypeUtil.MimeType = "application/pdf"
-    static let applicationOctetStream: MimeTypeUtil.MimeType = "application/octet-stream"
-    
-    static let unknownMimeTypeForTests: MimeTypeUtil.MimeType = "unknown/mimetype"
-}
-
-public extension MimeTypeUtil.FileExtension {
-    static let text: MimeTypeUtil.FileExtension = "txt"
-    static let syncMessage: MimeTypeUtil.FileExtension = "bin"
-    
-    static let unknownExtensionForTests: MimeTypeUtil.FileExtension = "unknown"
-}
-
-public extension MimeTypeUtil.UTI {
-    static let unknownUTIForTests: MimeTypeUtil.UTI = "org.whispersystems.unknown"
-}
-
-public enum MimeTypeUtil {
-    public typealias MimeType = String
-    public typealias FileExtension = String
-    public typealias UTI = String
-    
-    public static let supportedAudioUtiTypes: Set<String> = {
-        supportedAudioMimeTypesToExtensionTypes
-            .keys
-            .compactMap { utiType(for: $0) }
-            .asSet()
-    }()
-    
-    public static let supportedImageUtiTypes: Set<String> = {
-        supportedImageMimeTypesToExtensionTypes
-            .keys
-            .compactMap { utiType(for: $0) }
-            .asSet()
-    }()
-    
-    public static let supportedAnimatedUtiTypes: Set<String> = {
-        supportedAnimatedMimeTypesToExtensionTypes
-            .keys
-            .compactMap { utiType(for: $0) }
-            .asSet()
-    }()
-    
-    public static let supportedVideoUtiTypes: Set<String> = {
-        supportedVideoMimeTypesToExtensionTypes
-            .keys
-            .compactMap { utiType(for: $0) }
-            .asSet()
-    }()
-    
-    public static func isAnimated(_ mimeType: String) -> Bool {
-        return (supportedAnimatedMimeTypesToExtensionTypes[mimeType] != nil)
-    }
-    
-    public static func isAnimated(utiType: String) -> Bool {
-        return supportedAnimatedMimeTypesToExtensionTypes.keys.contains { mimeType in
-            return (self.utiType(for: mimeType) == utiType)
-        }
-    }
-    
-    public static func isBinaryData(_ mimeType: String) -> Bool {
-        return (supportedBinaryDataMimeTypesToExtensionTypes[mimeType] != nil)
-    }
-    
-    public static func isImage(_ mimeType: String) -> Bool {
-        return (supportedImageMimeTypesToExtensionTypes[mimeType] != nil)
-    }
-    
-    public static func isVideo(_ mimeType: String) -> Bool {
-        return (supportedVideoMimeTypesToExtensionTypes[mimeType] != nil)
-    }
-    
-    public static func isAudio(_ mimeType: String) -> Bool {
-        return (supportedAudioMimeTypesToExtensionTypes[mimeType] != nil)
-    }
-    
-    public static func isText(_ mimeType: String) -> Bool {
-        return supportedTextMimeTypes.contains(mimeType)
-    }
-    
-    public static func isMicrosoftDoc(_ mimeType: String) -> Bool {
-        return supportedMicrosoftDocMimeTypes.contains(mimeType)
-    }
-    
-    public static func isVisualMedia(_ mimeType: String) -> Bool {
-        guard !isImage(mimeType) else { return true }
-        guard !isVideo(mimeType) else { return true }
-        guard !isAnimated(mimeType) else { return true }
+    static let xTiff: UTType = UTType(mimeType: "image/x-tiff")!
+    static let xWinBpm: UTType = UTType(mimeType: "image/x-windows-bmp")!
         
-        return false
-    }
+    static let supportedAnimatedImageTypes: Set<UTType> = [
+        .gif, .webP
+    ]
     
-    public static func mimeType(for fileExtension: String) -> String? {
-        return genericExtensionTypesToMimeTypes[fileExtension]
-    }
+    static let supportedAudioTypes: Set<UTType> = [
+        UTType(mimeType: "audio/aac"),
+        UTType(mimeType: "audio/x-m4p"),
+        UTType(mimeType: "audio/x-m4b"),
+        UTType(mimeType: "audio/x-m4a"),
+        .wav,
+        .mp3,
+        .aiff,
+        .mpeg4Audio,
+        UTType(mimeType: "audio/3gpp2"),
+        UTType(mimeType: "audio/3gpp")
+    ].compactMap { $0 }.asSet()
     
-    public static func filePath(
-        for attachmentId: String,
-        ofMimeType mimeType: String,
-        sourceFilename: String?,
-        in folder: String
-    ) -> String? {
-        let defaultFileExtension: String = "bin"
-        
-        if let sourceFilename: String = sourceFilename, !sourceFilename.isEmpty {
-            // Ensure that the filename is a valid filesystem name,
-            // replacing invalid characters with an underscore.
-            var normalizedFileName: String = sourceFilename
-                .trimmingCharacters(in: .whitespacesAndNewlines)
-                .components(separatedBy: .whitespacesAndNewlines)
-                .joined(separator: "_")
-                .components(separatedBy: .illegalCharacters)
-                .joined(separator: "_")
-                .components(separatedBy: .controlCharacters)
-                .joined(separator: "_")
-                .components(separatedBy: CharacterSet(charactersIn: "<>|\\:()&;?*/~"))
-                .joined(separator: "_")
-            
-            while normalizedFileName.hasPrefix(".") {
-                normalizedFileName = String(normalizedFileName.substring(from: 1))
-            }
-            
-            var targetFileExtension: String = URL(fileURLWithPath: normalizedFileName).pathExtension
-            let filenameWithoutExtension: String = URL(fileURLWithPath: normalizedFileName)
-                .deletingPathExtension()
-                .lastPathComponent
-                .trimmingCharacters(in: .whitespacesAndNewlines)
-            
-            // If the filename has not file extension, deduce one
-            // from the MIME type.
-            if targetFileExtension.isEmpty {
-                targetFileExtension = (fileExtension(for: mimeType) ?? defaultFileExtension)
-            }
-            
-            targetFileExtension = targetFileExtension.lowercased()
-            
-            if !targetFileExtension.isEmpty {
-                // Store the file in a subdirectory whose name is the uniqueId of this attachment,
-                // to avoid collisions between multiple attachments with the same name
-                let attachmentFolderPath: String = folder.appending("/\(attachmentId)")
-                
-                guard case .success = Result(try FileSystem.ensureDirectoryExists(at: attachmentFolderPath)) else {
-                    return nil
-                }
-                
-                return attachmentFolderPath.appending("/\(filenameWithoutExtension).\(targetFileExtension)")
-            }
-        }
-        
-        let maybeExtension: String? = {
-            guard !isVideo(mimeType) else { return supportedVideoMimeTypesToExtensionTypes[mimeType] }
-            guard !isAudio(mimeType) else { return supportedAudioMimeTypesToExtensionTypes[mimeType] }
-            guard !isImage(mimeType) else { return supportedImageMimeTypesToExtensionTypes[mimeType] }
-            guard !isAnimated(mimeType) else { return supportedAnimatedMimeTypesToExtensionTypes[mimeType] }
-            guard !isBinaryData(mimeType) else { return supportedBinaryDataMimeTypesToExtensionTypes[mimeType] }
-            guard mimeType != MimeType.unknownMimeTypeForTests else {
-                // This file extension is arbitrary - it should never be exposed to the user or
-                // be used outside the app.
-                return FileExtension.unknownExtensionForTests
-            }
-            
-            return fileExtension(for: mimeType)
-        }()
-        
-        let targetFileExtension: String = (maybeExtension ?? defaultFileExtension).lowercased()
-        
-        return folder.appending("/\(attachmentId).\(targetFileExtension)")
-    }
+    static let supportedImageTypes: Set<UTType> = [
+        .jpeg, .png, .tiff, .bmp, .gif, .ico, .webP
+    ]
     
-    // MARK: - Deduction Logic
+    /// HEIC is valid input, but not valid output. Non-iOS11 clients do not support it.
+    static let supportedInputImageTypes: Set<UTType> = supportedImageTypes
+        .union(supportedAnimatedImageTypes)
+        .union([.heic, .heif])
     
-    public static func fileExtension(forUtiType utiType: String?) -> String? {
-        guard let utiType: String = utiType else { return nil }
+    static let supportedOutputImageTypes: Set<UTType> = supportedImageTypes
+        .union(supportedAnimatedImageTypes)
+    
+    static let supportedVideoTypes: Set<UTType> = [
+        UTType(mimeType: "video/3gpp"),
+        UTType(mimeType: "video/3gpp2"),
+        .mpeg4Movie,
+        .appleProtectedMPEG4Video,
+        .quickTimeMovie,
+        UTType(mimeType: "video/x-m4v"),
+        UTType(mimeType: "video/mpeg")
+    ].compactMap { $0 }.asSet()
+    
+    static let supportedOutputVideoTypes: Set<UTType> = [.mpeg4Movie]
+    
+    static let supportedVisualMediaTypes: Set<UTType> = supportedImageTypes
+        .union(supportedAnimatedImageTypes)
+        .union(supportedVideoTypes)
+    
+    static let supportedTextTypes: Set<UTType> = [
+        .text, .plainText, .commaSeparatedText, .tabSeparatedText
+    ]
+    
+    static let supportedMicrosoftDocTypes: Set<UTType> = [
+        // Word files
+        UTType(mimeType: "application/msword"),
         
+        UTType(mimeType: "application/vnd.openxmlformats-officedocument.wordprocessingml.document"),
+        UTType(mimeType: "application/vnd.openxmlformats-officedocument.wordprocessingml.template"),
+        UTType(mimeType: "application/vnd.ms-word.document.macroEnabled.12"),
+        UTType(mimeType: "application/vnd.ms-word.template.macroEnabled.12"),
+        
+        // Excel files
+        UTType(mimeType: "application/vnd.ms-excel"),
+        
+        UTType(mimeType: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"),
+        UTType(mimeType: "application/vnd.openxmlformats-officedocument.spreadsheetml.template"),
+        UTType(mimeType: "application/vnd.ms-excel.sheet.macroEnabled.12"),
+        UTType(mimeType: "application/vnd.ms-excel.template.macroEnabled.12"),
+        UTType(mimeType: "application/vnd.ms-excel.addin.macroEnabled.12"),
+        UTType(mimeType: "application/vnd.ms-excel.sheet.binary.macroEnabled.12"),
+        
+        // Powerpoint files
+        UTType(mimeType: "application/vnd.ms-powerpoint"),
+        
+        UTType(mimeType: "application/vnd.openxmlformats-officedocument.presentationml.presentation"),
+        UTType(mimeType: "application/vnd.openxmlformats-officedocument.presentationml.template"),
+        UTType(mimeType: "application/vnd.openxmlformats-officedocument.presentationml.slideshow"),
+        UTType(mimeType: "application/vnd.ms-powerpoint.addin.macroEnabled.12"),
+        UTType(mimeType: "application/vnd.ms-powerpoint.presentation.macroEnabled.12"),
+        UTType(mimeType: "application/vnd.ms-powerpoint.template.macroEnabled.12"),
+        UTType(mimeType: "application/vnd.ms-powerpoint.slideshow.macroEnabled.12")
+    ].compactMap { $0 }.asSet()
+    
+    var isAnimated: Bool { UTType.supportedAnimatedImageTypes.contains(self) }
+    var isImage: Bool { UTType.supportedImageTypes.contains(self) }
+    var isVideo: Bool { UTType.supportedVideoTypes.contains(self) }
+    var isAudio: Bool { UTType.supportedAudioTypes.contains(self) }
+    var isText: Bool { UTType.supportedTextTypes.contains(self) }
+    var isMicrosoftDoc: Bool { UTType.supportedMicrosoftDocTypes.contains(self) }
+    var isVisualMedia: Bool { isImage || isVideo || isAnimated }
+    
+    var sessionFileExtension: String? {
         // Special-case the "aac" filetype we use for voice messages (for legacy reasons)
         // to use a .m4a file extension, not .aac, since AVAudioPlayer can't handle .aac
         // properly. Doesn't affect file contents.
-        guard utiType != "public.aac-audio" else { return "m4a" }
+        guard identifier != "public.aac-audio" else { return "m4a" }
         
-        let maybeFileExtension: Unmanaged<CFString>? = UTTypeCopyPreferredTagWithClass(utiType as CFString, kUTTagClassFilenameExtension)
-        
-        guard let fileExtension: CFString = maybeFileExtension?.takeRetainedValue() else { return nil }
-        
-        return fileExtension as String
-    }
-    
-    public static func fileExtension(for mimeType: String) -> String? {
         // Try to deduce the file extension by using a lookup table.
         //
         // This should be more accurate than deducing the file extension by
         // converting to a UTI type.  For example, .m4a files will have a
         // UTI type of kUTTypeMPEG4Audio which incorrectly yields the file
         // extension .mp4 instead of .m4a.
-        guard let fileExtension: String = genericExtensionTypesToMimeTypes[mimeType] else {
-            // Try to deduce the file extension by converting to a UTI type
-            return fileExtension(forUtiType: utiType(for: mimeType))
-        }
+        guard
+            let mimeType: String = preferredMIMEType,
+            let fileExtension: String = UTType.genericExtensionTypesToMimeTypes
+                .first(where: { _, value in value == mimeType })?
+                .value
+        else { return preferredFilenameExtension }
         
         return fileExtension
     }
     
-    public static func utiType(forFileExtension fileExtension: String) -> String? {
-        let maybeUtiType: Unmanaged<CFString>? = UTTypeCreatePreferredIdentifierForTag(kUTTagClassFilenameExtension, fileExtension as CFString, nil)
+    // MARK: - Initialization
+    
+    init?(sessionFileExtension: String) {
+        guard
+            let mimeType: String = UTType.sessionMimeType(for: sessionFileExtension),
+            let result: UTType = UTType(sessionMimeType: mimeType)
+        else { return nil }
         
-        guard let utiType: CFString = maybeUtiType?.takeRetainedValue() else { return nil }
-        
-        return utiType as String
+        self = result
     }
     
-    public static func utiType(for mimeType: String) -> String? {
-        let maybeUtiType: Unmanaged<CFString>? = UTTypeCreatePreferredIdentifierForTag(kUTTagClassMIMEType, mimeType as CFString, nil)
-        
-        guard let utiType: CFString = maybeUtiType?.takeRetainedValue() else {
-            switch mimeType as String {
-                case "audio/amr": return "org.3gpp.adaptive-multi-rate-audio"
-                case "audio/mp3", "audio/x-mpeg", "audio/mpeg", "audio/mpeg3", "audio/x-mp3", "audio/x-mpeg3":
-                    return kUTTypeMP3 as String
+    init?(sessionMimeType: String) {
+        guard let result: UTType = UTType(mimeType: sessionMimeType) else {
+            switch sessionMimeType {
+                case "audio/amr":
+                    guard let result: UTType = UTType("org.3gpp.adaptive-multi-rate-audio") else { return nil }
+                    self = result
                     
-                case "audio/aac", "audio/x-m4a": return kUTTypeMPEG4Audio as String
-                case "audio/aiff", "audio/x-aiff": return kUTTypeAudioInterchangeFileFormat as String
-                    
+                case "audio/mp3", "audio/x-mpeg", "audio/mpeg", "audio/mpeg3", "audio/x-mp3", "audio/x-mpeg3": self = .mp3
+                case "audio/aac", "audio/x-m4a": self = .mpeg4Audio
+                case "audio/aiff", "audio/x-aiff": self = .aiff
+                
                 default: return nil
             }
+            
+            return
         }
         
-        return utiType as String
+        self = result
     }
-}
-
-// MARK: - Definitions
-
-fileprivate extension MimeTypeUtil {
-    static let supportedVideoMimeTypesToExtensionTypes: [String: String] = [
-        "video/3gpp": "3gp",
-        "video/3gpp2": "3g2",
-        "video/mp4": "mp4",
-        "video/quicktime": "mov",
-        "video/x-m4v": "m4v",
-        "video/mpeg": "mpg"
-    ]
     
-    static let supportedAudioMimeTypesToExtensionTypes: [String: String] = [
-        "audio/aac": "m4a",
-        "audio/x-m4p": "m4p",
-        "audio/x-m4b": "m4b",
-        "audio/x-m4a": "m4a",
-        "audio/wav": "wav",
-        "audio/x-wav": "wav",
-        "audio/x-mpeg": "mp3",
-        "audio/mpeg": "mp3",
-        "audio/mp4": "mp4",
-        "audio/mp3": "mp3",
-        "audio/mpeg3": "mp3",
-        "audio/x-mp3": "mp3",
-        "audio/x-mpeg3": "mp3",
-        "audio/aiff": "aiff",
-        "audio/x-aiff": "aiff",
-        "audio/3gpp2": "3g2",
-        "audio/3gpp": "3gp"
-    ]
+    // MARK: - Convenience
     
-    static let supportedImageMimeTypesToExtensionTypes: [String: String] = [
-        "image/jpeg": "jpeg",
-        "image/pjpeg": "jpeg",
-        "image/png": "png",
-        "image/tiff": "tif",
-        "image/x-tiff": "tif",
-        "image/bmp": "bmp",
-        "image/x-windows-bmp": "bmp",
-        "image/gif": "gif",
-        "image/x-icon": "ico",
-        "image/webp": "webp"
-    ]
+    static func isAnimated(_ mimeType: String) -> Bool {
+        return (UTType(sessionMimeType: mimeType) ?? .invalid).isAnimated
+    }
     
-    static let supportedAnimatedMimeTypesToExtensionTypes: [String: String] = [
-        "image/gif": "gif",
-        "image/webp": "image/webp"
-    ]
+    static func isImage(_ mimeType: String) -> Bool {
+        return (UTType(sessionMimeType: mimeType) ?? .invalid).isImage
+    }
     
-    static let supportedTextMimeTypes: Set<String> = [
-        "text/plain", "text/csv", "text/tab-separated-values"
-    ]
+    static func isVideo(_ mimeType: String) -> Bool {
+        return (UTType(sessionMimeType: mimeType) ?? .invalid).isVideo
+    }
     
-    static let supportedMicrosoftDocMimeTypes: Set<String> = [
-        // Word files
-        "application/msword",
-
-        "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-        "application/vnd.openxmlformats-officedocument.wordprocessingml.template",
-        "application/vnd.ms-word.document.macroEnabled.12",
-        "application/vnd.ms-word.template.macroEnabled.12",
-
-        // Excel files
-        "application/vnd.ms-excel",
-
-        "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-        "application/vnd.openxmlformats-officedocument.spreadsheetml.template",
-        "application/vnd.ms-excel.sheet.macroEnabled.12",
-        "application/vnd.ms-excel.template.macroEnabled.12",
-        "application/vnd.ms-excel.addin.macroEnabled.12",
-        "application/vnd.ms-excel.sheet.binary.macroEnabled.12",
-
-        // Powerpoint files
-        "application/vnd.ms-powerpoint",
-
-        "application/vnd.openxmlformats-officedocument.presentationml.presentation",
-        "application/vnd.openxmlformats-officedocument.presentationml.template",
-        "application/vnd.openxmlformats-officedocument.presentationml.slideshow",
-        "application/vnd.ms-powerpoint.addin.macroEnabled.12",
-        "application/vnd.ms-powerpoint.presentation.macroEnabled.12",
-        "application/vnd.ms-powerpoint.template.macroEnabled.12",
-        "application/vnd.ms-powerpoint.slideshow.macroEnabled.12"
-    ]
+    static func isAudio(_ mimeType: String) -> Bool {
+        return (UTType(sessionMimeType: mimeType) ?? .invalid).isAudio
+    }
     
-    static let supportedBinaryDataMimeTypesToExtensionTypes: [String: String] = [
-        "application/octet-stream": "dat"
-    ]
+    static func isText(_ mimeType: String) -> Bool {
+        return (UTType(sessionMimeType: mimeType) ?? .invalid).isText
+    }
     
-    static let supportedVideoExtensionTypesToMimeTypes: [String: String] = [
-        "3gp": "video/3gpp",
-        "3gpp": "video/3gpp",
-        "3gp2": "video/3gpp2",
-        "3gpp2": "video/3gpp2",
-        "mp4": "video/mp4",
-        "mov": "video/quicktime",
-        "mqv": "video/quicktime",
-        "m4v": "video/x-m4v",
-        "mpg": "video/mpeg",
-        "mpeg": "video/mpeg"
-    ]
+    static func isMicrosoftDoc(_ mimeType: String) -> Bool {
+        return (UTType(sessionMimeType: mimeType) ?? .invalid).isMicrosoftDoc
+    }
     
-    static let supportedAudioExtensionTypesToMimeTypes: [String: String] = [
-        "3gp": "audio/3gpp",
-        "3gpp": "@audio/3gpp",
-        "3g2": "audio/3gpp2",
-        "3gp2": "audio/3gpp2",
-        "aiff": "audio/aiff",
-        "aif": "audio/aiff",
-        "aifc": "audio/aiff",
-        "cdda": "audio/aiff",
-        "mp3": "audio/mp3",
-        "swa": "audio/mp3",
-        "mp4": "audio/mp4",
-        "wav": "audio/wav",
-        "bwf": "audio/wav",
-        "m4a": "audio/x-m4a",
-        "m4b": "audio/x-m4b",
-        "m4p": "audio/x-m4p"
-    ]
+    static func isVisualMedia(_ mimeType: String) -> Bool {
+        return (UTType(sessionMimeType: mimeType) ?? .invalid).isVisualMedia
+    }
     
-    static let supportedImageExtensionTypesToMimeTypes: [String: String] = [
-        "png": "image/png",
-        "x-png": "image/png",
-        "jfif": "image/jpeg",
-        "jfif-tbnl": "image/jpeg",
-        "jpe": "image/jpeg",
-        "jpeg": "image/jpeg",
-        "jpg": "image/jpeg",
-        "tif": "image/tiff",
-        "tiff": "image/tiff",
-        "webp": "image/webp"
-    ]
+    // MARK: - Lookup Table
     
-    static let supportedAnimatedExtensionTypesToMimeTypes: [String: String] = [
-        "gif": "image/gif",
-        "image/webp": "image/webp"
-    ]
+    static func sessionMimeType(for fileExtension: String) -> String? {
+        return UTType.genericExtensionTypesToMimeTypes[fileExtension]
+    }
     
-    static let genericExtensionTypesToMimeTypes = [
+    private static let genericExtensionTypesToMimeTypes: [String: String] = [
         "123": "application/vnd.lotus-1-2-3",
         "3dml": "text/vnd.in3d.3dml",
         "3ds": "image/x-3ds",
@@ -1369,24 +1182,4 @@ fileprivate extension MimeTypeUtil {
         "zirz": "application/vnd.zul",
         "zmm": "application/vnd.handheld-entertainment+xml",
     ]
-    
-    static func isSupportedVideo(mimeType: String) -> Bool {
-        return (supportedVideoMimeTypesToExtensionTypes[mimeType] != nil)
-    }
-    
-    static func isSupportedAudio(mimeType: String) -> Bool {
-        return (supportedAudioMimeTypesToExtensionTypes[mimeType] != nil)
-    }
-
-    static func isSupportedImage(mimeType: String) -> Bool {
-        return (supportedImageMimeTypesToExtensionTypes[mimeType] != nil)
-    }
-    
-    static func isSupportedAnimated(mimeType: String) -> Bool {
-        return (supportedAnimatedMimeTypesToExtensionTypes[mimeType] != nil)
-    }
-    
-    static func isSupportedBinaryData(mimeType: String) -> Bool {
-        return (supportedBinaryDataMimeTypesToExtensionTypes[mimeType] != nil)
-    }
 }

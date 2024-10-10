@@ -4,6 +4,7 @@
 
 import Foundation
 import Combine
+import UniformTypeIdentifiers
 import GRDB
 import SessionUtilitiesKit
 import SessionSnodeKit
@@ -129,9 +130,10 @@ public extension LinkPreview {
         return (floor(sentTimestampMs / 1000 / LinkPreview.timstampResolution) * LinkPreview.timstampResolution)
     }
     
-    static func generateAttachmentIfPossible(imageData: Data?, mimeType: String) throws -> Attachment? {
+    static func generateAttachmentIfPossible(imageData: Data?, type: UTType) throws -> Attachment? {
         guard let imageData: Data = imageData, !imageData.isEmpty else { return nil }
-        guard let fileExtension: String = MimeTypeUtil.fileExtension(for: mimeType) else { return nil }
+        guard let fileExtension: String = type.sessionFileExtension else { return nil }
+        guard let mimeType: String = type.preferredMIMEType else { return nil }
         
         let filePath = FileSystem.temporaryFilePath(fileExtension: fileExtension)
         try imageData.write(to: NSURL.fileURL(withPath: filePath), options: .atomicWrite)
@@ -406,7 +408,7 @@ public extension LinkPreview {
                     .setFailureType(to: Error.self)
                     .eraseToAnyPublisher()
             }
-            guard let imageMimeType = mimetype(forImageFileExtension: imageFileExtension) else {
+            guard let imageMimeType: String = UTType(sessionFileExtension: imageFileExtension)?.preferredMIMEType else {
                 return Just(LinkPreviewDraft(urlString: linkUrlString, title: title))
                     .setFailureType(to: Error.self)
                     .eraseToAnyPublisher()
@@ -481,7 +483,8 @@ public extension LinkPreview {
                 shouldIgnoreSignalProxy: true
             )
             .tryMap { asset, _ -> Data in
-                let imageSize = Data.imageSize(for: asset.filePath, mimeType: imageMimeType)
+                let type: UTType? = UTType(sessionMimeType: imageMimeType)
+                let imageSize = Data.imageSize(for: asset.filePath, type: type)
                 
                 guard imageSize.width > 0, imageSize.height > 0 else {
                     throw LinkPreviewError.invalidContent
@@ -494,10 +497,7 @@ public extension LinkPreview {
                 guard let srcImage = UIImage(data: data) else { throw LinkPreviewError.invalidContent }
                 
                 // Loki: If it's a GIF then ensure its validity and don't download it as a JPG
-                if
-                    imageMimeType == MimeTypeUtil.MimeType.imageGif &&
-                    data.isValidImage(mimeType: MimeTypeUtil.MimeType.imageGif)
-                {
+                if type == .gif && data.isValidImage(type: .gif) {
                     return data
                 }
 
@@ -540,16 +540,10 @@ public extension LinkPreview {
         
         guard imageFileExtension.count > 0 else {
             // TODO: For those links don't have a file extension, we should figure out a way to know the image mime type
-            return "png"
+            return UTType.fileExtensionDefaultImage
         }
         
         return imageFileExtension
-    }
-    
-    private static func mimetype(forImageFileExtension imageFileExtension: String) -> String? {
-        guard imageFileExtension.count > 0 else { return nil }
-        
-        return MimeTypeUtil.mimeType(for: imageFileExtension)
     }
     
     private static func decodeHTMLEntities(inString value: String) -> String? {

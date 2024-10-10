@@ -2,6 +2,7 @@
 
 import Foundation
 import CoreGraphics
+import UniformTypeIdentifiers
 import SessionUtilitiesKit
 
 public extension VisibleMessage {
@@ -56,9 +57,9 @@ public extension VisibleMessage {
                 guard
                     let fileName: String = proto.fileName,
                     let fileExtension: String = URL(string: fileName)?.pathExtension
-                else { return MimeTypeUtil.MimeType.applicationOctetStream }
+                else { return UTType.mimeTypeDefault }
                 
-                return (MimeTypeUtil.mimeType(for: fileExtension) ?? MimeTypeUtil.MimeType.applicationOctetStream)
+                return (UTType.sessionMimeType(for: fileExtension) ?? UTType.mimeTypeDefault)
             }
             
             return VMAttachment(
