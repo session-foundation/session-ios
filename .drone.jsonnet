@@ -76,6 +76,8 @@ local sim_delete_cmd = 'if [ -f build/artifacts/sim_uuid ]; then rm -f /Users/$U
         commands: [
           sim_delete_cmd,
           |||
+            set +x
+            
             if [[ -d ./build/artifacts/testResults.xcresult ]]; then
               xcresultparser --output-format cli --failed-tests-only ./build/artifacts/testResults.xcresult
             else
