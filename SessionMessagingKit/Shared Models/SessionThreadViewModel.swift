@@ -83,6 +83,7 @@ public struct SessionThreadViewModel: FetchableRecordWithRowId, Decodable, Equat
         case currentUserBlinded15SessionId
         case currentUserBlinded25SessionId
         case recentReactionEmoji
+        case wasKickedFromGroup
     }
     
     public var differenceIdentifier: String { threadId }
@@ -131,11 +132,7 @@ public struct SessionThreadViewModel: FetchableRecordWithRowId, Decodable, Equat
                 )
                 
             case .group:
-                let groupSessionId: SessionId = SessionId(.group, hex: threadId)
-                
-                guard !LibSession.wasKickedFromGroup(groupSessionId: groupSessionId, using: dependencies) else {
-                    return false
-                }
+                guard wasKickedFromGroup != true else { return false }
                 guard threadIsMessageRequest == false else { return true }
                 
                 return (
@@ -190,6 +187,7 @@ public struct SessionThreadViewModel: FetchableRecordWithRowId, Decodable, Equat
     public let currentUserBlinded15SessionId: String?
     public let currentUserBlinded25SessionId: String?
     public let recentReactionEmoji: [String]?
+    public let wasKickedFromGroup: Bool?
     
     // UI specific logic
     
@@ -471,6 +469,7 @@ public extension SessionThreadViewModel {
         self.currentUserBlinded15SessionId = nil
         self.currentUserBlinded25SessionId = nil
         self.recentReactionEmoji = nil
+        self.wasKickedFromGroup = false
     }
 }
 
@@ -535,14 +534,16 @@ public extension SessionThreadViewModel {
             currentUserSessionId: self.currentUserSessionId,
             currentUserBlinded15SessionId: self.currentUserBlinded15SessionId,
             currentUserBlinded25SessionId: self.currentUserBlinded25SessionId,
-            recentReactionEmoji: (recentReactionEmoji ?? self.recentReactionEmoji)
+            recentReactionEmoji: (recentReactionEmoji ?? self.recentReactionEmoji),
+            wasKickedFromGroup: self.wasKickedFromGroup
         )
     }
     
     func populatingCurrentUserBlindedIds(
         _ db: Database? = nil,
-        currentUserBlinded15SessionIdForThisThread: String? = nil,
-        currentUserBlinded25SessionIdForThisThread: String? = nil,
+        currentUserBlinded15SessionIdForThisThread: String?,
+        currentUserBlinded25SessionIdForThisThread: String?,
+        wasKickedFromGroup: Bool,
         using dependencies: Dependencies
     ) -> SessionThreadViewModel {
         return SessionThreadViewModel(
@@ -618,7 +619,8 @@ public extension SessionThreadViewModel {
                     using: dependencies
                 )?.hexString
             ),
-            recentReactionEmoji: self.recentReactionEmoji
+            recentReactionEmoji: self.recentReactionEmoji,
+            wasKickedFromGroup: wasKickedFromGroup
         )
     }
 }

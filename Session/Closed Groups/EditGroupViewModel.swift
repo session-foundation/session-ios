@@ -273,7 +273,7 @@ class EditGroupViewModel: SessionTableViewModel, NavigatableStateHolder, Editabl
                                 identifier: "Invite by id",
                                 label: "Invite by id"
                             ),
-                            onTap: { [weak self] in self?.inviteById() }
+                            onTap: { [weak self] in self?.inviteById(currentGroupName: state.group.name) }
                         )
                     )
                 ].compactMap { $0 }
@@ -438,42 +438,10 @@ class EditGroupViewModel: SessionTableViewModel, NavigatableStateHolder, Editabl
                                         throw UserListError.error("groupAddMemberMaximum".localized())
                                     }
                                     
-                                    /// Show a toast that we have sent the invitations
-                                    self?.showToast(
-                                        text: (selectedMemberInfo.count == 1 ?
-                                            "groupInviteSending".localized() :
-                                            "groupInviteSending".localized()
-                                        ),
-                                        backgroundColor: .backgroundSecondary
+                                    self?.addMembers(
+                                        currentGroupName: currentGroupName,
+                                        memberInfo: selectedMemberInfo.map { ($0.profileId, $0.profile) }
                                     )
-                                    
-                                    /// Actually trigger the sending
-                                    MessageSender
-                                        .addGroupMembers(
-                                            groupSessionId: threadId,
-                                            members: selectedMemberInfo.map { ($0.profileId, $0.profile) },
-                                            allowAccessToHistoricMessages: dependencies[feature: .updatedGroupsAllowHistoricAccessOnInvite],
-                                            using: dependencies
-                                        )
-                                        .sinkUntilComplete(
-                                            receiveCompletion: { result in
-                                                switch result {
-                                                    case .finished: break
-                                                    case .failure:
-                                                        viewModel?.showToast(
-                                                            text: GroupInviteMemberJob.failureMessage(
-                                                                groupName: currentGroupName,
-                                                                memberIds: selectedMemberInfo.map { $0.profileId },
-                                                                profileInfo: selectedMemberInfo
-                                                                    .reduce(into: [:]) { result, next in
-                                                                        result[next.profileId] = next.profile
-                                                                    }
-                                                            ),
-                                                            backgroundColor: .backgroundSecondary
-                                                        )
-                                                }
-                                            }
-                                        )
                                 }
                                 
                             case .standard: // Assume it's a legacy group
@@ -506,7 +474,7 @@ class EditGroupViewModel: SessionTableViewModel, NavigatableStateHolder, Editabl
         )
     }
     
-    private func inviteById() {
+    private func inviteById(currentGroupName: String) {
         // Convenience functions to avoid duplicate code
         func showError(_ errorString: String) {
             let modal: ConfirmationModal = ConfirmationModal(
@@ -519,25 +487,6 @@ class EditGroupViewModel: SessionTableViewModel, NavigatableStateHolder, Editabl
                 )
             )
             self.transitionToScreen(modal, transitionType: .present)
-        }
-        func inviteMember(_ accountId: String, _ modal: UIViewController) {
-            guard !currentMemberIds.contains(accountId) else {
-                // FIXME: Localise this
-                return showError("This Account ID or ONS belongs to an existing member")
-            }
-            
-            MessageSender.addGroupMembers(
-                groupSessionId: threadId,
-                members: [(accountId, nil)],
-                allowAccessToHistoricMessages: dependencies[feature: .updatedGroupsAllowHistoricAccessOnInvite],
-                using: dependencies
-            ).sinkUntilComplete()
-            modal.dismiss(animated: true) { [weak self] in
-                self?.showToast(
-                    text: "groupInviteSending".localized(),
-                    backgroundColor: .backgroundSecondary
-                )
-            }
         }
         
         let currentMemberIds: Set<String> = (tableData
@@ -573,16 +522,22 @@ class EditGroupViewModel: SessionTableViewModel, NavigatableStateHolder, Editabl
                     cancelStyle: .alert_text,
                     dismissOnConfirm: false,
                     onConfirm: { [weak self, dependencies] modal in
-                        // FIXME: Consolidate this with the logic in `NewDMVC`
-                        switch Result(catching: { try SessionId(from: self?.inviteByIdValue) }) {
-                            case .success(let sessionId) where sessionId.prefix == .standard: inviteMember(sessionId.hexString, modal)
-                            case .success: return showError("accountIdErrorInvalid".localized())
-                                
-                            case .failure:
-                                guard let inviteByIdValue: String = self?.inviteByIdValue else {
-                                    return showError("accountIdErrorInvalid".localized())
+                        switch (self?.inviteByIdValue, try? SessionId(from: self?.inviteByIdValue)) {
+                            case (_, .some(let sessionId)) where sessionId.prefix == .standard:
+                                guard !currentMemberIds.contains(sessionId.hexString) else {
+                                    return showError("This Account ID or ONS belongs to an existing member")
                                 }
                                 
+                                modal.dismiss(animated: true) {
+                                    self?.addMembers(
+                                        currentGroupName: currentGroupName,
+                                        memberInfo: [(sessionId.hexString, nil)]
+                                    )
+                                }
+                            
+                            case (.none, _), (_, .some): return showError("accountIdErrorInvalid".localized())
+                                
+                            case (.some(let inviteByIdValue), _):
                                 // This could be an ONS name
                                 let viewController = ModalActivityIndicatorViewController() { modalActivityIndicator in
                                     SnodeAPI
@@ -605,8 +560,17 @@ class EditGroupViewModel: SessionTableViewModel, NavigatableStateHolder, Editabl
                                                 }
                                             },
                                             receiveValue: { sessionIdHexString in
+                                                guard !currentMemberIds.contains(sessionIdHexString) else {
+                                                    return showError("This Account ID or ONS belongs to an existing member")
+                                                }
+                                                
                                                 modalActivityIndicator.dismiss {
-                                                    inviteMember(sessionIdHexString, modal)
+                                                    modal.dismiss(animated: true) {
+                                                        self?.addMembers(
+                                                            currentGroupName: currentGroupName,
+                                                            memberInfo: [(sessionIdHexString, nil)]
+                                                        )
+                                                    }
                                                 }
                                             }
                                         )
@@ -619,6 +583,48 @@ class EditGroupViewModel: SessionTableViewModel, NavigatableStateHolder, Editabl
             ),
             transitionType: .present
         )
+    }
+    
+    private func addMembers(
+        currentGroupName: String,
+        memberInfo: [(id: String, profile: Profile?)]
+    ) {
+        /// Show a toast that we have sent the invitations
+        self.showToast(
+            text: (memberInfo.count == 1 ?
+                "groupInviteSending".localized() :
+                "groupInviteSending".localized()
+            ),
+            backgroundColor: .backgroundSecondary
+        )
+        
+        /// Actually trigger the sending
+        MessageSender
+            .addGroupMembers(
+                groupSessionId: threadId,
+                members: memberInfo,
+                allowAccessToHistoricMessages: dependencies[feature: .updatedGroupsAllowHistoricAccessOnInvite],
+                using: dependencies
+            )
+            .sinkUntilComplete(
+                receiveCompletion: { [weak self] result in
+                    switch result {
+                        case .finished: break
+                        case .failure:
+                            self?.showToast(
+                                text: GroupInviteMemberJob.failureMessage(
+                                    groupName: currentGroupName,
+                                    memberIds: memberInfo.map { $0.id },
+                                    profileInfo: memberInfo
+                                        .reduce(into: [:]) { result, next in
+                                            result[next.id] = next.profile
+                                        }
+                                ),
+                                backgroundColor: .backgroundSecondary
+                            )
+                    }
+                }
+            )
     }
     
     private func resendInvitation(memberId: String) {

@@ -73,7 +73,7 @@ public class NotificationPresenter: NSObject, UNUserNotificationCenterDelegate, 
         )
         
         // While batch processing, some of the necessary changes have not been commited.
-        let rawMessageText = interaction.previewText(db, using: dependencies)
+        let rawMessageText: String = Interaction.notificationPreviewText(db, interaction: interaction, using: dependencies)
         
         // iOS strips anything that looks like a printf formatting character from
         // the notification body, so if we want to dispay a literal "%" in a notification

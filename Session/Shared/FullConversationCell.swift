@@ -588,9 +588,17 @@ public final class FullConversationCell: UITableViewCell, SwipeActionOptimisticC
         cellViewModel: SessionThreadViewModel,
         textColor: UIColor,
         using dependencies: Dependencies
-    ) -> NSMutableAttributedString {
+    ) -> NSAttributedString {
+        guard cellViewModel.wasKickedFromGroup != true else {
+            return NSAttributedString(
+                string: "groupRemovedYou"
+                    .put(key: "group_name", value: cellViewModel.displayName)
+                    .localizedDeformatted()
+            )
+        }
+        
         // If we don't have an interaction then do nothing
-        guard cellViewModel.interactionId != nil else { return NSMutableAttributedString() }
+        guard cellViewModel.interactionId != nil else { return NSAttributedString() }
         
         let result = NSMutableAttributedString()
         
@@ -635,21 +643,24 @@ public final class FullConversationCell: UITableViewCell, SwipeActionOptimisticC
         }
         
         let previewText: String = {
-            if cellViewModel.interactionVariant == .infoGroupCurrentUserErrorLeaving {
-                return "groupLeaveErrorFailed"
-                    .put(key: "group_name", value: cellViewModel.displayName)
-                    .localized()
+            switch cellViewModel.interactionVariant {
+                case .infoGroupCurrentUserErrorLeaving:
+                    return "groupLeaveErrorFailed"
+                        .put(key: "group_name", value: cellViewModel.displayName)
+                        .localized()
+                
+                default:
+                    return Interaction.previewText(
+                        variant: (cellViewModel.interactionVariant ?? .standardIncoming),
+                        body: cellViewModel.interactionBody,
+                        threadContactDisplayName: cellViewModel.threadContactName(),
+                        authorDisplayName: cellViewModel.authorName(for: cellViewModel.threadVariant),
+                        attachmentDescriptionInfo: cellViewModel.interactionAttachmentDescriptionInfo,
+                        attachmentCount: cellViewModel.interactionAttachmentCount,
+                        isOpenGroupInvitation: (cellViewModel.interactionIsOpenGroupInvitation == true),
+                        using: dependencies
+                    )
             }
-            return Interaction.previewText(
-                variant: (cellViewModel.interactionVariant ?? .standardIncoming),
-                body: cellViewModel.interactionBody,
-                threadContactDisplayName: cellViewModel.threadContactName(),
-                authorDisplayName: cellViewModel.authorName(for: cellViewModel.threadVariant),
-                attachmentDescriptionInfo: cellViewModel.interactionAttachmentDescriptionInfo,
-                attachmentCount: cellViewModel.interactionAttachmentCount,
-                isOpenGroupInvitation: (cellViewModel.interactionIsOpenGroupInvitation == true),
-                using: dependencies
-            )
         }()
         
         result.append(NSAttributedString(

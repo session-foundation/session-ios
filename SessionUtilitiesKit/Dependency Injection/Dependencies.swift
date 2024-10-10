@@ -1,4 +1,4 @@
-// Copyright © 2022 Rangeproof Pty Ltd. All rights reserved.
+// Copyright © 2024 Rangeproof Pty Ltd. All rights reserved.
 //
 // stringlint:disable
 
@@ -6,50 +6,18 @@ import Foundation
 import Combine
 
 public class Dependencies {
-    static let userInfoKey: CodingUserInfoKey = CodingUserInfoKey(rawValue: "io.oxen.dependencies.codingOptions")!
+    static let userInfoKey: CodingUserInfoKey = CodingUserInfoKey(rawValue: "session.dependencies.codingOptions")!
     
     private static var _isRTLRetriever: Atomic<(Bool, () -> Bool)> = Atomic((false, { false }))
-    private static var singletonInstances: Atomic<[String: Any]> = Atomic([:])
-    private static var cacheInstances: Atomic<[String: Atomic<MutableCacheType>]> = Atomic([:])
-    private static var userDefaultsInstances: Atomic<[String: (any UserDefaultsType)]> = Atomic([:])
-    private static var featureInstances: Atomic<[String: (any FeatureType)]> = Atomic([:])
-    private var featureChangeSubject: PassthroughSubject<(String, String?, Any?), Never> = PassthroughSubject()
+    private let featureChangeSubject: PassthroughSubject<(String, String?, Any?), Never> = PassthroughSubject()
+    private var storage: Atomic<DependencyStorage> = Atomic(DependencyStorage())
     
     // MARK: - Subscript Access
     
-    public subscript<S>(singleton singleton: SingletonConfig<S>) -> S {
-        guard let value: S = (Dependencies.singletonInstances.wrappedValue[singleton.identifier] as? S) else {
-            let value: S = singleton.createInstance(self)
-            Dependencies.singletonInstances.mutate { $0[singleton.identifier] = value }
-            return value
-        }
-
-        return value
-    }
-    
-    public subscript<M, I>(cache cache: CacheConfig<M, I>) -> I {
-        getValueSettingIfNull(cache: cache)
-    }
-    
-    public subscript(defaults defaults: UserDefaultsConfig) -> UserDefaultsType {
-        guard let value: UserDefaultsType = Dependencies.userDefaultsInstances.wrappedValue[defaults.identifier] else {
-            let value: UserDefaultsType = defaults.createInstance(self)
-            Dependencies.userDefaultsInstances.mutate { $0[defaults.identifier] = value }
-            return value
-        }
-        
-        return value
-    }
-    
-    public subscript<T: FeatureOption>(feature feature: FeatureConfig<T>) -> T {
-        guard let value: Feature<T> = (Dependencies.featureInstances.wrappedValue[feature.identifier] as? Feature<T>) else {
-            let value: Feature<T> = feature.createInstance(self)
-            Dependencies.featureInstances.mutate { $0[feature.identifier] = value }
-            return value.currentValue(using: self)
-        }
-        
-        return value.currentValue(using: self)
-    }
+    public subscript<S>(singleton singleton: SingletonConfig<S>) -> S { getOrCreate(singleton) }
+    public subscript<M, I>(cache cache: CacheConfig<M, I>) -> I { getOrCreate(cache).immutable(cache: cache, using: self) }
+    public subscript(defaults defaults: UserDefaultsConfig) -> UserDefaultsType { getOrCreate(defaults) }
+    public subscript<T: FeatureOption>(feature feature: FeatureConfig<T>) -> T { getOrCreate(feature).currentValue(using: self) }
     
     // MARK: - Global Values, Timing and Async Handling
     
@@ -85,20 +53,15 @@ public class Dependencies {
         cache: CacheConfig<M, I>,
         _ mutation: (inout M) -> R
     ) -> R {
-        /// The cast from `Atomic<MutableCacheType>` to `Atomic<M>` always fails so we need to do some
-        /// stuffing around to ensure we have the right types - since we call `createInstance` multiple times in
-        /// the below code we first call `getValueSettingIfNull` to ensure we have a proper instance stored
-        /// in `Dependencies.cacheInstances` so that we can be reliably certail we aren't accessing some
-        /// random instance that will go out of memory as soon as the mutation is completed
-        getValueSettingIfNull(cache: cache)
-        
-        let cacheWrapper: Atomic<MutableCacheType> = (
-            Dependencies.cacheInstances.wrappedValue[cache.identifier] ??
-            Atomic(cache.mutableInstance(cache.createInstance(self)))  // Should never be called
-        )
-        
-        return cacheWrapper.mutate { erasedValue in
-            var value: M = ((erasedValue as? M) ?? cache.createInstance(self))
+        return getOrCreate(cache).mutate { erasedValue in
+            guard var value: M = (erasedValue as? M) else {
+                /// This code path should never happen (and is essentially invalid if it does) but in order to avoid neeing to return
+                /// a nullable type or force-casting this is how we need to do things)
+                Log.critical("Failed to convert erased cache value for '\(cache.identifier)' to expected type: \(M.self)")
+                var fallbackValue: M = cache.createInstance(self)
+                return mutation(&fallbackValue)
+            }
+            
             return mutation(&value)
         }
     }
@@ -107,20 +70,15 @@ public class Dependencies {
         cache: CacheConfig<M, I>,
         _ mutation: (inout M) throws -> R
     ) throws -> R {
-        /// The cast from `Atomic<MutableCacheType>` to `Atomic<M>` always fails so we need to do some
-        /// stuffing around to ensure we have the right types - since we call `createInstance` multiple times in
-        /// the below code we first call `getValueSettingIfNull` to ensure we have a proper instance stored
-        /// in `Dependencies.cacheInstances` so that we can be reliably certail we aren't accessing some
-        /// random instance that will go out of memory as soon as the mutation is completed
-        getValueSettingIfNull(cache: cache)
-        
-        let cacheWrapper: Atomic<MutableCacheType> = (
-            Dependencies.cacheInstances.wrappedValue[cache.identifier] ??
-            Atomic(cache.mutableInstance(cache.createInstance(self)))  // Should never be called
-        )
-        
-        return try cacheWrapper.mutate { erasedValue in
-            var value: M = ((erasedValue as? M) ?? cache.createInstance(self))
+        return try getOrCreate(cache).mutate { erasedValue in
+            guard var value: M = (erasedValue as? M) else {
+                /// This code path should never happen (and is essentially invalid if it does) but in order to avoid neeing to return
+                /// a nullable type or force-casting this is how we need to do things)
+                Log.critical("Failed to convert erased cache value for '\(cache.identifier)' to expected type: \(M.self)")
+                var fallbackValue: M = cache.createInstance(self)
+                return try mutation(&fallbackValue)
+            }
+            
             return try mutation(&value)
         }
     }
@@ -138,46 +96,45 @@ public class Dependencies {
     public func popRandomElement<T>(_ elements: inout Set<T>) -> T? {
         return elements.popRandomElement()
     }
-
-    // MARK: - Instance upserting
-    
-    @discardableResult private func getValueSettingIfNull<M, I>(cache: CacheConfig<M, I>) -> I {
-        guard let value: M = (Dependencies.cacheInstances.wrappedValue[cache.identifier]?.wrappedValue as? M) else {
-            let value: M = cache.createInstance(self)
-            let mutableInstance: MutableCacheType = cache.mutableInstance(value)
-            Dependencies.cacheInstances.mutate { $0[cache.identifier] = Atomic(mutableInstance) }
-            return cache.immutableInstance(value)
-        }
-        
-        return cache.immutableInstance(value)
-    }
     
     // MARK: - Instance replacing
     
     public func warmCache<M, I>(cache: CacheConfig<M, I>) {
-        _ = getValueSettingIfNull(cache: cache)
+        _ = getOrCreate(cache)
     }
     
     public func set<S>(singleton: SingletonConfig<S>, to instance: S) {
-        Dependencies.singletonInstances.mutate {
-            $0[singleton.identifier] = instance
+        threadSafeChange(for: singleton.identifier) {
+            setValue(instance, typedStorage: .singleton(instance), key: singleton.identifier)
         }
     }
     
     public func set<M, I>(cache: CacheConfig<M, I>, to instance: M) {
-        Dependencies.cacheInstances.mutate {
-            $0[cache.identifier] = Atomic(cache.mutableInstance(instance))
+        threadSafeChange(for: cache.identifier) {
+            let value: Atomic<MutableCacheType> = Atomic(cache.mutableInstance(instance))
+            setValue(value, typedStorage: .cache(value), key: cache.identifier)
         }
     }
     
     public func remove<M, I>(cache: CacheConfig<M, I>) {
-        Dependencies.cacheInstances.mutate {
-            $0[cache.identifier] = nil
+        threadSafeChange(for: cache.identifier) {
+            removeValue(cache.identifier)
         }
     }
     
     public static func setIsRTLRetriever(requiresMainThread: Bool, isRTLRetriever: @escaping () -> Bool) {
         _isRTLRetriever.mutate { $0 = (requiresMainThread, isRTLRetriever) }
+    }
+}
+
+// MARK: - Cache Management
+
+private extension Atomic<MutableCacheType> {
+    func immutable<M, I>(cache: CacheConfig<M, I>, using dependencies: Dependencies) -> I {
+        return cache.immutableInstance(
+            (self.wrappedValue as? M) ??
+            cache.createInstance(dependencies)
+        )
     }
 }
 
@@ -215,30 +172,26 @@ public extension Dependencies {
     }
     
     func set<T: FeatureOption>(feature: FeatureConfig<T>, to updatedFeature: T?) {
-        let value: Feature<T> = {
-            guard let value: Feature<T> = (Dependencies.featureInstances.wrappedValue[feature.identifier] as? Feature<T>) else {
-                let value: Feature<T> = feature.createInstance(self)
-                Dependencies.featureInstances.mutate { $0[feature.identifier] = value }
-                return value
-            }
-            
-            return value
-        }()
+        threadSafeChange(for: feature.identifier) {
+            /// Update the cached & in-memory values
+            let instance: Feature<T> = (
+                getValue(feature.identifier) ??
+                feature.createInstance(self)
+            )
+            instance.setValue(to: updatedFeature, using: self)
+            setValue(instance, typedStorage: .feature(instance), key: feature.identifier)
+        }
         
-        value.setValue(to: updatedFeature, using: self)
+        /// Notify observers
         featureChangeSubject.send((feature.identifier, feature.groupIdentifier, updatedFeature))
     }
     
     func reset<T: FeatureOption>(feature: FeatureConfig<T>) {
-        /// Reset the cached value
-        switch Dependencies.featureInstances.wrappedValue[feature.identifier] as? Feature<T> {
-            case .none: break
-            case .some(let value): value.setValue(to: nil, using: self)
-        }
-        
-        /// Reset the in-memory value
-        Dependencies.featureInstances.mutate {
-            $0[feature.identifier] = nil
+        threadSafeChange(for: feature.identifier) {
+            /// Reset the cached and in-memory values
+            let instance: Feature<T>? = getValue(feature.identifier)
+            instance?.setValue(to: nil, using: self)
+            removeValue(feature.identifier)
         }
         
         /// Notify observers
@@ -309,6 +262,171 @@ public extension Dependencies {
     }
 }
 
+// MARK: - DependenciesError
+
 public enum DependenciesError: Error {
     case missingDependencies
+}
+
+// MARK: - Storage Management
+
+private extension Dependencies {
+    struct DependencyStorage {
+        var initializationTracker: [String: DispatchGroup] = [:]
+        var instances: [String: Value] = [:]
+        
+        enum Value {
+            case singleton(Any)
+            case cache(Atomic<MutableCacheType>)
+            case userDefaults(UserDefaultsType)
+            case feature(any FeatureType)
+            
+            func value<T>(as type: T.Type) -> T? {
+                switch self {
+                    case .singleton(let value): return value as? T
+                    case .cache(let value): return value as? T
+                    case .userDefaults(let value): return value as? T
+                    case .feature(let value): return value as? T
+                }
+            }
+        }
+    }
+    
+    private func getOrCreate<S>(_ singleton: SingletonConfig<S>) -> S {
+        return getOrCreateInstance(
+            identifier: singleton.identifier,
+            constructor: .singleton { singleton.createInstance(self) }
+        )
+    }
+    
+    private func getOrCreate<M, I>(_ cache: CacheConfig<M, I>) -> Atomic<MutableCacheType> {
+        return getOrCreateInstance(
+            identifier: cache.identifier,
+            constructor: .cache { Atomic(cache.mutableInstance(cache.createInstance(self))) }
+        )
+    }
+    
+    private func getOrCreate(_ defaults: UserDefaultsConfig) -> UserDefaultsType {
+        return getOrCreateInstance(
+            identifier: defaults.identifier,
+            constructor: .userDefaults { defaults.createInstance(self) }
+        )
+    }
+    
+    private func getOrCreate<T: FeatureOption>(_ feature: FeatureConfig<T>) -> Feature<T> {
+        return getOrCreateInstance(
+            identifier: feature.identifier,
+            constructor: .feature { feature.createInstance(self) }
+        )
+    }
+    
+    // MARK: - Instance upserting
+    
+    /// Retrieves the current instance or, if one doesn't exist, uses the `StorageHelper.Info<Value>` to create a new instance
+    /// and store it
+    private func getOrCreateInstance<Value>(
+        identifier: String,
+        constructor: DependencyStorage.Constructor<Value>
+    ) -> Value {
+        /// If we already have an instance then just return that
+        if let existingValue: Value = getValue(identifier) {
+            return existingValue
+        }
+        
+        return threadSafeChange(for: identifier) {
+            /// Now that we are within a synchronized group, check to make sure an instance wasn't created while we were waiting to
+            /// enter the group
+            if let existingValue: Value = getValue(identifier) {
+                return existingValue
+            }
+            
+            let result: (typedStorage: DependencyStorage.Value, value: Value) = constructor.create()
+            setValue(result.value, typedStorage: result.typedStorage, key: identifier)
+            return result.value
+        }
+    }
+    
+    /// Convenience method to retrieve the existing dependency instance from memory in a thread-safe way
+    private func getValue<T>(_ key: String) -> T? {
+        guard let typedValue: DependencyStorage.Value = storage.wrappedValue.instances[key] else { return nil }
+        guard let result: T = typedValue.value(as: T.self) else {
+            /// If there is a value stored for the key, but it's not the right type then something has gone wrong, and we should log
+            Log.critical("Failed to convert stored dependency '\(key)' to expected type: \(T.self)")
+            return nil
+        }
+        
+        return result
+    }
+    
+    /// Convenience method to store a dependency instance in memory in a thread-safe way
+    @discardableResult private func setValue<T>(_ value: T, typedStorage: DependencyStorage.Value, key: String) -> T {
+        storage.mutate { $0.instances[key] = typedStorage }
+        return value
+    }
+    
+    /// Convenience method to remove a dependency instance from memory in a thread-safe way
+    private func removeValue(_ key: String) {
+        storage.mutate { $0.instances.removeValue(forKey: key) }
+    }
+    
+    /// This function creates a `DispatchGroup` for the given identifier which allows us to block instance creation on a per-identifier basis
+    /// and avoid situations where multithreading could result in multiple instances of the same dependency being created concurrently
+    ///
+    /// **Note:** This `DispatchGroup` is an additional mechanism on top of the `Atomic<T>` because the interface is a little simpler
+    /// and we don't need to wrap every instance within `Atomic<T>` this way
+    @discardableResult private func threadSafeChange<T>(for identifier: String, change: () -> T) -> T {
+        let group: DispatchGroup = storage.mutate { storage in
+            if let existing = storage.initializationTracker[identifier] {
+                return existing
+            }
+            
+            let group = DispatchGroup()
+            storage.initializationTracker[identifier] = group
+            return group
+        }
+        group.enter()
+        defer { group.leave() }
+        
+        return change()
+    }
+}
+ 
+// MARK: - DSL
+
+private extension Dependencies.DependencyStorage {
+    struct Constructor<T> {
+        let create: () -> (typedStorage: Dependencies.DependencyStorage.Value, value: T)
+        
+        static func singleton(_ constructor: @escaping () -> T) -> Constructor<T> {
+            return Constructor {
+                let instance: T = constructor()
+                
+                return (.singleton(instance), instance)
+            }
+        }
+        
+        static func cache(_ constructor: @escaping () -> T) -> Constructor<T> where T: Atomic<MutableCacheType> {
+            return Constructor {
+                let instance: T = constructor()
+                
+                return (.cache(instance), instance)
+            }
+        }
+        
+        static func userDefaults(_ constructor: @escaping () -> T) -> Constructor<T> where T == UserDefaultsType {
+            return Constructor {
+                let instance: T = constructor()
+                
+                return (.userDefaults(instance), instance)
+            }
+        }
+        
+        static func feature(_ constructor: @escaping () -> T) -> Constructor<T> where T: FeatureType {
+            return Constructor {
+                let instance: T = constructor()
+                
+                return (.feature(instance), instance)
+            }
+        }
+    }
 }

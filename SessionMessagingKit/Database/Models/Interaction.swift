@@ -1025,20 +1025,23 @@ public extension Interaction {
         }
     }
     
-    /// Use the `Interaction.previewText` method directly where possible rather than this method as it
-    /// makes it's own database queries
-    func previewText(_ db: Database, using dependencies: Dependencies) -> String {
-        switch variant {
+    /// Use the `Interaction.previewText` method directly where possible rather than this one to avoid database queries
+    static func notificationPreviewText(
+        _ db: Database,
+        interaction: Interaction,
+        using dependencies: Dependencies
+    ) -> String {
+        switch interaction.variant {
             case .standardIncoming, .standardOutgoing:
                 return Interaction.previewText(
-                    variant: self.variant,
-                    body: self.body,
-                    attachmentDescriptionInfo: try? attachments
+                    variant: interaction.variant,
+                    body: interaction.body,
+                    attachmentDescriptionInfo: try? interaction.attachments
                         .select(.id, .variant, .contentType, .sourceFilename)
                         .asRequest(of: Attachment.DescriptionInfo.self)
                         .fetchOne(db),
-                    attachmentCount: try? attachments.fetchCount(db),
-                    isOpenGroupInvitation: linkPreview
+                    attachmentCount: try? interaction.attachments.fetchCount(db),
+                    isOpenGroupInvitation: interaction.linkPreview
                         .filter(LinkPreview.Columns.variant == LinkPreview.Variant.openGroupInvitation)
                         .isNotEmpty(db),
                     using: dependencies
@@ -1048,15 +1051,15 @@ public extension Interaction {
                 // Note: These should only occur in 'contact' threads so the `threadId`
                 // is the contact id
                 return Interaction.previewText(
-                    variant: self.variant,
-                    body: self.body,
-                    authorDisplayName: Profile.displayName(db, id: threadId, using: dependencies),
+                    variant: interaction.variant,
+                    body: interaction.body,
+                    authorDisplayName: Profile.displayName(db, id: interaction.threadId, using: dependencies),
                     using: dependencies
                 )
 
             default: return Interaction.previewText(
-                variant: self.variant,
-                body: self.body,
+                variant: interaction.variant,
+                body: interaction.body,
                 using: dependencies
             )
         }

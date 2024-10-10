@@ -166,6 +166,13 @@ class MessageRequestsViewModel: SessionTableViewModel, NavigatableStateHolder, O
                                         .first?
                                         .id
                                         .currentUserBlinded25SessionId,
+                                    wasKickedFromGroup: (
+                                        viewModel.threadVariant == .group &&
+                                        LibSession.wasKickedFromGroup(
+                                            groupSessionId: SessionId(.group, hex: viewModel.threadId),
+                                            using: dependencies
+                                        )
+                                    ),
                                     using: dependencies
                                 ),
                                 accessibility: Accessibility(

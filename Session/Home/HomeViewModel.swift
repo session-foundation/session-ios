@@ -374,6 +374,13 @@ public class HomeViewModel: NavigatableStateHolder {
                                 currentUserBlinded25SessionIdForThisThread: groupedOldData[viewModel.threadId]?
                                     .first?
                                     .currentUserBlinded25SessionId,
+                                wasKickedFromGroup: (
+                                    viewModel.threadVariant == .group &&
+                                    LibSession.wasKickedFromGroup(
+                                        groupSessionId: SessionId(.group, hex: viewModel.threadId),
+                                        using: dependencies
+                                    )
+                                ),
                                 using: dependencies
                             )
                         }

@@ -700,8 +700,9 @@ extension MessageReceiver {
         /// that if the user doesn't delete the group and links a new device, the group will have the same name as on the current device
         if !LibSession.wasKickedFromGroup(groupSessionId: groupSessionId, using: dependencies) {
             dependencies.mutate(cache: .libSession) { cache in
-                let config: LibSession.Config? = cache.config(for: .groupInfo, sessionId: groupSessionId)
-                let groupName: String? = try? LibSession.groupName(in: config)
+                let groupInfoConfig: LibSession.Config? = cache.config(for: .groupInfo, sessionId: groupSessionId)
+                let userGroupsConfig: LibSession.Config? = cache.config(for: .userGroups, sessionId: userSessionId)
+                let groupName: String? = try? LibSession.groupName(in: groupInfoConfig)
                 
                 switch groupName {
                     case .none: Log.warn(.messageReceiver, "Failed to update group name before being kicked.")
@@ -713,7 +714,7 @@ extension MessageReceiver {
                                     name: name
                                 )
                             ],
-                            in: config,
+                            in: userGroupsConfig,
                             using: dependencies
                         )
                 }

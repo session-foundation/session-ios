@@ -218,6 +218,10 @@ public class ConversationViewModel: OWSAudioPlayerDelegate, NavigatableStateHold
             ).populatingCurrentUserBlindedIds(
                 currentUserBlinded15SessionIdForThisThread: initialData?.blinded15SessionId?.hexString,
                 currentUserBlinded25SessionIdForThisThread: initialData?.blinded25SessionId?.hexString,
+                wasKickedFromGroup: (
+                    threadVariant == .group &&
+                    LibSession.wasKickedFromGroup(groupSessionId: SessionId(.group, hex: threadId), using: dependencies)
+                ),
                 using: dependencies
             )
         )
@@ -288,6 +292,13 @@ public class ConversationViewModel: OWSAudioPlayerDelegate, NavigatableStateHold
                             db,
                             currentUserBlinded15SessionIdForThisThread: self?.threadData.currentUserBlinded15SessionId,
                             currentUserBlinded25SessionIdForThisThread: self?.threadData.currentUserBlinded25SessionId,
+                            wasKickedFromGroup: (
+                                viewModel.threadVariant == .group &&
+                                LibSession.wasKickedFromGroup(
+                                    groupSessionId: SessionId(.group, hex: viewModel.threadId),
+                                    using: dependencies
+                                )
+                            ),
                             using: dependencies
                         )
                     }

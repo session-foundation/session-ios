@@ -66,7 +66,8 @@ public class NSENotificationPresenter: NotificationsManagerType {
                 .localized()
         }
         
-        let snippet: String = (interaction.previewText(db, using: dependencies)
+        let snippet: String = (Interaction
+            .notificationPreviewText(db, interaction: interaction, using: dependencies)
             .filteredForDisplay
             .nullIfEmpty?
             .replacingMentions(for: thread.id, using: dependencies))
