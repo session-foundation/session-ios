@@ -639,7 +639,7 @@
 		FD6A38F72C2A6C0100762359 /* CryptoError.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD6A38F62C2A6C0100762359 /* CryptoError.swift */; };
 		FD6A38F92C2A8AF700762359 /* DataSource.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD6A38F82C2A8AF700762359 /* DataSource.swift */; };
 		FD6A38FE2C2A8B7E00762359 /* MediaUtils.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD6A38FD2C2A8B7E00762359 /* MediaUtils.swift */; };
-		FD6A39002C2A8B9100762359 /* MimeTypeUtil.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD6A38FF2C2A8B9100762359 /* MimeTypeUtil.swift */; };
+		FD6A39002C2A8B9100762359 /* UTType+Utilities.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD6A38FF2C2A8B9100762359 /* UTType+Utilities.swift */; };
 		FD6A39022C2A8BDE00762359 /* UIImage+Utilities.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD6A39012C2A8BDE00762359 /* UIImage+Utilities.swift */; };
 		FD6A39042C2A8C0300762359 /* CGFloat+Utilities.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD6A39032C2A8C0300762359 /* CGFloat+Utilities.swift */; };
 		FD6A39062C2A8C1600762359 /* CGPoint+Utilities.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD6A39052C2A8C1600762359 /* CGPoint+Utilities.swift */; };
@@ -1804,7 +1804,7 @@
 		FD6A38F62C2A6C0100762359 /* CryptoError.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CryptoError.swift; sourceTree = "<group>"; };
 		FD6A38F82C2A8AF700762359 /* DataSource.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DataSource.swift; sourceTree = "<group>"; };
 		FD6A38FD2C2A8B7E00762359 /* MediaUtils.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MediaUtils.swift; sourceTree = "<group>"; };
-		FD6A38FF2C2A8B9100762359 /* MimeTypeUtil.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MimeTypeUtil.swift; sourceTree = "<group>"; };
+		FD6A38FF2C2A8B9100762359 /* UTType+Utilities.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "UTType+Utilities.swift"; sourceTree = "<group>"; };
 		FD6A39012C2A8BDE00762359 /* UIImage+Utilities.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "UIImage+Utilities.swift"; sourceTree = "<group>"; };
 		FD6A39032C2A8C0300762359 /* CGFloat+Utilities.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "CGFloat+Utilities.swift"; sourceTree = "<group>"; };
 		FD6A39052C2A8C1600762359 /* CGPoint+Utilities.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "CGPoint+Utilities.swift"; sourceTree = "<group>"; };
@@ -2673,7 +2673,7 @@
 				FD6A38F82C2A8AF700762359 /* DataSource.swift */,
 				FD09797827FAB7E800936362 /* ImageFormat.swift */,
 				FD6A38FD2C2A8B7E00762359 /* MediaUtils.swift */,
-				FD6A38FF2C2A8B9100762359 /* MimeTypeUtil.swift */,
+				FD6A38FF2C2A8B9100762359 /* UTType+Utilities.swift */,
 			);
 			path = Media;
 			sourceTree = "<group>";
@@ -5751,7 +5751,7 @@
 				7B1D74B027C365960030B423 /* Timer+MainThread.swift in Sources */,
 				FDE049032C76A09700B6F9BB /* UIAlertAction+Utilities.swift in Sources */,
 				FD428B192B4B576F006D0888 /* AppContext.swift in Sources */,
-				FD6A39002C2A8B9100762359 /* MimeTypeUtil.swift in Sources */,
+				FD6A39002C2A8B9100762359 /* UTType+Utilities.swift in Sources */,
 				FD6A38F92C2A8AF700762359 /* DataSource.swift in Sources */,
 				FD559DF52A7368CB00C7C62A /* DispatchQueue+Utilities.swift in Sources */,
 				FDF8488329405A12007DCAE5 /* BatchResponse.swift in Sources */,
