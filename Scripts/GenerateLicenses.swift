@@ -9,8 +9,9 @@ import Foundation
 // Get the Derived Data path and the project's name
 let derivedDataPath = getDerivedDataPath() ?? ""
 let projectName = ProcessInfo.processInfo.environment["PROJECT_NAME"] ?? ""
-let projectPath = "\(ProcessInfo.processInfo.environment["PROJECT_DIR"] ?? FileManager.default.currentDirectoryPath)/\(projectName)"
+let projectPath = ProcessInfo.processInfo.environment["PROJECT_DIR"] ?? FileManager.default.currentDirectoryPath
 
+let packageResolutionFilePath = "\(projectPath)/\(projectName).xcodeproj/project.xcworkspace/xcshareddata/swiftpm/Package.resolved"
 let packageCheckoutsPath = "\(derivedDataPath)/SourcePackages/checkouts/"
 let packageArtifactsPath = "\(derivedDataPath)/SourcePackages/artifacts/"
 
@@ -74,6 +75,38 @@ func findLicenses(in packagesPath: String) -> [(package: String, licenseContent:
     return licenses
 }
 
+func findPackageDependencyNames(in resolutionFilePath: String) throws -> Set<String> {
+    struct ResolvedPackages: Codable {
+        struct Pin: Codable {
+            struct State: Codable {
+                let revision: String
+                let version: String
+            }
+            
+            let identity: String
+            let kind: String
+            let location: String
+            let state: State
+        }
+        
+        let originHash: String
+        let pins: [Pin]
+        let version: Int
+    }
+    
+    do {
+        let data: Data = try Data(contentsOf: URL(fileURLWithPath: resolutionFilePath))
+        let resolvedPackages: ResolvedPackages = try JSONDecoder().decode(ResolvedPackages.self, from: data)
+        
+        print("Found \(resolvedPackages.pins.count) resolved packages.")
+        return Set(resolvedPackages.pins.map { $0.identity.lowercased() })
+    }
+    catch {
+        print("error: Failed to load list of resolved packages")
+        throw error
+    }
+}
+
 func scanDirectory(atPath path: String, foundFile: (String) -> Void) {
     if let enumerator = FileManager.default.enumerator(atPath: path) {
         for case let file as String in enumerator {
@@ -86,10 +119,15 @@ func scanDirectory(atPath path: String, foundFile: (String) -> Void) {
 }
 
 // Write licenses to a plist file
-func writePlist(licenses: [(package: String, licenseContent: String)], outputPath: String) {
+func writePlist(licenses: [(package: String, licenseContent: String)], resolvedPackageNames: Set<String>, outputPath: String) {
     var plistArray: [[String: String]] = []
+    let finalLicenses: [(package: String, licenseContent: String)] = licenses
+        .filter { resolvedPackageNames.contains($0.package.lowercased()) }
+        .sorted(by: { $0.package.lowercased() < $1.package.lowercased() })
     
-    for license in licenses {
+    print("\(finalLicenses.count) being written to plist.")
+    
+    finalLicenses.forEach { license in
         plistArray.append([
             "Title": license.package,
             "License": license.licenseContent
@@ -103,9 +141,10 @@ func writePlist(licenses: [(package: String, licenseContent: String)], outputPat
 
 // Execute the license discovery process
 let licenses = findLicenses(in: packageCheckoutsPath) + findLicenses(in: packageArtifactsPath)
+let resolvedPackageNames = try findPackageDependencyNames(in: packageResolutionFilePath)
 
 // Specify the path for the output plist
-let outputPlistPath = "\(projectPath)/Meta/Settings.bundle/ThirdPartyLicenses.plist"
-writePlist(licenses: licenses, outputPath: outputPlistPath)
+let outputPlistPath = "\(projectPath)/\(projectName)/Meta/Settings.bundle/ThirdPartyLicenses.plist"
+writePlist(licenses: licenses, resolvedPackageNames: resolvedPackageNames, outputPath: outputPlistPath)
 
 print("Licenses generated successfully at \(outputPlistPath)")
