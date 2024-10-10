@@ -171,7 +171,7 @@ fileprivate struct CallInfo {
     }
 }
 
-fileprivate func generateCallInfo<M, T, R>(_ actualExpression: Expression<M>, _ functionBlock: @escaping (inout T) throws -> R) -> CallInfo where M: Mock<T> {
+fileprivate func generateCallInfo<M, T, R>(_ actualExpression: Nimble.Expression<M>, _ functionBlock: @escaping (inout T) throws -> R) -> CallInfo where M: Mock<T> {
     var maybeFunction: MockFunction?
     var allFunctionsCalled: [FunctionConsumer.Key] = []
     var desiredFunctionCalls: [String] = []

@@ -287,7 +287,7 @@ extension ConversationVC:
     func handleDocumentButtonTapped() {
         // UIDocumentPickerModeImport copies to a temp file within our container.
         // It uses more memory than "open" but lets us avoid working with security scoped URLs.
-        let documentPickerVC = UIDocumentPickerViewController(documentTypes: [ kUTTypeItem as String ], in: UIDocumentPickerMode.import)
+        let documentPickerVC = UIDocumentPickerViewController(forOpeningContentTypes: [.item], asCopy: true)
         documentPickerVC.delegate = self
         documentPickerVC.modalPresentationStyle = .fullScreen
         
@@ -354,7 +354,7 @@ extension ConversationVC:
             return
         }
         
-        let type = urlResourceValues.typeIdentifier ?? (kUTTypeData as String)
+        let type: UTType = (urlResourceValues.typeIdentifier.map({ UTType($0) }) ?? .data)
         guard urlResourceValues.isDirectory != true else {
             DispatchQueue.main.async { [weak self] in
                 let modal: ConfirmationModal = ConfirmationModal(
@@ -382,12 +382,12 @@ extension ConversationVC:
         
         // Although we want to be able to send higher quality attachments through the document picker
         // it's more imporant that we ensure the sent format is one all clients can accept (e.g. *not* quicktime .mov)
-        guard !SignalAttachment.isInvalidVideo(dataSource: dataSource, dataUTI: type) else {
+        guard !SignalAttachment.isInvalidVideo(dataSource: dataSource, type: type) else {
             return showAttachmentApprovalDialogAfterProcessingVideo(at: url, with: fileName)
         }
         
         // "Document picker" attachments _SHOULD NOT_ be resized
-        let attachment = SignalAttachment.attachment(dataSource: dataSource, dataUTI: type, imageQuality: .original)
+        let attachment = SignalAttachment.attachment(dataSource: dataSource, type: type, imageQuality: .original)
         showAttachmentApprovalDialog(for: [ attachment ])
     }
 
@@ -412,7 +412,7 @@ extension ConversationVC:
             SignalAttachment
                 .compressVideoAsMp4(
                     dataSource: dataSource,
-                    dataUTI: kUTTypeMPEG4 as String,
+                    type: .mpeg4Movie,
                     using: dependencies
                 )
                 .attachmentPublisher
@@ -700,8 +700,8 @@ extension ConversationVC:
     func didPasteImageFromPasteboard(_ image: UIImage) {
         guard let imageData = image.jpegData(compressionQuality: 1.0) else { return }
         
-        let dataSource = DataSourceValue(data: imageData, utiType: kUTTypeJPEG as String)
-        let attachment = SignalAttachment.attachment(dataSource: dataSource, dataUTI: kUTTypeJPEG as String, imageQuality: .medium)
+        let dataSource = DataSourceValue(data: imageData, dataType: .jpeg)
+        let attachment = SignalAttachment.attachment(dataSource: dataSource, type: .jpeg, imageQuality: .medium)
 
         guard let approvalVC = AttachmentApprovalViewController.wrappedInNavController(
             threadId: self.viewModel.threadData.threadId,
@@ -1100,7 +1100,7 @@ extension ConversationVC:
                 if
                     attachment.isText ||
                     attachment.isMicrosoftDoc ||
-                    attachment.contentType == MimeTypeUtil.MimeType.applicationPdf
+                    attachment.contentType == UTType.mimeTypePdf
                 {
                     // FIXME: If given an invalid text file (eg with binary data) this hangs forever
                     // Note: I tried dispatching after a short delay, detecting that the new UI is invalid and dismissing it
@@ -1921,12 +1921,12 @@ extension ConversationVC:
                         attachment.state == .downloaded ||
                         attachment.state == .uploaded
                     ),
-                    let utiType: String = MimeTypeUtil.utiType(for: attachment.contentType),
+                    let type: UTType = UTType(sessionMimeType: attachment.contentType),
                     let originalFilePath: String = attachment.originalFilePath,
                     let data: Data = try? Data(contentsOf: URL(fileURLWithPath: originalFilePath))
                 else { return }
             
-                UIPasteboard.general.setData(data, forPasteboardType: utiType)
+                UIPasteboard.general.setData(data, forPasteboardType: type.identifier)
         }
     }
 
@@ -2535,7 +2535,7 @@ extension ConversationVC:
         let fileName = ("messageVoice".localized() as NSString).appendingPathExtension("m4a")
         dataSource.sourceFilename = fileName
         
-        let attachment = SignalAttachment.voiceMessageAttachment(dataSource: dataSource, dataUTI: kUTTypeMPEG4Audio as String)
+        let attachment = SignalAttachment.voiceMessageAttachment(dataSource: dataSource, type: .mpeg4Audio)
         
         guard !attachment.hasError else {
             return showErrorAlert(for: attachment)
