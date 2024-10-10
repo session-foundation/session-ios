@@ -75,20 +75,9 @@ local sim_delete_cmd = 'if [ -f build/artifacts/sim_uuid ]; then rm -f /Users/$U
         name: 'Unit Test Summary',
         commands: [
           sim_delete_cmd,
-          |||
-            set +x
-            
-            if [[ -d ./build/artifacts/testResults.xcresult ]]; then
-              xcresultparser --output-format cli --failed-tests-only ./build/artifacts/testResults.xcresult
-            else
-              echo -e "\n\n\n\e[31;1mUnit test results not found\e[0m"
-            fi
-          |||,
+          'xcresultparser --output-format cli --failed-tests-only ./build/artifacts/testResults.xcresult'
         ],
-        depends_on: ['Build and Run Tests'],
-        when: {
-          status: ['failure', 'success'],
-        },
+        depends_on: ['Build and Run Tests']
       },
       {
         name: 'Convert xcresult to xml',
