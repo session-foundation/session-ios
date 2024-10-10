@@ -272,7 +272,7 @@ public enum DependenciesError: Error {
 
 private extension Dependencies {
     struct DependencyStorage {
-        var initializationTracker: [String: DispatchGroup] = [:]
+        var initializationLocks: [String: NSLock] = [:]
         var instances: [String: Value] = [:]
         
         enum Value {
@@ -369,23 +369,23 @@ private extension Dependencies {
         storage.mutate { $0.instances.removeValue(forKey: key) }
     }
     
-    /// This function creates a `DispatchGroup` for the given identifier which allows us to block instance creation on a per-identifier basis
+    /// This function creates an `NSLock` for the given identifier which allows us to block instance creation on a per-identifier basis
     /// and avoid situations where multithreading could result in multiple instances of the same dependency being created concurrently
     ///
-    /// **Note:** This `DispatchGroup` is an additional mechanism on top of the `Atomic<T>` because the interface is a little simpler
+    /// **Note:** This `NSLock` is an additional mechanism on top of the `Atomic<T>` because the interface is a little simpler
     /// and we don't need to wrap every instance within `Atomic<T>` this way
     @discardableResult private func threadSafeChange<T>(for identifier: String, change: () -> T) -> T {
-        let group: DispatchGroup = storage.mutate { storage in
-            if let existing = storage.initializationTracker[identifier] {
+        let lock: NSLock = storage.mutate { storage in
+            if let existing = storage.initializationLocks[identifier] {
                 return existing
             }
             
-            let group = DispatchGroup()
-            storage.initializationTracker[identifier] = group
-            return group
+            let lock: NSLock = NSLock()
+            storage.initializationLocks[identifier] = lock
+            return lock
         }
-        group.enter()
-        defer { group.leave() }
+        lock.lock()
+        defer { lock.unlock() }
         
         return change()
     }

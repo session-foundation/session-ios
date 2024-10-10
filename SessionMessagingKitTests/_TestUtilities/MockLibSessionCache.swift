@@ -28,8 +28,12 @@ class MockLibSessionCache: Mock<LibSessionCacheType>, LibSessionCacheType {
         return mock(args: [variant, sessionId])
     }
     
-    func setConfig(for variant: ConfigDump.Variant, sessionId: SessionId, to config: LibSession.Config?) {
+    func setConfig(for variant: ConfigDump.Variant, sessionId: SessionId, to config: LibSession.Config) {
         mockNoReturn(args: [variant, sessionId, config])
+    }
+    
+    func removeConfigs(for sessionId: SessionId) {
+        mockNoReturn(args: [sessionId])
     }
     
     func createDump(

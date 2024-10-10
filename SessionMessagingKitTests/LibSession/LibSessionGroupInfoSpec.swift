@@ -79,6 +79,7 @@ class LibSessionGroupInfoSpec: QuickSpec {
                 _ = user_groups_init(&conf, &secretKey, nil, 0, nil)
                 
                 cache.when { $0.setConfig(for: .any, sessionId: .any, to: .any) }.thenReturn(())
+                cache.when { $0.removeConfigs(for: .any) }.thenReturn(())
                 cache.when { $0.config(for: .userGroups, sessionId: .any) }
                     .thenReturn(.object(conf))
                 cache.when { $0.config(for: .groupInfo, sessionId: .any) }

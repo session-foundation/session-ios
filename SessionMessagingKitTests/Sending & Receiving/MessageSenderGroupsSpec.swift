@@ -189,9 +189,8 @@ class MessageSenderGroupsSpec: QuickSpec {
                 let userSessionId: SessionId = SessionId(.standard, hex: TestConstants.publicKey)
                 
                 cache.when { $0.isEmpty }.thenReturn(false)
-                cache
-                    .when { $0.setConfig(for: .any, sessionId: .any, to: .any) }
-                    .thenReturn(())
+                cache.when { $0.setConfig(for: .any, sessionId: .any, to: .any) }.thenReturn(())
+                cache.when { $0.removeConfigs(for: .any) }.thenReturn(())
                 cache
                     .when { $0.config(for: .userGroups, sessionId: userSessionId) }
                     .thenReturn(userGroupsConfig)
@@ -548,15 +547,7 @@ class MessageSenderGroupsSpec: QuickSpec {
                         
                         expect(mockLibSessionCache)
                             .to(call(.exactly(times: 1), matchingParameters: .all) { cache in
-                                cache.setConfig(for: .groupInfo, sessionId: groupId, to: nil)
-                            })
-                        expect(mockLibSessionCache)
-                            .to(call(.exactly(times: 1), matchingParameters: .all) { cache in
-                                cache.setConfig(for: .groupMembers, sessionId: groupId, to: nil)
-                            })
-                        expect(mockLibSessionCache)
-                            .to(call(.exactly(times: 1), matchingParameters: .all) { cache in
-                                cache.setConfig(for: .groupKeys, sessionId: groupId, to: nil)
+                                cache.removeConfigs(for: groupId)
                             })
                     }
                     

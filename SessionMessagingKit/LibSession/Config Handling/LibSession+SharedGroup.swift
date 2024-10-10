@@ -175,9 +175,7 @@ internal extension LibSession {
         using dependencies: Dependencies
     ) {
         dependencies.mutate(cache: .libSession) { cache in
-            cache.setConfig(for: .groupKeys, sessionId: groupSessionId, to: nil)
-            cache.setConfig(for: .groupInfo, sessionId: groupSessionId, to: nil)
-            cache.setConfig(for: .groupMembers, sessionId: groupSessionId, to: nil)
+            cache.removeConfigs(for: groupSessionId)
         }
         
         _ = try? ConfigDump
@@ -347,9 +345,7 @@ internal extension LibSessionCacheType {
         _ db: Database,
         groupSessionId: SessionId
     ) {
-        setConfig(for: .groupKeys, sessionId: groupSessionId, to: nil)
-        setConfig(for: .groupInfo, sessionId: groupSessionId, to: nil)
-        setConfig(for: .groupMembers, sessionId: groupSessionId, to: nil)
+        removeConfigs(for: groupSessionId)
         
         _ = try? ConfigDump
             .filter(ConfigDump.Columns.sessionId == groupSessionId.hexString)

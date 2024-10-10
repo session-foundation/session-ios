@@ -658,6 +658,7 @@ class DeveloperSettingsViewModel: SessionTableViewModel, NavigatableStateHolder,
         /// Stop all pollers
         dependencies[singleton: .currentUserPoller].stop()
         dependencies.remove(cache: .groupPollers)
+        dependencies.remove(cache: .communityPollers)
         
         /// Reset the network
         dependencies.mutate(cache: .libSessionNetwork) {
@@ -676,6 +677,9 @@ class DeveloperSettingsViewModel: SessionTableViewModel, NavigatableStateHolder,
         
         /// Clear the snodeAPI  caches
         dependencies.remove(cache: .snodeAPI)
+        
+        /// Remove the libSession state
+        dependencies.remove(cache: .libSession)
         
         /// Remove any network-specific data
         dependencies[singleton: .storage].write { [dependencies] db in
@@ -697,9 +701,6 @@ class DeveloperSettingsViewModel: SessionTableViewModel, NavigatableStateHolder,
             _ = try BlindedIdLookup.deleteAll(db)
             _ = try ConfigDump.deleteAll(db)
         }
-        
-        /// Remove the libSession state
-        dependencies.remove(cache: .libSession)
         
         Log.info("[DevSettings] Reloading state for \(String(describing: updatedNetwork))")
         

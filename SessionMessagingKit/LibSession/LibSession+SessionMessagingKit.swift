@@ -93,6 +93,40 @@ private class ConfigStore {
     }
     
     deinit {
+        /// Group configs are a little complicated because they contain the info & members confs so we need some special handling to
+        /// properly free memory here, firstly we need to retrieve all groupKeys configs
+        let groupKeysConfigs: [(key: Key, value: LibSession.Config)] = store
+            .filter { _, config in
+                switch config {
+                    case .groupKeys: return true
+                    default: return false
+                }
+            }
+        
+        /// Now we remove all configss associated to the same sessionId from the store
+        groupKeysConfigs.forEach { key, _ in
+            ConfigDump.Variant.allCases.forEach { store.removeValue(forKey: Key(sessionId: key.sessionId, variant: $0)) }
+        }
+        
+        /// Then free the group configs
+        groupKeysConfigs.forEach { _, config in
+            switch config {
+                case .groupKeys(let keysConf, let infoConf, let membersConf):
+                    groups_keys_free(keysConf)
+                    config_free(infoConf)
+                    config_free(membersConf)
+                    
+                default: break
+            }
+        }
+        
+        /// Finally we free any remaining configs
+        store.forEach { _, config in
+            switch config {
+                case .invalid, .groupKeys: break    // Shouldn't happen
+                case .object(let conf): config_free(conf)
+            }
+        }
         store.removeAll()
     }
 }
@@ -334,8 +368,40 @@ public extension LibSession {
             return configStore[sessionId, variant]
         }
         
-        public func setConfig(for variant: ConfigDump.Variant, sessionId: SessionId, to config: Config?) {
+        public func setConfig(for variant: ConfigDump.Variant, sessionId: SessionId, to config: Config) {
             configStore[sessionId, variant] = config
+        }
+        
+        public func removeConfigs(for sessionId: SessionId) {
+            // First retrieve the configs stored for the sessionId
+            let configs: [LibSession.Config] = configStore[sessionId]
+            let keysConfig: LibSession.Config? = configs.first { config in
+                switch config {
+                    case .groupKeys: return true
+                    default: return false
+                }
+            }
+            
+            // Then remove them from the ConfigStore (can't have something else accessing them)
+            ConfigDump.Variant.allCases.forEach { configStore[sessionId, $0] = nil }
+            
+            // Finally we need to free them (if we got a `groupKeys` config then that includes
+            // the other confs for that sessionId so we can free them all at once, otherwise loop
+            // and freee everything
+            switch keysConfig {
+                case .groupKeys(let keysConf, let infoConf, let membersConf):
+                    groups_keys_free(keysConf)
+                    config_free(infoConf)
+                    config_free(membersConf)
+                
+                default:
+                    configs.forEach { config in
+                        switch config {
+                            case .invalid, .groupKeys: break    // Should be handled above
+                            case .object(let conf): config_free(conf)
+                        }
+                    }
+            }
         }
         
         public func createDump(
@@ -651,7 +717,8 @@ public protocol LibSessionCacheType: LibSessionImmutableCacheType, MutableCacheT
         userEd25519KeyPair: KeyPair
     )
     func config(for variant: ConfigDump.Variant, sessionId: SessionId) -> LibSession.Config?
-    func setConfig(for variant: ConfigDump.Variant, sessionId: SessionId, to config: LibSession.Config?)
+    func setConfig(for variant: ConfigDump.Variant, sessionId: SessionId, to config: LibSession.Config)
+    func removeConfigs(for sessionId: SessionId)
     func createDump(
         config: LibSession.Config?,
         for variant: ConfigDump.Variant,
@@ -717,7 +784,8 @@ private final class NoopLibSessionCache: LibSessionCacheType {
         userEd25519KeyPair: KeyPair
     ) {}
     func config(for variant: ConfigDump.Variant, sessionId: SessionId) -> LibSession.Config? { return nil }
-    func setConfig(for variant: ConfigDump.Variant, sessionId: SessionId, to config: LibSession.Config?) {}
+    func setConfig(for variant: ConfigDump.Variant, sessionId: SessionId, to config: LibSession.Config) {}
+    func removeConfigs(for sessionId: SessionId) {}
     func createDump(
         config: LibSession.Config?,
         for variant: ConfigDump.Variant,

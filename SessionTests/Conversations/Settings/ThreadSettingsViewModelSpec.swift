@@ -325,7 +325,7 @@ class ThreadSettingsViewModelSpec: QuickSpec {
                             )
                         ))
                         expect(modal?.info.confirmTitle).to(equal("save".localized()))
-                        expect(modal?.info.cancelTitle).to(equal("Reset"))
+                        expect(modal?.info.cancelTitle).to(equal("remove".localized()))
                     }
                     
                     // MARK: ---- does nothing if the name contains only white space

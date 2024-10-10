@@ -183,9 +183,8 @@ class MessageReceiverGroupsSpec: QuickSpec {
             initialSetup: { cache in
                 let userSessionId: SessionId = SessionId(.standard, hex: TestConstants.publicKey)
                 
-                cache
-                    .when { $0.setConfig(for: .any, sessionId: .any, to: .any) }
-                    .thenReturn(())
+                cache.when { $0.setConfig(for: .any, sessionId: .any, to: .any) }.thenReturn(())
+                cache.when { $0.removeConfigs(for: .any) }.thenReturn(())
                 cache
                     .when { $0.config(for: .userGroups, sessionId: userSessionId) }
                     .thenReturn(userGroupsConfig)
@@ -2914,15 +2913,7 @@ class MessageReceiverGroupsSpec: QuickSpec {
                     
                     expect(mockLibSessionCache)
                         .to(call(.exactly(times: 1), matchingParameters: .all) {
-                            $0.setConfig(for: .groupKeys, sessionId: groupId, to: nil)
-                        })
-                    expect(mockLibSessionCache)
-                        .to(call(.exactly(times: 1), matchingParameters: .all) {
-                            $0.setConfig(for: .groupInfo, sessionId: groupId, to: nil)
-                        })
-                    expect(mockLibSessionCache)
-                        .to(call(.exactly(times: 1), matchingParameters: .all) {
-                            $0.setConfig(for: .groupMembers, sessionId: groupId, to: nil)
+                            $0.removeConfigs(for: groupId)
                         })
                 }
                 
@@ -2939,15 +2930,7 @@ class MessageReceiverGroupsSpec: QuickSpec {
                     
                     expect(mockLibSessionCache)
                         .to(call(.exactly(times: 1), matchingParameters: .all) {
-                            $0.setConfig(for: .groupKeys, sessionId: groupId, to: nil)
-                        })
-                    expect(mockLibSessionCache)
-                        .to(call(.exactly(times: 1), matchingParameters: .all) {
-                            $0.setConfig(for: .groupInfo, sessionId: groupId, to: nil)
-                        })
-                    expect(mockLibSessionCache)
-                        .to(call(.exactly(times: 1), matchingParameters: .all) {
-                            $0.setConfig(for: .groupMembers, sessionId: groupId, to: nil)
+                            $0.removeConfigs(for: groupId)
                         })
                     
                     let dumps: [ConfigDump]? = mockStorage.read { db in
