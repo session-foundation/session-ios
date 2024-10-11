@@ -123,7 +123,7 @@ public extension UTType {
             let mimeType: String = preferredMIMEType,
             let fileExtension: String = UTType.genericExtensionTypesToMimeTypes
                 .first(where: { _, value in value == mimeType })?
-                .value
+                .key
         else { return preferredFilenameExtension }
         
         return fileExtension
