@@ -38,12 +38,12 @@ public enum SNUtilitiesKit: MigratableTarget { // Just to make the external API 
     }
 
     public static func configure(
-        maxFileSize: UInt,
+        networkMaxFileSize: UInt,
         localizedFormatted: @escaping (LocalizationHelper, UIFont) -> NSAttributedString,
         localizedDeformatted: @escaping (LocalizationHelper) -> String,
         using dependencies: Dependencies
     ) {
-        self.maxFileSize = maxFileSize
+        self.maxFileSize = networkMaxFileSize
         self.localizedFormatted = localizedFormatted
         self.localizedDeformatted = localizedDeformatted
     }

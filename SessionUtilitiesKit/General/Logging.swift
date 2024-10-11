@@ -91,8 +91,8 @@ public enum Log {
     private static var pendingStartupLogs: Atomic<[LogInfo]> = Atomic([])
     
     public static func setup(with logger: Logger) {
-        logger.retrievePendingStartupLogs.mutate {
-            $0 = {
+        logger.pendingLogsRetriever.mutate { callback in
+            callback = {
                 pendingStartupLogs.mutate { pendingStartupLogs in
                     let logs: [LogInfo] = pendingStartupLogs
                     pendingStartupLogs = []
@@ -368,7 +368,7 @@ public class Logger {
     private let systemLoggers: Atomic<[String: SystemLoggerType]> = Atomic([:])
     fileprivate let fileLogger: DDFileLogger
     fileprivate let isSuspended: Atomic<Bool> = Atomic(true)
-    fileprivate let retrievePendingStartupLogs: Atomic<(() -> [Log.LogInfo])?> = Atomic(nil)
+    fileprivate let pendingLogsRetriever: Atomic<(() -> [Log.LogInfo])?> = Atomic(nil)
     
     public init(
         primaryPrefix: String,
@@ -509,11 +509,7 @@ public class Logger {
             isSuspended = false
             
             // Retrieve any logs that were added during
-            return retrievePendingStartupLogs.mutate { retriever in
-                let result: [Log.LogInfo] = (retriever?() ?? [])
-                retriever = nil
-                return result
-            }
+            return pendingLogsRetriever.mutate { retriever in (retriever?() ?? []) }
         }
         
         // If we had an error loading the extension logs then actually log it

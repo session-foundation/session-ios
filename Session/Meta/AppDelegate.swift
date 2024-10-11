@@ -78,7 +78,7 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
                 
                 // Configure the different targets
                 SNUtilitiesKit.configure(
-                    maxFileSize: Network.maxFileSize,
+                    networkMaxFileSize: Network.maxFileSize,
                     localizedFormatted: { helper, font in SessionSNUIKitConfig.localizedFormatted(helper, font) },
                     localizedDeformatted: { helper in SessionSNUIKitConfig.localizedDeformatted(helper) },
                     using: dependencies

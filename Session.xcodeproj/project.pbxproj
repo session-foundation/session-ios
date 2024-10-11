@@ -1441,6 +1441,7 @@
 		94367C422C6C828500814252 /* Localizable.xcstrings */ = {isa = PBXFileReference; lastKnownFileType = text.json.xcstrings; path = Localizable.xcstrings; sourceTree = "<group>"; };
 		943C6D812B75E061004ACE64 /* Message+DisappearingMessages.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Message+DisappearingMessages.swift"; sourceTree = "<group>"; };
 		943C6D832B86B5F1004ACE64 /* Localization.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Localization.swift; sourceTree = "<group>"; };
+		9471CAA72CACFB4E00090FB7 /* GenerateLicenses.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GenerateLicenses.swift; sourceTree = "<group>"; };
 		9473386D2BDF5F3E00B9E169 /* InfoPlist.xcstrings */ = {isa = PBXFileReference; lastKnownFileType = text.json.xcstrings; path = InfoPlist.xcstrings; sourceTree = "<group>"; };
 		947AD68F2C8968FF000B2730 /* Constants.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Constants.swift; sourceTree = "<group>"; };
 		94B3DC162AF8592200C88531 /* QuoteView_SwiftUI.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = QuoteView_SwiftUI.swift; sourceTree = "<group>"; };
@@ -4567,6 +4568,7 @@
 				FDE72150287E50D50093DF33 /* LintLocalizableStrings.swift */,
 				FD5CE3442A3C5D96001A6DE3 /* DecryptExportedKey.swift */,
 				FDEF57642C44B8C200131302 /* ProcessIP2CountryData.swift */,
+				9471CAA72CACFB4E00090FB7 /* GenerateLicenses.swift */,
 			);
 			path = Scripts;
 			sourceTree = "<group>";
@@ -4829,7 +4831,6 @@
 				FD5E93D52C12D8120038C25A /* Add Commit Hash To Build Info Plist */,
 				FD5E93D72C12DA400038C25A /* Add App Group To Build Info Plist */,
 				FDC498C12AC1775400EDD897 /* Ensure Localizable.strings included */,
-				943BC5A02C6F26370066A56A /* Ensure InfoPlist.xcstrings updated */,
 			);
 			buildRules = (
 			);
@@ -4974,6 +4975,8 @@
 				FDD82C422A2085B900425F05 /* Add Commit Hash To Build Info Plist */,
 				FD5E93D32C12D3990038C25A /* Add App Group To Build Info Plist */,
 				FDC498BF2AC1747900EDD897 /* Ensure Localizable.strings included */,
+				FD0B1FA92CA3805C00F60F46 /* Ensure InfoPlist.xcstrings updated */,
+				9471CAA62CACFB0600090FB7 /* Generate Licenses Plist */,
 			);
 			buildRules = (
 			);
@@ -5460,7 +5463,7 @@
 /* End PBXResourcesBuildPhase section */
 
 /* Begin PBXShellScriptBuildPhase section */
-		943BC5A02C6F26370066A56A /* Ensure InfoPlist.xcstrings updated */ = {
+		FD0B1FA92CA3805C00F60F46 /* Ensure InfoPlist.xcstrings updated */ = {
 			isa = PBXShellScriptBuildPhase;
 			alwaysOutOfDate = 1;
 			buildActionMask = 2147483647;
@@ -5478,6 +5481,26 @@
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
 			shellScript = "\"${SRCROOT}/Scripts/LintLocalizableStrings.swift\" update\n";
+			showEnvVarsInLog = 0;
+		};
+		9471CAA62CACFB0600090FB7 /* Generate Licenses Plist */ = {
+			isa = PBXShellScriptBuildPhase;
+			alwaysOutOfDate = 1;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputFileListPaths = (
+			);
+			inputPaths = (
+			);
+			name = "Generate Licenses Plist";
+			outputFileListPaths = (
+			);
+			outputPaths = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "\"${SRCROOT}/Scripts/GenerateLicenses.swift\"\n";
 			showEnvVarsInLog = 0;
 		};
 		FD5E93D32C12D3990038C25A /* Add App Group To Build Info Plist */ = {

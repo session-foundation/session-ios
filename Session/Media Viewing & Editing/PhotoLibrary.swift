@@ -142,7 +142,6 @@ class PhotoCollectionContents {
     private func requestImageDataSource(for asset: PHAsset, using dependencies: Dependencies) -> AnyPublisher<(dataSource: (any DataSource), type: UTType), Error> {
         return Deferred {
             Future { [weak self] resolver in
-                
                 let options: PHImageRequestOptions = PHImageRequestOptions()
                 options.isNetworkAccessAllowed = true
                 
@@ -173,7 +172,6 @@ class PhotoCollectionContents {
     private func requestVideoDataSource(for asset: PHAsset, using dependencies: Dependencies) -> AnyPublisher<(dataSource: (any DataSource), type: UTType), Error> {
         return Deferred {
             Future { [weak self] resolver in
-                
                 let options: PHVideoRequestOptions = PHVideoRequestOptions()
                 options.isNetworkAccessAllowed = true
                 

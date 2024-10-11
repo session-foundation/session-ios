@@ -60,7 +60,7 @@ final class ShareNavController: UINavigationController, ShareViewDelegate {
                 
                 // Configure the different targets
                 SNUtilitiesKit.configure(
-                    maxFileSize: Network.maxFileSize,
+                    networkMaxFileSize: Network.maxFileSize,
                     localizedFormatted: { helper, font in SAESNUIKitConfig.localizedFormatted(helper, font) },
                     localizedDeformatted: { helper in SAESNUIKitConfig.localizedDeformatted(helper) },
                     using: dependencies
@@ -721,7 +721,6 @@ private extension NSItemProvider {
         }
     }
 }
-
 
 // MARK: - SAESNUIKitConfig
 
