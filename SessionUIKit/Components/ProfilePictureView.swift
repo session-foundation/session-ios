@@ -76,7 +76,7 @@ public final class ProfilePictureView: UIView {
         case none
         case crown
         case rightPlus
-        case letter(Character)
+        case letter(Character, Bool)
         
         func iconVerticalInset(for size: Size) -> CGFloat {
             switch (self, size) {
@@ -438,9 +438,9 @@ public final class ProfilePictureView: UIView {
                 imageView.isHidden = false
                 label.isHidden = true
                 
-            case .letter(let character):
-                label.themeTextColor = .backgroundPrimary
-                backgroundView.themeBackgroundColor = .textPrimary
+            case .letter(let character, let dangerMode):
+                label.themeTextColor = (dangerMode ? .textPrimary : .backgroundPrimary)
+                backgroundView.themeBackgroundColor = (dangerMode ? .danger : .textPrimary)
                 label.isHidden = false
                 label.text = "\(character)"
         }

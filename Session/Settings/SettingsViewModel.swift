@@ -143,9 +143,13 @@ class SettingsViewModel: SessionTableViewModel, NavigationItemSource, Navigatabl
                             id: state.profile.id,
                             size: .hero,
                             profile: state.profile,
-                            profileIcon: (dependencies[feature: .serviceNetwork] == .mainnet ? .none :
-                                .letter("T")    // stringlint:disable
-                            )
+                            profileIcon: {
+                                switch (dependencies[feature: .serviceNetwork], dependencies[feature: .forceOffline]) {
+                                    case (.testnet, false): return .letter("T", false)     // stringlint:disable
+                                    case (.testnet, true): return .letter("T", true)       // stringlint:disable
+                                    default: return .none
+                                }
+                            }()
                         ),
                         styling: SessionCell.StyleInfo(
                             alignment: .centerHugging,

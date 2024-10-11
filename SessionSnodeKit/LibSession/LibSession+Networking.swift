@@ -664,6 +664,14 @@ public extension LibSession {
             
             // Create the network object
             getOrCreateNetwork().sinkUntilComplete()
+            
+            // If the app has been set to 'forceOffline' then we need to explicitly set the network status
+            // to disconnected (because it'll never be set otherwise)
+            if dependencies[feature: .forceOffline] {
+                DispatchQueue.global(qos: .default).async { [dependencies] in
+                    dependencies.mutate(cache: .libSessionNetwork) { $0.setNetworkStatus(status: .disconnected) }
+                }
+            }
         }
         
         deinit {
@@ -713,13 +721,18 @@ public extension LibSession {
                 return Fail(error: NetworkError.suspended).eraseToAnyPublisher()
             }
             
-            switch network {
-                case .some(let existingNetwork):
+            switch (network, dependencies[feature: .forceOffline]) {
+                case (_, true):
+                    return Fail(error: NetworkError.serviceUnavailable)
+                        .delay(for: .seconds(1), scheduler: DispatchQueue.main)
+                        .eraseToAnyPublisher()
+                    
+                case (.some(let existingNetwork), _):
                     return Just(existingNetwork)
                         .setFailureType(to: Error.self)
                         .eraseToAnyPublisher()
                 
-                case .none:
+                case (.none, _):
                     let useTestnet: Bool = (dependencies[feature: .serviceNetwork] == .testnet)
                     let isMainApp: Bool = dependencies[singleton: .appContext].isMainApp
                     var error: [CChar] = [CChar](repeating: 0, count: 256)

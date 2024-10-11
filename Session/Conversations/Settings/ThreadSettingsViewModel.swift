@@ -60,6 +60,15 @@ class ThreadSettingsViewModel: SessionTableViewModel, NavigatableStateHolder, Ob
     public enum Section: SessionTableSection {
         case conversationInfo
         case content
+        case adminActions
+        case destructiveActions
+        
+        public var style: SessionTableSectionStyle {
+            switch self {
+                case .destructiveActions: return .padding
+                default: return .none
+            }
+        }
     }
     
     public enum TableItem: Differentiable {
@@ -81,6 +90,9 @@ class ThreadSettingsViewModel: SessionTableViewModel, NavigatableStateHolder, Ob
         case notificationMentionsOnly
         case notificationMute
         case blockUser
+        
+        case debugDeleteBeforeNow
+        case debugDeleteAttachmentsBeforeNow
     }
     
     // MARK: - Content
@@ -693,10 +705,71 @@ class ThreadSettingsViewModel: SessionTableViewModel, NavigatableStateHolder, Ob
                 )
             ].compactMap { $0 }
         )
+        let adminActionsSection: SectionModel? = nil
+        let destructiveActionsSection: SectionModel?
+        
+        if dependencies[feature: .updatedGroupsDeleteBeforeNow] || dependencies[feature: .updatedGroupsDeleteAttachmentsBeforeNow] {
+            destructiveActionsSection = SectionModel(
+                model: .destructiveActions,
+                elements: [
+                    // FIXME: [GROUPS REBUILD] Need to build this properly in a future release
+                    (!dependencies[feature: .updatedGroupsDeleteBeforeNow] || threadViewModel.threadVariant != .group ? nil :
+                        SessionCell.Info(
+                            id: .debugDeleteBeforeNow,
+                            leadingAccessory: .icon(
+                                UIImage(named: "ic_bin")?
+                                    .withRenderingMode(.alwaysTemplate),
+                                customTint: .danger
+                            ),
+                            title: "[DEBUG] Delete all messages before now",    // stringlint:disable
+                            styling: SessionCell.StyleInfo(
+                                tintColor: .danger
+                            ),
+                            confirmationInfo: ConfirmationModal.Info(
+                                title: "delete".localized(),
+                                body: .text("Are you sure you want to delete all messages sent before now for all group members?"),   // stringlint:disable
+                                confirmTitle: "delete".localized(),
+                                confirmStyle: .danger,
+                                cancelStyle: .alert_text
+                            ),
+                            onTap: { [weak self] in self?.deleteAllMessagesBeforeNow() }
+                        )
+                    ),
+                    // FIXME: [GROUPS REBUILD] Need to build this properly in a future release
+                    (!dependencies[feature: .updatedGroupsDeleteAttachmentsBeforeNow] || threadViewModel.threadVariant != .group ? nil :
+                        SessionCell.Info(
+                            id: .debugDeleteAttachmentsBeforeNow,
+                            leadingAccessory: .icon(
+                                UIImage(named: "ic_bin")?
+                                    .withRenderingMode(.alwaysTemplate),
+                                customTint: .danger
+                            ),
+                            title: "[DEBUG] Delete all arrachments before now",    // stringlint:disable
+                            styling: SessionCell.StyleInfo(
+                                tintColor: .danger
+                            ),
+                            confirmationInfo: ConfirmationModal.Info(
+                                title: "delete".localized(),
+                                body: .text("Are you sure you want to delete all attachments (and their associated messages) sent before now for all group members?"),   // stringlint:disable
+                                confirmTitle: "delete".localized(),
+                                confirmStyle: .danger,
+                                cancelStyle: .alert_text
+                            ),
+                            onTap: { [weak self] in self?.deleteAllAttachmentsBeforeNow() }
+                        )
+                     )
+                ].compactMap { $0 }
+            )
+        }
+        else {
+            destructiveActionsSection = nil
+        }
         
         return [
             conversationInfoSection,
-            standardActionsSection
+            standardActionsSection,
+            adminActionsSection,
+            destructiveActionsSection
         ].compactMap { $0 }
     }
     
@@ -1339,6 +1412,32 @@ class ThreadSettingsViewModel: SessionTableViewModel, NavigatableStateHolder, Ob
                     calledFromConfig: nil,
                     using: dependencies
                 )
+        }
+    }
+    
+    private func deleteAllMessagesBeforeNow() {
+        guard threadVariant == .group else { return }
+        
+        dependencies[singleton: .storage].writeAsync { [threadId, dependencies] db in
+            try LibSession.deleteMessagesBefore(
+                db,
+                groupSessionId: SessionId(.group, hex: threadId),
+                timestamp: dependencies.dateNow.timeIntervalSince1970,
+                using: dependencies
+            )
+        }
+    }
+    
+    private func deleteAllAttachmentsBeforeNow() {
+        guard threadVariant == .group else { return }
+        
+        dependencies[singleton: .storage].writeAsync { [threadId, dependencies] db in
+            try LibSession.deleteAttachmentsBefore(
+                db,
+                groupSessionId: SessionId(.group, hex: threadId),
+                timestamp: dependencies.dateNow.timeIntervalSince1970,
+                using: dependencies
+            )
         }
     }
 }

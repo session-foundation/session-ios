@@ -163,7 +163,7 @@ struct LandingScreen: View {
             let viewController: SessionHostingViewController = SessionHostingViewController(
                 rootView: DisplayNameScreen(using: viewModel.dependencies)
             )
-            viewController.setUpNavBarSessionIcon()
+            viewController.setUpNavBarSessionIcon(using: viewModel.dependencies)
             self.host.controller?.navigationController?.pushViewController(viewController, animated: true)
         }
     }

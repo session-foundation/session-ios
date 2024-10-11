@@ -615,10 +615,6 @@ extension Attachment {
     }
     
     public static func originalFilePath(id: String, mimeType: String, sourceFilename: String?, using dependencies: Dependencies) -> String? {
-        // Store the file in a subdirectory whose name is the uniqueId of this attachment,
-        // to avoid collisions between multiple attachments with the same name
-        let attachmentFolder: String = Attachment.attachmentsFolder(using: dependencies).appending("/\(id)")
-        
         if let sourceFilename: String = sourceFilename, !sourceFilename.isEmpty {
             // Ensure that the filename is a valid filesystem name,
             // replacing invalid characters with an underscore.
@@ -652,6 +648,10 @@ extension Attachment {
             targetFileExtension = targetFileExtension.lowercased()
             
             if !targetFileExtension.isEmpty {
+                // Store the file in a subdirectory whose name is the uniqueId of this attachment,
+                // to avoid collisions between multiple attachments with the same name
+                let attachmentFolder: String = Attachment.attachmentsFolder(using: dependencies).appending("/\(id)")
+                
                 guard case .success = Result(try FileSystem.ensureDirectoryExists(at: attachmentFolder, using: dependencies)) else {
                     return nil
                 }
@@ -665,7 +665,7 @@ extension Attachment {
             UTType.fileExtensionDefault
         ).lowercased()
         
-        return attachmentFolder.appending("/\(id).\(targetFileExtension)")
+        return Attachment.attachmentsFolder(using: dependencies).appending("/\(id).\(targetFileExtension)")
     }
     
     public static func localRelativeFilePath(from originalFilePath: String?, using dependencies: Dependencies) -> String? {

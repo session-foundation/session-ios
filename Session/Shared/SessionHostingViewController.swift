@@ -111,14 +111,70 @@ public class SessionHostingViewController<Content>: UIHostingController<Modified
         navigationItem.titleView = headingImageView
     }
 
-    internal func setUpNavBarSessionIcon() {
+    internal func setUpNavBarSessionIcon(using dependencies: Dependencies) {
         let logoImageView = UIImageView()
         logoImageView.image = #imageLiteral(resourceName: "SessionGreen32")
         logoImageView.contentMode = .scaleAspectFit
         logoImageView.set(.width, to: 32)
         logoImageView.set(.height, to: 32)
         
-        navigationItem.titleView = logoImageView
+        switch (dependencies[feature: .serviceNetwork], dependencies[feature: .forceOffline]) {
+            case (.mainnet, false): navigationItem.titleView = logoImageView
+            case (.testnet, _), (.mainnet, true):
+                let containerView: UIView = UIView()
+                containerView.clipsToBounds = false
+                containerView.addSubview(logoImageView)
+                logoImageView.pin(to: containerView)
+                
+                let labelStackView: UIStackView = UIStackView()
+                labelStackView.axis = .vertical
+                containerView.addSubview(labelStackView)
+                labelStackView.center(in: containerView)
+                labelStackView.transform = CGAffineTransform.identity.rotated(by: -(CGFloat.pi / 6))
+                
+                let testnetLabel: UILabel = UILabel()
+                testnetLabel.font = Fonts.boldSpaceMono(ofSize: 14)
+                testnetLabel.textAlignment = .center
+                
+                if dependencies[feature: .serviceNetwork] != .mainnet {
+                    labelStackView.addArrangedSubview(testnetLabel)
+                }
+                
+                let offlineLabel: UILabel = UILabel()
+                offlineLabel.font = Fonts.boldSpaceMono(ofSize: 14)
+                offlineLabel.textAlignment = .center
+                labelStackView.addArrangedSubview(offlineLabel)
+                
+                ThemeManager.onThemeChange(observer: testnetLabel) { [weak testnetLabel, weak offlineLabel] theme, primaryColor in
+                    guard
+                        let textColor: UIColor = theme.color(for: .textPrimary),
+                        let strokeColor: UIColor = theme.color(for: .backgroundPrimary)
+                    else { return }
+                    
+                    if dependencies[feature: .serviceNetwork] != .mainnet {
+                        testnetLabel?.attributedText = NSAttributedString(
+                            string: dependencies[feature: .serviceNetwork].title,
+                            attributes: [
+                                .foregroundColor: textColor,
+                                .strokeColor: strokeColor,
+                                .strokeWidth: -3
+                            ]
+                        )
+                    }
+                    
+                    offlineLabel?.attributedText = NSAttributedString(
+                        string: "Offline",  // stringlint:disable
+                        attributes: [
+                            .foregroundColor: textColor,
+                            .strokeColor: strokeColor,
+                            .strokeWidth: -3
+                        ]
+                    )
+                }
+                
+                navigationItem.titleView = containerView
+        }
+        
     }
     
     internal func setUpDismissingButton(on postion: NavigationItemPosition) {

@@ -579,10 +579,13 @@ public final class HomeVC: BaseVC, LibSessionRespondingViewController, UITableVi
             threadVariant: .contact,
             displayPictureFilename: nil,
             profile: userProfile,
-            profileIcon: (viewModel.dependencies[feature: .serviceNetwork] == .testnet ?
-                .letter("T") :     // stringlint:disable
-                .none
-            ),
+            profileIcon: {
+                switch (viewModel.dependencies[feature: .serviceNetwork], viewModel.dependencies[feature: .forceOffline]) {
+                    case (.testnet, false): return .letter("T", false)     // stringlint:disable
+                    case (.testnet, true): return .letter("T", true)       // stringlint:disable
+                    default: return .none
+                }
+            }(),
             additionalProfile: nil,
             using: viewModel.dependencies
         )
@@ -612,10 +615,13 @@ public final class HomeVC: BaseVC, LibSessionRespondingViewController, UITableVi
                         threadVariant: .contact,
                         displayPictureFilename: nil,
                         profile: userProfile,
-                        profileIcon: (value == .testnet ?
-                            .letter("T") :     // stringlint:disable
-                            .none
-                        ),
+                        profileIcon: {
+                            switch (dependencies[feature: .serviceNetwork], dependencies[feature: .forceOffline]) {
+                                case (.testnet, false): return .letter("T", false)     // stringlint:disable
+                                case (.testnet, true): return .letter("T", true)       // stringlint:disable
+                                default: return .none
+                            }
+                        }(),
                         additionalProfile: nil,
                         using: dependencies
                     )

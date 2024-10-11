@@ -8,9 +8,9 @@ extension UIEdgeInsets {
     public init(top: CGFloat, leading: CGFloat, bottom: CGFloat, trailing: CGFloat) {
         self.init(
             top: top,
-            left: (Dependencies.isRTL ? trailing : leading),
+            left: (Dependencies.unsafeNonInjected.isRTL ? trailing : leading),
             bottom: bottom,
-            right: (Dependencies.isRTL ? leading : trailing)
+            right: (Dependencies.unsafeNonInjected.isRTL ? leading : trailing)
         )
     }
 }

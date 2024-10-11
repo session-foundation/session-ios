@@ -9,6 +9,14 @@ public final class Features {
 }
 
 public extension FeatureStorage {
+    static let showStringKeys: FeatureConfig<Bool> = Dependencies.create(
+        identifier: "showStringKeys"
+    )
+    
+    static let forceOffline: FeatureConfig<Bool> = Dependencies.create(
+        identifier: "forceOffline"
+    )
+    
     static let debugDisappearingMessageDurations: FeatureConfig<Bool> = Dependencies.create(
         identifier: "debugDisappearingMessageDurations"
     )
@@ -56,6 +64,14 @@ public extension FeatureStorage {
     
     static let updatedGroupsAllowInviteById: FeatureConfig<Bool> = Dependencies.create(
         identifier: "updatedGroupsAllowInviteById"
+    )
+    
+    static let updatedGroupsDeleteBeforeNow: FeatureConfig<Bool> = Dependencies.create(
+        identifier: "updatedGroupsDeleteBeforeNow"
+    )
+    
+    static let updatedGroupsDeleteAttachmentsBeforeNow: FeatureConfig<Bool> = Dependencies.create(
+        identifier: "updatedGroupsDeleteAttachmentsBeforeNow"
     )
 }
 

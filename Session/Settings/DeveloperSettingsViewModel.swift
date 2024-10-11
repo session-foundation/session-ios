@@ -30,6 +30,7 @@ class DeveloperSettingsViewModel: SessionTableViewModel, NavigatableStateHolder,
     
     public enum Section: SessionTableSection {
         case developerMode
+        case general
         case logging
         case network
         case disappearingMessages
@@ -39,6 +40,7 @@ class DeveloperSettingsViewModel: SessionTableViewModel, NavigatableStateHolder,
         var title: String? {
             switch self {
                 case .developerMode: return nil
+                case .general: return "General"
                 case .logging: return "Logging"
                 case .network: return "Network"
                 case .disappearingMessages: return "Disappearing Messages"
@@ -58,11 +60,14 @@ class DeveloperSettingsViewModel: SessionTableViewModel, NavigatableStateHolder,
     public enum TableItem: Hashable, Differentiable, CaseIterable {
         case developerMode
         
+        case showStringKeys
+        
         case defaultLogLevel
         case advancedLogging
         case loggingCategory(String)
         
         case serviceNetwork
+        case forceOffline
         case resetSnodeCache
         
         case updatedDisappearingMessages
@@ -76,6 +81,8 @@ class DeveloperSettingsViewModel: SessionTableViewModel, NavigatableStateHolder,
         case updatedGroupsAllowDescriptionEditing
         case updatedGroupsAllowPromotions
         case updatedGroupsAllowInviteById
+        case updatedGroupsDeleteBeforeNow
+        case updatedGroupsDeleteAttachmentsBeforeNow
         
         case exportDatabase
         
@@ -86,11 +93,14 @@ class DeveloperSettingsViewModel: SessionTableViewModel, NavigatableStateHolder,
         public var differenceIdentifier: String {
             switch self {
                 case .developerMode: return "developerMode"
+                case .showStringKeys: return "showStringKeys"
+                
                 case .defaultLogLevel: return "defaultLogLevel"
                 case .advancedLogging: return "advancedLogging"
                 case .loggingCategory(let categoryIdentifier): return "loggingCategory-\(categoryIdentifier)"
                 
                 case .serviceNetwork: return "serviceNetwork"
+                case .forceOffline: return "forceOffline"
                 case .resetSnodeCache: return "resetSnodeCache"
                 
                 case .updatedDisappearingMessages: return "updatedDisappearingMessages"
@@ -104,6 +114,8 @@ class DeveloperSettingsViewModel: SessionTableViewModel, NavigatableStateHolder,
                 case .updatedGroupsAllowDescriptionEditing: return "updatedGroupsAllowDescriptionEditing"
                 case .updatedGroupsAllowPromotions: return "updatedGroupsAllowPromotions"
                 case .updatedGroupsAllowInviteById: return "updatedGroupsAllowInviteById"
+                case .updatedGroupsDeleteBeforeNow: return "updatedGroupsDeleteBeforeNow"
+                case .updatedGroupsDeleteAttachmentsBeforeNow: return "updatedGroupsDeleteAttachmentsBeforeNow"
                 
                 case .exportDatabase: return "exportDatabase"
             }
@@ -117,11 +129,14 @@ class DeveloperSettingsViewModel: SessionTableViewModel, NavigatableStateHolder,
             var result: [TableItem] = []
             switch TableItem.developerMode {
                 case .developerMode: result.append(.developerMode); fallthrough
+                case .showStringKeys: result.append(.showStringKeys); fallthrough
+                
                 case .defaultLogLevel: result.append(.defaultLogLevel); fallthrough
                 case .advancedLogging: result.append(.advancedLogging); fallthrough
                 case .loggingCategory: result.append(.loggingCategory("")); fallthrough
                 
                 case .serviceNetwork: result.append(.serviceNetwork); fallthrough
+                case .forceOffline: result.append(.forceOffline); fallthrough
                 case .resetSnodeCache: result.append(.resetSnodeCache); fallthrough
                 
                 case .updatedDisappearingMessages: result.append(.updatedDisappearingMessages); fallthrough
@@ -136,6 +151,8 @@ class DeveloperSettingsViewModel: SessionTableViewModel, NavigatableStateHolder,
                 case .updatedGroupsAllowDescriptionEditing: result.append(.updatedGroupsAllowDescriptionEditing); fallthrough
                 case .updatedGroupsAllowPromotions: result.append(.updatedGroupsAllowPromotions); fallthrough
                 case .updatedGroupsAllowInviteById: result.append(.updatedGroupsAllowInviteById); fallthrough
+                case .updatedGroupsDeleteBeforeNow: result.append(.updatedGroupsDeleteBeforeNow); fallthrough
+                case .updatedGroupsDeleteAttachmentsBeforeNow: result.append(.updatedGroupsDeleteAttachmentsBeforeNow); fallthrough
                 
                 case .exportDatabase: result.append(.exportDatabase)
             }
@@ -149,11 +166,14 @@ class DeveloperSettingsViewModel: SessionTableViewModel, NavigatableStateHolder,
     private struct State: Equatable {
         let developerMode: Bool
         
+        let showStringKeys: Bool
+        
         let defaultLogLevel: Log.Level
         let advancedLogging: Bool
         let loggingCategories: [Log.Category: Log.Level]
         
         let serviceNetwork: ServiceNetwork
+        let forceOffline: Bool
         
         let debugDisappearingMessageDurations: Bool
         let updatedDisappearingMessages: Bool
@@ -166,6 +186,8 @@ class DeveloperSettingsViewModel: SessionTableViewModel, NavigatableStateHolder,
         let updatedGroupsAllowDescriptionEditing: Bool
         let updatedGroupsAllowPromotions: Bool
         let updatedGroupsAllowInviteById: Bool
+        let updatedGroupsDeleteBeforeNow: Bool
+        let updatedGroupsDeleteAttachmentsBeforeNow: Bool
     }
     
     let title: String = "Developer Settings"
@@ -174,12 +196,14 @@ class DeveloperSettingsViewModel: SessionTableViewModel, NavigatableStateHolder,
         .refreshableData(self) { [weak self, dependencies] () -> State in
             State(
                 developerMode: dependencies[singleton: .storage, key: .developerModeEnabled],
+                showStringKeys: dependencies[feature: .showStringKeys],
                 
                 defaultLogLevel: dependencies[feature: .logLevel(cat: .default)],
                 advancedLogging: (self?.showAdvancedLogging == true),
                 loggingCategories: dependencies[feature: .allLogLevels].currentValues(using: dependencies),
                 
                 serviceNetwork: dependencies[feature: .serviceNetwork],
+                forceOffline: dependencies[feature: .forceOffline],
                 
                 debugDisappearingMessageDurations: dependencies[feature: .debugDisappearingMessageDurations],
                 updatedDisappearingMessages: dependencies[feature: .updatedDisappearingMessages],
@@ -191,7 +215,9 @@ class DeveloperSettingsViewModel: SessionTableViewModel, NavigatableStateHolder,
                 updatedGroupsAllowDisplayPicture: dependencies[feature: .updatedGroupsAllowDisplayPicture],
                 updatedGroupsAllowDescriptionEditing: dependencies[feature: .updatedGroupsAllowDescriptionEditing],
                 updatedGroupsAllowPromotions: dependencies[feature: .updatedGroupsAllowPromotions],
-                updatedGroupsAllowInviteById: dependencies[feature: .updatedGroupsAllowInviteById]
+                updatedGroupsAllowInviteById: dependencies[feature: .updatedGroupsAllowInviteById],
+                updatedGroupsDeleteBeforeNow: dependencies[feature: .updatedGroupsDeleteBeforeNow],
+                updatedGroupsDeleteAttachmentsBeforeNow: dependencies[feature: .updatedGroupsDeleteAttachmentsBeforeNow]
             )
         }
         .compactMapWithPrevious { [weak self] prev, current -> [SectionModel]? in self?.content(prev, current) }
@@ -219,6 +245,32 @@ class DeveloperSettingsViewModel: SessionTableViewModel, NavigatableStateHolder,
                             guard current.developerMode else { return }
                             
                             self?.disableDeveloperMode()
+                        }
+                    )
+                ]
+            ),
+            SectionModel(
+                model: .general,
+                elements: [
+                    SessionCell.Info(
+                        id: .showStringKeys,
+                        title: "Show String Keys",
+                        subtitle: """
+                        Controls whether localised strings should render using their keys rather than the localised value (strings will be rendered as "[{key}]")
+                        
+                        Notes:
+                        • This change will only apply to newly created screens (eg. the Settings screen will need to be closed and reopened before it gets updated
+                        • The "Home" screen won't update as it never gets recreated
+                        """,
+                        trailingAccessory: .toggle(
+                            current.showStringKeys,
+                            oldValue: previous?.showStringKeys
+                        ),
+                        onTap: { [weak self] in
+                            self?.updateFlag(
+                                for: .showStringKeys,
+                                to: !current.showStringKeys
+                            )
                         }
                     )
                 ]
@@ -304,7 +356,7 @@ class DeveloperSettingsViewModel: SessionTableViewModel, NavigatableStateHolder,
                         The environment used for sending requests and storing messages.
                         
                         <b>Warning:</b>
-                        Changing this setting will result in all conversation and snode data being cleared and any pending network requests being cancelled.
+                        Changing between some of these options can result in all conversation and snode data being cleared and any pending network requests being cancelled.
                         """,
                         trailingAccessory: .dropDown { current.serviceNetwork.title },
                         onTap: { [weak self, dependencies] in
@@ -322,6 +374,18 @@ class DeveloperSettingsViewModel: SessionTableViewModel, NavigatableStateHolder,
                                 )
                             )
                         }
+                    ),
+                    SessionCell.Info(
+                        id: .forceOffline,
+                        title: "Force Offline",
+                        subtitle: """
+                        Shut down the current network and cause all future network requests to fail after a 1 second delay with a 'serviceUnavailable' error.
+                        """,
+                        trailingAccessory: .toggle(
+                            current.forceOffline,
+                            oldValue: previous?.forceOffline
+                        ),
+                        onTap: { [weak self] in self?.updateForceOffline(current: current.forceOffline) }
                     ),
                     SessionCell.Info(
                         id: .resetSnodeCache,
@@ -513,7 +577,7 @@ class DeveloperSettingsViewModel: SessionTableViewModel, NavigatableStateHolder,
                         id: .updatedGroupsAllowInviteById,
                         title: "Allow Invite by ID",
                         subtitle: """
-                        Controls whether the UI allows group admins to invlide other group members directly by their Account ID.
+                        Controls whether the UI allows group admins to invite other group members directly by their Account ID.
                         
                         <b>Note:</b> In a future release we will offer this functionality but it's not included in the initial release.
                         """,
@@ -525,6 +589,44 @@ class DeveloperSettingsViewModel: SessionTableViewModel, NavigatableStateHolder,
                             self?.updateFlag(
                                 for: .updatedGroupsAllowInviteById,
                                 to: !current.updatedGroupsAllowInviteById
+                            )
+                        }
+                    ),
+                    SessionCell.Info(
+                        id: .updatedGroupsDeleteBeforeNow,
+                        title: "Show button to delete messages before now",
+                        subtitle: """
+                        Controls whether the UI allows group admins to delete all messages in the group that were sent before the button was pressed.
+                        
+                        <b>Note:</b> In a future release we will offer this functionality but it's not included in the initial release.
+                        """,
+                        trailingAccessory: .toggle(
+                            current.updatedGroupsDeleteBeforeNow,
+                            oldValue: previous?.updatedGroupsDeleteBeforeNow
+                        ),
+                        onTap: { [weak self] in
+                            self?.updateFlag(
+                                for: .updatedGroupsDeleteBeforeNow,
+                                to: !current.updatedGroupsDeleteBeforeNow
+                            )
+                        }
+                    ),
+                    SessionCell.Info(
+                        id: .updatedGroupsDeleteAttachmentsBeforeNow,
+                        title: "Show button to delete attachments before now",
+                        subtitle: """
+                        Controls whether the UI allows group admins to delete all attachments (and their associated messages) in the group that were sent before the button was pressed.
+                        
+                        <b>Note:</b> In a future release we will offer this functionality but it's not included in the initial release.
+                        """,
+                        trailingAccessory: .toggle(
+                            current.updatedGroupsDeleteAttachmentsBeforeNow,
+                            oldValue: previous?.updatedGroupsDeleteAttachmentsBeforeNow
+                        ),
+                        onTap: { [weak self] in
+                            self?.updateFlag(
+                                for: .updatedGroupsDeleteAttachmentsBeforeNow,
+                                to: !current.updatedGroupsDeleteAttachmentsBeforeNow
                             )
                         }
                     )
@@ -559,6 +661,8 @@ class DeveloperSettingsViewModel: SessionTableViewModel, NavigatableStateHolder,
         TableItem.allCases.forEach { item in
             switch item {
                 case .developerMode: break      // Not a feature
+                case .showStringKeys: updateFlag(for: .showStringKeys, to: nil)
+                
                 case .resetSnodeCache: break    // Not a feature
                 case .exportDatabase: break     // Not a feature
                 case .advancedLogging: break    // Not a feature
@@ -567,6 +671,7 @@ class DeveloperSettingsViewModel: SessionTableViewModel, NavigatableStateHolder,
                 case .loggingCategory: resetLoggingCategories()
                 
                 case .serviceNetwork: updateServiceNetwork(to: nil)
+                case .forceOffline:  updateFlag(for: .forceOffline, to: nil)
                     
                 case .debugDisappearingMessageDurations:
                     updateFlag(for: .debugDisappearingMessageDurations, to: nil)
@@ -582,6 +687,8 @@ class DeveloperSettingsViewModel: SessionTableViewModel, NavigatableStateHolder,
                     updateFlag(for: .updatedGroupsAllowDescriptionEditing, to: nil)
                 case .updatedGroupsAllowPromotions: updateFlag(for: .updatedGroupsAllowPromotions, to: nil)
                 case .updatedGroupsAllowInviteById: updateFlag(for: .updatedGroupsAllowInviteById, to: nil)
+                case .updatedGroupsDeleteBeforeNow: updateFlag(for: .updatedGroupsDeleteBeforeNow, to: nil)
+                case .updatedGroupsDeleteAttachmentsBeforeNow: updateFlag(for: .updatedGroupsDeleteAttachmentsBeforeNow, to: nil)
             }
         }
         
@@ -736,6 +843,17 @@ class DeveloperSettingsViewModel: SessionTableViewModel, NavigatableStateHolder,
         /// Update to the new flag
         dependencies.set(feature: feature, to: updatedFlag)
         forceRefresh(type: .databaseQuery)
+    }
+    
+    private func updateForceOffline(current: Bool) {
+        updateFlag(for: .forceOffline, to: !current)
+        
+        // Reset the network cache
+        dependencies.mutate(cache: .libSessionNetwork) {
+            $0.setPaths(paths: [])
+            $0.setNetworkStatus(status: current ? .unknown : .disconnected)
+        }
+        dependencies.remove(cache: .libSessionNetwork)
     }
     
     private func resetServiceNodeCache() {
@@ -894,5 +1012,9 @@ class DeveloperSettingsViewModel: SessionTableViewModel, NavigatableStateHolder,
 
 // MARK: - Listable Conformance
 
-extension ServiceNetwork: Listable {}
+extension ServiceNetwork: @retroactive ContentIdentifiable {}
+extension ServiceNetwork: @retroactive ContentEquatable {}
+extension ServiceNetwork: @retroactive Listable {}
+extension Log.Level: @retroactive ContentIdentifiable {}
+extension Log.Level: @retroactive ContentEquatable {}
 extension Log.Level: Listable {}

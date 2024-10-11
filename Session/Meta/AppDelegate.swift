@@ -642,7 +642,7 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
         let rootViewControllerSetupComplete: (UIViewController) -> () = { [weak self, dependencies] rootViewController in
             /// `MainAppContext.determineDeviceRTL` uses UIKit to retrime `isRTL` so must be run on the main thread to prevent
             /// lag/crashes on background threads
-            Dependencies.setIsRTLRetriever(requiresMainThread: true) { MainAppContext.determineDeviceRTL() }
+            dependencies.setIsRTLRetriever(requiresMainThread: true) { MainAppContext.determineDeviceRTL() }
             
             /// Setup the `TopBannerController`
             let presentedViewController: UIViewController? = self?.window?.rootViewController?.presentedViewController
@@ -706,7 +706,7 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
                     let viewController = SessionHostingViewController(rootView: LandingScreen(using: dependencies) { [weak self] in
                         self?.handleActivation()
                     })
-                    viewController.setUpNavBarSessionIcon()
+                    viewController.setUpNavBarSessionIcon(using: dependencies)
                     longRunningStartupTimoutCancellable.cancel()
                     rootViewControllerSetupComplete(viewController)
                 }
@@ -714,7 +714,7 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
             case .missingName:
                 DispatchQueue.main.async { [dependencies] in
                     let viewController = SessionHostingViewController(rootView: DisplayNameScreen(using: dependencies))
-                    viewController.setUpNavBarSessionIcon()
+                    viewController.setUpNavBarSessionIcon(using: dependencies)
                     longRunningStartupTimoutCancellable.cancel()
                     rootViewControllerSetupComplete(viewController)
                     

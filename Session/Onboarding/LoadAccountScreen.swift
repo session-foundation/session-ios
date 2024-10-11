@@ -75,7 +75,7 @@ struct LoadAccountScreen: View {
         let viewController: SessionHostingViewController = SessionHostingViewController(
             rootView: PNModeScreen(using: dependencies)
         )
-        viewController.setUpNavBarSessionIcon()
+        viewController.setUpNavBarSessionIcon(using: dependencies)
         self.host.controller?.navigationController?.pushViewController(viewController, animated: true)
     }
     

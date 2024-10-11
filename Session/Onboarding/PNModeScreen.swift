@@ -145,7 +145,7 @@ struct PNModeScreen: View {
         let viewController: SessionHostingViewController = SessionHostingViewController(
             rootView: LoadingScreen(using: dependencies)
         )
-        viewController.setUpNavBarSessionIcon()
+        viewController.setUpNavBarSessionIcon(using: dependencies)
         self.host.controller?.navigationController?.pushViewController(viewController, animated: true)
     }
     

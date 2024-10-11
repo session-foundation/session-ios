@@ -34,6 +34,10 @@ public final class NotificationServiceExtension: UNNotificationServiceExtension 
         self.contentHandler = contentHandler
         self.request = request
         
+        /// Create a new `Dependencies` instance each time so we don't need to worry about state from previous
+        /// notifications causing issues with new notifications
+        self.dependencies = Dependencies.createEmpty()
+        
         // It's technically possible for 'completeSilently' to be called twice due to the NSE timeout so
         self.hasCompleted.mutate { $0 = false }
         
@@ -51,15 +55,12 @@ public final class NotificationServiceExtension: UNNotificationServiceExtension 
         /// Create the context if we don't have it (needed before _any_ interaction with the database)
         if !dependencies[singleton: .appContext].isValid {
             dependencies.set(singleton: .appContext, to: NotificationServiceExtensionContext(using: dependencies))
-            Dependencies.setIsRTLRetriever(requiresMainThread: false) {
+            dependencies.setIsRTLRetriever(requiresMainThread: false) {
                 NotificationServiceExtensionContext.determineDeviceRTL()
             }
         }
         
-        /// Perform main setup (create a new `Dependencies` instance each time so we don't need to worry about state from previous
-        /// notifications causing issues with new notifications
-        self.dependencies = Dependencies.createEmpty()
-        
+        /// Actually perform the setup
         DispatchQueue.main.sync {
             self.performSetup { [weak self] in
                 self?.handleNotification(notificationContent, isPerformingResetup: false)

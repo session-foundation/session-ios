@@ -108,7 +108,7 @@ final class AppearanceViewController: BaseVC {
             trailing: Values.largeSpacing
         )
         
-        if Dependencies.isRTL {
+        if Dependencies.unsafeNonInjected.isRTL {
             result.transform = CGAffineTransform.identity.scaledBy(x: -1, y: 1)
         }
         
