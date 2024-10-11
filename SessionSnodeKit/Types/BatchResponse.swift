@@ -107,7 +107,7 @@ public extension Network {
             code: Int,
             headers: [String: String] = [:],
             body: T? = nil,
-            failedToParseBody: Bool = false
+            failedToParseBody: Bool
         ) {
             self.code = code
             self.headers = headers
@@ -151,6 +151,7 @@ extension Network.BatchSubResponse: Decodable {
 
 protocol ErasedBatchSubResponse: ResponseInfoType {
     var erasedBody: Any? { get }
+    var failedToParseBody: Bool { get }
 }
 
 // MARK: - Convenience

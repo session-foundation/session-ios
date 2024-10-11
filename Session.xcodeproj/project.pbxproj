@@ -680,6 +680,7 @@
 		FD481A9A2CB4CAE500ECC4CF /* CommonSMKMockExtensions.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD336F562CAA28CF00C0B51B /* CommonSMKMockExtensions.swift */; };
 		FD481A9B2CB4CAF100ECC4CF /* CustomArgSummaryDescribable+SMK.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD336F572CAA28CF00C0B51B /* CustomArgSummaryDescribable+SMK.swift */; };
 		FD481A9C2CB4D58300ECC4CF /* MockSnodeAPICache.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD3765DE2AD8F03100DC1489 /* MockSnodeAPICache.swift */; };
+		FD481AA32CB889AE00ECC4CF /* RetrieveDefaultOpenGroupRoomsJobSpec.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD481AA22CB889A400ECC4CF /* RetrieveDefaultOpenGroupRoomsJobSpec.swift */; };
 		FD49E2462B05C1D500FFBBB5 /* MockKeychain.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD49E2452B05C1D500FFBBB5 /* MockKeychain.swift */; };
 		FD49E2472B05C1D500FFBBB5 /* MockKeychain.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD49E2452B05C1D500FFBBB5 /* MockKeychain.swift */; };
 		FD49E2482B05C1D500FFBBB5 /* MockKeychain.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD49E2452B05C1D500FFBBB5 /* MockKeychain.swift */; };
@@ -1885,6 +1886,7 @@
 		FD481A8F2CAD16EA00ECC4CF /* LibSessionGroupInfoSpec.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LibSessionGroupInfoSpec.swift; sourceTree = "<group>"; };
 		FD481A912CAD17D900ECC4CF /* LibSessionGroupMembersSpec.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LibSessionGroupMembersSpec.swift; sourceTree = "<group>"; };
 		FD481A932CAE0ADD00ECC4CF /* MockAppContext.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MockAppContext.swift; sourceTree = "<group>"; };
+		FD481AA22CB889A400ECC4CF /* RetrieveDefaultOpenGroupRoomsJobSpec.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RetrieveDefaultOpenGroupRoomsJobSpec.swift; sourceTree = "<group>"; };
 		FD49E2452B05C1D500FFBBB5 /* MockKeychain.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MockKeychain.swift; sourceTree = "<group>"; };
 		FD4B200D283492210034334B /* InsetLockableTableView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = InsetLockableTableView.swift; sourceTree = "<group>"; };
 		FD4C4E9B2B02E2A300C72199 /* DisplayPictureError.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = DisplayPictureError.swift; sourceTree = "<group>"; };
@@ -4357,8 +4359,9 @@
 		FD96F3A229DBC3BA00401309 /* Jobs */ = {
 			isa = PBXGroup;
 			children = (
-				FD96F3A429DBC3DC00401309 /* MessageSendJobSpec.swift */,
 				FD3FAB662AF0C47000DC5421 /* DisplayPictureDownloadJobSpec.swift */,
+				FD96F3A429DBC3DC00401309 /* MessageSendJobSpec.swift */,
+				FD481AA22CB889A400ECC4CF /* RetrieveDefaultOpenGroupRoomsJobSpec.swift */,
 			);
 			path = Jobs;
 			sourceTree = "<group>";
@@ -6696,6 +6699,7 @@
 				FD72BDA42BE3690B00CF6CF6 /* CryptoSMKSpec.swift in Sources */,
 				FDC2908927D70656005DAE71 /* RoomPollInfoSpec.swift in Sources */,
 				FD336F6C2CAA29C600C0B51B /* CommunityPollerSpec.swift in Sources */,
+				FD481AA32CB889AE00ECC4CF /* RetrieveDefaultOpenGroupRoomsJobSpec.swift in Sources */,
 				FDFD645D27F273F300808CA1 /* MockGeneralCache.swift in Sources */,
 				FD01502A2CA23DB7005B08A1 /* GRDBExtensions.swift in Sources */,
 				FDC2908D27D70905005DAE71 /* UpdateMessageRequestSpec.swift in Sources */,

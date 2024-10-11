@@ -386,12 +386,14 @@ public enum OpenGroupAPI {
                     let capabilitiesInfo: ResponseInfoType = maybeCapabilities,
                     let capabilities: Capabilities = maybeCapabilities?.body,
                     let roomsInfo: ResponseInfoType = maybeRooms,
-                    let rooms: [Room] = maybeRooms?.body
+                    let roomsResponse: Network.BatchSubResponse<[Room]> = maybeRooms,
+                    !roomsResponse.failedToParseBody
                 else { throw NetworkError.parsingFailed }
                 
+                // We might want to remove all default rooms for some reason so support that case
                 return (
                     capabilities: (info: capabilitiesInfo, data: capabilities),
-                    rooms: (info: roomsInfo, data: rooms)
+                    rooms: (info: roomsInfo, data: (roomsResponse.body ?? []))
                 )
             }
     }

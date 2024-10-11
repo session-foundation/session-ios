@@ -77,9 +77,6 @@ class CommunityPollerSpec: QuickSpec {
         )
         @TestState(cache: .openGroupManager, in: dependencies) var mockOGMCache: MockOGMCache! = MockOGMCache(
             initialSetup: { cache in
-                cache
-                    .when { $0.defaultRoomsPublisher = .any(type: [OpenGroupManager.DefaultRoomInfo].self) }
-                    .thenReturn(())
                 cache.when { $0.pendingChanges }.thenReturn([])
                 cache.when { $0.getTimeSinceLastOpen(using: .any) }.thenReturn(0)
             }

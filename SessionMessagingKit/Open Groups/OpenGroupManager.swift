@@ -20,7 +20,7 @@ public extension Singleton {
 public extension Cache {
     static let openGroupManager: CacheConfig<OGMCacheType, OGMImmutableCacheType> = Dependencies.create(
         identifier: "openGroupManager",
-        createInstance: { _ in OpenGroupManager.Cache() },
+        createInstance: { dependencies in OpenGroupManager.Cache(using: dependencies) },
         mutableInstance: { $0 },
         immutableInstance: { $0 }
     )
@@ -925,137 +925,40 @@ public final class OpenGroupManager {
             case .group: return false
         }
     }
-    
-    @discardableResult public func getDefaultRoomsIfNeeded() -> AnyPublisher<[DefaultRoomInfo], Error> {
-        // Note: If we already have a 'defaultRoomsPromise' then there is no need to get it again
-        if let existingPublisher: AnyPublisher<[DefaultRoomInfo], Error> = dependencies[cache: .openGroupManager].defaultRoomsPublisher {
-            return existingPublisher
-        }
-        
-        // Try to retrieve the default rooms 8 times
-        let publisher: AnyPublisher<[DefaultRoomInfo], Error> = dependencies[singleton: .storage]
-            .readPublisher { [dependencies] db -> Network.PreparedRequest<OpenGroupAPI.CapabilitiesAndRoomsResponse> in
-                try OpenGroupAPI.preparedCapabilitiesAndRooms(
-                    db,
-                    on: OpenGroupAPI.defaultServer,
-                    using: dependencies
-                )
-            }
-            .flatMap { [dependencies] request in request.send(using: dependencies) }
-            .subscribe(on: OpenGroupAPI.workQueue, using: dependencies)
-            .receive(on: OpenGroupAPI.workQueue, using: dependencies)
-            .retry(8, using: dependencies)
-            .map { [dependencies] info, response -> [DefaultRoomInfo]? in
-                dependencies[singleton: .storage].write { db -> [DefaultRoomInfo] in
-                    // Store the capabilities first
-                    OpenGroupManager.handleCapabilities(
-                        db,
-                        capabilities: response.capabilities.data,
-                        on: OpenGroupAPI.defaultServer
-                    )
-                    
-                    let existingImageIds: [String: String] = try OpenGroup
-                        .filter(OpenGroup.Columns.server == OpenGroupAPI.defaultServer)
-                        .filter(OpenGroup.Columns.imageId != nil)
-                        .fetchAll(db)
-                        .reduce(into: [:]) { result, next in result[next.id] = next.imageId }
-                    let result: [DefaultRoomInfo] = try response.rooms.data
-                        .compactMap { room -> DefaultRoomInfo? in
-                            // Try to insert an inactive version of the OpenGroup (use 'insert'
-                            // rather than 'save' as we want it to fail if the room already exists)
-                            do {
-                                return (
-                                    room,
-                                    try OpenGroup(
-                                        server: OpenGroupAPI.defaultServer,
-                                        roomToken: room.token,
-                                        publicKey: OpenGroupAPI.defaultServerPublicKey,
-                                        isActive: false,
-                                        name: room.name,
-                                        roomDescription: room.roomDescription,
-                                        imageId: room.imageId,
-                                        userCount: room.activeUsers,
-                                        infoUpdates: room.infoUpdates
-                                    )
-                                    .inserted(db)
-                                )
-                            }
-                            catch {
-                                return try OpenGroup
-                                    .fetchOne(
-                                        db,
-                                        id: OpenGroup.idFor(
-                                            roomToken: room.token,
-                                            server: OpenGroupAPI.defaultServer
-                                        )
-                                    )
-                                    .map { (room, $0) }
-                            }
-                        }
-                    
-                    /// Schedule the room image download (if it doesn't match out current one)
-                    result.forEach { room, _ in
-                        let openGroupId: String = OpenGroup.idFor(roomToken: room.token, server: OpenGroupAPI.defaultServer)
-                        
-                        guard
-                            let imageId: String = room.imageId,
-                            imageId != existingImageIds[openGroupId]
-                        else { return }
-                        
-                        dependencies[singleton: .jobRunner].add(
-                            db,
-                            job: Job(
-                                variant: .displayPictureDownload,
-                                shouldBeUnique: true,
-                                details: DisplayPictureDownloadJob.Details(
-                                    target: .community(
-                                        imageId: imageId,
-                                        roomToken: room.token,
-                                        server: OpenGroupAPI.defaultServer
-                                    ),
-                                    timestamp: (dependencies[cache: .snodeAPI].currentOffsetTimestampMs() / 1000)
-                                )
-                            ),
-                            canStartJob: true
-                        )
-                    }
-                    
-                    return result
-                }
-            }
-            .map { ($0 ?? []) }
-            .handleEvents(
-                receiveCompletion: { [dependencies] result in
-                    switch result {
-                        case .finished: break
-                        case .failure:
-                            dependencies.mutate(cache: .openGroupManager) { cache in
-                                cache.defaultRoomsPublisher = nil
-                            }
-                    }
-                }
-            )
-            .shareReplay(1)
-            .eraseToAnyPublisher()
-        
-        dependencies.mutate(cache: .openGroupManager) { cache in
-            cache.defaultRoomsPublisher = publisher
-        }
-        
-        // Hold on to the publisher until it has completed at least once
-        publisher.sinkUntilComplete()
-        
-        return publisher
-    }
 }
 
 // MARK: - OpenGroupManager Cache
 
 public extension OpenGroupManager {
     class Cache: OGMCacheType {
-        public var defaultRoomsPublisher: AnyPublisher<[DefaultRoomInfo], Error>?
+        private let dependencies: Dependencies
+        private let defaultRoomsSubject: CurrentValueSubject<[DefaultRoomInfo], Error> = CurrentValueSubject([])
+        private var _timeSinceLastOpen: TimeInterval?
+        public var pendingChanges: [OpenGroupAPI.PendingChange] = []
         
-        fileprivate var _timeSinceLastOpen: TimeInterval?
+        public var defaultRoomsPublisher: AnyPublisher<[DefaultRoomInfo], Error> {
+            defaultRoomsSubject
+                .handleEvents(
+                    receiveSubscription: { [weak defaultRoomsSubject, dependencies] _ in
+                        /// If we don't have any default rooms in memory then we haven't fetched this launch so schedule
+                        /// the `RetrieveDefaultOpenGroupRoomsJob` if one isn't already running
+                        if defaultRoomsSubject?.value.isEmpty == true {
+                            RetrieveDefaultOpenGroupRoomsJob.run(using: dependencies)
+                        }
+                    }
+                )
+                .filter { !$0.isEmpty }
+                .eraseToAnyPublisher()
+        }
+        
+        // MARK: - Initialization
+        
+        init(using dependencies: Dependencies) {
+            self.dependencies = dependencies
+        }
+        
+        // MARK: - Functions
+        
         public func getTimeSinceLastOpen(using dependencies: Dependencies) -> TimeInterval {
             if let storedTimeSinceLastOpen: TimeInterval = _timeSinceLastOpen {
                 return storedTimeSinceLastOpen
@@ -1070,7 +973,9 @@ public extension OpenGroupManager {
             return dependencies.dateNow.timeIntervalSince(lastOpen)
         }
         
-        public var pendingChanges: [OpenGroupAPI.PendingChange] = []
+        public func setDefaultRoomInfo(_ info: [DefaultRoomInfo]) {
+            defaultRoomsSubject.send(info)
+        }
     }
 }
 
@@ -1078,15 +983,16 @@ public extension OpenGroupManager {
 
 /// This is a read-only version of the Cache designed to avoid unintentionally mutating the instance in a non-thread-safe way
 public protocol OGMImmutableCacheType: ImmutableCacheType {
-    var defaultRoomsPublisher: AnyPublisher<[OpenGroupManager.DefaultRoomInfo], Error>? { get }
+    var defaultRoomsPublisher: AnyPublisher<[OpenGroupManager.DefaultRoomInfo], Error> { get }
     
     var pendingChanges: [OpenGroupAPI.PendingChange] { get }
 }
 
 public protocol OGMCacheType: OGMImmutableCacheType, MutableCacheType {
-    var defaultRoomsPublisher: AnyPublisher<[OpenGroupManager.DefaultRoomInfo], Error>? { get set }
+    var defaultRoomsPublisher: AnyPublisher<[OpenGroupManager.DefaultRoomInfo], Error> { get }
     
     var pendingChanges: [OpenGroupAPI.PendingChange] { get set }
     
     func getTimeSinceLastOpen(using dependencies: Dependencies) -> TimeInterval
+    func setDefaultRoomInfo(_ info: [OpenGroupManager.DefaultRoomInfo])
 }

@@ -567,13 +567,20 @@ class OpenGroupAPISpec: QuickSpec {
                 }
                 
                 // MARK: ---- and given an invalid response
-                
                 context("and given an invalid response") {
                     // MARK: ------ errors when not given a room response
                     it("errors when not given a room response") {
                         mockNetwork
                             .when { $0.send(.any, to: .any, requestTimeout: .any, requestAndPathBuildTimeout: .any) }
-                            .thenReturn(Network.BatchResponse.mockCapabilitiesAndBanResponse)
+                            .thenReturn(
+                                MockNetwork.batchResponseData(with: [
+                                    (OpenGroupAPI.Endpoint.capabilities, OpenGroupAPI.Capabilities.mockBatchSubResponse()),
+                                    (
+                                        OpenGroupAPI.Endpoint.userBan(""),
+                                        OpenGroupAPI.DirectMessage.mockBatchSubResponse()
+                                    )
+                                ])
+                            )
                         
                         var response: (info: ResponseInfoType, data: OpenGroupAPI.CapabilitiesAndRoomsResponse)?
                         

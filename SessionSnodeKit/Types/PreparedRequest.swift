@@ -362,7 +362,8 @@ extension Network.PreparedRequest: ErasedPreparedRequest {
                     return Network.BatchSubResponse(
                         code: subResponse.code,
                         headers: subResponse.headers,
-                        body: try originalType.from(subResponse.erasedBody).map { try converter(info, $0) }
+                        body: try originalType.from(subResponse.erasedBody).map { try converter(info, $0) },
+                        failedToParseBody: subResponse.failedToParseBody
                     )
                     
                 default: return try originalType.from(data).map { try converter(info, $0) } as Any

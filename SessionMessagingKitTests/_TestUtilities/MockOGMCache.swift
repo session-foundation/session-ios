@@ -7,9 +7,8 @@ import SessionUtilitiesKit
 @testable import SessionMessagingKit
 
 class MockOGMCache: Mock<OGMCacheType>, OGMCacheType {
-    var defaultRoomsPublisher: AnyPublisher<[OpenGroupManager.DefaultRoomInfo], Error>? {
-        get { return mock() }
-        set { mockNoReturn(args: [newValue]) }
+    var defaultRoomsPublisher: AnyPublisher<[OpenGroupManager.DefaultRoomInfo], Error> {
+        mock()
     }
     
     var pendingChanges: [OpenGroupAPI.PendingChange] {
@@ -19,5 +18,9 @@ class MockOGMCache: Mock<OGMCacheType>, OGMCacheType {
     
     func getTimeSinceLastOpen(using dependencies: Dependencies) -> TimeInterval {
         return mock(args: [dependencies])
+    }
+    
+    func setDefaultRoomInfo(_ info: [OpenGroupManager.DefaultRoomInfo]) {
+        mockNoReturn(args: [info])
     }
 }

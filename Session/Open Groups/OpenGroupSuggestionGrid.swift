@@ -158,7 +158,7 @@ final class OpenGroupSuggestionGrid: UIView, UICollectionViewDataSource, UIColle
         heightConstraint = set(.height, to: OpenGroupSuggestionGrid.cellHeight)
         widthAnchor.constraint(greaterThanOrEqualToConstant: OpenGroupSuggestionGrid.cellHeight).isActive = true
         
-        dependencies[singleton: .openGroupManager].getDefaultRoomsIfNeeded()
+        dependencies[cache: .openGroupManager].defaultRoomsPublisher
             .subscribe(on: DispatchQueue.global(qos: .default))
             .receive(on: DispatchQueue.main)
             .sinkUntilComplete(

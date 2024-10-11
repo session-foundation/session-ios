@@ -131,7 +131,13 @@ class OpenGroupManagerSpec: QuickSpec {
                     .thenReturn([:])
             }
         )
-        @TestState(singleton: .network, in: dependencies) var mockNetwork: MockNetwork! = MockNetwork()
+        @TestState(singleton: .network, in: dependencies) var mockNetwork: MockNetwork! = MockNetwork(
+            initialSetup: { network in
+                network
+                    .when { $0.send(.any, to: .any, requestTimeout: .any, requestAndPathBuildTimeout: .any) }
+                    .thenReturn(MockNetwork.errorResponse())
+            }
+        )
         @TestState(singleton: .crypto, in: dependencies) var mockCrypto: MockCrypto! = MockCrypto(
             initialSetup: { crypto in
                 crypto.when { $0.generate(.hash(message: .any, length: .any)) }.thenReturn([])
@@ -170,6 +176,11 @@ class OpenGroupManagerSpec: QuickSpec {
                 defaults.when { $0.integer(forKey: .any) }.thenReturn(0)
             }
         )
+        @TestState(defaults: .appGroup, in: dependencies) var mockAppGroupDefaults: MockUserDefaults! = MockUserDefaults(
+            initialSetup: { defaults in
+                defaults.when { $0.bool(forKey: .any) }.thenReturn(false)
+            }
+        )
         @TestState(cache: .general, in: dependencies) var mockGeneralCache: MockGeneralCache! = MockGeneralCache(
             initialSetup: { cache in
                 cache.when { $0.sessionId }.thenReturn(SessionId(.standard, hex: TestConstants.publicKey))
@@ -177,12 +188,10 @@ class OpenGroupManagerSpec: QuickSpec {
         )
         @TestState(cache: .openGroupManager, in: dependencies) var mockOGMCache: MockOGMCache! = MockOGMCache(
             initialSetup: { cache in
-                cache
-                    .when { $0.defaultRoomsPublisher = .any(type: [OpenGroupManager.DefaultRoomInfo].self) }
-                    .thenReturn(())
                 cache.when { $0.pendingChanges }.thenReturn([])
                 cache.when { $0.pendingChanges = .any }.thenReturn(())
                 cache.when { $0.getTimeSinceLastOpen(using: .any) }.thenReturn(0)
+                cache.when { $0.setDefaultRoomInfo(.any) }.thenReturn(())
             }
         )
         @TestState var mockPoller: MockCommunityPoller! = MockCommunityPoller(
@@ -202,7 +211,7 @@ class OpenGroupManagerSpec: QuickSpec {
         )
         @TestState var disposables: [AnyCancellable]! = []
         
-        @TestState var cache: OpenGroupManager.Cache! = OpenGroupManager.Cache()
+        @TestState var cache: OpenGroupManager.Cache! = OpenGroupManager.Cache(using: dependencies)
         @TestState var openGroupManager: OpenGroupManager! = OpenGroupManager(using: dependencies)
         
         // MARK: - an OpenGroupManager
@@ -2738,206 +2747,51 @@ class OpenGroupManagerSpec: QuickSpec {
                 }
             }
             
-            // MARK: -- when getting the default rooms if needed
-            context("when getting the default rooms if needed") {
-                beforeEach {
-                    mockNetwork
-                        .when { $0.send(.any, to: .any, requestTimeout: .any, requestAndPathBuildTimeout: .any) }
-                        .thenReturn(Network.BatchResponse.mockCapabilitiesAndRoomsResponse)
-                    
+            // MARK: -- when accessing the default rooms publisher
+            context("when accessing the default rooms publisher") {
+                // MARK: ---- starts a job to retrieve the default rooms if we have none
+                it("starts a job to retrieve the default rooms if we have none") {
+                    mockAppGroupDefaults.when { $0.bool(forKey: UserDefaults.BoolKey.isMainAppActive.rawValue) }.thenReturn(true)
                     mockStorage.write { db in
-                        try OpenGroup.deleteAll(db)
-                        
-                        // This is done in the 'RetrieveDefaultOpenGroupRoomsJob'
-                        _ = try OpenGroup(
+                        try OpenGroup(
                             server: OpenGroupAPI.defaultServer,
                             roomToken: "",
                             publicKey: OpenGroupAPI.defaultServerPublicKey,
                             isActive: false,
-                            name: "",
+                            name: "TestExisting",
                             userCount: 0,
                             infoUpdates: 0
                         )
                         .insert(db)
                     }
-                    
-                    mockOGMCache.when { $0.defaultRoomsPublisher }.thenReturn(nil)
-                    mockUserDefaults.when { (defaults: inout any UserDefaultsType) -> Any? in
-                        defaults.object(forKey: .any)
-                    }.thenReturn(nil)
-                    mockUserDefaults.when { (defaults: inout any UserDefaultsType) -> Any? in
-                        defaults.set(anyAny(), forKey: .any)
-                    }.thenReturn(())
-                }
-                
-                // MARK: ---- caches the publisher if there is no cached publisher
-                it("caches the publisher if there is no cached publisher") {
-                    let publisher = openGroupManager.getDefaultRoomsIfNeeded()
-                    
-                    expect(mockOGMCache)
-                        .to(call(matchingParameters: .all) {
-                            $0.defaultRoomsPublisher = publisher
-                        })
-                }
-                
-                // MARK: ---- returns the cached publisher if there is one
-                it("returns the cached publisher if there is one") {
-                    let uniqueRoomInstance: OpenGroupAPI.Room = OpenGroupAPI.Room.mock.with(
-                        token: "UniqueId",
-                        name: ""
-                    )
-                    let group: OpenGroup = OpenGroup(
-                        server: "testServer",
-                        roomToken: "UniqueId",
-                        publicKey: "",
-                        isActive: true,
-                        name: "",
-                        userCount: 0,
-                        infoUpdates: 0
-                    )
-                    let publisher = Future<[OpenGroupManager.DefaultRoomInfo], Error> { resolver in
-                        resolver(Result.success([(uniqueRoomInstance, group)]))
-                    }
-                    .shareReplay(1)
-                    .eraseToAnyPublisher()
-                    mockOGMCache.when { $0.defaultRoomsPublisher }.thenReturn(publisher)
-                    let publisher2 = openGroupManager.getDefaultRoomsIfNeeded()
-                    
-                    expect(publisher2.firstValue()?.map { $0.room })
-                        .to(equal(publisher.firstValue()?.map { $0.room }))
-                }
-                
-                // MARK: ---- stores the open group information
-                it("stores the open group information") {
-                    openGroupManager.getDefaultRoomsIfNeeded()
-                    
-                    // 1 for the value returned from the API and 1 for the default added
-                    // by the 'RetrieveDefaultOpenGroupRoomsJob' logic
-                    expect(mockStorage.read { db -> Int in try OpenGroup.fetchCount(db) }).to(equal(2))
-                    expect(
-                        mockStorage.read { db -> String? in
-                            try OpenGroup
-                                .select(.server)
-                                .asRequest(of: String.self)
-                                .fetchOne(db)
-                        }
-                    ).to(equal("https://open.getsession.org"))
-                    expect(
-                        mockStorage.read { db -> String? in
-                            try OpenGroup
-                                .select(.publicKey)
-                                .asRequest(of: String.self)
-                                .fetchOne(db)
-                        }
-                    ).to(equal("a03c383cf63c3c4efe67acc52112a6dd734b3a946b9545f488aaa93da7991238"))
-                    expect(
-                        mockStorage.read { db -> Bool? in
-                            try OpenGroup
-                                .select(.isActive)
-                                .asRequest(of: Bool.self)
-                                .fetchOne(db)
-                        }
-                    ).to(beFalse())
-                }
-                
-                // MARK: ---- fetches rooms for the server
-                it("fetches rooms for the server") {
-                    var response: [OpenGroupManager.DefaultRoomInfo]?
-                    
-                    openGroupManager.getDefaultRoomsIfNeeded()
-                        .handleEvents(receiveOutput: { response = $0 })
-                        .sinkAndStore(in: &disposables)
-                    
-                    expect(response?.map { $0.room })
-                        .to(equal([OpenGroupAPI.Room.mock]))
-                }
-                
-                // MARK: ---- will retry fetching rooms 8 times before it fails
-                it("will retry fetching rooms 8 times before it fails") {
-                    mockNetwork
-                        .when { $0.send(.any, to: .any, requestTimeout: .any, requestAndPathBuildTimeout: .any) }
-                        .thenReturn(MockNetwork.nullResponse())
-                    
-                    var error: Error?
-                    
-                    openGroupManager.getDefaultRoomsIfNeeded()
-                        .mapError { result -> Error in error.setting(to: result) }
-                        .sinkAndStore(in: &disposables)
-                    
-                    expect(error).to(matchError(NetworkError.parsingFailed))
-                    expect(mockNetwork)   // First attempt + 8 retries
-                        .to(call(.exactly(times: 9)) { network in
-                            network.send(.any, to: .any, requestTimeout: .any, requestAndPathBuildTimeout: .any)
-                        })
-                }
-                
-                // MARK: ---- removes the cache publisher if all retries fail
-                it("removes the cache publisher if all retries fail") {
-                    mockNetwork
-                        .when { $0.send(.any, to: .any, requestTimeout: .any, requestAndPathBuildTimeout: .any) }
-                        .thenReturn(MockNetwork.nullResponse())
-                    
-                    var error: Error?
-                    
-                    openGroupManager.getDefaultRoomsIfNeeded()
-                        .mapError { result -> Error in error.setting(to: result) }
-                        .sinkAndStore(in: &disposables)
-                    
-                    expect(error)
-                        .to(matchError(NetworkError.parsingFailed))
-                    expect(mockOGMCache)
-                        .to(call(matchingParameters: .all) {
-                            $0.defaultRoomsPublisher = nil
-                        })
-                }
-                
-                // MARK: ---- schedules jobs to download any room images
-                it("schedules jobs to download any room images") {
-                    mockNetwork
-                        .when { $0.send(.any, to: .any, requestTimeout: .any, requestAndPathBuildTimeout: .any) }
-                        .thenReturn(
-                            MockNetwork.batchResponseData(
-                                with: [
-                                    (OpenGroupAPI.Endpoint.capabilities, OpenGroupAPI.Capabilities.mockBatchSubResponse()),
-                                    (
-                                        OpenGroupAPI.Endpoint.rooms,
-                                        [
-                                            OpenGroupAPI.Room.mock.with(
-                                                token: "test2",
-                                                name: "test2",
-                                                infoUpdates: 11,
-                                                imageId: "12"
-                                            )
-                                        ].batchSubResponse()
-                                    )
-                                ]
-                            )
+                    let expectedRequest: Network.PreparedRequest<OpenGroupAPI.CapabilitiesAndRoomsResponse>! = mockStorage.read { db in
+                        try OpenGroupAPI.preparedCapabilitiesAndRooms(
+                            db,
+                            on: OpenGroupAPI.defaultServer,
+                            using: dependencies
                         )
+                    }
+                    cache.defaultRoomsPublisher.sinkUntilComplete()
                     
-                    openGroupManager
-                        .getDefaultRoomsIfNeeded()
-                        .sinkAndStore(in: &disposables)
-                    
-                    expect(mockJobRunner)
-                        .to(call(matchingParameters: .all) {
-                            $0.add(
-                                .any,
-                                job: Job(
-                                    variant: .displayPictureDownload,
-                                    shouldBeUnique: true,
-                                    details: DisplayPictureDownloadJob.Details(
-                                        target: .community(
-                                            imageId: "12",
-                                            roomToken: "test2",
-                                            server: OpenGroupAPI.defaultServer
-                                        ),
-                                        timestamp: 1234567890
-                                    )
-                                ),
-                                dependantJob: nil,
-                                canStartJob: true
+                    expect(mockNetwork)
+                        .to(call { network in
+                            network.send(
+                                expectedRequest.body,
+                                to: expectedRequest.destination,
+                                requestTimeout: expectedRequest.requestTimeout,
+                                requestAndPathBuildTimeout: expectedRequest.requestAndPathBuildTimeout
                             )
                         })
+                }
+                
+                // MARK: ---- does not start a job to retrieve the default rooms if we already have rooms
+                it("does not start a job to retrieve the default rooms if we already have rooms") {
+                    mockAppGroupDefaults.when { $0.bool(forKey: UserDefaults.BoolKey.isMainAppActive.rawValue) }.thenReturn(true)
+                    cache.setDefaultRoomInfo([(room: OpenGroupAPI.Room.mock, openGroup: OpenGroup.mock)])
+                    cache.defaultRoomsPublisher.sinkUntilComplete()
+                    
+                    expect(mockNetwork)
+                        .toNot(call { $0.send(.any, to: .any, requestTimeout: .any, requestAndPathBuildTimeout: .any) })
                 }
             }
         }
@@ -3013,6 +2867,18 @@ extension OpenGroupAPI.RoomPollInfo {
 }
 
 // MARK: - Mock Types
+
+extension OpenGroup: Mocked {
+    static var mock: OpenGroup = OpenGroup(
+        server: "testserver",
+        roomToken: "testRoom",
+        publicKey: TestConstants.serverPublicKey,
+        isActive: true,
+        name: "testRoom",
+        userCount: 0,
+        infoUpdates: 0
+    )
+}
 
 extension OpenGroupAPI.Capabilities: Mocked {
     static var mock: OpenGroupAPI.Capabilities = OpenGroupAPI.Capabilities(capabilities: [], missing: nil)
