@@ -364,7 +364,7 @@ final class VisibleMessageCell: MessageCell, TappableLabelDelegate {
         // Flip horizontally for RTL languages
         replyIconImageView.transform = CGAffineTransform.identity
             .scaledBy(
-                x: (Dependencies.unsafeNonInjected.isRTL ? -1 : 1),
+                x: (Dependencies.isRTL ? -1 : 1),
                 y: 1
             )
 
@@ -803,8 +803,8 @@ final class VisibleMessageCell: MessageCell, TappableLabelDelegate {
             // Only allow swipes to the left; allowing swipes to the right gets in the way of
             // the default iOS swipe to go back gesture
             guard
-                (Dependencies.unsafeNonInjected.isRTL && v.x > 0) ||
-                (!Dependencies.unsafeNonInjected.isRTL && v.x < 0)
+                (Dependencies.isRTL && v.x > 0) ||
+                (!Dependencies.isRTL && v.x < 0)
             else { return false }
             
             return abs(v.x) > abs(v.y) // It has to be more horizontal than vertical
@@ -941,8 +941,8 @@ final class VisibleMessageCell: MessageCell, TappableLabelDelegate {
             .translation(in: self)
             .x
             .clamp(
-                (Dependencies.unsafeNonInjected.isRTL ? 0 : -CGFloat.greatestFiniteMagnitude),
-                (Dependencies.unsafeNonInjected.isRTL ? CGFloat.greatestFiniteMagnitude : 0)
+                (Dependencies.isRTL ? 0 : -CGFloat.greatestFiniteMagnitude),
+                (Dependencies.isRTL ? CGFloat.greatestFiniteMagnitude : 0)
             )
         
         switch gestureRecognizer.state {
@@ -951,7 +951,7 @@ final class VisibleMessageCell: MessageCell, TappableLabelDelegate {
             case .changed:
                 // The idea here is to asymptotically approach a maximum drag distance
                 let damping: CGFloat = 20
-                let sign: CGFloat = (Dependencies.unsafeNonInjected.isRTL ? 1 : -1)
+                let sign: CGFloat = (Dependencies.isRTL ? 1 : -1)
                 let x = (damping * (sqrt(abs(translationX)) / sqrt(damping))) * sign
                 viewsToMoveForReply.forEach { $0.transform = CGAffineTransform(translationX: x, y: 0) }
                 
@@ -1206,7 +1206,7 @@ final class VisibleMessageCell: MessageCell, TappableLabelDelegate {
                     // we only highlight those cases)
                     normalizedBody
                         .ranges(
-                            of: (Dependencies.unsafeNonInjected.isRTL ?
+                            of: (Dependencies.isRTL ?
                                  "(\(part.lowercased()))(^|[^a-zA-Z0-9])" :
                                  "(^|[^a-zA-Z0-9])(\(part.lowercased()))"
                             ),

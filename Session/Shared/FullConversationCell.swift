@@ -741,7 +741,7 @@ public final class FullConversationCell: UITableViewCell, SwipeActionOptimisticC
                 // with the term so we use the regex below to ensure we only highlight those cases)
                 normalizedSnippet
                     .ranges(
-                        of: (Dependencies.unsafeNonInjected.isRTL ?
+                        of: (Dependencies.isRTL ?
                              "(\(part.lowercased()))(^|[^a-zA-Z0-9])" : // stringlint:disable
                              "(^|[^a-zA-Z0-9])(\(part.lowercased()))" // stringlint:disable
                         ),

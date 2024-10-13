@@ -647,7 +647,7 @@ private class DoneButton: UIView {
 
     private lazy var chevron: UIView = {
         let image: UIImage = {
-            guard Dependencies.unsafeNonInjected.isRTL else { return #imageLiteral(resourceName: "small_chevron_right") }
+            guard Dependencies.isRTL else { return #imageLiteral(resourceName: "small_chevron_right") }
             
             return #imageLiteral(resourceName: "small_chevron_left")
         }()

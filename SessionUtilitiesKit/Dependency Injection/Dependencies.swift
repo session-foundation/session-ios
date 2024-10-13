@@ -8,6 +8,9 @@ import Combine
 public class Dependencies {
     static let userInfoKey: CodingUserInfoKey = CodingUserInfoKey(rawValue: "session.dependencies.codingOptions")!
     
+    /// The `isRTLRetriever` is handled differently from normal dependencies because it's not really treated as such (it's more of
+    /// a convenience thing than anything) as such it's held outside of the `DependencyStorage`
+    private static var _isRTLRetriever: Atomic<(Bool, () -> Bool)> = Atomic((false, { false }))
     private static var _lastCreatedInstance: Atomic<Dependencies?> = Atomic(nil)
     private let featureChangeSubject: PassthroughSubject<(String, String?, Any?), Never> = PassthroughSubject()
     private var storage: Atomic<DependencyStorage> = Atomic(DependencyStorage())
@@ -25,8 +28,8 @@ public class Dependencies {
     /// for anything accessed via this value)
     public static var unsafeNonInjected: Dependencies { _lastCreatedInstance.wrappedValue ?? Dependencies() }
     
-    public var isRTL: Bool {
-        let (requiresMainThread, retriever): (Bool, () -> Bool) = storage.wrappedValue.isRTLRetriever
+    public static var isRTL: Bool {
+        let (requiresMainThread, retriever): (Bool, () -> Bool) = _isRTLRetriever.wrappedValue
         
         /// Determining `isRTL` might require running on the main thread (it may need to accesses UIKit), if it requires the main thread but
         /// we are on a different thread then just default to `false` to prevent the background thread from potentially lagging and/or crashing
@@ -128,8 +131,8 @@ public class Dependencies {
         }
     }
     
-    public func setIsRTLRetriever(requiresMainThread: Bool, isRTLRetriever: @escaping () -> Bool) {
-        storage.mutate { $0.isRTLRetriever = (requiresMainThread, isRTLRetriever) }
+    public static func setIsRTLRetriever(requiresMainThread: Bool, isRTLRetriever: @escaping () -> Bool) {
+        _isRTLRetriever.mutate { $0 = (requiresMainThread, isRTLRetriever) }
     }
 }
 
@@ -280,7 +283,6 @@ private extension Dependencies {
     struct DependencyStorage {
         var initializationLocks: [Key: NSLock] = [:]
         var instances: [Key: Value] = [:]
-        var isRTLRetriever: (Bool, () -> Bool) = (false, { false })
         
         struct Key: Hashable, CustomStringConvertible {
             enum Variant: String {

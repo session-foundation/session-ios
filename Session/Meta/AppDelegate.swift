@@ -642,7 +642,7 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
         let rootViewControllerSetupComplete: (UIViewController) -> () = { [weak self, dependencies] rootViewController in
             /// `MainAppContext.determineDeviceRTL` uses UIKit to retrime `isRTL` so must be run on the main thread to prevent
             /// lag/crashes on background threads
-            dependencies.setIsRTLRetriever(requiresMainThread: true) { MainAppContext.determineDeviceRTL() }
+            Dependencies.setIsRTLRetriever(requiresMainThread: true) { MainAppContext.determineDeviceRTL() }
             
             /// Setup the `TopBannerController`
             let presentedViewController: UIViewController? = self?.window?.rootViewController?.presentedViewController

@@ -55,7 +55,7 @@ public final class NotificationServiceExtension: UNNotificationServiceExtension 
         /// Create the context if we don't have it (needed before _any_ interaction with the database)
         if !dependencies[singleton: .appContext].isValid {
             dependencies.set(singleton: .appContext, to: NotificationServiceExtensionContext(using: dependencies))
-            dependencies.setIsRTLRetriever(requiresMainThread: false) {
+            Dependencies.setIsRTLRetriever(requiresMainThread: false) {
                 NotificationServiceExtensionContext.determineDeviceRTL()
             }
         }
