@@ -154,7 +154,7 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
         // miss notifications.
         // Setting the delegate also seems to prevent us from getting the legacy notification
         // notification callbacks upon launch e.g. 'didReceiveLocalNotification'
-        UNUserNotificationCenter.current().delegate = self
+        dependencies[singleton: .notificationsManager].setDelegate(self)
         
         NotificationCenter.default.addObserver(
             self,
@@ -177,7 +177,7 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
         /// springboard without swapping to another app) - adding this here in addition to the one in
         /// `appDidFinishLaunching` seems to fix this odd behaviour (even though it doesn't match
         /// Apple's documentation on the matter)
-        UNUserNotificationCenter.current().delegate = self
+        dependencies[singleton: .notificationsManager].setDelegate(self)
         
         dependencies[singleton: .storage].resumeDatabaseAccess()
         dependencies.mutate(cache: .libSessionNetwork) { $0.resumeNetworkAccess() }

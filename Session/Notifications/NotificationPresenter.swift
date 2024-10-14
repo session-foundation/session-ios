@@ -26,6 +26,10 @@ public class NotificationPresenter: NSObject, UNUserNotificationCenterDelegate, 
     
     // MARK: - Registration
     
+    public func setDelegate(_ delegate: (any UNUserNotificationCenterDelegate)?) {
+        notificationCenter.delegate = delegate
+    }
+    
     public func registerNotificationSettings() -> AnyPublisher<Void, Never> {
         return Deferred { [notificationCenter] in
             Future { resolver in

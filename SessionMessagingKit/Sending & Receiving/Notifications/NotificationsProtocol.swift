@@ -19,6 +19,7 @@ public extension Singleton {
 public protocol NotificationsManagerType {
     init(using dependencies: Dependencies)
     
+    func setDelegate(_ delegate: (any UNUserNotificationCenterDelegate)?)
     func registerNotificationSettings() -> AnyPublisher<Void, Never>
     
     func notifyUser(
@@ -40,6 +41,8 @@ public protocol NotificationsManagerType {
 
 public struct NoopNotificationsManager: NotificationsManagerType {
     public init(using dependencies: Dependencies) {}
+    
+    public func setDelegate(_ delegate: (any UNUserNotificationCenterDelegate)?) {}
     
     public func registerNotificationSettings() -> AnyPublisher<Void, Never> {
         return Just(()).eraseToAnyPublisher()

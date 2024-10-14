@@ -17,6 +17,10 @@ public class MockNotificationsManager: Mock<NotificationsManagerType>, Notificat
         super.init(functionHandler: functionHandler, initialSetup: initialSetup)
     }
     
+    public func setDelegate(_ delegate: (any UNUserNotificationCenterDelegate)?) {
+        mockNoReturn(args: [delegate])
+    }
+    
     public func registerNotificationSettings() -> AnyPublisher<Void, Never> {
         return mock()
     }

@@ -1246,13 +1246,12 @@ public extension Interaction {
         }
         
         /// Remove any notifications for the messages
-        let notificationIdentifiers: [String] = interactionIds.reduce(into: []) { result, id in
-            result.append(Interaction.notificationIdentifier(for: id, threadId: threadId, shouldGroupMessagesForThread: true))
-            result.append(Interaction.notificationIdentifier(for: id, threadId: threadId, shouldGroupMessagesForThread: false))
-        }
-        
-        UNUserNotificationCenter.current().removeDeliveredNotifications(withIdentifiers: notificationIdentifiers)
-        UNUserNotificationCenter.current().removePendingNotificationRequests(withIdentifiers: notificationIdentifiers)
+        dependencies[singleton: .notificationsManager].cancelNotifications(
+            identifiers: interactionIds.reduce(into: []) { result, id in
+                result.append(Interaction.notificationIdentifier(for: id, threadId: threadId, shouldGroupMessagesForThread: true))
+                result.append(Interaction.notificationIdentifier(for: id, threadId: threadId, shouldGroupMessagesForThread: false))
+            }
+        )
         
         /// Retrieve any attachments for the messages
         let attachments: [Attachment] = try Attachment

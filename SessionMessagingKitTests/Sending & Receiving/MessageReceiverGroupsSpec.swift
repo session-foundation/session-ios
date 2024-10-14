@@ -2153,7 +2153,7 @@ class MessageReceiverGroupsSpec: QuickSpec {
                             threadId: groupId.hexString,
                             authorId: "051111111111111111111111111111111111111111111111111111111111111111",
                             variant: .standardIncoming,
-                            body: "Test",
+                            body: "Test1",
                             timestampMs: 1234560000001,
                             receivedAtTimestampMs: 1234560000001,
                             wasRead: false,
@@ -2174,7 +2174,7 @@ class MessageReceiverGroupsSpec: QuickSpec {
                             threadId: groupId.hexString,
                             authorId: "051111111111111111111111111111111111111111111111111111111111111111",
                             variant: .standardIncoming,
-                            body: "Test",
+                            body: "Test2",
                             timestampMs: 1234567890002,
                             receivedAtTimestampMs: 1234567890002,
                             wasRead: false,
@@ -2195,7 +2195,7 @@ class MessageReceiverGroupsSpec: QuickSpec {
                             threadId: groupId.hexString,
                             authorId: "051111111111111111111111111111111111111111111111111111111111111112",
                             variant: .standardIncoming,
-                            body: "Test",
+                            body: "Test3",
                             timestampMs: 1234560000003,
                             receivedAtTimestampMs: 1234560000003,
                             wasRead: false,
@@ -2216,7 +2216,7 @@ class MessageReceiverGroupsSpec: QuickSpec {
                             threadId: groupId.hexString,
                             authorId: "051111111111111111111111111111111111111111111111111111111111111112",
                             variant: .standardIncoming,
-                            body: "Test",
+                            body: "Test4",
                             timestampMs: 1234567890004,
                             receivedAtTimestampMs: 1234567890004,
                             wasRead: false,
@@ -2292,8 +2292,8 @@ class MessageReceiverGroupsSpec: QuickSpec {
                 
                 // MARK: ---- and there is no admin signature
                 context("and there is no admin signature") {
-                    // MARK: ------ removes specific messages from the database
-                    it("removes specific messages from the database") {
+                    // MARK: ------ removes content for specific messages from the database
+                    it("removes content for specific messages from the database") {
                         deleteContentMessage = GroupUpdateDeleteMemberContentMessage(
                             memberSessionIds: [],
                             messageHashes: ["TestMessageHash3"],
@@ -2313,24 +2313,13 @@ class MessageReceiverGroupsSpec: QuickSpec {
                         }
                         
                         let interactions: [Interaction]? = mockStorage.read { db in try Interaction.fetchAll(db) }
-                        expect(interactions?.count).to(equal(3))
-                        expect(interactions?.map { $0.serverHash }).to(equal([
-                            "TestMessageHash1", "TestMessageHash2", "TestMessageHash4"
-                        ]))
-                        expect(interactions?.map { $0.authorId }).to(equal([
-                            "051111111111111111111111111111111111111111111111111111111111111111",
-                            "051111111111111111111111111111111111111111111111111111111111111111",
-                            "051111111111111111111111111111111111111111111111111111111111111112"
-                        ]))
-                        expect(interactions?.map { $0.timestampMs }).to(equal([
-                            1234560000001,
-                            1234567890002,
-                            1234567890004
-                        ]))
+                        expect(interactions?.count).to(equal(4))    // Message isn't deleted, just content
+                        expect(interactions?.map { $0.serverHash }).toNot(contain("TestMessageHash3"))
+                        expect(interactions?.map { $0.body }).toNot(contain("Test3"))
                     }
                     
-                    // MARK: ------ removes all messages from the sender from the database
-                    it("removes all messages from the sender from the database") {
+                    // MARK: ------ removes content for all messages from the sender from the database
+                    it("removes content for all messages from the sender from the database") {
                         deleteContentMessage = GroupUpdateDeleteMemberContentMessage(
                             memberSessionIds: [
                                 "051111111111111111111111111111111111111111111111111111111111111112"
@@ -2352,20 +2341,9 @@ class MessageReceiverGroupsSpec: QuickSpec {
                         }
                         
                         let interactions: [Interaction]? = mockStorage.read { db in try Interaction.fetchAll(db) }
-                        expect(interactions?.count).to(equal(3))
-                        expect(interactions?.map { $0.serverHash }).to(equal([
-                            "TestMessageHash1", "TestMessageHash2", "TestMessageHash4"
-                        ]))
-                        expect(interactions?.map { $0.authorId }).to(equal([
-                            "051111111111111111111111111111111111111111111111111111111111111111",
-                            "051111111111111111111111111111111111111111111111111111111111111111",
-                            "051111111111111111111111111111111111111111111111111111111111111112"
-                        ]))
-                        expect(interactions?.map { $0.timestampMs }).to(equal([
-                            1234560000001,
-                            1234567890002,
-                            1234567890004
-                        ]))
+                        expect(interactions?.count).to(equal(4))    // Message isn't deleted, just content
+                        expect(interactions?.map { $0.serverHash }).toNot(contain("TestMessageHash3"))
+                        expect(interactions?.map { $0.body }).toNot(contain("Test3"))
                     }
                     
                     // MARK: ------ ignores messages not sent by the sender
@@ -2389,18 +2367,26 @@ class MessageReceiverGroupsSpec: QuickSpec {
                         }
                         
                         let interactions: [Interaction]? = mockStorage.read { db in try Interaction.fetchAll(db) }
-                        expect(interactions?.count).to(equal(3))
+                        expect(interactions?.count).to(equal(4))
                         expect(interactions?.map { $0.serverHash }).to(equal([
-                            "TestMessageHash1", "TestMessageHash2", "TestMessageHash4"
+                            "TestMessageHash1", "TestMessageHash2", nil, "TestMessageHash4"
+                        ]))
+                        expect(interactions?.map { $0.body }).to(equal([
+                            "Test1",
+                            "Test2",
+                            nil,
+                            "Test4"
                         ]))
                         expect(interactions?.map { $0.authorId }).to(equal([
                             "051111111111111111111111111111111111111111111111111111111111111111",
                             "051111111111111111111111111111111111111111111111111111111111111111",
+                            "051111111111111111111111111111111111111111111111111111111111111112",
                             "051111111111111111111111111111111111111111111111111111111111111112"
                         ]))
                         expect(interactions?.map { $0.timestampMs }).to(equal([
                             1234560000001,
                             1234567890002,
+                            1234560000003,
                             1234567890004
                         ]))
                     }
@@ -2426,18 +2412,26 @@ class MessageReceiverGroupsSpec: QuickSpec {
                         }
                         
                         let interactions: [Interaction]? = mockStorage.read { db in try Interaction.fetchAll(db) }
-                        expect(interactions?.count).to(equal(3))
+                        expect(interactions?.count).to(equal(4))
                         expect(interactions?.map { $0.serverHash }).to(equal([
-                            "TestMessageHash1", "TestMessageHash2", "TestMessageHash4"
+                            "TestMessageHash1", "TestMessageHash2", nil, "TestMessageHash4"
+                        ]))
+                        expect(interactions?.map { $0.body }).to(equal([
+                            "Test1",
+                            "Test2",
+                            nil,
+                            "Test4"
                         ]))
                         expect(interactions?.map { $0.authorId }).to(equal([
                             "051111111111111111111111111111111111111111111111111111111111111111",
                             "051111111111111111111111111111111111111111111111111111111111111111",
+                            "051111111111111111111111111111111111111111111111111111111111111112",
                             "051111111111111111111111111111111111111111111111111111111111111112"
                         ]))
                         expect(interactions?.map { $0.timestampMs }).to(equal([
                             1234560000001,
                             1234567890002,
+                            1234560000003,
                             1234567890004
                         ]))
                     }
@@ -2445,8 +2439,8 @@ class MessageReceiverGroupsSpec: QuickSpec {
                 
                 // MARK: ---- and there is no admin signature
                 context("and there is no admin signature") {
-                    // MARK: ------ removes specific messages from the database
-                    it("removes specific messages from the database") {
+                    // MARK: ------ removes content for specific messages from the database
+                    it("removes content for specific messages from the database") {
                         deleteContentMessage = GroupUpdateDeleteMemberContentMessage(
                             memberSessionIds: [],
                             messageHashes: ["TestMessageHash3"],
@@ -2466,24 +2460,13 @@ class MessageReceiverGroupsSpec: QuickSpec {
                         }
                         
                         let interactions: [Interaction]? = mockStorage.read { db in try Interaction.fetchAll(db) }
-                        expect(interactions?.count).to(equal(3))
-                        expect(interactions?.map { $0.serverHash }).to(equal([
-                            "TestMessageHash1", "TestMessageHash2", "TestMessageHash4"
-                        ]))
-                        expect(interactions?.map { $0.authorId }).to(equal([
-                            "051111111111111111111111111111111111111111111111111111111111111111",
-                            "051111111111111111111111111111111111111111111111111111111111111111",
-                            "051111111111111111111111111111111111111111111111111111111111111112"
-                        ]))
-                        expect(interactions?.map { $0.timestampMs }).to(equal([
-                            1234560000001,
-                            1234567890002,
-                            1234567890004
-                        ]))
+                        expect(interactions?.count).to(equal(4))
+                        expect(interactions?.map { $0.serverHash }).toNot(contain("TestMessageHash3"))
+                        expect(interactions?.map { $0.body }).toNot(contain("Test3"))
                     }
                     
-                    // MARK: ------ removes all messages for a given id from the database
-                    it("removes all messages for a given id from the database") {
+                    // MARK: ------ removes content for all messages for a given id from the database
+                    it("removes content for all messages for a given id from the database") {
                         deleteContentMessage = GroupUpdateDeleteMemberContentMessage(
                             memberSessionIds: [
                                 "051111111111111111111111111111111111111111111111111111111111111112"
@@ -2505,24 +2488,13 @@ class MessageReceiverGroupsSpec: QuickSpec {
                         }
                         
                         let interactions: [Interaction]? = mockStorage.read { db in try Interaction.fetchAll(db) }
-                        expect(interactions?.count).to(equal(3))
-                        expect(interactions?.map { $0.serverHash }).to(equal([
-                            "TestMessageHash1", "TestMessageHash2", "TestMessageHash4"
-                        ]))
-                        expect(interactions?.map { $0.authorId }).to(equal([
-                            "051111111111111111111111111111111111111111111111111111111111111111",
-                            "051111111111111111111111111111111111111111111111111111111111111111",
-                            "051111111111111111111111111111111111111111111111111111111111111112"
-                        ]))
-                        expect(interactions?.map { $0.timestampMs }).to(equal([
-                            1234560000001,
-                            1234567890002,
-                            1234567890004
-                        ]))
+                        expect(interactions?.count).to(equal(4))
+                        expect(interactions?.map { $0.serverHash }).toNot(contain("TestMessageHash3"))
+                        expect(interactions?.map { $0.body }).toNot(contain("Test3"))
                     }
                     
-                    // MARK: ------ removes specific messages sent from a user that is not the sender from the database
-                    it("removes specific messages sent from a user that is not the sender from the database") {
+                    // MARK: ------ removes content for specific messages sent from a user that is not the sender from the database
+                    it("removes content for specific messages sent from a user that is not the sender from the database") {
                         deleteContentMessage = GroupUpdateDeleteMemberContentMessage(
                             memberSessionIds: [],
                             messageHashes: ["TestMessageHash3"],
@@ -2542,24 +2514,13 @@ class MessageReceiverGroupsSpec: QuickSpec {
                         }
                         
                         let interactions: [Interaction]? = mockStorage.read { db in try Interaction.fetchAll(db) }
-                        expect(interactions?.count).to(equal(3))
-                        expect(interactions?.map { $0.serverHash }).to(equal([
-                            "TestMessageHash1", "TestMessageHash2", "TestMessageHash4"
-                        ]))
-                        expect(interactions?.map { $0.authorId }).to(equal([
-                            "051111111111111111111111111111111111111111111111111111111111111111",
-                            "051111111111111111111111111111111111111111111111111111111111111111",
-                            "051111111111111111111111111111111111111111111111111111111111111112"
-                        ]))
-                        expect(interactions?.map { $0.timestampMs }).to(equal([
-                            1234560000001,
-                            1234567890002,
-                            1234567890004
-                        ]))
+                        expect(interactions?.count).to(equal(4))
+                        expect(interactions?.map { $0.serverHash }).toNot(contain("TestMessageHash3"))
+                        expect(interactions?.map { $0.body }).toNot(contain("Test3"))
                     }
                     
-                    // MARK: ------ removes all messages for a given id that is not the sender from the database
-                    it("removes all messages for a given id that is not the sender from the database") {
+                    // MARK: ------ removes content for all messages for a given id that is not the sender from the database
+                    it("removes content for all messages for a given id that is not the sender from the database") {
                         deleteContentMessage = GroupUpdateDeleteMemberContentMessage(
                             memberSessionIds: [
                                 "051111111111111111111111111111111111111111111111111111111111111112"
@@ -2581,20 +2542,9 @@ class MessageReceiverGroupsSpec: QuickSpec {
                         }
                         
                         let interactions: [Interaction]? = mockStorage.read { db in try Interaction.fetchAll(db) }
-                        expect(interactions?.count).to(equal(3))
-                        expect(interactions?.map { $0.serverHash }).to(equal([
-                            "TestMessageHash1", "TestMessageHash2", "TestMessageHash4"
-                        ]))
-                        expect(interactions?.map { $0.authorId }).to(equal([
-                            "051111111111111111111111111111111111111111111111111111111111111111",
-                            "051111111111111111111111111111111111111111111111111111111111111111",
-                            "051111111111111111111111111111111111111111111111111111111111111112"
-                        ]))
-                        expect(interactions?.map { $0.timestampMs }).to(equal([
-                            1234560000001,
-                            1234567890002,
-                            1234567890004
-                        ]))
+                        expect(interactions?.count).to(equal(4))
+                        expect(interactions?.map { $0.serverHash }).toNot(contain("TestMessageHash3"))
+                        expect(interactions?.map { $0.body }).toNot(contain("Test3"))
                     }
                     
                     // MARK: ------ ignores messages sent after the delete content message was sent
@@ -2621,16 +2571,20 @@ class MessageReceiverGroupsSpec: QuickSpec {
                         }
                         
                         let interactions: [Interaction]? = mockStorage.read { db in try Interaction.fetchAll(db) }
-                        expect(interactions?.count).to(equal(2))
+                        expect(interactions?.count).to(equal(4))
                         expect(interactions?.map { $0.serverHash }).to(equal([
-                            "TestMessageHash2", "TestMessageHash4"
+                            nil, "TestMessageHash2", nil, "TestMessageHash4"
                         ]))
                         expect(interactions?.map { $0.authorId }).to(equal([
                             "051111111111111111111111111111111111111111111111111111111111111111",
+                            "051111111111111111111111111111111111111111111111111111111111111111",
+                            "051111111111111111111111111111111111111111111111111111111111111112",
                             "051111111111111111111111111111111111111111111111111111111111111112"
                         ]))
                         expect(interactions?.map { $0.timestampMs }).to(equal([
+                            1234560000001,
                             1234567890002,
+                            1234560000003,
                             1234567890004
                         ]))
                     }
@@ -2652,8 +2606,8 @@ class MessageReceiverGroupsSpec: QuickSpec {
                         }
                     }
                     
-                    // MARK: ------ deletes the messages from the swarm if the sender was not an admin
-                    it("deletes the messages from the swarm if the sender was not an admin") {
+                    // MARK: ------ deletes the messages from the swarm
+                    it("deletes the messages from the swarm") {
                         deleteContentMessage = GroupUpdateDeleteMemberContentMessage(
                             memberSessionIds: [],
                             messageHashes: ["TestMessageHash3"],
@@ -2691,32 +2645,6 @@ class MessageReceiverGroupsSpec: QuickSpec {
                                     requestTimeout: preparedRequest.requestTimeout,
                                     requestAndPathBuildTimeout: preparedRequest.requestAndPathBuildTimeout
                                 )
-                            })
-                    }
-                    
-                    // MARK: ------ does not delete the messages from the swarm if the sender was an admin
-                    it("does not delete the messages from the swarm if the sender was an admin") {
-                        deleteContentMessage = GroupUpdateDeleteMemberContentMessage(
-                            memberSessionIds: [],
-                            messageHashes: ["TestMessageHash3"],
-                            adminSignature: .standard(signature: "TestSignature".bytes)
-                        )
-                        deleteContentMessage.sender = "051111111111111111111111111111111111111111111111111111111111111112"
-                        deleteContentMessage.sentTimestampMs = 1234567800000
-                        
-                        mockStorage.write { db in
-                            try MessageReceiver.handleGroupUpdateMessage(
-                                db,
-                                threadId: groupId.hexString,
-                                threadVariant: .group,
-                                message: deleteContentMessage,
-                                using: dependencies
-                            )
-                        }
-                        
-                        expect(mockNetwork)
-                            .toNot(call { network in
-                                network.send(.any, to: .any, requestTimeout: .any, requestAndPathBuildTimeout: .any)
                             })
                     }
                 }

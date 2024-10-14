@@ -46,8 +46,8 @@ enum _001_ThemePreferences: Migration {
     }
 }
 
-extension Theme: EnumStringSetting {}
-extension Theme.PrimaryColor: EnumStringSetting {}
+extension Theme: @retroactive EnumStringSetting {}
+extension Theme.PrimaryColor: @retroactive EnumStringSetting {}
 
 enum DeprecatedUIKitMigrationTarget: MigratableTarget {
     public static func migrations() -> TargetMigrations {

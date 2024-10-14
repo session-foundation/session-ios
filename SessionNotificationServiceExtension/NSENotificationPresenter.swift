@@ -20,6 +20,8 @@ public class NSENotificationPresenter: NotificationsManagerType {
     
     // MARK: - Registration
     
+    public func setDelegate(_ delegate: (any UNUserNotificationCenterDelegate)?) {}
+    
     public func registerNotificationSettings() -> AnyPublisher<Void, Never> {
         return Just(()).eraseToAnyPublisher()
     }

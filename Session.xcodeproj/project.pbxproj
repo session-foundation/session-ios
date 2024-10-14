@@ -3784,8 +3784,8 @@
 				FDFE75B02ABD2D2400655640 /* _016_MakeBrokenProfileTimestampsNullable.swift */,
 				FD428B222B4B9969006D0888 /* _017_RebuildFTSIfNeeded_2_4_5.swift */,
 				7B5233C5290636D700F8F375 /* _018_DisappearingMessagesConfiguration.swift */,
-				FDB5DAC62A9447E7002C8721 /* _020_GroupsRebuildChanges.swift */,
 				FDDD554D2C1FCB77006CBF03 /* _019_ScheduleAppUpdateCheckJob.swift */,
+				FDB5DAC62A9447E7002C8721 /* _020_GroupsRebuildChanges.swift */,
 			);
 			path = Migrations;
 			sourceTree = "<group>";
@@ -5463,26 +5463,6 @@
 /* End PBXResourcesBuildPhase section */
 
 /* Begin PBXShellScriptBuildPhase section */
-		FD0B1FA92CA3805C00F60F46 /* Ensure InfoPlist.xcstrings updated */ = {
-			isa = PBXShellScriptBuildPhase;
-			alwaysOutOfDate = 1;
-			buildActionMask = 2147483647;
-			files = (
-			);
-			inputFileListPaths = (
-			);
-			inputPaths = (
-			);
-			name = "Ensure InfoPlist.xcstrings updated";
-			outputFileListPaths = (
-			);
-			outputPaths = (
-			);
-			runOnlyForDeploymentPostprocessing = 0;
-			shellPath = /bin/sh;
-			shellScript = "\"${SRCROOT}/Scripts/LintLocalizableStrings.swift\" update\n";
-			showEnvVarsInLog = 0;
-		};
 		9471CAA62CACFB0600090FB7 /* Generate Licenses Plist */ = {
 			isa = PBXShellScriptBuildPhase;
 			alwaysOutOfDate = 1;
@@ -5501,6 +5481,26 @@
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
 			shellScript = "\"${SRCROOT}/Scripts/GenerateLicenses.swift\"\n";
+			showEnvVarsInLog = 0;
+		};
+		FD0B1FA92CA3805C00F60F46 /* Ensure InfoPlist.xcstrings updated */ = {
+			isa = PBXShellScriptBuildPhase;
+			alwaysOutOfDate = 1;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputFileListPaths = (
+			);
+			inputPaths = (
+			);
+			name = "Ensure InfoPlist.xcstrings updated";
+			outputFileListPaths = (
+			);
+			outputPaths = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "\"${SRCROOT}/Scripts/LintLocalizableStrings.swift\" update\n";
 			showEnvVarsInLog = 0;
 		};
 		FD5E93D32C12D3990038C25A /* Add App Group To Build Info Plist */ = {
