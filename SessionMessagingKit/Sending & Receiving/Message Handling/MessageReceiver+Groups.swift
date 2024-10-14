@@ -579,12 +579,14 @@ extension MessageReceiver {
     ) throws {
         guard let sentTimestampMs: UInt64 = message.sentTimestampMs else { throw MessageReceiverError.invalidMessage }
         
-        let memberSessionIdsToRemove: [String]
-        let messageHashesToRemove: [String]
-        let messageHashesToDeleteFromServer: [String]
+        let interactionIdsToRemove: [Int64]
+        let explicitHashesToRemove: [String]
+        let memberSessionIdsContainsSender: Bool = message.memberSessionIds
+            .filter { !$0.isEmpty } // Just in case
+            .contains(message.sender ?? "")
         
-        switch (message.adminSignature, message.sender) {
-            case (.some(let adminSignature), _):
+        switch (message.adminSignature, message.sender, memberSessionIdsContainsSender) {
+            case (.some(let adminSignature), _, _):
                 guard
                     Authentication.verify(
                         signature: adminSignature,
@@ -598,57 +600,82 @@ extension MessageReceiver {
                     )
                 else { throw MessageReceiverError.invalidMessage }
                 
-                /// Admins can remove anything so just use the values included in the message, they will have already deleted the messages
-                /// from the server as well so we can just leave that empty
-                memberSessionIdsToRemove = message.memberSessionIds
-                messageHashesToRemove = message.messageHashes
-                messageHashesToDeleteFromServer = []
+                /// Find all relevant interactions to remove
+                let interactionIdsForRemovedHashes: [Int64] = try Interaction
+                    .filter(Interaction.Columns.threadId == groupSessionId.hexString)
+                    .filter(message.messageHashes.asSet().contains(Interaction.Columns.serverHash))
+                    .filter(Interaction.Columns.timestampMs < sentTimestampMs)
+                    .asRequest(of: Int64.self)
+                    .fetchAll(db)
+                let interactionIdsSentByRemovedSenders: [Int64] = try Interaction
+                    .filter(Interaction.Columns.threadId == groupSessionId.hexString)
+                    .filter(message.memberSessionIds.asSet().contains(Interaction.Columns.authorId))
+                    .filter(Interaction.Columns.timestampMs < sentTimestampMs)
+                    .asRequest(of: Int64.self)
+                    .fetchAll(db)
+                interactionIdsToRemove = interactionIdsForRemovedHashes + interactionIdsSentByRemovedSenders
+                explicitHashesToRemove = message.messageHashes
                 
-            case (.none, .some(let sender)):
+            case (.none, .some(let sender), true):
                 /// Members can only remove messages they sent so filter the values included to only include values that match the sender
-                memberSessionIdsToRemove = message.memberSessionIds.filter { $0 == sender }
-                messageHashesToRemove = try Interaction
+                interactionIdsToRemove = try Interaction
+                    .filter(Interaction.Columns.threadId == groupSessionId.hexString)
+                    .filter(Interaction.Columns.authorId == sender)
+                    .filter(Interaction.Columns.timestampMs < sentTimestampMs)
+                    .select(.id)
+                    .asRequest(of: Int64.self)
+                    .fetchAll(db)
+                explicitHashesToRemove = try Interaction
+                    .filter(Interaction.Columns.threadId == groupSessionId.hexString)
+                    .filter(Interaction.Columns.authorId == sender)
+                    .filter(Interaction.Columns.timestampMs < sentTimestampMs)
+                    .filter(Interaction.Columns.serverHash != nil)
+                    .select(.serverHash)
+                    .asRequest(of: String.self)
+                    .fetchAll(db)
+            
+            case (.none, .some(let sender), false):
+                /// Members can only remove messages they sent so filter the values included to only include values that match the sender
+                interactionIdsToRemove = try Interaction
                     .filter(Interaction.Columns.threadId == groupSessionId.hexString)
                     .filter(Interaction.Columns.authorId == sender)
                     .filter(message.messageHashes.asSet().contains(Interaction.Columns.serverHash))
                     .filter(Interaction.Columns.timestampMs < sentTimestampMs)
-                    .select(.serverHash)
-                    .asRequest(of: String.self)
+                    .select(.id)
+                    .asRequest(of: Int64.self)
                     .fetchAll(db)
-                messageHashesToDeleteFromServer = try Interaction
+                explicitHashesToRemove = try Interaction
                     .filter(Interaction.Columns.threadId == groupSessionId.hexString)
-                    .filter(memberSessionIdsToRemove.asSet().contains(Interaction.Columns.authorId))
+                    .filter(Interaction.Columns.authorId == sender)
+                    .filter(message.messageHashes.asSet().contains(Interaction.Columns.serverHash))
                     .filter(Interaction.Columns.timestampMs < sentTimestampMs)
+                    .filter(Interaction.Columns.serverHash != nil)
                     .select(.serverHash)
                     .asRequest(of: String.self)
                     .fetchAll(db)
-                    .appending(contentsOf: messageHashesToRemove)
                 
-            case (.none, .none): throw MessageReceiverError.invalidMessage
+            case (.none, .none, _): throw MessageReceiverError.invalidMessage
         }
         
-        /// Remove all messages sent but any of the `memberSessionIds`
-        if !memberSessionIdsToRemove.isEmpty {
-            try Interaction
-                .filter(Interaction.Columns.threadId == groupSessionId.hexString)
-                .filter(memberSessionIdsToRemove.asSet().contains(Interaction.Columns.authorId))
-                .filter(Interaction.Columns.timestampMs < sentTimestampMs)
-                .deleteAll(db)
-        }
-        
-        /// Remove all messages in the `messageHashes`
-        if !messageHashesToRemove.isEmpty {
-            try Interaction
-                .filter(Interaction.Columns.threadId == groupSessionId.hexString)
-                .filter(messageHashesToRemove.asSet().contains(Interaction.Columns.serverHash))
-                .filter(Interaction.Columns.timestampMs < sentTimestampMs)
-                .deleteAll(db)
-        }
+        /// Trigger the content deletion
+        let hashes: Set<String> = try Interaction.serverHashesForDeletion(
+            db,
+            interactionIds: Set(interactionIdsToRemove),
+            additionalServerHashesToRemove: explicitHashesToRemove
+        )
+        try Interaction.markAsDeleted(
+            db,
+            threadId: groupSessionId.hexString,
+            threadVariant: .group,
+            interactionIds: Set(interactionIdsToRemove),
+            localOnly: false,
+            using: dependencies
+        )
         
         /// If the message wasn't sent by an admin and the current user is an admin then we want to try to delete the
         /// messages from the swarm as well
         guard
-            !messageHashesToDeleteFromServer.isEmpty,
+            !hashes.isEmpty,
             LibSession.isAdmin(groupSessionId: groupSessionId, using: dependencies),
             let authMethod: AuthenticationMethod = try? Authentication.with(
                 db,
@@ -659,14 +686,30 @@ extension MessageReceiver {
         
         try? SnodeAPI
             .preparedDeleteMessages(
-                serverHashes: messageHashesToDeleteFromServer,
+                serverHashes: Array(hashes),
                 requireSuccessfulDeletion: false,
                 authMethod: authMethod,
                 using: dependencies
             )
             .send(using: dependencies)
             .subscribe(on: DispatchQueue.global(qos: .background), using: dependencies)
-            .sinkUntilComplete()
+            .sinkUntilComplete(
+                receiveCompletion: { result in
+                    switch result {
+                        case .failure: break
+                        case .finished:
+                            /// Since the server deletion was successful we should also remove the `SnodeReceivedMessageInfo`
+                            /// entries for the hashes (otherwise we might try to poll for a hash which no longer exists, resulting in fetching
+                            /// the last 14 days of messages)
+                            dependencies[singleton: .storage].writeAsync { db in
+                                try SnodeReceivedMessageInfo.handlePotentialDeletedOrInvalidHash(
+                                    db,
+                                    potentiallyInvalidHashes: Array(hashes)
+                                )
+                            }
+                    }
+                }
+            )
     }
     
     // MARK: - LibSession Encrypted Messages

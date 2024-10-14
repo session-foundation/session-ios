@@ -121,7 +121,9 @@ public class NSENotificationPresenter: NotificationsManagerType {
         }
         
         // Add request (try to group notifications for interactions from open groups)
-        let identifier: String = interaction.notificationIdentifier(
+        let identifier: String = Interaction.notificationIdentifier(
+            for: (interaction.id ?? 0),
+            threadId: thread.id,
             shouldGroupMessagesForThread: (thread.variant == .community)
         )
         var trigger: UNNotificationTrigger?

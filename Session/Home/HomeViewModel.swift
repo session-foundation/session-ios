@@ -175,7 +175,7 @@ public class HomeViewModel: NavigatableStateHolder {
                         
                         return """
                             JOIN \(Interaction.self) ON \(interaction[.threadId]) = \(thread[.id])
-                            JOIN \(RecipientState.self) ON \(recipientState[.interactionId]) = \(interaction[.id])
+                            LEFT JOIN \(RecipientState.self) ON \(recipientState[.interactionId]) = \(interaction[.id])
                         """
                     }()
                 ),

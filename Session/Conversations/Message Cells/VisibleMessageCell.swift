@@ -295,16 +295,6 @@ final class VisibleMessageCell: MessageCell, TappableLabelDelegate {
             cellViewModel.threadVariant == .legacyGroup ||
             cellViewModel.threadVariant == .group
         )
-        let isIncoming: Bool = (
-            cellViewModel.variant == .standardIncoming ||
-            cellViewModel.variant == .standardIncomingDeleted ||
-            cellViewModel.variant == .standardIncomingDeletedLocally
-        )
-        let isOutgoing: Bool = (
-            cellViewModel.variant == .standardOutgoing ||
-            cellViewModel.variant == .standardOutgoingDeleted ||
-            cellViewModel.variant == .standardOutgoingDeletedLocally
-        )
         
         // Profile picture view (should always be handled as a standard 'contact' profile picture)
         let profileShouldBeVisible: Bool = (
@@ -325,14 +315,14 @@ final class VisibleMessageCell: MessageCell, TappableLabelDelegate {
         )
        
         // Bubble view
-        contentViewLeadingConstraint1.isActive = isIncoming
+        contentViewLeadingConstraint1.isActive = cellViewModel.variant.isIncoming
         contentViewLeadingConstraint1.constant = (isGroupThread ? VisibleMessageCell.groupThreadHSpacing : VisibleMessageCell.contactThreadHSpacing)
-        contentViewLeadingConstraint2.isActive = isOutgoing
+        contentViewLeadingConstraint2.isActive = cellViewModel.variant.isOutgoing
         contentViewTopConstraint.constant = (cellViewModel.senderName == nil ? 0 : VisibleMessageCell.authorLabelBottomSpacing)
-        contentViewTrailingConstraint1.isActive = isOutgoing
-        contentViewTrailingConstraint2.isActive = isIncoming
+        contentViewTrailingConstraint1.isActive = cellViewModel.variant.isOutgoing
+        contentViewTrailingConstraint2.isActive = cellViewModel.variant.isIncoming
         
-        let bubbleBackgroundColor: ThemeValue = (isIncoming ? .messageBubble_incomingBackground : .messageBubble_outgoingBackground)
+        let bubbleBackgroundColor: ThemeValue = (cellViewModel.variant.isIncoming ? .messageBubble_incomingBackground : .messageBubble_outgoingBackground)
         bubbleView.themeBackgroundColor = bubbleBackgroundColor
         bubbleBackgroundView.themeBackgroundColor = bubbleBackgroundColor
         updateBubbleViewCorners()
@@ -377,11 +367,11 @@ final class VisibleMessageCell: MessageCell, TappableLabelDelegate {
         }
         
         // Under bubble content
-        underBubbleStackView.alignment = (isOutgoing ?.trailing : .leading)
-        underBubbleStackViewIncomingLeadingConstraint.isActive = !isOutgoing
-        underBubbleStackViewIncomingTrailingConstraint.isActive = !isOutgoing
-        underBubbleStackViewOutgoingLeadingConstraint.isActive = isOutgoing
-        underBubbleStackViewOutgoingTrailingConstraint.isActive = isOutgoing
+        underBubbleStackView.alignment = (cellViewModel.variant.isOutgoing ?.trailing : .leading)
+        underBubbleStackViewIncomingLeadingConstraint.isActive = !cellViewModel.variant.isOutgoing
+        underBubbleStackViewIncomingTrailingConstraint.isActive = !cellViewModel.variant.isOutgoing
+        underBubbleStackViewOutgoingLeadingConstraint.isActive = cellViewModel.variant.isOutgoing
+        underBubbleStackViewOutgoingTrailingConstraint.isActive = cellViewModel.variant.isOutgoing
         
         // Reaction view
         reactionContainerView.isHidden = (cellViewModel.reactionInfo?.isEmpty != false)
@@ -407,7 +397,8 @@ final class VisibleMessageCell: MessageCell, TappableLabelDelegate {
         messageStatusImageView.themeTintColor = tintColor
         messageStatusContainerView.isHidden = (
             (cellViewModel.expiresInSeconds ?? 0) == 0 && (
-                !isOutgoing ||
+                !cellViewModel.variant.isOutgoing ||
+                cellViewModel.variant.isDeletedMessage ||
                 cellViewModel.variant == .infoCall ||
                 (
                     cellViewModel.state == .sent &&
@@ -441,10 +432,10 @@ final class VisibleMessageCell: MessageCell, TappableLabelDelegate {
             messageStatusImageView.isHidden = false
         }
         
-        timerViewOutgoingMessageConstraint.isActive = isOutgoing
-        timerViewIncomingMessageConstraint.isActive = isIncoming
-        messageStatusLabelOutgoingMessageConstraint.isActive = isOutgoing
-        messageStatusLabelIncomingMessageConstraint.isActive = isIncoming
+        timerViewOutgoingMessageConstraint.isActive = cellViewModel.variant.isOutgoing
+        timerViewIncomingMessageConstraint.isActive = cellViewModel.variant.isIncoming
+        messageStatusLabelOutgoingMessageConstraint.isActive = cellViewModel.variant.isOutgoing
+        messageStatusLabelIncomingMessageConstraint.isActive = cellViewModel.variant.isIncoming
         
         // Set the height of the underBubbleStackView to 0 if it has no content (need to do this
         // otherwise it can randomly stretch)

@@ -59,6 +59,17 @@ public class ConfirmationModal: Modal, UITextFieldDelegate, UITextViewDelegate {
         return result
     }()
     
+    private lazy var warningLabel: UILabel = {
+        let result: UILabel = UILabel()
+        result.font = .systemFont(ofSize: Values.verySmallFontSize)
+        result.themeTextColor = .warning
+        result.textAlignment = .center
+        result.lineBreakMode = .byWordWrapping
+        result.numberOfLines = 0
+        
+        return result
+    }()
+    
     private lazy var textFieldContainer: UIView = {
         let result: UIView = UIView()
         result.themeBorderColor = .borderSeparator
@@ -139,7 +150,7 @@ public class ConfirmationModal: Modal, UITextFieldDelegate, UITextViewDelegate {
     }()
     
     private lazy var contentStackView: UIStackView = {
-        let result = UIStackView(arrangedSubviews: [ titleLabel, explanationLabel, textFieldContainer, textViewContainer, imageViewContainer ])
+        let result = UIStackView(arrangedSubviews: [ titleLabel, explanationLabel, warningLabel, textFieldContainer, textViewContainer, imageViewContainer ])
         result.axis = .vertical
         result.spacing = Values.smallSpacing
         result.isLayoutMarginsRelativeArrangement = true
@@ -301,11 +312,13 @@ public class ConfirmationModal: Modal, UITextFieldDelegate, UITextViewDelegate {
                     cancelButton?.isEnabled = info.cancelEnabled.isValid(with: info)
                 }
                 
-            case .radio(let explanation, let options):
+            case .radio(let explanation, let warning, let options):
                 mainStackView.spacing = 0
                 explanationLabel.attributedText = explanation
                 explanationLabel.canScroll = false
                 explanationLabel.isHidden = (explanation == nil)
+                warningLabel.attributedText = warning
+                warningLabel.isHidden = (warning == nil)
                 contentStackView.subviews.forEach { subview in
                     guard subview is RadioButton else { return }
                     
@@ -315,15 +328,21 @@ public class ConfirmationModal: Modal, UITextFieldDelegate, UITextViewDelegate {
                 // Add the options
                 options.enumerated().forEach { index, optionInfo in
                     let radioButton: RadioButton = RadioButton(size: .medium) { [weak self] button in
-                        guard !button.isSelected else { return }
+                        guard button.isEnabled && !button.isSelected else { return }
                         
                         // If an option is selected then update the modal to show that one as selected
                         self?.updateContent(
                             with: info.with(
                                 body: .radio(
                                     explanation: explanation,
+                                    warning: warning,
                                     options: options.enumerated().map { otherIndex, otherInfo in
-                                        (otherInfo.title, (index == otherIndex), otherInfo.accessibility)
+                                        (
+                                            otherInfo.title,
+                                            otherInfo.enabled,
+                                            (index == otherIndex),
+                                            otherInfo.accessibility
+                                        )
                                     }
                                 )
                             )
@@ -332,7 +351,7 @@ public class ConfirmationModal: Modal, UITextFieldDelegate, UITextViewDelegate {
                     radioButton.text = optionInfo.title
                     radioButton.accessibilityLabel = optionInfo.accessibility?.label
                     radioButton.accessibilityIdentifier = optionInfo.accessibility?.identifier
-                    radioButton.update(isSelected: optionInfo.selected)
+                    radioButton.update(isEnabled: optionInfo.enabled, isSelected: optionInfo.selected)
                     contentStackView.addArrangedSubview(radioButton)
                 }
                 
@@ -689,8 +708,10 @@ public extension ConfirmationModal.Info {
         )
         case radio(
             explanation: NSAttributedString?,
+            warning: NSAttributedString?,
             options: [(
                 title: String,
+                enabled: Bool,
                 selected: Bool,
                 accessibility: Accessibility?
             )]
@@ -723,10 +744,11 @@ public extension ConfirmationModal.Info {
                        lhsSecondInfo == rhsSecondInfo
                    )
                 
-                case (.radio(let lhsExplanation, let lhsOptions), .radio(let rhsExplanation, let rhsOptions)):
+                case (.radio(let lhsExplanation, let lhsWarning, let lhsOptions), .radio(let rhsExplanation, let rhsWarning, let rhsOptions)):
                     return (
                         lhsExplanation == rhsExplanation &&
-                        lhsOptions.map { "\($0.0)-\($0.1)" } == rhsOptions.map { "\($0.0)-\($0.1)" }
+                        lhsWarning == rhsWarning &&
+                        lhsOptions.map { "\($0.0)-\($0.1)-\($0.2)" } == rhsOptions.map { "\($0.0)-\($0.1)-\($0.2)" }
                     )
                     
                 case (.image(let lhsPlaceholder, let lhsValue, let lhsIcon, let lhsStyle, let lhsAccessibility, _), .image(let rhsPlaceholder, let rhsValue, let rhsIcon, let rhsStyle, let rhsAccessibility, _)):
@@ -757,9 +779,10 @@ public extension ConfirmationModal.Info {
                     firstInfo.hash(into: &hasher)
                     secondInfo.hash(into: &hasher)
                     
-                case .radio(let explanation, let options):
+                case .radio(let explanation, let warning, let options):
                     explanation.hash(into: &hasher)
-                    options.map { "\($0.0)-\($0.1)" }.hash(into: &hasher)
+                    warning.hash(into: &hasher)
+                    options.map { "\($0.0)-\($0.1)-\($0.2)" }.hash(into: &hasher)
                 
                 case .image(let placeholder, let value, let icon, let style, let accessibility, _):
                     placeholder.hash(into: &hasher)

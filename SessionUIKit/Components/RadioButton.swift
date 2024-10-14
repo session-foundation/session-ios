@@ -36,6 +36,7 @@ public class RadioButton: UIView {
         set { titleLabel.text = newValue }
     }
     
+    public private(set) var isEnabled: Bool = false
     public private(set) var isSelected: Bool = false
     private let onSelected: ((RadioButton) -> ())?
     
@@ -139,17 +140,31 @@ public class RadioButton: UIView {
         selectionButton.setThemeBackgroundColor(value, for: state)
     }
     
-    public func update(isSelected: Bool) {
-        self.isSelected = isSelected
+    public func update(isEnabled: Bool? = nil, isSelected: Bool? = nil) {
+        self.isEnabled = (isEnabled ?? self.isEnabled)
+        self.isSelected = (isSelected ?? self.isSelected)
         
-        selectionBorderView.themeBorderColor = (isSelected ?
-            .radioButton_selectedBorder :
-            .radioButton_unselectedBorder
-        )
-        selectionView.themeBackgroundColor = (isSelected ?
-            .radioButton_selectedBackground :
-            .radioButton_unselectedBackground
-        )
+        switch (self.isEnabled, self.isSelected) {
+            case (true, true):
+                titleLabel.themeTextColor = .textPrimary
+                selectionBorderView.themeBorderColor = .radioButton_selectedBorder
+                selectionView.themeBackgroundColor = .radioButton_selectedBackground
+            
+            case (true, false):
+                titleLabel.themeTextColor = .textPrimary
+                selectionBorderView.themeBorderColor = .radioButton_unselectedBorder
+                selectionView.themeBackgroundColor = .radioButton_unselectedBackground
+            
+            case (false, true):
+                titleLabel.themeTextColor = .disabled
+                selectionBorderView.themeBorderColor = .radioButton_disabledBorder
+                selectionView.themeBackgroundColor = .radioButton_disabledSelectedBackground
+            
+            case (false, false):
+                titleLabel.themeTextColor = .disabled
+                selectionBorderView.themeBorderColor = .radioButton_disabledBorder
+                selectionView.themeBackgroundColor = .radioButton_disabledUnselectedBackground
+        }
         
         if self.isSelected {
             self.accessibilityTraits.insert(.selected)

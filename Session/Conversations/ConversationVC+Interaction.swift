@@ -2003,22 +2003,22 @@ extension ConversationVC:
         guard let deletionBehaviours: MessageViewModel.DeletionBehaviours = self.viewModel.deletionActions(for: messagesToDelete) else {
             return
         }
-
+        
         let modal: ConfirmationModal = ConfirmationModal(
             info: ConfirmationModal.Info(
                 title: deletionBehaviours.title,
-                body: {
-                    switch deletionBehaviours.actions {
-                        case .individual: return .text(deletionBehaviours.body)
-                        case .multiple(let actions):
-                            return .radio(
-                                explanation: NSAttributedString(string: deletionBehaviours.body),
-                                options: actions.map { action in
-                                    (action.title, action.isDefault, action.accessibility)
-                                }
-                            )
+                body: .radio(
+                    explanation: NSAttributedString(string: deletionBehaviours.body),
+                    warning: deletionBehaviours.warning.map { NSAttributedString(string: $0) },
+                    options: deletionBehaviours.actions.map { action in
+                        (
+                            action.title,
+                            action.state != .disabled,
+                            action.state == .enabledAndDefaultSelected,
+                            action.accessibility
+                        )
                     }
-                }(),
+                ),
                 confirmTitle: "delete".localized(),
                 confirmStyle: .danger,
                 cancelTitle: "cancel".localized(),
@@ -2027,7 +2027,7 @@ extension ConversationVC:
                     /// Determine the selected action index
                     let selectedIndex: Int = {
                         switch modal.info.body {
-                            case .radio(_, let options):
+                            case .radio(_, _, let options):
                                 return options
                                     .enumerated()
                                     .first(where: { _, value in value.selected })

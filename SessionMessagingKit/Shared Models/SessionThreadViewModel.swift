@@ -817,7 +817,7 @@ public extension SessionThreadViewModel {
                         (SUM(\(interaction[.wasRead]) = false) > 0) AS \(AggregateInteraction.Columns.threadHasUnreadMessagesOfAnyKind)
             
                     FROM \(Interaction.self)
-                    WHERE \(SQL("\(interaction[.variant]) != \(Interaction.Variant.standardIncomingDeleted)"))
+                    WHERE \(SQL("\(interaction[.variant]) IN \(Interaction.Variant.variantsToShowConversationSnippet)"))
                     GROUP BY \(interaction[.threadId])
                 ) AS \(aggregateInteraction) ON \(aggregateInteraction[.threadId]) = \(thread[.id])
                 
@@ -923,7 +923,7 @@ public extension SessionThreadViewModel {
                     \(interaction[.threadId]),
                     MAX(\(interaction[.timestampMs])) AS \(timestampMsColumnLiteral)
                 FROM \(Interaction.self)
-                WHERE \(SQL("\(interaction[.variant]) != \(Interaction.Variant.standardIncomingDeleted)"))
+                WHERE \(SQL("\(interaction[.variant]) IN \(Interaction.Variant.variantsToShowConversationSnippet)"))
                 GROUP BY \(interaction[.threadId])
             ) AS \(Interaction.self) ON \(interaction[.threadId]) = \(thread[.id])
         """
@@ -2085,7 +2085,7 @@ public extension SessionThreadViewModel {
                     0 AS \(AggregateInteraction.Columns.threadUnreadCount),
                     0 AS \(AggregateInteraction.Columns.threadUnreadMentionCount)
                 FROM \(Interaction.self)
-                WHERE \(SQL("\(interaction[.variant]) != \(Interaction.Variant.standardIncomingDeleted)"))
+                WHERE \(SQL("\(interaction[.variant]) IN \(Interaction.Variant.variantsToShowConversationSnippet)"))
                 GROUP BY \(interaction[.threadId])
             ) AS \(aggregateInteraction) ON \(aggregateInteraction[.threadId]) = \(thread[.id])
             LEFT JOIN \(Interaction.self) ON (

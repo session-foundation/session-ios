@@ -99,6 +99,39 @@ public struct Interaction: Codable, Identifiable, Equatable, FetchableRecord, Mu
             .standardIncoming, .infoCall
         ]
         
+        public static let variantsToShowConversationSnippet: [Variant] = Interaction.Variant.allCases
+            .filter { $0.shouldShowConversationSnippet }
+        
+        public var shouldShowConversationSnippet: Bool {
+            switch self {
+                case .standardIncoming, .standardOutgoing,
+                    .infoLegacyGroupCreated, .infoLegacyGroupUpdated, .infoLegacyGroupCurrentUserLeft,
+                    .infoGroupCurrentUserLeaving, .infoGroupCurrentUserErrorLeaving,
+                    .infoDisappearingMessagesUpdate, .infoScreenshotNotification, .infoMediaSavedNotification,
+                    .infoMessageRequestAccepted, .infoCall, .infoGroupInfoInvited, .infoGroupInfoUpdated,
+                    .infoGroupMembersUpdated:
+                    return true
+                    
+                case .standardIncomingDeleted, .standardIncomingDeletedLocally,
+                    .standardOutgoingDeleted, .standardOutgoingDeletedLocally:
+                    return false
+            }
+        }
+        
+        public var isOutgoing: Bool {
+            switch self {
+                case .standardOutgoing, .standardOutgoingDeleted, .standardOutgoingDeletedLocally: return true
+                default: return false
+            }
+        }
+        
+        public var isIncoming: Bool {
+            switch self {
+                case .standardIncoming, .standardIncomingDeleted, .standardIncomingDeletedLocally: return true
+                default: return false
+            }
+        }
+        
         public var isDeletedMessage: Bool {
             switch self {
                 case .standardIncomingDeleted, .standardIncomingDeletedLocally,
@@ -919,59 +952,13 @@ public extension Interaction {
     
     var openGroupWhisper: Bool { return (openGroupWhisperMods || (openGroupWhisperTo != nil)) }
     
-    var notificationIdentifiers: [String] {
-        [
-            notificationIdentifier(shouldGroupMessagesForThread: true),
-            notificationIdentifier(shouldGroupMessagesForThread: false)
-        ]
-    }
-    
     // MARK: - Functions
     
-    func notificationIdentifier(shouldGroupMessagesForThread: Bool) -> String {
-        // When the app is in the background we want the notifications to be grouped to prevent spam
-        return Interaction.notificationIdentifier(
-            for: (id ?? 0),
-            threadId: threadId,
-            shouldGroupMessagesForThread: shouldGroupMessagesForThread
-        )
-    }
-    
-    fileprivate static func notificationIdentifier(for id: Int64, threadId: String, shouldGroupMessagesForThread: Bool) -> String {
+    static func notificationIdentifier(for id: Int64, threadId: String, shouldGroupMessagesForThread: Bool) -> String {
         // When the app is in the background we want the notifications to be grouped to prevent spam
         guard !shouldGroupMessagesForThread else { return threadId }
         
         return "\(threadId)-\(id)"
-    }
-    
-    func markingAsDeleted(localOnly: Bool) -> Interaction {
-        return Interaction(
-            id: id,
-            serverHash: nil,
-            messageUuid: messageUuid,
-            threadId: threadId,
-            authorId: authorId,
-            variant: {
-                switch (variant, localOnly) {
-                    case (.standardOutgoing, true): return .standardOutgoingDeletedLocally
-                    case (.standardOutgoing, false): return .standardOutgoingDeleted
-                    case (_, true): return .standardIncomingDeletedLocally
-                    default: return .standardIncomingDeleted
-                }
-            }(),
-            body: nil,
-            timestampMs: timestampMs,
-            receivedAtTimestampMs: receivedAtTimestampMs,
-            wasRead: (wasRead || !Variant.standardIncomingDeleted.canBeUnread),
-            hasMention: false,
-            expiresInSeconds: expiresInSeconds,
-            expiresStartedAtMs: expiresStartedAtMs,
-            linkPreviewUrl: nil,
-            openGroupServerMessageId: openGroupServerMessageId,
-            openGroupWhisperMods: openGroupWhisperMods,
-            openGroupWhisperTo: openGroupWhisperTo,
-            transientDependencies: transientDependencies
-        )
     }
     
     static func isUserMentioned(
@@ -1191,5 +1178,133 @@ public extension Interaction {
         //
         // Note: This includes messages with no recipients
         return .sent
+    }
+}
+
+// MARK: - Deletion
+
+public extension Interaction {
+    private struct InteractionVariantInfo: Codable, FetchableRecord {
+        public typealias Columns = CodingKeys
+        public enum CodingKeys: String, CodingKey, ColumnExpression {
+            case id
+            case variant
+        }
+        
+        let id: Int64
+        let variant: Interaction.Variant
+    }
+    
+    /// When deleting a message we should also delete any reactions which were on the message, so fetch and
+    /// return those hashes as well
+    static func serverHashesForDeletion(
+        _ db: Database,
+        interactionIds: Set<Int64>,
+        additionalServerHashesToRemove: [String] = []
+    ) throws -> Set<String> {
+        let messageHashes: [String] = try Interaction
+            .filter(ids: interactionIds)
+            .filter(Interaction.Columns.serverHash != nil)
+            .select(.serverHash)
+            .asRequest(of: String.self)
+            .fetchAll(db)
+        let reactionHashes: [String] = try Reaction
+            .filter(interactionIds.contains(Reaction.Columns.interactionId))
+            .filter(Reaction.Columns.serverHash != nil)
+            .select(.serverHash)
+            .asRequest(of: String.self)
+            .fetchAll(db)
+        
+        return Set(messageHashes + reactionHashes + additionalServerHashesToRemove)
+    }
+    
+    static func markAsDeleted(
+        _ db: Database,
+        threadId: String,
+        threadVariant: SessionThread.Variant,
+        interactionIds: Set<Int64>,
+        localOnly: Bool,
+        using dependencies: Dependencies
+    ) throws {
+        let interactionInfo: [InteractionVariantInfo] = try Interaction
+            .filter(ids: interactionIds)
+            .select(.id, .variant)
+            .asRequest(of: InteractionVariantInfo.self)
+            .fetchAll(db)
+        
+        /// Mark the messages as read just in case
+        try interactionIds.forEach { interactionId in
+            try Interaction.markAsRead(
+                db,
+                interactionId: interactionId,
+                threadId: threadId,
+                threadVariant: threadVariant,
+                includingOlder: false,
+                trySendReadReceipt: false,
+                using: dependencies
+            )
+        }
+        
+        /// Remove any notifications for the messages
+        let notificationIdentifiers: [String] = interactionIds.reduce(into: []) { result, id in
+            result.append(Interaction.notificationIdentifier(for: id, threadId: threadId, shouldGroupMessagesForThread: true))
+            result.append(Interaction.notificationIdentifier(for: id, threadId: threadId, shouldGroupMessagesForThread: false))
+        }
+        
+        UNUserNotificationCenter.current().removeDeliveredNotifications(withIdentifiers: notificationIdentifiers)
+        UNUserNotificationCenter.current().removePendingNotificationRequests(withIdentifiers: notificationIdentifiers)
+        
+        /// Retrieve any attachments for the messages
+        let attachments: [Attachment] = try Attachment
+            .joining(required: Attachment.interaction.filter(interactionIds.contains(Interaction.Columns.id)))
+            .fetchAll(db)
+        
+        /// Delete the RecipientState from the database
+        _ = try RecipientState
+            .filter(interactionIds.contains(RecipientState.Columns.interactionId))
+            .deleteAll(db)
+        
+        /// Delete the reactions from the database
+        _ = try Reaction
+            .filter(interactionIds.contains(Reaction.Columns.interactionId))
+            .deleteAll(db)
+        
+        /// Delete any attachments from the database
+        try attachments.forEach { try $0.delete(db) }
+        
+        /// Mark the messages as deleted (ie. remove as much message data as we can)
+        try interactionInfo.grouped(by: { $0.variant }).forEach { variant, info in
+            let targetVariant: Interaction.Variant = {
+                switch (variant, localOnly) {
+                    case (.standardOutgoing, true), (.standardOutgoingDeletedLocally, _): return .standardOutgoingDeletedLocally
+                    case (.standardOutgoing, false), (.standardOutgoingDeleted, _): return .standardOutgoingDeleted
+                    case (_, true), (.standardIncomingDeletedLocally, _): return .standardIncomingDeletedLocally
+                    default: return .standardIncomingDeleted
+                }
+            }()
+            
+            try Interaction
+                .filter(ids: info.map { $0.id })
+                .updateAll(
+                    db,
+                    Interaction.Columns.serverHash.set(to: nil),
+                    Interaction.Columns.variant.set(to: targetVariant),
+                    Interaction.Columns.body.set(to: nil),
+                    Interaction.Columns.wasRead.set(to: true),
+                    Interaction.Columns.hasMention.set(to: false),
+                    Interaction.Columns.linkPreviewUrl.set(to: nil)
+                )
+        }
+        
+        /// If we had attachments then we want to try to delete their associated files immediately (in the next run loop) as that's the
+        /// behaviour users would expect, if this fails for some reason then they will be cleaned up by the `GarbageCollectionJob`
+        /// but we should still try to handle it immediately
+        if !attachments.isEmpty {
+            let attachmentPaths: [String] = attachments.compactMap { $0.originalFilePath(using: dependencies) }
+            
+            DispatchQueue.global(qos: .background).async {
+                attachmentPaths.forEach { try? FileManager.default.removeItem(atPath: $0) }
+            }
+        }
     }
 }
