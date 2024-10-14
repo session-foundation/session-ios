@@ -20,11 +20,8 @@ class SettingsViewModel: SessionTableViewModel, NavigationItemSource, Navigatabl
     private lazy var imagePickerHandler: ImagePickerHandler = ImagePickerHandler(
         onTransition: { [weak self] in self?.transitionToScreen($0, transitionType: $1) },
         onImageDataPicked: { [weak self] resultImageData in
-            guard let oldDisplayName: String = self?.oldDisplayName else { return }
-            
             self?.updatedProfilePictureSelected(
-                name: oldDisplayName,
-                avatarUpdate: .uploadImageData(resultImageData)
+                displayPictureUpdate: .currentUserUploadImageData(resultImageData)
             )
         }
     )
@@ -205,10 +202,7 @@ class SettingsViewModel: SessionTableViewModel, NavigationItemSource, Navigatabl
                                 
                                 self?.setIsEditing(false)
                                 self?.oldDisplayName = updatedNickname
-                                self?.updateProfile(
-                                    name: updatedNickname,
-                                    avatarUpdate: .none
-                                )
+                                self?.updateProfile(displayNameUpdate: .currentUserUpdate(updatedNickname))
                             }
                         ]
                 }
@@ -529,8 +523,7 @@ class SettingsViewModel: SessionTableViewModel, NavigationItemSource, Navigatabl
             onConfirm: { modal in modal.close() },
             onCancel: { [weak self] modal in
                 self?.updateProfile(
-                    name: existingDisplayName,
-                    avatarUpdate: .remove,
+                    displayPictureUpdate: .currentUserRemove,
                     onComplete: { [weak modal] in modal?.close() }
                 )
             },
@@ -546,7 +539,7 @@ class SettingsViewModel: SessionTableViewModel, NavigationItemSource, Navigatabl
         self.transitionToScreen(modal, transitionType: .present)
     }
 
-    fileprivate func updatedProfilePictureSelected(name: String, avatarUpdate: ProfileManager.AvatarUpdate) {
+    fileprivate func updatedProfilePictureSelected(displayPictureUpdate: ProfileManager.DisplayPictureUpdate) {
         guard let info: ConfirmationModal.Info = self.editProfilePictureModalInfo else { return }
         
         self.editProfilePictureModal?.updateContent(
@@ -554,8 +547,8 @@ class SettingsViewModel: SessionTableViewModel, NavigationItemSource, Navigatabl
                 body: .image(
                     placeholderData: UIImage(named: "profile_placeholder")?.pngData(),
                     valueData: {
-                        switch avatarUpdate {
-                            case .uploadImageData(let imageData): return imageData
+                        switch displayPictureUpdate {
+                            case .currentUserUploadImageData(let imageData): return imageData
                             default: return nil
                         }
                     }(),
@@ -570,8 +563,7 @@ class SettingsViewModel: SessionTableViewModel, NavigationItemSource, Navigatabl
                 confirmEnabled: true,
                 onConfirm: { [weak self] modal in
                     self?.updateProfile(
-                        name: name,
-                        avatarUpdate: avatarUpdate,
+                        displayPictureUpdate: displayPictureUpdate,
                         onComplete: { [weak modal] in modal?.close() }
                     )
                 }
@@ -580,7 +572,7 @@ class SettingsViewModel: SessionTableViewModel, NavigationItemSource, Navigatabl
     }
     
     private func showPhotoLibraryForAvatar() {
-        Permissions.requestLibraryPermissionIfNeeded { [weak self] in
+        Permissions.requestLibraryPermissionIfNeeded(isSavingMedia: false) { [weak self] in
             DispatchQueue.main.async {
                 let picker: UIImagePickerController = UIImagePickerController()
                 picker.sourceType = .photoLibrary
@@ -593,15 +585,15 @@ class SettingsViewModel: SessionTableViewModel, NavigationItemSource, Navigatabl
     }
     
     fileprivate func updateProfile(
-        name: String,
-        avatarUpdate: ProfileManager.AvatarUpdate,
+        displayNameUpdate: ProfileManager.DisplayNameUpdate = .none,
+        displayPictureUpdate: ProfileManager.DisplayPictureUpdate = .none,
         onComplete: (() -> ())? = nil
     ) {
         let viewController = ModalActivityIndicatorViewController(canCancel: false) { [weak self] modalActivityIndicator in
             ProfileManager.updateLocal(
                 queue: .global(qos: .default),
-                profileName: name,
-                avatarUpdate: avatarUpdate,
+                displayNameUpdate: displayNameUpdate,
+                displayPictureUpdate: displayPictureUpdate,
                 success: { db in
                     // Wait for the database transaction to complete before updating the UI
                     db.afterNextTransactionNested { _ in
@@ -615,18 +607,9 @@ class SettingsViewModel: SessionTableViewModel, NavigationItemSource, Navigatabl
                 failure: { [weak self] error in
                     DispatchQueue.main.async {
                         modalActivityIndicator.dismiss {
-                            let title: String = {
-                                switch (avatarUpdate, error) {
-                                    case (.remove, _): return "profileDisplayPictureRemoveError".localized()
-                                    case (_, .avatarUploadMaxFileSizeExceeded):
-                                        return "attachmentsErrorSize".localized()
-                                    
-                                    default: return "profileErrorUpdate".localized()
-                                }
-                            }()
-                            let message: String? = {
-                                switch (avatarUpdate, error) {
-                                    case (.remove, _): return nil
+                            let message: String = {
+                                switch (displayPictureUpdate, error) {
+                                    case (.currentUserRemove, _): return "profileDisplayPictureRemoveError".localized()
                                     case (_, .avatarUploadMaxFileSizeExceeded):
                                         return "profileDisplayPictureSizeError".localized()
                                     
@@ -637,8 +620,8 @@ class SettingsViewModel: SessionTableViewModel, NavigationItemSource, Navigatabl
                             self?.transitionToScreen(
                                 ConfirmationModal(
                                     info: ConfirmationModal.Info(
-                                        title: title,
-                                        body: (message.map { .text($0) } ?? .none),
+                                        title: "profileErrorUpdate".localized(),
+                                        body: .text(message),
                                         cancelTitle: "okay".localized(),
                                         cancelStyle: .alert_text,
                                         dismissType: .single

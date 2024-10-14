@@ -428,6 +428,7 @@
 		D2AEACDC16C426DA00C364C0 /* CFNetwork.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = D2AEACDB16C426DA00C364C0 /* CFNetwork.framework */; };
 		FC3BD9881A30A790005B96BB /* Social.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = FC3BD9871A30A790005B96BB /* Social.framework */; };
 		FCB11D8C1A129A76002F93FB /* CoreMedia.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = FCB11D8B1A129A76002F93FB /* CoreMedia.framework */; };
+		FD0150582CA27DF3005B08A1 /* ScrollableLabel.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD0150572CA27DEE005B08A1 /* ScrollableLabel.swift */; };
 		FD0606BF2BC8C10200C3816E /* _005_AddJobUniqueHash.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD0606BE2BC8C10200C3816E /* _005_AddJobUniqueHash.swift */; };
 		FD0606C32BCE13ED00C3816E /* MessageRequestFooterView.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD0606C22BCE13ED00C3816E /* MessageRequestFooterView.swift */; };
 		FD078E4827E02561000769AF /* CommonMockedExtensions.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD078E4727E02561000769AF /* CommonMockedExtensions.swift */; };
@@ -632,7 +633,6 @@
 		FD5E93D12C100FD70038C25A /* FileUploadResponse.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDC4387127B5BB3B00C60D73 /* FileUploadResponse.swift */; };
 		FD5E93D22C12B0580038C25A /* AppVersionResponse.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDC4383727B3863200C60D73 /* AppVersionResponse.swift */; };
 		FD5E93D82C12E3B50038C25A /* FileUploadResponseSpec.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD3C905F27E410F700CD579F /* FileUploadResponseSpec.swift */; };
-		FD6A38E62C2A4D8E00762359 /* GRDB in Frameworks */ = {isa = PBXBuildFile; productRef = FD6A38E52C2A4D8E00762359 /* GRDB */; };
 		FD6A38E92C2A630E00762359 /* CocoaLumberjackSwift in Frameworks */ = {isa = PBXBuildFile; productRef = FD6A38E82C2A630E00762359 /* CocoaLumberjackSwift */; };
 		FD6A38EC2C2A63B500762359 /* KeychainSwift in Frameworks */ = {isa = PBXBuildFile; productRef = FD6A38EB2C2A63B500762359 /* KeychainSwift */; };
 		FD6A38EF2C2A641200762359 /* DifferenceKit in Frameworks */ = {isa = PBXBuildFile; productRef = FD6A38EE2C2A641200762359 /* DifferenceKit */; };
@@ -642,7 +642,7 @@
 		FD6A38F72C2A6C0100762359 /* CryptoError.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD6A38F62C2A6C0100762359 /* CryptoError.swift */; };
 		FD6A38F92C2A8AF700762359 /* DataSource.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD6A38F82C2A8AF700762359 /* DataSource.swift */; };
 		FD6A38FE2C2A8B7E00762359 /* MediaUtils.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD6A38FD2C2A8B7E00762359 /* MediaUtils.swift */; };
-		FD6A39002C2A8B9100762359 /* MimeTypeUtil.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD6A38FF2C2A8B9100762359 /* MimeTypeUtil.swift */; };
+		FD6A39002C2A8B9100762359 /* UTType+Utilities.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD6A38FF2C2A8B9100762359 /* UTType+Utilities.swift */; };
 		FD6A39022C2A8BDE00762359 /* UIImage+Utilities.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD6A39012C2A8BDE00762359 /* UIImage+Utilities.swift */; };
 		FD6A39042C2A8C0300762359 /* CGFloat+Utilities.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD6A39032C2A8C0300762359 /* CGFloat+Utilities.swift */; };
 		FD6A39062C2A8C1600762359 /* CGPoint+Utilities.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD6A39052C2A8C1600762359 /* CGPoint+Utilities.swift */; };
@@ -842,6 +842,8 @@
 		FDC13D562A171FE4007267C7 /* UnsubscribeRequest.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDC13D552A171FE4007267C7 /* UnsubscribeRequest.swift */; };
 		FDC13D582A17207D007267C7 /* UnsubscribeResponse.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDC13D572A17207D007267C7 /* UnsubscribeResponse.swift */; };
 		FDC13D5A2A1721C5007267C7 /* LegacyNotifyRequest.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDC13D592A1721C5007267C7 /* LegacyNotifyRequest.swift */; };
+		FDC289422C86AB5800020BC2 /* GRDB in Frameworks */ = {isa = PBXBuildFile; productRef = FDC289412C86AB5800020BC2 /* GRDB */; };
+		FDC289472C881A3800020BC2 /* MutableIdentifiable.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDC289462C881A3800020BC2 /* MutableIdentifiable.swift */; };
 		FDC2908727D7047F005DAE71 /* RoomSpec.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDC2908627D7047F005DAE71 /* RoomSpec.swift */; };
 		FDC2908927D70656005DAE71 /* RoomPollInfoSpec.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDC2908827D70656005DAE71 /* RoomPollInfoSpec.swift */; };
 		FDC2908B27D707F3005DAE71 /* SendMessageRequestSpec.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDC2908A27D707F3005DAE71 /* SendMessageRequestSpec.swift */; };
@@ -892,7 +894,7 @@
 		FDD250702837199200198BDA /* GarbageCollectionJob.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDD2506F2837199200198BDA /* GarbageCollectionJob.swift */; };
 		FDD250722837234B00198BDA /* MediaGalleryNavigationController.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDD250712837234B00198BDA /* MediaGalleryNavigationController.swift */; };
 		FDD82C3F2A205D0A00425F05 /* ProcessResult.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDD82C3E2A205D0A00425F05 /* ProcessResult.swift */; };
-		FDDC08F229A300E800BF9681 /* LibSessionTypeConversionUtilitiesSpec.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDDC08F129A300E800BF9681 /* LibSessionTypeConversionUtilitiesSpec.swift */; };
+		FDDC08F229A300E800BF9681 /* TypeConversionUtilitiesSpec.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDDC08F129A300E800BF9681 /* TypeConversionUtilitiesSpec.swift */; };
 		FDDD554C2C1FC812006CBF03 /* CheckForAppUpdatesJob.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDDD554B2C1FC812006CBF03 /* CheckForAppUpdatesJob.swift */; };
 		FDDD554E2C1FCB77006CBF03 /* _019_ScheduleAppUpdateCheckJob.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDDD554D2C1FCB77006CBF03 /* _019_ScheduleAppUpdateCheckJob.swift */; };
 		FDDF074429C3E3D000E5E8B5 /* FetchRequest+Utilities.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDDF074329C3E3D000E5E8B5 /* FetchRequest+Utilities.swift */; };
@@ -1386,6 +1388,7 @@
 		94367C422C6C828500814252 /* Localizable.xcstrings */ = {isa = PBXFileReference; lastKnownFileType = text.json.xcstrings; path = Localizable.xcstrings; sourceTree = "<group>"; };
 		943C6D812B75E061004ACE64 /* Message+DisappearingMessages.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Message+DisappearingMessages.swift"; sourceTree = "<group>"; };
 		943C6D832B86B5F1004ACE64 /* Localization.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Localization.swift; sourceTree = "<group>"; };
+		9471CAA72CACFB4E00090FB7 /* GenerateLicenses.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GenerateLicenses.swift; sourceTree = "<group>"; };
 		9473386D2BDF5F3E00B9E169 /* InfoPlist.xcstrings */ = {isa = PBXFileReference; lastKnownFileType = text.json.xcstrings; path = InfoPlist.xcstrings; sourceTree = "<group>"; };
 		947AD68F2C8968FF000B2730 /* Constants.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Constants.swift; sourceTree = "<group>"; };
 		94B3DC162AF8592200C88531 /* QuoteView_SwiftUI.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = QuoteView_SwiftUI.swift; sourceTree = "<group>"; };
@@ -1649,6 +1652,7 @@
 		E1A0AD8B16E13FDD0071E604 /* CoreFoundation.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = CoreFoundation.framework; path = System/Library/Frameworks/CoreFoundation.framework; sourceTree = SDKROOT; };
 		FC3BD9871A30A790005B96BB /* Social.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Social.framework; path = System/Library/Frameworks/Social.framework; sourceTree = SDKROOT; };
 		FCB11D8B1A129A76002F93FB /* CoreMedia.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = CoreMedia.framework; path = System/Library/Frameworks/CoreMedia.framework; sourceTree = SDKROOT; };
+		FD0150572CA27DEE005B08A1 /* ScrollableLabel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ScrollableLabel.swift; sourceTree = "<group>"; };
 		FD0606BE2BC8C10200C3816E /* _005_AddJobUniqueHash.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = _005_AddJobUniqueHash.swift; sourceTree = "<group>"; };
 		FD0606C22BCE13ED00C3816E /* MessageRequestFooterView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MessageRequestFooterView.swift; sourceTree = "<group>"; };
 		FD078E4727E02561000769AF /* CommonMockedExtensions.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CommonMockedExtensions.swift; sourceTree = "<group>"; };
@@ -1810,7 +1814,7 @@
 		FD6A38F62C2A6C0100762359 /* CryptoError.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CryptoError.swift; sourceTree = "<group>"; };
 		FD6A38F82C2A8AF700762359 /* DataSource.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DataSource.swift; sourceTree = "<group>"; };
 		FD6A38FD2C2A8B7E00762359 /* MediaUtils.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MediaUtils.swift; sourceTree = "<group>"; };
-		FD6A38FF2C2A8B9100762359 /* MimeTypeUtil.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MimeTypeUtil.swift; sourceTree = "<group>"; };
+		FD6A38FF2C2A8B9100762359 /* UTType+Utilities.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "UTType+Utilities.swift"; sourceTree = "<group>"; };
 		FD6A39012C2A8BDE00762359 /* UIImage+Utilities.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "UIImage+Utilities.swift"; sourceTree = "<group>"; };
 		FD6A39032C2A8C0300762359 /* CGFloat+Utilities.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "CGFloat+Utilities.swift"; sourceTree = "<group>"; };
 		FD6A39052C2A8C1600762359 /* CGPoint+Utilities.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "CGPoint+Utilities.swift"; sourceTree = "<group>"; };
@@ -1965,6 +1969,7 @@
 		FDC13D552A171FE4007267C7 /* UnsubscribeRequest.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UnsubscribeRequest.swift; sourceTree = "<group>"; };
 		FDC13D572A17207D007267C7 /* UnsubscribeResponse.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UnsubscribeResponse.swift; sourceTree = "<group>"; };
 		FDC13D592A1721C5007267C7 /* LegacyNotifyRequest.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LegacyNotifyRequest.swift; sourceTree = "<group>"; };
+		FDC289462C881A3800020BC2 /* MutableIdentifiable.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MutableIdentifiable.swift; sourceTree = "<group>"; };
 		FDC2908627D7047F005DAE71 /* RoomSpec.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RoomSpec.swift; sourceTree = "<group>"; };
 		FDC2908827D70656005DAE71 /* RoomPollInfoSpec.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RoomPollInfoSpec.swift; sourceTree = "<group>"; };
 		FDC2908A27D707F3005DAE71 /* SendMessageRequestSpec.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SendMessageRequestSpec.swift; sourceTree = "<group>"; };
@@ -2018,7 +2023,7 @@
 		FDD2506F2837199200198BDA /* GarbageCollectionJob.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GarbageCollectionJob.swift; sourceTree = "<group>"; };
 		FDD250712837234B00198BDA /* MediaGalleryNavigationController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MediaGalleryNavigationController.swift; sourceTree = "<group>"; };
 		FDD82C3E2A205D0A00425F05 /* ProcessResult.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProcessResult.swift; sourceTree = "<group>"; };
-		FDDC08F129A300E800BF9681 /* LibSessionTypeConversionUtilitiesSpec.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LibSessionTypeConversionUtilitiesSpec.swift; sourceTree = "<group>"; };
+		FDDC08F129A300E800BF9681 /* TypeConversionUtilitiesSpec.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TypeConversionUtilitiesSpec.swift; sourceTree = "<group>"; };
 		FDDD554B2C1FC812006CBF03 /* CheckForAppUpdatesJob.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CheckForAppUpdatesJob.swift; sourceTree = "<group>"; };
 		FDDD554D2C1FCB77006CBF03 /* _019_ScheduleAppUpdateCheckJob.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = _019_ScheduleAppUpdateCheckJob.swift; sourceTree = "<group>"; };
 		FDDF074329C3E3D000E5E8B5 /* FetchRequest+Utilities.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "FetchRequest+Utilities.swift"; sourceTree = "<group>"; };
@@ -2197,10 +2202,10 @@
 			files = (
 				FD6A39662C2D21E400762359 /* libwebp in Frameworks */,
 				FD7F74632BAAA4CA006DDFD8 /* libSessionUtil.a in Frameworks */,
-				FD6A38E62C2A4D8E00762359 /* GRDB in Frameworks */,
 				FD6A38EC2C2A63B500762359 /* KeychainSwift in Frameworks */,
 				FD6A38EF2C2A641200762359 /* DifferenceKit in Frameworks */,
 				FD6A396D2C2D284B00762359 /* YYImage in Frameworks */,
+				FDC289422C86AB5800020BC2 /* GRDB in Frameworks */,
 				FD6A38E92C2A630E00762359 /* CocoaLumberjackSwift in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -2680,7 +2685,7 @@
 				FD6A38F82C2A8AF700762359 /* DataSource.swift */,
 				FD09797827FAB7E800936362 /* ImageFormat.swift */,
 				FD6A38FD2C2A8B7E00762359 /* MediaUtils.swift */,
-				FD6A38FF2C2A8B9100762359 /* MimeTypeUtil.swift */,
+				FD6A38FF2C2A8B9100762359 /* UTType+Utilities.swift */,
 			);
 			path = Media;
 			sourceTree = "<group>";
@@ -3025,6 +3030,7 @@
 				FD52090628B49738006098F6 /* ConfirmationModal.swift */,
 				C38EF2A3255B6D93007E1867 /* PlaceholderIcon.swift */,
 				C38EF2A4255B6D93007E1867 /* ProfilePictureView.swift */,
+				FD0150572CA27DEE005B08A1 /* ScrollableLabel.swift */,
 				FD71165A28E6DDBC00B47552 /* StyledNavigationController.swift */,
 				FD0B77AF29B69A65009169BA /* TopBannerController.swift */,
 			);
@@ -3628,6 +3634,7 @@
 				FDFF9FDE2A787F57005E0628 /* JSONEncoder+Utilities.swift */,
 				FD6A38F02C2A66B100762359 /* KeychainStorageType.swift */,
 				FD09797127FAA2F500936362 /* Optional+Utilities.swift */,
+				FDC289462C881A3800020BC2 /* MutableIdentifiable.swift */,
 				FD09797C27FBDB2000936362 /* Notification+Utilities.swift */,
 				FDF222082818D2B0000A4995 /* NSAttributedString+Utilities.swift */,
 				FDC0F0032BFECE12002CBFB9 /* TimeUnit.swift */,
@@ -4111,6 +4118,7 @@
 				FD83B9B927CF20A5005E1583 /* General */,
 				FDDF074829DAB35200E5E8B5 /* JobRunner */,
 				FD9B30F1293EA0AF008DEE3E /* Networking */,
+				FDC289482C881C5500020BC2 /* LibSession */,
 				FDFBB7522A2023DE00CA7350 /* Utilities */,
 			);
 			path = SessionUtilitiesKitTests;
@@ -4176,7 +4184,6 @@
 		FD8ECF802934385900C0D1BB /* LibSession */ = {
 			isa = PBXGroup;
 			children = (
-				FDDC08F029A300D500BF9681 /* Utilities */,
 				FDA1E83829A5771A00C5C3BD /* LibSessionUtilSpec.swift */,
 				FDA1E83C29AC71A800C5C3BD /* LibSessionSpec.swift */,
 			);
@@ -4251,6 +4258,14 @@
 				FD7F74872BB2929B006DDFD8 /* Request+PushNotificationAPI.swift */,
 			);
 			path = Types;
+			sourceTree = "<group>";
+		};
+		FDC289482C881C5500020BC2 /* LibSession */ = {
+			isa = PBXGroup;
+			children = (
+				FDDC08F029A300D500BF9681 /* Utilities */,
+			);
+			path = LibSession;
 			sourceTree = "<group>";
 		};
 		FDC2909227D710A9005DAE71 /* Types */ = {
@@ -4366,7 +4381,7 @@
 		FDDC08F029A300D500BF9681 /* Utilities */ = {
 			isa = PBXGroup;
 			children = (
-				FDDC08F129A300E800BF9681 /* LibSessionTypeConversionUtilitiesSpec.swift */,
+				FDDC08F129A300E800BF9681 /* TypeConversionUtilitiesSpec.swift */,
 			);
 			path = Utilities;
 			sourceTree = "<group>";
@@ -4388,6 +4403,7 @@
 				FDE72150287E50D50093DF33 /* LintLocalizableStrings.swift */,
 				FD5CE3442A3C5D96001A6DE3 /* DecryptExportedKey.swift */,
 				FDEF57642C44B8C200131302 /* ProcessIP2CountryData.swift */,
+				9471CAA72CACFB4E00090FB7 /* GenerateLicenses.swift */,
 			);
 			path = Scripts;
 			sourceTree = "<group>";
@@ -4635,7 +4651,6 @@
 				FD5E93D52C12D8120038C25A /* Add Commit Hash To Build Info Plist */,
 				FD5E93D72C12DA400038C25A /* Add App Group To Build Info Plist */,
 				FDC498C12AC1775400EDD897 /* Ensure Localizable.strings included */,
-				943BC5A02C6F26370066A56A /* Ensure InfoPlist.xcstrings updated */,
 			);
 			buildRules = (
 			);
@@ -4731,12 +4746,12 @@
 			);
 			name = SessionUtilitiesKit;
 			packageProductDependencies = (
-				FD6A38E52C2A4D8E00762359 /* GRDB */,
 				FD6A38E82C2A630E00762359 /* CocoaLumberjackSwift */,
 				FD6A38EB2C2A63B500762359 /* KeychainSwift */,
 				FD6A38EE2C2A641200762359 /* DifferenceKit */,
 				FD6A39652C2D21E400762359 /* libwebp */,
 				FD6A396C2C2D284B00762359 /* YYImage */,
+				FDC289412C86AB5800020BC2 /* GRDB */,
 			);
 			productName = SessionUtilities;
 			productReference = C3C2A679255388CC00C340D1 /* SessionUtilitiesKit.framework */;
@@ -4774,9 +4789,12 @@
 				D221A087169C9E5E00537ABF /* Resources */,
 				453518771FC635DD00210559 /* Embed Foundation Extensions */,
 				4535189F1FC63DBF00210559 /* Embed Frameworks */,
+				FDC289452C88113300020BC2 /* Copy GRDB framework */,
 				FDD82C422A2085B900425F05 /* Add Commit Hash To Build Info Plist */,
 				FD5E93D32C12D3990038C25A /* Add App Group To Build Info Plist */,
 				FDC498BF2AC1747900EDD897 /* Ensure Localizable.strings included */,
+				FD0B1FA92CA3805C00F60F46 /* Ensure InfoPlist.xcstrings updated */,
+				9471CAA62CACFB0600090FB7 /* Generate Licenses Plist */,
 			);
 			buildRules = (
 			);
@@ -5083,7 +5101,6 @@
 			);
 			mainGroup = D221A07E169C9E5E00537ABF;
 			packageReferences = (
-				FD6A38E42C2A4D8E00762359 /* XCRemoteSwiftPackageReference "session-grdb-swift" */,
 				FD6A38E72C2A630E00762359 /* XCRemoteSwiftPackageReference "CocoaLumberjack" */,
 				FD6A38EA2C2A63B500762359 /* XCRemoteSwiftPackageReference "keychain-swift" */,
 				FD6A38ED2C2A641200762359 /* XCRemoteSwiftPackageReference "DifferenceKit" */,
@@ -5094,6 +5111,7 @@
 				FD6A39392C2AD3A300762359 /* XCRemoteSwiftPackageReference "Nimble" */,
 				FD6A39642C2D21E400762359 /* XCRemoteSwiftPackageReference "libwebp-Xcode" */,
 				FD6A39672C2D283A00762359 /* XCRemoteSwiftPackageReference "session-ios-yyimage" */,
+				FDC289402C86AB5800020BC2 /* XCRemoteSwiftPackageReference "session-grdb-swift" */,
 			);
 			productRefGroup = D221A08A169C9E5E00537ABF /* Products */;
 			projectDirPath = "";
@@ -5261,7 +5279,7 @@
 /* End PBXResourcesBuildPhase section */
 
 /* Begin PBXShellScriptBuildPhase section */
-		943BC5A02C6F26370066A56A /* Ensure InfoPlist.xcstrings updated */ = {
+		FD0B1FA92CA3805C00F60F46 /* Ensure InfoPlist.xcstrings updated */ = {
 			isa = PBXShellScriptBuildPhase;
 			alwaysOutOfDate = 1;
 			buildActionMask = 2147483647;
@@ -5279,6 +5297,26 @@
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
 			shellScript = "\"${SRCROOT}/Scripts/LintLocalizableStrings.swift\" update\n";
+			showEnvVarsInLog = 0;
+		};
+		9471CAA62CACFB0600090FB7 /* Generate Licenses Plist */ = {
+			isa = PBXShellScriptBuildPhase;
+			alwaysOutOfDate = 1;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputFileListPaths = (
+			);
+			inputPaths = (
+			);
+			name = "Generate Licenses Plist";
+			outputFileListPaths = (
+			);
+			outputPaths = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "\"${SRCROOT}/Scripts/GenerateLicenses.swift\"\n";
 			showEnvVarsInLog = 0;
 		};
 		FD5E93D32C12D3990038C25A /* Add App Group To Build Info Plist */ = {
@@ -5299,6 +5337,7 @@
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
 			shellScript = "INFO_PLIST=\"${TARGET_BUILD_DIR}\"/\"${INFOPLIST_PATH}\"\nENTITLEMENTS_FILE=\"${SRCROOT}/${CODE_SIGN_ENTITLEMENTS}\"\n\n# Wait for Info.plist to be processed\nwhile [[ ! -f \"${INFO_PLIST}\" ]] && [[ ! -f \"${ENTITLEMENTS_FILE}\" ]]; do\n    echo \"Waiting for plist and entitlements to be copied\"\n    sleep 1\ndone\n\n# Query and save the value; suppress any error message, if key not found.\nvalue=$(/usr/libexec/PlistBuddy -c 'print :AppGroupsId' \"${INFO_PLIST}\" 2>/dev/null)\n\n# Check if value is empty\nif [ -z \"$value\" ] \nthen\n   /usr/libexec/PlistBuddy -c \"Add :AppGroupsId string\" \"${INFO_PLIST}\"\nfi\n\napp_group_id=$(xmllint --xpath 'string(//key[.=\"com.apple.security.application-groups\"]/following-sibling::array/string)' \"$ENTITLEMENTS_FILE\")\n\n/usr/libexec/PlistBuddy -c \"Set :AppGroupsId ${app_group_id}\" \"${INFO_PLIST}\"\n";
+			showEnvVarsInLog = 0;
 		};
 		FD5E93D42C12D3CB0038C25A /* Add Commit Hash To Build Info Plist */ = {
 			isa = PBXShellScriptBuildPhase;
@@ -5362,6 +5401,7 @@
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
 			shellScript = "INFO_PLIST=\"${TARGET_BUILD_DIR}\"/\"${INFOPLIST_PATH}\"\nENTITLEMENTS_FILE=\"${SRCROOT}/${CODE_SIGN_ENTITLEMENTS}\"\n\n# Wait for Info.plist to be processed\nwhile [[ ! -f \"${INFO_PLIST}\" ]] && [[ ! -f \"${ENTITLEMENTS_FILE}\" ]]; do\n    echo \"Waiting for plist and entitlements to be copied\"\n    sleep 1\ndone\n\n# Query and save the value; suppress any error message, if key not found.\nvalue=$(/usr/libexec/PlistBuddy -c 'print :AppGroupsId' \"${INFO_PLIST}\" 2>/dev/null)\n\n# Check if value is empty\nif [ -z \"$value\" ] \nthen\n   /usr/libexec/PlistBuddy -c \"Add :AppGroupsId string\" \"${INFO_PLIST}\"\nfi\n\napp_group_id=$(xmllint --xpath 'string(//key[.=\"com.apple.security.application-groups\"]/following-sibling::array/string)' \"$ENTITLEMENTS_FILE\")\n\n/usr/libexec/PlistBuddy -c \"Set :AppGroupsId ${app_group_id}\" \"${INFO_PLIST}\"\n";
+			showEnvVarsInLog = 0;
 		};
 		FD5E93D72C12DA400038C25A /* Add App Group To Build Info Plist */ = {
 			isa = PBXShellScriptBuildPhase;
@@ -5401,6 +5441,26 @@
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
 			shellScript = "\"${SRCROOT}/Scripts/build_libSession_util.sh\"\n";
+			showEnvVarsInLog = 0;
+		};
+		FDC289452C88113300020BC2 /* Copy GRDB framework */ = {
+			isa = PBXShellScriptBuildPhase;
+			alwaysOutOfDate = 1;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputFileListPaths = (
+			);
+			inputPaths = (
+			);
+			name = "Copy GRDB framework";
+			outputFileListPaths = (
+			);
+			outputPaths = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "# This script copies GRDB.framework to the bundle and signs it\n# It's required because GRDB is not an explicit app dependency\n# and as such it can't be selected in \"Copy Frameworks\" build phase.\ngrdb_source_dir=\"${BUILT_PRODUCTS_DIR}/GRDB.framework\"\ngrdb_install_dir=\"${BUILT_PRODUCTS_DIR}/${FRAMEWORKS_FOLDER_PATH}/GRDB.framework\"\n\n# Remove any existing files in the destination\nrm -rf \"${grdb_install_dir}\"\nmkdir -p \"${grdb_install_dir}\"\n\n# Copy the framework and the Info.plist\ncp -f \"${grdb_source_dir}/GRDB\" \"${grdb_source_dir}/Info.plist\" \"${grdb_install_dir}\"\n\n# Sign the framework directory contents\n/usr/bin/codesign \\\n    --force \\\n    --sign \"${EXPANDED_CODE_SIGN_IDENTITY}\" \\\n    --timestamp=none \\\n    --preserve-metadata=identifier,entitlements,flags \\\n    --generate-entitlement-der \"${grdb_install_dir}\"\n";
 			showEnvVarsInLog = 0;
 		};
 		FDC498BF2AC1747900EDD897 /* Ensure Localizable.strings included */ = {
@@ -5483,6 +5543,7 @@
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
 			shellScript = "INFO_PLIST=\"${TARGET_BUILD_DIR}\"/\"${INFOPLIST_PATH}\"\n\n# Wait for Info.plist to be processed\nwhile [[ ! -f \"${INFO_PLIST}\" ]]; do\n    echo \"Waiting for plist to be copied\"\n    sleep 1\ndone\n\n# Query and save the value; suppress any error message, if key not found.\nvalue=$(/usr/libexec/PlistBuddy -c 'print :GitCommitHash' \"${INFO_PLIST}\" 2>/dev/null)\n\n# Check if value is empty\nif [ -z \"$value\" ] \nthen\n   /usr/libexec/PlistBuddy -c \"Add :GitCommitHash string\" \"${INFO_PLIST}\"\nfi\n\n/usr/libexec/PlistBuddy -c \"Set :GitCommitHash `git rev-parse --short=7 HEAD`\" \"${INFO_PLIST}\"\n";
+			showEnvVarsInLog = 0;
 		};
 		FDE7214D287E50820093DF33 /* Lint Localizable.strings */ = {
 			isa = PBXShellScriptBuildPhase;
@@ -5539,6 +5600,7 @@
 				942256992C23F8DD00C0FDBF /* Toast.swift in Sources */,
 				C331FF972558FA6B00070591 /* Fonts.swift in Sources */,
 				FD71165828E436E800B47552 /* Modal.swift in Sources */,
+				FD0150582CA27DF3005B08A1 /* ScrollableLabel.swift in Sources */,
 				FD37E9D328A1FCDB003AE748 /* Theme+OceanDark.swift in Sources */,
 				942256972C23F8DD00C0FDBF /* SessionSearchBar.swift in Sources */,
 				FD71165928E436E800B47552 /* ConfirmationModal.swift in Sources */,
@@ -5726,7 +5788,7 @@
 				7B1D74B027C365960030B423 /* Timer+MainThread.swift in Sources */,
 				FDE049032C76A09700B6F9BB /* UIAlertAction+Utilities.swift in Sources */,
 				FD428B192B4B576F006D0888 /* AppContext.swift in Sources */,
-				FD6A39002C2A8B9100762359 /* MimeTypeUtil.swift in Sources */,
+				FD6A39002C2A8B9100762359 /* UTType+Utilities.swift in Sources */,
 				FD6A38F92C2A8AF700762359 /* DataSource.swift in Sources */,
 				FD559DF52A7368CB00C7C62A /* DispatchQueue+Utilities.swift in Sources */,
 				FDF8488329405A12007DCAE5 /* BatchResponse.swift in Sources */,
@@ -5847,6 +5909,7 @@
 				B87EF18126377A1D00124B3C /* Features.swift in Sources */,
 				FD09797727FAB7A600936362 /* Data+Image.swift in Sources */,
 				FD7F745B2BAAA35E006DDFD8 /* LibSession.swift in Sources */,
+				FDC289472C881A3800020BC2 /* MutableIdentifiable.swift in Sources */,
 				C300A60D2554B31900555489 /* Logging.swift in Sources */,
 				FD6A39242C2AAE4500762359 /* CGRect+Utilities.swift in Sources */,
 				B8FF8EA625C11FEF004D1F22 /* IPv4.swift in Sources */,
@@ -6384,7 +6447,7 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				FDDC08F229A300E800BF9681 /* LibSessionTypeConversionUtilitiesSpec.swift in Sources */,
+				FDDC08F229A300E800BF9681 /* TypeConversionUtilitiesSpec.swift in Sources */,
 				FDC2909427D710B4005DAE71 /* SOGSEndpointSpec.swift in Sources */,
 				FD96F3A529DBC3DC00401309 /* MessageSendJobSpec.swift in Sources */,
 				FDC2909127D709CA005DAE71 /* SOGSMessageSpec.swift in Sources */,
@@ -7643,7 +7706,7 @@
 				CLANG_WARN__ARC_BRIDGE_CAST_NONARC = YES;
 				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
 				CODE_SIGN_IDENTITY = "iPhone Developer";
-				CURRENT_PROJECT_VERSION = 483;
+				CURRENT_PROJECT_VERSION = 492;
 				ENABLE_BITCODE = NO;
 				ENABLE_STRICT_OBJC_MSGSEND = YES;
 				ENABLE_TESTABILITY = YES;
@@ -7680,7 +7743,7 @@
 				GCC_WARN_UNUSED_VARIABLE = YES;
 				HEADER_SEARCH_PATHS = "";
 				IPHONEOS_DEPLOYMENT_TARGET = 13.0;
-				MARKETING_VERSION = 2.7.3;
+				MARKETING_VERSION = 2.8.0;
 				ONLY_ACTIVE_ARCH = YES;
 				OTHER_CFLAGS = (
 					"-fobjc-arc-exceptions",
@@ -7721,7 +7784,7 @@
 				CLANG_WARN__ARC_BRIDGE_CAST_NONARC = YES;
 				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
 				CODE_SIGN_IDENTITY = "iPhone Distribution";
-				CURRENT_PROJECT_VERSION = 483;
+				CURRENT_PROJECT_VERSION = 492;
 				ENABLE_BITCODE = NO;
 				ENABLE_STRICT_OBJC_MSGSEND = YES;
 				GCC_NO_COMMON_BLOCKS = YES;
@@ -7753,7 +7816,7 @@
 				GCC_WARN_UNUSED_VARIABLE = YES;
 				HEADER_SEARCH_PATHS = "";
 				IPHONEOS_DEPLOYMENT_TARGET = 13.0;
-				MARKETING_VERSION = 2.7.3;
+				MARKETING_VERSION = 2.8.0;
 				ONLY_ACTIVE_ARCH = NO;
 				OTHER_CFLAGS = (
 					"-DNS_BLOCK_ASSERTIONS=1",
@@ -7783,7 +7846,6 @@
 				CODE_SIGN_ENTITLEMENTS = Session/Meta/Signal.entitlements;
 				CODE_SIGN_IDENTITY = "iPhone Developer";
 				"CODE_SIGN_IDENTITY[sdk=iphoneos*]" = "iPhone Developer";
-				CURRENT_PROJECT_VERSION = 481;
 				DEVELOPMENT_TEAM = SUQ8J2PCT7;
 				FRAMEWORK_SEARCH_PATHS = (
 					"$(inherited)",
@@ -7821,7 +7883,6 @@
 					"$(SRCROOT)",
 				);
 				LLVM_LTO = NO;
-				MARKETING_VERSION = 2.8.0;
 				OTHER_LDFLAGS = "$(inherited)";
 				OTHER_SWIFT_FLAGS = "$(inherited) \"-D\" \"COCOAPODS\" \"-DDEBUG\"";
 				PRODUCT_BUNDLE_IDENTIFIER = "com.loki-project.loki-messenger";
@@ -7855,7 +7916,6 @@
 				CODE_SIGN_ENTITLEMENTS = Session/Meta/Signal.entitlements;
 				CODE_SIGN_IDENTITY = "iPhone Developer";
 				"CODE_SIGN_IDENTITY[sdk=iphoneos*]" = "iPhone Developer";
-				CURRENT_PROJECT_VERSION = 481;
 				DEVELOPMENT_TEAM = SUQ8J2PCT7;
 				FRAMEWORK_SEARCH_PATHS = (
 					"$(inherited)",
@@ -7893,7 +7953,6 @@
 					"$(SRCROOT)",
 				);
 				LLVM_LTO = NO;
-				MARKETING_VERSION = 2.8.0;
 				OTHER_LDFLAGS = "$(inherited)";
 				PRODUCT_BUNDLE_IDENTIFIER = "com.loki-project.loki-messenger";
 				PRODUCT_NAME = Session;
@@ -8561,14 +8620,6 @@
 /* End XCConfigurationList section */
 
 /* Begin XCRemoteSwiftPackageReference section */
-		FD6A38E42C2A4D8E00762359 /* XCRemoteSwiftPackageReference "session-grdb-swift" */ = {
-			isa = XCRemoteSwiftPackageReference;
-			repositoryURL = "https://github.com/oxen-io/session-grdb-swift";
-			requirement = {
-				kind = upToNextMajorVersion;
-				minimumVersion = 106.27.0;
-			};
-		};
 		FD6A38E72C2A630E00762359 /* XCRemoteSwiftPackageReference "CocoaLumberjack" */ = {
 			isa = XCRemoteSwiftPackageReference;
 			repositoryURL = "https://github.com/CocoaLumberjack/CocoaLumberjack.git";
@@ -8649,6 +8700,14 @@
 				minimumVersion = 1.1.0;
 			};
 		};
+		FDC289402C86AB5800020BC2 /* XCRemoteSwiftPackageReference "session-grdb-swift" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/oxen-io/session-grdb-swift.git";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 106.29.2;
+			};
+		};
 /* End XCRemoteSwiftPackageReference section */
 
 /* Begin XCSwiftPackageProductDependency section */
@@ -8681,11 +8740,6 @@
 			isa = XCSwiftPackageProductDependency;
 			package = FD6A38ED2C2A641200762359 /* XCRemoteSwiftPackageReference "DifferenceKit" */;
 			productName = DifferenceKit;
-		};
-		FD6A38E52C2A4D8E00762359 /* GRDB */ = {
-			isa = XCSwiftPackageProductDependency;
-			package = FD6A38E42C2A4D8E00762359 /* XCRemoteSwiftPackageReference "session-grdb-swift" */;
-			productName = GRDB;
 		};
 		FD6A38E82C2A630E00762359 /* CocoaLumberjackSwift */ = {
 			isa = XCSwiftPackageProductDependency;
@@ -8784,6 +8838,11 @@
 			isa = XCSwiftPackageProductDependency;
 			package = FD6A39672C2D283A00762359 /* XCRemoteSwiftPackageReference "session-ios-yyimage" */;
 			productName = YYImage;
+		};
+		FDC289412C86AB5800020BC2 /* GRDB */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = FDC289402C86AB5800020BC2 /* XCRemoteSwiftPackageReference "session-grdb-swift" */;
+			productName = GRDB;
 		};
 		FDEF57292C3CF50B00131302 /* WebRTC */ = {
 			isa = XCSwiftPackageProductDependency;

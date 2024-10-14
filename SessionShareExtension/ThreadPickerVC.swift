@@ -113,7 +113,7 @@ final class ThreadPickerVC: UIViewController, UITableViewDataSource, UITableView
         // When the thread picker disappears it means the user has left the screen (this will be called
         // whether the user has sent the message or cancelled sending)
         LibSession.suspendNetworkAccess()
-        Storage.suspendDatabaseAccess(using: viewModel.dependencies)
+        viewModel.dependencies.storage.suspendDatabaseAccess()
         Log.flush()
     }
     
@@ -242,7 +242,7 @@ final class ThreadPickerVC: UIViewController, UITableViewDataSource, UITableView
         shareNavController?.dismiss(animated: true, completion: nil)
         
         ModalActivityIndicatorViewController.present(fromViewController: shareNavController!, canCancel: false, message: "sending".localized()) { [dependencies = viewModel.dependencies] activityIndicator in
-            Storage.resumeDatabaseAccess(using: dependencies)
+            dependencies.storage.resumeDatabaseAccess()
             LibSession.resumeNetworkAccess()
             
             let swarmPublicKey: String = {
@@ -307,7 +307,7 @@ final class ThreadPickerVC: UIViewController, UITableViewDataSource, UITableView
                                 attachmentId: LinkPreview
                                     .generateAttachmentIfPossible(
                                         imageData: linkPreviewDraft.jpegImageData,
-                                        mimeType: MimeTypeUtil.MimeType.imageJpeg
+                                        type: .jpeg
                                     )?
                                     .inserted(db)
                                     .id
@@ -338,7 +338,7 @@ final class ThreadPickerVC: UIViewController, UITableViewDataSource, UITableView
                 .sinkUntilComplete(
                     receiveCompletion: { [weak self] result in
                         LibSession.suspendNetworkAccess()
-                        Storage.suspendDatabaseAccess(using: dependencies)
+                        dependencies.storage.suspendDatabaseAccess()
                         Log.flush()
                         activityIndicator.dismiss { }
                         

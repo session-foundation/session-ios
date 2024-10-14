@@ -375,9 +375,7 @@ public extension UIContextualAction {
                                                     .localizedFormatted(baseFont: .systemFont(ofSize: Values.smallFontSize))
                                             ),
                                             confirmTitle: "block".localized(),
-                                            confirmAccessibility: Accessibility(
-                                                identifier: "Block"
-                                            ),
+                                            confirmAccessibility: Accessibility(identifier: "Confirm block"),
                                             confirmStyle: .danger,
                                             cancelStyle: .alert_text,
                                             dismissOnConfirm: true,

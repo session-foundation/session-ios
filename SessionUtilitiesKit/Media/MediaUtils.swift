@@ -76,11 +76,11 @@ public enum MediaUtils {
             return false
         }
         let fileExtension = URL(fileURLWithPath: path).pathExtension
-        guard let contentType = MimeTypeUtil.mimeType(for: fileExtension) else {
+        guard let contentType: String = UTType.sessionMimeType(for: fileExtension) else {
             SNLog("Media file has unknown content type.")
             return false
         }
-        guard MimeTypeUtil.isVideo(contentType) else {
+        guard UTType.isVideo(contentType) else {
             SNLog("Media file has invalid content type.")
             return false
         }

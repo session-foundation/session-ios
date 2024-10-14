@@ -39,7 +39,7 @@ class BatchRequestSpec: QuickSpec {
                                 request: httpRequest,
                                 urlRequest: try! httpRequest.generateUrlRequest(using: dependencies),
                                 responseType: NoResponse.self,
-                                timeout: 0
+                                requestTimeout: 0
                             )
                         ]
                     )
@@ -73,7 +73,7 @@ class BatchRequestSpec: QuickSpec {
                                 request: httpRequest,
                                 urlRequest: try! httpRequest.generateUrlRequest(using: dependencies),
                                 responseType: NoResponse.self,
-                                timeout: 0
+                                requestTimeout: 0
                             )
                         ]
                     )
@@ -104,7 +104,7 @@ class BatchRequestSpec: QuickSpec {
                                 ),
                                 urlRequest: URLRequest(url: URL(string: "https://www.oxen.io")!),
                                 responseType: NoResponse.self,
-                                timeout: 0
+                                requestTimeout: 0
                             )
                         ]
                     )
@@ -133,7 +133,7 @@ class BatchRequestSpec: QuickSpec {
                                 ),
                                 urlRequest: URLRequest(url: URL(string: "https://www.oxen.io")!),
                                 responseType: NoResponse.self,
-                                timeout: 0
+                                requestTimeout: 0
                             )
                         ]
                     )
@@ -162,7 +162,7 @@ class BatchRequestSpec: QuickSpec {
                                 ),
                                 urlRequest: URLRequest(url: URL(string: "https://www.oxen.io")!),
                                 responseType: NoResponse.self,
-                                timeout: 0
+                                requestTimeout: 0
                             )
                         ]
                     )
@@ -195,7 +195,7 @@ class BatchRequestSpec: QuickSpec {
                                 ),
                                 urlRequest: URLRequest(url: URL(string: "https://www.oxen.io")!),
                                 responseType: NoResponse.self,
-                                timeout: 0
+                                requestTimeout: 0
                             )
                         ]
                     )
@@ -225,7 +225,7 @@ class BatchRequestSpec: QuickSpec {
                                 ),
                                 urlRequest: URLRequest(url: URL(string: "https://www.oxen.io")!),
                                 responseType: NoResponse.self,
-                                timeout: 0
+                                requestTimeout: 0
                             )
                         ]
                     )
@@ -255,7 +255,7 @@ class BatchRequestSpec: QuickSpec {
                                 ),
                                 urlRequest: URLRequest(url: URL(string: "https://www.oxen.io")!),
                                 responseType: NoResponse.self,
-                                timeout: 0
+                                requestTimeout: 0
                             )
                         ]
                     )

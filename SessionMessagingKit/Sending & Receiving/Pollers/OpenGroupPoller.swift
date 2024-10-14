@@ -253,14 +253,14 @@ extension OpenGroupAPI {
                             .handleEvents(
                                 receiveOutput: { pollFailureCount, prunedIds in
                                     let pollEndTime: TimeInterval = dependencies.dateNow.timeIntervalSince1970
-                                    Log.info("Open group polling to \(server) failed in \(.seconds(pollEndTime - pollStartTime), unit: .s) due to error: \(error). Setting failure count to \(pollFailureCount + 1).")
+                                    Log.error("Open group polling to \(server) failed in \(.seconds(pollEndTime - pollStartTime), unit: .s) due to error: \(error). Setting failure count to \(pollFailureCount + 1).")
                                     
                                     // Add a note to the logs that this happened
                                     if !prunedIds.isEmpty {
                                         let rooms: String = prunedIds
                                             .compactMap { $0.components(separatedBy: server).last }
                                             .joined(separator: ", ")
-                                        Log.info("Hidden open group failure count surpassed \(Poller.maxHiddenRoomFailureCount), removed hidden rooms \(rooms).")
+                                        Log.error("Hidden open group failure count surpassed \(Poller.maxHiddenRoomFailureCount), removed hidden rooms \(rooms).")
                                     }
                                 }
                             )

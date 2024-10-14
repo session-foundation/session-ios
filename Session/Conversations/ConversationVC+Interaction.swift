@@ -188,7 +188,7 @@ extension ConversationVC:
         threadVariant: SessionThread.Variant,
         messageText: String?
     ) {
-        sendMessage(text: (messageText ?? ""), attachments: attachments, using: viewModel.dependencies)
+        sendMessage(text: (messageText ?? ""), attachments: attachments)
         resetMentions()
         
         dismiss(animated: true) { [weak self] in
@@ -218,7 +218,7 @@ extension ConversationVC:
         threadVariant: SessionThread.Variant,
         messageText: String?
     ) {
-        sendMessage(text: (messageText ?? ""), attachments: attachments, using: viewModel.dependencies)
+        sendMessage(text: (messageText ?? ""), attachments: attachments)
         resetMentions()
         
         dismiss(animated: true) { [weak self] in
@@ -287,7 +287,7 @@ extension ConversationVC:
     func handleDocumentButtonTapped() {
         // UIDocumentPickerModeImport copies to a temp file within our container.
         // It uses more memory than "open" but lets us avoid working with security scoped URLs.
-        let documentPickerVC = UIDocumentPickerViewController(documentTypes: [ kUTTypeItem as String ], in: UIDocumentPickerMode.import)
+        let documentPickerVC = UIDocumentPickerViewController(forOpeningContentTypes: [.item], asCopy: true)
         documentPickerVC.delegate = self
         documentPickerVC.modalPresentationStyle = .fullScreen
         
@@ -298,7 +298,7 @@ extension ConversationVC:
         let threadId: String = self.viewModel.threadData.threadId
         let threadVariant: SessionThread.Variant = self.viewModel.threadData.threadVariant
         
-        Permissions.requestLibraryPermissionIfNeeded { [weak self, dependencies = viewModel.dependencies] in
+        Permissions.requestLibraryPermissionIfNeeded(isSavingMedia: false) { [weak self, dependencies = viewModel.dependencies] in
             DispatchQueue.main.async {
                 let sendMediaNavController = SendMediaNavigationController.showingMediaLibraryFirst(
                     threadId: threadId,
@@ -354,7 +354,7 @@ extension ConversationVC:
             return
         }
         
-        let type = urlResourceValues.typeIdentifier ?? (kUTTypeData as String)
+        let type: UTType = (urlResourceValues.typeIdentifier.map({ UTType($0) }) ?? .data)
         guard urlResourceValues.isDirectory != true else {
             DispatchQueue.main.async { [weak self] in
                 let modal: ConfirmationModal = ConfirmationModal(
@@ -382,12 +382,12 @@ extension ConversationVC:
         
         // Although we want to be able to send higher quality attachments through the document picker
         // it's more imporant that we ensure the sent format is one all clients can accept (e.g. *not* quicktime .mov)
-        guard !SignalAttachment.isInvalidVideo(dataSource: dataSource, dataUTI: type) else {
+        guard !SignalAttachment.isInvalidVideo(dataSource: dataSource, type: type) else {
             return showAttachmentApprovalDialogAfterProcessingVideo(at: url, with: fileName)
         }
         
         // "Document picker" attachments _SHOULD NOT_ be resized
-        let attachment = SignalAttachment.attachment(dataSource: dataSource, dataUTI: type, imageQuality: .original)
+        let attachment = SignalAttachment.attachment(dataSource: dataSource, type: type, imageQuality: .original)
         showAttachmentApprovalDialog(for: [ attachment ])
     }
 
@@ -412,7 +412,7 @@ extension ConversationVC:
             SignalAttachment
                 .compressVideoAsMp4(
                     dataSource: dataSource,
-                    dataUTI: kUTTypeMPEG4 as String,
+                    type: .mpeg4Movie,
                     using: dependencies
                 )
                 .attachmentPublisher
@@ -450,8 +450,7 @@ extension ConversationVC:
         attachments: [SignalAttachment] = [],
         linkPreviewDraft: LinkPreviewDraft? = nil,
         quoteModel: QuotedReplyModel? = nil,
-        hasPermissionToSendSeed: Bool = false,
-        using dependencies: Dependencies = Dependencies()
+        hasPermissionToSendSeed: Bool = false
     ) {
         guard !showBlockedModalIfNeeded() else { return }
         
@@ -522,17 +521,14 @@ extension ConversationVC:
             quoteModel: quoteModel
         )
         
-        sendMessage(optimisticData: optimisticData, using: dependencies)
+        sendMessage(optimisticData: optimisticData)
     }
     
-    private func sendMessage(
-        optimisticData: ConversationViewModel.OptimisticMessageData,
-        using dependencies: Dependencies
-    ) {
+    private func sendMessage(optimisticData: ConversationViewModel.OptimisticMessageData) {
         let threadId: String = self.viewModel.threadData.threadId
         let threadVariant: SessionThread.Variant = self.viewModel.threadData.threadVariant
         
-        DispatchQueue.global(qos:.userInitiated).async(using: dependencies) {
+        DispatchQueue.global(qos:.userInitiated).async(using: viewModel.dependencies) { [dependencies = viewModel.dependencies] in
             // Generate the quote thumbnail if needed (want this to happen outside of the DBWrite thread as
             // this can take up to 0.5s
             let quoteThumbnailAttachment: Attachment? = optimisticData.quoteModel?.attachment?.cloneAsQuoteThumbnail()
@@ -704,8 +700,8 @@ extension ConversationVC:
     func didPasteImageFromPasteboard(_ image: UIImage) {
         guard let imageData = image.jpegData(compressionQuality: 1.0) else { return }
         
-        let dataSource = DataSourceValue(data: imageData, utiType: kUTTypeJPEG as String)
-        let attachment = SignalAttachment.attachment(dataSource: dataSource, dataUTI: kUTTypeJPEG as String, imageQuality: .medium)
+        let dataSource = DataSourceValue(data: imageData, dataType: .jpeg)
+        let attachment = SignalAttachment.attachment(dataSource: dataSource, type: .jpeg, imageQuality: .medium)
 
         guard let approvalVC = AttachmentApprovalViewController.wrappedInNavController(
             threadId: self.viewModel.threadData.threadId,
@@ -885,8 +881,22 @@ extension ConversationVC:
     ) {
         // For call info messages show the "call missed" modal
         guard cellViewModel.variant != .infoCall else {
-            let callMissedTipsModal: CallMissedTipsModal = CallMissedTipsModal(caller: cellViewModel.authorName)
-            present(callMissedTipsModal, animated: true, completion: nil)
+            // If the failure was due to the mic permission being denied then we want to show the permission modal,
+            // otherwise we want to show the call missed tips modal
+            guard
+                let infoMessageData: Data = (cellViewModel.rawBody ?? "").data(using: .utf8),
+                let messageInfo: CallMessage.MessageInfo = try? JSONDecoder().decode(
+                    CallMessage.MessageInfo.self,
+                    from: infoMessageData
+                ),
+                messageInfo.state == .permissionDeniedMicrophone
+            else {
+                let callMissedTipsModal: CallMissedTipsModal = CallMissedTipsModal(caller: cellViewModel.authorName)
+                present(callMissedTipsModal, animated: true, completion: nil)
+                return
+            }
+            
+            Permissions.requestMicrophonePermissionIfNeeded(presentingViewController: self)
             return
         }
         
@@ -1090,7 +1100,7 @@ extension ConversationVC:
                 if
                     attachment.isText ||
                     attachment.isMicrosoftDoc ||
-                    attachment.contentType == MimeTypeUtil.MimeType.applicationPdf
+                    attachment.contentType == UTType.mimeTypePdf
                 {
                     // FIXME: If given an invalid text file (eg with binary data) this hangs forever
                     // Note: I tried dispatching after a short delay, detecting that the new UI is invalid and dismissing it
@@ -1816,7 +1826,7 @@ extension ConversationVC:
             }
             
             // Try to send the optimistic message again
-            sendMessage(optimisticData: optimisticMessageData, using: dependencies)
+            sendMessage(optimisticData: optimisticMessageData)
             return
         }
         
@@ -1911,12 +1921,12 @@ extension ConversationVC:
                         attachment.state == .downloaded ||
                         attachment.state == .uploaded
                     ),
-                    let utiType: String = MimeTypeUtil.utiType(for: attachment.contentType),
+                    let type: UTType = UTType(sessionMimeType: attachment.contentType),
                     let originalFilePath: String = attachment.originalFilePath,
                     let data: Data = try? Data(contentsOf: URL(fileURLWithPath: originalFilePath))
                 else { return }
             
-                UIPasteboard.general.setData(data, forPasteboardType: utiType)
+                UIPasteboard.general.setData(data, forPasteboardType: type.identifier)
         }
     }
 
@@ -2245,30 +2255,35 @@ extension ConversationVC:
         
         guard !mediaAttachments.isEmpty else { return }
     
-        mediaAttachments.forEach { attachment, originalFilePath in
-            PHPhotoLibrary.shared().performChanges(
-                {
-                    if attachment.isImage || attachment.isAnimated {
-                        PHAssetChangeRequest.creationRequestForAssetFromImage(
-                            atFileURL: URL(fileURLWithPath: originalFilePath)
-                        )
-                    }
-                    else if attachment.isVideo {
-                        PHAssetChangeRequest.creationRequestForAssetFromVideo(
-                            atFileURL: URL(fileURLWithPath: originalFilePath)
-                        )
-                    }
-                },
-                completionHandler: { _, _ in }
-            )
+        Permissions.requestLibraryPermissionIfNeeded(
+            isSavingMedia: true,
+            presentingViewController: self
+        ) { [weak self] in
+            mediaAttachments.forEach { attachment, originalFilePath in
+                PHPhotoLibrary.shared().performChanges(
+                    {
+                        if attachment.isImage || attachment.isAnimated {
+                            PHAssetChangeRequest.creationRequestForAssetFromImage(
+                                atFileURL: URL(fileURLWithPath: originalFilePath)
+                            )
+                        }
+                        else if attachment.isVideo {
+                            PHAssetChangeRequest.creationRequestForAssetFromVideo(
+                                atFileURL: URL(fileURLWithPath: originalFilePath)
+                            )
+                        }
+                    },
+                    completionHandler: { _, _ in }
+                )
+            }
+            
+            // Send a 'media saved' notification if needed
+            guard self?.viewModel.threadData.threadVariant == .contact, cellViewModel.variant == .standardIncoming else {
+                return
+            }
+            
+            self?.sendDataExtraction(kind: .mediaSaved(timestamp: UInt64(cellViewModel.timestampMs)))
         }
-        
-        // Send a 'media saved' notification if needed
-        guard self.viewModel.threadData.threadVariant == .contact, cellViewModel.variant == .standardIncoming else {
-            return
-        }
-        
-        sendDataExtraction(kind: .mediaSaved(timestamp: UInt64(cellViewModel.timestampMs)))
     }
 
     func ban(_ cellViewModel: MessageViewModel, using dependencies: Dependencies) {
@@ -2520,14 +2535,14 @@ extension ConversationVC:
         let fileName = ("messageVoice".localized() as NSString).appendingPathExtension("m4a")
         dataSource.sourceFilename = fileName
         
-        let attachment = SignalAttachment.voiceMessageAttachment(dataSource: dataSource, dataUTI: kUTTypeMPEG4Audio as String)
+        let attachment = SignalAttachment.voiceMessageAttachment(dataSource: dataSource, type: .mpeg4Audio)
         
         guard !attachment.hasError else {
             return showErrorAlert(for: attachment)
         }
         
         // Send attachment
-        sendMessage(text: "", attachments: [attachment], using: dependencies)
+        sendMessage(text: "", attachments: [attachment])
     }
 
     func cancelVoiceMessageRecording() {

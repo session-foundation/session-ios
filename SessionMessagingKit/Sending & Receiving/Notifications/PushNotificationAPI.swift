@@ -31,6 +31,11 @@ public enum PushNotificationAPI {
         isForcedUpdate: Bool,
         using dependencies: Dependencies = Dependencies()
     ) -> AnyPublisher<Void, Error> {
+        typealias SubscribeAllPreparedRequests = (
+            SubscribeRequest,
+            String,
+            Network.PreparedRequest<PushNotificationAPI.LegacyPushServerResponse>?
+        )
         let hexEncodedToken: String = token.toHexString()
         let oldToken: String? = dependencies.standardUserDefaults[.deviceToken]
         let lastUploadTime: Double = dependencies.standardUserDefaults[.lastDeviceTokenUpload]
@@ -52,7 +57,7 @@ public enum PushNotificationAPI {
         
         // TODO: Need to generate requests for each updated group as well
         return dependencies.storage
-            .readPublisher(using: dependencies) { db -> (SubscribeRequest, String, Set<String>) in
+            .readPublisher(using: dependencies) { db -> SubscribeAllPreparedRequests in
                 guard let userED25519KeyPair: KeyPair = Identity.fetchUserEd25519KeyPair(db) else {
                     throw SnodeAPIError.noKeyPair
                 }
@@ -74,22 +79,30 @@ public enum PushNotificationAPI {
                     ed25519PublicKey: userED25519KeyPair.publicKey,
                     ed25519SecretKey: userED25519KeyPair.secretKey
                 )
+                let preparedLegacyGroupRequest = try PushNotificationAPI
+                    .preparedSubscribeToLegacyGroups(
+                        forced: true,
+                        token: hexEncodedToken,
+                        currentUserPublicKey: currentUserPublicKey,
+                        legacyGroupIds: try ClosedGroup
+                            .select(.threadId)
+                            .filter(!ClosedGroup.Columns.threadId.like("\(SessionId.Prefix.group.rawValue)%"))
+                            .joining(
+                                required: ClosedGroup.members
+                                    .filter(GroupMember.Columns.profileId == currentUserPublicKey)
+                            )
+                            .asRequest(of: String.self)
+                            .fetchSet(db),
+                        using: dependencies
+                    )
                 
                 return (
                     request,
                     currentUserPublicKey,
-                    try ClosedGroup
-                        .select(.threadId)
-                        .filter(!ClosedGroup.Columns.threadId.like("\(SessionId.Prefix.group.rawValue)%"))
-                        .joining(
-                            required: ClosedGroup.members
-                                .filter(GroupMember.Columns.profileId == currentUserPublicKey)
-                        )
-                        .asRequest(of: String.self)
-                        .fetchSet(db)
+                    preparedLegacyGroupRequest
                 )
             }
-            .tryFlatMap { request, currentUserPublicKey, legacyGroupIds -> AnyPublisher<Void, Error> in
+            .tryFlatMap { request, currentUserPublicKey, legacyGroupRequest -> AnyPublisher<Void, Error> in
                 Publishers
                     .MergeMany(
                         [
@@ -126,14 +139,12 @@ public enum PushNotificationAPI {
                                 .map { _ in () }
                                 .eraseToAnyPublisher(),
                             // FIXME: Remove this once legacy groups are deprecated
-                            PushNotificationAPI.subscribeToLegacyGroups(
-                                forced: true,
-                                token: hexEncodedToken,
-                                currentUserPublicKey: currentUserPublicKey,
-                                legacyGroupIds: legacyGroupIds,
-                                using: dependencies
-                            )
+                            legacyGroupRequest?
+                                .send(using: dependencies)
+                                .map { _, _ in () }
+                                .eraseToAnyPublisher()
                         ]
+                        .compactMap { $0 }
                     )
                     .collect()
                     .map { _ in () }
@@ -281,61 +292,52 @@ public enum PushNotificationAPI {
     // MARK: - Legacy Groups
     
     // FIXME: Remove this once legacy groups are deprecated
-    public static func subscribeToLegacyGroups(
+    public static func preparedSubscribeToLegacyGroups(
         forced: Bool = false,
         token: String? = nil,
         currentUserPublicKey: String,
         legacyGroupIds: Set<String>,
-        using dependencies: Dependencies = Dependencies()
-    ) -> AnyPublisher<Void, Error> {
+        using dependencies: Dependencies
+    ) throws -> Network.PreparedRequest<LegacyPushServerResponse>? {
         let isUsingFullAPNs = dependencies.standardUserDefaults[.isUsingFullAPNs]
         
         // Only continue if PNs are enabled and we have a device token
         guard
+            !legacyGroupIds.isEmpty,
             (forced || isUsingFullAPNs),
             let deviceToken: String = (token ?? dependencies.standardUserDefaults[.deviceToken])
-        else {
-            return Just(())
-                .setFailureType(to: Error.self)
-                .eraseToAnyPublisher()
-        }
+        else { return nil }
         
-        do {
-            return try PushNotificationAPI
-                .prepareRequest(
-                    request: Request(
-                        method: .post,
-                        endpoint: .legacyGroupsOnlySubscribe,
-                        body: LegacyGroupOnlyRequest(
-                            token: deviceToken,
-                            pubKey: currentUserPublicKey,
-                            device: "ios",
-                            legacyGroupPublicKeys: legacyGroupIds
-                        ),
-                        using: dependencies
+        return try PushNotificationAPI
+            .prepareRequest(
+                request: Request(
+                    method: .post,
+                    endpoint: .legacyGroupsOnlySubscribe,
+                    body: LegacyGroupOnlyRequest(
+                        token: deviceToken,
+                        pubKey: currentUserPublicKey,
+                        device: "ios",
+                        legacyGroupPublicKeys: legacyGroupIds
                     ),
-                    responseType: LegacyPushServerResponse.self,
                     using: dependencies
-                )
-                .send(using: dependencies)
-                .retry(maxRetryCount, using: dependencies)
-                .handleEvents(
-                    receiveOutput: { _, response in
-                        guard response.code != 0 else {
-                            return SNLog("Couldn't subscribe for legacy groups due to error: \(response.message ?? "nil").")
-                        }
-                    },
-                    receiveCompletion: { result in
-                        switch result {
-                            case .finished: break
-                            case .failure: SNLog("Couldn't subscribe for legacy groups.")
-                        }
+                ),
+                responseType: LegacyPushServerResponse.self,
+                retryCount: PushNotificationAPI.maxRetryCount,
+                using: dependencies
+            )
+            .handleEvents(
+                receiveOutput: { _, response in
+                    guard response.code != 0 else {
+                        return Log.error("[PushNotificationAPI] Couldn't subscribe for legacy groups due to error: \(response.message ?? "nil").")
                     }
-                )
-                .map { _ in () }
-                .eraseToAnyPublisher()
-        }
-        catch { return Fail(error: error).eraseToAnyPublisher() }
+                },
+                receiveCompletion: { result in
+                    switch result {
+                        case .finished: break
+                        case .failure: Log.error("[PushNotificationAPI] Couldn't subscribe for legacy groups.")
+                    }
+                }
+            )
     }
     
     // FIXME: Remove this once legacy groups are deprecated
@@ -494,7 +496,8 @@ public enum PushNotificationAPI {
         request: Request<T, Endpoint>,
         responseType: R.Type,
         retryCount: Int = 0,
-        timeout: TimeInterval = Network.defaultTimeout,
+        requestTimeout: TimeInterval = Network.defaultTimeout,
+        requestAndPathBuildTimeout: TimeInterval? = nil,
         using dependencies: Dependencies
     ) throws -> Network.PreparedRequest<R> {
         return Network.PreparedRequest<R>(
@@ -502,7 +505,8 @@ public enum PushNotificationAPI {
             urlRequest: try request.generateUrlRequest(using: dependencies),
             responseType: responseType,
             retryCount: retryCount,
-            timeout: timeout
+            requestTimeout: requestTimeout,
+            requestAndPathBuildTimeout: requestAndPathBuildTimeout
         )
     }
 }

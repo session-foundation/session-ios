@@ -9,6 +9,10 @@ import Nimble
 @testable import SessionMessagingKit
 @testable import SessionUtilitiesKit
 
+extension Job: MutableIdentifiable {
+    public mutating func setId(_ id: Int64?) { self.id = id }
+}
+
 class MessageSendJobSpec: QuickSpec {
     override class func spec() {
         // MARK: Configuration

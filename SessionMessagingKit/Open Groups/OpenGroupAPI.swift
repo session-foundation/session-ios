@@ -975,6 +975,8 @@ public enum OpenGroupAPI {
     public static func preparedClearInbox(
         _ db: Database,
         on server: String,
+        requestTimeout: TimeInterval = Network.defaultTimeout,
+        requestAndPathBuildTimeout: TimeInterval? = nil,
         using dependencies: Dependencies
     ) throws -> Network.PreparedRequest<DeleteInboxResponse> {
         return try OpenGroupAPI
@@ -986,6 +988,8 @@ public enum OpenGroupAPI {
                     endpoint: .inbox
                 ),
                 responseType: DeleteInboxResponse.self,
+                requestTimeout: requestTimeout,
+                requestAndPathBuildTimeout: requestAndPathBuildTimeout,
                 using: dependencies
             )
             .signed(db, with: OpenGroupAPI.signRequest, using: dependencies)
@@ -1463,14 +1467,16 @@ public enum OpenGroupAPI {
     private static func prepareRequest<T: Encodable, R: Decodable>(
         request: Request<T, Endpoint>,
         responseType: R.Type,
-        timeout: TimeInterval = Network.defaultTimeout,
+        requestTimeout: TimeInterval = Network.defaultTimeout,
+        requestAndPathBuildTimeout: TimeInterval? = nil,
         using dependencies: Dependencies
     ) throws -> Network.PreparedRequest<R> {
         return Network.PreparedRequest(
             request: request,
             urlRequest: try request.generateUrlRequest(using: dependencies),
             responseType: responseType,
-            timeout: timeout
+            requestTimeout: requestTimeout,
+            requestAndPathBuildTimeout: requestAndPathBuildTimeout
         )
     }
 }

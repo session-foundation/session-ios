@@ -574,7 +574,7 @@ public class ConversationViewModel: OWSAudioPlayerDelegate, NavigatableStateHold
         let linkPreviewAttachment: Attachment? = linkPreviewDraft.map { draft in
             try? LinkPreview.generateAttachmentIfPossible(
                 imageData: draft.jpegImageData,
-                mimeType: MimeTypeUtil.MimeType.imageJpeg
+                type: .jpeg
             )
         }
         

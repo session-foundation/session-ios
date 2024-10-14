@@ -7,6 +7,11 @@ import SessionUtilitiesKit
 import SessionSnodeKit
 
 extension MessageSender {
+    typealias CreateGroupDatabaseResult = (
+        SessionThread,
+        [MessageSender.PreparedSendData],
+        Network.PreparedRequest<PushNotificationAPI.LegacyPushServerResponse>?
+    )
     public static var distributingKeyPairs: Atomic<[String: [ClosedGroupKeyPair]]> = Atomic([:])
     
     public static func createClosedGroup(
@@ -15,7 +20,7 @@ extension MessageSender {
         using dependencies: Dependencies = Dependencies()
     ) -> AnyPublisher<SessionThread, Error> {
         dependencies.storage
-            .writePublisher { db -> (String, SessionThread, [MessageSender.PreparedSendData], Set<String>) in
+            .writePublisher { db -> CreateGroupDatabaseResult in
                 // Generate the group's two keys
                 guard
                     let groupKeyPair: KeyPair = dependencies.crypto.generate(.x25519KeyPair()),
@@ -108,42 +113,54 @@ extension MessageSender {
                             using: dependencies
                         )
                     }
-                let allActiveLegacyGroupIds: Set<String> = try ClosedGroup
-                    .select(.threadId)
-                    .filter(!ClosedGroup.Columns.threadId.like("\(SessionId.Prefix.group.rawValue)%")) // stringlint:disable
-                    .joining(
-                        required: ClosedGroup.members
-                            .filter(GroupMember.Columns.profileId == userPublicKey)
-                    )
-                    .asRequest(of: String.self)
-                    .fetchSet(db)
-                    .inserting(groupPublicKey)  // Insert the new key just to be sure
                 
-                return (userPublicKey, thread, memberSendData, allActiveLegacyGroupIds)
+                // Prepare the notification subscription
+                var preparedNotificationSubscription: Network.PreparedRequest<PushNotificationAPI.LegacyPushServerResponse>?
+                
+                if let token: String = dependencies.standardUserDefaults[.deviceToken] {
+                    preparedNotificationSubscription = try? PushNotificationAPI
+                        .preparedSubscribeToLegacyGroups(
+                            token: token,
+                            currentUserPublicKey: userPublicKey,
+                            legacyGroupIds: try ClosedGroup
+                                .select(.threadId)
+                                .filter(!ClosedGroup.Columns.threadId.like("\(SessionId.Prefix.group.rawValue)%")) // stringlint:disable
+                                .joining(
+                                    required: ClosedGroup.members
+                                        .filter(GroupMember.Columns.profileId == userPublicKey)
+                                )
+                                .asRequest(of: String.self)
+                                .fetchSet(db)
+                                .inserting(groupPublicKey),  // Insert the new key just to be sure,
+                            using: dependencies
+                        )
+                }
+                
+                return (thread, memberSendData, preparedNotificationSubscription)
             }
-            .flatMap { userPublicKey, thread, memberSendData, allActiveLegacyGroupIds in
+            .flatMap { thread, memberSendData, preparedNotificationSubscription -> AnyPublisher<(SessionThread, Network.PreparedRequest<PushNotificationAPI.LegacyPushServerResponse>?), Error> in
                 Publishers
                     .MergeMany(
                         // Send a closed group update message to all members individually
-                        memberSendData
-                            .map { MessageSender.sendImmediate(data: $0, using: dependencies) }
-                            .appending(
-                                // Resubscribe to all legacy groups
-                                PushNotificationAPI.subscribeToLegacyGroups(
-                                    currentUserPublicKey: userPublicKey,
-                                    legacyGroupIds: allActiveLegacyGroupIds
-                                )
-                            )
+                        memberSendData.map { MessageSender.sendImmediate(data: $0, using: dependencies) }
                     )
                     .collect()
-                    .map { _ in thread }
+                    .map { _ in (thread, preparedNotificationSubscription) }
+                    .eraseToAnyPublisher()
             }
             .handleEvents(
-                receiveOutput: { thread in
+                receiveOutput: { thread, preparedNotificationSubscription in
+                    // Subscribe for push notifications (if PNs are enabled)
+                    preparedNotificationSubscription?
+                        .send(using: dependencies)
+                        .subscribe(on: DispatchQueue.global(qos: .userInitiated), using: dependencies)
+                        .sinkUntilComplete()
+                    
                     // Start polling
                     ClosedGroupPoller.shared.startIfNeeded(for: thread.id, using: dependencies)
                 }
             )
+            .map { thread, _ -> SessionThread in thread }
             .eraseToAnyPublisher()
     }
 

@@ -92,14 +92,13 @@ class PhotoCapture: NSObject {
                 self?.session.beginConfiguration()
                 defer { self?.session.commitConfiguration() }
 
-                try self?.updateCurrentInput(position: .back)
+                do { try self?.updateCurrentInput(position: .back) }
+                catch { throw PhotoCaptureError.initializationFailed }
 
                 guard
                     let photoOutput = self?.captureOutput.photoOutput,
                     self?.session.canAddOutput(photoOutput) == true
-                else {
-                    throw PhotoCaptureError.initializationFailed
-                }
+                else { throw PhotoCaptureError.initializationFailed }
 
                 if let connection = photoOutput.connection(with: .video) {
                     if connection.isVideoStabilizationSupported {
@@ -420,8 +419,8 @@ extension PhotoCapture: CaptureOutputDelegate {
             return
         }
 
-        let dataSource = DataSourceValue(data: photoData, utiType: kUTTypeJPEG as String)
-        let attachment = SignalAttachment.attachment(dataSource: dataSource, dataUTI: kUTTypeJPEG as String, imageQuality: .medium)
+        let dataSource = DataSourceValue(data: photoData, dataType: .jpeg)
+        let attachment = SignalAttachment.attachment(dataSource: dataSource, type: .jpeg, imageQuality: .medium)
         delegate?.photoCapture(self, didFinishProcessingAttachment: attachment)
     }
 
@@ -443,7 +442,7 @@ extension PhotoCapture: CaptureOutputDelegate {
         }
 
         let dataSource = DataSourcePath(fileUrl: outputFileURL, shouldDeleteOnDeinit: true)
-        let attachment = SignalAttachment.attachment(dataSource: dataSource, dataUTI: kUTTypeMPEG4 as String)
+        let attachment = SignalAttachment.attachment(dataSource: dataSource, type: .mpeg4Movie)
         delegate?.photoCapture(self, didFinishProcessingAttachment: attachment)
     }
     
@@ -610,7 +609,13 @@ class PhotoCaptureOutputAdaptee: NSObject, ImageCaptureOutput {
         }
 
         func photoOutput(_ output: AVCapturePhotoOutput, didFinishProcessingPhoto photo: AVCapturePhoto, error: Error?) {
-            var data = photo.fileDataRepresentation()!
+            guard var data: Data = photo.fileDataRepresentation() else {
+                DispatchQueue.main.async {
+                    self.delegate?.captureOutputDidFinishProcessing(photoData: nil, error: error)
+                }
+                return
+            }
+            
             // Call normalized here to fix the orientation
             if let srcImage = UIImage(data: data) {
                 data = srcImage.normalizedImage().jpegData(compressionQuality: 1.0)!
