@@ -713,7 +713,7 @@ public extension Message {
         using dependencies: Dependencies
     ) -> UInt64 {
         // Not disappearing messages
-        guard let expiresInSeconds = message.expiresInSeconds else { return message.ttl }
+        guard message.expiresInSeconds != nil else { return message.ttl }
         
         switch (destination, message) {
             // Disappear after sent messages with exceptions

@@ -455,7 +455,7 @@ class SettingsViewModel: SessionTableViewModel, NavigationItemSource, Navigatabl
                 info: ConfirmationModal.Info(
                     title: "displayNameSet".localized(),
                     body: .input(
-                        explanation: nil,
+                        explanation: NSAttributedString(string: "displayNameVisible".localized()),
                         info: ConfirmationModal.Info.Body.InputInfo(
                             placeholder: "displayNameEnter".localized(),
                             initialValue: current

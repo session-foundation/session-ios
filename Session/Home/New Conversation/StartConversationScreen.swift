@@ -28,7 +28,7 @@ struct StartConversationScreen: View {
                             .putNumber(1)
                             .localized()
                         NewConversationCell(
-                            image: "Message",
+                            image: "Message", // stringlint:disable
                             title: title
                         ) {
                             let viewController: SessionHostingViewController = SessionHostingViewController(

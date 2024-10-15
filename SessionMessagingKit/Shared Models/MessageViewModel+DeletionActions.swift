@@ -158,13 +158,16 @@ public extension MessageViewModel.DeletionBehaviours {
                             .putNumber(cellViewModels.count)
                             .localized(),
                         warning: (threadData.threadIsNoteToSelf ?
-                            "Some of the messages you have selected cannot be deleted for everyone" :
-                            "Some of the messages you have selected cannot be deleted from all of your devices"
+                            "deleteMessageNoteToSelfWarning"
+                                .putNumber(cellViewModels.count)
+                                .localized() :
+                            "deleteMessageWarning"
+                                .putNumber(cellViewModels.count)
+                                .localized()
                         ),
-                        body: (cellViewModels.count == 1 ?
-                            "deleteMessageConfirm".localized() :
-                            "deleteMessagesConfirm".localized()
-                        ),
+                        body: "deleteMessageConfirm"
+                            .putNumber(cellViewModels.count)
+                            .localized(),
                         actions: [
                             NamedAction(
                                 title: "deleteMessageDeviceOnly".localized(),
@@ -215,10 +218,9 @@ public extension MessageViewModel.DeletionBehaviours {
                             .putNumber(cellViewModels.count)
                             .localized(),
                         warning: nil,
-                        body: (cellViewModels.count == 1 ?
-                            "deleteMessageConfirm".localized() :
-                            "deleteMessagesConfirm".localized()
-                        ),
+                        body: "deleteMessageConfirm"
+                            .putNumber(cellViewModels.count)
+                            .localized(),
                         actions: [
                             NamedAction(
                                 title: "deleteMessageDeviceOnly".localized(),
@@ -258,7 +260,9 @@ public extension MessageViewModel.DeletionBehaviours {
                         title: "deleteMessage"
                             .putNumber(cellViewModels.count)
                             .localized(),
-                        warning: "Some of the messages you have selected cannot be deleted for everyone",
+                        warning: "deleteMessageWarning"
+                            .putNumber(cellViewModels.count)
+                            .localized(),
                         body: (cellViewModels.count == 1 ?
                             "deleteMessageDescriptionDevice".localized() :
                             "deleteMessagesDescriptionDevice".localized()
@@ -293,10 +297,9 @@ public extension MessageViewModel.DeletionBehaviours {
                             .putNumber(cellViewModels.count)
                             .localized(),
                         warning: nil,
-                        body: (cellViewModels.count == 1 ?
-                            "deleteMessageConfirm".localized() :
-                            "deleteMessagesConfirm".localized()
-                        ),
+                        body: "deleteMessageConfirm"
+                            .putNumber(cellViewModels.count)
+                            .localized(),
                         actions: [
                             NamedAction(
                                 title: "deleteMessageDeviceOnly".localized(),

@@ -172,14 +172,6 @@ public class ScreenLock {
                     
                 case .biometryLockout:
                     Log.error(.screenLock, "Local authentication error: biometryLockout.")
-                    return .failure(error: "lockAppEnablePasscode".localized())
-                    
-                case .biometryNotEnrolled:
-                    Log.error(.screenLock, "Local authentication error: biometryNotEnrolled.")
-                    return .failure(error: "lockAppEnablePasscode".localized())
-                    
-                case .biometryLockout:
-                    Log.error(.screenLock, "Local authentication error: biometryLockout.")
                     return .failure(error: "authenticateFailedTooManyAttempts".localized())
                     
                 default:

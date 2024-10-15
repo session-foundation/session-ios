@@ -983,7 +983,8 @@ class ThreadSettingsViewModel: SessionTableViewModel, NavigatableStateHolder, Ob
             SessionTableViewController(
                 viewModel: UserListViewModel<GroupMember>(
                     title: "promote".localized(),
-                    emptyState: "There are no group members which can be promoted.",//.localized(),
+                    // FIXME: Localise this
+                    emptyState: "There are no group members which can be promoted.",
                     showProfileIcons: true,
                     request: SQLRequest("""
                         SELECT \(groupMember.allColumns)
@@ -1069,7 +1070,7 @@ class ThreadSettingsViewModel: SessionTableViewModel, NavigatableStateHolder, Ob
                                 ConfirmationModal(
                                     info: ConfirmationModal.Info(
                                         title: "theError".localized(),
-                                        body: .text("displayNameErrorDescriptionShorter".localized()),
+                                        body: .text("nicknameErrorShorter".localized()),
                                         cancelTitle: "okay".localized(),
                                         cancelStyle: .alert_text,
                                         dismissType: .single
@@ -1129,7 +1130,7 @@ class ThreadSettingsViewModel: SessionTableViewModel, NavigatableStateHolder, Ob
                     body: { [weak self, dependencies] in
                         guard isUpdatedGroup && dependencies[feature: .updatedGroupsAllowDescriptionEditing] else {
                             return .input(
-                                explanation: NSAttributedString(string: "Group name is visible to all group members."),//.localized()),
+                                explanation: NSAttributedString(string: "groupNameVisible".localized()),
                                 info: ConfirmationModal.Info.Body.InputInfo(
                                     placeholder: "groupNameEnter".localized(),
                                     initialValue: currentName
@@ -1139,7 +1140,8 @@ class ThreadSettingsViewModel: SessionTableViewModel, NavigatableStateHolder, Ob
                         }
                         
                         return .dualInput(
-                            explanation: NSAttributedString(string: "Group name and description are visible to all group members."),//.localized()),
+                            // FIXME: Localise this
+                            explanation: NSAttributedString(string: "Group name and description are visible to all group members."),
                             firstInfo: ConfirmationModal.Info.Body.InputInfo(
                                 placeholder: "groupNameEnter".localized(),
                                 initialValue: currentName
@@ -1179,7 +1181,8 @@ class ThreadSettingsViewModel: SessionTableViewModel, NavigatableStateHolder, Ob
                                 return "groupNameEnterShorter".localized()
                             }
                             guard !LibSession.isTooLong(groupDescription: (finalDescription ?? "")) else {
-                                return "Please enter a shorter group description."//.localized()
+                                // FIXME: Localise this
+                                return "Please enter a shorter group description."
                             }
                             
                             return nil  // No error has occurred

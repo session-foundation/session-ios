@@ -629,7 +629,7 @@ extension Attachment {
                 .components(separatedBy: CharacterSet(charactersIn: "<>|\\:()&;?*/~"))
                 .joined(separator: "_")
             
-            while normalizedFileName.hasPrefix(".") {
+            while normalizedFileName.hasPrefix(".") {   // stringlint:disable
                 normalizedFileName = String(normalizedFileName.substring(from: 1))
             }
             
@@ -650,13 +650,16 @@ extension Attachment {
             if !targetFileExtension.isEmpty {
                 // Store the file in a subdirectory whose name is the uniqueId of this attachment,
                 // to avoid collisions between multiple attachments with the same name
-                let attachmentFolder: String = Attachment.attachmentsFolder(using: dependencies).appending("/\(id)")
+                let attachmentFolder: String = Attachment
+                    .attachmentsFolder(using: dependencies)
+                    .appending("/\(id)") // stringlint:disable
                 
                 guard case .success = Result(try FileSystem.ensureDirectoryExists(at: attachmentFolder, using: dependencies)) else {
                     return nil
                 }
                 
-                return attachmentFolder.appending("/\(filenameWithoutExtension).\(targetFileExtension)")
+                return attachmentFolder
+                    .appending("/\(filenameWithoutExtension).\(targetFileExtension)") // stringlint:disable
             }
         }
         
@@ -665,7 +668,9 @@ extension Attachment {
             UTType.fileExtensionDefault
         ).lowercased()
         
-        return Attachment.attachmentsFolder(using: dependencies).appending("/\(id).\(targetFileExtension)")
+        return Attachment
+            .attachmentsFolder(using: dependencies)
+            .appending("/\(id).\(targetFileExtension)") // stringlint:disable
     }
     
     public static func localRelativeFilePath(from originalFilePath: String?, using dependencies: Dependencies) -> String? {

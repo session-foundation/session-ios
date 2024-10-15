@@ -127,10 +127,7 @@ public struct SessionThread: Codable, Identifiable, Equatable, FetchableRecord, 
     ) {
         self.id = id
         self.variant = variant
-        self.creationDateTimestamp = (
-            creationDateTimestamp ??
-            (dependencies[cache: .snodeAPI].currentOffsetTimestampMs() / 1000)
-        )
+        self.creationDateTimestamp = creationDateTimestamp
         self.shouldBeVisible = shouldBeVisible
         self.messageDraft = messageDraft
         self.notificationSound = notificationSound

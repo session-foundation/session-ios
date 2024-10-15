@@ -215,6 +215,8 @@ public struct FeatureValue<R> {
 
 // MARK: - Bool FeatureOption
 
+extension Bool: @retroactive CaseIterable {}
+extension Bool: @retroactive RawRepresentable {}
 extension Bool: FeatureOption {
     public static let allCases: [Bool] = [false, true]
     

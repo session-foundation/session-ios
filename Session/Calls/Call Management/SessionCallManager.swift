@@ -307,7 +307,7 @@ public extension SessionCallManager {
             }
             
             let iconMaskImage: UIImage = #imageLiteral(resourceName: "SessionGreen32")
-            let configuration = CXProviderConfiguration(localizedName: "Session") // stringlint:disable
+            let configuration = CXProviderConfiguration()
             configuration.supportsVideo = true
             configuration.maximumCallGroups = 1
             configuration.maximumCallsPerCallGroup = 1

@@ -169,7 +169,7 @@ final class ConversationTitleView: UIView {
         // No need to add themed subtitle content if we aren't adding the subtitle carousel
         guard shouldHaveSubtitle else { return }
         
-        ThemeManager.onThemeChange(observer: self.labelCarouselView) { [weak self, dependencies] theme, _ in
+        ThemeManager.onThemeChange(observer: self.labelCarouselView) { [weak self] theme, _ in
             guard let textPrimary: UIColor = theme.color(for: .textPrimary) else { return }
             
             var labelInfos: [SessionLabelCarouselView.LabelInfo] = []

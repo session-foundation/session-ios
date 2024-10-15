@@ -164,7 +164,6 @@ class EditGroupViewModel: SessionTableViewModel, NavigatableStateHolder, Editabl
         
         let userSessionId: SessionId = dependencies[cache: .general].sessionId
         let isUpdatedGroup: Bool = (((try? SessionId.Prefix(from: threadId)) ?? .group) == .group)
-        let editIcon: UIImage? = UIImage(systemName: "pencil")
         let sortedMembers: [WithProfile<GroupMember>] = {
             guard !isUpdatedGroup else { return state.members }
             
@@ -525,6 +524,7 @@ class EditGroupViewModel: SessionTableViewModel, NavigatableStateHolder, Editabl
                         switch (self?.inviteByIdValue, try? SessionId(from: self?.inviteByIdValue)) {
                             case (_, .some(let sessionId)) where sessionId.prefix == .standard:
                                 guard !currentMemberIds.contains(sessionId.hexString) else {
+                                    // FIXME: Localise this
                                     return showError("This Account ID or ONS belongs to an existing member")
                                 }
                                 
@@ -561,6 +561,7 @@ class EditGroupViewModel: SessionTableViewModel, NavigatableStateHolder, Editabl
                                             },
                                             receiveValue: { sessionIdHexString in
                                                 guard !currentMemberIds.contains(sessionIdHexString) else {
+                                                    // FIXME: Localise this
                                                     return showError("This Account ID or ONS belongs to an existing member")
                                                 }
                                                 

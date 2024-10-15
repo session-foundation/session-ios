@@ -232,7 +232,7 @@ public class SwarmPoller: SwarmPollerType & PollerType {
                     }
                     
                     // Add a job to process the config messages first
-                    var configMessageJobs: [Job] = allProcessedMessages
+                    let configMessageJobs: [Job] = allProcessedMessages
                         .filter { $0.isConfigMessage && !$0.namespace.shouldHandleSynchronously }
                         .grouped { $0.threadId }
                         .compactMap { threadId, threadMessages in
@@ -262,7 +262,7 @@ public class SwarmPoller: SwarmPollerType & PollerType {
                     
                     // Add jobs for processing non-config messages which are dependant on the config message
                     // processing jobs
-                    var standardMessageJobs: [Job] = allProcessedMessages
+                    let standardMessageJobs: [Job] = allProcessedMessages
                         .filter { !$0.isConfigMessage && !$0.namespace.shouldHandleSynchronously }
                         .grouped { $0.threadId }
                         .compactMap { threadId, threadMessages in

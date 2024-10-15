@@ -110,32 +110,32 @@ public extension Preferences {
                 case .`default`: return ""
                 
                 // Notification Sounds
-                case .aurora: return (quiet ? "aurora-quiet.aifc" : "aurora.aifc")
-                case .bamboo: return (quiet ? "bamboo-quiet.aifc" : "bamboo.aifc")
-                case .chord: return (quiet ? "chord-quiet.aifc" : "chord.aifc")
-                case .circles: return (quiet ? "circles-quiet.aifc" : "circles.aifc")
-                case .complete: return (quiet ? "complete-quiet.aifc" : "complete.aifc")
-                case .hello: return (quiet ? "hello-quiet.aifc" : "hello.aifc")
-                case .input: return (quiet ? "input-quiet.aifc" : "input.aifc")
-                case .keys: return (quiet ? "keys-quiet.aifc" : "keys.aifc")
-                case .note: return (quiet ? "note-quiet.aifc" : "note.aifc")
-                case .popcorn: return (quiet ? "popcorn-quiet.aifc" : "popcorn.aifc")
-                case .pulse: return (quiet ? "pulse-quiet.aifc" : "pulse.aifc")
-                case .synth: return (quiet ? "synth-quiet.aifc" : "synth.aifc")
-                case .signalClassic: return (quiet ? "classic-quiet.aifc" : "classic.aifc")
+                case .aurora: return (quiet ? "aurora-quiet.aifc" : "aurora.aifc")              // stringlint:disable
+                case .bamboo: return (quiet ? "bamboo-quiet.aifc" : "bamboo.aifc")              // stringlint:disable
+                case .chord: return (quiet ? "chord-quiet.aifc" : "chord.aifc")                 // stringlint:disable
+                case .circles: return (quiet ? "circles-quiet.aifc" : "circles.aifc")           // stringlint:disable
+                case .complete: return (quiet ? "complete-quiet.aifc" : "complete.aifc")        // stringlint:disable
+                case .hello: return (quiet ? "hello-quiet.aifc" : "hello.aifc")                 // stringlint:disable
+                case .input: return (quiet ? "input-quiet.aifc" : "input.aifc")                 // stringlint:disable
+                case .keys: return (quiet ? "keys-quiet.aifc" : "keys.aifc")                    // stringlint:disable
+                case .note: return (quiet ? "note-quiet.aifc" : "note.aifc")                    // stringlint:disable
+                case .popcorn: return (quiet ? "popcorn-quiet.aifc" : "popcorn.aifc")           // stringlint:disable
+                case .pulse: return (quiet ? "pulse-quiet.aifc" : "pulse.aifc")                 // stringlint:disable
+                case .synth: return (quiet ? "synth-quiet.aifc" : "synth.aifc")                 // stringlint:disable
+                case .signalClassic: return (quiet ? "classic-quiet.aifc" : "classic.aifc")     // stringlint:disable
                 
                 // Ringtone Sounds
-                case .opening: return "Opening.m4r"
+                case .opening: return "Opening.m4r"                                             // stringlint:disable
                 
                 // Calls
-                case .callConnecting: return "ringback_tone_ansi.caf"
-                case .callOutboundRinging: return "ringback_tone_ansi.caf"
-                case .callBusy: return "busy_tone_ansi.caf"
-                case .callFailure: return "end_call_tone_cept.caf"
+                case .callConnecting: return "ringback_tone_ansi.caf"                           // stringlint:disable
+                case .callOutboundRinging: return "ringback_tone_ansi.caf"                      // stringlint:disable
+                case .callBusy: return "busy_tone_ansi.caf"                                     // stringlint:disable
+                case .callFailure: return "end_call_tone_cept.caf"                              // stringlint:disable
                 
                 // Other
-                case .messageSent: return "message_sent.aiff"
-                case .none: return "silence.aiff"
+                case .messageSent: return "message_sent.aiff"                                   // stringlint:disable
+                case .none: return "silence.aiff"                                               // stringlint:disable
             }
         }
         

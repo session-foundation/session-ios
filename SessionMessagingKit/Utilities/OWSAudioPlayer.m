@@ -70,7 +70,7 @@ NS_ASSUME_NONNULL_BEGIN
     _mediaUrl = mediaUrl;
     _delegate = delegate;
 
-    NSString *audioActivityDescription = [NSString stringWithFormat:@"%@ %@", @"OWSAudioPlayer", self.mediaUrl];
+    NSString *audioActivityDescription = [NSString stringWithFormat:@"%@ %@", @"OWSAudioPlayer", self.mediaUrl]; // stringlint:disable
     _audioActivity = [[OWSAudioActivity alloc] initWithAudioDescription:audioActivityDescription behavior:audioBehavior];
 
     [[NSNotificationCenter defaultCenter] addObserver:self

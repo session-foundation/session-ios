@@ -41,7 +41,7 @@ public extension UIDevice {
     func ows_setOrientation(_ orientation: UIInterfaceOrientation) {
         // XXX - This is not officially supported, but there's no other way to programmatically rotate
         // the interface.
-        let orientationKey = "orientation"
+        let orientationKey = "orientation"  // stringlint:disable
         self.setValue(orientation.rawValue, forKey: orientationKey)
 
         // Not strictly necessary for the orientation to appear as changed

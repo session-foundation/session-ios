@@ -1,6 +1,7 @@
 //
 //  Copyright (c) 2019 Open Whisper Systems. All rights reserved.
 //
+// stringlint:disable
 
 import Foundation
 import Combine
@@ -18,7 +19,7 @@ public extension Singleton {
         identifier: "proxiedContentDownloader",
         createInstance: { dependencies in
             ProxiedContentDownloader(
-                downloadFolderName: "proxiedContent",   // stringlint:disable
+                downloadFolderName: "proxiedContent",
                 using: dependencies
             )
         }

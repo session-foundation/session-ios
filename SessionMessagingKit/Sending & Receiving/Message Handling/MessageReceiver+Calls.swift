@@ -200,7 +200,7 @@ extension MessageReceiver {
         
         guard
             dependencies[singleton: .callManager].currentWebRTCSessionMatches(callId: message.uuid),
-            var currentCall: CurrentCallProtocol = dependencies[singleton: .callManager].currentCall,
+            let currentCall: CurrentCallProtocol = dependencies[singleton: .callManager].currentCall,
             currentCall.uuid == message.uuid,
             let sender: String = message.sender
         else { return }

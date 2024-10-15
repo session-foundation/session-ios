@@ -47,7 +47,7 @@ extension ProjectState {
         "_SharedTestUtilities/",    // Exclude shared test directory
         "external/"                 // External dependencies
     ]
-    static let excludedPhrases: Set<String> = [ "", " ", "  ", ",", ", ", "null", "\"", "@[0-9a-fA-F]{66}", "^[0-9A-Fa-f]+$", "/" ]
+    static let excludedPhrases: Set<String> = [ "", " ", "  ", ",", ", ", "null", "\"", "\"\\($0)\"", "@[0-9a-fA-F]{66}", "^[0-9A-Fa-f]+$", "/" ]
     static let excludedUnlocalizedStringLineMatching: Set<MatchType> = [
         .contains(ProjectState.lintSuppression, caseSensitive: false),
         .prefix("#import", caseSensitive: false),
@@ -156,6 +156,7 @@ extension ProjectState {
         .regex("case .* = "),
         .regex("Error.*\\("),
         .belowLineContaining("PreviewProvider"),
+        .belowLineContaining("#Preview"),
         .regex("Crypto.*\\(id:"),
         .containsAnd("id:", caseSensitive: false, .previousLine(numEarlier: 1, .regex("Crypto.*\\("))),
         .regex(".*\\.like\\(\".*%\""),

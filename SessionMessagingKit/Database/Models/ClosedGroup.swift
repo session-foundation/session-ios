@@ -461,10 +461,15 @@ public extension ClosedGroup {
                 case .invitedFallback: return "groupInviteYou".localized()
                 
                 case .invitedAdmin(let adminName, let groupName):
-                    return "\(adminName) invited you to rejoin \(groupName), where you are an Admin."//.localized()
+                    return "groupInviteReinvite"
+                        .put(key: "name", value: adminName)
+                        .put(key: "group_name", value: groupName)
+                        .localized()
                     
                 case .invitedAdminFallback(let groupName):
-                    return "You were invited to rejoin \(groupName), where you are an Admin."//.localized()
+                    return "groupInviteReinviteYou"
+                        .put(key: "group_name", value: groupName)
+                        .localized()
                     
                 case .updatedName(let name):
                     return "groupNameNew"
@@ -529,9 +534,7 @@ public extension ClosedGroup {
                         .localized()
                     
                 case .addedUsers(true, _, false): return "groupInviteYou".localized()
-                    
-                case .addedUsers(true, _, true):
-                    return "groupInviteYou".localized()
+                case .addedUsers(true, _, true): return "groupInviteYouHistory".localized()
                     
                 case .removedUsers(false, let names) where names.count > 2:
                     return "groupRemovedMultiple"
@@ -560,7 +563,7 @@ public extension ClosedGroup {
                         .put(key: "name", value: names.first ?? "anonymous".localized())
                         .localized()
                 
-                case .removedUsers(true, _): return "groupRemovedYou".localized()
+                case .removedUsers(true, _): return "groupRemovedYouGeneral".localized()
                     
                 case .memberLeft(false, let name):
                     return "groupMemberLeft"
