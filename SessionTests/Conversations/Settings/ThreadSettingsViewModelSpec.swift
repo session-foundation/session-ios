@@ -347,7 +347,7 @@ class ThreadSettingsViewModelSpec: QuickSpec {
                         
                         let modal2: ConfirmationModal? = (screenTransitions.last?.destination as? ConfirmationModal)
                         expect(modal2?.info.title).to(equal("theError".localized()))
-                        expect(modal2?.info.body).to(equal(.text("displayNameErrorDescriptionShorter".localized())))
+                        expect(modal2?.info.body).to(equal(.text("nicknameErrorShorter".localized())))
                         expect(modal2?.info.confirmTitle).to(beNil())
                         expect(modal2?.info.cancelTitle).to(equal("okay".localized()))
                     }

@@ -229,11 +229,13 @@ internal extension LibSession {
         memberId: String,
         role: GroupMember.Role,
         status: GroupMember.RoleStatus,
+        profile: Profile?,
         using dependencies: Dependencies
     ) throws {
         try dependencies.mutate(cache: .libSession) { cache in
             try cache.performAndPushChange(db, for: .groupMembers, sessionId: groupSessionId) { config in
                 try LibSession.updateMemberStatus(memberId: memberId, role: role, status: status, in: config)
+                try LibSession.updateMemberProfile(memberId: memberId, profile: profile, in: config)
             }
         }
     }
@@ -264,6 +266,46 @@ internal extension LibSession {
         
         groups_members_set(conf, &groupMember)
         try LibSessionError.throwIfNeeded(conf)
+    }
+    
+    static func updateMemberProfile(
+        _ db: Database,
+        groupSessionId: SessionId,
+        memberId: String,
+        profile: Profile?,
+        using dependencies: Dependencies
+    ) throws {
+        try dependencies.mutate(cache: .libSession) { cache in
+            try cache.performAndPushChange(db, for: .groupMembers, sessionId: groupSessionId) { config in
+                try LibSession.updateMemberProfile(memberId: memberId, profile: profile, in: config)
+            }
+        }
+    }
+    
+    static func updateMemberProfile(
+        memberId: String,
+        profile: Profile?,
+        in config: Config?
+    ) throws {
+        guard let profile: Profile = profile else { return }
+        guard case .object(let conf) = config else { throw LibSessionError.invalidConfigObject }
+        
+        // Only update members if they already exist in the group
+        var cMemberId: [CChar] = try memberId.cString(using: .utf8) ?? { throw LibSessionError.invalidCConversion }()
+        var groupMember: config_group_member = config_group_member()
+        
+        // If the member doesn't exist then do nothing
+        guard groups_members_get(conf, &groupMember, &cMemberId) else { return }
+        
+        groupMember.set(\.name, to: profile.name)
+        
+        if profile.profilePictureUrl != nil && profile.profileEncryptionKey != nil {
+            groupMember.set(\.profile_pic.url, to: profile.profilePictureUrl)
+            groupMember.set(\.profile_pic.key, to: profile.profileEncryptionKey)
+        }
+        
+        groups_members_set(conf, &groupMember)
+        try? LibSessionError.throwIfNeeded(conf)
     }
     
     static func flagMembersForRemoval(

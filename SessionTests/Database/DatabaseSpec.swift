@@ -63,6 +63,46 @@ class DatabaseSpec: QuickSpec {
         
         // MARK: - a Database
         describe("a Database") {
+            // MARK: -- triggers the migration requirements in the expected order
+            it("triggers the migration requirements in the expected order") {
+                var migrationRequirementsSet: [MigrationRequirement] = []
+                mockStorage.perform(
+                    migrationTargets: [
+                        TestMigratableTarget.self
+                    ],
+                    async: false,
+                    onProgressUpdate: nil,
+                    onMigrationRequirement: { [dependencies = dependencies!] db, requirement in
+                        migrationRequirementsSet.append(requirement)
+                        
+                        MigrationTest.handleRequirements(db, requirement: requirement, using: dependencies)
+                    },
+                    onComplete: { _, _ in }
+                )
+                
+                expect(migrationRequirementsSet).to(equal([.sessionIdCached, .libSessionStateLoaded]))
+            }
+            
+            // MARK: -- triggers all prior migration requirements if only a latter one is called
+            it("triggers all prior migration requirements if only a latter one is called") {
+                var migrationRequirementsSet: [MigrationRequirement] = []
+                mockStorage.perform(
+                    migrationTargets: [
+                        SNMessagingKit.self
+                    ],
+                    async: false,
+                    onProgressUpdate: nil,
+                    onMigrationRequirement: { [dependencies = dependencies!] db, requirement in
+                        migrationRequirementsSet.append(requirement)
+                        
+                        MigrationTest.handleRequirements(db, requirement: requirement, using: dependencies)
+                    },
+                    onComplete: { _, _ in }
+                )
+                
+                expect(migrationRequirementsSet).to(equal([.sessionIdCached, .libSessionStateLoaded]))
+            }
+            
             // MARK: -- can be created from an empty state
             it("can be created from an empty state") {
                 mockStorage.perform(
@@ -403,4 +443,30 @@ private class MigrationTest {
             }
         }
     }
+}
+
+enum TestMigratableTarget: MigratableTarget { // Just to make the external API nice
+    public static func migrations() -> TargetMigrations {
+        return TargetMigrations(
+            identifier: .session,
+            migrations: [
+                [
+                    TestRequiresLibSessionStateMigration.self
+                ]
+            ]
+        )
+    }
+}
+
+enum TestRequiresLibSessionStateMigration: Migration {
+    static let target: TargetMigrations.Identifier = .session
+    static let identifier: String = "test" // stringlint:disable
+    static let needsConfigSync: Bool = false
+    static let minExpectedRunDuration: TimeInterval = 0.1
+    static var requirements: [MigrationRequirement] = [.libSessionStateLoaded]
+    static let fetchedTables: [(TableRecord & FetchableRecord).Type] = []
+    static let createdOrAlteredTables: [(TableRecord & FetchableRecord).Type] = []
+    static let droppedTables: [(TableRecord & FetchableRecord).Type] = []
+    
+    static func migrate(_ db: Database, using dependencies: Dependencies) throws {}
 }

@@ -1031,8 +1031,9 @@ class MessageReceiverGroupsSpec: QuickSpec {
                 
                 // MARK: ---- updates the GROUP_KEYS state correctly
                 it("updates the GROUP_KEYS state correctly") {
-                    // TODO: Should return a value????
-                    mockCrypto.when { $0.generate(.ed25519KeyPair(seed: .any)) }.thenReturn(nil)
+                    mockCrypto
+                        .when { $0.generate(.ed25519KeyPair(seed: .any)) }
+                        .thenReturn(KeyPair(publicKey: [1, 2, 3], secretKey: [4, 5, 6]))
                     
                     mockStorage.write { db in
                         try MessageReceiver.handleGroupUpdateMessage(
@@ -1986,8 +1987,8 @@ class MessageReceiverGroupsSpec: QuickSpec {
                     }
                 }
                 
-                // MARK: ---- updates the profile information if provided
-                it("updates the profile information if provided") {
+                // MARK: ---- updates the profile information in the database if provided
+                it("updates the profile information in the database if provided") {
                     mockStorage.write { db in
                         try MessageReceiver.handleGroupUpdateMessage(
                             db,
@@ -2128,6 +2129,28 @@ class MessageReceiverGroupsSpec: QuickSpec {
                         var groupMember: config_group_member = config_group_member()
                         expect(groups_members_get(groupMembersConf, &groupMember, &cMemberId)).to(beTrue())
                         expect(groupMember.invited).to(equal(0))
+                    }
+                    
+                    // MARK: ---- updates the config member entry with profile information if provided
+                    it("updates the config member entry with profile information if provided") {
+                        mockStorage.write { db in
+                            _ = try GroupMember.deleteAll(db)
+                        }
+                        
+                        mockStorage.write { db in
+                            try MessageReceiver.handleGroupUpdateMessage(
+                                db,
+                                threadId: groupId.hexString,
+                                threadVariant: .group,
+                                message: inviteResponseMessage,
+                                using: dependencies
+                            )
+                        }
+                        
+                        var cMemberId: [CChar] = "051111111111111111111111111111111111111111111111111111111111111112".cString(using: .utf8)!
+                        var groupMember: config_group_member = config_group_member()
+                        expect(groups_members_get(groupMembersConf, &groupMember, &cMemberId)).to(beTrue())
+                        expect(groupMember.get(\.name)).to(equal("TestOtherMember"))
                     }
                 }
             }

@@ -84,6 +84,7 @@ public enum MentionUtilities {
             
             guard let targetString: String = {
                 guard !isCurrentUser else { return "you".localized() }
+                // FIXME: This does a database query and is happening when populating UI - should try to refactor it somehow (ideally resolve a set of mentioned profiles as part of the database query)
                 guard let displayName: String = Profile.displayNameNoFallback(id: sessionId, threadVariant: threadVariant, using: dependencies) else {
                     lastMatchEnd = (match.range.location + match.range.length)
                     return nil

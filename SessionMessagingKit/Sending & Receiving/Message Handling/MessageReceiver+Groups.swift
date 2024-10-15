@@ -567,6 +567,16 @@ extension MessageReceiver {
             db,
             senderSessionId: sender,
             groupSessionIdHexString: groupSessionId.hexString,
+            profile: message.profile.map { profile in
+                profile.displayName.map {
+                    Profile(
+                        id: sender,
+                        name: $0,
+                        profilePictureUrl: profile.profilePictureUrl,
+                        profileEncryptionKey: profile.profileKey
+                    )
+                }
+            },
             using: dependencies
         )
     }
@@ -976,6 +986,7 @@ extension MessageReceiver {
         _ db: Database,
         senderSessionId: String,
         groupSessionIdHexString: String?,
+        profile: Profile?,
         using dependencies: Dependencies
     ) throws {
         // Only group admins can update the member approval state
@@ -1005,6 +1016,7 @@ extension MessageReceiver {
                     memberId: senderSessionId,
                     role: .standard,
                     status: .accepted,
+                    profile: profile,
                     using: dependencies
                 )
                 
@@ -1020,6 +1032,13 @@ extension MessageReceiver {
                         calledFromConfig: nil,
                         using: dependencies
                     )
+                try LibSession.updateMemberProfile(
+                    db,
+                    groupSessionId: groupSessionId,
+                    memberId: senderSessionId,
+                    profile: profile,
+                    using: dependencies
+                )
                 
             default: break  // Invalid cases
         }

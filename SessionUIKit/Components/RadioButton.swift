@@ -36,7 +36,7 @@ public class RadioButton: UIView {
         set { titleLabel.text = newValue }
     }
     
-    public private(set) var isEnabled: Bool = false
+    public private(set) var isEnabled: Bool = true
     public private(set) var isSelected: Bool = false
     private let onSelected: ((RadioButton) -> ())?
     

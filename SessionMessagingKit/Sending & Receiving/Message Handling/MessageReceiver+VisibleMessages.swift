@@ -378,6 +378,7 @@ extension MessageReceiver {
                     db,
                     senderSessionId: sender,
                     groupSessionIdHexString: thread.id,
+                    profile: nil,   // Don't update the profile in this case
                     using: dependencies
                 )
                 

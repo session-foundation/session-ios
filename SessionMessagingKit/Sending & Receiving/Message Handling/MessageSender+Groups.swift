@@ -620,6 +620,7 @@ extension MessageSender {
                 memberId: memberId,
                 role: .standard,
                 status: .notSentYet,
+                profile: nil,
                 using: dependencies
             )
             
@@ -786,6 +787,7 @@ extension MessageSender {
                     memberId: memberId,
                     role: .admin,
                     status: .notSentYet,
+                    profile: nil,
                     using: dependencies
                 )
                 

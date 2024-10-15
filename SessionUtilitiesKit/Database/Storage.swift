@@ -389,7 +389,7 @@ open class Storage {
         
         // Remove any processed requirements from the list (don't want to process them multiple times)
         unprocessedMigrationRequirements.mutate {
-            $0 = Array($0.asSet().subtracting(migration.requirements.asSet()))
+            $0 = Array($0.asSet().subtracting(unprocessedRequirements.asSet()))
         }
     }
     
