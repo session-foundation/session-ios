@@ -11,23 +11,16 @@ import SignalUtilitiesKit
 
 struct HomeScreen: View {
     @EnvironmentObject var host: HostWrapper
-    
-    @State private var viewModel: HomeScreenViewModel
-    @State private var flow: Onboarding.Flow?
-    @State private var dataChangeObservable: DatabaseCancellable? {
-        didSet { oldValue?.cancel() }   // Cancel the old observable if there was one
-    }
-    @State private var hasLoadedInitialStateData: Bool = false
-    @State private var hasLoadedInitialThreadData: Bool = false
-    @State private var isLoadingMore: Bool = false
-    @State private var isAutoLoadingNextPage: Bool = false
-    @State private var viewHasAppeared: Bool = false
+    @StateObject private var viewModel: HomeScreenViewModel
+    private var flow: Onboarding.Flow?
     
     init(flow: Onboarding.Flow? = nil, using dependencies: Dependencies, onReceivedInitialChange: (() -> ())? = nil) {
         self.flow = flow
-        self.viewModel = HomeScreenViewModel(
-            using: dependencies,
-            onReceivedInitialChange: onReceivedInitialChange
+        _viewModel = StateObject(
+            wrappedValue: HomeScreenViewModel(
+                using: dependencies,
+                onReceivedInitialChange: onReceivedInitialChange
+            )
         )
     }
     
@@ -41,7 +34,7 @@ struct HomeScreen: View {
                 
                 if viewModel.threadData.isEmpty {
                     ZStack {
-                        EmptyStateView(flow: $flow)
+                        EmptyStateView(flow: self.flow)
                     }
                     .frame(
                         maxWidth: .infinity,
@@ -69,8 +62,8 @@ struct HomeScreen: View {
     // MARK: - Interaction
     
     func handleContinueButtonTapped() {
-        if let recoveryPasswordView: RecoveryPasswordScreen = try? RecoveryPasswordScreen() {
-            let viewController: SessionHostingViewController = SessionHostingViewController(rootView: recoveryPasswordView)
+        if let recoveryPasswordScreen: RecoveryPasswordScreen = try? RecoveryPasswordScreen() {
+            let viewController: SessionHostingViewController = SessionHostingViewController(rootView: recoveryPasswordScreen)
             viewController.setNavBarTitle("sessionRecoveryPassword".localized())
             self.host.controller?.navigationController?.pushViewController(viewController, animated: true)
         } else {
@@ -168,236 +161,242 @@ struct HomeScreen: View {
 
 // MARK: NewConversationButton
 
-struct NewConversationButton: View {
-    
-    struct NewConversationButtonStyle: ButtonStyle {
-        func makeBody(configuration: Self.Configuration) -> some View {
-            configuration.label
-                .background(
-                    configuration.isPressed ?
-                    Circle()
-                        .fill(themeColor: .highlighted(.menuButton_background, alwaysDarken: true))
-                        .frame(
-                            width: NewConversationButton.size,
-                            height: NewConversationButton.size
-                        )
-                        .shadow(
-                            themeColor: .menuButton_outerShadow,
-                            opacity: 0.3,
-                            radius: 15
-                        ) :
-                    Circle()
-                        .fill(themeColor: .menuButton_background)
-                        .frame(
-                            width: NewConversationButton.size,
-                            height: NewConversationButton.size
-                        )
-                        .shadow(
-                            themeColor: .menuButton_outerShadow,
-                            opacity: 0.3,
-                            radius: 15
-                        )
-                )
-        }
-    }
-    
-    private static let size: CGFloat = 60
-    private var action: () -> ()
-    
-    init(action: @escaping () -> Void) {
-        self.action = action
-    }
-    
-    var body: some View {
-        ZStack {
-            Button {
-                action()
-            } label: {
-                Image("Plus")
-                    .renderingMode(.template)
-                    .foregroundColor(themeColor: .menuButton_icon)
+extension HomeScreen {
+    struct NewConversationButton: View {
+        
+        struct NewConversationButtonStyle: ButtonStyle {
+            func makeBody(configuration: Self.Configuration) -> some View {
+                configuration.label
+                    .background(
+                        configuration.isPressed ?
+                        Circle()
+                            .fill(themeColor: .highlighted(.menuButton_background, alwaysDarken: true))
+                            .frame(
+                                width: NewConversationButton.size,
+                                height: NewConversationButton.size
+                            )
+                            .shadow(
+                                themeColor: .menuButton_outerShadow,
+                                opacity: 0.3,
+                                radius: 15
+                            ) :
+                        Circle()
+                            .fill(themeColor: .menuButton_background)
+                            .frame(
+                                width: NewConversationButton.size,
+                                height: NewConversationButton.size
+                            )
+                            .shadow(
+                                themeColor: .menuButton_outerShadow,
+                                opacity: 0.3,
+                                radius: 15
+                            )
+                    )
             }
-            .buttonStyle(NewConversationButtonStyle())
-            .accessibility(
-                Accessibility(
-                    identifier: "New conversation button",
-                    label: "New conversation button"
-                )
-            )
-            .padding(.bottom, Values.smallSpacing)
         }
-        .frame(
-            maxWidth: .infinity,
-            maxHeight: .infinity,
-            alignment: .bottom
-        )
+        
+        private static let size: CGFloat = 60
+        private var action: () -> ()
+        
+        init(action: @escaping () -> Void) {
+            self.action = action
+        }
+        
+        var body: some View {
+            ZStack {
+                Button {
+                    action()
+                } label: {
+                    Image("Plus")
+                        .renderingMode(.template)
+                        .foregroundColor(themeColor: .menuButton_icon)
+                }
+                .buttonStyle(NewConversationButtonStyle())
+                .accessibility(
+                    Accessibility(
+                        identifier: "New conversation button",
+                        label: "New conversation button"
+                    )
+                )
+                .padding(.bottom, Values.smallSpacing)
+            }
+            .frame(
+                maxWidth: .infinity,
+                maxHeight: .infinity,
+                alignment: .bottom
+            )
+        }
     }
 }
 
 // MARK: EmptyStateView
 
-struct EmptyStateView: View {
-    @Binding var flow: Onboarding.Flow?
-    var body: some View {
-        VStack(
-            alignment: .center,
-            spacing: Values.smallSpacing,
-            content: {
-                if flow == .register {
-                    // Welcome state after account creation
-                    Image("Hooray")
-                        .frame(
-                            height: 96,
-                            alignment: .center
-                        )
-                    
-                    Text("onboardingAccountCreated".localized())
-                        .bold()
-                        .font(.system(size: Values.veryLargeFontSize))
-                        .foregroundColor(themeColor: .textPrimary)
-                    
-                    Text(
-                        "onboardingBubbleWelcomeToSession"
-                            .put(key: "emoji", value: "")
-                            .localized()
-                    )
-                    .font(.system(size: Values.smallFontSize))
-                    .foregroundColor(themeColor: .sessionButton_text)
+extension HomeScreen {
+    struct EmptyStateView: View {
+        var flow: Onboarding.Flow?
+        var body: some View {
+            VStack(
+                alignment: .center,
+                spacing: Values.smallSpacing,
+                content: {
+                    if flow == .register {
+                        // Welcome state after account creation
+                        Image("Hooray")
+                            .frame(
+                                height: 96,
+                                alignment: .center
+                            )
                         
-                } else {
-                    // Normal empty state
-                    Image("SessionGreen64")
-                        .resizable()
-                        .aspectRatio(contentMode: .fit)
-                        .frame(
-                            height: 103,
-                            alignment: .center
+                        Text("onboardingAccountCreated".localized())
+                            .bold()
+                            .font(.system(size: Values.veryLargeFontSize))
+                            .foregroundColor(themeColor: .textPrimary)
+                        
+                        Text(
+                            "onboardingBubbleWelcomeToSession"
+                                .put(key: "emoji", value: "")
+                                .localized()
                         )
-                        .padding(.bottom, Values.mediumSpacing)
+                        .font(.system(size: Values.smallFontSize))
+                        .foregroundColor(themeColor: .sessionButton_text)
+                            
+                    } else {
+                        // Normal empty state
+                        Image("SessionGreen64")
+                            .resizable()
+                            .aspectRatio(contentMode: .fit)
+                            .frame(
+                                height: 103,
+                                alignment: .center
+                            )
+                            .padding(.bottom, Values.mediumSpacing)
+                        
+                        Image("SessionHeading")
+                            .resizable()
+                            .renderingMode(.template)
+                            .aspectRatio(contentMode: .fit)
+                            .foregroundColor(themeColor: .textPrimary)
+                            .frame(
+                                height: 22,
+                                alignment: .center
+                            )
+                            .padding(.bottom, Values.smallSpacing)
+                    }
                     
-                    Image("SessionHeading")
-                        .resizable()
-                        .renderingMode(.template)
-                        .aspectRatio(contentMode: .fit)
+                    Line(color: .borderSeparator)
+                        .padding(.vertical, Values.smallSpacing)
+                    
+                    Text("conversationsNone".localized())
+                        .bold()
+                        .font(.system(size: Values.mediumFontSize))
                         .foregroundColor(themeColor: .textPrimary)
-                        .frame(
-                            height: 22,
-                            alignment: .center
-                        )
-                        .padding(.bottom, Values.smallSpacing)
+                    
+                    Text("onboardingHitThePlusButton".localized())
+                        .font(.system(size: Values.verySmallFontSize))
+                        .foregroundColor(themeColor: .textPrimary)
+                        .multilineTextAlignment(.center)
                 }
-                
-                Line(color: .borderSeparator)
-                    .padding(.vertical, Values.smallSpacing)
-                
-                Text("conversationsNone".localized())
-                    .bold()
-                    .font(.system(size: Values.mediumFontSize))
-                    .foregroundColor(themeColor: .textPrimary)
-                
-                Text("onboardingHitThePlusButton".localized())
-                    .font(.system(size: Values.verySmallFontSize))
-                    .foregroundColor(themeColor: .textPrimary)
-                    .multilineTextAlignment(.center)
-            }
-        )
-        .frame(
-            width: 300,
-            alignment: .center
-        )
+            )
+            .frame(
+                width: 300,
+                alignment: .center
+            )
+        }
     }
 }
 
 // MARK: SeedBanner
 
-struct SeedBanner: View {
-    private var action: () -> ()
-    
-    init(action: @escaping () -> Void) {
-        self.action = action
-    }
-    
-    var body: some View {
-        ZStack(
-            alignment: .topLeading,
-            content: {
-                Rectangle()
-                    .fill(themeColor: .primary)
-                    .frame(height: 2)
-                    .frame(maxWidth: .infinity)
-                
-                HStack(
-                    alignment: .center,
-                    spacing: 0,
-                    content: {
-                        VStack(
-                            alignment: .leading,
-                            spacing: Values.smallSpacing,
-                            content: {
-                                HStack(
-                                    alignment: .center,
-                                    spacing: Values.verySmallSpacing,
-                                    content: {
-                                        Text("recoveryPasswordBannerTitle".localized())
-                                            .font(.system(size: Values.smallFontSize))
-                                            .bold()
-                                            .foregroundColor(themeColor: .textPrimary)
-                                        
-                                        Image("SessionShieldFilled")
-                                            .resizable()
-                                            .renderingMode(.template)
-                                            .foregroundColor(themeColor: .textPrimary)
-                                            .scaledToFit()
-                                            .frame(
-                                                width: 14,
-                                                height: 16
-                                            )
-                                    }
-                                )
-                                
-                                Text("recoveryPasswordBannerDescription".localized())
-                                    .font(.system(size: Values.verySmallFontSize))
-                                    .foregroundColor(themeColor: .textSecondary)
-                                    .lineLimit(2)
-                            }
-                        )
-                        
-                        Spacer()
-                        
-                        Button {
-                            action()
-                        } label: {
-                            Text("theContinue".localized())
-                                .bold()
-                                .font(.system(size: Values.smallFontSize))
-                                .foregroundColor(themeColor: .sessionButton_text)
-                                .frame(
-                                    minWidth: 80,
-                                    maxHeight: Values.smallButtonHeight,
-                                    alignment: .center
-                                )
-                                .overlay(
-                                    Capsule()
-                                        .stroke(themeColor: .sessionButton_border)
-                                )
-                        }
-                        .accessibility(
-                            Accessibility(
-                                identifier: "Reveal recovery phrase button",
-                                label: "Reveal recovery phrase button"
+extension HomeScreen {
+    struct SeedBanner: View {
+        private var action: () -> ()
+        
+        init(action: @escaping () -> Void) {
+            self.action = action
+        }
+        
+        var body: some View {
+            ZStack(
+                alignment: .topLeading,
+                content: {
+                    Rectangle()
+                        .fill(themeColor: .primary)
+                        .frame(height: 2)
+                        .frame(maxWidth: .infinity)
+                    
+                    HStack(
+                        alignment: .center,
+                        spacing: 0,
+                        content: {
+                            VStack(
+                                alignment: .leading,
+                                spacing: Values.smallSpacing,
+                                content: {
+                                    HStack(
+                                        alignment: .center,
+                                        spacing: Values.verySmallSpacing,
+                                        content: {
+                                            Text("recoveryPasswordBannerTitle".localized())
+                                                .font(.system(size: Values.smallFontSize))
+                                                .bold()
+                                                .foregroundColor(themeColor: .textPrimary)
+                                            
+                                            Image("SessionShieldFilled")
+                                                .resizable()
+                                                .renderingMode(.template)
+                                                .foregroundColor(themeColor: .textPrimary)
+                                                .scaledToFit()
+                                                .frame(
+                                                    width: 14,
+                                                    height: 16
+                                                )
+                                        }
+                                    )
+                                    
+                                    Text("recoveryPasswordBannerDescription".localized())
+                                        .font(.system(size: Values.verySmallFontSize))
+                                        .foregroundColor(themeColor: .textSecondary)
+                                        .lineLimit(2)
+                                }
                             )
-                        )
-                    }
-                )
-                .padding(isIPhone5OrSmaller ? Values.smallSpacing : Values.mediumSpacing)
-            }
-        )
-        .backgroundColor(themeColor: .conversationButton_background)
-        .border(
-            width: Values.separatorThickness,
-            edges: [.bottom],
-            color: .borderSeparator
-        )
+                            
+                            Spacer()
+                            
+                            Button {
+                                action()
+                            } label: {
+                                Text("theContinue".localized())
+                                    .bold()
+                                    .font(.system(size: Values.smallFontSize))
+                                    .foregroundColor(themeColor: .sessionButton_text)
+                                    .frame(
+                                        minWidth: 80,
+                                        maxHeight: Values.smallButtonHeight,
+                                        alignment: .center
+                                    )
+                                    .overlay(
+                                        Capsule()
+                                            .stroke(themeColor: .sessionButton_border)
+                                    )
+                            }
+                            .accessibility(
+                                Accessibility(
+                                    identifier: "Reveal recovery phrase button",
+                                    label: "Reveal recovery phrase button"
+                                )
+                            )
+                        }
+                    )
+                    .padding(isIPhone5OrSmaller ? Values.smallSpacing : Values.mediumSpacing)
+                }
+            )
+            .backgroundColor(themeColor: .conversationButton_background)
+            .border(
+                width: Values.separatorThickness,
+                edges: [.bottom],
+                color: .borderSeparator
+            )
+        }
     }
 }
 

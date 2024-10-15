@@ -231,7 +231,7 @@ public class HomeScreenDataModel {
     // MARK: - State
     
     /// This value is the current state of the view
-    public private(set) var state: State
+    public var state: State
     
     /// This is all the data the screen needs to populate itself, please see the following link for tips to help optimise
     /// performance https://github.com/groue/GRDB.swift#valueobservation-performance
@@ -298,7 +298,7 @@ public class HomeScreenDataModel {
     
     private var hasReceivedInitialThreadData: Bool = false
     public private(set) var unobservedThreadDataChanges: [SectionModel]?
-    public private(set) var threadData: [SectionModel] = []
+    public var threadData: [SectionModel] = []
     public private(set) var pagedDataObserver: PagedDatabaseObserver<SessionThread, SessionThreadViewModel>?
     
     public var onThreadChange: (([SectionModel], StagedChangeset<[SectionModel]>) -> ())? {

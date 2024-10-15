@@ -8,11 +8,7 @@ import SessionMessagingKit
 import SessionUtilitiesKit
 
 public class HomeScreenViewModel: ObservableObject {
-    
-    @Published var state: HomeScreenDataModel.State
-    @Published var threadData: [HomeScreenDataModel.SectionModel] = []
-    
-    public var dataModel: HomeScreenDataModel
+    @Published public var dataModel: HomeScreenDataModel
     
     private var dataChangeObservable: DatabaseCancellable? {
         didSet { oldValue?.cancel() }   // Cancel the old observable if there was one
@@ -24,7 +20,6 @@ public class HomeScreenViewModel: ObservableObject {
     
     init(using dependencies: Dependencies, onReceivedInitialChange: (() -> ())? = nil) {
         self.dataModel = HomeScreenDataModel(using: dependencies)
-        self.state = self.dataModel.state
         self.startObservingChanges(onReceivedInitialChange: onReceivedInitialChange)
     }
     
@@ -47,13 +42,13 @@ public class HomeScreenViewModel: ObservableObject {
             onError: { _ in },
             onChange: { [weak self] state in
                 // The default scheduler emits changes on the main thread
-                self?.state = state
+                self?.dataModel.state = state
                 runAndClearInitialChangeCallback?()
             }
         )
         
         self.dataModel.onThreadChange = { [weak self] updatedThreadData, changeset in
-            self?.threadData = updatedThreadData
+            self?.dataModel.threadData = updatedThreadData
             runAndClearInitialChangeCallback?()
         }
         

@@ -196,7 +196,7 @@
 		94E12DBC2C24063A00D28EE0 /* SessionButton_SwiftUI.swift in Sources */ = {isa = PBXBuildFile; fileRef = 94E12DBB2C24063A00D28EE0 /* SessionButton_SwiftUI.swift */; };
 		94E5EDA52C8ECBFC0084ED63 /* HomeScreenDataModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 94E5EDA42C8ECBFC0084ED63 /* HomeScreenDataModel.swift */; };
 		94E5EDA72C8ECC150084ED63 /* HomeScreenViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 94E5EDA62C8ECC150084ED63 /* HomeScreenViewModel.swift */; };
-		94E89A9B2C2A997B00FB18E1 /* ConversationList.swift in Sources */ = {isa = PBXBuildFile; fileRef = 94E89A9A2C2A997B00FB18E1 /* ConversationList.swift */; };
+		94E89A9B2C2A997B00FB18E1 /* HomeScreen+ConversationList.swift in Sources */ = {isa = PBXBuildFile; fileRef = 94E89A9A2C2A997B00FB18E1 /* HomeScreen+ConversationList.swift */; };
 		94E9BC0D2C7BFBDA006984EA /* Localization+Style.swift in Sources */ = {isa = PBXBuildFile; fileRef = 94E9BC0C2C7BFBDA006984EA /* Localization+Style.swift */; };
 		A11CD70D17FA230600A2D1B1 /* QuartzCore.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = A11CD70C17FA230600A2D1B1 /* QuartzCore.framework */; };
 		A163E8AB16F3F6AA0094D68B /* Security.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = A163E8AA16F3F6A90094D68B /* Security.framework */; };
@@ -1396,7 +1396,7 @@
 		94E12DBB2C24063A00D28EE0 /* SessionButton_SwiftUI.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SessionButton_SwiftUI.swift; sourceTree = "<group>"; };
 		94E5EDA42C8ECBFC0084ED63 /* HomeScreenDataModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HomeScreenDataModel.swift; sourceTree = "<group>"; };
 		94E5EDA62C8ECC150084ED63 /* HomeScreenViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HomeScreenViewModel.swift; sourceTree = "<group>"; };
-		94E89A9A2C2A997B00FB18E1 /* ConversationList.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = ConversationList.swift; path = Session/Home/ConversationList.swift; sourceTree = SOURCE_ROOT; };
+		94E89A9A2C2A997B00FB18E1 /* HomeScreen+ConversationList.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = "HomeScreen+ConversationList.swift"; path = "Session/Home/HomeScreen+ConversationList.swift"; sourceTree = SOURCE_ROOT; };
 		94E9BC0C2C7BFBDA006984EA /* Localization+Style.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Localization+Style.swift"; sourceTree = "<group>"; };
 		A11CD70C17FA230600A2D1B1 /* QuartzCore.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = QuartzCore.framework; path = System/Library/Frameworks/QuartzCore.framework; sourceTree = SDKROOT; };
 		A163E8AA16F3F6A90094D68B /* Security.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Security.framework; path = System/Library/Frameworks/Security.framework; sourceTree = SDKROOT; };
@@ -3091,7 +3091,7 @@
 				FDCDB8DF2811007F00352A0C /* HomeViewModel.swift */,
 				B8BB82A4238F627000BA5194 /* HomeVC.swift */,
 				941BE62E2C1BF887005A880A /* HomeScreen.swift */,
-				94E89A9A2C2A997B00FB18E1 /* ConversationList.swift */,
+				94E89A9A2C2A997B00FB18E1 /* HomeScreen+ConversationList.swift */,
 				94E5EDA42C8ECBFC0084ED63 /* HomeScreenDataModel.swift */,
 				94E5EDA62C8ECC150084ED63 /* HomeScreenViewModel.swift */,
 			);
@@ -5279,26 +5279,6 @@
 /* End PBXResourcesBuildPhase section */
 
 /* Begin PBXShellScriptBuildPhase section */
-		FD0B1FA92CA3805C00F60F46 /* Ensure InfoPlist.xcstrings updated */ = {
-			isa = PBXShellScriptBuildPhase;
-			alwaysOutOfDate = 1;
-			buildActionMask = 2147483647;
-			files = (
-			);
-			inputFileListPaths = (
-			);
-			inputPaths = (
-			);
-			name = "Ensure InfoPlist.xcstrings updated";
-			outputFileListPaths = (
-			);
-			outputPaths = (
-			);
-			runOnlyForDeploymentPostprocessing = 0;
-			shellPath = /bin/sh;
-			shellScript = "\"${SRCROOT}/Scripts/LintLocalizableStrings.swift\" update\n";
-			showEnvVarsInLog = 0;
-		};
 		9471CAA62CACFB0600090FB7 /* Generate Licenses Plist */ = {
 			isa = PBXShellScriptBuildPhase;
 			alwaysOutOfDate = 1;
@@ -5317,6 +5297,26 @@
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
 			shellScript = "\"${SRCROOT}/Scripts/GenerateLicenses.swift\"\n";
+			showEnvVarsInLog = 0;
+		};
+		FD0B1FA92CA3805C00F60F46 /* Ensure InfoPlist.xcstrings updated */ = {
+			isa = PBXShellScriptBuildPhase;
+			alwaysOutOfDate = 1;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputFileListPaths = (
+			);
+			inputPaths = (
+			);
+			name = "Ensure InfoPlist.xcstrings updated";
+			outputFileListPaths = (
+			);
+			outputPaths = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "\"${SRCROOT}/Scripts/LintLocalizableStrings.swift\" update\n";
 			showEnvVarsInLog = 0;
 		};
 		FD5E93D32C12D3990038C25A /* Add App Group To Build Info Plist */ = {
@@ -6294,7 +6294,7 @@
 				FDEF57212C3CF03A00131302 /* WebRTCSession.swift in Sources */,
 				7B9F71D32852EEE2006DFE7B /* Emoji.swift in Sources */,
 				FDC498BB2AC1606C00EDD897 /* AppNotificationUserInfoKey.swift in Sources */,
-				94E89A9B2C2A997B00FB18E1 /* ConversationList.swift in Sources */,
+				94E89A9B2C2A997B00FB18E1 /* HomeScreen+ConversationList.swift in Sources */,
 				C328250F25CA06020062D0A7 /* VoiceMessageView.swift in Sources */,
 				3488F9362191CC4000E524CC /* MediaView.swift in Sources */,
 				B8569AC325CB5D2900DBA3DB /* ConversationVC+Interaction.swift in Sources */,
