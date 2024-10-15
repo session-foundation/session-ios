@@ -25,42 +25,30 @@ extension Setting {
     // MARK: - Numeric Setting
     
     fileprivate init?<T: Numeric>(key: String, value: T?) {
-        guard let value: T = value else { return nil }
-        
-        var targetValue: T = value
+        guard var value: T = value else { return nil }
         
         self.key = key
-        self.value = Data(bytes: &targetValue, count: MemoryLayout.size(ofValue: targetValue))
+        self.value = withUnsafeBytes(of: &value) { Data($0) }
     }
     
     fileprivate func value<T: Numeric>(as type: T.Type) -> T? {
-        // Note: The 'assumingMemoryBound' is essentially going to try to convert
-        // the memory into the provided type so can result in invalid data being
-        // returned if the type is incorrect. But it does seem safer than the 'load'
-        // method which crashed under certain circumstances (an `Int` value of 0)
         return value.withUnsafeBytes {
-            $0.baseAddress?.assumingMemoryBound(to: T.self).pointee
+            $0.loadUnaligned(as: T.self)
         }
     }
     
     // MARK: - Bool Setting
     
     fileprivate init?(key: String, value: Bool?) {
-        guard let value: Bool = value else { return nil }
-        
-        var targetValue: Bool = value
+        guard var value: Bool = value else { return nil }
         
         self.key = key
-        self.value = Data(bytes: &targetValue, count: MemoryLayout.size(ofValue: targetValue))
+        self.value = withUnsafeBytes(of: &value) { Data($0) }
     }
     
     public func unsafeValue(as type: Bool.Type) -> Bool? {
-        // Note: The 'assumingMemoryBound' is essentially going to try to convert
-        // the memory into the provided type so can result in invalid data being
-        // returned if the type is incorrect. But it does seem safer than the 'load'
-        // method which crashed under certain circumstances (an `Int` value of 0)
         return value.withUnsafeBytes {
-            $0.baseAddress?.assumingMemoryBound(to: Bool.self).pointee
+            $0.loadUnaligned(as: Bool.self)
         }
     }
     
