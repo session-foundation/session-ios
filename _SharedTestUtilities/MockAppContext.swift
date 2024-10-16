@@ -4,14 +4,11 @@ import UIKit
 import SessionUtilitiesKit
 
 class MockAppContext: Mock<AppContext>, AppContext {
-    var _temporaryDirectory: String? {
-        get { mock() }
-        set { mockNoReturn(args: [newValue]) }
-    }
     var mainWindow: UIWindow? { mock() }
     var frontMostViewController: UIViewController? { mock() }
     
     var isValid: Bool { mock() }
+    var appLaunchTime: Date { mock() }
     var isMainApp: Bool { mock() }
     var isMainAppAndActive: Bool { mock() }
     var isShareExtension: Bool { mock() }
@@ -36,12 +33,5 @@ class MockAppContext: Mock<AppContext>, AppContext {
     
     func endBackgroundTask(_ backgroundTaskIdentifier: UIBackgroundTaskIdentifier) {
         mockNoReturn(args: [backgroundTaskIdentifier])
-    }
-    
-    var temporaryDirectory: String { mock() }
-    var temporaryDirectoryAccessibleAfterFirstAuth: String { mock() }
-    
-    func clearOldTemporaryDirectories() {
-        mockNoReturn()
     }
 }

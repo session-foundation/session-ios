@@ -14,8 +14,8 @@ public extension Singleton {
 // MARK: - AppContext
 
 public protocol AppContext: AnyObject {
-    var _temporaryDirectory: String? { get set }
     var isValid: Bool { get }
+    var appLaunchTime: Date { get }
     var isMainApp: Bool { get }
     var isMainAppAndActive: Bool { get }
     var isShareExtension: Bool { get }
@@ -28,13 +28,6 @@ public protocol AppContext: AnyObject {
     func ensureSleepBlocking(_ shouldBeBlocking: Bool, blockingObjects: [Any])
     func beginBackgroundTask(expirationHandler: @escaping () -> ()) -> UIBackgroundTaskIdentifier
     func endBackgroundTask(_ backgroundTaskIdentifier: UIBackgroundTaskIdentifier)
-    
-    var temporaryDirectory: String { get }
-    var temporaryDirectoryAccessibleAfterFirstAuth: String { get }
-    
-    /// **Note:** We need to call this method on launch _and_ every time the app becomes active,
-    /// since file protection may prevent it from succeeding in the background.
-    func clearOldTemporaryDirectories()
 }
 
 // MARK: - Defaults
@@ -57,42 +50,14 @@ public extension AppContext {
     func ensureSleepBlocking(_ shouldBeBlocking: Bool, blockingObjects: [Any]) {}
     func beginBackgroundTask(expirationHandler: @escaping () -> ()) -> UIBackgroundTaskIdentifier { return .invalid }
     func endBackgroundTask(_ backgroundTaskIdentifier: UIBackgroundTaskIdentifier) {}
-    
-    func createTemporaryDirectory() { _ = temporaryDirectory }
-    func temporaryDirectory(using dependencies: Dependencies) -> String {
-        if let dir: String = _temporaryDirectory { return dir }
-        
-        let dirName: String = "ows_temp_\(UUID().uuidString)"   // stringlint:disable
-        let dirPath: String = URL(fileURLWithPath: NSTemporaryDirectory())
-            .appendingPathComponent(dirName)
-            .path
-        _temporaryDirectory = dirPath
-        FileSystem.temporaryDirectory.mutate { $0 = dirPath }
-        try? FileSystem.ensureDirectoryExists(at: dirPath, fileProtectionType: .complete, using: dependencies)
-        
-        return dirPath
-    }
-    
-    func temporaryDirectoryAccessibleAfterFirstAuth(using dependencies: Dependencies) -> String {
-        let dirPath: String = NSTemporaryDirectory()
-        try? FileSystem.ensureDirectoryExists(
-            at: dirPath,
-            fileProtectionType: .completeUntilFirstUserAuthentication,
-            using: dependencies
-        )
-        
-        return dirPath
-    }
-    
-    func clearOldTemporaryDirectories() {}
 }
 
 private final class NoopAppContext: AppContext {
-    var _temporaryDirectory: String? = nil
     let mainWindow: UIWindow? = nil
     let frontMostViewController: UIViewController? = nil
     
     var isValid: Bool { false }
+    var appLaunchTime: Date { Date(timeIntervalSince1970: 0) }
     var isMainApp: Bool { false }
     var isMainAppAndActive: Bool { false }
     var isShareExtension: Bool { false }
@@ -107,8 +72,4 @@ private final class NoopAppContext: AppContext {
     func ensureSleepBlocking(_ shouldBeBlocking: Bool, blockingObjects: [Any]) {}
     func beginBackgroundTask(expirationHandler: @escaping () -> ()) -> UIBackgroundTaskIdentifier { return .invalid }
     func endBackgroundTask(_ backgroundTaskIdentifier: UIBackgroundTaskIdentifier) {}
-    
-    var temporaryDirectory: String { "" }
-    var temporaryDirectoryAccessibleAfterFirstAuth: String { "" }
-    func clearOldTemporaryDirectories() {}
 }

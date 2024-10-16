@@ -641,7 +641,7 @@ extension AttachmentApprovalViewController: AttachmentPrepViewControllerDelegate
 extension SignalAttachmentItem: GalleryRailItem {
     func buildRailItemView(using dependencies: Dependencies) -> UIView {
         let imageView = UIImageView()
-        imageView.image = getThumbnailImage()
+        imageView.image = getThumbnailImage(using: dependencies)
         imageView.themeBackgroundColor = .backgroundSecondary
         imageView.contentMode = .scaleAspectFill
         

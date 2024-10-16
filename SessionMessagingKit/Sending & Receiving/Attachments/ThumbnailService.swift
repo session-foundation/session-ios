@@ -100,7 +100,7 @@ public class ThumbnailService {
         
         let thumbnailPath = attachment.thumbnailPath(for: thumbnailRequest.dimensions)
         
-        if FileManager.default.fileExists(atPath: thumbnailPath) {
+        if dependencies[singleton: .fileManager].fileExists(atPath: thumbnailPath) {
             guard let image = UIImage(contentsOfFile: thumbnailPath) else {
                 throw ThumbnailError.failure(description: "Could not load thumbnail.")
             }
@@ -109,7 +109,7 @@ public class ThumbnailService {
 
         let thumbnailDirPath = (thumbnailPath as NSString).deletingLastPathComponent
         
-        guard case .success = Result(try FileSystem.ensureDirectoryExists(at: thumbnailDirPath, using: dependencies)) else {
+        guard case .success = Result(try dependencies[singleton: .fileManager].ensureDirectoryExists(at: thumbnailDirPath)) else {
             throw ThumbnailError.failure(description: "Could not create attachment's thumbnail directory.")
         }
         guard let originalFilePath = attachment.originalFilePath(using: dependencies) else {
@@ -140,7 +140,7 @@ public class ThumbnailService {
             throw ThumbnailError.externalError(description: "File write failed: \(thumbnailPath), \(error)", underlyingError: error)
         }
         
-        try? FileSystem.protectFileOrFolder(at: thumbnailPath, using: dependencies)
+        try? dependencies[singleton: .fileManager].protectFileOrFolder(at: thumbnailPath)
         
         return LoadedThumbnail(image: thumbnailImage, data: thumbnailData)
     }

@@ -349,7 +349,7 @@ class MediaDetailViewController: OWSViewController, UIScrollViewDelegate {
     @objc public func playVideo() {
         guard
             let originalFilePath: String = self.galleryItem.attachment.originalFilePath(using: dependencies),
-            FileManager.default.fileExists(atPath: originalFilePath)
+            dependencies[singleton: .fileManager].fileExists(atPath: originalFilePath)
         else { return SNLog("Missing video file") }
         
         let videoUrl: URL = URL(fileURLWithPath: originalFilePath)

@@ -8,7 +8,6 @@ import SessionUtilitiesKit
 
 final class NotificationServiceExtensionContext: AppContext {
     private let dependencies: Dependencies
-    var _temporaryDirectory: String?
     let appLaunchTime: Date = Date()
     let reportedApplicationState: UIApplication.State = .background
     
@@ -23,7 +22,6 @@ final class NotificationServiceExtensionContext: AppContext {
 
     init(using dependencies: Dependencies) {
         self.dependencies = dependencies
-        self.createTemporaryDirectory()
     }
 
     // MARK: - Currently Unused
@@ -31,11 +29,4 @@ final class NotificationServiceExtensionContext: AppContext {
     var mainWindow: UIWindow?
 
     static func determineDeviceRTL() -> Bool { false }
-    
-    // MARK: - Temporary Directories
-    
-    var temporaryDirectory: String { temporaryDirectory(using: dependencies) }
-    var temporaryDirectoryAccessibleAfterFirstAuth: String {
-        temporaryDirectoryAccessibleAfterFirstAuth(using: dependencies)
-    }
 }

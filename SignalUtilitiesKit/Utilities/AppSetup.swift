@@ -58,10 +58,9 @@ public enum AppSetup {
             // Attachments can be stored to NSTemporaryDirectory()
             // If you receive a media message while the device is locked, the download will fail if
             // the temporary directory is NSFileProtectionComplete
-            try? FileSystem.protectFileOrFolder(
+            try? dependencies[singleton: .fileManager].protectFileOrFolder(
                 at: NSTemporaryDirectory(),
-                fileProtectionType: .completeUntilFirstUserAuthentication,
-                using: dependencies
+                fileProtectionType: .completeUntilFirstUserAuthentication
             )
 
             SessionEnvironment.shared = SessionEnvironment(

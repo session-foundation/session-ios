@@ -18,6 +18,7 @@ public class MediaMessageView: UIView {
 
     // MARK: Properties
 
+    private let dependencies: Dependencies
     private var disposables: Set<AnyCancellable> = Set()
     public let mode: Mode
     public let attachment: SignalAttachment
@@ -38,7 +39,7 @@ public class MediaMessageView: UIView {
         else if attachment.isVideo {
             guard
                 attachment.isValidVideo,
-                let image: UIImage = attachment.videoPreview(),
+                let image: UIImage = attachment.videoPreview(using: dependencies),
                 image.size.width > 0,
                 image.size.height > 0
             else {
@@ -79,6 +80,7 @@ public class MediaMessageView: UIView {
     public required init(attachment: SignalAttachment, mode: MediaMessageView.Mode, using dependencies: Dependencies) {
         if attachment.hasError { Log.error("[MediaMessageView] \(attachment.error.debugDescription)") }
         
+        self.dependencies = dependencies
         self.attachment = attachment
         self.mode = mode
         

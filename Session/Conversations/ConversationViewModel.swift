@@ -1040,7 +1040,7 @@ public class ConversationViewModel: OWSAudioPlayerDelegate, NavigatableStateHold
             attachment.isAudio,
             attachment.isValid,
             let originalFilePath: String = attachment.originalFilePath(using: dependencies),
-            FileManager.default.fileExists(atPath: originalFilePath)
+            dependencies[singleton: .fileManager].fileExists(atPath: originalFilePath)
         else { return nil }
         
         // Create the info with the update callback
@@ -1068,7 +1068,7 @@ public class ConversationViewModel: OWSAudioPlayerDelegate, NavigatableStateHold
         guard
             let attachment: Attachment = viewModel.attachments?.first,
             let originalFilePath: String = attachment.originalFilePath(using: dependencies),
-            FileManager.default.fileExists(atPath: originalFilePath)
+            dependencies[singleton: .fileManager].fileExists(atPath: originalFilePath)
         else { return }
         
         // If the user interacted with the currently playing item

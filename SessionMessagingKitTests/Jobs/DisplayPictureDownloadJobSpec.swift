@@ -58,6 +58,10 @@ class DisplayPictureDownloadJobSpec: QuickSpec {
         )
         @TestState(singleton: .fileManager, in: dependencies) var mockFileManager: MockFileManager! = MockFileManager(
             initialSetup: { fileManager in
+                fileManager.when { $0.appSharedDataDirectoryPath }.thenReturn("/test")
+                fileManager
+                    .when { try $0.ensureDirectoryExists(at: .any, fileProtectionType: .any) }
+                    .thenReturn(())
                 fileManager.when { $0.fileExists(atPath: .any) }.thenReturn(false)
                 fileManager
                     .when { $0.fileExists(atPath: .any, isDirectory: .any) }
@@ -69,10 +73,6 @@ class DisplayPictureDownloadJobSpec: QuickSpec {
                 fileManager
                     .when { try $0.createDirectory(atPath: .any, withIntermediateDirectories: .any, attributes: .any) }
                     .thenReturn(())
-                
-                fileManager
-                    .when { $0.containerURL(forSecurityApplicationGroupIdentifier: .any) }
-                    .thenReturn(URL(fileURLWithPath: "/test"))
             }
         )
         @TestState(singleton: .crypto, in: dependencies) var mockCrypto: MockCrypto! = MockCrypto(

@@ -144,7 +144,7 @@ public class SessionApp: SessionAppType {
         }
         dependencies[singleton: .storage].resetAllStorage()
         DisplayPictureManager.resetStorage(using: dependencies)
-        Attachment.resetAttachmentStorage()
+        Attachment.resetAttachmentStorage(using: dependencies)
         dependencies[singleton: .notificationsManager].clearAllNotifications()
         try? dependencies[singleton: .keychain].removeAll()
         

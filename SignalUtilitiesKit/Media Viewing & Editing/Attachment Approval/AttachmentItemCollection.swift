@@ -60,8 +60,8 @@ class SignalAttachmentItem: Equatable {
         return attachment.captionText
     }
 
-    func getThumbnailImage() -> UIImage? {
-        return attachment.staticThumbnail()
+    func getThumbnailImage(using dependencies: Dependencies) -> UIImage? {
+        return attachment.staticThumbnail(using: dependencies)
     }
 
     // MARK: Equatable
@@ -74,7 +74,7 @@ class SignalAttachmentItem: Equatable {
 // MARK: -
 
 class AttachmentItemCollection {
-    private (set) var attachmentItems: [SignalAttachmentItem]
+    private(set) var attachmentItems: [SignalAttachmentItem]
     let isAddMoreVisible: Bool
     init(attachmentItems: [SignalAttachmentItem], isAddMoreVisible: Bool) {
         self.attachmentItems = attachmentItems

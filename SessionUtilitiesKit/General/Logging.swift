@@ -109,7 +109,7 @@ public enum Log {
         logger.wrappedValue?.loadExtensionLogsAndResumeLogging()
     }
     
-    public static func logFilePath() -> String? {
+    public static func logFilePath(using dependencies: Dependencies) -> String? {
         guard
             let logger: Logger = logger.wrappedValue
         else { return nil }
@@ -123,7 +123,9 @@ public enum Log {
         // that might be relevant for debugging
         guard
             logFiles.count > 1,
-            let attributes: [FileAttributeKey: Any] = try? FileManager.default.attributesOfItem(atPath: logFiles[0]),
+            let attributes: [FileAttributeKey: Any] = try? dependencies[singleton: .fileManager].attributesOfItem(
+                atPath: logFiles[0]
+            ),
             let fileSize: UInt64 = attributes[.size] as? UInt64,
             fileSize < (100 * 1024)
         else { return logFiles[0] }
@@ -135,7 +137,7 @@ public enum Log {
             .path
         
         do {
-            try FileManager.default.copyItem(
+            try dependencies[singleton: .fileManager].copyItem(
                 atPath: logFiles[1],
                 toPath: tempFilePath
             )
@@ -433,12 +435,15 @@ public class Logger {
             }
             
             DDLog.loggingQueue.async {
+                let sharedDataDirPath: String = dependencies[singleton: .fileManager].appSharedDataDirectoryPath
                 let extensionInfo: [(dir: String, type: ExtensionType)] = [
-                    ("\(FileManager.default.appSharedDataDirectoryPath)/Logs/NotificationExtension", .notification),
-                    ("\(FileManager.default.appSharedDataDirectoryPath)/Logs/ShareExtension", .share)
+                    ("\(sharedDataDirPath)/Logs/NotificationExtension", .notification),
+                    ("\(sharedDataDirPath)/Logs/ShareExtension", .share)
                 ]
                 let extensionLogs: [(path: String, type: ExtensionType)] = extensionInfo.flatMap { dir, type -> [(path: String, type: ExtensionType)] in
-                    guard let files: [String] = try? FileManager.default.contentsOfDirectory(atPath: dir) else { return [] }
+                    guard let files: [String] = try? dependencies[singleton: .fileManager].contentsOfDirectory(atPath: dir) else {
+                        return []
+                    }
                     
                     return files.map { ("\(dir)/\($0)", type) }
                 }
@@ -484,7 +489,7 @@ public class Logger {
                                 else { fileHandle.write(logData) }
                                 
                                 // Extension logs have been writen to the app logs, remove them now
-                                try? FileManager.default.removeItem(atPath: path)
+                                try? dependencies[singleton: .fileManager].removeItem(atPath: path)
                             }
                             
                             // Write the type end separator if needed

@@ -50,7 +50,7 @@ public struct DisplayPictureManager {
         let path: String = URL(fileURLWithPath: dependencies[singleton: .fileManager].appSharedDataDirectoryPath)
             .appendingPathComponent("ProfileAvatars")   // stringlint:disable
             .path
-        try? FileSystem.ensureDirectoryExists(at: path, using: dependencies)
+        try? dependencies[singleton: .fileManager].ensureDirectoryExists(at: path)
         
         return path
     }
@@ -167,7 +167,9 @@ public struct DisplayPictureManager {
     }
     
     public static func resetStorage(using dependencies: Dependencies) {
-        try? FileManager.default.removeItem(atPath: DisplayPictureManager.sharedDataDisplayPictureDirPath(using: dependencies))
+        try? dependencies[singleton: .fileManager].removeItem(
+            atPath: DisplayPictureManager.sharedDataDisplayPictureDirPath(using: dependencies)
+        )
     }
     
     // MARK: - Downloading

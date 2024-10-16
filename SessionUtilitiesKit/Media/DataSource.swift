@@ -55,7 +55,7 @@ public class DataSourceValue: DataSource {
         
         return DataSourceValue.synced(self) { [weak self, dependencies] in
             guard let cachedFilePath: String = self?.cachedFilePath else {
-                let filePath: String = FileSystem.temporaryFilePath(fileExtension: fileExtension, using: dependencies)
+                let filePath: String = dependencies[singleton: .fileManager].temporaryFilePath(fileExtension: fileExtension)
                 
                 do { try self?.write(to: filePath) }
                 catch { return nil }
@@ -121,8 +121,8 @@ public class DataSourceValue: DataSource {
             let filePath: String = cachedFilePath
         else { return }
         
-        DispatchQueue.global(qos: .default).async {
-            try? FileManager.default.removeItem(atPath: filePath)
+        DispatchQueue.global(qos: .default).async { [dependencies] in
+            try? dependencies[singleton: .fileManager].removeItem(atPath: filePath)
         }
     }
     
@@ -179,12 +179,12 @@ public class DataSourcePath: DataSource {
     public var dataLength: Int {
         let filePath: String = self.filePath
         
-        return DataSourcePath.synced(self) { [weak self] in
+        return DataSourcePath.synced(self) { [weak self, dependencies] in
             if let cachedDataLength: Int = self?.cachedDataLength {
                 return cachedDataLength
             }
             
-            let attrs: [FileAttributeKey: Any]? = try? FileManager.default.attributesOfItem(atPath: filePath)
+            let attrs: [FileAttributeKey: Any]? = try? dependencies[singleton: .fileManager].attributesOfItem(atPath: filePath)
             let length: Int = ((attrs?[FileAttributeKey.size] as? Int) ?? 0)
             self?.cachedDataLength = length
             return length
@@ -231,8 +231,8 @@ public class DataSourcePath: DataSource {
     deinit {
         guard shouldDeleteOnDeinit else { return }
         
-        DispatchQueue.global(qos: .default).async { [filePath] in
-            try? FileManager.default.removeItem(atPath: filePath)
+        DispatchQueue.global(qos: .default).async { [filePath, dependencies] in
+            try? dependencies[singleton: .fileManager].removeItem(atPath: filePath)
         }
     }
     
@@ -246,7 +246,7 @@ public class DataSourcePath: DataSource {
     }
     
     public func write(to path: String) throws {
-        try FileManager.default.copyItem(atPath: filePath, toPath: path)
+        try dependencies[singleton: .fileManager].copyItem(atPath: filePath, toPath: path)
     }
     
     public static func == (lhs: DataSourcePath, rhs: DataSourcePath) -> Bool {

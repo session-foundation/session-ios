@@ -422,7 +422,7 @@ public enum GarbageCollectionJob: JobExecutor {
                     if finalTypesToCollect.contains(.orphanedAttachmentFiles) {
                         // Note: Looks like in order to recursively look through files we need to use the
                         // enumerator method
-                        let fileEnumerator = FileManager.default.enumerator(
+                        let fileEnumerator = dependencies[singleton: .fileManager].enumerator(
                             at: URL(fileURLWithPath: Attachment.attachmentsFolder(using: dependencies)),
                             includingPropertiesForKeys: nil,
                             options: .skipsHiddenFiles  // Ignore the `.DS_Store` for the simulator
@@ -450,7 +450,7 @@ public enum GarbageCollectionJob: JobExecutor {
                             // We don't want a single deletion failure to block deletion of the other files so try
                             // each one and store the error to be used to determine success/failure of the job
                             do {
-                                try FileManager.default.removeItem(
+                                try dependencies[singleton: .fileManager].removeItem(
                                     atPath: URL(fileURLWithPath: Attachment.attachmentsFolder(using: dependencies))
                                         .appendingPathComponent(filepath)
                                         .path
@@ -464,7 +464,7 @@ public enum GarbageCollectionJob: JobExecutor {
                     
                     // Orphaned display picture files (actual deletion)
                     if finalTypesToCollect.contains(.orphanedDisplayPictures) {
-                        let allDisplayPictureFilenames: Set<String> = (try? FileManager.default
+                        let allDisplayPictureFilenames: Set<String> = (try? dependencies[singleton: .fileManager]
                             .contentsOfDirectory(atPath: DisplayPictureManager.sharedDataDisplayPictureDirPath(using: dependencies)))
                             .defaulting(to: [])
                             .asSet()
@@ -475,7 +475,7 @@ public enum GarbageCollectionJob: JobExecutor {
                             // We don't want a single deletion failure to block deletion of the other files so try
                             // each one and store the error to be used to determine success/failure of the job
                             do {
-                                try FileManager.default.removeItem(
+                                try dependencies[singleton: .fileManager].removeItem(
                                     atPath: DisplayPictureManager.filepath(for: filename, using: dependencies)
                                 )
                             }

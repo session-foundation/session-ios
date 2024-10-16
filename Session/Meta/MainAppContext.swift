@@ -6,10 +6,9 @@ import SessionUtilitiesKit
 
 final class MainAppContext: AppContext {
     private let dependencies: Dependencies
-    var _temporaryDirectory: String?
     var reportedApplicationState: UIApplication.State
     
-    let appLaunchTime = Date()
+    var appLaunchTime: Date = Date()
     let isMainApp: Bool = true
     var isMainAppAndActive: Bool {
         var result: Bool = false
@@ -52,7 +51,6 @@ final class MainAppContext: AppContext {
     init(using dependencies: Dependencies) {
         self.dependencies = dependencies
         self.reportedApplicationState = .inactive
-        self.createTemporaryDirectory()
         
         NotificationCenter.default.addObserver(
             self,
@@ -162,53 +160,5 @@ final class MainAppContext: AppContext {
             }
         }
         UIApplication.shared.isIdleTimerDisabled = shouldBeBlocking
-    }
-    
-    // MARK: - Temporary Directories
-    
-    var temporaryDirectory: String { temporaryDirectory(using: dependencies) }
-    var temporaryDirectoryAccessibleAfterFirstAuth: String {
-        temporaryDirectoryAccessibleAfterFirstAuth(using: dependencies)
-    }
-    
-    func clearOldTemporaryDirectories() {
-        // We use the lowest priority queue for this, and wait N seconds
-        // to avoid interfering with app startup.
-        DispatchQueue.global(qos: .background).asyncAfter(deadline: .now() + .seconds(3)) { [weak self, dependencies] in
-            guard
-                self?.isAppForegroundAndActive == true,   // Abort if app not active
-                let thresholdDate: Date = self?.appLaunchTime
-            else { return }
-            
-            // Ignore the "current" temp directory.
-            let currentTempDirName: String = URL(fileURLWithPath: dependencies[singleton: .appContext].temporaryDirectory).lastPathComponent
-            let dirPath = NSTemporaryDirectory()
-            
-            guard let fileNames: [String] = try? FileManager.default.contentsOfDirectory(atPath: dirPath) else { return }
-            
-            fileNames.forEach { fileName in
-                guard fileName != currentTempDirName else { return }
-                
-                // Delete files with either:
-                //
-                // a) "ows_temp" name prefix.
-                // b) modified time before app launch time.
-                let filePath: String = URL(fileURLWithPath: dirPath).appendingPathComponent(fileName).path
-                
-                if !fileName.hasPrefix("ows_temp") { // stringlint:disable
-                    // It's fine if we can't get the attributes (the file may have been deleted since we found it),
-                    // also don't delete files which were created in the last N minutes
-                    guard
-                        let attributes: [FileAttributeKey: Any] = try? FileManager.default.attributesOfItem(atPath: filePath),
-                        let modificationDate: Date = attributes[.modificationDate] as? Date,
-                        modificationDate.timeIntervalSince1970 <= thresholdDate.timeIntervalSince1970
-                    else { return }
-                }
-                
-                // This can happen if the app launches before the phone is unlocked.
-                // Clean up will occur when app becomes active.
-                try? FileSystem.deleteFile(at: filePath)
-            }
-        }
     }
 }

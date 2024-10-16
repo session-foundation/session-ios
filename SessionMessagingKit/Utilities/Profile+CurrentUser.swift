@@ -187,7 +187,7 @@ public extension Profile {
                     using: dependencies
                 )
                 
-                if avatarNeedsDownload, let filePath: String = maybeFilePath, !FileManager.default.fileExists(atPath: filePath) {
+                if avatarNeedsDownload, let filePath: String = maybeFilePath, !dependencies[singleton: .fileManager].fileExists(atPath: filePath) {
                     dependencies[singleton: .jobRunner].add(
                         db,
                         job: Job(

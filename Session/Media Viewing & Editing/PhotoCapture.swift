@@ -543,7 +543,7 @@ class CaptureOutput {
         let videoOrientation = delegate.captureOrientation
         videoConnection.videoOrientation = videoOrientation
 
-        let outputFilePath = FileSystem.temporaryFilePath(fileExtension: "mp4", using: dependencies)
+        let outputFilePath = dependencies[singleton: .fileManager].temporaryFilePath(fileExtension: "mp4")
         movieOutput.startRecording(to: URL(fileURLWithPath: outputFilePath), recordingDelegate: delegate)
     }
 

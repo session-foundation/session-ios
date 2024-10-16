@@ -102,10 +102,10 @@ public extension GroupMember {
         switch (role, roleStatus) {
             case (_, .accepted): return nil                 // Nothing for "final" state
             case (.zombie, _), (.moderator, _): return nil  // Unused cases
-            case (.standard, .notSentYet): return "groupInviteSending".localized()
+            case (.standard, .notSentYet): return "groupInviteSending".putNumber(1).localized()
             case (.standard, .pending): return "groupInviteSent".localized()
             case (.standard, .failed): return "groupInviteFailed".localized()
-            case (.admin, .notSentYet): return "adminSendingPromotion".localized()
+            case (.admin, .notSentYet): return "adminSendingPromotion".putNumber(1).localized()
             case (.admin, .pending): return "adminPromotionSent".localized()
             case (.admin, .failed): return "adminPromotionFailed".localized()
         }

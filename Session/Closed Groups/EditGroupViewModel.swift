@@ -592,10 +592,9 @@ class EditGroupViewModel: SessionTableViewModel, NavigatableStateHolder, Editabl
     ) {
         /// Show a toast that we have sent the invitations
         self.showToast(
-            text: (memberInfo.count == 1 ?
-                "groupInviteSending".localized() :
-                "groupInviteSending".localized()
-            ),
+            text: "groupInviteSending"
+                .putNumber(memberInfo.count)
+                .localized(),
             backgroundColor: .backgroundSecondary
         )
         
@@ -634,7 +633,7 @@ class EditGroupViewModel: SessionTableViewModel, NavigatableStateHolder, Editabl
             memberId: memberId,
             using: dependencies
         )
-        self.showToast(text: "groupInviteSending".localized())
+        self.showToast(text: "groupInviteSending".putNumber(1).localized())
     }
     
     private func removeMembers(memberIds: Set<String>) {

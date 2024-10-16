@@ -640,7 +640,7 @@ private extension LibSessionNetwork.CallbackWrapper {
 
 public extension LibSession {
     class NetworkCache: NetworkCacheType {
-        private static var snodeCachePath: String { "\(FileManager.default.appSharedDataDirectoryPath)/snodeCache" }
+        private static var snodeCachePath: String { "\(SessionFileManager.nonInjectedAppSharedDataDirectoryPath)/snodeCache" }
         
         private let dependencies: Dependencies
         private let dependenciesPtr: UnsafeMutableRawPointer

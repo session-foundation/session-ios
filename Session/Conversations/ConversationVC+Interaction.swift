@@ -1089,7 +1089,7 @@ extension ConversationVC:
                         guard albumView.numItems > 1 || !mediaView.attachment.isVideo else {
                             guard
                                 let originalFilePath: String = mediaView.attachment.originalFilePath(using: viewModel.dependencies),
-                                FileManager.default.fileExists(atPath: originalFilePath)
+                                viewModel.dependencies[singleton: .fileManager].fileExists(atPath: originalFilePath)
                             else { return SNLog("Missing video file") }
                             
                             /// When playing media we need to change the AVAudioSession to 'playback' mode so the device "silent mode"
@@ -2279,7 +2279,7 @@ extension ConversationVC:
         
         // Create URL
         let currentOffsetTimestamp: Int64 = viewModel.dependencies[cache: .snodeAPI].currentOffsetTimestampMs()
-        let directory: String = viewModel.dependencies[singleton: .appContext].temporaryDirectory
+        let directory: String = viewModel.dependencies[singleton: .fileManager].temporaryDirectory
         let fileName: String = "\(currentOffsetTimestamp).m4a" // stringlint:disable
         let url: URL = URL(fileURLWithPath: directory).appendingPathComponent(fileName)
         

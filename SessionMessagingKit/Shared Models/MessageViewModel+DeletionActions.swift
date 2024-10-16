@@ -263,10 +263,9 @@ public extension MessageViewModel.DeletionBehaviours {
                         warning: "deleteMessageWarning"
                             .putNumber(cellViewModels.count)
                             .localized(),
-                        body: (cellViewModels.count == 1 ?
-                            "deleteMessageDescriptionDevice".localized() :
-                            "deleteMessagesDescriptionDevice".localized()
-                        ),
+                        body: "deleteMessageDescriptionDevice"
+                            .putNumber(cellViewModels.count)
+                            .localized(),
                         actions: [
                             NamedAction(
                                 title: "deleteMessageDeviceOnly".localized(),

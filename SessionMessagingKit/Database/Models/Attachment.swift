@@ -598,20 +598,20 @@ extension Attachment {
     }()
     
     private static var sharedDataAttachmentsDirPath: String = {
-        URL(fileURLWithPath: FileManager.default.appSharedDataDirectoryPath)
+        URL(fileURLWithPath: SessionFileManager.nonInjectedAppSharedDataDirectoryPath)
             .appendingPathComponent("Attachments") // stringlint:disable
             .path
     }()
     
     internal static func attachmentsFolder(using dependencies: Dependencies) -> String {
         let attachmentsFolder: String = sharedDataAttachmentsDirPath
-        try? FileSystem.ensureDirectoryExists(at: attachmentsFolder, using: dependencies)
+        try? dependencies[singleton: .fileManager].ensureDirectoryExists(at: attachmentsFolder)
         
         return attachmentsFolder
     }
     
-    public static func resetAttachmentStorage() {
-        try? FileManager.default.removeItem(atPath: Attachment.sharedDataAttachmentsDirPath)
+    public static func resetAttachmentStorage(using dependencies: Dependencies) {
+        try? dependencies[singleton: .fileManager].removeItem(atPath: Attachment.sharedDataAttachmentsDirPath)
     }
     
     public static func originalFilePath(id: String, mimeType: String, sourceFilename: String?, using dependencies: Dependencies) -> String? {
@@ -654,7 +654,7 @@ extension Attachment {
                     .attachmentsFolder(using: dependencies)
                     .appending("/\(id)") // stringlint:disable
                 
-                guard case .success = Result(try FileSystem.ensureDirectoryExists(at: attachmentFolder, using: dependencies)) else {
+                guard case .success = Result(try dependencies[singleton: .fileManager].ensureDirectoryExists(at: attachmentFolder)) else {
                     return nil
                 }
                 
@@ -799,7 +799,7 @@ extension Attachment {
     var thumbnailsDirPath: String {
         // Thumbnails are written to the caches directory, so that iOS can
         // remove them if necessary
-        return "\(FileSystem.cachesDirectoryPath)/\(id)-thumbnails" // stringlint:disable
+        return "\(SessionFileManager.cachesDirectoryPath)/\(id)-thumbnails" // stringlint:disable
     }
     
     func legacyThumbnailPath(using dependencies: Dependencies) -> String? {
@@ -897,7 +897,7 @@ extension Attachment {
         
         let thumbnailPath = thumbnailPath(for: dimensions)
         
-        if FileManager.default.fileExists(atPath: thumbnailPath) {
+        if dependencies[singleton: .fileManager].fileExists(atPath: thumbnailPath) {
             guard
                 let data: Data = try? Data(contentsOf: URL(fileURLWithPath: thumbnailPath)),
                 let image: UIImage = UIImage(data: data)

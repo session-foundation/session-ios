@@ -180,7 +180,7 @@ public class SignalAttachment: Equatable {
         return errorDescription
     }
 
-    public func staticThumbnail() -> UIImage? {
+    public func staticThumbnail(using dependencies: Dependencies) -> UIImage? {
         if isAnimatedImage {
             return image()
         }
@@ -188,7 +188,7 @@ public class SignalAttachment: Equatable {
             return image()
         }
         else if isVideo {
-            return videoPreview()
+            return videoPreview(using: dependencies)
         }
         else if isAudio {
             return nil
@@ -209,7 +209,7 @@ public class SignalAttachment: Equatable {
         return image
     }
 
-    public func videoPreview() -> UIImage? {
+    public func videoPreview(using dependencies: Dependencies) -> UIImage? {
         if let cachedVideoPreview = cachedVideoPreview {
             return cachedVideoPreview
         }
@@ -220,7 +220,7 @@ public class SignalAttachment: Equatable {
 
         do {
             let filePath = mediaUrl.path
-            guard FileManager.default.fileExists(atPath: filePath) else {
+            guard dependencies[singleton: .fileManager].fileExists(atPath: filePath) else {
                 return nil
             }
 
@@ -749,18 +749,18 @@ public class SignalAttachment: Equatable {
     public class func copyToVideoTempDir(url fromUrl: URL, using dependencies: Dependencies) throws -> URL {
         let baseDir = SignalAttachment.videoTempPath(using: dependencies)
             .appendingPathComponent(UUID().uuidString, isDirectory: true)
-        try? FileSystem.ensureDirectoryExists(at: baseDir.path, using: dependencies)
+        try? dependencies[singleton: .fileManager].ensureDirectoryExists(at: baseDir.path)
         let toUrl = baseDir.appendingPathComponent(fromUrl.lastPathComponent)
 
-        try FileManager.default.copyItem(at: fromUrl, to: toUrl)
+        try dependencies[singleton: .fileManager].copyItem(at: fromUrl, to: toUrl)
 
         return toUrl
     }
 
     private class func videoTempPath(using dependencies: Dependencies) -> URL {
-        let videoDir = URL(fileURLWithPath: dependencies[singleton: .appContext].temporaryDirectory)
+        let videoDir = URL(fileURLWithPath: dependencies[singleton: .fileManager].temporaryDirectory)
             .appendingPathComponent("video")
-        try? FileSystem.ensureDirectoryExists(at: videoDir.path, using: dependencies)
+        try? dependencies[singleton: .fileManager].ensureDirectoryExists(at: videoDir.path)
         return videoDir
     }
 

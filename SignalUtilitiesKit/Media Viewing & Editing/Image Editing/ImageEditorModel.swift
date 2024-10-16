@@ -230,7 +230,7 @@ public class ImageEditorModel {
     public func temporaryFilePath(withFileExtension fileExtension: String) -> String {
         Log.assertOnMainThread()
 
-        let filePath = FileSystem.temporaryFilePath(fileExtension: fileExtension, using: dependencies)
+        let filePath = dependencies[singleton: .fileManager].temporaryFilePath(fileExtension: fileExtension)
         temporaryFilePaths.append(filePath)
         return filePath
     }
@@ -240,9 +240,9 @@ public class ImageEditorModel {
 
         let temporaryFilePaths = self.temporaryFilePaths
 
-        DispatchQueue.global(qos: .background).async {
+        DispatchQueue.global(qos: .background).async { [dependencies] in
             for filePath in temporaryFilePaths {
-                do { try FileSystem.deleteFile(at: filePath) }
+                do { try dependencies[singleton: .fileManager].removeItem(atPath: filePath) }
                 catch { Log.error("[ImageEditorModel] Could not delete temp file: \(filePath)") }
             }
         }

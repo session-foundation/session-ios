@@ -155,7 +155,7 @@ class HelpViewModel: SessionTableViewModel, NavigatableStateHolder, ObservableTa
         onShareComplete: (() -> ())? = nil
     ) {
         guard
-            let latestLogFilePath: String = Log.logFilePath(),
+            let latestLogFilePath: String = Log.logFilePath(using: dependencies),
             let viewController: UIViewController = dependencies[singleton: .appContext].frontMostViewController
         else { return }
         
@@ -204,7 +204,7 @@ class HelpViewModel: SessionTableViewModel, NavigatableStateHolder, ObservableTa
         Log.flush()
         
         guard
-            let latestLogFilePath: String = Log.logFilePath(),
+            let latestLogFilePath: String = Log.logFilePath(using: dependencies),
             let viewController: UIViewController = dependencies[singleton: .appContext].frontMostViewController
         else { return }
         

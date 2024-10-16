@@ -8,7 +8,7 @@ import SessionUtilitiesKit
 extension Emoji {
     private static let availableCache: Atomic<[Emoji:Bool]> = Atomic([:])
     private static let iosVersionKey = "iosVersion"
-    private static let cacheUrl = URL(fileURLWithPath: FileManager.default.appSharedDataDirectoryPath)
+    private static let cacheUrl = URL(fileURLWithPath: SessionFileManager.nonInjectedAppSharedDataDirectoryPath)
         .appendingPathComponent("Library")
         .appendingPathComponent("Caches")
         .appendingPathComponent("emoji.plist")
@@ -60,8 +60,10 @@ extension Emoji {
             do {
                 // Use FileManager.createDirectory directly because FileSystem.ensureDirectoryExists
                 // can modify the protection, and this is a system-managed directory.
-                try FileManager.default.createDirectory(at: Self.cacheUrl.deletingLastPathComponent(),
-                                                        withIntermediateDirectories: true)
+                try dependencies[singleton: .fileManager].createDirectory(
+                    at: Self.cacheUrl.deletingLastPathComponent(),
+                    withIntermediateDirectories: true
+                )
                 try availableMap.write(to: Self.cacheUrl)
             } catch {
                 Log.warn("[Emoji] Failed to save emoji availability cache; it will be recomputed next time! \(error)")

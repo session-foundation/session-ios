@@ -43,7 +43,7 @@ open class Storage {
     /// When attempting to do a write the transaction will wait this long to acquite a lock before failing
     private static let writeTransactionStartTimeout: TimeInterval = 5
     
-    private static var sharedDatabaseDirectoryPath: String { "\(FileManager.default.appSharedDataDirectoryPath)/database" }
+    private static var sharedDatabaseDirectoryPath: String { "\(SessionFileManager.nonInjectedAppSharedDataDirectoryPath)/database" }
     private static var databasePath: String { "\(Storage.sharedDatabaseDirectoryPath)/\(Storage.dbFileName)" }
     private static var databasePathShm: String { "\(Storage.sharedDatabaseDirectoryPath)/\(Storage.dbFileName)-shm" }
     private static var databasePathWal: String { "\(Storage.sharedDatabaseDirectoryPath)/\(Storage.dbFileName)-wal" }
@@ -86,8 +86,8 @@ open class Storage {
     private func configureDatabase(customWriter: DatabaseWriter? = nil) {
         // Create the database directory if needed and ensure it's protection level is set before attempting to
         // create the database KeySpec or the database itself
-        try? FileSystem.ensureDirectoryExists(at: Storage.sharedDatabaseDirectoryPath, using: dependencies)
-        try? FileSystem.protectFileOrFolder(at: Storage.sharedDatabaseDirectoryPath, using: dependencies)
+        try? dependencies[singleton: .fileManager].ensureDirectoryExists(at: Storage.sharedDatabaseDirectoryPath)
+        try? dependencies[singleton: .fileManager].protectFileOrFolder(at: Storage.sharedDatabaseDirectoryPath)
         
         // If a custom writer was provided then use that (for unit testing)
         guard customWriter == nil else {
@@ -527,9 +527,12 @@ open class Storage {
     }
     
     private func deleteDatabaseFiles() {
-        do { try FileSystem.deleteFile(at: Storage.databasePath) } catch { Log.warn(.storage, "Failed to delete database.") }
-        do { try FileSystem.deleteFile(at: Storage.databasePathShm) } catch { Log.warn(.storage, "Failed to delete database-shm.") }
-        do { try FileSystem.deleteFile(at: Storage.databasePathWal) } catch { Log.warn(.storage, "Failed to delete database-wal.") }
+        do { try dependencies[singleton: .fileManager].removeItem(atPath: Storage.databasePath) }
+        catch { Log.warn(.storage, "Failed to delete database.") }
+        do { try dependencies[singleton: .fileManager].removeItem(atPath: Storage.databasePathShm) }
+        catch { Log.warn(.storage, "Failed to delete database-shm.") }
+        do { try dependencies[singleton: .fileManager].removeItem(atPath: Storage.databasePathWal) }
+        catch { Log.warn(.storage, "Failed to delete database-wal.") }
     }
     
     private func deleteDbKeys() throws {
@@ -895,7 +898,7 @@ public extension Storage {
         let hash: SHA256.Digest = SHA256.hash(data: passwordData)
         let key: SymmetricKey = SymmetricKey(data: Data(hash.makeIterator()))
         let sealedBox: ChaChaPoly.SealedBox = try ChaChaPoly.seal(keySpec, using: key, nonce: nonce, authenticating: Data())
-        let keyInfoPath: String = "\(dependencies[singleton: .appContext].temporaryDirectory)key.enc"
+        let keyInfoPath: String = "\(dependencies[singleton: .fileManager].temporaryDirectory)key.enc"
         let encryptedKeyBase64: String = sealedBox.combined.base64EncodedString()
         try encryptedKeyBase64.write(toFile: keyInfoPath, atomically: true, encoding: .utf8)
         

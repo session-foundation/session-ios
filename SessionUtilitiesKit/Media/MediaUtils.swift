@@ -21,7 +21,7 @@ public enum MediaUtils {
     public static func thumbnail(forImageAtPath path: String, maxDimension: CGFloat, using dependencies: Dependencies) throws -> UIImage {
         SNLog("thumbnailing image: \(path)")
 
-        guard FileManager.default.fileExists(atPath: path) else {
+        guard dependencies[singleton: .fileManager].fileExists(atPath: path) else {
             throw MediaError.failure(description: "Media file missing.")
         }
         guard Data.isValidImage(at: path, using: dependencies) else {
@@ -71,7 +71,7 @@ public enum MediaUtils {
     }
 
     private static func isVideoOfValidContentTypeAndSize(path: String, using dependencies: Dependencies) -> Bool {
-        guard FileManager.default.fileExists(atPath: path) else {
+        guard dependencies[singleton: .fileManager].fileExists(atPath: path) else {
             SNLog("Media file missing.")
             return false
         }
@@ -85,7 +85,7 @@ public enum MediaUtils {
             return false
         }
 
-        guard let fileSize = FileSystem.fileSize(of: path, using: dependencies) else {
+        guard let fileSize: UInt64 = dependencies[singleton: .fileManager].fileSize(of: path) else {
             SNLog("Media file has unknown length.")
             return false
         }

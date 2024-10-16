@@ -78,7 +78,7 @@ public enum AttachmentDownloadJob: JobExecutor {
         }
         
         let temporaryFileUrl: URL = URL(
-            fileURLWithPath: dependencies[singleton: .appContext].temporaryDirectoryAccessibleAfterFirstAuth + UUID().uuidString
+            fileURLWithPath: dependencies[singleton: .fileManager].temporaryDirectoryAccessibleAfterFirstAuth + UUID().uuidString
         )
         
         Just(attachment.downloadUrl)
@@ -146,7 +146,7 @@ public enum AttachmentDownloadJob: JobExecutor {
             .sinkUntilComplete(
                 receiveCompletion: { result in
                     // Remove the temporary file
-                    try? FileSystem.deleteFile(at: temporaryFileUrl.path)
+                    try? dependencies[singleton: .fileManager].removeItem(atPath: temporaryFileUrl.path)
 
                     switch result {
                         case .finished:

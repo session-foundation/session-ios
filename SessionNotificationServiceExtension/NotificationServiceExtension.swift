@@ -333,7 +333,7 @@ public final class NotificationServiceExtension: UNNotificationServiceExtension 
                 Log.setup(with: Logger(
                     primaryPrefix: "NotificationServiceExtension",                                                  // stringlint:disable
                     level: .info,
-                    customDirectory: "\(FileManager.default.appSharedDataDirectoryPath)/Logs/NotificationExtension", // stringlint:disable
+                    customDirectory: "\(dependencies[singleton: .fileManager].appSharedDataDirectoryPath)/Logs/NotificationExtension", // stringlint:disable
                     using: dependencies
                 ))
                 

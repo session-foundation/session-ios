@@ -8,7 +8,6 @@ import SessionMessagingKit
 /// This is _NOT_ a singleton and will be instantiated each time that the SAE is used.
 final class ShareAppExtensionContext: AppContext {
     private let dependencies: Dependencies
-    var _temporaryDirectory: String?
     var rootViewController: UIViewController
     var reportedApplicationState: UIApplication.State
     
@@ -39,7 +38,6 @@ final class ShareAppExtensionContext: AppContext {
         self.dependencies = dependencies
         self.rootViewController = rootViewController
         self.reportedApplicationState = .active
-        self.createTemporaryDirectory()
         
         NotificationCenter.default.addObserver(
             self,
@@ -115,12 +113,5 @@ final class ShareAppExtensionContext: AppContext {
             name: .sessionWillEnterForeground,
             object: nil
         )
-    }
-    
-    // MARK: - Temporary Directories
-    
-    var temporaryDirectory: String { temporaryDirectory(using: dependencies) }
-    var temporaryDirectoryAccessibleAfterFirstAuth: String {
-        temporaryDirectoryAccessibleAfterFirstAuth(using: dependencies)
     }
 }

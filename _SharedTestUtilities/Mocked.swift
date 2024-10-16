@@ -100,6 +100,10 @@ extension JobRunner.JobResult: Mocked {
     static var mock: JobRunner.JobResult = .succeeded
 }
 
+extension FileProtectionType: Mocked {
+    static var mock: FileProtectionType = .complete
+}
+
 // MARK: - Encodable Convenience
 
 extension Mocked where Self: Encodable {

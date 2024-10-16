@@ -112,7 +112,7 @@ public extension Data {
         
         guard
             let type: UTType = type,
-            let fileSize: UInt64 = FileSystem.fileSize(of: path, using: dependencies),
+            let fileSize: UInt64 = dependencies[singleton: .fileManager].fileSize(of: path),
             fileSize <= SNUtilitiesKit.maxFileSize,
             (type.isImage || type.isAnimated)
         else { return nil }

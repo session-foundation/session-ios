@@ -1302,7 +1302,7 @@ public extension Interaction {
             let attachmentPaths: [String] = attachments.compactMap { $0.originalFilePath(using: dependencies) }
             
             DispatchQueue.global(qos: .background).async {
-                attachmentPaths.forEach { try? FileManager.default.removeItem(atPath: $0) }
+                attachmentPaths.forEach { try? dependencies[singleton: .fileManager].removeItem(atPath: $0) }
             }
         }
     }

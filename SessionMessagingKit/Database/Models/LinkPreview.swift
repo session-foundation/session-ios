@@ -136,7 +136,7 @@ public extension LinkPreview {
         guard let fileExtension: String = type.sessionFileExtension else { return nil }
         guard let mimeType: String = type.preferredMIMEType else { return nil }
         
-        let filePath = FileSystem.temporaryFilePath(fileExtension: fileExtension, using: dependencies)
+        let filePath = dependencies[singleton: .fileManager].temporaryFilePath(fileExtension: fileExtension)
         try imageData.write(to: NSURL.fileURL(withPath: filePath), options: .atomicWrite)
         let dataSource: DataSourcePath = DataSourcePath(filePath: filePath, shouldDeleteOnDeinit: true, using: dependencies)
         

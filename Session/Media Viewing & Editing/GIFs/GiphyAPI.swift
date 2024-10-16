@@ -56,12 +56,14 @@ class GiphyRendition: ProxiedContentAssetDescription {
     let height: UInt
     let fileSize: UInt
 
-    init?(format: GiphyFormat,
-         name: String,
-         width: UInt,
-         height: UInt,
-         fileSize: UInt,
-         url: NSURL) {
+    init?(
+        format: GiphyFormat,
+        name: String,
+        width: UInt,
+        height: UInt,
+        fileSize: UInt,
+        url: NSURL
+    ) {
         self.format = format
         self.name = name
         self.width = width
@@ -98,6 +100,18 @@ class GiphyRendition: ProxiedContentAssetDescription {
 
     public func log() {
         Log.verbose(.giphy, "\t \(format), \(name), \(width), \(height), \(fileSize)")
+    }
+    
+    public static func == (lhs: GiphyRendition, rhs: GiphyRendition) -> Bool {
+        return (
+            lhs.url == rhs.url &&
+            lhs.fileExtension == rhs.fileExtension &&
+            lhs.format == rhs.format &&
+            lhs.name == rhs.name &&
+            lhs.width == rhs.width &&
+            lhs.height == rhs.height &&
+            lhs.fileSize == rhs.fileSize
+        )
     }
 }
 

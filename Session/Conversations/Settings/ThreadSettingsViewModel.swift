@@ -970,10 +970,9 @@ class ThreadSettingsViewModel: SessionTableViewModel, NavigatableStateHolder, Ob
                 using: dependencies
             )
             viewModel?.showToast(
-                text: (memberInfo.count == 1 ?
-                    "adminSendingPromotion".localized() :
-                    "adminSendingPromotion".localized()
-                ),
+                text: "adminSendingPromotion"
+                    .putNumber(memberInfo.count)
+                    .localized(),
                 backgroundColor: .backgroundSecondary
             )
         }

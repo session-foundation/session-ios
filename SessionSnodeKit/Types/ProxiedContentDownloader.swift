@@ -8,7 +8,7 @@ import Combine
 import SessionUtilitiesKit
 
 // Stills should be loaded before full GIFs.
-public enum ProxiedContentRequestPriority {
+public enum ProxiedContentRequestPriority: Equatable {
     case low, high
 }
 
@@ -28,16 +28,11 @@ public extension Singleton {
 
 // MARK: -
 
-@objc
-open class ProxiedContentAssetDescription: NSObject {
-    @objc
+open class ProxiedContentAssetDescription: Equatable {
     public let url: NSURL
-
-    @objc
     public let fileExtension: String
 
-    public init?(url: NSURL,
-                 fileExtension: String? = nil) {
+    public init?(url: NSURL, fileExtension: String? = nil) {
         self.url = url
 
         if let fileExtension = fileExtension {
@@ -48,6 +43,10 @@ open class ProxiedContentAssetDescription: NSObject {
             }
             self.fileExtension = pathExtension
         }
+    }
+    
+    public static func == (lhs: ProxiedContentAssetDescription, rhs: ProxiedContentAssetDescription) -> Bool {
+        return (lhs.url == rhs.url && lhs.fileExtension == rhs.fileExtension)
     }
 }
 
@@ -147,9 +146,9 @@ public enum ProxiedContentAssetRequestState: UInt {
 // Represents a request to download an asset.
 //
 // Should be cancelled if no longer necessary.
-@objc
-public class ProxiedContentAssetRequest: NSObject {
-
+public class ProxiedContentAssetRequest: Equatable {
+    private let dependencies: Dependencies
+    let id: UUID = UUID()
     let assetDescription: ProxiedContentAssetDescription
     let priority: ProxiedContentRequestPriority
     // Exactly one of success or failure should be called once,
@@ -164,7 +163,7 @@ public class ProxiedContentAssetRequest: NSObject {
     var assetFilePath: String?
 
     // This state should only be accessed on the main thread.
-    private var segments = [ProxiedContentAssetSegment]()
+    private var segments: [ProxiedContentAssetSegment] = []
     public var state: ProxiedContentAssetRequestState = .waiting
     public var contentLength: Int = 0 {
         didSet {
@@ -174,20 +173,21 @@ public class ProxiedContentAssetRequest: NSObject {
     }
     public weak var contentLengthTask: URLSessionDataTask?
 
-    init(assetDescription: ProxiedContentAssetDescription,
-         priority: ProxiedContentRequestPriority,
-         success:@escaping ((ProxiedContentAssetRequest?, ProxiedContentAsset) -> Void),
-         failure:@escaping ((ProxiedContentAssetRequest) -> Void)) {
+    init(
+        assetDescription: ProxiedContentAssetDescription,
+        priority: ProxiedContentRequestPriority,
+        success: @escaping ((ProxiedContentAssetRequest?, ProxiedContentAsset) -> Void),
+        failure: @escaping ((ProxiedContentAssetRequest) -> Void),
+        using dependencies: Dependencies
+    ) {
+        self.dependencies = dependencies
         self.assetDescription = assetDescription
         self.priority = priority
         self.success = success
         self.failure = failure
-
-        super.init()
     }
 
     private func segmentSize() -> UInt {
-
         let contentLength = UInt(self.contentLength)
         guard contentLength > 0 else {
             requestDidFail()
@@ -314,7 +314,7 @@ public class ProxiedContentAssetRequest: NSObject {
         let filePath = (downloadFolderPath as NSString).appendingPathComponent(fileName)
         do {
             try assetData.write(to: NSURL.fileURL(withPath: filePath), options: .atomicWrite)
-            let asset = ProxiedContentAsset(assetDescription: assetDescription, filePath: filePath)
+            let asset = ProxiedContentAsset(assetDescription: assetDescription, filePath: filePath, using: dependencies)
             return asset
         } catch {
             return nil
@@ -352,6 +352,10 @@ public class ProxiedContentAssetRequest: NSObject {
         // Only one of the callbacks should be called, and only once.
         clearCallbacks()
     }
+    
+    public static func == (lhs: ProxiedContentAssetRequest, rhs: ProxiedContentAssetRequest) -> Bool {
+        return (lhs.id == rhs.id)
+    }
 }
 
 // MARK: -
@@ -361,17 +365,17 @@ public class ProxiedContentAssetRequest: NSObject {
 // The blob on disk is cleaned up when this instance is deallocated,
 // so consumers of this resource should retain a strong reference to
 // this instance as long as they are using the asset.
-@objc
-public class ProxiedContentAsset: NSObject {
-
-    @objc
+public class ProxiedContentAsset {
+    private let dependencies: Dependencies
     public let assetDescription: ProxiedContentAssetDescription
-
-    @objc
     public let filePath: String
 
-    init(assetDescription: ProxiedContentAssetDescription,
-         filePath: String) {
+    init(
+        assetDescription: ProxiedContentAssetDescription,
+        filePath: String,
+        using dependencies: Dependencies
+    ) {
+        self.dependencies = dependencies
         self.assetDescription = assetDescription
         self.filePath = filePath
     }
@@ -379,13 +383,8 @@ public class ProxiedContentAsset: NSObject {
     deinit {
         // Clean up on the asset on disk.
         let filePathCopy = filePath
-        DispatchQueue.global().async {
-            do {
-                let fileManager = FileManager.default
-                try fileManager.removeItem(atPath: filePathCopy)
-            } catch {
-
-            }
+        DispatchQueue.global().async { [dependencies] in
+            try? dependencies[singleton: .fileManager].removeItem(atPath: filePathCopy)
         }
     }
 }
@@ -475,7 +474,7 @@ open class ProxiedContentDownloader: NSObject, URLSessionTaskDelegate, URLSessio
     private var assetMap = LRUCache<NSURL, ProxiedContentAsset>(maxSize: 100)
     // TODO: We could use a proper queue, e.g. implemented with a linked
     // list.
-    private var assetRequestQueue = [ProxiedContentAssetRequest]()
+    private var assetRequestQueue: [ProxiedContentAssetRequest] = []
 
     // The success and failure callbacks are always called on main queue.
     //
@@ -495,10 +494,13 @@ open class ProxiedContentDownloader: NSObject, URLSessionTaskDelegate, URLSessio
         // Cache miss.
         //
         // Asset requests are done queued and performed asynchronously.
-        let assetRequest = ProxiedContentAssetRequest(assetDescription: assetDescription,
-                                             priority: priority,
-                                             success: success,
-                                             failure: failure)
+        let assetRequest = ProxiedContentAssetRequest(
+            assetDescription: assetDescription,
+            priority: priority,
+            success: success,
+            failure: failure,
+            using: dependencies
+        )
         assetRequest.shouldIgnoreSignalProxy = shouldIgnoreSignalProxy
         assetRequestQueue.append(assetRequest)
         // Process the queue (which may start this request)
@@ -524,13 +526,14 @@ open class ProxiedContentDownloader: NSObject, URLSessionTaskDelegate, URLSessio
         // Cache miss.
         //
         // Asset requests are done queued and performed asynchronously.
-        return Deferred {
-            Future { [weak self] resolver in
+        return Deferred { [weak self, dependencies] in
+            Future { resolver in
                 let assetRequest = ProxiedContentAssetRequest(
                     assetDescription: assetDescription,
                     priority: priority,
                     success: { request, asset in resolver(Result.success((asset, request))) },
-                    failure: { request in resolver(Result.failure(NetworkError.invalidResponse)) }
+                    failure: { request in resolver(Result.failure(NetworkError.invalidResponse)) },
+                    using: dependencies
                 )
                 assetRequest.shouldIgnoreSignalProxy = shouldIgnoreSignalProxy
                 self?.assetRequestQueue.append(assetRequest)
@@ -911,26 +914,26 @@ open class ProxiedContentDownloader: NSObject, URLSessionTaskDelegate, URLSessio
         // We write assets to the temporary directory so that iOS can clean them up.
         // We try to eagerly clean up these assets when they are no longer in use.
 
-        let tempDirPath = dependencies[singleton: .appContext].temporaryDirectory
+        let tempDirPath = dependencies[singleton: .fileManager].temporaryDirectory
         let dirPath = (tempDirPath as NSString).appendingPathComponent(downloadFolderName)
         do {
-            let fileManager = FileManager.default
-
             // Try to delete existing folder if necessary.
-            if fileManager.fileExists(atPath: dirPath) {
-                try fileManager.removeItem(atPath: dirPath)
+            if dependencies[singleton: .fileManager].fileExists(atPath: dirPath) {
+                try dependencies[singleton: .fileManager].removeItem(atPath: dirPath)
                 downloadFolderPath = dirPath
             }
             // Try to create folder if necessary.
-            if !fileManager.fileExists(atPath: dirPath) {
-                try fileManager.createDirectory(atPath: dirPath,
-                                                withIntermediateDirectories: true,
-                                                attributes: nil)
+            if !dependencies[singleton: .fileManager].fileExists(atPath: dirPath) {
+                try dependencies[singleton: .fileManager].createDirectory(
+                    atPath: dirPath,
+                    withIntermediateDirectories: true,
+                    attributes: nil
+                )
                 downloadFolderPath = dirPath
             }
 
             // Don't back up ProxiedContent downloads.
-            try? FileSystem.protectFileOrFolder(at: dirPath, using: dependencies)
+            try? dependencies[singleton: .fileManager].protectFileOrFolder(at: dirPath)
         } catch {
             downloadFolderPath = tempDirPath
         }

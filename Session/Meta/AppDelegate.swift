@@ -291,7 +291,7 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
         }
 
         // On every activation, clear old temp directories.
-        dependencies[singleton: .appContext].clearOldTemporaryDirectories()
+        dependencies[singleton: .fileManager].clearOldTemporaryDirectories()
     }
     
     func applicationWillResignActive(_ application: UIApplication) {
