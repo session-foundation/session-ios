@@ -55,6 +55,30 @@ final class NewClosedGroupVC: BaseVC, UITableViewDataSource, UITableViewDelegate
     private static let textFieldHeight: CGFloat = 50
     private static let searchBarHeight: CGFloat = (36 + (Values.mediumSpacing * 2))
     
+    private let contentStackView: UIStackView = {
+        let result: UIStackView = UIStackView()
+        result.axis = .vertical
+        result.distribution = .fill
+        
+        return result
+    }()
+    
+    private lazy var minVersionBanner: InfoBanner = {
+        let result: InfoBanner = InfoBanner(
+            info: InfoBanner.Info(
+                font: .systemFont(ofSize: Values.verySmallFontSize),
+                message: "groupInviteVersion".localized(),
+                icon: .none,
+                tintColor: .black,
+                backgroundColor: .warning,
+                accessibility: Accessibility(label: "Version warning banner")
+            )
+        )
+        result.isHidden = dependencies[feature: .updatedGroups]
+        
+        return result
+    }()
+    
     private lazy var nameTextField: TextField = {
         let result = TextField(
             placeholder: "groupNameEnter".localized(),
@@ -192,11 +216,14 @@ final class NewClosedGroupVC: BaseVC, UITableViewDataSource, UITableViewDelegate
             return
         }
         
-        view.addSubview(tableView)
-        tableView.pin(.top, to: .top, of: view)
-        tableView.pin(.leading, to: .leading, of: view)
-        tableView.pin(.trailing, to: .trailing, of: view)
-        tableView.pin(.bottom, to: .bottom, of: view)
+        view.addSubview(contentStackView)
+        contentStackView.pin(.top, to: .top, of: view)
+        contentStackView.pin(.leading, to: .leading, of: view)
+        contentStackView.pin(.trailing, to: .trailing, of: view)
+        contentStackView.pin(.bottom, to: .bottom, of: view)
+        
+        contentStackView.addArrangedSubview(minVersionBanner)
+        contentStackView.addArrangedSubview(tableView)
         
         view.addSubview(fadeView)
         fadeView.pin(.leading, to: .leading, of: view)

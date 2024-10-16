@@ -31,7 +31,8 @@ internal extension LibSession {
     static let columnsRelatedToUserGroups: [ColumnExpression] = [
         ClosedGroup.Columns.name,
         ClosedGroup.Columns.authData,
-        ClosedGroup.Columns.groupIdentityPrivateKey
+        ClosedGroup.Columns.groupIdentityPrivateKey,
+        ClosedGroup.Columns.invited
     ]
 }
 
@@ -515,6 +516,17 @@ internal extension LibSessionCacheType {
                                 calledFromConfig: .userGroups,
                                 using: dependencies
                             )
+                        
+                        // If the group changed to no longer be in the invited state then we need to trigger the
+                        // group approval process
+                        if !group.invited && existingGroup.invited != group.invited {
+                            try ClosedGroup.approveGroup(
+                                db,
+                                group: existingGroup,
+                                calledFromConfig: .userGroups,
+                                using: dependencies
+                            )
+                        }
                     }
             }
 

@@ -63,7 +63,7 @@ class MessageRequestFooterView: UIView {
         result.translatesAutoresizingMaskIntoConstraints = false
         result.clipsToBounds = true
         result.titleLabel?.font = UIFont.boldSystemFont(ofSize: 16)
-        result.setTitle("deleteAfterGroupPR1BlockUser".localized(), for: .normal)
+        result.setTitle("block".localized(), for: .normal)
         result.setThemeTitleColor(.danger, for: .normal)
         result.addTarget(self, action: #selector(block), for: .touchUpInside)
 
@@ -86,7 +86,7 @@ class MessageRequestFooterView: UIView {
         result.accessibilityLabel = "Delete message request"
         result.isAccessibilityElement = true
         result.translatesAutoresizingMaskIntoConstraints = false
-        result.setTitle("decline".localized(), for: .normal)
+        result.setTitle("delete".localized(), for: .normal)
         result.addTarget(self, action: #selector(decline), for: .touchUpInside)
 
         return result

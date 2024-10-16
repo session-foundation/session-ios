@@ -235,17 +235,21 @@ final class ConversationVC: BaseVC, LibSessionRespondingViewController, Conversa
         let result: InfoBanner = InfoBanner(
             info: InfoBanner.Info(
                 font: .systemFont(ofSize: Values.miniFontSize),
-                message: "groupInviteVersion".localized(),
+                message: "groupLegacyBanner"
+                    .put(key: "date", value: Features.legacyGroupDepricationDate.formattedForBanner)
+                    .localized(),
                 icon: .link,
                 tintColor: .messageBubble_outgoingText,
                 backgroundColor: .primary,
                 accessibility: Accessibility(label: "Legacy group banner"),
-                labelAccessibility: Accessibility(label: "Legacy group banner text"),
                 height: nil,
-                onTap: { [weak self] in self?.openUrl("https://getsession.org/faq") }
+                onTap: { [weak self] in self?.openUrl(Features.legacyGroupDepricationUrl) }
             )
         )
-        result.isHidden = (self.viewModel.threadData.threadVariant != .legacyGroup)
+        result.isHidden = (
+            self.viewModel.threadData.threadVariant != .legacyGroup ||
+            self.viewModel.threadData.currentUserIsClosedGroupAdmin != true
+        )
         
         return result
     }()
@@ -791,6 +795,17 @@ final class ConversationVC: BaseVC, LibSessionRespondingViewController, Conversa
             addOrRemoveOutdatedClientBanner(
                 outdatedMemberId: updatedThreadData.outdatedMemberId,
                 disappearingMessagesConfiguration: updatedThreadData.disappearingMessagesConfiguration
+            )
+        }
+        
+        if
+            initialLoad ||
+            viewModel.threadData.threadVariant != updatedThreadData.threadVariant ||
+            viewModel.threadData.currentUserIsClosedGroupAdmin != updatedThreadData.currentUserIsClosedGroupAdmin
+        {
+            legacyGroupsBanner.isHidden = (
+                updatedThreadData.threadVariant != .legacyGroup ||
+                updatedThreadData.currentUserIsClosedGroupAdmin != true
             )
         }
         

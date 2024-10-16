@@ -5,7 +5,8 @@
 import Foundation
 
 public final class Features {
-    public static let legacyGroupDepricationDate: Date = Date.distantFuture         // TODO: Set this date
+    public static let legacyGroupDepricationDate: Date = Date.distantFuture            // TODO: [GROUPS REBUILD] Set this date
+    public static let legacyGroupDepricationUrl: String = "https://getsession.org/faq" // TODO: [GROUPS REBUILD] Set this url
 }
 
 public extension FeatureStorage {

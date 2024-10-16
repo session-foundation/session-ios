@@ -446,52 +446,15 @@ public struct Interaction: Codable, Identifiable, Equatable, FetchableRecord, Mu
         
         switch variant {
             case .standardOutgoing:
-                // New outgoing messages should immediately determine their recipient list
-                // from current thread state
-                switch threadVariant {
-                    case .contact:
-                        try RecipientState(
-                            interactionId: success.rowID,
-                            recipientId: threadId,  // Will be the contact id
-                            state: .sending
-                        ).insert(db)
-                        
-                    case .legacyGroup, .group:
-                        let closedGroupMemberIds: Set<String> = (try? GroupMember
-                            .select(.profileId)
-                            .filter(GroupMember.Columns.groupId == threadId)
-                            .asRequest(of: String.self)
-                            .fetchSet(db))
-                            .defaulting(to: [])
-                        
-                        guard !closedGroupMemberIds.isEmpty else {
-                            SNLog("Inserted an interaction but couldn't find it's associated thread members")
-                            return
-                        }
-                        
-                        // Exclude the current user when creating recipient states (as they will never
-                        // receive the message resulting in the message getting flagged as failed)
-                        let currentUserSessionId: SessionId? = transientDependencies?.value[cache: .general].sessionId
-                        try closedGroupMemberIds
-                            .filter { memberId -> Bool in memberId != currentUserSessionId?.hexString }
-                            .forEach { memberId in
-                                try RecipientState(
-                                    interactionId: success.rowID,
-                                    recipientId: memberId,
-                                    state: .sending
-                                ).insert(db)
-                            }
-                        
-                    case .community:
-                        // Since we use the 'RecipientState' type to manage the message state
-                        // we need to ensure we have a state for all threads; so for open groups
-                        // we just use the open group id as the 'recipientId' value
-                        try RecipientState(
-                            interactionId: success.rowID,
-                            recipientId: threadId,  // Will be the open group id
-                            state: .sending
-                        ).insert(db)
-                }
+                /// The `RecipientState` is used to manage the sending status of a message regardless of the type of conversation it's
+                /// sent to, in a `contact` conversation the "recipient" is a contact and, as such, can have a `Read` state if enabled but for
+                /// group and community conversations the "recipient" of the message is the conversation itself so there can be no `Read`
+                /// state, and we only need a single record
+                try RecipientState(
+                    interactionId: success.rowID,
+                    recipientId: threadId,
+                    state: .sending
+                ).insert(db)
                 
             default: break
         }
