@@ -223,10 +223,11 @@ extension SyncPushTokensJob {
 
 // MARK: - Convenience
 
+// stringlint:ignore_contents
 private func redact(_ string: String) -> String {
 #if DEBUG
-    return "[ DEBUG_NOT_REDACTED \(string) ]" // stringlint:disable
+    return "[ DEBUG_NOT_REDACTED \(string) ]"
 #else
-    return "[ READACTED \(string.prefix(2))...\(string.suffix(2)) ]" // stringlint:disable
+    return "[ READACTED \(string.prefix(2))...\(string.suffix(2)) ]"
 #endif
 }

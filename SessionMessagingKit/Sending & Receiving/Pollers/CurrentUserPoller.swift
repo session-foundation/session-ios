@@ -46,8 +46,9 @@ public final class CurrentUserPoller: Poller {
     
     // MARK: - Abstract Methods
     
+    // stringlint:ignore_contents
     override public func pollerName(for publicKey: String) -> String {
-        return "Main Poller" // stringlint:disable
+        return "Main Poller"
     }
     
     override func nextPollDelay(for publicKey: String, using dependencies: Dependencies) -> TimeInterval {

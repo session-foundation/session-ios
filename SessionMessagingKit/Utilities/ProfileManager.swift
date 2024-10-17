@@ -161,9 +161,10 @@ public struct ProfileManager {
     
     // MARK: - File Paths
     
+    // stringlint:ignore_contents
     public static let sharedDataProfileAvatarsDirPath: String = {
         let path: String = URL(fileURLWithPath: FileManager.default.appSharedDataDirectoryPath)
-            .appendingPathComponent("ProfileAvatars")   // stringlint:disable
+            .appendingPathComponent("ProfileAvatars")
             .path
         try? FileSystem.ensureDirectoryExists(at: path)
         
@@ -219,7 +220,7 @@ public struct ProfileManager {
             profileKeyAtStart.count > 0
         else { return }
         
-        let fileName: String = UUID().uuidString.appendingFileExtension("jpg")  // stringlint:disable
+        let fileName: String = UUID().uuidString.appendingFileExtension("jpg")  // stringlint:ignore
         let filePath: String = ProfileManager.profileAvatarFilepath(filename: fileName)
         var backgroundTask: SessionBackgroundTask? = SessionBackgroundTask(label: #function)
         
@@ -328,10 +329,12 @@ public struct ProfileManager {
                             profileAvatarCache.mutate { $0[fileName] = nil }
                         }
                         
+                        // stringlint:ignore_start
                         Log.debug(existingProfileUrl != nil ?
-                            "Updating local profile on service with cleared avatar." :  // stringlint:disable
-                            "Updating local profile on service with no avatar."         // stringlint:disable
+                            "Updating local profile on service with cleared avatar." :
+                            "Updating local profile on service with no avatar."
                         )
+                        // stringlint:ignore_stop
                     }
                     
                     try ProfileManager.updateProfileIfNeeded(
@@ -434,11 +437,12 @@ public struct ProfileManager {
                 }()
                 
                 newProfileKey = try Randomness.generateRandomBytes(numberBytes: ProfileManager.avatarAES256KeyByteLength)
+                // stringlint:ignore_contents
                 fileExtension = {
                     switch guessedFormat {
-                        case .gif: return "gif"     // stringlint:disable
-                        case .webp: return "webp"   // stringlint:disable
-                        default: return "jpg"       // stringlint:disable
+                        case .gif: return "gif"
+                        case .webp: return "webp"
+                        default: return "jpg"
                     }
                 }()
             }
@@ -609,7 +613,7 @@ public struct ProfileManager {
         // FIXME: We don't want to trigger the download within the notification extension, as part of the groups rebuild this has been moved into a Job which won't be run so this logic can be removed
         guard avatarNeedsDownload && Singleton.hasAppContext && Singleton.appContext.isMainApp else { return }
         
-        let dedupeIdentifier: String = "AvatarDownload-\(publicKey)-\(targetAvatarUrl ?? "remove")" // stringlint:disable
+        let dedupeIdentifier: String = "AvatarDownload-\(publicKey)-\(targetAvatarUrl ?? "remove")" // stringlint:ignore
         
         db.afterNextTransactionNestedOnce(dedupeId: dedupeIdentifier) { db in
             // Need to refetch to ensure the db changes have occurred

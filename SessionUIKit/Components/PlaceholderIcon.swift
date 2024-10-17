@@ -43,6 +43,7 @@ public class PlaceholderIcon {
     
     // MARK: - Convenience
     
+    // stringlint:ignore_contents
     public static func generate(seed: String, text: String, size: CGFloat) -> UIImage {
         let icon = PlaceholderIcon(seed: seed)
         

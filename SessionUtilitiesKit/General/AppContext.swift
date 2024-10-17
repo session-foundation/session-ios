@@ -58,7 +58,7 @@ public extension AppContext {
     var temporaryDirectory: String {
         if let dir: String = _temporaryDirectory { return dir }
         
-        let dirName: String = "ows_temp_\(UUID().uuidString)"   // stringlint:disable
+        let dirName: String = "ows_temp_\(UUID().uuidString)"   // stringlint:ignore
         let dirPath: String = URL(fileURLWithPath: NSTemporaryDirectory())
             .appendingPathComponent(dirName)
             .path

@@ -358,6 +358,7 @@ public final class MessageSender {
     ) throws -> PreparedSendData {
         let threadId: String
         
+        // stringlint:ignore_start
         switch destination {
             case .contact, .syncMessage, .closedGroup, .openGroupInbox: preconditionFailure()
             case .openGroup(let roomToken, let server, let whisperTo, let whisperMods, _):
@@ -371,6 +372,7 @@ public final class MessageSender {
                 .compactMap { $0 }
                 .joined(separator: ".")
         }
+        // stringlint:ignore_stop
         
         // Note: It's possible to send a message and then delete the open group you sent the message to
         // which would go into this case, so rather than handling it as an invalid state we just want to

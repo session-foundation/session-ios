@@ -1097,6 +1097,7 @@ final class VisibleMessageCell: MessageCell, TappableLabelDelegate {
         }
     }
     
+    // stringlint:ignore_contents
     static func getBodyAttributedText(
         for cellViewModel: MessageViewModel,
         theme: Theme,

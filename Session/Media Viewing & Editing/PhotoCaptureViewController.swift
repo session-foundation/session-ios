@@ -333,16 +333,14 @@ class PhotoCaptureViewController: OWSViewController {
         present(modal, animated: true)
     }
 
+    // stringlint:ignore_contents
     private func updateFlashModeControl() {
         let imageName: String
         switch photoCapture.flashMode {
-        case .auto:
-            imageName = "ic_flash_mode_auto" // stringlint:disable
-        case .on:
-            imageName = "ic_flash_mode_on" // stringlint:disable
-        case .off:
-            imageName = "ic_flash_mode_off" // stringlint:disable
-        default: preconditionFailure()
+            case .auto: imageName = "ic_flash_mode_auto"
+            case .on: imageName = "ic_flash_mode_on"
+            case .off: imageName = "ic_flash_mode_off"
+            default: preconditionFailure()
         }
 
         self.flashModeControl.setImage(imageName: imageName)
@@ -643,10 +641,11 @@ class RecordingTimerView: UIView {
 
     private var timer: Timer?
 
+    // stringlint:ignore_contents
     private lazy var timeFormatter: DateFormatter = {
         let formatter = DateFormatter()
         formatter.dateFormat = "mm:ss"
-        formatter.timeZone = TimeZone(identifier: "UTC")! // stringlint:disable
+        formatter.timeZone = TimeZone(identifier: "UTC")!
 
         return formatter
     }()

@@ -84,9 +84,10 @@ public final class WebRTCSession : NSObject, RTCPeerConnectionDelegate {
     public enum WebRTCSessionError: LocalizedError {
         case noThread
         
+        // stringlint:ignore_contents
         public var errorDescription: String? {
             switch self {
-                case .noThread: return "Couldn't find thread for contact." // stringlint:disable
+                case .noThread: return "Couldn't find thread for contact."
             }
         }
     }
@@ -392,10 +393,11 @@ public final class WebRTCSession : NSObject, RTCPeerConnectionDelegate {
         return RTCMediaConstraints(mandatoryConstraints: mandatory, optionalConstraints: optional)
     }
     
+    // stringlint:ignore_contents
     private func correctSessionDescription(sdp: RTCSessionDescription?) -> RTCSessionDescription? {
         guard let sdp = sdp else { return nil }
-        let cbrSdp = sdp.sdp.description.replace(regex: "(a=fmtp:111 ((?!cbr=).)*)\r?\n", with: "$1;cbr=1\r\n") // stringlint:disable
-        let finalSdp = cbrSdp.replace(regex: ".+urn:ietf:params:rtp-hdrext:ssrc-audio-level.*\r?\n", with: "") // stringlint:disable
+        let cbrSdp = sdp.sdp.description.replace(regex: "(a=fmtp:111 ((?!cbr=).)*)\r?\n", with: "$1;cbr=1\r\n")
+        let finalSdp = cbrSdp.replace(regex: ".+urn:ietf:params:rtp-hdrext:ssrc-audio-level.*\r?\n", with: "")
         return RTCSessionDescription(type: sdp.type, sdp: finalSdp)
     }
     

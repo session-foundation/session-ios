@@ -73,7 +73,7 @@ struct RecoveryPasswordScreen: View {
                                 QRCodeView(
                                     string: hexEncodedSeed ?? "",
                                     hasBackground: false,
-                                    logo: "SessionShieldFilled",
+                                    logo: "SessionShieldFilled", // stringlint:ignore
                                     themeStyle: ThemeManager.currentTheme.interfaceStyle
                                 )
                                 .padding(.all, Values.smallSpacing)

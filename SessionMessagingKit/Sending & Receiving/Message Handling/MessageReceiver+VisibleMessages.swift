@@ -151,6 +151,7 @@ extension MessageReceiver {
             expiresStartedAtMs: message.expiresStartedAtMs
         )
         do {
+            // stringlint:ignore_start
             interaction = try Interaction(
                 serverHash: message.serverHash, // Keep track of server hash
                 threadId: thread.id,
@@ -183,6 +184,7 @@ extension MessageReceiver {
                     return recipientParts[2]
                 }()
             ).inserted(db)
+            // stringlint:ignore_stop
         }
         catch {
             switch error {

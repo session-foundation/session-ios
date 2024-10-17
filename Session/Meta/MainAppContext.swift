@@ -151,11 +151,12 @@ final class MainAppContext: AppContext {
     func endBackgroundTask(_ backgroundTaskIdentifier: UIBackgroundTaskIdentifier) {
         UIApplication.shared.endBackgroundTask(backgroundTaskIdentifier)
     }
-        
+    
+    // stringlint:ignore_contents
     func ensureSleepBlocking(_ shouldBeBlocking: Bool, blockingObjects: [Any]) {
         if UIApplication.shared.isIdleTimerDisabled != shouldBeBlocking {
             if shouldBeBlocking {
-                var logString: String = "Blocking sleep because of: \(String(describing: blockingObjects.first))" // stringlint:disable
+                var logString: String = "Blocking sleep because of: \(String(describing: blockingObjects.first))"
                 
                 if blockingObjects.count > 1 {
                     logString = "\(logString) (and \(blockingObjects.count - 1) others)"
@@ -175,6 +176,7 @@ final class MainAppContext: AppContext {
     
     // MARK: -
     
+    // stringlint:ignore_contents
     func clearOldTemporaryDirectories() {
         // We use the lowest priority queue for this, and wait N seconds
         // to avoid interfering with app startup.
@@ -199,7 +201,7 @@ final class MainAppContext: AppContext {
                 // b) modified time before app launch time.
                 let filePath: String = URL(fileURLWithPath: dirPath).appendingPathComponent(fileName).path
                 
-                if !fileName.hasPrefix("ows_temp") { // stringlint:disable
+                if !fileName.hasPrefix("ows_temp") {
                     // It's fine if we can't get the attributes (the file may have been deleted since we found it),
                     // also don't delete files which were created in the last N minutes
                     guard

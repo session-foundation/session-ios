@@ -283,21 +283,22 @@ extension Attachment: CustomStringConvertible {
             .localized()
     }
     
+    // stringlint:ignore_contents
     public static func emoji(for contentType: String) -> String {
         if UTType.isAnimated(contentType) {
-            return "🎡"     // stringlint:disable
+            return "🎡"
         }
         else if UTType.isVideo(contentType) {
-            return "🎥"     // stringlint:disable
+            return "🎥"
         }
         else if UTType.isAudio(contentType) {
-            return "🎧"     // stringlint:disable
+            return "🎧"
         }
         else if UTType.isImage(contentType) {
-            return "📷"     // stringlint:disable
+            return "📷"
         }
         
-        return "📎"         // stringlint:disable
+        return "📎"
     }
     
     public var description: String {
@@ -594,7 +595,7 @@ extension Attachment {
     
     private static var sharedDataAttachmentsDirPath: String = {
         URL(fileURLWithPath: FileManager.default.appSharedDataDirectoryPath)
-            .appendingPathComponent("Attachments") // stringlint:disable
+            .appendingPathComponent("Attachments") // stringlint:ignore
             .path
     }()
     
@@ -753,7 +754,7 @@ extension Attachment {
 // MARK: - Convenience
 
 extension Attachment {
-    public static let nonMediaQuoteFileId: String = "NON_MEDIA_QUOTE_FILE_ID" // stringlint:disable
+    public static let nonMediaQuoteFileId: String = "NON_MEDIA_QUOTE_FILE_ID" // stringlint:ignore
     
     public enum ThumbnailSize {
         case small
@@ -786,7 +787,7 @@ extension Attachment {
     var thumbnailsDirPath: String {
         // Thumbnails are written to the caches directory, so that iOS can
         // remove them if necessary
-        return "\(FileSystem.cachesDirectoryPath)/\(id)-thumbnails" // stringlint:disable
+        return "\(FileSystem.cachesDirectoryPath)/\(id)-thumbnails" // stringlint:ignore
     }
     
     var legacyThumbnailPath: String? {
@@ -799,7 +800,7 @@ extension Attachment {
         let filename: String = fileUrl.lastPathComponent.filenameWithoutExtension
         let containingDir: String = fileUrl.deletingLastPathComponent().path
         
-        return "\(containingDir)/\(filename)-signal-ios-thumbnail.jpg" // stringlint:disable
+        return "\(containingDir)/\(filename)-signal-ios-thumbnail.jpg" // stringlint:ignore
     }
     
     var originalImage: UIImage? {
@@ -852,7 +853,7 @@ extension Attachment {
     }
     
     public func thumbnailPath(for dimensions: UInt) -> String {
-        return "\(thumbnailsDirPath)/thumbnail-\(dimensions).jpg" // stringlint:disable
+        return "\(thumbnailsDirPath)/thumbnail-\(dimensions).jpg" // stringlint:ignore
     }
     
     private func loadThumbnail(with dimensions: UInt, success: @escaping (UIImage, () throws -> Data) -> (), failure: @escaping () -> ()) {
@@ -930,7 +931,7 @@ extension Attachment {
     
     public func cloneAsQuoteThumbnail() -> Attachment? {
         let cloneId: String = UUID().uuidString
-        let thumbnailName: String = "quoted-thumbnail-\(sourceFilename ?? "null")" // stringlint:disable
+        let thumbnailName: String = "quoted-thumbnail-\(sourceFilename ?? "null")" // stringlint:ignore
         
         guard self.isVisualMedia else { return nil }
         

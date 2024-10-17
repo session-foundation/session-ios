@@ -94,7 +94,7 @@ extension PushNotificationAPI {
             /// `"UNSUBSCRIBE" || HEX(ACCOUNT) || SIG_TS`
             ///
             /// Where `SIG_TS` is the `sig_ts` value as a base-10 string and must be within 24 hours of the current time.
-            let verificationBytes: [UInt8] = "UNSUBSCRIBE".bytes // stringlint:disable
+            let verificationBytes: [UInt8] = "UNSUBSCRIBE".bytes
                 .appending(contentsOf: pubkey.bytes)
                 .appending(contentsOf: "\(timestamp)".data(using: .ascii)?.bytes)
             

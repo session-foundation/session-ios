@@ -7,7 +7,7 @@ import SessionUtilitiesKit
 /// This migration drops the current `SnodePool` and `SnodeSet` and their associated jobs as they are handled by `libSession` now
 enum _006_DropSnodeCache: Migration {
     static let target: TargetMigrations.Identifier = .snodeKit
-    static let identifier: String = "DropSnodeCache" // stringlint:disable
+    static let identifier: String = "DropSnodeCache"
     static let needsConfigSync: Bool = false
     static let minExpectedRunDuration: TimeInterval = 0.1
     static let fetchedTables: [(TableRecord & FetchableRecord).Type] = []

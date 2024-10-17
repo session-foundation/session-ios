@@ -64,10 +64,11 @@ public enum SNUserDefaults {
 public extension UserDefaults {
     private static let _applicationGroup: Atomic<String?> = Atomic(nil)
     
+    // stringlint:ignore_contents
     static let applicationGroup: String = {
         guard let appGroup: String = _applicationGroup.wrappedValue else {
-            let dynamicAppGroupsId: String = (Bundle.main.infoDictionary?["AppGroupsId"] as? String)  // stringlint:disable
-                .defaulting(to: "group.com.loki-project.loki-messenger")                              // stringlint:disable
+            let dynamicAppGroupsId: String = (Bundle.main.infoDictionary?["AppGroupsId"] as? String)
+                .defaulting(to: "group.com.loki-project.loki-messenger")
             
             _applicationGroup.mutate { $0 = dynamicAppGroupsId }
             return dynamicAppGroupsId

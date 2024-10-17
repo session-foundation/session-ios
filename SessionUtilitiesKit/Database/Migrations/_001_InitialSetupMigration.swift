@@ -1,11 +1,13 @@
 // Copyright © 2022 Rangeproof Pty Ltd. All rights reserved.
+//
+// stringlint:ignore
 
 import Foundation
 import GRDB
 
 enum _001_InitialSetupMigration: Migration {
     static let target: TargetMigrations.Identifier = .utilitiesKit
-    static let identifier: String = "initialSetup" // stringlint:disable
+    static let identifier: String = "initialSetup"
     static let needsConfigSync: Bool = false
     static let minExpectedRunDuration: TimeInterval = 0.1
     static let fetchedTables: [(TableRecord & FetchableRecord).Type] = []

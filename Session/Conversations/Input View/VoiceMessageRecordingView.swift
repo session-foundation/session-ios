@@ -118,11 +118,12 @@ final class VoiceMessageRecordingView: UIView {
         return result
     }()
 
+    // stringlint:ignore_contents
     private lazy var durationLabel: UILabel = {
         let result: UILabel = UILabel()
         result.font = .systemFont(ofSize: Values.smallFontSize)
         result.themeTextColor = .textPrimary
-        result.text = "0:00" // stringlint:disable
+        result.text = "0:00"
         
         return result
     }()

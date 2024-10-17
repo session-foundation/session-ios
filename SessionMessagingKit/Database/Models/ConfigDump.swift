@@ -87,6 +87,7 @@ public extension ConfigDump.Variant {
 
 // MARK: - CustomStringConvertible
 
+// stringlint:ignore_contents
 extension ConfigDump.Variant: CustomStringConvertible {
     public var description: String {
         switch self {
