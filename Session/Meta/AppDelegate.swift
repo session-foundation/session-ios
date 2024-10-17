@@ -591,13 +591,13 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
         
         /// Start a timeout for the creation of the rootViewController setup process (if it takes too long then we want to give the user
         /// the option to export their logs)
-        let populateHomeScreenTimer: Timer = Timer.scheduledTimerOnMainThread(
-            withTimeInterval: AppDelegate.maxRootViewControllerInitialQueryDuration,
-            repeats: false
-        ) { [weak self] timer in
-            timer.invalidate()
+        /// Note: Refactor to fix `Capture of 'populateHomeScreenTimer' with non-sendable type 'Timer' in a @Sendable closure; this is an error in the Swift 6 language mode`
+        let populateHomeScreenTimer: DispatchSourceTimer? = DispatchSource.makeTimerSource(queue: .main)
+        populateHomeScreenTimer?.schedule(deadline: .now() + AppDelegate.maxRootViewControllerInitialQueryDuration)
+        populateHomeScreenTimer?.setEventHandler { [weak self] in
             self?.showFailedStartupAlert(calledFrom: lifecycleMethod, error: .startupTimeout)
         }
+        populateHomeScreenTimer?.resume()
         
         // All logic which needs to run after the 'rootViewController' is created
         let rootViewControllerSetupComplete: (UIViewController) -> () = { [weak self] rootViewController in
@@ -650,7 +650,7 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
                 DispatchQueue.main.async { [dependencies] in
                     let viewController = SessionHostingViewController(rootView: LandingScreen(using: dependencies))
                     viewController.setUpNavBarSessionIcon()
-                    populateHomeScreenTimer.invalidate()
+                    populateHomeScreenTimer?.cancel()
                     rootViewControllerSetupComplete(viewController)
                 }
                 
@@ -661,32 +661,25 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
                     )
                     viewController.setUpNavBarSessionIcon()
                     viewController.setUpClearDataBackButton(flow: .register)
-                    populateHomeScreenTimer.invalidate()
+                    populateHomeScreenTimer?.cancel()
                     rootViewControllerSetupComplete(viewController)
                 }
                 
             case .completed:
                 DispatchQueue.main.async { [dependencies] in
-//                    let viewController: HomeVC = HomeVC(using: dependencies)
-//                    
-//                    /// We want to start observing the changes for the 'HomeVC' and want to wait until we actually get data back before we
-//                    /// continue as we don't want to show a blank home screen
-//                    DispatchQueue.global(qos: .userInitiated).async {
-//                        viewController.startObservingChanges() {
-//                            populateHomeScreenTimer.invalidate()
-//                            
-//                            DispatchQueue.main.async {
-//                                rootViewControllerSetupComplete(viewController)
-//                            }
-//                        }
-//                    }
-                    
-                    let viewController = SessionHostingViewController(rootView: HomeScreen(using: dependencies))
-                    
-                    populateHomeScreenTimer.invalidate()
-                    
-                    DispatchQueue.main.async {
-                        rootViewControllerSetupComplete(viewController)
+                    var homeScreen: HomeScreen = HomeScreen(using: dependencies)
+                    let viewController = SessionHostingViewController(rootView: homeScreen)
+                    viewController.setUpNavBarSessionHeading()
+                    /// We want to start observing the changes for the 'HomeVC' and want to wait until we actually get data back before we
+                    /// continue as we don't want to show a blank home screen
+                    DispatchQueue.global(qos: .userInitiated).async {
+                        homeScreen.startObservingChanges() {
+                            populateHomeScreenTimer?.cancel()
+                            
+                            DispatchQueue.main.async {
+                                rootViewControllerSetupComplete(viewController)
+                            }
+                        }
                     }
                 }
         }

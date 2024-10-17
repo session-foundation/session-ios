@@ -11,17 +11,41 @@ import SignalUtilitiesKit
 
 struct HomeScreen: View {
     @EnvironmentObject var host: HostWrapper
-    @StateObject private var viewModel: HomeScreenViewModel
+    @StateObject private var viewModel: ViewModel
     private var flow: Onboarding.Flow?
+    public var onReceivedInitialChange: (() -> ())? {
+        didSet {
+            viewModel.onReceivedInitialChange = onReceivedInitialChange
+        }
+    }
     
-    init(flow: Onboarding.Flow? = nil, using dependencies: Dependencies, onReceivedInitialChange: (() -> ())? = nil) {
+    init(flow: Onboarding.Flow? = nil, using dependencies: Dependencies) {
+        _viewModel = StateObject(wrappedValue: ViewModel(using: dependencies))
         self.flow = flow
-        _viewModel = StateObject(
-            wrappedValue: HomeScreenViewModel(
-                using: dependencies,
-                onReceivedInitialChange: onReceivedInitialChange
-            )
-        )
+        self.initialize()
+    }
+    
+    private func initialize() {
+        // Note: This is a hack to ensure `isRTL` is initially gets run on the main thread so the value
+        // is cached (it gets called on background threads and if it hasn't cached the value then it can
+        // cause odd performance issues since it accesses UIKit)
+        if Singleton.hasAppContext { _ = Singleton.appContext.isRTL }
+        
+        // Preparation
+        // TODO: [HomeScreen Refactoring] 
+//        SessionApp.homeViewController.mutate { $0 = self }
+        
+        // Start polling if needed (i.e. if the user just created or restored their Session ID)
+        if Identity.userExists(), let appDelegate: AppDelegate = UIApplication.shared.delegate as? AppDelegate {
+            appDelegate.startPollersIfNeeded()
+        }
+        
+        // Onion request path countries cache
+        IP2Country.populateCacheIfNeededAsync()
+    }
+    
+    public mutating func startObservingChanges(onReceivedInitialChange: (() -> ())? = nil) {
+        self.onReceivedInitialChange = onReceivedInitialChange
     }
     
     var body: some View {
@@ -43,15 +67,15 @@ struct HomeScreen: View {
                     )
                 }
                 
-                ConversationList(threadData: $viewModel.threadData)
+                ConversationList(threadData: viewModel.threadData)
                 
                 NewConversationButton(action: createNewConversation)
             }
         )
         .backgroundColor(themeColor: .backgroundPrimary)
-        .onReceive(Just(viewModel.dataModel), perform: { updatedDataModel in
+        .onReceive(Just(viewModel.state), perform: { updatedState in
             (self.host.controller as? SessionHostingViewController<HomeScreen>)?.setUpNavBarButton(
-                leftItem: .profile(profile: updatedDataModel.state.userProfile),
+                leftItem: .profile(profile: updatedState.userProfile),
                 rightItem: .search,
                 leftAction: openSettings,
                 rightAction: showSearchUI
@@ -97,14 +121,14 @@ struct HomeScreen: View {
                 (isMessageRequest && action != .compose) ?
                 SessionTableViewController(
                     viewModel: MessageRequestsViewModel(
-                        using: viewModel.dataModel.dependencies)
+                        using: viewModel.dependencies)
                 ) : nil
             ),
             ConversationVC(
                 threadId: threadId,
                 threadVariant: variant,
                 focusedInteractionInfo: focusedInteractionInfo, 
-                using: viewModel.dataModel.dependencies
+                using: viewModel.dependencies
             )
         ].compactMap { $0 }
         
@@ -124,7 +148,7 @@ struct HomeScreen: View {
         if let presentedVC = self.host.controller?.presentedViewController {
             presentedVC.dismiss(animated: false, completion: nil)
         }
-        let searchController = GlobalSearchViewController(using: viewModel.dataModel.dependencies)
+        let searchController = GlobalSearchViewController(using: viewModel.dependencies)
         self.host.controller?.navigationController?.setViewControllers(
             [ self.host.controller, searchController ].compactMap{ $0 },
             animated: true

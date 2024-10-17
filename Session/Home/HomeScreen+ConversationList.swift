@@ -10,14 +10,14 @@ import SignalUtilitiesKit
 
 extension HomeScreen {
     struct ConversationList: View {
-        @Binding private var threadData: [HomeScreenDataModel.SectionModel]
+        private var threadData: [DataModel.SectionModel]
         
         public static let mutePrefix: String = "\u{e067}  " // stringlint:disable
         public static let unreadCountViewSize: CGFloat = 20
         public static let statusIndicatorSize: CGFloat = 14
         
-        public init(threadData: Binding<[HomeScreenDataModel.SectionModel]>) {
-            self._threadData = threadData
+        public init(threadData: [DataModel.SectionModel]) {
+            self.threadData = threadData
         }
 
         var body: some View {

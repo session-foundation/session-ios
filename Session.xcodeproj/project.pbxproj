@@ -194,8 +194,8 @@
 		94B3DC172AF8592200C88531 /* QuoteView_SwiftUI.swift in Sources */ = {isa = PBXBuildFile; fileRef = 94B3DC162AF8592200C88531 /* QuoteView_SwiftUI.swift */; };
 		94C5DCB02BE88170003AA8C5 /* BezierPathView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 94C5DCAF2BE88170003AA8C5 /* BezierPathView.swift */; };
 		94E12DBC2C24063A00D28EE0 /* SessionButton_SwiftUI.swift in Sources */ = {isa = PBXBuildFile; fileRef = 94E12DBB2C24063A00D28EE0 /* SessionButton_SwiftUI.swift */; };
-		94E5EDA52C8ECBFC0084ED63 /* HomeScreenDataModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 94E5EDA42C8ECBFC0084ED63 /* HomeScreenDataModel.swift */; };
-		94E5EDA72C8ECC150084ED63 /* HomeScreenViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 94E5EDA62C8ECC150084ED63 /* HomeScreenViewModel.swift */; };
+		94E5EDA52C8ECBFC0084ED63 /* HomeScreen+DataModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 94E5EDA42C8ECBFC0084ED63 /* HomeScreen+DataModel.swift */; };
+		94E5EDA72C8ECC150084ED63 /* HomeScreen+ViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 94E5EDA62C8ECC150084ED63 /* HomeScreen+ViewModel.swift */; };
 		94E89A9B2C2A997B00FB18E1 /* HomeScreen+ConversationList.swift in Sources */ = {isa = PBXBuildFile; fileRef = 94E89A9A2C2A997B00FB18E1 /* HomeScreen+ConversationList.swift */; };
 		94E9BC0D2C7BFBDA006984EA /* Localization+Style.swift in Sources */ = {isa = PBXBuildFile; fileRef = 94E9BC0C2C7BFBDA006984EA /* Localization+Style.swift */; };
 		A11CD70D17FA230600A2D1B1 /* QuartzCore.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = A11CD70C17FA230600A2D1B1 /* QuartzCore.framework */; };
@@ -1394,8 +1394,8 @@
 		94B3DC162AF8592200C88531 /* QuoteView_SwiftUI.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = QuoteView_SwiftUI.swift; sourceTree = "<group>"; };
 		94C5DCAF2BE88170003AA8C5 /* BezierPathView.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = BezierPathView.swift; sourceTree = "<group>"; };
 		94E12DBB2C24063A00D28EE0 /* SessionButton_SwiftUI.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SessionButton_SwiftUI.swift; sourceTree = "<group>"; };
-		94E5EDA42C8ECBFC0084ED63 /* HomeScreenDataModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HomeScreenDataModel.swift; sourceTree = "<group>"; };
-		94E5EDA62C8ECC150084ED63 /* HomeScreenViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HomeScreenViewModel.swift; sourceTree = "<group>"; };
+		94E5EDA42C8ECBFC0084ED63 /* HomeScreen+DataModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "HomeScreen+DataModel.swift"; sourceTree = "<group>"; };
+		94E5EDA62C8ECC150084ED63 /* HomeScreen+ViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "HomeScreen+ViewModel.swift"; sourceTree = "<group>"; };
 		94E89A9A2C2A997B00FB18E1 /* HomeScreen+ConversationList.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = "HomeScreen+ConversationList.swift"; path = "Session/Home/HomeScreen+ConversationList.swift"; sourceTree = SOURCE_ROOT; };
 		94E9BC0C2C7BFBDA006984EA /* Localization+Style.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Localization+Style.swift"; sourceTree = "<group>"; };
 		A11CD70C17FA230600A2D1B1 /* QuartzCore.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = QuartzCore.framework; path = System/Library/Frameworks/QuartzCore.framework; sourceTree = SDKROOT; };
@@ -3092,8 +3092,8 @@
 				B8BB82A4238F627000BA5194 /* HomeVC.swift */,
 				941BE62E2C1BF887005A880A /* HomeScreen.swift */,
 				94E89A9A2C2A997B00FB18E1 /* HomeScreen+ConversationList.swift */,
-				94E5EDA42C8ECBFC0084ED63 /* HomeScreenDataModel.swift */,
-				94E5EDA62C8ECC150084ED63 /* HomeScreenViewModel.swift */,
+				94E5EDA42C8ECBFC0084ED63 /* HomeScreen+DataModel.swift */,
+				94E5EDA62C8ECC150084ED63 /* HomeScreen+ViewModel.swift */,
 			);
 			path = Home;
 			sourceTree = "<group>";
@@ -5045,7 +5045,8 @@
 			developmentRegion = en;
 			hasScannedForEncodings = 0;
 			knownRegions = (
-				Base
+				en,
+				Base,
 			);
 			mainGroup = D221A07E169C9E5E00537ABF;
 			packageReferences = (
@@ -6211,7 +6212,7 @@
 				942256802C23F8BB00C0FDBF /* StartConversationScreen.swift in Sources */,
 				7B9F71C928470667006DFE7B /* ReactionListSheet.swift in Sources */,
 				FD12A8412AD63BEA00EEBA0D /* NavigatableState.swift in Sources */,
-				94E5EDA52C8ECBFC0084ED63 /* HomeScreenDataModel.swift in Sources */,
+				94E5EDA52C8ECBFC0084ED63 /* HomeScreen+DataModel.swift in Sources */,
 				7B7037452834BCC0000DCF35 /* ReactionView.swift in Sources */,
 				FD7115F428C71EB200B47552 /* ThreadDisappearingMessagesSettingsViewModel.swift in Sources */,
 				B8D84ECF25E3108A005A043E /* ExpandingAttachmentsButton.swift in Sources */,
@@ -6290,7 +6291,7 @@
 				FD71163828E2C50700B47552 /* SessionTableViewModel.swift in Sources */,
 				FD71164A28E3EA5B00B47552 /* DismissType.swift in Sources */,
 				C328251F25CA3A900062D0A7 /* QuoteView.swift in Sources */,
-				94E5EDA72C8ECC150084ED63 /* HomeScreenViewModel.swift in Sources */,
+				94E5EDA72C8ECC150084ED63 /* HomeScreen+ViewModel.swift in Sources */,
 				7B3A39322980D02B002FE4AC /* SessionCarouselView.swift in Sources */,
 				FD37E9CC28A1E578003AE748 /* AppearanceViewController.swift in Sources */,
 				B8EB20F02640F7F000773E52 /* OpenGroupInvitationView.swift in Sources */,
