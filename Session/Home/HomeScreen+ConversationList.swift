@@ -29,6 +29,7 @@ extension HomeScreen {
                                 ForEach(sectionModel.elements) { threadViewModel in
                                     MessageRequestItemRow(threadViewModel: threadViewModel)
                                         .listRowSeparator(.hidden)
+                                        .listRowInsets(EdgeInsets())
                                         .swipeActions(edge: .trailing) {
                                             Button {
                                                 
@@ -50,6 +51,7 @@ extension HomeScreen {
                                 ForEach(sectionModel.elements) { threadViewModel in
                                     ConversationItemRow(threadViewModel: threadViewModel)
                                         .listRowSeparator(.hidden)
+                                        .listRowInsets(EdgeInsets())
                                         .swipeActions(edge: .leading) {
                                             Button {
                                                 
@@ -63,6 +65,7 @@ extension HomeScreen {
                     }
                 }
             }
+            .listStyle(.plain)
             .transparentListBackground()
         }
     }
@@ -268,144 +271,153 @@ extension HomeScreen {
         }
         
         var body: some View {
-            HStack(
-                alignment: .center,
-                content: {
-                    if info.isBlocked {
-                        Rectangle()
-                            .fill(themeColor: .danger)
-                            .frame(
-                                width: Values.accentLineThickness,
-                                height: .infinity
-                            )
-                    } else if info.unreadCount > 0 {
-                        Rectangle()
-                            .fill(themeColor: .conversationButton_unreadStripBackground)
-                            .frame(
-                                width: Values.accentLineThickness,
-                                height: .infinity
-                            )
-                    }
-                    
-                    ProfilePictureSwiftUI(
-                        size: .list,
-                        publicKey: threadViewModel.threadId,
-                        threadVariant: threadViewModel.threadVariant,
-                        customImageData: threadViewModel.openGroupProfilePictureData,
-                        profile: threadViewModel.profile,
-                        additionalProfile: threadViewModel.additionalProfile
-                    )
-                    
-                    VStack(
-                        alignment: .leading,
-                        spacing: Values.verySmallSpacing,
-                        content: {
-                            HStack(
-                                spacing: Values.verySmallSpacing,
-                                content: {
-                                    // Display name
-                                    Text(info.displayName)
-                                        .bold()
-                                        .font(.system(size: Values.mediumFontSize))
-                                        .foregroundColor(themeColor: .textPrimary)
-                                    
-                                    if info.isPinned {
-                                        Image("Pin")
-                                            .resizable()
-                                            .renderingMode(.template)
-                                            .foregroundColor(themeColor: .textSecondary)
-                                            .scaledToFit()
-                                            .frame(
-                                                width: ConversationList.unreadCountViewSize,
-                                                height: ConversationList.unreadCountViewSize
-                                            )
-                                    }
-                                    
-                                    // Unread count
-                                    if info.shouldShowUnreadCount {
-                                        Text(info.unreadCountString)
-                                            .bold()
-                                            .font(.system(size: info.unreadCountFontSize))
-                                            .foregroundColor(themeColor: .conversationButton_unreadBubbleText)
-                                            .background(
-                                                Capsule()
-                                                    .fill(themeColor: .conversationButton_unreadBubbleBackground)
-                                                    .frame(minWidth: ConversationList.unreadCountViewSize)
-                                                    .frame(height: ConversationList.unreadCountViewSize)
-                                            )
-                                    }
-                                    
-                                    // Unread icon
-                                    if info.shouldShowUnreadIcon {
-                                        ZStack(
-                                            alignment: .topTrailing,
-                                            content: {
-                                                Image(systemName: "envelope")
-                                                    .font(.system(size: Values.verySmallFontSize))
-                                                    .foregroundColor(themeColor: .textPrimary)
-                                                    .padding(.top, 2)
-                                                
-                                                Circle()
-                                                    .fill(themeColor: .conversationButton_unreadBackground)
-                                                    .frame(
-                                                        width: 6,
-                                                        height: 6
-                                                    )
-                                                    .padding(.top, 1)
-                                                    .padding(.trailing, 1)
-                                            }
-                                        )
-                                    }
-                                    
-                                    // Mention icon
-                                    if info.shouldShowMentionIcon {
-                                        Text("@") // stringlint:disable
-                                            .bold()
-                                            .font(.system(size: Values.verySmallFontSize))
-                                            .foregroundColor(themeColor: .conversationButton_unreadBubbleText)
-                                            .background(
-                                                Circle()
-                                                    .fill(themeColor: .conversationButton_unreadBubbleBackground)
-                                                    .frame(
-                                                        width: ConversationList.unreadCountViewSize,
-                                                        height: ConversationList.unreadCountViewSize
-                                                    )
-                                            )
-                                    }
-                                    
-                                    Spacer()
-                                    
-                                    // Interaction time
-                                    Text(info.timeString)
-                                        .font(.system(size: Values.smallFontSize))
-                                        .foregroundColor(themeColor: .textSecondary)
-                                        .opacity(Values.lowOpacity)
-                                }
-                            )
-                            
-                            HStack(
-                                spacing: Values.verySmallSpacing,
-                                content: {
-                                    if info.shouldShowTypingIndicator {
-                                        
-                                    } else {
-                                        AttributedText(info.snippet)
-                                    }
-                                    
-                                    Spacer()
-                                    
-                                    
-                                }
-                            )
-                        }
-                    )
+            ZStack(alignment: .leading) {
+                if info.isBlocked {
+                    Rectangle()
+                        .fill(themeColor: .danger)
+                        .frame(
+                            width: Values.accentLineThickness,
+                            height: .infinity
+                        )
+                } else if info.unreadCount > 0 {
+                    Rectangle()
+                        .fill(themeColor: .conversationButton_unreadStripBackground)
+                        .frame(width: Values.accentLineThickness)
+                        .frame(maxHeight: .infinity)
                 }
-            )
+                
+                HStack(
+                    alignment: .center,
+                    content: {
+                        ProfilePictureSwiftUI(
+                            size: .list,
+                            publicKey: threadViewModel.threadId,
+                            threadVariant: threadViewModel.threadVariant,
+                            customImageData: threadViewModel.openGroupProfilePictureData,
+                            profile: threadViewModel.profile,
+                            additionalProfile: threadViewModel.additionalProfile
+                        )
+                        .frame(
+                            width: ProfilePictureView.Size.list.viewSize,
+                            height: ProfilePictureView.Size.list.viewSize
+                        )
+                        .padding(.leading, Values.mediumSpacing)
+                        .padding(.trailing, Values.smallSpacing)
+                        
+                        VStack(
+                            alignment: .leading,
+                            spacing: Values.verySmallSpacing,
+                            content: {
+                                HStack(
+                                    spacing: Values.verySmallSpacing,
+                                    content: {
+                                        // Display name
+                                        Text(info.displayName)
+                                            .bold()
+                                            .font(.system(size: Values.mediumFontSize))
+                                            .foregroundColor(themeColor: .textPrimary)
+                                            .fixedSize()
+                                        
+                                        if info.isPinned {
+                                            Image("Pin")
+                                                .resizable()
+                                                .renderingMode(.template)
+                                                .foregroundColor(themeColor: .textSecondary)
+                                                .scaledToFit()
+                                                .frame(
+                                                    width: ConversationList.unreadCountViewSize,
+                                                    height: ConversationList.unreadCountViewSize
+                                                )
+                                        }
+                                        
+                                        // Unread count
+                                        if info.shouldShowUnreadCount {
+                                            Text(info.unreadCountString)
+                                                .bold()
+                                                .font(.system(size: info.unreadCountFontSize))
+                                                .foregroundColor(themeColor: .conversationButton_unreadBubbleText)
+                                                .background(
+                                                    Capsule()
+                                                        .fill(themeColor: .conversationButton_unreadBubbleBackground)
+                                                        .frame(minWidth: ConversationList.unreadCountViewSize)
+                                                        .frame(height: ConversationList.unreadCountViewSize)
+                                                )
+                                                .padding(.horizontal, Values.smallSpacing)
+                                        }
+                                        
+                                        // Unread icon
+                                        if info.shouldShowUnreadIcon {
+                                            ZStack(
+                                                alignment: .topTrailing,
+                                                content: {
+                                                    Image(systemName: "envelope")
+                                                        .font(.system(size: Values.verySmallFontSize))
+                                                        .foregroundColor(themeColor: .textPrimary)
+                                                        .padding(.top, 2)
+                                                    
+                                                    Circle()
+                                                        .fill(themeColor: .conversationButton_unreadBackground)
+                                                        .frame(
+                                                            width: 6,
+                                                            height: 6
+                                                        )
+                                                        .padding(.top, 1)
+                                                        .padding(.trailing, 1)
+                                                }
+                                            )
+                                        }
+                                        
+                                        // Mention icon
+                                        if info.shouldShowMentionIcon {
+                                            Text("@") // stringlint:disable
+                                                .bold()
+                                                .font(.system(size: Values.verySmallFontSize))
+                                                .foregroundColor(themeColor: .conversationButton_unreadBubbleText)
+                                                .background(
+                                                    Circle()
+                                                        .fill(themeColor: .conversationButton_unreadBubbleBackground)
+                                                        .frame(
+                                                            width: ConversationList.unreadCountViewSize,
+                                                            height: ConversationList.unreadCountViewSize
+                                                        )
+                                                )
+                                        }
+                                        
+                                        Spacer(minLength: 0)
+                                        
+                                        // Interaction time
+                                        Text(info.timeString)
+                                            .font(.system(size: Values.smallFontSize))
+                                            .foregroundColor(themeColor: .textSecondary)
+                                            .opacity(Values.lowOpacity)
+                                            .padding(.horizontal, Values.mediumSpacing)
+                                            .fixedSize()
+                                    }
+                                )
+                                
+                                HStack(
+                                    spacing: Values.verySmallSpacing,
+                                    content: {
+                                        if info.shouldShowTypingIndicator {
+                                            
+                                        } else {
+                                            AttributedText(info.snippet)
+                                                .font(.system(size: Values.smallFontSize))
+                                        }
+                                        
+                                        Spacer()
+                                        
+                                        
+                                    }
+                                )
+                            }
+                        )
+                    }
+                )
+            }
+            .frame(maxWidth: .infinity)
+            .frame(height: 68, alignment: .center)
             .backgroundColor(themeColor: info.themeBackgroundColor)
-            .frame(
-                width: .infinity,
-                height: 68
-            )
         }
     }
 }

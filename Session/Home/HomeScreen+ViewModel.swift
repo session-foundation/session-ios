@@ -9,15 +9,12 @@ import SessionMessagingKit
 import SessionUtilitiesKit
 
 extension HomeScreen {
+    public protocol ViewModelDelegate: AnyObject {
+        func ensureRootViewController()
+    }
     public class ViewModel: ObservableObject {
         public let dependencies: Dependencies
-        
-        public var onReceivedInitialChange: (() -> ())? {
-            didSet {
-                self.startObservingChanges(onReceivedInitialChange: onReceivedInitialChange)
-            }
-        }
-        
+        public var onReceivedInitialChange: (() -> ())? = nil
         private var dataChangeObservable: DatabaseCancellable? {
             didSet { oldValue?.cancel() }   // Cancel the old observable if there was one
         }
@@ -30,14 +27,14 @@ extension HomeScreen {
         
         // MARK: - Initialization
         
-        init(using dependencies: Dependencies) {
+        init(using dependencies: Dependencies, onReceivedInitialChange: (() -> ())? = nil) {
             typealias InitialData = (
                 showViewedSeedBanner: Bool,
                 hasHiddenMessageRequests: Bool,
                 profile: Profile
             )
             
-            let initialData: InitialData? = Storage.shared.read { db -> InitialData in
+            let initialData: InitialData? = dependencies.storage.read { db -> InitialData in
                 (
                     !db[.hasViewedSeed],
                     db[.hasHiddenMessageRequests],
@@ -46,6 +43,7 @@ extension HomeScreen {
             }
             
             self.dependencies = dependencies
+            self.onReceivedInitialChange = onReceivedInitialChange
             
             self.state = DataModel.State(
                 showViewedSeedBanner: (initialData?.showViewedSeedBanner ?? true),
@@ -218,12 +216,13 @@ extension HomeScreen {
                 }
             )
             
-            Storage.shared.addObserver(self.pagedDataObserver)
+            dependencies.storage.addObserver(self.pagedDataObserver)
             
             self.registerForNotifications()
             
             // Run the initial query on a background thread so we don't block the main thread
             DispatchQueue.global(qos: .userInitiated).async { [weak self] in
+                self?.startObservingChanges(onReceivedInitialChange: self?.onReceivedInitialChange)
                 // The `.pageBefore` will query from a `0` offset loading the first page
                 self?.pagedDataObserver?.load(.pageBefore)
             }
@@ -382,9 +381,9 @@ extension HomeScreen {
                 runAndClearInitialChangeCallback = nil
             }
             
-            dataChangeObservable = Storage.shared.start(
+            dataChangeObservable = dependencies.storage.start(
                 self.observableState,
-                onError: { _ in },
+                onError: { _ in print("Error observing data") },
                 onChange: { [weak self] state in
                     // The default scheduler emits changes on the main thread
                     self?.handleStateUpdates(state)

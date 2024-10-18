@@ -13,15 +13,10 @@ struct HomeScreen: View {
     @EnvironmentObject var host: HostWrapper
     @StateObject private var viewModel: ViewModel
     private var flow: Onboarding.Flow?
-    public var onReceivedInitialChange: (() -> ())? {
-        didSet {
-            viewModel.onReceivedInitialChange = onReceivedInitialChange
-        }
-    }
     
-    init(flow: Onboarding.Flow? = nil, using dependencies: Dependencies) {
-        _viewModel = StateObject(wrappedValue: ViewModel(using: dependencies))
+    init(flow: Onboarding.Flow? = nil, using dependencies: Dependencies, rootViewControllerSetupComplete: (() -> ())? = nil) {
         self.flow = flow
+        _viewModel = StateObject(wrappedValue: ViewModel(using: dependencies, onReceivedInitialChange: rootViewControllerSetupComplete))
         self.initialize()
     }
     
@@ -43,11 +38,7 @@ struct HomeScreen: View {
         // Onion request path countries cache
         IP2Country.populateCacheIfNeededAsync()
     }
-    
-    public mutating func startObservingChanges(onReceivedInitialChange: (() -> ())? = nil) {
-        self.onReceivedInitialChange = onReceivedInitialChange
-    }
-    
+
     var body: some View {
         ZStack(
             alignment: .top,

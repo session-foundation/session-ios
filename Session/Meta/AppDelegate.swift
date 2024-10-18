@@ -667,20 +667,13 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
                 
             case .completed:
                 DispatchQueue.main.async { [dependencies] in
-                    var homeScreen: HomeScreen = HomeScreen(using: dependencies)
-                    let viewController = SessionHostingViewController(rootView: homeScreen)
-                    viewController.setUpNavBarSessionHeading()
-                    /// We want to start observing the changes for the 'HomeVC' and want to wait until we actually get data back before we
-                    /// continue as we don't want to show a blank home screen
-                    DispatchQueue.global(qos: .userInitiated).async {
-                        homeScreen.startObservingChanges() {
+                    let viewController = SessionHostingViewController(
+                        rootView: HomeScreen(using: dependencies) {
                             populateHomeScreenTimer?.cancel()
-                            
-                            DispatchQueue.main.async {
-                                rootViewControllerSetupComplete(viewController)
-                            }
                         }
-                    }
+                    )
+                    viewController.setUpNavBarSessionHeading()
+                    rootViewControllerSetupComplete(viewController)
                 }
         }
     }
