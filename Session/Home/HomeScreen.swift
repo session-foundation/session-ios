@@ -43,10 +43,6 @@ struct HomeScreen: View {
         ZStack(
             alignment: .top,
             content: {
-                if viewModel.state.showViewedSeedBanner {
-                    SeedBanner(action: handleContinueButtonTapped)
-                }
-                
                 if viewModel.threadData.isEmpty {
                     ZStack {
                         EmptyStateView(flow: self.flow)
@@ -58,8 +54,14 @@ struct HomeScreen: View {
                     )
                 }
                 
-                ConversationList(threadData: viewModel.threadData)
-                
+                VStack(spacing: 0) {
+                    if viewModel.state.showViewedSeedBanner {
+                        SeedBanner(action: handleContinueButtonTapped)
+                    }
+                    
+                    ConversationList(threadData: viewModel.threadData)
+                }
+
                 NewConversationButton(action: createNewConversation)
             }
         )

@@ -342,7 +342,7 @@ extension HomeScreen {
                                                         .frame(minWidth: ConversationList.unreadCountViewSize)
                                                         .frame(height: ConversationList.unreadCountViewSize)
                                                 )
-                                                .padding(.horizontal, Values.smallSpacing)
+                                                .padding(.horizontal, Values.verySmallSpacing)
                                         }
                                         
                                         // Unread icon
