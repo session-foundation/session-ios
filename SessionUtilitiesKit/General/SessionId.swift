@@ -102,12 +102,13 @@ public enum SessionIdError: LocalizedError {
     case invalidPrefix
     case invalidSessionId
     
+    // stringlint:ignore_contents
     public var errorDescription: String? {
         switch self {
-            case .emptyValue: return "Empty value."             // stringlint:disable
-            case .invalidLength: return "Invalid length."       // stringlint:disable
-            case .invalidPrefix: return "Invalid prefix."       // stringlint:disable
-            case .invalidSessionId: return "Invalid sessionId." // stringlint:disable
+            case .emptyValue: return "Empty value."
+            case .invalidLength: return "Invalid length."
+            case .invalidPrefix: return "Invalid prefix."
+            case .invalidSessionId: return "Invalid sessionId."
         }
     }
 }

@@ -46,16 +46,16 @@ public extension UIDevice {
         return UIScreen.main.bounds.height < 568
     }
 
-    @objc
-    var isIPad: Bool {
+    // stringlint:ignore_contents
+    @objc var isIPad: Bool {
         let isNativeIPad = UI_USER_INTERFACE_IDIOM() == UIUserInterfaceIdiom.pad
         let isCompatabilityModeIPad = UI_USER_INTERFACE_IDIOM() == UIUserInterfaceIdiom.phone && self.model.hasPrefix("iPad")
 
         return isNativeIPad || isCompatabilityModeIPad
     }
 
-    @objc
-    func ows_setOrientation(_ orientation: UIInterfaceOrientation) {
+    // stringlint:ignore_contents
+    @objc func ows_setOrientation(_ orientation: UIInterfaceOrientation) {
         // XXX - This is not officially supported, but there's no other way to programmatically rotate
         // the interface.
         let orientationKey = "orientation"

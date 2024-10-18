@@ -5,7 +5,7 @@ import GRDB
 
 enum _003_YDBToGRDBMigration: Migration {
     static let target: TargetMigrations.Identifier = .utilitiesKit
-    static let identifier: String = "YDBToGRDBMigration" // stringlint:disable
+    static let identifier: String = "YDBToGRDBMigration"
     static let needsConfigSync: Bool = false
     static let minExpectedRunDuration: TimeInterval = 0.1
     static let fetchedTables: [(TableRecord & FetchableRecord).Type] = [Identity.self]

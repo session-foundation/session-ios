@@ -8,6 +8,7 @@ public struct Version: Comparable {
     public let minor: Int
     public let patch: Int
     
+    // stringlint:ignore_contents
     public var stringValue: String { "\(major).\(minor).\(patch)" }
     
     // MARK: - Initialization
@@ -24,9 +25,10 @@ public struct Version: Comparable {
     
     // MARK: - Functions
     
+    // stringlint:ignore_contents
     public static func from(_ versionString: String) -> Version {
         var tokens: [Int] = versionString
-            .split(separator: ".")  // stringlint:disable
+            .split(separator: ".")
             .map { (Int($0) ?? 0) }
         
         // Extend to '{major}.{minor}.{patch}' if any parts were omitted

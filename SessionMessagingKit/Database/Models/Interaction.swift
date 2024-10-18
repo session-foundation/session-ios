@@ -28,13 +28,15 @@ public struct Interaction: Codable, Identifiable, Equatable, FetchableRecord, Mu
     /// Whenever using this `linkPreview` association make sure to filter the result using
     /// `.filter(literal: Interaction.linkPreviewFilterLiteral)` to ensure the correct LinkPreview is returned
     public static let linkPreview = hasOne(LinkPreview.self, using: LinkPreview.interactionForeignKey)
+    
+    // stringlint:ignore_contents
     public static func linkPreviewFilterLiteral(
         interaction: TypedTableAlias<Interaction> = TypedTableAlias(),
         linkPreview: TypedTableAlias<LinkPreview> = TypedTableAlias()
     ) -> SQL {
         let halfResolution: Double = LinkPreview.timstampResolution
 
-        return "(\(interaction[.timestampMs]) BETWEEN (\(linkPreview[.timestamp]) - \(halfResolution)) * 1000 AND (\(linkPreview[.timestamp]) + \(halfResolution)) * 1000)" // stringlint:disable
+        return "(\(interaction[.timestampMs]) BETWEEN (\(linkPreview[.timestamp]) - \(halfResolution)) * 1000 AND (\(linkPreview[.timestamp]) + \(halfResolution)) * 1000)"
     }
     public static let recipientStates = hasMany(RecipientState.self, using: RecipientState.interactionForeignKey)
     
@@ -916,7 +918,8 @@ public extension Interaction {
             quoteAuthorId: quoteAuthorId
         )
     }
-        
+    
+    // stringlint:ignore_contents
     static func isUserMentioned(
         publicKeysToCheck: [String],
         body: String?,
@@ -927,7 +930,7 @@ public extension Interaction {
         return publicKeysToCheck.contains { publicKey in
             (
                 body != nil &&
-                (body ?? "").contains("@\(publicKey)") // stringlint:disable
+                (body ?? "").contains("@\(publicKey)")
             ) || (
                 quoteAuthorId == publicKey
             )

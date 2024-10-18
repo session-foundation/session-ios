@@ -7,15 +7,17 @@ enum QRCode {
     ///
     /// **Note:** If the `hasBackground` value is true then the QRCode will be black and white and
     /// the `withRenderingMode(.alwaysTemplate)` won't work correctly on some iOS versions (eg. iOS 16)
+    ///
+    /// stringlint:ignore_contents
     static func generate(for string: String, hasBackground: Bool) -> UIImage {
         let data = string.data(using: .utf8)
         var qrCodeAsCIImage: CIImage
-        let filter1 = CIFilter(name: "CIQRCodeGenerator")! // stringlint:disable
+        let filter1 = CIFilter(name: "CIQRCodeGenerator")!
         filter1.setValue(data, forKey: "inputMessage")
         qrCodeAsCIImage = filter1.outputImage!
         
         guard !hasBackground else {
-            let filter2 = CIFilter(name: "CIFalseColor")! // stringlint:disable
+            let filter2 = CIFilter(name: "CIFalseColor")!
             filter2.setValue(qrCodeAsCIImage, forKey: "inputImage")
             filter2.setValue(CIColor(color: .black), forKey: "inputColor0")
             filter2.setValue(CIColor(color: .white), forKey: "inputColor1")
@@ -25,10 +27,10 @@ enum QRCode {
             return UIImage(ciImage: scaledQRCodeAsCIImage)
         }
         
-        let filter2 = CIFilter(name: "CIColorInvert")! // stringlint:disable
+        let filter2 = CIFilter(name: "CIColorInvert")!
         filter2.setValue(qrCodeAsCIImage, forKey: "inputImage")
         qrCodeAsCIImage = filter2.outputImage!
-        let filter3 = CIFilter(name: "CIMaskToAlpha")! // stringlint:disable
+        let filter3 = CIFilter(name: "CIMaskToAlpha")!
         filter3.setValue(qrCodeAsCIImage, forKey: "inputImage")
         qrCodeAsCIImage = filter3.outputImage!
         

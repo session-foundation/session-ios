@@ -243,7 +243,8 @@ public class ImageEditorTransform: NSObject {
             isFlipped.hashValue)
     }
 
+    // stringlint:ignore_contents
     open override var description: String {
-        return "[outputSizePixels: \(outputSizePixels), unitTranslation: \(unitTranslation), rotationRadians: \(rotationRadians), scaling: \(scaling), isFlipped: \(isFlipped)]"    // stringlint:disable
+        return "[outputSizePixels: \(outputSizePixels), unitTranslation: \(unitTranslation), rotationRadians: \(rotationRadians), scaling: \(scaling), isFlipped: \(isFlipped)]"
     }
 }

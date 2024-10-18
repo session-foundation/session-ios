@@ -10,6 +10,8 @@ public extension QueryInterfaceRequest {
     ///
     /// - parameter db: A database connection.
     /// - returns: Whether the request matches a row in the database.
+    ///
+    /// stringlint:ignore_contents
     func isNotEmpty(_ db: Database) -> Bool {
         return ((try? SQLRequest("SELECT \(exists())").fetchOne(db)) ?? false)
     }

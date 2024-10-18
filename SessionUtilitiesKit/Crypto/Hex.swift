@@ -3,8 +3,9 @@
 import Foundation
 
 public enum Hex {
+    // stringlint:ignore_contents
     public static func isValid(_ string: String) -> Bool {
-        let allowedCharacters = CharacterSet(charactersIn: "0123456789ABCDEF") // stringlint:disable
+        let allowedCharacters = CharacterSet(charactersIn: "0123456789ABCDEF")
         
         return string.uppercased().unicodeScalars.allSatisfy { allowedCharacters.contains($0) }
     }
@@ -27,12 +28,13 @@ public extension Data {
 // MARK: - Array
 
 public extension Array where Element == UInt8 {
+    // stringlint:ignore_contents
     init(hex: String) {
         self = Array<Element>()
         self.reserveCapacity(hex.unicodeScalars.lazy.underestimatedCount)
         
         var buffer: UInt8?
-        var skip = (hex.hasPrefix("0x") ? 2 : 0) // stringlint:disable
+        var skip = (hex.hasPrefix("0x") ? 2 : 0)
           
         for char in hex.unicodeScalars.lazy {
             guard skip == 0 else {
@@ -72,8 +74,9 @@ public extension Array where Element == UInt8 {
         }
     }
     
+    // stringlint:ignore_contents
     func toHexString() -> String {
-        return map { String(format: "%02x", $0) }.joined() // stringlint:disable
+        return map { String(format: "%02x", $0) }.joined()
     }
 
     func toBase64(options: Data.Base64EncodingOptions = []) -> String {

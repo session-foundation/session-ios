@@ -413,12 +413,14 @@ public enum GarbageCollectionJob: JobExecutor {
                         // distinguish empty directories from ones with content so we don't unintentionally delete a
                         // directory which contains content to keep as well as delete (directories which end up empty after
                         // this clean up will be removed during the next run)
+                        // stringlint:ignore_start
                         let directoryNamesContainingContent: [String] = allAttachmentFilePaths
-                            .filter { path -> Bool in path.contains("/") }  // stringlint:disable
-                            .compactMap { path -> String? in path.components(separatedBy: "/").first }  // stringlint:disable
+                            .filter { path -> Bool in path.contains("/") }
+                            .compactMap { path -> String? in path.components(separatedBy: "/").first }
                         let orphanedAttachmentFiles: Set<String> = allAttachmentFilePaths
                             .subtracting(fileInfo.attachmentLocalRelativePaths)
                             .subtracting(directoryNamesContainingContent)
+                        // stringlint:ignore_stop
                         
                         orphanedAttachmentFiles.forEach { filepath in
                             // We don't want a single deletion failure to block deletion of the other files so try

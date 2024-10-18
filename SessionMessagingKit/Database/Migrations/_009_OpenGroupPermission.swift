@@ -6,7 +6,7 @@ import SessionUtilitiesKit
 
 enum _009_OpenGroupPermission: Migration {
     static let target: TargetMigrations.Identifier = .messagingKit
-    static let identifier: String = "OpenGroupPermission" // stringlint:disable
+    static let identifier: String = "OpenGroupPermission"
     static let needsConfigSync: Bool = false
     static let minExpectedRunDuration: TimeInterval = 0.01
     static let fetchedTables: [(TableRecord & FetchableRecord).Type] = []
