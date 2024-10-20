@@ -67,7 +67,7 @@ public enum FileSystem {
             }
             
             // Not ideal but fallback to creating a new temp directory
-            let dirName: String = "ows_temp_\(UUID().uuidString)"   // stringlint:disable
+            let dirName: String = "ows_temp_\(UUID().uuidString)"   // stringlint:ignore
             let tempDir: String = URL(fileURLWithPath: NSTemporaryDirectory())
                 .appendingPathComponent(dirName)
                 .path

@@ -51,8 +51,9 @@ public extension LibSession {
     
     // MARK: - Variables
     
+    // stringlint:ignore_contents
     internal static func syncDedupeId(_ publicKey: String) -> String {
-        return "EnqueueConfigurationSyncJob-\(publicKey)"   // stringlint:disable
+        return "EnqueueConfigurationSyncJob-\(publicKey)"
     }
     
     static var libSessionVersion: String { String(cString: LIBSESSION_UTIL_VERSION_STR) }
@@ -203,6 +204,7 @@ public extension LibSession {
     
     // MARK: - Pushes
     
+    // stringlint:ignore_contents
     static func pendingChanges(
         _ db: Database,
         publicKey: String,
@@ -257,11 +259,11 @@ public extension LibSession {
                         guard let cPushData: UnsafeMutablePointer<config_push_data> = config_push(conf) else {
                             let configCountInfo: String = {
                                 switch variant {
-                                    case .userProfile: return "1 profile"  // stringlint:disable
-                                    case .contacts: return "\(contacts_size(conf)) contacts"  // stringlint:disable
-                                    case .userGroups: return "\(user_groups_size(conf)) group conversations"  // stringlint:disable
-                                    case .convoInfoVolatile: return "\(convo_info_volatile_size(conf)) volatile conversations"  // stringlint:disable
-                                    case .invalid: return "Invalid"  // stringlint:disable
+                                    case .userProfile: return "1 profile"
+                                    case .contacts: return "\(contacts_size(conf)) contacts"
+                                    case .userGroups: return "\(user_groups_size(conf)) group conversations"
+                                    case .convoInfoVolatile: return "\(convo_info_volatile_size(conf)) volatile conversations"
+                                    case .invalid: return "Invalid"
                                 }
                             }()
                             

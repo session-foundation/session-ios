@@ -16,7 +16,7 @@ NS_ASSUME_NONNULL_BEGIN
 - (void)timerFired:(NSDictionary *)userInfo
 {
 #pragma clang diagnostic push
-#pragma clang diagnostic ignored "-Warc-performSelector-leaks"
+#pragma clang diagnostic ignored "-Warc-performSelector-leaks"  // stringlint:ignore
     [self.target performSelector:self.selector withObject:userInfo];
 #pragma clang diagnostic pop
 }

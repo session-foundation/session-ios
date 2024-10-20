@@ -408,7 +408,9 @@ open class ProxiedContentDownloader: NSObject, URLSessionTaskDelegate, URLSessio
     // MARK: - Properties
 
     @objc
-    public static let defaultDownloader = ProxiedContentDownloader(downloadFolderName: "proxiedContent")
+    public static let defaultDownloader = ProxiedContentDownloader(
+        downloadFolderName: "proxiedContent" // stringlint:ignore
+    )
 
     private let downloadFolderName: String
 
@@ -620,6 +622,7 @@ open class ProxiedContentDownloader: NSObject, URLSessionTaskDelegate, URLSessio
     // * Start a segment request or content length request if possible.
     // * Complete/cancel asset requests if possible.
     //
+    // stringlint:ignore_contents
     private func processRequestQueueSync() {
         guard let assetRequest = popNextAssetRequest() else {
             return
@@ -741,7 +744,7 @@ open class ProxiedContentDownloader: NSObject, URLSessionTaskDelegate, URLSessio
                 print("Invalid header: \(header)")
                 continue
             }
-            if headerString.lowercased() == "content-range" {
+            if headerString.lowercased() == "content-range" { // stringlint:ignore
                 firstContentRangeString = httpResponse.allHeaderFields[header] as? String
             }
         }
@@ -753,11 +756,13 @@ open class ProxiedContentDownloader: NSObject, URLSessionTaskDelegate, URLSessio
         }
 
         // Example: content-range: bytes 0-1023/7630
-        guard let contentLengthString = NSRegularExpression.parseFirstMatch(pattern: "^bytes \\d+\\-\\d+/(\\d+)$",
-                                                                            text: contentRangeString) else {
-                                                                assetRequest.state = .failed
-                                                                self.assetRequestDidFail(assetRequest: assetRequest)
-                                                                return
+        guard let contentLengthString = NSRegularExpression.parseFirstMatch(
+            pattern: "^bytes \\d+\\-\\d+/(\\d+)$",  // stringlint:ignore
+            text: contentRangeString
+        ) else {
+            assetRequest.state = .failed
+            self.assetRequestDidFail(assetRequest: assetRequest)
+            return
         }
         guard contentLengthString.count > 0,
             let contentLength = Int(contentLengthString) else {

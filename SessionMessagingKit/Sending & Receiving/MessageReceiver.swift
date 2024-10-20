@@ -406,7 +406,7 @@ public enum MessageReceiver {
                 // For disappear after send, this is necessary so the message will disappear even if it is not read
                 if threadVariant != .community {
                     db.afterNextTransactionNestedOnce(
-                        dedupeId: "PostInsertDisappearingMessagesJob",  // stringlint:disable
+                        dedupeId: "PostInsertDisappearingMessagesJob",  // stringlint:ignore
                         onCommit: { db in
                             JobRunner.upsert(
                                 db,

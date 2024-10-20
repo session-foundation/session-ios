@@ -32,10 +32,11 @@ public final class TypingIndicator: ControlMessage {
             }
         }
         
+        // stringlint:ignore_contents
         public var description: String {
             switch self {
-                case .started: return "started" // stringlint:disable
-                case .stopped: return "stopped" // stringlint:disable
+                case .started: return "started"
+                case .stopped: return "stopped"
             }
         }
     }

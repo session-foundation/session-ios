@@ -7,7 +7,7 @@ import SessionMessagingKit
 import SessionUtilitiesKit
 
 public final class FullConversationCell: UITableViewCell, SwipeActionOptimisticCell {
-    public static let mutePrefix: String = "\u{e067}  " // stringlint:disable
+    public static let mutePrefix: String = "\u{e067}  " // stringlint:ignore
     public static let unreadCountViewSize: CGFloat = 20
     private static let statusIndicatorSize: CGFloat = 14
     
@@ -105,7 +105,7 @@ public final class FullConversationCell: UITableViewCell, SwipeActionOptimisticC
         let result: UILabel = UILabel()
         result.font = .boldSystemFont(ofSize: Values.verySmallFontSize)
         result.themeTextColor = .conversationButton_unreadBubbleText
-        result.text = "@" // stringlint:disable
+        result.text = "@" // stringlint:ignore
         result.textAlignment = .center
         
         return result
@@ -427,7 +427,7 @@ public final class FullConversationCell: UITableViewCell, SwipeActionOptimisticC
         unreadImageView.isHidden = (!unreadCountView.isHidden || !threadIsUnread)
         unreadCountLabel.text = (unreadCount <= 0 ?
             "" :
-            (unreadCount < 10000 ? "\(unreadCount)" : "9999+") // stringlint:disable
+            (unreadCount < 10000 ? "\(unreadCount)" : "9999+") // stringlint:ignore
         )
         unreadCountLabel.font = .boldSystemFont(
             ofSize: (unreadCount < 10000 ? Values.verySmallFontSize : 8)
@@ -554,7 +554,7 @@ public final class FullConversationCell: UITableViewCell, SwipeActionOptimisticC
         if let hasUnread: Bool = hasUnread {
             if hasUnread {
                 unreadCountView.isHidden = false
-                unreadCountLabel.text = "1" // stringlint:disable
+                unreadCountLabel.text = "1" // stringlint:ignore
                 unreadCountLabel.font = .boldSystemFont(ofSize: Values.verySmallFontSize)
                 accentLineView.alpha = 1
             } else {
@@ -708,8 +708,8 @@ public final class FullConversationCell: UITableViewCell, SwipeActionOptimisticC
                 normalizedSnippet
                     .ranges(
                         of: (Singleton.hasAppContext && Singleton.appContext.isRTL ?
-                             "(\(part.lowercased()))(^|[^a-zA-Z0-9])" : // stringlint:disable
-                             "(^|[^a-zA-Z0-9])(\(part.lowercased()))" // stringlint:disable
+                             "(\(part.lowercased()))(^|[^a-zA-Z0-9])" : // stringlint:ignore
+                             "(^|[^a-zA-Z0-9])(\(part.lowercased()))"   // stringlint:ignore
                         ),
                         options: [.regularExpression]
                     )

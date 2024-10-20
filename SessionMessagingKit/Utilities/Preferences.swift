@@ -6,6 +6,7 @@ import GRDB
 import DifferenceKit
 import SessionUtilitiesKit
 
+// stringlint:ignore_contents
 public extension Setting.EnumKey {
     /// Controls how notifications should appear for the user (See `NotificationPreviewType` for the options)
     static let preferencesNotificationPreviewType: Setting.EnumKey = "preferencesNotificationPreviewType"
@@ -14,6 +15,7 @@ public extension Setting.EnumKey {
     static let defaultNotificationSound: Setting.EnumKey = "defaultNotificationSound"
 }
 
+// stringlint:ignore_contents
 public extension Setting.BoolKey {
     /// Controls whether typing indicators are enabled
     ///
@@ -73,6 +75,7 @@ public extension Setting.BoolKey {
     static let checkForCommunityMessageRequests: Setting.BoolKey = "checkForCommunityMessageRequests"
 }
 
+// stringlint:ignore_contents
 public extension Setting.StringKey {
     /// This is the most recently recorded Push Notifications token
     static let lastRecordedPushToken: Setting.StringKey = "lastRecordedPushToken"
@@ -89,12 +92,14 @@ public extension Setting.StringKey {
     }
 }
 
+// stringlint:ignore_contents
 public extension Setting.DoubleKey {
     /// The duration of the timeout for screen lock in seconds
     @available(*, unavailable, message: "Screen Lock should always be instant now")
     static let screenLockTimeoutSeconds: Setting.DoubleKey = "screenLockTimeoutSeconds"
 }
 
+// stringlint:ignore_contents
 public extension Setting.IntKey {
     /// This is the number of times the app has successfully become active, it's not actually used for anything but allows us to make
     /// a database change on launch so the database will output an error if it fails to write
@@ -221,6 +226,7 @@ public enum Preferences {
         
         // MARK: - Functions
         
+        // stringlint:ignore_contents
         public func filename(quiet: Bool = false) -> String? {
             switch self {
                 case .`default`: return ""
@@ -319,6 +325,7 @@ public enum Preferences {
         }
     }
     
+    // stringlint:ignore_contents
     public static var isCallKitSupported: Bool {
 #if targetEnvironment(simulator)
         /// The iOS simulator doesn't support CallKit, when receiving a call on the simulator and routing it via CallKit it

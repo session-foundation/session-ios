@@ -272,6 +272,7 @@ extension OpenGroupAPI {
                 .eraseToAnyPublisher()
         }
         
+        // stringlint:ignore_contents
         private func updateCapabilitiesAndRetryIfNeeded(
             server: String,
             isPostCapabilitiesRetry: Bool,
@@ -287,7 +288,7 @@ extension OpenGroupAPI {
                 !isPostCapabilitiesRetry,
                 let error: NetworkError = error as? NetworkError,
                 case .badRequest(let dataString, _) = error,
-                dataString.contains("Invalid authentication: this server requires the use of blinded ids") // stringlint:disable
+                dataString.contains("Invalid authentication: this server requires the use of blinded ids")
             else {
                 return Just(false)
                     .setFailureType(to: Error.self)

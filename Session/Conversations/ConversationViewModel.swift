@@ -72,7 +72,7 @@ public class ConversationViewModel: OWSAudioPlayerDelegate, NavigatableStateHold
                 
             return "blockBlockedDescription".localized()
                 
-            default: return "Thread is blocked. Unblock it?" // Should not happen // stringlint:disable
+            default: return "blockUnblock".localized() // Should not happen
         }
     }()
     

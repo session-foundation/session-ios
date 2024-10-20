@@ -148,6 +148,7 @@ public extension Identity {
             return Mnemonic.encode(hexEncodedString: hexEncodedSeed)
         }
         
+        // stringlint:ignore_contents
         guard let legacyPrivateKey: String = Identity.fetchUserPrivateKey()?.toHexString() else {
             let hasStoredPublicKey: Bool = (Identity.fetchUserPublicKey() != nil)
             let hasStoredEdKeyPair: Bool = (Identity.fetchUserEd25519KeyPair() != nil)

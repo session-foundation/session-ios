@@ -8,7 +8,7 @@ import SessionUtilitiesKit
 /// This migration goes through the current state of the database and generates config dumps for the user config types
 enum _014_GenerateInitialUserConfigDumps: Migration {
     static let target: TargetMigrations.Identifier = .messagingKit
-    static let identifier: String = "GenerateInitialUserConfigDumps" // stringlint:disable
+    static let identifier: String = "GenerateInitialUserConfigDumps"
     static let needsConfigSync: Bool = true
     static let minExpectedRunDuration: TimeInterval = 4.0
     static let fetchedTables: [(TableRecord & FetchableRecord).Type] = [

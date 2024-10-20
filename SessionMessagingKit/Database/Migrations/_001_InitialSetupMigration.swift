@@ -1,4 +1,6 @@
 // Copyright © 2022 Rangeproof Pty Ltd. All rights reserved.
+//
+// stringlint:disable
 
 import Foundation
 import GRDB
@@ -6,7 +8,7 @@ import SessionUtilitiesKit
 
 enum _001_InitialSetupMigration: Migration {
     static let target: TargetMigrations.Identifier = .messagingKit
-    static let identifier: String = "initialSetup" // stringlint:disable
+    static let identifier: String = "initialSetup"
     static let needsConfigSync: Bool = false
     static let minExpectedRunDuration: TimeInterval = 0.1
     static let fetchedTables: [(TableRecord & FetchableRecord).Type] = []
@@ -74,7 +76,7 @@ enum _001_InitialSetupMigration: Migration {
             t.column(.variant, .integer).notNull()
             t.column(.creationDateTimestamp, .double).notNull()
             t.column(.shouldBeVisible, .boolean).notNull()
-            t.deprecatedColumn(name: "isPinned", .boolean).notNull() // stringlint:disable
+            t.deprecatedColumn(name: "isPinned", .boolean).notNull()
             t.column(.messageDraft, .text)
             t.column(.notificationSound, .integer)
             t.column(.mutedUntilTimestamp, .double)

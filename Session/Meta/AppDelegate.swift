@@ -905,11 +905,12 @@ private enum LifecycleMethod: Equatable {
     case enterForeground(initialLaunchFailed: Bool)
     case didBecomeActive
     
+    // stringlint:ignore_contents
     var timingName: String {
         switch self {
-            case .finishLaunching: return "Launch"              // stringlint:disable
-            case .enterForeground: return "EnterForeground"     // stringlint:disable
-            case .didBecomeActive: return "BecomeActive"        // stringlint:disable
+            case .finishLaunching: return "Launch"
+            case .enterForeground: return "EnterForeground"
+            case .didBecomeActive: return "BecomeActive"
         }
     }
     

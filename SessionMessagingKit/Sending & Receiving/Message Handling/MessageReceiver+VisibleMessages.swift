@@ -151,6 +151,7 @@ extension MessageReceiver {
             expiresStartedAtMs: message.expiresStartedAtMs
         )
         do {
+            // stringlint:ignore_start
             interaction = try Interaction(
                 serverHash: message.serverHash, // Keep track of server hash
                 threadId: thread.id,
@@ -180,6 +181,7 @@ extension MessageReceiver {
                 // been sent, otherwise we should just use whatever the default state is
                 state: (variant == .standardOutgoing ? .sent : nil)
             ).inserted(db)
+            // stringlint:ignore_stop
         }
         catch {
             switch error {

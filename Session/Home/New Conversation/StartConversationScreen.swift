@@ -61,7 +61,7 @@ struct StartConversationScreen: View {
                             .padding(.trailing, -Values.largeSpacing)
                         
                         NewConversationCell(
-                            image: "Globe",
+                            image: "Globe", // stringlint:ignore
                             title: "communityJoin".localized()
                         ) {
                             let viewController = JoinOpenGroupVC()
@@ -79,7 +79,7 @@ struct StartConversationScreen: View {
                             .padding(.trailing, -Values.largeSpacing)
                         
                         NewConversationCell(
-                            image: "icon_invite",
+                            image: "icon_invite", // stringlint:ignore
                             title: "sessionInviteAFriend".localized()
                         ) {
                             let viewController: SessionHostingViewController = SessionHostingViewController(rootView: InviteAFriendScreen())
@@ -107,7 +107,7 @@ struct StartConversationScreen: View {
                     QRCodeView(
                         string: getUserHexEncodedPublicKey(),
                         hasBackground: false,
-                        logo: "SessionWhite40", // stringlint:disable
+                        logo: "SessionWhite40", // stringlint:ignore
                         themeStyle: ThemeManager.currentTheme.interfaceStyle
                     )
                     .aspectRatio(1, contentMode: .fit)

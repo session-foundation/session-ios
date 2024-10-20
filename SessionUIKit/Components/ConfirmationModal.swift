@@ -274,11 +274,11 @@ public class ConfirmationModal: Modal, UITextFieldDelegate {
         closeButton.isHidden = !info.hasCloseButton
         
         titleLabel.isAccessibilityElement = true
-        titleLabel.accessibilityIdentifier = "Modal heading" // stringlint:disable
+        titleLabel.accessibilityIdentifier = "Modal heading"
         titleLabel.accessibilityLabel = titleLabel.text
         
         explanationLabel.isAccessibilityElement = true
-        explanationLabel.accessibilityIdentifier = "Modal description" // stringlint:disable
+        explanationLabel.accessibilityIdentifier = "Modal description"
         explanationLabel.accessibilityLabel = explanationLabel.text
     }
     
