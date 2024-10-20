@@ -41,7 +41,6 @@ public class Message: Codable {
         id: String? = nil,
         sentTimestamp: UInt64? = nil,
         receivedTimestamp: UInt64? = nil,
-        recipient: String? = nil,
         sender: String? = nil,
         openGroupServerMessageId: UInt64? = nil,
         openGroupWhisper: Bool = false,
