@@ -535,9 +535,8 @@ class ThreadSettingsViewModel: SessionTableViewModel, NavigationItemSource, Navi
                                 dependencies.storage.write { db in
                                     try SessionThread.deleteOrLeave(
                                         db,
+                                        type: .leaveGroupAsync,
                                         threadId: threadViewModel.threadId,
-                                        threadVariant: threadViewModel.threadVariant,
-                                        groupLeaveType: .standard,
                                         calledFromConfigHandling: false
                                     )
                                 }
