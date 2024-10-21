@@ -825,7 +825,7 @@ extension MessageSender {
                 
                 switch (existingMember?.role, existingMember?.roleStatus) {
                     case (.standard, _):
-                        membersReceivingPromoations.append((memberId, profile))
+                        membersReceivingPromotions.append((memberId, profile))
                         
                         try GroupMember
                             .filter(GroupMember.Columns.groupId == groupSessionId.hexString)
