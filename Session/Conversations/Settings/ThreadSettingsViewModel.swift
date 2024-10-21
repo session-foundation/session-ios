@@ -989,21 +989,25 @@ class ThreadSettingsViewModel: SessionTableViewModel, NavigatableStateHolder, Ob
                         SELECT \(groupMember.allColumns)
                         FROM \(groupMember)
                         WHERE (
-                            \(groupMember[.groupId]) == \(threadId) AND
-                            (
-                                \(groupMember[.role]) != \(GroupMember.Role.admin) AND
-                                \(groupMember[.roleStatus]) == \(GroupMember.RoleStatus.accepted)
-                            ) OR (
-                                \(groupMember[.role]) == \(GroupMember.Role.admin) AND
-                                \(groupMember[.roleStatus]) != \(GroupMember.RoleStatus.accepted)
+                            \(groupMember[.groupId]) == \(threadId) AND (
+                                \(groupMember[.role]) == \(GroupMember.Role.admin) OR
+                                (
+                                    \(groupMember[.role]) != \(GroupMember.Role.admin) AND
+                                    \(groupMember[.roleStatus]) == \(GroupMember.RoleStatus.accepted)
+                                )
                             )
                         )
+                        GROUP BY \(groupMember[.profileId])
                     """),
                     footerTitle: "promote".localized(),
                     onTap: .conditionalAction(
                         action: { memberInfo in
-                            switch memberInfo.value.roleStatus {
-                                case .accepted: return .radio
+                            guard memberInfo.profileId != memberInfo.currentUserSessionId.hexString else {
+                                return .none
+                            }
+                            
+                            switch (memberInfo.value.role, memberInfo.value.roleStatus) {
+                                case (.standard, _): return .radio
                                 default:
                                     return .custom(
                                         trailingAccessory: { _ in

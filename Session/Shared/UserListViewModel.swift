@@ -63,6 +63,7 @@ class UserListViewModel<T: ProfileAssociated & FetchableRecord>: SessionTableVie
     // MARK: - Content
     
     public indirect enum OnTapAction {
+        case none
         case callback((UserListViewModel<T>?, WithProfile<T>) -> Void)
         case radio
         case conditionalAction(action: (WithProfile<T>) -> OnTapAction)
@@ -108,7 +109,7 @@ class UserListViewModel<T: ProfileAssociated & FetchableRecord>: SessionTableVie
                             }
                             func generateAccessory(_ action: OnTapAction) -> SessionCell.Accessory? {
                                 switch action {
-                                    case .callback: return nil
+                                    case .none, .callback: return nil
                                     case .custom(let accessoryGenerator, _): return accessoryGenerator(userInfo)
                                     case .conditionalAction(let targetAction):
                                         return generateAccessory(targetAction(userInfo))
@@ -159,6 +160,7 @@ class UserListViewModel<T: ProfileAssociated & FetchableRecord>: SessionTableVie
                                 onTap: {
                                     // Trigger any 'onTap' actions
                                     switch finalAction {
+                                        case .none: return
                                         case .callback(let callback): callback(self, userInfo)
                                         case .custom(_, let callback): callback(self, userInfo)
                                         case .radio: break
