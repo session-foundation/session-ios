@@ -483,11 +483,16 @@ public extension UIContextualAction {
                             
                             let confirmationModalExplanation: NSAttributedString = {
                                 switch (threadViewModel.threadVariant, threadViewModel.currentUserIsClosedGroupAdmin) {
-                                    case (.legacyGroup, true), (.group, true):
-                                        return "groupDeleteDescription"
+                                    case (.group, true):
+                                        return "groupLeaveDescriptionAdmin"
                                             .put(key: "group_name", value: threadViewModel.displayName)
                                             .localizedFormatted(baseFont: .boldSystemFont(ofSize: Values.smallFontSize))
-                                        
+                                    
+                                    case (.legacyGroup, true):
+                                        return "groupLeaveDescription"
+                                            .put(key: "group_name", value: threadViewModel.displayName)
+                                            .localizedFormatted(baseFont: .boldSystemFont(ofSize: Values.smallFontSize))
+                                    
                                     default:
                                         return "groupLeaveDescription"
                                             .put(key: "group_name", value: threadViewModel.displayName)

@@ -522,7 +522,7 @@ class ThreadSettingsViewModel: SessionTableViewModel, NavigatableStateHolder, Ob
                         confirmationInfo: ConfirmationModal.Info(
                             title: "groupLeave".localized(),
                             body: .attributedText(
-                                (currentUserIsClosedGroupAdmin ? "groupDeleteDescription" : "groupLeaveDescription")
+                                (currentUserIsClosedGroupAdmin ? "groupLeaveDescriptionAdmin" : "groupLeaveDescription")
                                     .put(key: "group_name", value: threadViewModel.displayName)
                                     .localizedFormatted(baseFont: .boldSystemFont(ofSize: Values.smallFontSize))
                             ),
