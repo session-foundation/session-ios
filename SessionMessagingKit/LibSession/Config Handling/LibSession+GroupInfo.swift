@@ -42,10 +42,12 @@ internal extension LibSessionCacheType {
         guard configNeedsDump(config) else { return }
         guard case .object(let conf) = config else { throw LibSessionError.invalidConfigObject }
         
-        // If the group is destroyed then remove the group data (want to keep the group itself around because
-        // the UX of conversations randomly disappearing isn't great) - no other changes matter and this
-        // can't be reversed
+        // If the group is destroyed then mark the group as kicked in the USER_GROUPS config and remove
+        // the group data (want to keep the group itself around because the UX of conversations randomly
+        // disappearing isn't great) - no other changes matter and this can't be reversed
         guard !groups_info_is_destroyed(conf) else {
+            try markAsKicked(db, groupSessionIds: [groupSessionId.hexString], using: dependencies)
+            
             try ClosedGroup.removeData(
                 db,
                 threadIds: [groupSessionId.hexString],

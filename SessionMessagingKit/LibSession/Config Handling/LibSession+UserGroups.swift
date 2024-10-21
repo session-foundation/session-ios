@@ -581,6 +581,26 @@ internal extension LibSessionCacheType {
         
         return ugroups_group_is_kicked(&userGroup)
     }
+    
+    func markAsKicked(
+        _ db: Database,
+        groupSessionIds: [String],
+        using dependencies: Dependencies
+    ) throws {
+        try performAndPushChange(db, for: .userGroups, sessionId: dependencies[cache: .general].sessionId) { config in
+            guard case .object(let conf) = config else { throw LibSessionError.invalidConfigObject }
+            
+            try groupSessionIds.forEach { groupId in
+                var cGroupId: [CChar] = try groupId.cString(using: .utf8) ?? { throw LibSessionError.invalidCConversion }()
+                var userGroup: ugroups_group_info = ugroups_group_info()
+                
+                guard user_groups_get_group(conf, &userGroup, &cGroupId) else { return }
+                
+                ugroups_group_set_kicked(&userGroup)
+                user_groups_set_group(conf, &userGroup)
+            }
+        }
+    }
 }
 
 internal extension LibSession {
@@ -1128,19 +1148,7 @@ public extension LibSession {
         guard !groupSessionIds.isEmpty else { return }
         
         try dependencies.mutate(cache: .libSession) { cache in
-            try cache.performAndPushChange(db, for: .userGroups, sessionId: dependencies[cache: .general].sessionId) { config in
-                guard case .object(let conf) = config else { throw LibSessionError.invalidConfigObject }
-                
-                try groupSessionIds.forEach { groupId in
-                    var cGroupId: [CChar] = try groupId.cString(using: .utf8) ?? { throw LibSessionError.invalidCConversion }()
-                    var userGroup: ugroups_group_info = ugroups_group_info()
-                    
-                    guard user_groups_get_group(conf, &userGroup, &cGroupId) else { return }
-                    
-                    ugroups_group_set_kicked(&userGroup)
-                    user_groups_set_group(conf, &userGroup)
-                }
-            }
+            try cache.markAsKicked(db, groupSessionIds: groupSessionIds, using: dependencies)
         }
     }
     
