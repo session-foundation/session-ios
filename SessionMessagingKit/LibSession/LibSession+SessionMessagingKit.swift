@@ -364,6 +364,10 @@ public extension LibSession {
             }
         }
         
+        public func hasConfig(for variant: ConfigDump.Variant, sessionId: SessionId) -> Bool {
+            return (configStore[sessionId, variant] != nil)
+        }
+        
         public func config(for variant: ConfigDump.Variant, sessionId: SessionId) -> Config? {
             return configStore[sessionId, variant]
         }
@@ -697,6 +701,8 @@ public extension LibSession {
 public protocol LibSessionImmutableCacheType: ImmutableCacheType {
     var userSessionId: SessionId { get }
     var isEmpty: Bool { get }
+    
+    func hasConfig(for variant: ConfigDump.Variant, sessionId: SessionId) -> Bool
 }
 
 /// The majority `libSession` functions can only be accessed via the mutable cache because `libSession` isn't thread safe so if we try
@@ -716,6 +722,7 @@ public protocol LibSessionCacheType: LibSessionImmutableCacheType, MutableCacheT
         userSessionId: SessionId,
         userEd25519KeyPair: KeyPair
     )
+    func hasConfig(for variant: ConfigDump.Variant, sessionId: SessionId) -> Bool
     func config(for variant: ConfigDump.Variant, sessionId: SessionId) -> LibSession.Config?
     func setConfig(for variant: ConfigDump.Variant, sessionId: SessionId, to config: LibSession.Config)
     func removeConfigs(for sessionId: SessionId)
@@ -783,6 +790,7 @@ private final class NoopLibSessionCache: LibSessionCacheType {
         userSessionId: SessionId,
         userEd25519KeyPair: KeyPair
     ) {}
+    func hasConfig(for variant: ConfigDump.Variant, sessionId: SessionId) -> Bool { return false }
     func config(for variant: ConfigDump.Variant, sessionId: SessionId) -> LibSession.Config? { return nil }
     func setConfig(for variant: ConfigDump.Variant, sessionId: SessionId, to config: LibSession.Config) {}
     func removeConfigs(for sessionId: SessionId) {}

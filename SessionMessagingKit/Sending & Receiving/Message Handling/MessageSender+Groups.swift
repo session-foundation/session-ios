@@ -136,7 +136,7 @@ extension MessageSender {
                     .eraseToAnyPublisher()
             }
             .handleEvents(
-                receiveOutput: { groupSessionId, _, thread, _, members, preparedNotificationSubscription in
+                receiveOutput: { groupSessionId, _, thread, group, members, preparedNotificationSubscription in
                     // Start polling
                     dependencies
                         .mutate(cache: .groupPollers) { $0.getOrCreatePoller(for: thread.id) }
@@ -148,10 +148,10 @@ extension MessageSender {
                         .subscribe(on: DispatchQueue.global(qos: .userInitiated), using: dependencies)
                         .sinkUntilComplete()
                     
-                    // Save jobs for sending group member invitations
                     dependencies[singleton: .storage].write { db in
                         let userSessionId: SessionId = dependencies[cache: .general].sessionId
                         
+                        // Save jobs for sending group member invitations
                         members
                             .filter { $0.profileId != userSessionId.hexString }
                             .compactMap { member -> (GroupMember, GroupInviteMemberJob.Details)? in
@@ -185,6 +185,30 @@ extension MessageSender {
                                     canStartJob: true
                                 )
                             }
+                        
+                        // Schedule the "members added" control message to be sent to the group
+                        if let privateKey: Data = group.groupIdentityPrivateKey {
+                            try? MessageSender.send(
+                                db,
+                                message: GroupUpdateMemberChangeMessage(
+                                    changeType: .added,
+                                    memberSessionIds: members
+                                        .filter { $0.profileId != userSessionId.hexString }
+                                        .map { $0.profileId },
+                                    historyShared: false,
+                                    sentTimestampMs: dependencies[cache: .snodeAPI].currentOffsetTimestampMs(),
+                                    authMethod: Authentication.groupAdmin(
+                                        groupSessionId: groupSessionId,
+                                        ed25519SecretKey: Array(privateKey)
+                                    ),
+                                    using: dependencies
+                                ),
+                                interactionId: nil,
+                                threadId: thread.id,
+                                threadVariant: .group,
+                                using: dependencies
+                            )
+                        }
                     }
                 }
             )
@@ -778,9 +802,11 @@ extension MessageSender {
         let changeTimestampMs: Int64 = dependencies[cache: .snodeAPI].currentOffsetTimestampMs()
         
         dependencies[singleton: .storage].writeAsync { db in
+            var membersReceivingPromotions: [(id: String, profile: Profile?)] = []
+            
             // Update the libSession status for each member and schedule a job to send
             // the promotion message
-            try members.forEach { memberId, _ in
+            try members.forEach { memberId, profile in
                 try LibSession.updateMemberStatus(
                     db,
                     groupSessionId: groupSessionId,
@@ -799,6 +825,8 @@ extension MessageSender {
                 
                 switch (existingMember?.role, existingMember?.roleStatus) {
                     case (.standard, _):
+                        membersReceivingPromoations.append((memberId, profile))
+                        
                         try GroupMember
                             .filter(GroupMember.Columns.groupId == groupSessionId.hexString)
                             .filter(GroupMember.Columns.profileId == memberId)
@@ -838,8 +866,13 @@ extension MessageSender {
             }
             
             /// Send the admin changed message if desired
-            if sendAdminChangedMessage {
+            ///
+            /// **Note:** It's possible that this call could contain both members being promoted as well as admins
+            /// that are getting promotions re-sent to them - we only want to send an admin changed message if there
+            /// is a newly promoted member
+            if sendAdminChangedMessage && !membersReceivingPromotions.isEmpty {
                 let userSessionId: SessionId = dependencies[cache: .general].sessionId
+                
                 _ = try Interaction(
                     threadId: groupSessionId.hexString,
                     threadVariant: .group,
@@ -847,8 +880,8 @@ extension MessageSender {
                     variant: .infoGroupMembersUpdated,
                     body: ClosedGroup.MessageInfo
                         .promotedUsers(
-                            hasCurrentUser: members.map { $0.id }.contains(userSessionId.hexString),
-                            names: members
+                            hasCurrentUser: membersReceivingPromotions.map { $0.id }.contains(userSessionId.hexString),
+                            names: membersReceivingPromotions
                                 .sorted { lhs, rhs in lhs.id == userSessionId.hexString }
                                 .map { id, profile in
                                     profile?.displayName(for: .group) ??
@@ -865,7 +898,7 @@ extension MessageSender {
                     db,
                     message: GroupUpdateMemberChangeMessage(
                         changeType: .promoted,
-                        memberSessionIds: members.map { $0.id },
+                        memberSessionIds: membersReceivingPromotions.map { $0.id },
                         historyShared: false,
                         sentTimestampMs: UInt64(changeTimestampMs),
                         authMethod: try Authentication.with(

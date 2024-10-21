@@ -33,6 +33,7 @@ public protocol JobRunnerType {
     // MARK: - State Management
     
     func jobInfoFor(jobs: [Job]?, state: JobRunner.JobState, variant: Job.Variant?) -> [Int64: JobRunner.JobInfo]
+    func deferCount(for jobId: Int64?, of variant: Job.Variant) -> Int
     
     func appDidFinishLaunching()
     func appDidBecomeActive()
@@ -489,6 +490,12 @@ public final class JobRunner: JobRunnerType {
             .reduce(into: [:]) { result, next in
                 result[next.0] = next.1
             }
+    }
+    
+    public func deferCount(for jobId: Int64?, of variant: Job.Variant) -> Int {
+        guard let jobId: Int64 = jobId else { return 0 }
+        
+        return (queues.wrappedValue[variant]?.deferLoopTracker.wrappedValue[jobId]?.count ?? 0)
     }
     
     public func appDidFinishLaunching() {
@@ -1050,7 +1057,7 @@ public final class JobQueue: Hashable {
     fileprivate var jobCallbacks: Atomic<[Int64: [(JobRunner.JobResult) -> ()]]> = Atomic([:])
     fileprivate var currentlyRunningJobIds: Atomic<Set<Int64>> = Atomic([])
     private var currentlyRunningJobInfo: Atomic<[Int64: JobRunner.JobInfo]> = Atomic([:])
-    private var deferLoopTracker: Atomic<[Int64: (count: Int, times: [TimeInterval])]> = Atomic([:])
+    fileprivate var deferLoopTracker: Atomic<[Int64: (count: Int, times: [TimeInterval])]> = Atomic([:])
     private let maxDeferralsPerSecond: Int
     
     fileprivate var hasPendingJobs: Bool { !pendingJobsQueue.wrappedValue.isEmpty }

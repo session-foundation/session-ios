@@ -183,12 +183,12 @@ public extension ClosedGroup {
     }
     
     /// Approves the group and returns the `Poller.receivedPollResult` publisher for the group
-    @discardableResult static func approveGroup(
+    static func approveGroup(
         _ db: Database,
         group: ClosedGroup,
         calledFromConfig configTriggeringChange: ConfigDump.Variant?,
         using dependencies: Dependencies
-    ) throws -> AnyPublisher<GroupPoller.PollResponse, Never> {
+    ) throws {
         guard let userED25519KeyPair: KeyPair = Identity.fetchUserEd25519KeyPair(db) else {
             throw MessageReceiverError.noUserED25519KeyPair
         }
@@ -229,8 +229,7 @@ public extension ClosedGroup {
         }
         
         /// Start the poller
-        let poller: SwarmPollerType = dependencies.mutate(cache: .groupPollers) { $0.getOrCreatePoller(for: group.id) }
-        poller.startIfNeeded()
+        dependencies.mutate(cache: .groupPollers) { $0.getOrCreatePoller(for: group.id).startIfNeeded() }
         
         /// Subscribe for group push notifications
         if let token: String = dependencies[defaults: .standard, key: .deviceToken] {
@@ -245,9 +244,6 @@ public extension ClosedGroup {
                 .subscribe(on: DispatchQueue.global(qos: .userInitiated), using: dependencies)
                 .sinkUntilComplete()
         }
-        
-        /// Return a publisher for the pollers poll results
-        return poller.receivedPollResponse
     }
     
     static func removeData(

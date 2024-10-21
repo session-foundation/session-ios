@@ -137,6 +137,19 @@ internal extension LibSession {
         }
     }
     
+    static func numKeys(
+        groupSessionId: SessionId,
+        using dependencies: Dependencies
+    ) throws -> Int {
+        return try dependencies.mutate(cache: .libSession) { cache in
+            guard case .groupKeys(let conf, _, _) = cache.config(for: .groupKeys, sessionId: groupSessionId) else {
+                throw LibSessionError.invalidConfigObject
+            }
+            
+            return Int(groups_keys_size(conf))
+        }
+    }
+    
     static func currentGeneration(
         groupSessionId: SessionId,
         using dependencies: Dependencies

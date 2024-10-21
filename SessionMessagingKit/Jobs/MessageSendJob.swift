@@ -64,7 +64,7 @@ public enum MessageSendJob: JobExecutor {
                     // If the original interaction no longer exists then don't bother sending the message (ie. the
                     // message was deleted before it even got sent)
                     guard try Interaction.exists(db, id: interactionId) else {
-                        Log.warn(.cat, "Failing (\(job.id ?? -1)) due to missing interaction")
+                        Log.warn(.cat, "Failing \(messageType) (\(job.id ?? -1)) due to missing interaction")
                         return (StorageError.objectNotFound, [], [])
                     }
 
@@ -80,7 +80,7 @@ public enum MessageSendJob: JobExecutor {
                     // If there were failed attachments then this job should fail (can't send a
                     // message which has associated attachments if the attachments fail to upload)
                     guard !allAttachmentStateInfo.contains(where: { $0.state == .failedDownload }) else {
-                        Log.info(.cat, "Failing (\(job.id ?? -1)) due to failed attachment upload")
+                        Log.info(.cat, "Failing \(messageType) (\(job.id ?? -1)) due to failed attachment upload")
                         return (AttachmentError.notUploaded, [], fileIds)
                     }
 
@@ -114,7 +114,7 @@ public enum MessageSendJob: JobExecutor {
             /// If we got an error when trying to retrieve the attachment state then this job is actually invalid so it
             /// should permanently fail
             guard attachmentState.error == nil else {
-                Log.error(.cat, "Failed due to invalid attachment state")
+                Log.error(.cat, "Failed \(messageType) (\(job.id ?? -1)) due to invalid attachment state")
                 return failure(job, (attachmentState.error ?? MessageSenderError.invalidMessage), true)
             }
 
@@ -160,12 +160,50 @@ public enum MessageSendJob: JobExecutor {
                         }
                 }
 
-                Log.info(.cat, "Deferring (\(job.id ?? -1)) due to pending attachment uploads")
+                Log.info(.cat, "Deferring \(messageType) (\(job.id ?? -1)) due to pending attachment uploads")
                 return deferred(job)
             }
 
             // Store the fileIds so they can be sent with the open group message content
             messageFileIds = attachmentState.preparedFileIds
+        }
+        
+        /// If this message is being sent to an updated group then we should first make sure that we have a encryption keys
+        /// for the group before we try to send the message, if not then defer the job 1 second to give the poller the chance to
+        /// receive the keys
+        ///
+        /// **Note:** If we have already deferred this message once then we should only continue to defer if we have a config
+        /// for the message (this way we won't get stuck deferring permanently if config state isn't loaded and we will instead try,
+        /// and fail, to send the message)
+        var previousDeferralsMessage: String = ""
+        
+        switch details.destination {
+            case .closedGroup(let groupPublicKey) where groupPublicKey.starts(with: SessionId.Prefix.group.rawValue):
+                let deferalDuration: TimeInterval = 1
+                let groupSessionId: SessionId = SessionId(.group, hex: groupPublicKey)
+                let numGroupKeys: Int = (try? LibSession.numKeys(groupSessionId: groupSessionId, using: dependencies))
+                    .defaulting(to: 0)
+                let deferCount: Int = dependencies[singleton: .jobRunner].deferCount(for: job.id, of: job.variant)
+                previousDeferralsMessage = " and \(.seconds(Double(deferCount) * deferalDuration), unit: .s) of deferrals"  // stringlint:ignore
+                
+                guard
+                    numGroupKeys > 0 && (
+                        deferCount == 0 ||
+                        dependencies[cache: .libSession].hasConfig(for: .groupKeys, sessionId: groupSessionId)
+                    )
+                else {
+                    // Defer the job by 1s to give it a little more time to receive updated keys
+                    let updatedJob: Job? = dependencies[singleton: .storage].write { db in
+                        try job
+                            .with(nextRunTimestamp: dependencies.dateNow.timeIntervalSince1970 + deferalDuration)
+                            .upserted(db)
+                    }
+                    
+                    Log.info(.cat, "Deferring \(messageType) (\(job.id ?? -1)) as we haven't received the group encryption keys yet")
+                    return deferred(updatedJob ?? job)
+                }
+                
+            default: break
         }
         
         // Store the sentTimestamp from the message in case it fails due to a clockOutOfSync error
@@ -196,11 +234,11 @@ public enum MessageSendJob: JobExecutor {
                 receiveCompletion: { result in
                     switch result {
                         case .finished:
-                            Log.info(.cat, "Completed sending \(messageType) (\(job.id ?? -1)) after \(.seconds(dependencies.dateNow.timeIntervalSince1970 - startTime), unit: .s).")
+                            Log.info(.cat, "Completed sending \(messageType) (\(job.id ?? -1)) after \(.seconds(dependencies.dateNow.timeIntervalSince1970 - startTime), unit: .s)\(previousDeferralsMessage).")
                             success(job, false)
                             
                         case .failure(let error):
-                            Log.info(.cat, "Failed to send \(messageType) (\(job.id ?? -1)) after \(.seconds(dependencies.dateNow.timeIntervalSince1970 - startTime), unit: .s) due to error: \(error).")
+                            Log.info(.cat, "Failed to send \(messageType) (\(job.id ?? -1)) after \(.seconds(dependencies.dateNow.timeIntervalSince1970 - startTime), unit: .s)\(previousDeferralsMessage) due to error: \(error).")
                             
                             // Actual error handling
                             switch (error, details.message) {

@@ -153,7 +153,7 @@ extension MessageReceiver {
     }
     
     /// This returns the `resultPublisher` for the group poller so can be ignored if we don't need to wait for the first poll to succeed
-    @discardableResult internal static func handleNewGroup(
+    internal static func handleNewGroup(
         _ db: Database,
         groupSessionId: String,
         groupIdentityPrivateKey: Data?,
@@ -164,7 +164,7 @@ extension MessageReceiver {
         hasAlreadyBeenKicked: Bool,
         calledFromConfig configTriggeringChange: ConfigDump.Variant?,
         using dependencies: Dependencies
-    ) throws -> AnyPublisher<GroupPoller.PollResponse, Never> {
+    ) throws {
         // Create the group
         try SessionThread.fetchOrCreate(
             db,
@@ -202,9 +202,9 @@ extension MessageReceiver {
         }
         
         /// If the group wasn't already approved, is not in the invite state and the user hasn't been kicked from it then handle the approval process
-        guard !groupAlreadyApproved && !invited && !hasAlreadyBeenKicked else { return Just([]).eraseToAnyPublisher() }
+        guard !groupAlreadyApproved && !invited && !hasAlreadyBeenKicked else { return }
         
-        return try ClosedGroup.approveGroup(
+        try ClosedGroup.approveGroup(
             db,
             group: closedGroup,
             calledFromConfig: configTriggeringChange,
@@ -421,28 +421,34 @@ extension MessageReceiver {
         let messageInfo: ClosedGroup.MessageInfo = {
             switch message.changeType {
                 case .added:
-                    return ClosedGroup.MessageInfo
-                        .addedUsers(
-                            hasCurrentUser: messageContainsCurrentUser,
-                            names: names,
-                            historyShared: message.historyShared
-                        )
+                    return ClosedGroup.MessageInfo.addedUsers(
+                        hasCurrentUser: messageContainsCurrentUser,
+                        names: names,
+                        historyShared: message.historyShared
+                    )
                     
                 case .removed:
-                    return ClosedGroup.MessageInfo
-                        .removedUsers(
-                            hasCurrentUser: messageContainsCurrentUser,
-                            names: names
-                        )
+                    return ClosedGroup.MessageInfo.removedUsers(
+                        hasCurrentUser: messageContainsCurrentUser,
+                        names: names
+                    )
                     
                 case .promoted:
-                    return ClosedGroup.MessageInfo
-                        .promotedUsers(
-                            hasCurrentUser: messageContainsCurrentUser,
-                            names: names
-                        )
+                    return ClosedGroup.MessageInfo.promotedUsers(
+                        hasCurrentUser: messageContainsCurrentUser,
+                        names: names
+                    )
             }
         }()
+        
+        /// If the message is about adding the current user then we should remove any existing `infoGroupInfoInvited` interactions
+        /// from the group (don't want to have two different messages indicating the current user was added to the group)
+        if messageContainsCurrentUser && message.changeType == .added {
+            _ = try Interaction
+                .filter(Interaction.Columns.threadId == groupSessionId.hexString)
+                .filter(Interaction.Columns.variant == Interaction.Variant.infoGroupInfoInvited)
+                .deleteAll(db)
+        }
         
         switch messageInfo.infoString(using: dependencies) {
             case .none: Log.warn(.messageReceiver, "Failed to encode member change info string.")
@@ -834,7 +840,7 @@ extension MessageReceiver {
             groupSessionId: groupSessionId,
             using: dependencies
         )
-        let initialPollPublisher: AnyPublisher<GroupPoller.PollResponse, Never> = try MessageReceiver.handleNewGroup(
+        try MessageReceiver.handleNewGroup(
             db,
             groupSessionId: groupSessionId.hexString,
             groupIdentityPrivateKey: groupIdentityPrivateKey,
@@ -862,20 +868,22 @@ extension MessageReceiver {
         switch serverHash {
             case .none: break
             case .some(let serverHash):
-                try? SnodeAPI
-                    .preparedDeleteMessages(
-                        serverHashes: [serverHash],
-                        requireSuccessfulDeletion: false,
-                        authMethod: try Authentication.with(
-                            db,
-                            swarmPublicKey: userSessionId.hexString,
+                db.afterNextTransaction { db in
+                    try? SnodeAPI
+                        .preparedDeleteMessages(
+                            serverHashes: [serverHash],
+                            requireSuccessfulDeletion: false,
+                            authMethod: try Authentication.with(
+                                db,
+                                swarmPublicKey: userSessionId.hexString,
+                                using: dependencies
+                            ),
                             using: dependencies
-                        ),
-                        using: dependencies
-                    )
-                    .send(using: dependencies)
-                    .subscribe(on: DispatchQueue.global(qos: .background), using: dependencies)
-                    .sinkUntilComplete()
+                        )
+                        .send(using: dependencies)
+                        .subscribe(on: DispatchQueue.global(qos: .background), using: dependencies)
+                        .sinkUntilComplete()
+                }
         }
         
         /// If the thread didn't already exist, or the user had previously been kicked but has since been re-added to the group, then insert
@@ -936,28 +944,17 @@ extension MessageReceiver {
                 /// If we aren't creating a new thread (ie. sending a message request) then send a
                 /// `GroupUpdateInviteResponseMessage` to the group (this allows other members
                 /// to know that the user has joined the group)
-                db.afterNextTransactionNested(using: dependencies) { _ in
-                    initialPollPublisher
-                        .first()
-                        .subscribe(on: DispatchQueue.global(qos: .background), using: dependencies)
-                        .sinkUntilComplete(
-                            receiveCompletion: { _ in
-                                dependencies[singleton: .storage].write { db in
-                                    try MessageSender.send(
-                                        db,
-                                        message: GroupUpdateInviteResponseMessage(
-                                            isApproved: true,
-                                            sentTimestampMs: dependencies[cache: .snodeAPI].currentOffsetTimestampMs()
-                                        ),
-                                        interactionId: nil,
-                                        threadId: groupSessionId.hexString,
-                                        threadVariant: .group,
-                                        using: dependencies
-                                    )
-                                }
-                            }
-                        )
-                }
+                try MessageSender.send(
+                    db,
+                    message: GroupUpdateInviteResponseMessage(
+                        isApproved: true,
+                        sentTimestampMs: dependencies[cache: .snodeAPI].currentOffsetTimestampMs()
+                    ),
+                    interactionId: nil,
+                    threadId: groupSessionId.hexString,
+                    threadVariant: .group,
+                    using: dependencies
+                )
                 
             /// If the sender wasn't approved this is a message request so we should notify the user about the invite
             case (false, _):

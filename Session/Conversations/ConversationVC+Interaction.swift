@@ -2568,7 +2568,7 @@ extension ConversationVC {
                 else { return Just(()).eraseToAnyPublisher() }
                 
                 return viewModel.dependencies[singleton: .storage]
-                    .writePublisher { [dependencies = viewModel.dependencies] db -> AnyPublisher<Void, Never> in
+                    .writePublisher { [dependencies = viewModel.dependencies] db in
                         /// Remove any existing `infoGroupInfoInvited` interactions from the group (don't want to have a duplicate one from
                         /// inside the group history)
                         _ = try Interaction
@@ -2587,52 +2587,39 @@ extension ConversationVC {
                             isHidden: false
                         ).upsert(db)
                         
-                        /// Actually trigger the approval
-                        return try ClosedGroup
-                            .approveGroup(
+                        /// If we aren't creating a new thread (ie. sending a message request) and the user is not an admin
+                        /// then schedule sending a `GroupUpdateInviteResponseMessage` to the group (this allows
+                        /// other members to know that the user has joined the group)
+                        if !isNewThread && group.groupIdentityPrivateKey == nil {
+                            try MessageSender.send(
                                 db,
-                                group: group,
-                                calledFromConfig: nil,
+                                message: GroupUpdateInviteResponseMessage(
+                                    isApproved: true,
+                                    sentTimestampMs: UInt64(timestampMs)
+                                ),
+                                interactionId: nil,
+                                threadId: threadId,
+                                threadVariant: threadVariant,
                                 using: dependencies
                             )
-                            .map { _ in () }
-                            .eraseToAnyPublisher()
+                        }
+                        
+                        /// Actually trigger the approval
+                        try ClosedGroup.approveGroup(
+                            db,
+                            group: group,
+                            calledFromConfig: nil,
+                            using: dependencies
+                        )
                     }
+                    .map { _ in () }
+                    .catch { _ in Just(()).eraseToAnyPublisher() }
                     .handleEvents(
                         receiveOutput: { _ in
                             // Update the UI
                             updateNavigationBackStack()
                         }
                     )
-                    .flatMap { [dependencies = viewModel.dependencies] pollPublisher in
-                        pollPublisher
-                            .first()
-                            .handleEvents(
-                                receiveOutput: { _ in
-                                    /// If we aren't creating a new thread (ie. sending a message request) and the user is not an admin
-                                    /// then send a `GroupUpdateInviteResponseMessage` to the group (this allows other members
-                                    /// to know that the user has joined the group)
-                                    guard !isNewThread && group.groupIdentityPrivateKey == nil else { return }
-                                    
-                                    dependencies[singleton: .storage].write { db in
-                                        /// The user is not an admin so send a invite response
-                                        try MessageSender.send(
-                                            db,
-                                            message: GroupUpdateInviteResponseMessage(
-                                                isApproved: true,
-                                                sentTimestampMs: UInt64(timestampMs)
-                                            ),
-                                            interactionId: nil,
-                                            threadId: threadId,
-                                            threadVariant: threadVariant,
-                                            using: dependencies
-                                        )
-                                    }
-                                }
-                            )
-                            .eraseToAnyPublisher()
-                    }
-                    .catch { _ in Just(()).eraseToAnyPublisher() }
                     .eraseToAnyPublisher()
                 
             default: return Just(()).eraseToAnyPublisher()
