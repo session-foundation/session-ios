@@ -75,6 +75,7 @@ extension ProjectState {
         .contains("owsFailDebug(", caseSensitive: false),
         .contains("#imageLiteral(resourceName:", caseSensitive: false),
         .contains("[UIImage imageNamed:", caseSensitive: false),
+        .contains("Image(", caseSensitive: false),
         .contains("UIFont(name:", caseSensitive: false),
         .contains(".dateFormat =", caseSensitive: false),
         .contains("accessibilityLabel =", caseSensitive: false),

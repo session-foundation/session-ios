@@ -28,7 +28,7 @@ struct StartConversationScreen: View {
                         ) {
                             let viewController: SessionHostingViewController = SessionHostingViewController(rootView: NewMessageScreen())
                             viewController.setNavBarTitle(title)
-                            viewController.setUpDismissingButton(on: .right)
+                            viewController.setUpNavBarButton(rightItem: .close)
                             self.host.controller?.navigationController?.pushViewController(viewController, animated: true)
                         }
                         .accessibility(
@@ -84,7 +84,7 @@ struct StartConversationScreen: View {
                         ) {
                             let viewController: SessionHostingViewController = SessionHostingViewController(rootView: InviteAFriendScreen())
                             viewController.setNavBarTitle("sessionInviteAFriend".localized())
-                            viewController.setUpDismissingButton(on: .right)
+                            viewController.setUpNavBarButton(rightItem: .close)
                             self.host.controller?.navigationController?.pushViewController(viewController, animated: true)
                         }
                         .accessibility(
