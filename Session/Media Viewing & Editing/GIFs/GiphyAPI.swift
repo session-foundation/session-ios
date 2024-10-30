@@ -3,6 +3,7 @@
 import Foundation
 import Combine
 import CoreServices
+import UniformTypeIdentifiers
 import SignalUtilitiesKit
 import SessionUtilitiesKit
 
@@ -25,6 +26,7 @@ enum GiphyError: Error, CustomStringConvertible {
 // They vary in content size (i.e. width,  height), 
 // format (.jpg, .gif, .mp4, webp, etc.),
 // quality, etc.
+// stringlint:ignore_contents
 class GiphyRendition: ProxiedContentAssetDescription {
     let format: GiphyFormat
     let name: String
@@ -50,26 +52,26 @@ class GiphyRendition: ProxiedContentAssetDescription {
 
     private class func fileExtension(forFormat format: GiphyFormat) -> String {
         switch format {
-            case .gif: return "gif"      // stringlint:disable
-            case .mp4: return "mp4"      // stringlint:disable
-            case .jpg: return "jpg"      // stringlint:disable
+            case .gif: return "gif"
+            case .mp4: return "mp4"
+            case .jpg: return "jpg"
         }
     }
 
-    public var utiType: String {
+    public var type: UTType {
         switch format {
-            case .gif: return kUTTypeGIF as String
-            case .mp4: return kUTTypeMPEG4 as String
-            case .jpg: return kUTTypeJPEG as String
+            case .gif: return .gif
+            case .mp4: return .mpeg4Movie
+            case .jpg: return .jpeg
         }
     }
 
     public var isStill: Bool {
-        return name.hasSuffix("_still")      // stringlint:disable
+        return name.hasSuffix("_still")
     }
 
     public var isDownsampled: Bool {
-        return name.hasSuffix("_downsampled")      // stringlint:disable
+        return name.hasSuffix("_downsampled")
     }
 
     public func log() {
@@ -267,11 +269,12 @@ enum GiphyAPI {
     // MARK: - Search
     
     // This is the Signal iOS API key.
-    private static let kGiphyApiKey = "ZsUpUm2L6cVbvei347EQNp7HrROjbOdc"      // stringlint:disable
+    private static let kGiphyApiKey = "ZsUpUm2L6cVbvei347EQNp7HrROjbOdc"      // stringlint:ignore
     private static let kGiphyPageSize = 20
     
+    // stringlint:ignore_contents
     public static func trending() -> AnyPublisher<[GiphyImageInfo], Error> {
-        let urlString = "/v1/gifs/trending?api_key=\(kGiphyApiKey)&limit=\(kGiphyPageSize)"      // stringlint:disable
+        let urlString = "/v1/gifs/trending?api_key=\(kGiphyApiKey)&limit=\(kGiphyPageSize)"
         
         guard let url: URL = URL(string: "\(kGiphyBaseURL)\(urlString)") else {
             return Fail(error: NetworkError.invalidURL)
@@ -299,6 +302,7 @@ enum GiphyAPI {
             .eraseToAnyPublisher()
     }
 
+    // stringlint:ignore_contents
     public static func search(query: String) -> AnyPublisher<[GiphyImageInfo], Error> {
         let kGiphyPageOffset = 0
         
@@ -307,10 +311,10 @@ enum GiphyAPI {
             let url: URL = URL(
                 string: [
                     kGiphyBaseURL,
-                    "/v1/gifs/search?api_key=\(kGiphyApiKey)",      // stringlint:disable
-                    "&offset=\(kGiphyPageOffset)",      // stringlint:disable
-                    "&limit=\(kGiphyPageSize)",      // stringlint:disable
-                    "&q=\(queryEncoded)"      // stringlint:disable
+                    "/v1/gifs/search?api_key=\(kGiphyApiKey)",
+                    "&offset=\(kGiphyPageOffset)",
+                    "&limit=\(kGiphyPageSize)",
+                    "&q=\(queryEncoded)"
                 ].joined()
             )
         else {
@@ -348,6 +352,7 @@ enum GiphyAPI {
 
     // MARK: - Parse API Responses
 
+    // stringlint:ignore_contents
     private static func parseGiphyImages(responseData: Data?) -> [GiphyImageInfo]? {
         guard let responseData: Data = responseData else {
             Log.error("[GiphyAPI] Missing response.")
@@ -358,7 +363,7 @@ enum GiphyAPI {
             Log.error("[GiphyAPI] Invalid response.")
             return nil
         }
-        guard let imageDicts = responseDict["data"] as? [[String: Any]] else {      // stringlint:disable
+        guard let imageDicts = responseDict["data"] as? [[String: Any]] else {
             Log.error("[GiphyAPI] Invalid response data.")
             return nil
         }
@@ -368,8 +373,9 @@ enum GiphyAPI {
     }
 
     // Giphy API results are often incomplete or malformed, so we need to be defensive.
+    // stringlint:ignore_contents
     private static func parseGiphyImage(imageDict: [String: Any]) -> GiphyImageInfo? {
-        guard let giphyId = imageDict["id"] as? String else {      // stringlint:disable
+        guard let giphyId = imageDict["id"] as? String else {
             Log.warn("[GiphyAPI] Image dict missing id.")
             return nil
         }
@@ -377,7 +383,7 @@ enum GiphyAPI {
             Log.warn("[GiphyAPI] Image dict has invalid id.")
             return nil
         }
-        guard let renditionDicts = imageDict["images"] as? [String: Any] else {      // stringlint:disable
+        guard let renditionDicts = imageDict["images"] as? [String: Any] else {
             Log.warn("[GiphyAPI] Image dict missing renditions.")
             return nil
         }
@@ -410,8 +416,9 @@ enum GiphyAPI {
         )
     }
 
+    // stringlint:ignore_contents
     private static func findOriginalRendition(renditions: [GiphyRendition]) -> GiphyRendition? {
-        for rendition in renditions where rendition.name == "original" {      // stringlint:disable
+        for rendition in renditions where rendition.name == "original" {
             return rendition
         }
         return nil
@@ -420,19 +427,20 @@ enum GiphyAPI {
     // Giphy API results are often incomplete or malformed, so we need to be defensive.
     //
     // We should discard renditions which are missing or have invalid properties.
+    // stringlint:ignore_contents
     private static func parseGiphyRendition(
         renditionName: String,
         renditionDict: [String: Any]
     ) -> GiphyRendition? {
-        guard let width = parsePositiveUInt(dict: renditionDict, key: "width", typeName: "rendition") else {      // stringlint:disable
+        guard let width = parsePositiveUInt(dict: renditionDict, key: "width", typeName: "rendition") else {
             return nil
         }
-        guard let height = parsePositiveUInt(dict: renditionDict, key: "height", typeName: "rendition") else {      // stringlint:disable
+        guard let height = parsePositiveUInt(dict: renditionDict, key: "height", typeName: "rendition") else {
             return nil
         }
         // Be lenient when parsing file sizes - we don't require them for stills.
-        let fileSize = parseLenientUInt(dict: renditionDict, key: "size")      // stringlint:disable
-        guard let urlString = renditionDict["url"] as? String else {           // stringlint:disable
+        let fileSize = parseLenientUInt(dict: renditionDict, key: "size")
+        guard let urlString = renditionDict["url"] as? String else {
             return nil
         }
         guard urlString.count > 0 else {
@@ -448,13 +456,13 @@ enum GiphyAPI {
             return nil
         }
         var format = GiphyFormat.gif
-        if fileExtension == "gif" {             // stringlint:disable
+        if fileExtension == "gif" {
             format = .gif
-        } else if fileExtension == "jpg" {      // stringlint:disable
+        } else if fileExtension == "jpg" {
             format = .jpg
-        } else if fileExtension == "mp4" {      // stringlint:disable
+        } else if fileExtension == "mp4" {
             format = .mp4
-        } else if fileExtension == "webp" {     // stringlint:disable
+        } else if fileExtension == "webp" {
             return nil
         } else {
             Log.warn("[GiphyAPI] Invalid file extension: \(fileExtension).")

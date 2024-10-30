@@ -515,10 +515,17 @@ class ThreadSettingsViewModel: SessionTableViewModel, NavigationItemSource, Navi
                             ),
                             confirmationInfo: ConfirmationModal.Info(
                                 title: "groupLeave".localized(),
-                                body: .attributedText(
-                                    (currentUserIsClosedGroupAdmin ? "groupDeleteDescription" : "groupLeaveDescription")
-                                        .put(key: "group_name", value: threadViewModel.displayName)
-                                        .localizedFormatted(baseFont: .boldSystemFont(ofSize: Values.smallFontSize))
+                                body: (currentUserIsClosedGroupAdmin ?
+                                    .attributedText(
+                                        "groupDeleteDescription"
+                                            .put(key: "group_name", value: threadViewModel.displayName)
+                                            .localizedFormatted(baseFont: .boldSystemFont(ofSize: Values.smallFontSize))
+                                    ) :
+                                    .attributedText(
+                                        "groupLeaveDescription"
+                                            .put(key: "group_name", value: threadViewModel.displayName)
+                                            .localizedFormatted(baseFont: .boldSystemFont(ofSize: Values.smallFontSize))
+                                    )
                                 ),
                                 confirmTitle: "leave".localized(),
                                 confirmStyle: .danger,
@@ -528,9 +535,8 @@ class ThreadSettingsViewModel: SessionTableViewModel, NavigationItemSource, Navi
                                 dependencies.storage.write { db in
                                     try SessionThread.deleteOrLeave(
                                         db,
+                                        type: .leaveGroupAsync,
                                         threadId: threadViewModel.threadId,
-                                        threadVariant: threadViewModel.threadVariant,
-                                        groupLeaveType: .standard,
                                         calledFromConfigHandling: false
                                     )
                                 }
@@ -707,7 +713,6 @@ class ThreadSettingsViewModel: SessionTableViewModel, NavigationItemSource, Navi
                                     "blockUnblock".localized() :
                                     "block".localized()
                                 ),
-                                confirmAccessibility: Accessibility(identifier: "Confirm block"),
                                 confirmStyle: .danger,
                                 cancelStyle: .alert_text
                             ),

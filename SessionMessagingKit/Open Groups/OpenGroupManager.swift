@@ -62,9 +62,10 @@ public final class OpenGroupManager {
 
     // MARK: - Adding & Removing
     
+    // stringlint:ignore_contents
     private static func port(for server: String, serverUrl: URL) -> String {
         if let port: Int = serverUrl.port {
-            return ":\(port)" // stringlint:disable
+            return ":\(port)"
         }
         
         let components: [String] = server.components(separatedBy: ":")
@@ -77,7 +78,7 @@ public final class OpenGroupManager {
             )
         else { return "" }
         
-        return ":\(port)" // stringlint:disable
+        return ":\(port)"
     }
     
     public static func isSessionRunOpenGroup(server: String) -> Bool {
@@ -795,7 +796,12 @@ public final class OpenGroupManager {
                             let syncTarget: String = (lookup.sessionId ?? message.recipient)
                             
                             switch messageInfo.variant {
-                                case .visibleMessage: (messageInfo.message as? VisibleMessage)?.syncTarget = syncTarget
+                                case .visibleMessage:
+                                    (messageInfo.message as? VisibleMessage)?.syncTarget = syncTarget
+                                
+                                case .expirationTimerUpdate:
+                                    (messageInfo.message as? ExpirationTimerUpdate)?.syncTarget = syncTarget
+                                
                                 default: break
                             }
                         }

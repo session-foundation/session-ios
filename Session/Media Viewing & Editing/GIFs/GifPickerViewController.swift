@@ -35,7 +35,7 @@ class GifPickerViewController: OWSViewController, UISearchBarDelegate, UICollect
     var hasSelectedCell: Bool = false
     var imageInfos = [GiphyImageInfo]()
     
-    private let kCellReuseIdentifier = "kCellReuseIdentifier"   // stringlint:disable
+    private let kCellReuseIdentifier = "kCellReuseIdentifier"   // stringlint:ignore
 
     var progressiveSearchTimer: Timer?
     
@@ -381,7 +381,7 @@ class GifPickerViewController: OWSViewController, UISearchBarDelegate, UICollect
                     }
 
                     let dataSource = DataSourcePath(filePath: asset.filePath, shouldDeleteOnDeinit: false)
-                    let attachment = SignalAttachment.attachment(dataSource: dataSource, dataUTI: rendition.utiType, imageQuality: .medium)
+                    let attachment = SignalAttachment.attachment(dataSource: dataSource, type: rendition.type, imageQuality: .medium)
 
                     self?.dismiss(animated: true) {
                         // Delegate presents view controllers, so it's important that *this* controller be dismissed before that occurs.

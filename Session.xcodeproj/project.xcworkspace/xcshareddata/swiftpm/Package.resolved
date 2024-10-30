@@ -87,8 +87,8 @@
       "kind" : "remoteSourceControl",
       "location" : "https://github.com/oxen-io/session-grdb-swift.git",
       "state" : {
-        "revision" : "426149dd868219517df20eebeca27ff385fee34a",
-        "version" : "106.29.2"
+        "revision" : "04f480b95263b7c517085100ceb249f879c021d8",
+        "version" : "106.29.3"
       }
     },
     {

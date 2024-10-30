@@ -138,7 +138,7 @@ fileprivate extension LibSessionUtilSpec {
                 it("can catch size limit errors thrown when pushing") {
                     var randomGenerator: ARC4RandomNumberGenerator = ARC4RandomNumberGenerator(seed: 1000)
                     
-                    try (0..<10000).forEach { index in
+                    try (0..<2500).forEach { index in
                         var contact: contacts_contact = try createContact(
                             for: index,
                             in: conf,
@@ -148,7 +148,7 @@ fileprivate extension LibSessionUtilSpec {
                         contacts_set(conf, &contact)
                     }
                     
-                    expect(contacts_size(conf)).to(equal(10000))
+                    expect(contacts_size(conf)).to(equal(2500))
                     expect(config_needs_push(conf)).to(beTrue())
                     expect(config_needs_dump(conf)).to(beTrue())
                     
@@ -187,109 +187,77 @@ fileprivate extension LibSessionUtilSpec {
                 // MARK: ---- has not changed the max empty records
                 it("has not changed the max empty records") {
                     var randomGenerator: ARC4RandomNumberGenerator = ARC4RandomNumberGenerator(seed: 1000)
+                    let expectedRecords: Int = 2212
                     
-                    for index in (0..<100000) {
+                    repeat {
                         var contact: contacts_contact = try createContact(
-                            for: index,
+                            for: numRecords,
                             in: conf,
                             rand: &randomGenerator
                         )
                         contacts_set(conf, &contact)
-                        
-                        do {
-                            config_push(conf)?.deallocate()
-                            try LibSessionError.throwIfNeeded(conf)
-                        }
-                        catch { break }
-                        
-                        // We successfully inserted a contact and didn't hit the limit so increment the counter
-                        numRecords += 1
-                    }
+                    } while !has(conf, with: &numRecords, hitLimit: expectedRecords)
                     
                     // Check that the record count matches the maximum when we last checked
-                    expect(numRecords).to(equal(2212))
+                    expect(numRecords).to(equal(expectedRecords))
                 }
                 
                 // MARK: ---- has not changed the max name only records
                 it("has not changed the max name only records") {
                     var randomGenerator: ARC4RandomNumberGenerator = ARC4RandomNumberGenerator(seed: 1000)
+                    let expectedRecords: Int = 742
                     
-                    for index in (0..<100000) {
+                    repeat {
                         var contact: contacts_contact = try createContact(
-                            for: index,
+                            for: numRecords,
                             in: conf,
                             rand: &randomGenerator,
                             maxing: [.name]
                         )
                         contacts_set(conf, &contact)
-                        
-                        do {
-                            config_push(conf)?.deallocate()
-                            try LibSessionError.throwIfNeeded(conf)
-                        }
-                        catch { break }
-                        
-                        // We successfully inserted a contact and didn't hit the limit so increment the counter
-                        numRecords += 1
-                    }
+                    } while !has(conf, with: &numRecords, hitLimit: expectedRecords)
                     
                     // Check that the record count matches the maximum when we last checked
-                    expect(numRecords).to(equal(742))
+                    expect(numRecords).to(equal(expectedRecords))
                 }
                 
                 // MARK: ---- has not changed the max name and profile pic only records
                 it("has not changed the max name and profile pic only records") {
                     var randomGenerator: ARC4RandomNumberGenerator = ARC4RandomNumberGenerator(seed: 1000)
+                    let expectedRecords: Int = 274
                     
-                    for index in (0..<100000) {
+                    repeat {
                         var contact: contacts_contact = try createContact(
-                            for: index,
+                            for: numRecords,
                             in: conf,
                             rand: &randomGenerator,
                             maxing: [.name, .profile_pic]
                         )
                         contacts_set(conf, &contact)
-                        
-                        do {
-                            config_push(conf)?.deallocate()
-                            try LibSessionError.throwIfNeeded(conf)
-                        }
-                        catch { break }
-                        
-                        // We successfully inserted a contact and didn't hit the limit so increment the counter
-                        numRecords += 1
-                    }
+                    } while !has(conf, with: &numRecords, hitLimit: expectedRecords)
                     
                     // Check that the record count matches the maximum when we last checked
-                    expect(numRecords).to(equal(274))
+                    expect(numRecords).to(equal(expectedRecords))
                 }
                 
                 // MARK: ---- has not changed the max filled records
                 it("has not changed the max filled records") {
                     var randomGenerator: ARC4RandomNumberGenerator = ARC4RandomNumberGenerator(seed: 1000)
+                    let expectedRecords: [Int] = [222, 223]
                     
-                    for index in (0..<100000) {
+                    repeat {
                         var contact: contacts_contact = try createContact(
-                            for: index,
+                            for: numRecords,
                             in: conf,
                             rand: &randomGenerator,
                             maxing: .allProperties
                         )
                         contacts_set(conf, &contact)
-                        
-                        do {
-                            config_push(conf)?.deallocate()
-                            try LibSessionError.throwIfNeeded(conf)
-                        }
-                        catch { break }
-                        
-                        // We successfully inserted a contact and didn't hit the limit so increment the counter
-                        numRecords += 1
-                    }
+                    } while !has(conf, with: &numRecords, hitLimit: expectedRecords.max()!)
                     
                     // Check that the record count matches the maximum when we last checked (seems to swap between
                     // these two on different test runs for some reason)
-                    expect(numRecords).to(satisfyAnyOf(equal(222), equal(223)))
+                    expect(numRecords).to(satisfyAnyOf(expectedRecords.map { equal($0) }))
                 }
             }
             
@@ -512,9 +480,9 @@ fileprivate extension LibSessionUtilSpec {
                 let pushData7: UnsafeMutablePointer<config_push_data> = config_push(conf2)
                 expect(pushData7.pointee.seqno).to(equal(3))
                 
-                let pushData6Str: String = String(pointer: pushData6.pointee.config, length: pushData6.pointee.config_len, encoding: .ascii)!
-                let pushData7Str: String = String(pointer: pushData7.pointee.config, length: pushData7.pointee.config_len, encoding: .ascii)!
-                expect(pushData6Str).toNot(equal(pushData7Str))
+                let pushData6Data: Data = Data(bytes: pushData6.pointee.config, count: pushData6.pointee.config_len)
+                let pushData7Data: Data = Data(bytes: pushData7.pointee.config, count: pushData7.pointee.config_len)
+                expect(pushData6Data).toNot(equal(pushData7Data))
                 expect([String](pointer: pushData6.pointee.obsolete, count: pushData6.pointee.obsolete_len))
                     .to(equal([fakeHash2]))
                 expect([String](pointer: pushData7.pointee.obsolete, count: pushData7.pointee.obsolete_len))
@@ -555,9 +523,9 @@ fileprivate extension LibSessionUtilSpec {
                 let pushData9: UnsafeMutablePointer<config_push_data> = config_push(conf2)
                 expect(pushData9.pointee.seqno).to(equal(pushData8.pointee.seqno))
                 
-                let pushData8Str: String = String(pointer: pushData8.pointee.config, length: pushData8.pointee.config_len, encoding: .ascii)!
-                let pushData9Str: String = String(pointer: pushData9.pointee.config, length: pushData9.pointee.config_len, encoding: .ascii)!
-                expect(pushData8Str).to(equal(pushData9Str))
+                let pushData8Data: Data = Data(bytes: pushData8.pointee.config, count: pushData8.pointee.config_len)
+                let pushData9Data: Data = Data(bytes: pushData9.pointee.config, count: pushData9.pointee.config_len)
+                expect(pushData8Data).to(equal(pushData9Data))
                 expect([String](pointer: pushData8.pointee.obsolete, count: pushData8.pointee.obsolete_len))
                     .to(equal([fakeHash3b, fakeHash3a]))
                 expect([String](pointer: pushData9.pointee.obsolete, count: pushData9.pointee.obsolete_len))
@@ -846,9 +814,9 @@ fileprivate extension LibSessionUtilSpec {
                 
                 // Since we set different things, we're going to get back different serialized data to be
                 // pushed:
-                let pushData3Str: String? = String(pointer: pushData3.pointee.config, length: pushData3.pointee.config_len, encoding: .ascii)
-                let pushData4Str: String? = String(pointer: pushData4.pointee.config, length: pushData4.pointee.config_len, encoding: .ascii)
-                expect(pushData3Str).toNot(equal(pushData4Str))
+                let pushData3Data: Data = Data(bytes: pushData3.pointee.config, count: pushData3.pointee.config_len)
+                let pushData4Data: Data = Data(bytes: pushData4.pointee.config, count: pushData4.pointee.config_len)
+                expect(pushData3Data).toNot(equal(pushData4Data))
                 
                 // Now imagine that each client pushed its `seqno=2` config to the swarm, but then each client
                 // also fetches new messages and pulls down the other client's `seqno=2` value.
@@ -1721,5 +1689,64 @@ fileprivate extension LibSessionUtilSpec {
                 }
             }
         }
+    }
+}
+
+// MARK: - Convenience
+
+private extension LibSessionUtilSpec {
+    static func has(_ conf: UnsafeMutablePointer<config_object>?, with numRecords: inout Int, hitLimit expectedLimit: Int) -> Bool {
+        // Have a hard limit (ie. don't want to loop over this limit as it likely means something is busted elsewhere
+        // and we are in an infinite loop)
+        guard numRecords < 2500 else { return true }
+         
+        // When generating push data the actual data generated is based on a diff from the current state to the
+        // next state - this means that adding 100 records at once is a different size from adding 1 at a time,
+        // but since adding them 1 at a time is really inefficient we want to try to be smart about calling
+        // `config_push` when we are far away from the limit, but do so in such a way that we still get accurate
+        // sizes as we approach the limit (this includes the "diff" values which include the last 5 changes)
+        //
+        // **Note:** `config_push` returns null when it hits the config limit
+        let distanceToLimit: Int = (expectedLimit - numRecords)
+        
+        switch distanceToLimit {
+            case Int.min...50:
+                // Within 50 records of the expected limit we want to check every record
+                guard let result: UnsafeMutablePointer<config_push_data> = config_push(conf) else { return true }
+                
+                // We successfully generated the config push and didn't hit the limit
+                result.deallocate()
+                
+            case 50...100:
+                // Between 50 and 100 records of the expected limit only check every `10` records
+                if numRecords.isMultiple(of: 10) {
+                    guard let result: UnsafeMutablePointer<config_push_data> = config_push(conf) else { return true }
+                    
+                    // We successfully generated the config push and didn't hit the limit
+                    result.deallocate()
+                }
+                
+            case 100...200:
+                // Between 100 and 200 records of the expected limit only check every `25` records
+                if numRecords.isMultiple(of: 25) {
+                    guard let result: UnsafeMutablePointer<config_push_data> = config_push(conf) else { return true }
+                    
+                    // We successfully generated the config push and didn't hit the limit
+                    result.deallocate()
+                }
+            
+            default:
+                // Otherwise check every `50` records
+                if numRecords.isMultiple(of: 50) {
+                    guard let result: UnsafeMutablePointer<config_push_data> = config_push(conf) else { return true }
+                    
+                    // We successfully generated the config push and didn't hit the limit
+                    result.deallocate()
+                }
+        }
+        
+        // Increment the number of records
+        numRecords += 1
+        return false
     }
 }

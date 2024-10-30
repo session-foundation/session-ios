@@ -233,7 +233,7 @@ final class ThreadPickerVC: UIViewController, UITableViewDataSource, UITableView
             (
                 (messageText?.isEmpty == true || (attachments[0].text() == messageText) ?
                     attachments[0].text() :
-                    "\(attachments[0].text() ?? "")\n\n\(messageText ?? "")" // stringlint:disable
+                    "\(attachments[0].text() ?? "")\n\n\(messageText ?? "")" // stringlint:ignore
                 )
             ) :
             messageText
@@ -307,7 +307,7 @@ final class ThreadPickerVC: UIViewController, UITableViewDataSource, UITableView
                                 attachmentId: LinkPreview
                                     .generateAttachmentIfPossible(
                                         imageData: linkPreviewDraft.jpegImageData,
-                                        mimeType: MimeTypeUtil.MimeType.imageJpeg
+                                        type: .jpeg
                                     )?
                                     .inserted(db)
                                     .id

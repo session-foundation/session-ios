@@ -5,7 +5,7 @@ import GRDB
 
 public enum SNUtilitiesKit: MigratableTarget { // Just to make the external API nice
     public static var isRunningTests: Bool {
-        ProcessInfo.processInfo.environment["XCTestConfigurationFilePath"] != nil   // stringlint:disable
+        ProcessInfo.processInfo.environment["XCTestConfigurationFilePath"] != nil   // stringlint:ignore
     }
 
     public static func migrations() -> TargetMigrations {
@@ -33,8 +33,8 @@ public enum SNUtilitiesKit: MigratableTarget { // Just to make the external API 
         )
     }
 
-    public static func configure(maxFileSize: UInt) {
-        SNUtilitiesKitConfiguration.maxFileSize = maxFileSize
+    public static func configure(networkMaxFileSize: UInt) {
+        SNUtilitiesKitConfiguration.maxFileSize = networkMaxFileSize
     }
 }
 

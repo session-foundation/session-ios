@@ -75,32 +75,9 @@ local sim_delete_cmd = 'if [ -f build/artifacts/sim_uuid ]; then rm -f /Users/$U
         name: 'Unit Test Summary',
         commands: [
           sim_delete_cmd,
-          |||
-            if [[ -d ./build/artifacts/testResults.xcresult ]]; then
-              xcresultparser --output-format cli --failed-tests-only ./build/artifacts/testResults.xcresult
-            else
-              echo -e "\n\n\n\e[31;1mUnit test results not found\e[0m"
-            fi
-          |||,
+          'xcresultparser --output-format cli --failed-tests-only ./build/artifacts/testResults.xcresult'
         ],
-        depends_on: ['Build and Run Tests'],
-        when: {
-          status: ['failure', 'success'],
-        },
-      },
-      {
-        name: 'Install Codecov CLI',
-        commands: [
-          'mkdir -p build/artifacts',
-          'pip3 install codecov-cli',
-          'find $HOME/Library/Python -name codecovcli -print -quit > ./build/artifacts/codecov_path',
-          |||
-            if [[ ! -s ./build/artifacts/codecov_path ]]; then
-              which codecovcli > ./build/artifacts/codecov_path
-            fi
-          |||,
-          '$(<./build/artifacts/codecov_path) --version',
-        ],
+        depends_on: ['Build and Run Tests']
       },
       {
         name: 'Convert xcresult to xml',
@@ -108,17 +85,6 @@ local sim_delete_cmd = 'if [ -f build/artifacts/sim_uuid ]; then rm -f /Users/$U
           'xcresultparser --output-format cobertura ./build/artifacts/testResults.xcresult > ./build/artifacts/coverage.xml',
         ],
         depends_on: ['Build and Run Tests'],
-      },
-      {
-        // No token needed for public repos
-        name: 'Upload coverage to Codecov',
-        commands: [
-          '$(<./build/artifacts/codecov_path) upload-process --fail-on-error -f ./build/artifacts/coverage.xml',
-        ],
-        depends_on: [
-          'Convert xcresult to xml',
-          'Install Codecov CLI',
-        ],
       },
     ],
   },

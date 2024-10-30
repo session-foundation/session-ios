@@ -95,7 +95,7 @@ struct QuoteView_SwiftUI: View {
                         return thumbnail
                     }
                     
-                    let fallbackImageName: String = (MimeTypeUtil.isAudio(attachment.contentType) ? "attachment_audio" : "actionsheet_document_black")
+                    let fallbackImageName: String = (attachment.isAudio ? "attachment_audio" : "actionsheet_document_black")
                     return UIImage(named: fallbackImageName)?
                         .resized(to: CGSize(width: Self.iconSize, height: Self.iconSize))?
                         .withRenderingMode(.alwaysTemplate)

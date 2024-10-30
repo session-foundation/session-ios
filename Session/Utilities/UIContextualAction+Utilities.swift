@@ -133,9 +133,6 @@ public extension UIContextualAction {
                                     title: "clearMessages".localized(),
                                     body: .text("clearMessagesNoteToSelfDescription".localized()),
                                     confirmTitle: "clear".localized(),
-                                    confirmAccessibility: Accessibility(
-                                        identifier: "Clear"
-                                    ),
                                     confirmStyle: .danger,
                                     cancelStyle: .alert_text,
                                     dismissOnConfirm: true,
@@ -143,9 +140,8 @@ public extension UIContextualAction {
                                         Storage.shared.writeAsync { db in
                                             try SessionThread.deleteOrLeave(
                                                 db,
+                                                type: .hideContactConversationAndDeleteContent,
                                                 threadId: threadViewModel.threadId,
-                                                threadVariant: threadViewModel.threadVariant,
-                                                groupLeaveType: .silent,
                                                 calledFromConfigHandling: false
                                             )
                                         }
@@ -183,9 +179,6 @@ public extension UIContextualAction {
                                             title: "noteToSelfHide".localized(),
                                             body: .text("noteToSelfHideDescription".localized()),
                                             confirmTitle: "hide".localized(),
-                                            confirmAccessibility: Accessibility(
-                                                identifier: "Hide"
-                                            ),
                                             confirmStyle: .danger,
                                             cancelStyle: .alert_text,
                                             dismissOnConfirm: true,
@@ -193,9 +186,8 @@ public extension UIContextualAction {
                                                 Storage.shared.writeAsync { db in
                                                     try SessionThread.deleteOrLeave(
                                                         db,
+                                                        type: .hideContactConversationAndDeleteContent,
                                                         threadId: threadViewModel.threadId,
-                                                        threadVariant: threadViewModel.threadVariant,
-                                                        groupLeaveType: .silent,
                                                         calledFromConfigHandling: false
                                                     )
                                                 }
@@ -351,9 +343,8 @@ public extension UIContextualAction {
                                             if threadIsMessageRequest {
                                                 try SessionThread.deleteOrLeave(
                                                     db,
+                                                    type: .hideContactConversationAndDeleteContent,
                                                     threadId: threadViewModel.threadId,
-                                                    threadVariant: .contact,
-                                                    groupLeaveType: .silent,
                                                     calledFromConfigHandling: false
                                                 )
                                             }
@@ -375,7 +366,6 @@ public extension UIContextualAction {
                                                     .localizedFormatted(baseFont: .systemFont(ofSize: Values.smallFontSize))
                                             ),
                                             confirmTitle: "block".localized(),
-                                            confirmAccessibility: Accessibility(identifier: "Confirm block"),
                                             confirmStyle: .danger,
                                             cancelStyle: .alert_text,
                                             dismissOnConfirm: true,
@@ -432,20 +422,23 @@ public extension UIContextualAction {
                                     title: confirmationModalTitle,
                                     body: .attributedText(confirmationModalExplanation),
                                     confirmTitle: "leave".localized(),
-                                    confirmAccessibility: Accessibility(
-                                        identifier: "Leave"
-                                    ),
                                     confirmStyle: .danger,
                                     cancelStyle: .alert_text,
                                     dismissOnConfirm: true,
                                     onConfirm: { _ in
+                                        let deletionType: SessionThread.DeletionType = {
+                                            switch threadViewModel.threadVariant {
+                                                case .legacyGroup, .group: return .leaveGroupAsync
+                                                default: return .deleteCommunityAndContent
+                                            }
+                                        }()
+                                        
                                         Storage.shared.writeAsync { db in
                                             do {
                                                 try SessionThread.deleteOrLeave(
                                                     db,
+                                                    type: deletionType,
                                                     threadId: threadViewModel.threadId,
-                                                    threadVariant: threadViewModel.threadVariant,
-                                                    groupLeaveType: .standard,
                                                     calledFromConfigHandling: false
                                                 )
                                             } catch {
@@ -538,19 +531,27 @@ public extension UIContextualAction {
                                     title: confirmationModalTitle,
                                     body: .attributedText(confirmationModalExplanation),
                                     confirmTitle: "delete".localized(),
-                                    confirmAccessibility: Accessibility(
-                                        identifier: "Confirm delete"
-                                    ),
                                     confirmStyle: .danger,
                                     cancelStyle: .alert_text,
                                     dismissOnConfirm: true,
                                     onConfirm: { _ in
+                                        let deletionType: SessionThread.DeletionType = {
+                                            switch (threadViewModel.threadVariant, isMessageRequest) {
+                                                case (.community, _): return .deleteCommunityAndContent
+                                                case (.group, true): return .deleteGroupAndContent
+                                                case (.group, _), (.legacyGroup, _):
+                                                    return .leaveGroupAsync
+                                                
+                                                case (.contact, _):
+                                                    return .hideContactConversationAndDeleteContent
+                                            }
+                                        }()
+                                        
                                         Storage.shared.writeAsync { db in
                                             try SessionThread.deleteOrLeave(
                                                 db,
+                                                type: deletionType,
                                                 threadId: threadViewModel.threadId,
-                                                threadVariant: threadViewModel.threadVariant,
-                                                groupLeaveType: (isMessageRequest ? .silent : .forced),
                                                 calledFromConfigHandling: false
                                             )
                                         }

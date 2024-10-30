@@ -117,6 +117,7 @@ extension MessageSender {
                 // Prepare the notification subscription
                 var preparedNotificationSubscription: Network.PreparedRequest<PushNotificationAPI.LegacyPushServerResponse>?
                 
+                // stringlint:ignore_start
                 if let token: String = dependencies.standardUserDefaults[.deviceToken] {
                     preparedNotificationSubscription = try? PushNotificationAPI
                         .preparedSubscribeToLegacyGroups(
@@ -124,7 +125,10 @@ extension MessageSender {
                             currentUserPublicKey: userPublicKey,
                             legacyGroupIds: try ClosedGroup
                                 .select(.threadId)
-                                .filter(!ClosedGroup.Columns.threadId.like("\(SessionId.Prefix.group.rawValue)%")) // stringlint:disable
+                                .filter(
+                                    ClosedGroup.Columns.threadId > SessionId.Prefix.standard.rawValue &&
+                                    ClosedGroup.Columns.threadId < SessionId.Prefix.standard.endOfRangeString
+                                )
                                 .joining(
                                     required: ClosedGroup.members
                                         .filter(GroupMember.Columns.profileId == userPublicKey)
@@ -135,6 +139,7 @@ extension MessageSender {
                             using: dependencies
                         )
                 }
+                // stringlint:ignore_stop
                 
                 return (thread, memberSendData, preparedNotificationSubscription)
             }

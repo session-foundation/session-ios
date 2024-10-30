@@ -330,13 +330,15 @@ public extension Profile {
     }
     
     /// A standardised mechanism for truncating a user id
+    ///
+    /// stringlint:ignore_contents
     static func truncated(id: String, truncating: Truncation) -> String {
         guard id.count > 8 else { return id }
         
         switch truncating {
-            case .start: return "...\(id.suffix(8))"                    //stringlint:disable
-            case .middle: return "\(id.prefix(4))...\(id.suffix(4))"    //stringlint:disable
-            case .end: return "\(id.prefix(8))..."                      //stringlint:disable
+            case .start: return "...\(id.suffix(8))"
+            case .middle: return "\(id.prefix(4))...\(id.suffix(4))"
+            case .end: return "\(id.prefix(8))..."
         }
     }
     

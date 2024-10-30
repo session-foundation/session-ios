@@ -96,7 +96,6 @@ extension ConversationVC:
                     title: "callsPermissionsRequired".localized(),
                     body: .text("callsPermissionsRequiredDescription".localized()),
                     confirmTitle: "sessionSettings".localized(),
-                    confirmAccessibility: Accessibility(identifier: "Settings"),
                     dismissOnConfirm: false // Custom dismissal logic
                 ) { [weak self] _ in
                     self?.dismiss(animated: true) {
@@ -160,9 +159,7 @@ extension ConversationVC:
                         .localizedFormatted(baseFont: .systemFont(ofSize: Values.smallFontSize))
                 ),
                 confirmTitle: "blockUnblock".localized(),
-                confirmAccessibility: Accessibility(identifier: "Confirm block"),
-                confirmStyle: .danger, 
-                cancelAccessibility: Accessibility(identifier: "Cancel block"),
+                confirmStyle: .danger,
                 cancelStyle: .alert_text,
                 dismissOnConfirm: false // Custom dismissal logic
             ) { [weak self] _ in
@@ -287,7 +284,7 @@ extension ConversationVC:
     func handleDocumentButtonTapped() {
         // UIDocumentPickerModeImport copies to a temp file within our container.
         // It uses more memory than "open" but lets us avoid working with security scoped URLs.
-        let documentPickerVC = UIDocumentPickerViewController(documentTypes: [ kUTTypeItem as String ], in: UIDocumentPickerMode.import)
+        let documentPickerVC = UIDocumentPickerViewController(forOpeningContentTypes: [.item], asCopy: true)
         documentPickerVC.delegate = self
         documentPickerVC.modalPresentationStyle = .fullScreen
         
@@ -354,7 +351,7 @@ extension ConversationVC:
             return
         }
         
-        let type = urlResourceValues.typeIdentifier ?? (kUTTypeData as String)
+        let type: UTType = (urlResourceValues.typeIdentifier.map({ UTType($0) }) ?? .data)
         guard urlResourceValues.isDirectory != true else {
             DispatchQueue.main.async { [weak self] in
                 let modal: ConfirmationModal = ConfirmationModal(
@@ -382,12 +379,12 @@ extension ConversationVC:
         
         // Although we want to be able to send higher quality attachments through the document picker
         // it's more imporant that we ensure the sent format is one all clients can accept (e.g. *not* quicktime .mov)
-        guard !SignalAttachment.isInvalidVideo(dataSource: dataSource, dataUTI: type) else {
+        guard !SignalAttachment.isInvalidVideo(dataSource: dataSource, type: type) else {
             return showAttachmentApprovalDialogAfterProcessingVideo(at: url, with: fileName)
         }
         
         // "Document picker" attachments _SHOULD NOT_ be resized
-        let attachment = SignalAttachment.attachment(dataSource: dataSource, dataUTI: type, imageQuality: .original)
+        let attachment = SignalAttachment.attachment(dataSource: dataSource, type: type, imageQuality: .original)
         showAttachmentApprovalDialog(for: [ attachment ])
     }
 
@@ -412,7 +409,7 @@ extension ConversationVC:
             SignalAttachment
                 .compressVideoAsMp4(
                     dataSource: dataSource,
-                    dataUTI: kUTTypeMPEG4 as String,
+                    type: .mpeg4Movie,
                     using: dependencies
                 )
                 .attachmentPublisher
@@ -700,8 +697,8 @@ extension ConversationVC:
     func didPasteImageFromPasteboard(_ image: UIImage) {
         guard let imageData = image.jpegData(compressionQuality: 1.0) else { return }
         
-        let dataSource = DataSourceValue(data: imageData, utiType: kUTTypeJPEG as String)
-        let attachment = SignalAttachment.attachment(dataSource: dataSource, dataUTI: kUTTypeJPEG as String, imageQuality: .medium)
+        let dataSource = DataSourceValue(data: imageData, dataType: .jpeg)
+        let attachment = SignalAttachment.attachment(dataSource: dataSource, type: .jpeg, imageQuality: .medium)
 
         guard let approvalVC = AttachmentApprovalViewController.wrappedInNavController(
             threadId: self.viewModel.threadData.threadId,
@@ -724,7 +721,7 @@ extension ConversationVC:
         
         let newText: String = snInputView.text.replacingCharacters(
             in: currentMentionStartIndex...,
-            with: "@\(mentionInfo.profile.displayName(for: self.viewModel.threadData.threadVariant)) " // stringlint:disable
+            with: "@\(mentionInfo.profile.displayName(for: self.viewModel.threadData.threadVariant)) " // stringlint:ignore
         )
         
         snInputView.text = newText
@@ -759,6 +756,7 @@ extension ConversationVC:
             isCharacterBeforeLastWhiteSpaceOrStartOfLine = characterBeforeLast.isWhitespace
         }
         
+        // stringlint:ignore_start
         if lastCharacter == "@" && isCharacterBeforeLastWhiteSpaceOrStartOfLine {
             currentMentionStartIndex = lastCharacterIndex
             snInputView.showMentionsUI(for: self.viewModel.mentions())
@@ -773,6 +771,7 @@ extension ConversationVC:
                 snInputView.showMentionsUI(for: self.viewModel.mentions(for: query))
             }
         }
+        // stringlint:ignore_stop
     }
 
     func resetMentions() {
@@ -780,11 +779,12 @@ extension ConversationVC:
         mentions = []
     }
 
+    // stringlint:ignore_contents
     func replaceMentions(in text: String) -> String {
         var result = text
         for mention in mentions {
-            guard let range = result.range(of: "@\(mention.profile.displayName(for: mention.threadVariant))") else { continue } // stringlint:disable
-            result = result.replacingCharacters(in: range, with: "@\(mention.profile.id)") // stringlint:disable
+            guard let range = result.range(of: "@\(mention.profile.displayName(for: mention.threadVariant))") else { continue }
+            result = result.replacingCharacters(in: range, with: "@\(mention.profile.id)")
         }
         
         return result
@@ -921,15 +921,39 @@ extension ConversationVC:
                 info: ConfirmationModal.Info(
                     title: "disappearingMessagesFollowSetting".localized(),
                     body: .attributedText(modalBodyString.formatted(baseFont: .systemFont(ofSize: Values.smallFontSize))),
-                    accessibility: Accessibility(identifier: "Follow setting dialog"),
                     confirmTitle: modalConfirmTitle,
-                    confirmAccessibility: Accessibility(identifier: "Set button"),
                     confirmStyle: .danger,
                     cancelStyle: .textPrimary,
                     dismissOnConfirm: false // Custom dismissal logic
                 ) { [weak self] _ in
                     dependencies.storage.writeAsync { db in
-                        try messageDisappearingConfig.save(db)
+                        let userPublicKey: String = getUserHexEncodedPublicKey(db, using: dependencies)
+                        let currentTimestampMs: Int64 = SnodeAPI.currentOffsetTimestampMs()
+                        
+                        let interactionId = try messageDisappearingConfig
+                            .saved(db)
+                            .insertControlMessage(
+                                db,
+                                threadVariant: cellViewModel.threadVariant,
+                                authorId: userPublicKey,
+                                timestampMs: currentTimestampMs,
+                                serverHash: nil,
+                                serverExpirationTimestamp: nil
+                            )
+                        
+                        let expirationTimerUpdateMessage: ExpirationTimerUpdate = ExpirationTimerUpdate()
+                            .with(sentTimestamp: UInt64(currentTimestampMs))
+                            .with(messageDisappearingConfig)
+
+                        try MessageSender.send(
+                            db,
+                            message: expirationTimerUpdateMessage,
+                            interactionId: interactionId,
+                            threadId: cellViewModel.threadId,
+                            threadVariant: cellViewModel.threadVariant,
+                            using: dependencies
+                        )
+                        
                         try LibSession
                             .update(
                                 db,
@@ -955,8 +979,6 @@ extension ConversationVC:
                     title: "attachmentsAutoDownloadModalTitle".localized(),
                     body: .attributedText(message),
                     confirmTitle: "download".localized(),
-                    confirmAccessibility: Accessibility(identifier: "Download media"),
-                    cancelAccessibility: Accessibility(identifier: "Don't download media"),
                     dismissOnConfirm: false // Custom dismissal logic
                 ) { [weak self] _ in
                     self?.viewModel.trustContact()
@@ -1100,7 +1122,7 @@ extension ConversationVC:
                 if
                     attachment.isText ||
                     attachment.isMicrosoftDoc ||
-                    attachment.contentType == MimeTypeUtil.MimeType.applicationPdf
+                    attachment.contentType == UTType.mimeTypePdf
                 {
                     // FIXME: If given an invalid text file (eg with binary data) this hangs forever
                     // Note: I tried dispatching after a short delay, detecting that the new UI is invalid and dismissing it
@@ -1921,12 +1943,12 @@ extension ConversationVC:
                         attachment.state == .downloaded ||
                         attachment.state == .uploaded
                     ),
-                    let utiType: String = MimeTypeUtil.utiType(for: attachment.contentType),
+                    let type: UTType = UTType(sessionMimeType: attachment.contentType),
                     let originalFilePath: String = attachment.originalFilePath,
                     let data: Data = try? Data(contentsOf: URL(fileURLWithPath: originalFilePath))
                 else { return }
             
-                UIPasteboard.general.setData(data, forPasteboardType: utiType)
+                UIPasteboard.general.setData(data, forPasteboardType: type.identifier)
         }
     }
 
@@ -2429,7 +2451,7 @@ extension ConversationVC:
         
         // Create URL
         let directory: String = Singleton.appContext.temporaryDirectory
-        let fileName: String = "\(SnodeAPI.currentOffsetTimestampMs()).m4a" // stringlint:disable
+        let fileName: String = "\(SnodeAPI.currentOffsetTimestampMs()).m4a" // stringlint:ignore
         let url: URL = URL(fileURLWithPath: directory).appendingPathComponent(fileName)
         
         // Set up audio session
@@ -2532,10 +2554,11 @@ extension ConversationVC:
         guard let dataSource = dataSourceOrNil else { return SNLog("Couldn't load recorded data.") }
         
         // Create attachment
-        let fileName = ("messageVoice".localized() as NSString).appendingPathExtension("m4a")
+        let fileName = ("messageVoice".localized() as NSString)
+            .appendingPathExtension("m4a") // stringlint:ignore
         dataSource.sourceFilename = fileName
         
-        let attachment = SignalAttachment.voiceMessageAttachment(dataSource: dataSource, dataUTI: kUTTypeMPEG4Audio as String)
+        let attachment = SignalAttachment.voiceMessageAttachment(dataSource: dataSource, type: .mpeg4Audio)
         
         guard !attachment.hasError else {
             return showErrorAlert(for: attachment)

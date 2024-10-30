@@ -62,7 +62,7 @@ struct ArrowView: View {
     }
     
     var body: some View {
-        let imageName = self.type == .decrement ? "chevron.left" : "chevron.right"
+        let imageName = (self.type == .decrement ? "chevron.left" : "chevron.right") // stringlint:ignore
         Button {
             if self.type == .decrement {
                 decrement()

@@ -86,11 +86,12 @@ enum Onboarding {
             return .completed
         }
         
+        // stringlint:ignore_contents
         var description: String {
             switch self {
-                case .newUser: return "New User"            // stringlint:disable
-                case .missingName: return "Missing Name"    // stringlint:disable
-                case .completed: return "Completed"         // stringlint:disable
+                case .newUser: return "New User"
+                case .missingName: return "Missing Name"
+                case .completed: return "Completed"
             }
         }
     }

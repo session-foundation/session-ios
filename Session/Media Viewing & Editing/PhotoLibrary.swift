@@ -4,6 +4,7 @@ import Foundation
 import Combine
 import Photos
 import CoreServices
+import UniformTypeIdentifiers
 import SignalUtilitiesKit
 import SessionUtilitiesKit
 
@@ -137,7 +138,7 @@ class PhotoCollectionContents {
         _ = imageManager.requestImage(for: asset, targetSize: thumbnailSize, contentMode: .aspectFill, options: nil, resultHandler: resultHandler)
     }
 
-    private func requestImageDataSource(for asset: PHAsset) -> AnyPublisher<(dataSource: (any DataSource), dataUTI: String), Error> {
+    private func requestImageDataSource(for asset: PHAsset) -> AnyPublisher<(dataSource: (any DataSource), type: UTType), Error> {
         return Deferred {
             Future { [weak self] resolver in
                 
@@ -151,24 +152,24 @@ class PhotoCollectionContents {
                         return
                     }
                     
-                    guard let dataUTI = dataUTI else {
+                    guard let type: UTType = dataUTI.map({ UTType($0) }) else {
                         resolver(Result.failure(PhotoLibraryError.assertionError(description: "dataUTI was unexpectedly nil")))
                         return
                     }
                     
-                    guard let dataSource = DataSourceValue(data: imageData, utiType: dataUTI) else {
+                    guard let dataSource = DataSourceValue(data: imageData, dataType: type) else {
                         resolver(Result.failure(PhotoLibraryError.assertionError(description: "dataSource was unexpectedly nil")))
                         return
                     }
                     
-                    resolver(Result.success((dataSource: dataSource, dataUTI: dataUTI)))
+                    resolver(Result.success((dataSource: dataSource, type: type)))
                 }
             }
         }
         .eraseToAnyPublisher()
     }
 
-    private func requestVideoDataSource(for asset: PHAsset) -> AnyPublisher<(dataSource: (any DataSource), dataUTI: String), Error> {
+    private func requestVideoDataSource(for asset: PHAsset) -> AnyPublisher<(dataSource: (any DataSource), type: UTType), Error> {
         return Deferred {
             Future { [weak self] resolver in
                 
@@ -185,7 +186,7 @@ class PhotoCollectionContents {
                     exportSession.outputFileType = AVFileType.mp4
                     exportSession.metadataItemFilter = AVMetadataItemFilter.forSharing()
                     
-                    let exportPath = FileSystem.temporaryFilePath(fileExtension: "mp4") // stringlint:disable
+                    let exportPath = FileSystem.temporaryFilePath(fileExtension: "mp4") // stringlint:ignore
                     let exportURL = URL(fileURLWithPath: exportPath)
                     exportSession.outputURL = exportURL
                     
@@ -201,7 +202,7 @@ class PhotoCollectionContents {
                             return
                         }
                         
-                        resolver(Result.success((dataSource: dataSource, dataUTI: kUTTypeMPEG4 as String)))
+                        resolver(Result.success((dataSource: dataSource, type: .mpeg4Movie)))
                     }
                 }
             }
@@ -213,17 +214,17 @@ class PhotoCollectionContents {
         switch asset.mediaType {
             case .image:
                 return requestImageDataSource(for: asset)
-                    .map { (dataSource: DataSource, dataUTI: String) in
+                    .map { (dataSource: DataSource, type: UTType) in
                         SignalAttachment
-                            .attachment(dataSource: dataSource, dataUTI: dataUTI, imageQuality: .medium)
+                            .attachment(dataSource: dataSource, type: type, imageQuality: .medium)
                     }
                     .eraseToAnyPublisher()
                 
             case .video:
                 return requestVideoDataSource(for: asset)
-                    .map { (dataSource: DataSource, dataUTI: String) in
+                    .map { (dataSource: DataSource, type: UTType) in
                         SignalAttachment
-                            .attachment(dataSource: dataSource, dataUTI: dataUTI)
+                            .attachment(dataSource: dataSource, type: type)
                     }
                     .eraseToAnyPublisher()
                 
@@ -255,6 +256,7 @@ class PhotoCollection {
         return localizedTitle
     }
 
+    // stringlint:ignore_contents
     func contents() -> PhotoCollectionContents {
         let options = PHFetchOptions()
         options.sortDescriptors = [NSSortDescriptor(key: "creationDate", ascending: true)]
@@ -297,6 +299,7 @@ class PhotoLibrary: NSObject, PHPhotoLibraryChangeObserver {
         PHPhotoLibrary.shared().unregisterChangeObserver(self)
     }
     
+    // stringlint:ignore_contents
     private lazy var fetchOptions: PHFetchOptions = {
         let fetchOptions = PHFetchOptions()
         fetchOptions.sortDescriptors = [NSSortDescriptor(key: "endDate", ascending: true)]
@@ -373,7 +376,7 @@ class PhotoLibrary: NSObject, PHPhotoLibraryChangeObserver {
             }
         }
         let fetchOptions = PHFetchOptions()
-        fetchOptions.sortDescriptors = [NSSortDescriptor(key: "endDate", ascending: true)]
+        fetchOptions.sortDescriptors = [NSSortDescriptor(key: "endDate", ascending: true)] // stringlint:ignore
 
         // Try to add "Camera Roll" first.
         processPHAssetCollections((fetchResult: PHAssetCollection.fetchAssetCollections(with: .smartAlbum, subtype: .smartAlbumUserLibrary, options: fetchOptions),

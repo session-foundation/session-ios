@@ -19,6 +19,7 @@ public struct MentionInfo: FetchableRecord, Decodable, ColumnExpressible {
 }
 
 public extension MentionInfo {
+    // stringlint:ignore_contents
     static func query(
         userPublicKey: String,
         threadId: String,

@@ -8,7 +8,7 @@ import SessionUtilitiesKit
 /// results in migration issues when a user jumps between multiple versions)
 enum _016_MakeBrokenProfileTimestampsNullable: Migration {
     static let target: TargetMigrations.Identifier = .messagingKit
-    static let identifier: String = "MakeBrokenProfileTimestampsNullable" // stringlint:disable
+    static let identifier: String = "MakeBrokenProfileTimestampsNullable"
     static let needsConfigSync: Bool = false
     static let minExpectedRunDuration: TimeInterval = 0.1
     static var requirements: [MigrationRequirement] = [.libSessionStateLoaded]
@@ -20,7 +20,7 @@ enum _016_MakeBrokenProfileTimestampsNullable: Migration {
         /// SQLite doesn't support altering columns after creation so we need to create a new table with the setup we
         /// want, copy data from the old table over, drop the old table and rename the new table
         struct TmpProfile: Codable, TableRecord, FetchableRecord, PersistableRecord, ColumnExpressible {
-            static var databaseTableName: String { "tmpProfile" } // stringlint:disable
+            static var databaseTableName: String { "tmpProfile" }
             
             public typealias Columns = CodingKeys
             public enum CodingKeys: String, CodingKey, ColumnExpression {

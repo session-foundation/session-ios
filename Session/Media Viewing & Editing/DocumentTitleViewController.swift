@@ -2,6 +2,7 @@
 
 import UIKit
 import QuartzCore
+import UniformTypeIdentifiers
 import GRDB
 import DifferenceKit
 import SessionUIKit
@@ -338,7 +339,7 @@ public class DocumentTileViewController: UIViewController, UITableViewDelegate, 
         if
             attachment.isText ||
             attachment.isMicrosoftDoc ||
-            attachment.contentType == MimeTypeUtil.MimeType.applicationPdf
+            attachment.contentType == UTType.mimeTypePdf
         {
             
             delegate?.preview(fileUrl: fileUrl)

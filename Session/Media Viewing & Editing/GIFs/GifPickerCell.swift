@@ -2,6 +2,7 @@
 
 import Foundation
 import Combine
+import UniformTypeIdentifiers
 import YYImage
 import SignalUtilitiesKit
 import SessionUtilitiesKit
@@ -197,7 +198,7 @@ class GifPickerCell: UICollectionViewCell {
             clearViewState()
             return
         }
-        guard Data.isValidImage(at: asset.filePath, mimeType: MimeTypeUtil.MimeType.imageGif) else {
+        guard Data.isValidImage(at: asset.filePath, type: .gif) else {
             Log.error("[GitPickerCell] Invalid asset.")
             clearViewState()
             return

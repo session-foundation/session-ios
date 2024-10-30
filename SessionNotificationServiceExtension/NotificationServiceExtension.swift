@@ -18,11 +18,13 @@ public final class NotificationServiceExtension: UNNotificationServiceExtension 
     private var request: UNNotificationRequest?
     private var hasCompleted: Atomic<Bool> = Atomic(false)
 
-    public static let isFromRemoteKey = "remote"                                                                   // stringlint:disable
-    public static let threadIdKey = "Signal.AppNotificationsUserInfoKey.threadId"                                  // stringlint:disable
-    public static let threadVariantRaw = "Signal.AppNotificationsUserInfoKey.threadVariantRaw"                     // stringlint:disable
-    public static let threadNotificationCounter = "Session.AppNotificationsUserInfoKey.threadNotificationCounter"  // stringlint:disable
+    // stringlint:ignore_start
+    public static let isFromRemoteKey = "remote"
+    public static let threadIdKey = "Signal.AppNotificationsUserInfoKey.threadId"
+    public static let threadVariantRaw = "Signal.AppNotificationsUserInfoKey.threadVariantRaw"
+    public static let threadNotificationCounter = "Session.AppNotificationsUserInfoKey.threadNotificationCounter"
     private static let callPreOfferLargeNotificationSupressionDuration: TimeInterval = 30
+    // stringlint:ignore_stop
 
     // MARK: Did receive a remote push notification request
     

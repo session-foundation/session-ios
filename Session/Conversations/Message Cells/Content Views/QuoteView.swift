@@ -100,8 +100,8 @@ final class QuoteView: UIView {
         contentView.pin(to: self)
         
         if let attachment: Attachment = attachment {
-            let isAudio: Bool = MimeTypeUtil.isAudio(attachment.contentType)
-            let fallbackImageName: String = (isAudio ? "attachment_audio" : "actionsheet_document_black") // stringlint:disable
+            let isAudio: Bool = attachment.isAudio
+            let fallbackImageName: String = (isAudio ? "attachment_audio" : "actionsheet_document_black") // stringlint:ignore
             let imageView: UIImageView = UIImageView(
                 image: UIImage(named: fallbackImageName)?
                     .resized(to: CGSize(width: iconSize, height: iconSize))?

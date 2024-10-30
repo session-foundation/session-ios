@@ -329,7 +329,7 @@ class SettingsViewModel: SessionTableViewModel, NavigationItemSource, Navigatabl
                     elements: [
                         SessionCell.Info(
                             id: .path,
-                            leftAccessory: .customView(hashValue: "PathStatusView") {   // stringlint:disable
+                            leftAccessory: .customView(hashValue: "PathStatusView") {   // stringlint:ignore
                                 // Need to ensure this view is the same size as the icons so
                                 // wrap it in a larger view
                                 let result: UIView = UIView()
@@ -576,7 +576,7 @@ class SettingsViewModel: SessionTableViewModel, NavigationItemSource, Navigatabl
             DispatchQueue.main.async {
                 let picker: UIImagePickerController = UIImagePickerController()
                 picker.sourceType = .photoLibrary
-                picker.mediaTypes = [ "public.image" ]  // stringlint:disable
+                picker.mediaTypes = [ "public.image" ]  // stringlint:ignore
                 picker.delegate = self?.imagePickerHandler
                 
                 self?.transitionToScreen(picker, transitionType: .present)

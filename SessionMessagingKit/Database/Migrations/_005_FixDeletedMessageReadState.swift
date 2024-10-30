@@ -7,7 +7,7 @@ import SessionUtilitiesKit
 /// This migration fixes a bug where certain message variants could incorrectly be counted as unread messages
 enum _005_FixDeletedMessageReadState: Migration {
     static let target: TargetMigrations.Identifier = .messagingKit
-    static let identifier: String = "FixDeletedMessageReadState" // stringlint:disable
+    static let identifier: String = "FixDeletedMessageReadState"
     static let needsConfigSync: Bool = false
     static let minExpectedRunDuration: TimeInterval = 0.01
     static let fetchedTables: [(TableRecord & FetchableRecord).Type] = []

@@ -3,6 +3,7 @@
 import UIKit
 import Combine
 import CoreServices
+import UniformTypeIdentifiers
 import SignalUtilitiesKit
 import SessionUIKit
 import SessionUtilitiesKit
@@ -51,11 +52,13 @@ final class ShareNavController: UINavigationController, ShareViewDelegate {
 
         AppSetup.setupEnvironment(
             appSpecificBlock: {
+                // stringlint:ignore_start
                 Log.setup(with: Logger(
-                    primaryPrefix: "SessionShareExtension",                                              // stringlint:disable
+                    primaryPrefix: "SessionShareExtension",
                     level: .info,
-                    customDirectory: "\(FileManager.default.appSharedDataDirectoryPath)/Logs/ShareExtension" // stringlint:disable
+                    customDirectory: "\(FileManager.default.appSharedDataDirectoryPath)/Logs/ShareExtension"
                 ))
+                // stringlint:ignore_stop
                 
                 SessionEnvironment.shared?.notificationsManager.mutate {
                     $0 = NoopNotificationsManager()
@@ -261,78 +264,28 @@ final class ShareNavController: UINavigationController, ShareViewDelegate {
     }
     
     // MARK: Attachment Prep
-    private class func itemMatchesSpecificUtiType(itemProvider: NSItemProvider, utiType: String) -> Bool {
-        // URLs, contacts and other special items have to be detected separately.
-        // Many shares (e.g. pdfs) will register many UTI types and/or conform to kUTTypeData.
-        guard itemProvider.registeredTypeIdentifiers.count == 1 else {
-            return false
-        }
-        guard let firstUtiType = itemProvider.registeredTypeIdentifiers.first else {
-            return false
-        }
-        
-        return (firstUtiType == utiType)
-    }
 
-    private class func isVisualMediaItem(itemProvider: NSItemProvider) -> Bool {
-        return (
-            itemProvider.hasItemConformingToTypeIdentifier(kUTTypeImage as String) ||
-            itemProvider.hasItemConformingToTypeIdentifier(kUTTypeMovie as String)
-        )
-    }
-
-    private class func isUrlItem(itemProvider: NSItemProvider) -> Bool {
-        return itemMatchesSpecificUtiType(
-            itemProvider: itemProvider,
-            utiType: kUTTypeURL as String
-        )
-    }
-
-    private class func isContactItem(itemProvider: NSItemProvider) -> Bool {
-        return itemMatchesSpecificUtiType(
-            itemProvider: itemProvider,
-            utiType: kUTTypeContact as String
-        )
-    }
-
-    private class func utiType(itemProvider: NSItemProvider) -> String? {
-        Log.info("utiTypeForItem: \(itemProvider.registeredTypeIdentifiers)")
-
-        if isUrlItem(itemProvider: itemProvider) {
-            return kUTTypeURL as String
-        }
-        else if isContactItem(itemProvider: itemProvider) {
-            return kUTTypeContact as String
-        }
-
-        // Use the first UTI that conforms to "data".
-        let matchingUtiType = itemProvider.registeredTypeIdentifiers.first { (utiType: String) -> Bool in
-            UTTypeConformsTo(utiType as CFString, kUTTypeData)
-        }
-        return matchingUtiType
-    }
-
-    private class func createDataSource(utiType: String, url: URL, customFileName: String?) -> (any DataSource)? {
-        if utiType == (kUTTypeURL as String) {
+    private class func createDataSource(type: UTType, url: URL, customFileName: String?) -> (any DataSource)? {
+        switch (type, type.conforms(to: .text)) {
             // Share URLs as text messages whose text content is the URL
-            return DataSourceValue(text: url.absoluteString)
-        }
-        else if UTTypeConformsTo(utiType as CFString, kUTTypeText) {
+            case (.url, _): return DataSourceValue(text: url.absoluteString)
+                
             // Share text as oversize text messages.
             //
             // NOTE: SharingThreadPickerViewController will try to unpack them
             //       and send them as normal text messages if possible.
-            return DataSourcePath(fileUrl: url, shouldDeleteOnDeinit: false)
+            case (_, true): return DataSourcePath(fileUrl: url, shouldDeleteOnDeinit: false)
+                
+            default:
+                guard let dataSource = DataSourcePath(fileUrl: url, shouldDeleteOnDeinit: false) else {
+                    return nil
+                }
+                
+                // Fallback to the last part of the URL
+                dataSource.sourceFilename = (customFileName ?? url.lastPathComponent)
+                
+                return dataSource
         }
-        
-        guard let dataSource = DataSourcePath(fileUrl: url, shouldDeleteOnDeinit: false) else {
-            return nil
-        }
-
-        // Fallback to the last part of the URL
-        dataSource.sourceFilename = (customFileName ?? url.lastPathComponent)
-        
-        return dataSource
     }
 
     private class func preferredItemProviders(inputItem: NSExtensionItem) -> [NSItemProvider]? {
@@ -342,7 +295,7 @@ final class ShareNavController: UINavigationController, ShareViewDelegate {
         var hasNonVisualMedia = false
         
         for attachment in attachments {
-            if isVisualMediaItem(itemProvider: attachment) {
+            if attachment.isVisualMediaItem {
                 visualMediaItemProviders.append(attachment)
             }
             else {
@@ -370,7 +323,7 @@ final class ShareNavController: UINavigationController, ShareViewDelegate {
                 return false
             }
             
-            return isUrlItem(itemProvider: itemProvider)
+            return itemProvider.matches(type: .url)
         }) {
             return [preferredAttachment]
         }
@@ -412,11 +365,10 @@ final class ShareNavController: UINavigationController, ShareViewDelegate {
     
     // MARK: - LoadedItem
 
-    private
-    struct LoadedItem {
+    private struct LoadedItem {
         let itemProvider: NSItemProvider
         let itemUrl: URL
-        let utiType: String
+        let type: UTType
 
         var customFileName: String?
         var isConvertibleToTextMessage = false
@@ -424,13 +376,13 @@ final class ShareNavController: UINavigationController, ShareViewDelegate {
 
         init(itemProvider: NSItemProvider,
              itemUrl: URL,
-             utiType: String,
+             type: UTType,
              customFileName: String? = nil,
              isConvertibleToTextMessage: Bool = false,
              isConvertibleToContactShare: Bool = false) {
             self.itemProvider = itemProvider
             self.itemUrl = itemUrl
-            self.utiType = utiType
+            self.type = type
             self.customFileName = customFileName
             self.isConvertibleToTextMessage = isConvertibleToTextMessage
             self.isConvertibleToContactShare = isConvertibleToContactShare
@@ -449,12 +401,12 @@ final class ShareNavController: UINavigationController, ShareViewDelegate {
         // * UTIs aren't very descriptive (there are far more MIME types than UTI types)
         //   so in the case of file attachments we try to refine the attachment type
         //   using the file extension.
-        guard let srcUtiType = ShareNavController.utiType(itemProvider: itemProvider) else {
+        guard let srcType: UTType = itemProvider.type else {
             let error = ShareViewControllerError.unsupportedMedia
             return Fail(error: error)
                 .eraseToAnyPublisher()
         }
-        Log.debug("matched utiType: \(srcUtiType)")
+        Log.debug("matched UTType: \(srcType.identifier)")
 
         return Deferred {
             Future<LoadedItem, Error> { resolver in
@@ -476,8 +428,8 @@ final class ShareNavController: UINavigationController, ShareViewDelegate {
                     
                     switch value {
                         case let data as Data:
-                            let customFileName = "Contact.vcf" // stringlint:disable
-                            let customFileExtension = MimeTypeUtil.fileExtension(forUtiType: srcUtiType)
+                            let customFileName = "Contact.vcf" // stringlint:ignore
+                            let customFileExtension: String? = srcType.sessionFileExtension
                             
                             guard let tempFilePath = try? FileSystem.write(data: data, toTemporaryFileWithExtension: customFileExtension) else {
                                 resolver(
@@ -492,7 +444,7 @@ final class ShareNavController: UINavigationController, ShareViewDelegate {
                                     LoadedItem(
                                         itemProvider: itemProvider,
                                         itemUrl: fileUrl,
-                                        utiType: srcUtiType,
+                                        type: srcType,
                                         customFileName: customFileName,
                                         isConvertibleToContactShare: false
                                     )
@@ -507,7 +459,7 @@ final class ShareNavController: UINavigationController, ShareViewDelegate {
                                 )
                                 return
                             }
-                            guard let tempFilePath: String = try? FileSystem.write(data: data, toTemporaryFileWithExtension: "txt") else { // stringlint:disable
+                            guard let tempFilePath: String = try? FileSystem.write(data: data, toTemporaryFileWithExtension: "txt") else { // stringlint:ignore
                                 resolver(
                                     Result.failure(ShareViewControllerError.assertionError(description: "Error writing item data: \(String(describing: error))"))
                                 )
@@ -516,15 +468,15 @@ final class ShareNavController: UINavigationController, ShareViewDelegate {
                             
                             let fileUrl = URL(fileURLWithPath: tempFilePath)
                             
-                            let isConvertibleToTextMessage = !itemProvider.registeredTypeIdentifiers.contains(kUTTypeFileURL as String)
+                            let isConvertibleToTextMessage = !itemProvider.registeredTypeIdentifiers.contains(UTType.fileURL.identifier)
                             
-                            if UTTypeConformsTo(srcUtiType as CFString, kUTTypeText) {
+                            if srcType.conforms(to: .text) {
                                 resolver(
                                     Result.success(
                                         LoadedItem(
                                             itemProvider: itemProvider,
                                             itemUrl: fileUrl,
-                                            utiType: srcUtiType,
+                                            type: srcType,
                                             isConvertibleToTextMessage: isConvertibleToTextMessage
                                         )
                                     )
@@ -536,7 +488,7 @@ final class ShareNavController: UINavigationController, ShareViewDelegate {
                                         LoadedItem(
                                             itemProvider: itemProvider,
                                             itemUrl: fileUrl,
-                                            utiType: kUTTypeText as String,
+                                            type: .text,
                                             isConvertibleToTextMessage: isConvertibleToTextMessage
                                         )
                                     )
@@ -546,8 +498,8 @@ final class ShareNavController: UINavigationController, ShareViewDelegate {
                         case let url as URL:
                             // If the share itself is a URL (e.g. a link from Safari), try to send this as a text message.
                             let isConvertibleToTextMessage = (
-                                itemProvider.registeredTypeIdentifiers.contains(kUTTypeURL as String) &&
-                                !itemProvider.registeredTypeIdentifiers.contains(kUTTypeFileURL as String)
+                                itemProvider.registeredTypeIdentifiers.contains(UTType.url.identifier) &&
+                                !itemProvider.registeredTypeIdentifiers.contains(UTType.fileURL.identifier)
                             )
                             
                             if isConvertibleToTextMessage {
@@ -556,7 +508,7 @@ final class ShareNavController: UINavigationController, ShareViewDelegate {
                                         LoadedItem(
                                             itemProvider: itemProvider,
                                             itemUrl: url,
-                                            utiType: kUTTypeURL as String,
+                                            type: .url,
                                             isConvertibleToTextMessage: isConvertibleToTextMessage
                                         )
                                     )
@@ -568,7 +520,7 @@ final class ShareNavController: UINavigationController, ShareViewDelegate {
                                         LoadedItem(
                                             itemProvider: itemProvider,
                                             itemUrl: url,
-                                            utiType: srcUtiType,
+                                            type: srcType,
                                             isConvertibleToTextMessage: isConvertibleToTextMessage
                                         )
                                     )
@@ -577,7 +529,7 @@ final class ShareNavController: UINavigationController, ShareViewDelegate {
                             
                         case let image as UIImage:
                             if let data = image.pngData() {
-                                let tempFilePath: String = FileSystem.temporaryFilePath(fileExtension: "png") // stringlint:disable
+                                let tempFilePath: String = FileSystem.temporaryFilePath(fileExtension: "png") // stringlint:ignore
                                 do {
                                     let url = NSURL.fileURL(withPath: tempFilePath)
                                     try data.write(to: url)
@@ -587,7 +539,7 @@ final class ShareNavController: UINavigationController, ShareViewDelegate {
                                             LoadedItem(
                                                 itemProvider: itemProvider,
                                                 itemUrl: url,
-                                                utiType: srcUtiType
+                                                type: srcType
                                             )
                                         )
                                     )
@@ -613,7 +565,7 @@ final class ShareNavController: UINavigationController, ShareViewDelegate {
                     }
                 }
                 
-                itemProvider.loadItem(forTypeIdentifier: srcUtiType, options: nil, completionHandler: loadCompletion)
+                itemProvider.loadItem(forTypeIdentifier: srcType.identifier, options: nil, completionHandler: loadCompletion)
             }
         }
         .eraseToAnyPublisher()
@@ -622,7 +574,6 @@ final class ShareNavController: UINavigationController, ShareViewDelegate {
     private func buildAttachment(forLoadedItem loadedItem: LoadedItem) -> AnyPublisher<SignalAttachment, Error> {
         let itemProvider = loadedItem.itemProvider
         let itemUrl = loadedItem.itemUrl
-        let utiType = loadedItem.utiType
 
         var url = itemUrl
         do {
@@ -635,35 +586,35 @@ final class ShareNavController: UINavigationController, ShareViewDelegate {
                 .eraseToAnyPublisher()
         }
 
-        Log.debug("building DataSource with url: \(url), utiType: \(utiType)")
+        Log.debug("building DataSource with url: \(url), UTType: \(loadedItem.type)")
 
-        guard let dataSource = ShareNavController.createDataSource(utiType: utiType, url: url, customFileName: loadedItem.customFileName) else {
+        guard let dataSource = ShareNavController.createDataSource(type: loadedItem.type, url: url, customFileName: loadedItem.customFileName) else {
             let error = ShareViewControllerError.assertionError(description: "Unable to read attachment data")
             return Fail(error: error)
                 .eraseToAnyPublisher()
         }
 
         // start with base utiType, but it might be something generic like "image"
-        var specificUTIType = utiType
-        if utiType == (kUTTypeURL as String) {
+        var specificType: UTType = loadedItem.type
+        if loadedItem.type == .url {
             // Use kUTTypeURL for URLs.
-        } else if UTTypeConformsTo(utiType as CFString, kUTTypeText) {
+        } else if loadedItem.type.conforms(to: .text) {
             // Use kUTTypeText for text.
         } else if url.pathExtension.count > 0 {
             // Determine a more specific utiType based on file extension
-            if let typeExtension = MimeTypeUtil.utiType(forFileExtension: url.pathExtension) {
-                Log.debug("utiType based on extension: \(typeExtension)")
-                specificUTIType = typeExtension
+            if let fileExtensionType: UTType = UTType(sessionFileExtension: url.pathExtension) {
+                Log.debug("UTType based on extension: \(fileExtensionType.identifier)")
+                specificType = fileExtensionType
             }
         }
 
-        guard !SignalAttachment.isInvalidVideo(dataSource: dataSource, dataUTI: specificUTIType) else {
+        guard !SignalAttachment.isInvalidVideo(dataSource: dataSource, type: specificType) else {
             // This can happen, e.g. when sharing a quicktime-video from iCloud drive.
-            let (publisher, _) = SignalAttachment.compressVideoAsMp4(dataSource: dataSource, dataUTI: specificUTIType, using: Dependencies())
+            let (publisher, _) = SignalAttachment.compressVideoAsMp4(dataSource: dataSource, type: specificType, using: Dependencies())
             return publisher
         }
 
-        let attachment = SignalAttachment.attachment(dataSource: dataSource, dataUTI: specificUTIType, imageQuality: .medium)
+        let attachment = SignalAttachment.attachment(dataSource: dataSource, type: specificType, imageQuality: .medium)
         if loadedItem.isConvertibleToContactShare {
             Log.info("isConvertibleToContactShare")
             attachment.isConvertibleToContactShare = true
@@ -737,12 +688,12 @@ final class ShareNavController: UINavigationController, ShareViewDelegate {
             Log.verbose("item URL has no file extension: \(itemUrl).")
             return false
         }
-        guard let utiTypeForURL = MimeTypeUtil.utiType(forFileExtension: pathExtension) else {
+        guard let typeForURL: UTType = UTType(sessionFileExtension: pathExtension) else {
             Log.verbose("item has unknown UTI type: \(itemUrl).")
             return false
         }
-        Log.verbose("utiTypeForURL: \(utiTypeForURL)")
-        guard utiTypeForURL == kUTTypeMPEG4 as String else {
+        Log.verbose("typeForURL: \(typeForURL.identifier)")
+        guard typeForURL == .mpeg4Movie else {
             // Either it's not a video or it was a video which was not auto-converted to mp4.
             // Not affected by the issue.
             return false
@@ -750,6 +701,42 @@ final class ShareNavController: UINavigationController, ShareViewDelegate {
 
         // If video file already existed on disk as an mp4, then the host app didn't need to
         // apply any conversion, so no need to relocate the app.
-        return !itemProvider.registeredTypeIdentifiers.contains(kUTTypeMPEG4 as String)
+        return !itemProvider.registeredTypeIdentifiers.contains(UTType.mpeg4Movie.identifier)
     }
 }
+
+// MARK: - NSItemProvider Convenience
+
+private extension NSItemProvider {
+    var isVisualMediaItem: Bool {
+        hasItemConformingToTypeIdentifier(UTType.image.identifier) ||
+        hasItemConformingToTypeIdentifier(UTType.movie.identifier)
+    }
+    
+    func matches(type: UTType) -> Bool {
+        // URLs, contacts and other special items have to be detected separately.
+        // Many shares (e.g. pdfs) will register many UTI types and/or conform to kUTTypeData.
+        guard
+            registeredTypeIdentifiers.count == 1,
+            let firstTypeIdentifier: String = registeredTypeIdentifiers.first
+        else { return false }
+        
+        return (firstTypeIdentifier == type.identifier)
+    }
+
+    var type: UTType? {
+        Log.info("utiTypeForItem: \(registeredTypeIdentifiers)")
+        
+        switch (matches(type: .url), matches(type: .contact)) {
+            case (true, _): return .url
+            case (_, true): return .contact
+            
+            // Use the first UTI that conforms to "data".
+            default:
+                return registeredTypeIdentifiers
+                    .compactMap { UTType($0) }
+                    .first { $0.conforms(to: .data) }
+        }
+    }
+}
+
