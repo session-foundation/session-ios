@@ -51,7 +51,8 @@ class MessageRequestsViewModel: SessionTableViewModel, NavigatableStateHolder, O
                     table: Interaction.self,
                     columns: [
                         .body,
-                        .wasRead
+                        .wasRead,
+                        .state
                     ],
                     joinToPagedType: {
                         let interaction: TypedTableAlias<Interaction> = TypedTableAlias()
@@ -75,19 +76,6 @@ class MessageRequestsViewModel: SessionTableViewModel, NavigatableStateHolder, O
                         let profile: TypedTableAlias<Profile> = TypedTableAlias()
                         
                         return SQL("JOIN \(Profile.self) ON \(profile[.id]) = \(thread[.id])")
-                    }()
-                ),
-                PagedData.ObservedChanges(
-                    table: RecipientState.self,
-                    columns: [.state],
-                    joinToPagedType: {
-                        let interaction: TypedTableAlias<Interaction> = TypedTableAlias()
-                        let recipientState: TypedTableAlias<RecipientState> = TypedTableAlias()
-                        
-                        return """
-                            JOIN \(Interaction.self) ON \(interaction[.threadId]) = \(thread[.id])
-                            LEFT JOIN \(RecipientState.self) ON \(recipientState[.interactionId]) = \(interaction[.id])
-                        """
                     }()
                 )
             ],
@@ -218,13 +206,7 @@ class MessageRequestsViewModel: SessionTableViewModel, NavigatableStateHolder, O
                         info: ConfirmationModal.Info(
                             title: "clearAll".localized(),
                             body: .text("messageRequestsClearAllExplanation".localized()),
-                            accessibility: Accessibility(
-                                identifier: "Clear all"
-                            ),
                             confirmTitle: "clear".localized(),
-                            confirmAccessibility: Accessibility(
-                                identifier: "Confirm clear"
-                            ),
                             confirmStyle: .danger,
                             cancelStyle: .alert_text,
                             onConfirm: { _ in
@@ -233,11 +215,11 @@ class MessageRequestsViewModel: SessionTableViewModel, NavigatableStateHolder, O
                                     // Remove the one-to-one requests
                                     try SessionThread.deleteOrLeave(
                                         db,
+                                        type: .hideContactConversationAndDeleteContent,
                                         threadIds: threadInfo
                                             .filter { _, variant in variant == .contact }
                                             .map { id, _ in id },
                                         threadVariant: .contact,
-                                        groupLeaveType: .silent,
                                         calledFromConfig: nil,
                                         using: dependencies
                                     )
@@ -245,11 +227,11 @@ class MessageRequestsViewModel: SessionTableViewModel, NavigatableStateHolder, O
                                     // Remove the group invites
                                     try SessionThread.deleteOrLeave(
                                         db,
+                                        type: .deleteGroupAndContent,
                                         threadIds: threadInfo
                                             .filter { _, variant in variant == .legacyGroup || variant == .group }
                                             .map { id, _ in id },
                                         threadVariant: .group,
-                                        groupLeaveType: .silent,
                                         calledFromConfig: nil,
                                         using: dependencies
                                     )

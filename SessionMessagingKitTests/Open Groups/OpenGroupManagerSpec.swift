@@ -35,8 +35,12 @@ class OpenGroupManagerSpec: QuickSpec {
             expiresStartedAtMs: nil,
             linkPreviewUrl: nil,
             openGroupServerMessageId: nil,
+            openGroupWhisper: false,
             openGroupWhisperMods: false,
             openGroupWhisperTo: nil,
+            state: .sending,
+            recipientReadTimestampMs: nil,
+            mostRecentFailureText: nil,
             transientDependencies: nil
         )
         @TestState var testGroupThread: SessionThread! = SessionThread(

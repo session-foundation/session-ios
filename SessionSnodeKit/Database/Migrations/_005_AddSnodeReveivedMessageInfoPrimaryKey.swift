@@ -7,7 +7,7 @@ import SessionUtilitiesKit
 /// This migration adds a primary key to `SnodeReceivedMessageInfo` based on the key and hash to speed up lookup
 enum _005_AddSnodeReveivedMessageInfoPrimaryKey: Migration {
     static let target: TargetMigrations.Identifier = .snodeKit
-    static let identifier: String = "AddSnodeReveivedMessageInfoPrimaryKey" // stringlint:disable
+    static let identifier: String = "AddSnodeReveivedMessageInfoPrimaryKey"
     static let needsConfigSync: Bool = false
     static let minExpectedRunDuration: TimeInterval = 0.2
     static let fetchedTables: [(TableRecord & FetchableRecord).Type] = [SnodeReceivedMessageInfo.self]

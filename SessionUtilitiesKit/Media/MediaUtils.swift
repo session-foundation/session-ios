@@ -18,13 +18,13 @@ public enum MediaUtils {
     public static let maxStillImageDimensions: UInt = 8 * 1024
     public static let maxVideoDimensions: CGFloat = 3 * 1024
     
-    public static func thumbnail(forImageAtPath path: String, maxDimension: CGFloat, using dependencies: Dependencies) throws -> UIImage {
+    public static func thumbnail(forImageAtPath path: String, maxDimension: CGFloat, type: String, using dependencies: Dependencies) throws -> UIImage {
         SNLog("thumbnailing image: \(path)")
 
         guard dependencies[singleton: .fileManager].fileExists(atPath: path) else {
             throw MediaError.failure(description: "Media file missing.")
         }
-        guard Data.isValidImage(at: path, using: dependencies) else {
+        guard Data.isValidImage(at: path, type: UTType(sessionMimeType: type), using: dependencies) else {
             throw MediaError.failure(description: "Invalid image.")
         }
         guard let originalImage = UIImage(contentsOfFile: path) else {

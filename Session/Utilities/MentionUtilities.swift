@@ -56,7 +56,7 @@ public enum MentionUtilities {
         using dependencies: Dependencies
     ) -> NSAttributedString {
         guard
-            let regex: NSRegularExpression = try? NSRegularExpression(pattern: "@[0-9a-fA-F]{66}", options: []) // stringlint:disable
+            let regex: NSRegularExpression = try? NSRegularExpression(pattern: "@[0-9a-fA-F]{66}", options: [])
         else {
             return NSAttributedString(string: string)
         }
@@ -94,7 +94,7 @@ public enum MentionUtilities {
             }()
             else { continue }
             
-            string = string.replacingCharacters(in: range, with: "@\(targetString)") // stringlint:disable
+            string = string.replacingCharacters(in: range, with: "@\(targetString)")    // stringlint:ignore
             lastMatchEnd = (match.range.location + targetString.utf16.count)
             
             mentions.append((

@@ -353,7 +353,6 @@ class MessageReceiverGroupsSpec: QuickSpec {
             let result = VisibleMessage(
                 sender: "051111111111111111111111111111111111111111111111111111111111111112",
                 sentTimestampMs: ((1234568890 - (60 * 10)) * 1000),
-                recipient: groupId.hexString,
                 text: "Test"
             )
             result.receivedTimestampMs = (1234568890 * 1000)
@@ -649,8 +648,12 @@ class MessageReceiverGroupsSpec: QuickSpec {
                                         expiresStartedAtMs: nil,
                                         linkPreviewUrl: nil,
                                         openGroupServerMessageId: nil,
+                                        openGroupWhisper: false,
                                         openGroupWhisperMods: false,
                                         openGroupWhisperTo: nil,
+                                        state: .sent,
+                                        recipientReadTimestampMs: nil,
+                                        mostRecentFailureText: nil,
                                         transientDependencies: EquatableIgnoring(value: dependencies)
                                     ),
                                     in: SessionThread(
@@ -2185,8 +2188,12 @@ class MessageReceiverGroupsSpec: QuickSpec {
                             expiresStartedAtMs: nil,
                             linkPreviewUrl: nil,
                             openGroupServerMessageId: nil,
+                            openGroupWhisper: false,
                             openGroupWhisperMods: false,
                             openGroupWhisperTo: nil,
+                            state: .sent,
+                            recipientReadTimestampMs: nil,
+                            mostRecentFailureText: nil,
                             transientDependencies: EquatableIgnoring(value: dependencies)
                         ).inserted(db)
                         
@@ -2206,8 +2213,12 @@ class MessageReceiverGroupsSpec: QuickSpec {
                             expiresStartedAtMs: nil,
                             linkPreviewUrl: nil,
                             openGroupServerMessageId: nil,
+                            openGroupWhisper: false,
                             openGroupWhisperMods: false,
                             openGroupWhisperTo: nil,
+                            state: .sent,
+                            recipientReadTimestampMs: nil,
+                            mostRecentFailureText: nil,
                             transientDependencies: EquatableIgnoring(value: dependencies)
                         ).inserted(db)
                         
@@ -2227,8 +2238,12 @@ class MessageReceiverGroupsSpec: QuickSpec {
                             expiresStartedAtMs: nil,
                             linkPreviewUrl: nil,
                             openGroupServerMessageId: nil,
+                            openGroupWhisper: false,
                             openGroupWhisperMods: false,
                             openGroupWhisperTo: nil,
+                            state: .sent,
+                            recipientReadTimestampMs: nil,
+                            mostRecentFailureText: nil,
                             transientDependencies: EquatableIgnoring(value: dependencies)
                         ).inserted(db)
                         
@@ -2248,8 +2263,12 @@ class MessageReceiverGroupsSpec: QuickSpec {
                             expiresStartedAtMs: nil,
                             linkPreviewUrl: nil,
                             openGroupServerMessageId: nil,
+                            openGroupWhisper: false,
                             openGroupWhisperMods: false,
                             openGroupWhisperTo: nil,
+                            state: .sent,
+                            recipientReadTimestampMs: nil,
+                            mostRecentFailureText: nil,
                             transientDependencies: EquatableIgnoring(value: dependencies)
                         ).inserted(db)
                     }
@@ -2766,8 +2785,12 @@ class MessageReceiverGroupsSpec: QuickSpec {
                             expiresStartedAtMs: nil,
                             linkPreviewUrl: nil,
                             openGroupServerMessageId: nil,
+                            openGroupWhisper: false,
                             openGroupWhisperMods: false,
                             openGroupWhisperTo: nil,
+                            state: .sent,
+                            recipientReadTimestampMs: nil,
+                            mostRecentFailureText: nil,
                             transientDependencies: EquatableIgnoring(value: dependencies)
                         ).inserted(db)
                         

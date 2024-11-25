@@ -31,6 +31,9 @@ public enum MessageReceiver {
         let sentTimestampMs: UInt64
         let serverHash: String?
         let openGroupServerMessageId: UInt64?
+        let openGroupWhisper: Bool
+        let openGroupWhisperMods: Bool
+        let openGroupWhisperTo: String?
         let threadVariant: SessionThread.Variant
         let threadIdGenerator: (Message) throws -> String
         
@@ -45,12 +48,15 @@ public enum MessageReceiver {
                     data: data
                 )
                 
-            case (_, .community(let openGroupId, let messageSender, let timestamp, let messageServerId)):
+            case (_, .community(let openGroupId, let messageSender, let timestamp, let messageServerId, let messageWhisper, let messageWhisperMods, let messageWhisperTo)):
                 plaintext = data.removePadding()   // Remove the padding
                 sender = messageSender
                 sentTimestampMs = UInt64(floor(timestamp * 1000)) // Convert to ms for database consistency
                 serverHash = nil
                 openGroupServerMessageId = UInt64(messageServerId)
+                openGroupWhisper = messageWhisper
+                openGroupWhisperMods = messageWhisperMods
+                openGroupWhisperTo = messageWhisperTo
                 threadVariant = .community
                 threadIdGenerator = { message in
                     // Guard against control messages in open groups
@@ -75,6 +81,9 @@ public enum MessageReceiver {
                 sentTimestampMs = UInt64(floor(timestamp * 1000)) // Convert to ms for database consistency
                 serverHash = nil
                 openGroupServerMessageId = UInt64(messageServerId)
+                openGroupWhisper = false
+                openGroupWhisperMods = false
+                openGroupWhisperTo = nil
                 threadVariant = .contact
                 threadIdGenerator = { _ in sender }
                 
@@ -100,10 +109,14 @@ public enum MessageReceiver {
                         sentTimestampMs = envelope.timestamp
                         serverHash = swarmServerHash
                         openGroupServerMessageId = nil
+                        openGroupWhisper = false
+                        openGroupWhisperMods = false
+                        openGroupWhisperTo = nil
                         threadVariant = .contact
                         threadIdGenerator = { message in
                             switch message {
                                 case let message as VisibleMessage: return (message.syncTarget ?? sender)
+                                case let message as ExpirationTimerUpdate: return (message.syncTarget ?? sender)
                                 default: return sender
                             }
                         }
@@ -131,6 +144,9 @@ public enum MessageReceiver {
                         sentTimestampMs = envelope.timestamp
                         serverHash = swarmServerHash
                         openGroupServerMessageId = nil
+                        openGroupWhisper = false
+                        openGroupWhisperMods = false
+                        openGroupWhisperTo = nil
                         threadVariant = .group
                         threadIdGenerator = { _ in publicKey }
                         
@@ -142,6 +158,9 @@ public enum MessageReceiver {
                         sentTimestampMs = 0
                         serverHash = swarmServerHash
                         openGroupServerMessageId = nil
+                        openGroupWhisper = false
+                        openGroupWhisperMods = false
+                        openGroupWhisperTo = nil
                         threadVariant = .group
                         threadIdGenerator = { _ in publicKey }
                         
@@ -202,6 +221,9 @@ public enum MessageReceiver {
                         }
                         
                         openGroupServerMessageId = nil
+                        openGroupWhisper = false
+                        openGroupWhisperMods = false
+                        openGroupWhisperTo = nil
                         threadVariant = .legacyGroup
                         threadIdGenerator = { _ in publicKey }
                         
@@ -222,11 +244,13 @@ public enum MessageReceiver {
             .successOrThrow())
         let message: Message = try (customMessage ?? Message.createMessageFrom(proto, sender: sender, using: dependencies))
         message.sender = sender
-        message.recipient = userSessionId.hexString
         message.serverHash = serverHash
         message.sentTimestampMs = sentTimestampMs
         message.receivedTimestampMs = dependencies[cache: .snodeAPI].currentOffsetTimestampMs()
         message.openGroupServerMessageId = openGroupServerMessageId
+        message.openGroupWhisper = openGroupWhisper
+        message.openGroupWhisperMods = openGroupWhisperMods
+        message.openGroupWhisperTo = openGroupWhisperTo
         
         // Ignore disappearing message settings in communities (in case of modified clients)
         if threadVariant != .community {
@@ -475,7 +499,7 @@ public enum MessageReceiver {
         // For disappear after send, this is necessary so the message will disappear even if it is not read
         if threadVariant != .community {
             db.afterNextTransactionNestedOnce(
-                dedupeId: "PostInsertDisappearingMessagesJob",  // stringlint:disable
+                dedupeId: "PostInsertDisappearingMessagesJob",  // stringlint:ignore
                 using: dependencies,
                 onCommit: { db in
                     dependencies[singleton: .jobRunner].upsert(

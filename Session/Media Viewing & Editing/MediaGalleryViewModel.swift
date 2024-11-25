@@ -149,7 +149,7 @@ public class MediaGalleryViewModel {
     public struct GalleryDate: Differentiable, Equatable, Comparable, Hashable {
         private static let thisYearFormatter: DateFormatter = {
             let formatter = DateFormatter()
-            formatter.dateFormat = "MMMM"   // stringlint:disable
+            formatter.dateFormat = "MMMM"   // stringlint:ignore
 
             return formatter
         }()
@@ -157,7 +157,7 @@ public class MediaGalleryViewModel {
         private static let olderFormatter: DateFormatter = {
             // FIXME: localize for RTL, or is there a built in way to do this?
             let formatter = DateFormatter()
-            formatter.dateFormat = "MMMM yyyy"   // stringlint:disable
+            formatter.dateFormat = "MMMM yyyy"   // stringlint:ignore
 
             return formatter
         }()

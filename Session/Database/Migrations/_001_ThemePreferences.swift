@@ -1,4 +1,6 @@
 // Copyright © 2022 Rangeproof Pty Ltd. All rights reserved.
+//
+// stringlint:disable
 
 import Foundation
 import GRDB
@@ -13,7 +15,7 @@ import SessionUtilitiesKit
 /// need to provide this migration as an option during setup)
 enum _001_ThemePreferences: Migration {
     static let target: TargetMigrations.Identifier = ._deprecatedUIKit
-    static let identifier: String = "ThemePreferences" // stringlint:disable
+    static let identifier: String = "ThemePreferences"
     static let needsConfigSync: Bool = false
     static let minExpectedRunDuration: TimeInterval = 0.1
     static let fetchedTables: [(TableRecord & FetchableRecord).Type] = [Identity.self]
@@ -26,11 +28,11 @@ enum _001_ThemePreferences: Migration {
         let isExistingUser: Bool = Identity.userExists(db, using: dependencies)
         let hadCustomLegacyThemeSetting: Bool = UserDefaults.standard.dictionaryRepresentation()
             .keys
-            .contains("appMode") // stringlint:disable
+            .contains("appMode")
         let matchSystemNightModeSetting: Bool = (isExistingUser && !hadCustomLegacyThemeSetting)
         let targetTheme: Theme = (!hadCustomLegacyThemeSetting ?
             Theme.classicDark :
-            (UserDefaults.standard.integer(forKey: "appMode") == 0 ? // stringlint:disable
+            (UserDefaults.standard.integer(forKey: "appMode") == 0 ?
                 Theme.classicLight :
                 Theme.classicDark
             )

@@ -126,6 +126,8 @@ public final class SnodeAPI {
         requireAllBatchResponses: Bool,
         snode: LibSession.Snode? = nil,
         swarmPublicKey: String,
+        requestTimeout: TimeInterval = Network.defaultTimeout,
+        requestAndPathBuildTimeout: TimeInterval? = nil,
         using dependencies: Dependencies
     ) throws -> Network.PreparedRequest<Network.BatchResponse> {
         return try SnodeAPI
@@ -150,6 +152,8 @@ public final class SnodeAPI {
                 }(),
                 responseType: Network.BatchResponse.self,
                 requireAllBatchResponses: requireAllBatchResponses,
+                requestTimeout: requestTimeout,
+                requestAndPathBuildTimeout: requestAndPathBuildTimeout,
                 using: dependencies
             )
     }
@@ -158,6 +162,9 @@ public final class SnodeAPI {
         requests: [any ErasedPreparedRequest],
         requireAllBatchResponses: Bool,
         swarmPublicKey: String,
+        snodeRetrievalRetryCount: Int,
+        requestTimeout: TimeInterval = Network.defaultTimeout,
+        requestAndPathBuildTimeout: TimeInterval? = nil,
         using dependencies: Dependencies
     ) throws -> Network.PreparedRequest<Network.BatchResponse> {
         return try SnodeAPI
@@ -165,10 +172,13 @@ public final class SnodeAPI {
                 request: Request(
                     endpoint: .sequence,
                     swarmPublicKey: swarmPublicKey,
-                    body: Network.BatchRequest(requestsKey: .requests, requests: requests)
+                    body: Network.BatchRequest(requestsKey: .requests, requests: requests),
+                    snodeRetrievalRetryCount: snodeRetrievalRetryCount
                 ),
                 responseType: Network.BatchResponse.self,
                 requireAllBatchResponses: requireAllBatchResponses,
+                requestTimeout: requestTimeout,
+                requestAndPathBuildTimeout: requestAndPathBuildTimeout,
                 using: dependencies
             )
     }
@@ -353,9 +363,11 @@ public final class SnodeAPI {
                         body: LegacySendMessagesRequest(
                             message: message,
                             namespace: namespace
-                        )
+                        ),
+                        snodeRetrievalRetryCount: 0   // The SendMessageJob already has a retry mechanism
                     ),
                     responseType: SendMessagesResponse.self,
+                    requestAndPathBuildTimeout: Network.defaultTimeout,
                     using: dependencies
                 )
             }
@@ -369,9 +381,11 @@ public final class SnodeAPI {
                         namespace: namespace,
                         authMethod: authMethod,
                         timestampMs: dependencies[cache: .snodeAPI].currentOffsetTimestampMs()
-                    )
+                    ),
+                    snodeRetrievalRetryCount: 0   // The SendMessageJob already has a retry mechanism
                 ),
                 responseType: SendMessagesResponse.self,
+                requestAndPathBuildTimeout: Network.defaultTimeout,
                 using: dependencies
             )
         }()

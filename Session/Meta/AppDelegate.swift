@@ -38,7 +38,7 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
 #if DEBUG
         /// If we are running a Preview then we don't want to setup the application (previews are generally self contained individual views so
         /// doing all this application setup is a waste or work, and could even cause crashes for the preview)
-        if ProcessInfo.processInfo.environment["XCODE_RUNNING_FOR_PREVIEWS"] == "1" {
+        if ProcessInfo.processInfo.environment["XCODE_RUNNING_FOR_PREVIEWS"] == "1" {   // stringlint:ignore
             return true
         }
 #endif
@@ -961,11 +961,12 @@ private enum LifecycleMethod: Equatable {
     case enterForeground(initialLaunchFailed: Bool)
     case didBecomeActive
     
+    // stringlint:ignore_contents
     var timingName: String {
         switch self {
-            case .finishLaunching: return "Launch"              // stringlint:disable
-            case .enterForeground: return "EnterForeground"     // stringlint:disable
-            case .didBecomeActive: return "BecomeActive"        // stringlint:disable
+            case .finishLaunching: return "Launch"
+            case .enterForeground: return "EnterForeground"
+            case .didBecomeActive: return "BecomeActive"
         }
     }
     

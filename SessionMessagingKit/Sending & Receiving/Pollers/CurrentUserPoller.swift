@@ -1,6 +1,4 @@
 // Copyright © 2022 Rangeproof Pty Ltd. All rights reserved.
-//
-// stringlint:disable
 
 import Foundation
 import Combine
@@ -19,7 +17,7 @@ public extension Singleton {
             /// The reason for doing this is that sometimes a snode will be giving us successful responses while
             /// it isn't actually getting messages from other snodes.
             return CurrentUserPoller(
-                pollerName: "Main Poller", // stringlint:disable
+                pollerName: "Main Poller", // stringlint:ignore
                 pollerQueue: Threading.pollerQueue,
                 pollerDestination: .swarm(dependencies[cache: .general].sessionId.hexString),
                 pollerDrainBehaviour: .limitedReuse(count: 6),
@@ -54,6 +52,7 @@ public final class CurrentUserPoller: SwarmPoller {
         return min(maxRetryInterval, nextDelay)
     }
     
+    // stringlint:ignore_contents
     override public func handlePollError(_ error: Error, _ lastError: Error?) -> PollerErrorResponse {
         if !dependencies[defaults: .appGroup, key: .isMainAppActive] {
             // Do nothing when an error gets throws right after returning from the background (happens frequently)

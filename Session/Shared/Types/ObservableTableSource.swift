@@ -196,9 +196,9 @@ public enum ObservationBuilder {
                                         scheduling: dependencies[singleton: .scheduler],
                                         onError: { error in
                                             let log: String = [
-                                                "[\(type(of: viewModel))]",         // stringlint:disable
-                                                "Observation failed with error:",   // stringlint:disable
-                                                "\(error)"                          // stringlint:disable
+                                                "[\(type(of: viewModel))]",         // stringlint:ignore
+                                                "Observation failed with error:",   // stringlint:ignore
+                                                "\(error)"                          // stringlint:ignore
                                             ].joined(separator: " ")
                                             SNLog(log)
                                             subject.send(completion: Subscribers.Completion.failure(error))
@@ -258,9 +258,9 @@ public enum ObservationBuilder {
                                         scheduling: dependencies[singleton: .scheduler],
                                         onError: { error in
                                             let log: String = [
-                                                "[\(type(of: viewModel))]",         // stringlint:disable
-                                                "Observation failed with error:",   // stringlint:disable
-                                                "\(error)"                          // stringlint:disable
+                                                "[\(type(of: viewModel))]",         // stringlint:ignore
+                                                "Observation failed with error:",   // stringlint:ignore
+                                                "\(error)"                          // stringlint:ignore
                                             ].joined(separator: " ")
                                             SNLog(log)
                                             subject.send(completion: Subscribers.Completion.failure(error))

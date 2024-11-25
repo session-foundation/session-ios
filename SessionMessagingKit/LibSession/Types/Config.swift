@@ -375,6 +375,6 @@ public extension LibSessionError {
 
 public extension String.StringInterpolation {
     mutating func appendInterpolation(_ error: LibSessionError?) {
-        appendLiteral(error.map { "\($0)" } ?? "Unknown Error") // stringlint:disable
+        appendLiteral(error.map { "\($0)" } ?? "Unknown Error")
     }
 }

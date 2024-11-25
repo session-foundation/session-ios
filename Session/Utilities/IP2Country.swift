@@ -74,7 +74,7 @@ fileprivate class IP2Country: IP2CountryCacheType {
     
     private var cache: IP2CountryCache = {
         guard
-            let url: URL = Bundle.main.url(forResource: "GeoLite2-Country-Blocks-IPv4", withExtension: nil),  // stringlint:disable
+            let url: URL = Bundle.main.url(forResource: "GeoLite2-Country-Blocks-IPv4", withExtension: nil),
             let data: Data = try? Data(contentsOf: url)
         else { return IP2CountryCache() }
         

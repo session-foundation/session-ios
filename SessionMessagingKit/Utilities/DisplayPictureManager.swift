@@ -48,7 +48,7 @@ public struct DisplayPictureManager {
     
     public static func sharedDataDisplayPictureDirPath(using dependencies: Dependencies) -> String {
         let path: String = URL(fileURLWithPath: dependencies[singleton: .fileManager].appSharedDataDirectoryPath)
-            .appendingPathComponent("ProfileAvatars")   // stringlint:disable
+            .appendingPathComponent("ProfileAvatars")   // stringlint:ignore
             .path
         try? dependencies[singleton: .fileManager].ensureDirectoryExists(at: path)
         
@@ -147,7 +147,7 @@ public struct DisplayPictureManager {
             .generate(.hash(message: url.bytes))?
             .toHexString())
             .defaulting(to: UUID().uuidString)
-            .appendingFileExtension("jpg")  // stringlint:disable
+            .appendingFileExtension("jpg")  // stringlint:ignore
     }
     
     public static func generateFilename(using dependencies: Dependencies) -> String {
@@ -155,7 +155,7 @@ public struct DisplayPictureManager {
             .generate(.uuid())
             .defaulting(to: UUID())
             .uuidString
-            .appendingFileExtension("jpg")  // stringlint:disable
+            .appendingFileExtension("jpg")  // stringlint:ignore
     }
     
     public static func filepath(for filename: String, using dependencies: Dependencies) throws -> String {
@@ -296,9 +296,9 @@ public struct DisplayPictureManager {
                     .tryGenerate(.randomBytes(DisplayPictureManager.aes256KeyByteLength))
                 fileExtension = {
                     switch guessedFormat {
-                        case .gif: return "gif"     // stringlint:disable
-                        case .webp: return "webp"   // stringlint:disable
-                        default: return "jpg"       // stringlint:disable
+                        case .gif: return "gif"     // stringlint:ignore
+                        case .webp: return "webp"   // stringlint:ignore
+                        default: return "jpg"       // stringlint:ignore
                     }
                 }()
             }

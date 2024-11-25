@@ -8,7 +8,7 @@ import SessionUtilitiesKit
 
 enum _001_InitialSetupMigration: Migration {
     static let target: TargetMigrations.Identifier = .snodeKit
-    static let identifier: String = "initialSetup" // stringlint:disable
+    static let identifier: String = "initialSetup"
     static let needsConfigSync: Bool = false
     static let minExpectedRunDuration: TimeInterval = 0.1
     static let fetchedTables: [(TableRecord & FetchableRecord).Type] = []
@@ -33,7 +33,7 @@ enum _001_InitialSetupMigration: Migration {
         }
         
         try db.create(table: SnodeReceivedMessageInfo.self) { t in
-            t.deprecatedColumn(name: "id", .integer)                  // stringlint:disable
+            t.deprecatedColumn(name: "id", .integer)
                 .notNull()
                 .primaryKey(autoincrement: true)
             t.column(.key, .text)
@@ -72,7 +72,7 @@ internal extension _001_InitialSetupMigration {
     }
     
     struct LegacySnodeSet: Codable, FetchableRecord, EncodableRecord, PersistableRecord, TableRecord, ColumnExpressible {
-        public static let onionRequestPathPrefix = "OnionRequestPath-"  // stringlint:disable
+        public static let onionRequestPathPrefix = "OnionRequestPath-"
         public static var databaseTableName: String { "snodeSet" }
             
         public typealias Columns = CodingKeys

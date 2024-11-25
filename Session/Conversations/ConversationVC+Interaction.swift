@@ -132,7 +132,6 @@ extension ConversationVC:
                     title: "callsPermissionsRequired".localized(),
                     body: .text("callsPermissionsRequiredDescription".localized()),
                     confirmTitle: "sessionSettings".localized(),
-                    confirmAccessibility: Accessibility(identifier: "Settings"),
                     dismissOnConfirm: false // Custom dismissal logic
                 ) { [weak self, dependencies = viewModel.dependencies] _ in
                     self?.dismiss(animated: true) {
@@ -207,9 +206,7 @@ extension ConversationVC:
                         .localizedFormatted(baseFont: .systemFont(ofSize: Values.smallFontSize))
                 ),
                 confirmTitle: "blockUnblock".localized(),
-                confirmAccessibility: Accessibility(identifier: "Confirm block"),
-                confirmStyle: .danger, 
-                cancelAccessibility: Accessibility(identifier: "Cancel block"),
+                confirmStyle: .danger,
                 cancelStyle: .alert_text,
                 dismissOnConfirm: false // Custom dismissal logic
             ) { [weak self] _ in
@@ -781,7 +778,7 @@ extension ConversationVC:
         
         let newText: String = snInputView.text.replacingCharacters(
             in: currentMentionStartIndex...,
-            with: "@\(mentionInfo.profile.displayName(for: self.viewModel.threadData.threadVariant)) " // stringlint:disable
+            with: "@\(mentionInfo.profile.displayName(for: self.viewModel.threadData.threadVariant)) " // stringlint:ignore
         )
         
         snInputView.text = newText
@@ -816,6 +813,7 @@ extension ConversationVC:
             isCharacterBeforeLastWhiteSpaceOrStartOfLine = characterBeforeLast.isWhitespace
         }
         
+        // stringlint:ignore_start
         if lastCharacter == "@" && isCharacterBeforeLastWhiteSpaceOrStartOfLine {
             currentMentionStartIndex = lastCharacterIndex
             snInputView.showMentionsUI(for: self.viewModel.mentions())
@@ -830,6 +828,7 @@ extension ConversationVC:
                 snInputView.showMentionsUI(for: self.viewModel.mentions(for: query))
             }
         }
+        // stringlint:ignore_stop
     }
 
     func resetMentions() {
@@ -837,11 +836,12 @@ extension ConversationVC:
         mentions = []
     }
 
+    // stringlint:ignore_contents
     func replaceMentions(in text: String) -> String {
         var result = text
         for mention in mentions {
-            guard let range = result.range(of: "@\(mention.profile.displayName(for: mention.threadVariant))") else { continue } // stringlint:disable
-            result = result.replacingCharacters(in: range, with: "@\(mention.profile.id)") // stringlint:disable
+            guard let range = result.range(of: "@\(mention.profile.displayName(for: mention.threadVariant))") else { continue }
+            result = result.replacingCharacters(in: range, with: "@\(mention.profile.id)")
         }
         
         return result
@@ -979,15 +979,40 @@ extension ConversationVC:
                 info: ConfirmationModal.Info(
                     title: "disappearingMessagesFollowSetting".localized(),
                     body: .attributedText(modalBodyString.formatted(baseFont: .systemFont(ofSize: Values.smallFontSize))),
-                    accessibility: Accessibility(identifier: "Follow setting dialog"),
                     confirmTitle: modalConfirmTitle,
-                    confirmAccessibility: Accessibility(identifier: "Set button"),
                     confirmStyle: .danger,
                     cancelStyle: .textPrimary,
                     dismissOnConfirm: false // Custom dismissal logic
                 ) { [weak self, dependencies = viewModel.dependencies] _ in
                     dependencies[singleton: .storage].writeAsync { db in
-                        try messageDisappearingConfig.save(db)
+                        let userSessionId: SessionId = dependencies[cache: .general].sessionId
+                        let currentTimestampMs: Int64 = dependencies[cache: .snodeAPI].currentOffsetTimestampMs()
+                        
+                        let interactionId = try messageDisappearingConfig
+                            .saved(db)
+                            .insertControlMessage(
+                                db,
+                                threadVariant: cellViewModel.threadVariant,
+                                authorId: userSessionId.hexString,
+                                timestampMs: currentTimestampMs,
+                                serverHash: nil,
+                                serverExpirationTimestamp: nil,
+                                using: dependencies
+                            )
+                        
+                        let expirationTimerUpdateMessage: ExpirationTimerUpdate = ExpirationTimerUpdate()
+                            .with(sentTimestampMs: UInt64(currentTimestampMs))
+                            .with(messageDisappearingConfig)
+
+                        try MessageSender.send(
+                            db,
+                            message: expirationTimerUpdateMessage,
+                            interactionId: interactionId,
+                            threadId: cellViewModel.threadId,
+                            threadVariant: cellViewModel.threadVariant,
+                            using: dependencies
+                        )
+                        
                         try LibSession
                             .update(
                                 db,
@@ -1014,8 +1039,6 @@ extension ConversationVC:
                     title: "attachmentsAutoDownloadModalTitle".localized(),
                     body: .attributedText(message),
                     confirmTitle: "download".localized(),
-                    confirmAccessibility: Accessibility(identifier: "Download media"),
-                    cancelAccessibility: Accessibility(identifier: "Don't download media"),
                     dismissOnConfirm: false // Custom dismissal logic
                 ) { [weak self] _ in
                     self?.viewModel.trustContact()
@@ -2281,7 +2304,7 @@ extension ConversationVC:
         // Create URL
         let currentOffsetTimestamp: Int64 = viewModel.dependencies[cache: .snodeAPI].currentOffsetTimestampMs()
         let directory: String = viewModel.dependencies[singleton: .fileManager].temporaryDirectory
-        let fileName: String = "\(currentOffsetTimestamp).m4a" // stringlint:disable
+        let fileName: String = "\(currentOffsetTimestamp).m4a" // stringlint:ignore
         let url: URL = URL(fileURLWithPath: directory).appendingPathComponent(fileName)
         
         // Set up audio session
@@ -2384,7 +2407,8 @@ extension ConversationVC:
         guard let dataSource = dataSourceOrNil else { return SNLog("Couldn't load recorded data.") }
         
         // Create attachment
-        let fileName = ("messageVoice".localized() as NSString).appendingPathExtension("m4a")
+        let fileName = ("messageVoice".localized() as NSString)
+            .appendingPathExtension("m4a") // stringlint:ignore
         dataSource.sourceFilename = fileName
         
         let attachment = SignalAttachment.voiceMessageAttachment(dataSource: dataSource, type: .mpeg4Audio, using: viewModel.dependencies)

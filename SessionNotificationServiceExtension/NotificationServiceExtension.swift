@@ -21,11 +21,13 @@ public final class NotificationServiceExtension: UNNotificationServiceExtension 
     private var request: UNNotificationRequest?
     private var hasCompleted: Atomic<Bool> = Atomic(false)
 
-    public static let isFromRemoteKey = "remote"                                                                   // stringlint:disable
-    public static let threadIdKey = "Signal.AppNotificationsUserInfoKey.threadId"                                  // stringlint:disable
-    public static let threadVariantRaw = "Signal.AppNotificationsUserInfoKey.threadVariantRaw"                     // stringlint:disable
-    public static let threadNotificationCounter = "Session.AppNotificationsUserInfoKey.threadNotificationCounter"  // stringlint:disable
+    // stringlint:ignore_start
+    public static let isFromRemoteKey = "remote"
+    public static let threadIdKey = "Signal.AppNotificationsUserInfoKey.threadId"
+    public static let threadVariantRaw = "Signal.AppNotificationsUserInfoKey.threadVariantRaw"
+    public static let threadNotificationCounter = "Session.AppNotificationsUserInfoKey.threadNotificationCounter"
     private static let callPreOfferLargeNotificationSupressionDuration: TimeInterval = 30
+    // stringlint:ignore_stop
 
     // MARK: Did receive a remote push notification request
     
@@ -330,12 +332,14 @@ public final class NotificationServiceExtension: UNNotificationServiceExtension 
         AppSetup.setupEnvironment(
             retrySetupIfDatabaseInvalid: true,
             appSpecificBlock: { [dependencies] in
+                // stringlint:ignore_start
                 Log.setup(with: Logger(
-                    primaryPrefix: "NotificationServiceExtension",                                                  // stringlint:disable
+                    primaryPrefix: "NotificationServiceExtension",
                     level: .info,
-                    customDirectory: "\(dependencies[singleton: .fileManager].appSharedDataDirectoryPath)/Logs/NotificationExtension", // stringlint:disable
+                    customDirectory: "\(dependencies[singleton: .fileManager].appSharedDataDirectoryPath)/Logs/NotificationExtension",
                     using: dependencies
                 ))
+                // stringlint:ignore_stop
                 
                 /// The `NotificationServiceExtension` needs custom behaviours for it's notification presenter so set it up here
                 dependencies.set(singleton: .notificationsManager, to: NSENotificationPresenter(using: dependencies))
@@ -441,11 +445,13 @@ public final class NotificationServiceExtension: UNNotificationServiceExtension 
             guard let caller: String = callMessage.sender, let timestamp = callMessage.sentTimestampMs else { return }
             
             let reportCall: () -> () = { [weak self, dependencies] in
+                // stringlint:ignore_start
                 let payload: [String: Any] = [
-                    "uuid": callMessage.uuid,   // stringlint:disable
-                    "caller": caller,           // stringlint:disable
-                    "timestamp": timestamp      // stringlint:disable
+                    "uuid": callMessage.uuid,
+                    "caller": caller,
+                    "timestamp": timestamp
                 ]
+                // stringlint:ignore_stop
                 
                 CXProvider.reportNewIncomingVoIPPushPayload(payload) { error in
                     if let error = error {

@@ -6,7 +6,7 @@ import SessionUtilitiesKit
 
 enum _019_ScheduleAppUpdateCheckJob: Migration {
     static let target: TargetMigrations.Identifier = .messagingKit
-    static let identifier: String = "ScheduleAppUpdateCheckJob" // stringlint:disable
+    static let identifier: String = "ScheduleAppUpdateCheckJob"
     static let needsConfigSync: Bool = false
     static let minExpectedRunDuration: TimeInterval = 0.1
     static var requirements: [MigrationRequirement] = [.libSessionStateLoaded]

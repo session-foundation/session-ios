@@ -14,6 +14,7 @@ struct OpenGroupInvitationView_SwiftUI: View {
     private static let iconSize: CGFloat = 24
     private static let iconImageViewSize: CGFloat = 48
     
+    // stringlint:ignore_contents
     init(
         name: String,
         url: String,
@@ -22,7 +23,7 @@ struct OpenGroupInvitationView_SwiftUI: View {
     ) {
         self.name = name
         self.url = {
-            if let range = url.range(of: "?public_key=") { // stringlint:disable
+            if let range = url.range(of: "?public_key=") {
                 return String(url[..<range.lowerBound])
             }
 

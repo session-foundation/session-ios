@@ -377,7 +377,7 @@ public extension ClosedGroup {
             /// historic access they can re-download and process all of the old messages
             try threadIds.forEach { threadId in
                 try SnodeReceivedMessageInfo
-                    .filter(SnodeReceivedMessageInfo.Columns.key.like("%\(threadId)%"))
+                    .filter(SnodeReceivedMessageInfo.Columns.key.like("%\(threadId)%")) // stringlint:ignore
                     .deleteAll(db)
             }
         }

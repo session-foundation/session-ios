@@ -556,7 +556,7 @@ extension ReactionListSheet {
             emojiLabel.text = emoji
             numberLabel.text = (count < 1000 ?
                 "\(count)" :
-                String(format: "%.1fk", Float(count) / 1000) // stringlint:disable
+                String(format: "%.1fk", Float(count) / 1000) // stringlint:ignore
             )
             snContentView.themeBorderColor = (isCurrentSelection ? .primary : .clear)
         }

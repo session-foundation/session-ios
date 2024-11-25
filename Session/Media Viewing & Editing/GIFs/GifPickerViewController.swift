@@ -37,7 +37,7 @@ class GifPickerViewController: OWSViewController, UISearchBarDelegate, UICollect
     var hasSelectedCell: Bool = false
     var imageInfos = [GiphyImageInfo]()
     
-    private let kCellReuseIdentifier = "kCellReuseIdentifier"   // stringlint:disable
+    private let kCellReuseIdentifier = "kCellReuseIdentifier"   // stringlint:ignore
 
     var progressiveSearchTimer: Timer?
     

@@ -163,7 +163,7 @@ struct AnimatableNumberModifier: AnimatableModifier {
     func body(content: Content) -> some View {
         content
             .overlay(
-                Text(String(format: "%.0f%%", number))  // stringlint:disable
+                Text(String(format: "%.0f%%", number))  // stringlint:ignore
                     .bold()
                     .font(.system(size: Values.superLargeFontSize))
                     .foregroundColor(themeColor: .textPrimary)

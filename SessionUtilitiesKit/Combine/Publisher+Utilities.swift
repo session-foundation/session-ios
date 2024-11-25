@@ -11,6 +11,7 @@ public enum PublisherError: Error, CustomStringConvertible {
     case targetPublisherIsNull
     case invalidCollectionType
     
+    // stringlint:ignore_contents
     public var description: String {
         switch self {
             case .targetPublisherIsNull: return "The target publisher is null, likely due to a 'weak self' (PublisherError.targetPublisherIsNull)."

@@ -82,7 +82,7 @@ struct MyQRCodeScreen: View {
             QRCodeView(
                 string: dependencies[cache: .general].sessionId.hexString,
                 hasBackground: false,
-                logo: "SessionWhite40",
+                logo: "SessionWhite40", // stringlint:ignore
                 themeStyle: ThemeManager.currentTheme.interfaceStyle
             )
             .accessibility(

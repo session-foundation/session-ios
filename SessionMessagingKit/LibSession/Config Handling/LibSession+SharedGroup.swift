@@ -10,7 +10,7 @@ import SessionUtilitiesKit
 // MARK: - Group Domains
 
 public extension LibSession.Crypto.Domain {
-    static var kickedMessage: LibSession.Crypto.Domain = "SessionGroupKickedMessage"   // stringlint:disable
+    static var kickedMessage: LibSession.Crypto.Domain = "SessionGroupKickedMessage"   // stringlint:ignore
 }
 
 // MARK: - Convenience

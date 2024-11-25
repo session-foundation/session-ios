@@ -136,7 +136,10 @@ extension MessageSender {
                             userSessionId: userSessionId,
                             legacyGroupIds: try ClosedGroup
                                 .select(.threadId)
-                                .filter(!ClosedGroup.Columns.threadId.like("\(SessionId.Prefix.group.rawValue)%")) // stringlint:disable
+                                .filter(
+                                    ClosedGroup.Columns.threadId > SessionId.Prefix.standard.rawValue &&
+                                    ClosedGroup.Columns.threadId < SessionId.Prefix.standard.endOfRangeString
+                                )
                                 .joining(
                                     required: ClosedGroup.members
                                         .filter(GroupMember.Columns.profileId == userSessionId.hexString)

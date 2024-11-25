@@ -7,7 +7,7 @@ import GRDB
 public enum SNUtilitiesKit: MigratableTarget { // Just to make the external API nice
     public static var maxFileSize: UInt = 0
     public static var isRunningTests: Bool {
-        ProcessInfo.processInfo.environment["XCTestConfigurationFilePath"] != nil   // stringlint:disable
+        ProcessInfo.processInfo.environment["XCTestConfigurationFilePath"] != nil   // stringlint:ignore
     }
     fileprivate static var localizedFormatted: (LocalizationHelper, UIFont) -> NSAttributedString = { _, _ in NSAttributedString() }
     fileprivate static var localizedDeformatted: (LocalizationHelper) -> String = { _ in "" }

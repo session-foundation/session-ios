@@ -169,7 +169,7 @@ public class PushRegistrationManager: NSObject, PKPushRegistryDelegate {
                         // so the user doesn't remain indefinitely hung for no good reason.
                         return Fail(
                             error: PushRegistrationError.pushNotSupported(
-                                description: "Device configuration disallows push notifications" // stringlint:disable
+                                description: "Device configuration disallows push notifications" // stringlint:ignore
                             )
                         ).eraseToAnyPublisher()
                         
@@ -274,7 +274,7 @@ public class PushRegistrationManager: NSObject, PKPushRegistryDelegate {
             let caller: String = payload["caller"] as? String,
             let timestampMs: Int64 = payload["timestamp"] as? Int64
         else {
-            SessionCallManager.reportFakeCall(info: "Missing payload data", using: dependencies) // stringlint:disable
+            SessionCallManager.reportFakeCall(info: "Missing payload data", using: dependencies) // stringlint:ignore
             return
         }
         
@@ -329,7 +329,7 @@ public class PushRegistrationManager: NSObject, PKPushRegistryDelegate {
         }
         
         guard let call: SessionCall = maybeCall else {
-            SessionCallManager.reportFakeCall(info: "Could not retrieve call from database", using: dependencies) // stringlint:disable
+            SessionCallManager.reportFakeCall(info: "Could not retrieve call from database", using: dependencies) // stringlint:ignore
             return
         }
         

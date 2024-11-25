@@ -521,10 +521,17 @@ class ThreadSettingsViewModel: SessionTableViewModel, NavigatableStateHolder, Ob
                         ),
                         confirmationInfo: ConfirmationModal.Info(
                             title: "groupLeave".localized(),
-                            body: .attributedText(
-                                (currentUserIsClosedGroupAdmin ? "groupLeaveDescriptionAdmin" : "groupLeaveDescription")
-                                    .put(key: "group_name", value: threadViewModel.displayName)
-                                    .localizedFormatted(baseFont: .boldSystemFont(ofSize: Values.smallFontSize))
+                            body: (currentUserIsClosedGroupAdmin ?
+                                .attributedText(
+                                    "groupLeaveDescriptionAdmin"
+                                        .put(key: "group_name", value: threadViewModel.displayName)
+                                        .localizedFormatted(baseFont: .boldSystemFont(ofSize: Values.smallFontSize))
+                                ) :
+                                .attributedText(
+                                    "groupLeaveDescription"
+                                        .put(key: "group_name", value: threadViewModel.displayName)
+                                        .localizedFormatted(baseFont: .boldSystemFont(ofSize: Values.smallFontSize))
+                                )
                             ),
                             confirmTitle: "leave".localized(),
                             confirmStyle: .danger,
@@ -534,9 +541,9 @@ class ThreadSettingsViewModel: SessionTableViewModel, NavigatableStateHolder, Ob
                             dependencies[singleton: .storage].write { db in
                                 try SessionThread.deleteOrLeave(
                                     db,
+                                    type: .leaveGroupAsync,
                                     threadId: threadViewModel.threadId,
                                     threadVariant: threadViewModel.threadVariant,
-                                    groupLeaveType: .standard,
                                     calledFromConfig: nil,
                                     using: dependencies
                                 )
@@ -687,7 +694,6 @@ class ThreadSettingsViewModel: SessionTableViewModel, NavigatableStateHolder, Ob
                                 "blockUnblock".localized() :
                                 "block".localized()
                             ),
-                            confirmAccessibility: Accessibility(identifier: "Confirm block"),
                             confirmStyle: .danger,
                             cancelStyle: .alert_text
                         ),

@@ -382,8 +382,12 @@ class LibSessionGroupInfoSpec: QuickSpec {
                                 expiresStartedAtMs: nil,
                                 linkPreviewUrl: nil,
                                 openGroupServerMessageId: nil,
+                                openGroupWhisper: false,
                                 openGroupWhisperMods: false,
                                 openGroupWhisperTo: nil,
+                                state: .sent,
+                                recipientReadTimestampMs: nil,
+                                mostRecentFailureText: nil,
                                 transientDependencies: nil
                             ).inserted(db)
                         }
@@ -432,8 +436,12 @@ class LibSessionGroupInfoSpec: QuickSpec {
                                 expiresStartedAtMs: nil,
                                 linkPreviewUrl: nil,
                                 openGroupServerMessageId: nil,
+                                openGroupWhisper: false,
                                 openGroupWhisperMods: false,
                                 openGroupWhisperTo: nil,
+                                state: .sent,
+                                recipientReadTimestampMs: nil,
+                                mostRecentFailureText: nil,
                                 transientDependencies: nil
                             ).inserted(db)
                             _ = try Interaction(
@@ -451,8 +459,12 @@ class LibSessionGroupInfoSpec: QuickSpec {
                                 expiresStartedAtMs: nil,
                                 linkPreviewUrl: nil,
                                 openGroupServerMessageId: nil,
+                                openGroupWhisper: false,
                                 openGroupWhisperMods: false,
                                 openGroupWhisperTo: nil,
+                                state: .sent,
+                                recipientReadTimestampMs: nil,
+                                mostRecentFailureText: nil,
                                 transientDependencies: nil
                             ).inserted(db)
                         }
@@ -506,8 +518,12 @@ class LibSessionGroupInfoSpec: QuickSpec {
                                 expiresStartedAtMs: nil,
                                 linkPreviewUrl: nil,
                                 openGroupServerMessageId: nil,
+                                openGroupWhisper: false,
                                 openGroupWhisperMods: false,
                                 openGroupWhisperTo: nil,
+                                state: .sent,
+                                recipientReadTimestampMs: nil,
+                                mostRecentFailureText: nil,
                                 transientDependencies: nil
                             ).inserted(db)
                             _ = try Attachment(
@@ -569,8 +585,12 @@ class LibSessionGroupInfoSpec: QuickSpec {
                                 expiresStartedAtMs: nil,
                                 linkPreviewUrl: nil,
                                 openGroupServerMessageId: nil,
+                                openGroupWhisper: false,
                                 openGroupWhisperMods: false,
                                 openGroupWhisperTo: nil,
+                                state: .sent,
+                                recipientReadTimestampMs: nil,
+                                mostRecentFailureText: nil,
                                 transientDependencies: nil
                             ).inserted(db)
                             _ = try Attachment(
@@ -645,8 +665,12 @@ class LibSessionGroupInfoSpec: QuickSpec {
                                 expiresStartedAtMs: nil,
                                 linkPreviewUrl: nil,
                                 openGroupServerMessageId: nil,
+                                openGroupWhisper: false,
                                 openGroupWhisperMods: false,
                                 openGroupWhisperTo: nil,
+                                state: .sent,
+                                recipientReadTimestampMs: nil,
+                                mostRecentFailureText: nil,
                                 transientDependencies: nil
                             ).inserted(db)
                             let interaction2: Interaction = try Interaction(
@@ -664,8 +688,12 @@ class LibSessionGroupInfoSpec: QuickSpec {
                                 expiresStartedAtMs: nil,
                                 linkPreviewUrl: nil,
                                 openGroupServerMessageId: nil,
+                                openGroupWhisper: false,
                                 openGroupWhisperMods: false,
                                 openGroupWhisperTo: nil,
+                                state: .sent,
+                                recipientReadTimestampMs: nil,
+                                mostRecentFailureText: nil,
                                 transientDependencies: nil
                             ).inserted(db)
                             _ = try Attachment(
@@ -738,8 +766,12 @@ class LibSessionGroupInfoSpec: QuickSpec {
                                 expiresStartedAtMs: nil,
                                 linkPreviewUrl: nil,
                                 openGroupServerMessageId: nil,
+                                openGroupWhisper: false,
                                 openGroupWhisperMods: false,
                                 openGroupWhisperTo: nil,
+                                state: .sent,
+                                recipientReadTimestampMs: nil,
+                                mostRecentFailureText: nil,
                                 transientDependencies: nil
                             ).inserted(db)
                             _ = try Interaction(
@@ -757,8 +789,12 @@ class LibSessionGroupInfoSpec: QuickSpec {
                                 expiresStartedAtMs: nil,
                                 linkPreviewUrl: nil,
                                 openGroupServerMessageId: nil,
+                                openGroupWhisper: false,
                                 openGroupWhisperMods: false,
                                 openGroupWhisperTo: nil,
+                                state: .sent,
+                                recipientReadTimestampMs: nil,
+                                mostRecentFailureText: nil,
                                 transientDependencies: nil
                             ).inserted(db)
                             _ = try Attachment(
@@ -821,8 +857,12 @@ class LibSessionGroupInfoSpec: QuickSpec {
                             expiresStartedAtMs: nil,
                             linkPreviewUrl: nil,
                             openGroupServerMessageId: nil,
+                            openGroupWhisper: false,
                             openGroupWhisperMods: false,
                             openGroupWhisperTo: nil,
+                            state: .sent,
+                            recipientReadTimestampMs: nil,
+                            mostRecentFailureText: nil,
                             transientDependencies: nil
                         ).inserted(db)
                     }
@@ -885,8 +925,12 @@ class LibSessionGroupInfoSpec: QuickSpec {
                             expiresStartedAtMs: nil,
                             linkPreviewUrl: nil,
                             openGroupServerMessageId: nil,
+                            openGroupWhisper: false,
                             openGroupWhisperMods: false,
                             openGroupWhisperTo: nil,
+                            state: .sent,
+                            recipientReadTimestampMs: nil,
+                            mostRecentFailureText: nil,
                             transientDependencies: nil
                         ).inserted(db)
                     }

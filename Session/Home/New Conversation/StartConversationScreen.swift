@@ -28,7 +28,7 @@ struct StartConversationScreen: View {
                             .putNumber(1)
                             .localized()
                         NewConversationCell(
-                            image: "Message", // stringlint:disable
+                            image: "Message", // stringlint:ignore
                             title: title
                         ) {
                             let viewController: SessionHostingViewController = SessionHostingViewController(
@@ -68,7 +68,7 @@ struct StartConversationScreen: View {
                             .padding(.trailing, -Values.largeSpacing)
                         
                         NewConversationCell(
-                            image: "Globe",
+                            image: "Globe", // stringlint:ignore
                             title: "communityJoin".localized()
                         ) {
                             let viewController = JoinOpenGroupVC(using: dependencies)
@@ -86,7 +86,7 @@ struct StartConversationScreen: View {
                             .padding(.trailing, -Values.largeSpacing)
                         
                         NewConversationCell(
-                            image: "icon_invite",
+                            image: "icon_invite", // stringlint:ignore
                             title: "sessionInviteAFriend".localized()
                         ) {
                             let viewController: SessionHostingViewController = SessionHostingViewController(
@@ -116,7 +116,7 @@ struct StartConversationScreen: View {
                     QRCodeView(
                         string: dependencies[cache: .general].sessionId.hexString,
                         hasBackground: false,
-                        logo: "SessionWhite40", // stringlint:disable
+                        logo: "SessionWhite40", // stringlint:ignore
                         themeStyle: ThemeManager.currentTheme.interfaceStyle
                     )
                     .aspectRatio(1, contentMode: .fit)

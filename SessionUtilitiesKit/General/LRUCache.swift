@@ -9,11 +9,10 @@ public class LRUCache<KeyType: Hashable & Equatable, ValueType> {
 
     private var cacheMap: [KeyType: ValueType] = [:]
     private var cacheOrder: [KeyType] = []
-    private let maxSize: Int
+    private let maxCacheSize: Int
 
-    @objc
-    public init(maxSize: Int) {
-        self.maxSize = maxSize
+    public init(maxCacheSize: Int) {
+        self.maxCacheSize = maxCacheSize
 
         NotificationCenter.default.addObserver(
             self,
@@ -63,7 +62,7 @@ public class LRUCache<KeyType: Hashable & Equatable, ValueType> {
 
         updateCacheOrder(key: key)
 
-        while cacheOrder.count > maxSize {
+        while cacheOrder.count > maxCacheSize {
             guard let staleKey = cacheOrder.first else {
                 return
             }
@@ -72,7 +71,6 @@ public class LRUCache<KeyType: Hashable & Equatable, ValueType> {
         }
     }
 
-    @objc
     public func clear() {
         cacheMap.removeAll()
         cacheOrder.removeAll()

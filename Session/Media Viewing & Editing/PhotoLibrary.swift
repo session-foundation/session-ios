@@ -185,7 +185,7 @@ class PhotoCollectionContents {
                     exportSession.outputFileType = AVFileType.mp4
                     exportSession.metadataItemFilter = AVMetadataItemFilter.forSharing()
                     
-                    let exportPath = dependencies[singleton: .fileManager].temporaryFilePath(fileExtension: "mp4") // stringlint:disable
+                    let exportPath = dependencies[singleton: .fileManager].temporaryFilePath(fileExtension: "mp4") // stringlint:ignore
                     let exportURL = URL(fileURLWithPath: exportPath)
                     exportSession.outputURL = exportURL
                     
@@ -253,6 +253,7 @@ class PhotoCollection {
         return localizedTitle
     }
 
+    // stringlint:ignore_contents
     func contents() -> PhotoCollectionContents {
         let options = PHFetchOptions()
         options.sortDescriptors = [NSSortDescriptor(key: "creationDate", ascending: true)]
@@ -295,6 +296,7 @@ class PhotoLibrary: NSObject, PHPhotoLibraryChangeObserver {
         PHPhotoLibrary.shared().unregisterChangeObserver(self)
     }
     
+    // stringlint:ignore_contents
     private lazy var fetchOptions: PHFetchOptions = {
         let fetchOptions = PHFetchOptions()
         fetchOptions.sortDescriptors = [NSSortDescriptor(key: "endDate", ascending: true)]
@@ -371,7 +373,7 @@ class PhotoLibrary: NSObject, PHPhotoLibraryChangeObserver {
             }
         }
         let fetchOptions = PHFetchOptions()
-        fetchOptions.sortDescriptors = [NSSortDescriptor(key: "endDate", ascending: true)]
+        fetchOptions.sortDescriptors = [NSSortDescriptor(key: "endDate", ascending: true)] // stringlint:ignore
 
         // Try to add "Camera Roll" first.
         processPHAssetCollections((fetchResult: PHAssetCollection.fetchAssetCollections(with: .smartAlbum, subtype: .smartAlbumUserLibrary, options: fetchOptions),

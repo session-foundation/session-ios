@@ -100,6 +100,7 @@ class NotificationSettingsViewModel: SessionTableViewModel, NavigatableStateHold
                                 allowedSeparators: [.top],
                                 customPadding: SessionCell.Padding(bottom: Values.verySmallSpacing)
                             ),
+                            // stringlint:ignore_contents
                             onTap: { [weak self] in
                                 dependencies[defaults: .standard, key: .isUsingFullAPNs] = !dependencies[defaults: .standard, key: .isUsingFullAPNs]
 

@@ -210,15 +210,14 @@ internal extension LibSessionCacheType {
         if !communityIdsToRemove.isEmpty {
             LibSession.kickFromConversationUIIfNeeded(removedThreadIds: Array(communityIdsToRemove), using: dependencies)
             
-            try SessionThread
-                .deleteOrLeave(
-                    db,
-                    threadIds: Array(communityIdsToRemove),
-                    threadVariant: .community,
-                    groupLeaveType: .forced,
-                    calledFromConfig: .userGroups,
-                    using: dependencies
-                )
+            try SessionThread.deleteOrLeave(
+                db,
+                type: .deleteCommunityAndContent,
+                threadIds: Array(communityIdsToRemove),
+                threadVariant: .community,
+                calledFromConfig: .userGroups,
+                using: dependencies
+            )
         }
         
         // MARK: -- Handle Legacy Group Changes
@@ -407,15 +406,14 @@ internal extension LibSessionCacheType {
         if !legacyGroupIdsToRemove.isEmpty {
             LibSession.kickFromConversationUIIfNeeded(removedThreadIds: Array(legacyGroupIdsToRemove), using: dependencies)
             
-            try SessionThread
-                .deleteOrLeave(
-                    db,
-                    threadIds: Array(legacyGroupIdsToRemove),
-                    threadVariant: .legacyGroup,
-                    groupLeaveType: .forced,
-                    calledFromConfig: .userGroups,
-                    using: dependencies
-                )
+            try SessionThread.deleteOrLeave(
+                db,
+                type: .deleteGroupAndContent,
+                threadIds: Array(legacyGroupIdsToRemove),
+                threadVariant: .legacyGroup,
+                calledFromConfig: .userGroups,
+                using: dependencies
+            )
         }
         
         // MARK: -- Handle Group Changes
@@ -550,15 +548,14 @@ internal extension LibSessionCacheType {
         if !groupSessionIdsToRemove.isEmpty {
             LibSession.kickFromConversationUIIfNeeded(removedThreadIds: Array(groupSessionIdsToRemove), using: dependencies)
             
-            try SessionThread
-                .deleteOrLeave(
-                    db,
-                    threadIds: Array(groupSessionIdsToRemove),
-                    threadVariant: .group,
-                    groupLeaveType: .forced,
-                    calledFromConfig: .userGroups,
-                    using: dependencies
-                )
+            try SessionThread.deleteOrLeave(
+                db,
+                type: .deleteGroupAndContent,
+                threadIds: Array(groupSessionIdsToRemove),
+                threadVariant: .group,
+                calledFromConfig: .userGroups,
+                using: dependencies
+            )
             
             groupSessionIdsToRemove.forEach { groupSessionId in
                 removeGroupStateIfNeeded(db, groupSessionId: SessionId(.group, hex: groupSessionId))
@@ -1281,7 +1278,10 @@ extension LibSession {
                 ) \(lastKeyPair, asSubquery: true) ON \(lastKeyPair[.threadId]) = \(closedGroup[.threadId])
                 LEFT JOIN \(disappearingConfig) ON \(disappearingConfig[.threadId]) = \(closedGroup[.threadId])
                 
-                WHERE \(closedGroup[.threadId]) LIKE '\(SessionId.Prefix.standard)%'
+                WHERE (
+                    \(closedGroup[.threadId]) > \(SessionId.Prefix.standard.rawValue) AND
+                    \(closedGroup[.threadId]) < \(SessionId.Prefix.standard.endOfRangeString)
+                )
             """
             
             let legacyGroupInfoNoMembers: [LegacyGroupInfo] = try request

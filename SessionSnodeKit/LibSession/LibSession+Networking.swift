@@ -420,6 +420,29 @@ private extension LibSessionNetwork {
     }
 }
 
+// MARK: - Publisher Convenience
+
+fileprivate extension Publisher {
+    func tryMapCallbackWrapper<T>(
+        maxPublishers: Subscribers.Demand = .unlimited,
+        type: T.Type,
+        _ transform: @escaping (LibSessionNetwork.CallbackWrapper<T>, Self.Output) throws -> Void
+    ) -> AnyPublisher<T, Error> {
+        let wrapper: LibSessionNetwork.CallbackWrapper<T> = LibSessionNetwork.CallbackWrapper()
+        
+        return self
+            .tryMap { value -> Void in try transform(wrapper, value) }
+            .flatMap { _ in
+                wrapper
+                    .resultPublisher
+                    .compactMap { $0 }
+                    .first()
+                    .eraseToAnyPublisher()
+            }
+            .eraseToAnyPublisher()
+    }
+}
+
 // MARK: - Optional Convenience
 
 private extension Optional where Wrapped == LibSessionNetwork {
@@ -441,29 +464,6 @@ private extension NetworkStatus {
             case CONNECTION_STATUS_DISCONNECTED: self = .disconnected
             default: self = .unknown
         }
-    }
-}
-
-// MARK: - Publisher Convenience
-
-fileprivate extension Publisher {
-    func tryMapCallbackWrapper<T>(
-        maxPublishers: Subscribers.Demand = .unlimited,
-        type: T.Type,
-        _ transform: @escaping (LibSessionNetwork.CallbackWrapper<T>, Self.Output) throws -> Void
-    ) -> AnyPublisher<T, Error> {
-        let wrapper: LibSessionNetwork.CallbackWrapper<T> = LibSessionNetwork.CallbackWrapper()
-        
-        return self
-            .tryMap { value -> Void in try transform(wrapper, value) }
-            .flatMap { _ in
-                wrapper
-                    .resultPublisher
-                    .compactMap { $0 }
-                    .first()
-                    .eraseToAnyPublisher()
-            }
-            .eraseToAnyPublisher()
     }
 }
 

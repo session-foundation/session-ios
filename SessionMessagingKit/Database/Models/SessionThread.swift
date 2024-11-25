@@ -284,20 +284,32 @@ public extension SessionThread {
             )
         """)
     }
+}
+
+// MARK: - Deletion
+
+public extension SessionThread {
+    enum DeletionType {
+        case hideContactConversationAndDeleteContent
+        case deleteContactConversationAndContact
+        case leaveGroupAsync
+        case deleteGroupAndContent
+        case deleteCommunityAndContent
+    }
     
     static func deleteOrLeave(
         _ db: Database,
+        type: SessionThread.DeletionType,
         threadId: String,
         threadVariant: Variant,
-        groupLeaveType: ClosedGroup.LeaveType,
         calledFromConfig configTriggeringChange: ConfigDump.Variant?,
         using dependencies: Dependencies
     ) throws {
         try deleteOrLeave(
             db,
+            type: type,
             threadIds: [threadId],
             threadVariant: threadVariant,
-            groupLeaveType: groupLeaveType,
             calledFromConfig: configTriggeringChange,
             using: dependencies
         )
@@ -305,17 +317,17 @@ public extension SessionThread {
     
     static func deleteOrLeave(
         _ db: Database,
+        type: SessionThread.DeletionType,
         threadIds: [String],
         threadVariant: Variant,
-        groupLeaveType: ClosedGroup.LeaveType,
         calledFromConfig configTriggeringChange: ConfigDump.Variant?,
         using dependencies: Dependencies
     ) throws {
         let userSessionId: SessionId = dependencies[cache: .general].sessionId
         let remainingThreadIds: Set<String> = threadIds.asSet().removing(userSessionId.hexString)
         
-        switch (threadVariant, groupLeaveType) {
-            case (.contact, .standard), (.contact, .silent):
+        switch type {
+            case .hideContactConversationAndDeleteContent:
                 // Clear any interactions for the deleted thread
                 _ = try Interaction
                     .filter(threadIds.contains(Interaction.Columns.threadId))
@@ -347,7 +359,7 @@ public extension SessionThread {
                         using: dependencies
                     )
                 
-            case (.contact, .forced):
+            case .deleteContactConversationAndContact:
                 // If this wasn't called from config handling then we need to hide the conversation
                 if configTriggeringChange != .contacts {
                     try LibSession
@@ -358,12 +370,12 @@ public extension SessionThread {
                     .filter(ids: remainingThreadIds)
                     .deleteAll(db)
                 
-            case (.legacyGroup, .standard), (.group, .standard):
+            case .leaveGroupAsync:
                 try threadIds.forEach { threadId in
                     try MessageSender.leave(db, threadId: threadId, threadVariant: threadVariant, using: dependencies)
                 }
                 
-            case (.legacyGroup, .silent), (.legacyGroup, .forced), (.group, .forced), (.group, .silent):
+            case .deleteGroupAndContent:
                 try ClosedGroup.removeData(
                     db,
                     threadIds: threadIds,
@@ -371,8 +383,8 @@ public extension SessionThread {
                     calledFromConfig: configTriggeringChange,
                     using: dependencies
                 )
-                
-            case (.community, _):
+            
+            case .deleteCommunityAndContent:
                 try threadIds.forEach { threadId in
                     try dependencies[singleton: .openGroupManager].delete(
                         db,

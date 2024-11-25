@@ -160,14 +160,15 @@ class HelpViewModel: SessionTableViewModel, NavigatableStateHolder, ObservableTa
         else { return }
         
         #if targetEnvironment(simulator)
+        // stringlint:ignore_start
         let modal: ConfirmationModal = ConfirmationModal(
             info: ConfirmationModal.Info(
-                title: "Export Logs",      // stringlint:disable
+                title: "Export Logs",
                 body: .text(
-                    "How would you like to export the logs?\n\n(This modal only appears on the Simulator)" // stringlint:disable
+                    "How would you like to export the logs?\n\n(This modal only appears on the Simulator)"
                 ),
-                confirmTitle: "Copy Path", // stringlint:disable
-                cancelTitle: "Share",      // stringlint:disable
+                confirmTitle: "Copy Path",
+                cancelTitle: "Share",
                 cancelStyle: .alert_text,
                 onConfirm: { _ in UIPasteboard.general.string = latestLogFilePath },
                 onCancel: { _ in
@@ -181,6 +182,7 @@ class HelpViewModel: SessionTableViewModel, NavigatableStateHolder, ObservableTa
                 }
             )
         )
+        // stringlint:ignore_stop
         viewController.present(modal, animated: animated, completion: nil)
         #else
         HelpViewModel.shareLogsInternal(

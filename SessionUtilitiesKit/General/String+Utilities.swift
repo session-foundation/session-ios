@@ -87,7 +87,7 @@ public extension String {
 
 public extension String.StringInterpolation {
     mutating func appendInterpolation(_ value: TimeUnit, unit: TimeUnit.Unit, resolution: Int = 2) {
-        appendLiteral("\(TimeUnit(value, unit: unit, resolution: resolution))") // stringlint:disable
+        appendLiteral("\(TimeUnit(value, unit: unit, resolution: resolution))")
     }
     
     mutating func appendInterpolation(_ value: Int, format: String) {

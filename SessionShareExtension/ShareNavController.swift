@@ -47,12 +47,14 @@ final class ShareNavController: UINavigationController, ShareViewDelegate {
         AppSetup.setupEnvironment(
             additionalMigrationTargets: [DeprecatedUIKitMigrationTarget.self],
             appSpecificBlock: { [dependencies] in
+                // stringlint:ignore_start
                 Log.setup(with: Logger(
-                    primaryPrefix: "SessionShareExtension",                                                   // stringlint:disable
+                    primaryPrefix: "SessionShareExtension",
                     level: .info,
-                    customDirectory: "\(dependencies[singleton: .fileManager].appSharedDataDirectoryPath)/Logs/ShareExtension",  // stringlint:disable
+                    customDirectory: "\(dependencies[singleton: .fileManager].appSharedDataDirectoryPath)/Logs/ShareExtension",
                     using: dependencies
                 ))
+                // stringlint:ignore_stop
                 
                 // Setup LibSession
                 LibSession.setupLogger(using: dependencies)
@@ -410,7 +412,7 @@ final class ShareNavController: UINavigationController, ShareViewDelegate {
                     
                     switch value {
                         case let data as Data:
-                            let customFileName = "Contact.vcf" // stringlint:disable
+                            let customFileName = "Contact.vcf" // stringlint:ignore
                             let customFileExtension: String? = srcType.sessionFileExtension
                             
                             guard let tempFilePath = try? dependencies[singleton: .fileManager].write(data: data, toTemporaryFileWithExtension: customFileExtension) else {
@@ -441,7 +443,7 @@ final class ShareNavController: UINavigationController, ShareViewDelegate {
                                 )
                                 return
                             }
-                            guard let tempFilePath: String = try? dependencies[singleton: .fileManager].write(data: data, toTemporaryFileWithExtension: "txt") else { // stringlint:disable
+                            guard let tempFilePath: String = try? dependencies[singleton: .fileManager].write(data: data, toTemporaryFileWithExtension: "txt") else { // stringlint:ignore
                                 resolver(
                                     Result.failure(ShareViewControllerError.assertionError(description: "Error writing item data: \(String(describing: error))"))
                                 )
@@ -511,7 +513,7 @@ final class ShareNavController: UINavigationController, ShareViewDelegate {
                             
                         case let image as UIImage:
                             if let data = image.pngData() {
-                                let tempFilePath: String = dependencies[singleton: .fileManager].temporaryFilePath(fileExtension: "png") // stringlint:disable
+                                let tempFilePath: String = dependencies[singleton: .fileManager].temporaryFilePath(fileExtension: "png") // stringlint:ignore
                                 do {
                                     let url = NSURL.fileURL(withPath: tempFilePath)
                                     try data.write(to: url)

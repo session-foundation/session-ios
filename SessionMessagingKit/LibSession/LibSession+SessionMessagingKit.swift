@@ -21,7 +21,7 @@ public extension Cache {
 
 public extension LibSession {
     internal static func syncDedupeId(_ swarmPublicKey: String) -> String {
-        return "EnqueueConfigurationSyncJob-\(swarmPublicKey)"   // stringlint:disable
+        return "EnqueueConfigurationSyncJob-\(swarmPublicKey)"   // stringlint:ignore
     }
 }
 

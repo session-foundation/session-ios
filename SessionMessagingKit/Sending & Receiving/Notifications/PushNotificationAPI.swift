@@ -69,7 +69,10 @@ public enum PushNotificationAPI {
                         sessionIds: [userSessionId]
                             .appending(contentsOf: try ClosedGroup
                                 .select(.threadId)
-                                .filter(ClosedGroup.Columns.threadId.like("\(SessionId.Prefix.group.rawValue)%"))
+                                .filter(
+                                    ClosedGroup.Columns.threadId > SessionId.Prefix.group.rawValue &&
+                                    ClosedGroup.Columns.threadId < SessionId.Prefix.group.endOfRangeString
+                                )
                                 .filter(ClosedGroup.Columns.shouldPoll)
                                 .asRequest(of: String.self)
                                 .fetchSet(db)
@@ -93,7 +96,10 @@ public enum PushNotificationAPI {
                         userSessionId: userSessionId,
                         legacyGroupIds: try ClosedGroup
                             .select(.threadId)
-                            .filter(!ClosedGroup.Columns.threadId.like("\(SessionId.Prefix.group.rawValue)%"))
+                            .filter(
+                                ClosedGroup.Columns.threadId > SessionId.Prefix.standard.rawValue &&
+                                ClosedGroup.Columns.threadId < SessionId.Prefix.standard.endOfRangeString
+                            )
                             .joining(
                                 required: ClosedGroup.members
                                     .filter(GroupMember.Columns.profileId == userSessionId.hexString)
@@ -150,7 +156,10 @@ public enum PushNotificationAPI {
                         sessionIds: [userSessionId]
                             .appending(contentsOf: (try? ClosedGroup
                                 .select(.threadId)
-                                .filter(ClosedGroup.Columns.threadId.like("\(SessionId.Prefix.group.rawValue)%"))
+                                .filter(
+                                    ClosedGroup.Columns.threadId > SessionId.Prefix.group.rawValue &&
+                                    ClosedGroup.Columns.threadId < SessionId.Prefix.group.endOfRangeString
+                                )
                                 .asRequest(of: String.self)
                                 .fetchSet(db))
                                 .defaulting(to: [])
@@ -168,7 +177,10 @@ public enum PushNotificationAPI {
                 // FIXME: Remove this once legacy groups are deprecated
                 let preparedLegacyUnsubscribeRequests = (try? ClosedGroup
                     .select(.threadId)
-                    .filter(!ClosedGroup.Columns.threadId.like("\(SessionId.Prefix.group.rawValue)%"))
+                    .filter(
+                        ClosedGroup.Columns.threadId > SessionId.Prefix.standard.rawValue &&
+                        ClosedGroup.Columns.threadId < SessionId.Prefix.standard.endOfRangeString
+                    )
                     .asRequest(of: String.self)
                     .fetchSet(db))
                     .defaulting(to: [])

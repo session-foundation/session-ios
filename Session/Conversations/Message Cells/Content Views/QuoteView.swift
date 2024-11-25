@@ -104,7 +104,7 @@ final class QuoteView: UIView {
         
         if let attachment: Attachment = attachment {
             let isAudio: Bool = attachment.isAudio
-            let fallbackImageName: String = (isAudio ? "attachment_audio" : "actionsheet_document_black") // stringlint:disable
+            let fallbackImageName: String = (isAudio ? "attachment_audio" : "actionsheet_document_black") // stringlint:ignore
             let imageContainerView: UIView = UIView()
             imageContainerView.themeBackgroundColor = .messageBubble_overlay
             imageContainerView.layer.cornerRadius = VisibleMessageCell.smallCornerRadius

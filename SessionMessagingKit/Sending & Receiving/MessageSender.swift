@@ -109,16 +109,7 @@ public final class MessageSender {
         /// **Note:** The `sentTimestamp` will differ from the `messageSendTimestampMs` as it's the time the user originally
         /// sent the message whereas the `messageSendTimestamp` is the time it will be uploaded to the swarm
         let sentTimestampMs: UInt64 = (message.sentTimestampMs ?? UInt64(messageSendTimestampMs))
-        let recipient: String = {
-            switch destination {
-                case .contact(let publicKey): return publicKey
-                case .syncMessage: return userSessionId.hexString
-                case .closedGroup(let groupPublicKey): return groupPublicKey
-                case .openGroup, .openGroupInbox: preconditionFailure()
-            }
-        }()
         message.sender = userSessionId.hexString
-        message.recipient = recipient
         message.sentTimestampMs = sentTimestampMs
         
         // Ensure the message is valid
@@ -126,9 +117,10 @@ public final class MessageSender {
         
         // Attach the user's profile if needed (no need to do so for 'Note to Self' or sync
         // messages as they will be managed by the user config handling
-        switch (destination, (message.recipient == userSessionId.hexString), message as? MessageWithProfile) {
-            case (.syncMessage, _, _), (_, true, _), (_, _, .none): break
-            case (_, _, .some(var messageWithProfile)):
+        switch (destination, message as? MessageWithProfile) {
+            case (.syncMessage, _), (_, .none): break
+            case (.contact(let publicKey), _) where publicKey == userSessionId.hexString: break
+            case (_, .some(var messageWithProfile)):
                 let profile: Profile = Profile.fetchOrCreateCurrentUser(db, using: dependencies)
                 
                 if let profileKey: Data = profile.profileEncryptionKey, let profilePictureUrl: String = profile.profilePictureUrl {
@@ -244,7 +236,14 @@ public final class MessageSender {
         
         // Send the result
         let snodeMessage = SnodeMessage(
-            recipient: recipient,
+            recipient: {
+                switch destination {
+                    case .contact(let publicKey): return publicKey
+                    case .syncMessage: return userSessionId.hexString
+                    case .closedGroup(let groupPublicKey): return groupPublicKey
+                    case .openGroup, .openGroupInbox: preconditionFailure()
+                }
+            }(),
             data: base64EncodedData,
             ttl: Message.getSpecifiedTTL(message: message, destination: destination, using: dependencies),
             timestampMs: UInt64(messageSendTimestampMs)
@@ -359,14 +358,6 @@ public final class MessageSender {
         
         // Set the sender/recipient info (needed to be valid)
         let threadId: String = OpenGroup.idFor(roomToken: roomToken, server: server)
-        message.recipient = [
-            server,
-            roomToken,
-            whisperTo,
-            (whisperMods ? "mods" : nil)
-        ]
-        .compactMap { $0 }
-        .joined(separator: ".")
         message.sender = try {
             let capabilities: [Capability.Variant] = (try? Capability
                 .select(.variant)
@@ -479,7 +470,6 @@ public final class MessageSender {
         else { throw MessageSenderError.invalidMessage }
         
         message.sender = userSessionId.hexString
-        message.recipient = recipientBlindedPublicKey
         
         // Attach the user's profile if needed
         if let message: VisibleMessage = message as? VisibleMessage {
@@ -609,22 +599,16 @@ public final class MessageSender {
         // Mark messages as "sending"/"syncing" if needed (this is for retries)
         switch destination {
             case .syncMessage:
-                _ = try? RecipientState
-                    .filter(RecipientState.Columns.interactionId == interactionId)
-                    .filter(RecipientState.Columns.state == RecipientState.State.failedToSync)
-                    .updateAll(
-                        db,
-                        RecipientState.Columns.state.set(to: RecipientState.State.syncing)
-                    )
+                _ = try? Interaction
+                    .filter(id: interactionId)
+                    .filter(Interaction.Columns.state == Interaction.State.failedToSync)
+                    .updateAll(db, Interaction.Columns.state.set(to: Interaction.State.syncing))
                 
             default:
-                _ = try? RecipientState
-                    .filter(RecipientState.Columns.interactionId == interactionId)
-                    .filter(RecipientState.Columns.state == RecipientState.State.failed)
-                    .updateAll(
-                        db,
-                        RecipientState.Columns.state.set(to: RecipientState.State.sending)
-                    )
+                _ = try? Interaction
+                    .filter(id: interactionId)
+                    .filter(Interaction.Columns.state == Interaction.State.failed)
+                    .updateAll(db, Interaction.Columns.state.set(to: Interaction.State.sending))
         }
     }
     
@@ -653,7 +637,9 @@ public final class MessageSender {
             if let interaction: Interaction = interaction {
                 // Only store the server hash of a sync message if the message is self send valid
                 switch (message.isSelfSendValid, destination) {
-                    case (false, .syncMessage): break
+                    case (false, .syncMessage):
+                        try interaction.with(state: .sent).update(db)
+                    
                     case (true, .syncMessage), (_, .contact), (_, .closedGroup), (_, .openGroup), (_, .openGroupInbox):
                         try interaction.with(
                             serverHash: message.serverHash,
@@ -664,7 +650,8 @@ public final class MessageSender {
                                 nil :
                                 serverTimestampMs.map { Int64($0) }
                             ),
-                            openGroupServerMessageId: message.openGroupServerMessageId.map { Int64($0) }
+                            openGroupServerMessageId: message.openGroupServerMessageId.map { Int64($0) },
+                            state: .sent
                         ).update(db)
                         
                         if interaction.isExpiringMessage {
@@ -706,11 +693,6 @@ public final class MessageSender {
                             }
                         }
                     }
-                
-                // Mark the message as sent
-                try interaction.recipientStates
-                    .filter(RecipientState.Columns.state != RecipientState.State.sent)
-                    .updateAll(db, RecipientState.Columns.state.set(to: RecipientState.State.sent))
             }
         }
         
@@ -771,19 +753,19 @@ public final class MessageSender {
         let rowIds: [Int64] = (try? {
             switch destination {
                 case .syncMessage:
-                    return RecipientState
+                    return Interaction
                         .select(Column.rowID)
-                        .filter(RecipientState.Columns.interactionId == interactionId)
+                        .filter(id: interactionId)
                         .filter(
-                            RecipientState.Columns.state == RecipientState.State.syncing ||
-                            RecipientState.Columns.state == RecipientState.State.sent
+                            Interaction.Columns.state == Interaction.State.syncing ||
+                            Interaction.Columns.state == Interaction.State.sent
                         )
                     
                 default:
-                    return RecipientState
+                    return Interaction
                         .select(Column.rowID)
-                        .filter(RecipientState.Columns.interactionId == interactionId)
-                        .filter(RecipientState.Columns.state == RecipientState.State.sending)
+                        .filter(id: interactionId)
+                        .filter(Interaction.Columns.state == Interaction.State.sending)
             }
         }()
         .asRequest(of: Int64.self)
@@ -798,21 +780,21 @@ public final class MessageSender {
             dependencies[singleton: .storage].write { db in
                 switch destination {
                     case .syncMessage:
-                        try RecipientState
+                        try Interaction
                             .filter(rowIds.contains(Column.rowID))
                             .updateAll(
                                 db,
-                                RecipientState.Columns.state.set(to: RecipientState.State.failedToSync),
-                                RecipientState.Columns.mostRecentFailureText.set(to: "\(error)")
+                                Interaction.Columns.state.set(to: Interaction.State.failedToSync),
+                                Interaction.Columns.mostRecentFailureText.set(to: "\(error)")
                             )
                         
                     default:
-                        try RecipientState
+                        try Interaction
                             .filter(rowIds.contains(Column.rowID))
                             .updateAll(
                                 db,
-                                RecipientState.Columns.state.set(to: RecipientState.State.failed),
-                                RecipientState.Columns.mostRecentFailureText.set(to: "\(error)")
+                                Interaction.Columns.state.set(to: Interaction.State.failed),
+                                Interaction.Columns.mostRecentFailureText.set(to: "\(error)")
                             )
                 }
             }
@@ -855,6 +837,7 @@ public final class MessageSender {
             Message.shouldSync(message: message)
         {
             if let message = message as? VisibleMessage { message.syncTarget = publicKey }
+            if let message = message as? ExpirationTimerUpdate { message.syncTarget = publicKey }
             
             dependencies[singleton: .jobRunner].add(
                 db,

@@ -522,7 +522,7 @@ fileprivate extension Error {
         guard
             let networkError: NetworkError = self as? NetworkError,
             case .badRequest(let dataString, _) = networkError,
-            dataString.contains("Invalid authentication: this server requires the use of blinded ids") // stringlint:disable
+            dataString.contains("Invalid authentication: this server requires the use of blinded ids") // stringlint:ignore
         else { return false }
         
         return true
@@ -588,7 +588,7 @@ public extension CommunityPoller {
         @discardableResult public func getOrCreatePoller(for info: CommunityPoller.Info) -> CommunityPollerType {
             guard let poller: CommunityPoller = _pollers[info.server.lowercased()] else {
                 let poller: CommunityPoller = CommunityPoller(
-                    pollerName: "Community poller for: \(info.server)", // stringlint:disable
+                    pollerName: "Community poller for: \(info.server)", // stringlint:ignore
                     pollerQueue: Threading.communityPollerQueue,
                     pollerDestination: .server(info.server),
                     failureCount: Int(info.pollFailureCount),

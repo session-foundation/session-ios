@@ -325,7 +325,7 @@ private extension String {
             var matchEnd = m1.range.location + m1.range.length
             
             if let displayName: String = Profile.displayNameNoFallback(id: publicKey, using: dependencies) {
-                result = (result as NSString).replacingCharacters(in: m1.range, with: "@\(displayName)") // stringlint:disable
+                result = (result as NSString).replacingCharacters(in: m1.range, with: "@\(displayName)")
                 mentions.append((range: NSRange(location: m1.range.location, length: displayName.utf16.count + 1), publicKey: publicKey)) // + 1 to include the @
                 matchEnd = m1.range.location + displayName.utf16.count
             }

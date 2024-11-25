@@ -237,14 +237,11 @@ class ImageEditorCropViewController: OWSViewController {
     }
 
     private func updateCropLockButton() {
-        guard let cropLockButton = cropLockButton else {
-            Log.error("[ImageEditorCropViewController] Missing cropLockButton")
-            return
+        switch (cropLockButton, isCropLocked) {
+            case (.none, _): Log.error("[ImageEditorCropViewController] Missing cropLockButton")
+            case (.some(let button), true): button.setImage(imageName: "image_editor_crop_lock")
+            case (.some(let button), false): button.setImage(imageName: "image_editor_crop_unlock")
         }
-        cropLockButton.setImage(imageName: (isCropLocked ?
-            "image_editor_crop_lock" :  // stringlint:disable
-            "image_editor_crop_unlock"  // stringlint:disable
-        ))
     }
 
     @objc

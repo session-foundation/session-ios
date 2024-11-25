@@ -6,8 +6,8 @@ import SessionMessagingKit
 
 struct VoiceMessageView_SwiftUI: View {
     @State var isPlaying: Bool = false
-    @State var time: String = "0:00"  // stringlint:disable
-    @State var speed: String = "1.5×" // stringlint:disable
+    @State var time: String = "0:00"  // stringlint:ignore
+    @State var speed: String = "1.5×" // stringlint:ignore
     @State var progress: Double = 0.0
     
     private static let width: CGFloat = 160

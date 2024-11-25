@@ -1,6 +1,4 @@
 // Copyright © 2022 Rangeproof Pty Ltd. All rights reserved.
-//
-// stringlint:disable
 
 import Foundation
 import Combine
@@ -111,7 +109,7 @@ public extension GroupPoller {
         @discardableResult public func getOrCreatePoller(for swarmPublicKey: String) -> SwarmPollerType {
             guard let poller: GroupPoller = _pollers[swarmPublicKey.lowercased()] else {
                 let poller: GroupPoller = GroupPoller(
-                    pollerName: "Closed group poller with public key: \(swarmPublicKey)", // stringlint:disable
+                    pollerName: "Closed group poller with public key: \(swarmPublicKey)", // stringlint:ignore
                     pollerQueue: Threading.groupPollerQueue,
                     pollerDestination: .swarm(swarmPublicKey),
                     pollerDrainBehaviour: .alwaysRandom,

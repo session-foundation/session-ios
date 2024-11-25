@@ -581,8 +581,8 @@ public final class HomeVC: BaseVC, LibSessionRespondingViewController, UITableVi
             profile: userProfile,
             profileIcon: {
                 switch (viewModel.dependencies[feature: .serviceNetwork], viewModel.dependencies[feature: .forceOffline]) {
-                    case (.testnet, false): return .letter("T", false)     // stringlint:disable
-                    case (.testnet, true): return .letter("T", true)       // stringlint:disable
+                    case (.testnet, false): return .letter("T", false)     // stringlint:ignore
+                    case (.testnet, true): return .letter("T", true)       // stringlint:ignore
                     default: return .none
                 }
             }(),
@@ -617,8 +617,8 @@ public final class HomeVC: BaseVC, LibSessionRespondingViewController, UITableVi
                         profile: userProfile,
                         profileIcon: {
                             switch (dependencies[feature: .serviceNetwork], dependencies[feature: .forceOffline]) {
-                                case (.testnet, false): return .letter("T", false)     // stringlint:disable
-                                case (.testnet, true): return .letter("T", true)       // stringlint:disable
+                                case (.testnet, false): return .letter("T", false)     // stringlint:ignore
+                                case (.testnet, true): return .letter("T", true)       // stringlint:ignore
                                 default: return .none
                             }
                         }(),

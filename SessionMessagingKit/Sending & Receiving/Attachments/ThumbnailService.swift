@@ -120,7 +120,7 @@ public class ThumbnailService {
         let thumbnailImage: UIImage
         
         if attachment.isImage || attachment.isAnimated {
-            thumbnailImage = try MediaUtils.thumbnail(forImageAtPath: originalFilePath, maxDimension: maxDimension, using: dependencies)
+            thumbnailImage = try MediaUtils.thumbnail(forImageAtPath: originalFilePath, maxDimension: maxDimension, type: attachment.contentType, using: dependencies)
         }
         else if attachment.isVideo {
             thumbnailImage = try MediaUtils.thumbnail(forVideoAtPath: originalFilePath, maxDimension: maxDimension, using: dependencies)

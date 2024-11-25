@@ -11,9 +11,11 @@ public class Message: Codable {
         case id
         case sentTimestampMs = "sentTimestamp"
         case receivedTimestampMs = "receivedTimestamp"
-        case recipient
         case sender
         case openGroupServerMessageId
+        case openGroupWhisper
+        case openGroupWhisperMods
+        case openGroupWhisperTo
         case serverHash
         
         case expiresInSeconds
@@ -23,9 +25,12 @@ public class Message: Codable {
     public var id: String?
     public var sentTimestampMs: UInt64?
     public var receivedTimestampMs: UInt64?
-    public var recipient: String?
     public var sender: String?
     public var openGroupServerMessageId: UInt64?
+    public var openGroupWhisper: Bool
+    public var openGroupWhisperMods: Bool
+    public var openGroupWhisperTo: String?
+    
     public var serverHash: String?
     public var ttl: UInt64 { 14 * 24 * 60 * 60 * 1000 }
     public var isSelfSendValid: Bool { false }
@@ -42,7 +47,7 @@ public class Message: Codable {
     public func isValid(using dependencies: Dependencies) -> Bool {
         if let sentTimestampMs = sentTimestampMs { guard sentTimestampMs > 0 else { return false } }
         if let receivedTimestampMs = receivedTimestampMs { guard receivedTimestampMs > 0 else { return false } }
-        return sender != nil && recipient != nil
+        return sender != nil
     }
     
     // MARK: - Initialization
@@ -51,9 +56,11 @@ public class Message: Codable {
         id: String? = nil,
         sentTimestampMs: UInt64? = nil,
         receivedTimestampMs: UInt64? = nil,
-        recipient: String? = nil,
         sender: String? = nil,
         openGroupServerMessageId: UInt64? = nil,
+        openGroupWhisper: Bool = false,
+        openGroupWhisperMods: Bool = false,
+        openGroupWhisperTo: String? = nil,
         serverHash: String? = nil,
         expiresInSeconds: TimeInterval? = nil,
         expiresStartedAtMs: Double? = nil
@@ -61,9 +68,11 @@ public class Message: Codable {
         self.id = id
         self.sentTimestampMs = sentTimestampMs
         self.receivedTimestampMs = receivedTimestampMs
-        self.recipient = recipient
         self.sender = sender
         self.openGroupServerMessageId = openGroupServerMessageId
+        self.openGroupWhisper = openGroupWhisper
+        self.openGroupWhisperMods = openGroupWhisperMods
+        self.openGroupWhisperTo = openGroupWhisperTo
         self.serverHash = serverHash
         self.expiresInSeconds = expiresInSeconds
         self.expiresStartedAtMs = expiresStartedAtMs
@@ -335,6 +344,7 @@ public extension Message {
     static func shouldSync(message: Message) -> Bool {
         switch message {
             case is VisibleMessage: return true
+            case is ExpirationTimerUpdate: return true
             case is UnsendRequest: return true
             
             case let controlMessage as ClosedGroupControlMessage:
@@ -361,6 +371,7 @@ public extension Message {
                 
                 switch message {
                     case let message as VisibleMessage: maybeSyncTarget = message.syncTarget
+                    case let message as ExpirationTimerUpdate: maybeSyncTarget = message.syncTarget
                     default: maybeSyncTarget = nil
                 }
                 
@@ -486,7 +497,10 @@ public extension Message {
                 openGroupId: openGroupId,
                 sender: sender,
                 timestamp: timestamp,
-                messageServerId: message.id
+                messageServerId: message.id,
+                whisper: message.whisper,
+                whisperMods: message.whisperMods,
+                whisperTo: message.whisperTo
             ),
             using: dependencies
         )

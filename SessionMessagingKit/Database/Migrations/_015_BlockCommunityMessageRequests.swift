@@ -7,7 +7,7 @@ import SessionUtilitiesKit
 /// This migration adds a flag indicating whether a profile has indicated it is blocking community message requests
 enum _015_BlockCommunityMessageRequests: Migration {
     static let target: TargetMigrations.Identifier = .messagingKit
-    static let identifier: String = "BlockCommunityMessageRequests" // stringlint:disable
+    static let identifier: String = "BlockCommunityMessageRequests"
     static let needsConfigSync: Bool = false
     static let minExpectedRunDuration: TimeInterval = 0.01
     static var requirements: [MigrationRequirement] = [.sessionIdCached, .libSessionStateLoaded]

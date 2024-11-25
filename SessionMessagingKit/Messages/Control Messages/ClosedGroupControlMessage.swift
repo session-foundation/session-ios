@@ -47,15 +47,16 @@ public final class ClosedGroupControlMessage: ControlMessage {
         case memberLeft
         case encryptionKeyPairRequest
 
+        // stringlint:ignore_contents
         public var description: String {
             switch self {
-                case .new: return "new" // stringlint:disable
-                case .encryptionKeyPair: return "encryptionKeyPair" // stringlint:disable
-                case .nameChange: return "nameChange" // stringlint:disable
-                case .membersAdded: return "membersAdded" // stringlint:disable
-                case .membersRemoved: return "membersRemoved" // stringlint:disable
-                case .memberLeft: return "memberLeft" // stringlint:disable
-                case .encryptionKeyPairRequest: return "encryptionKeyPairRequest" // stringlint:disable
+                case .new: return "new"
+                case .encryptionKeyPair: return "encryptionKeyPair"
+                case .nameChange: return "nameChange"
+                case .membersAdded: return "membersAdded"
+                case .membersRemoved: return "membersRemoved"
+                case .memberLeft: return "memberLeft"
+                case .encryptionKeyPairRequest: return "encryptionKeyPairRequest"
             }
         }
         

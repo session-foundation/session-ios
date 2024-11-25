@@ -8,7 +8,7 @@ import SessionUtilitiesKit
 /// for open groups so they will fully re-fetch their mod/admin lists
 enum _006_FixHiddenModAdminSupport: Migration {
     static let target: TargetMigrations.Identifier = .messagingKit
-    static let identifier: String = "FixHiddenModAdminSupport" // stringlint:disable
+    static let identifier: String = "FixHiddenModAdminSupport"
     static let needsConfigSync: Bool = false
     static let minExpectedRunDuration: TimeInterval = 0.01
     static let fetchedTables: [(TableRecord & FetchableRecord).Type] = []

@@ -387,7 +387,7 @@ final class VisibleMessageCell: MessageCell, TappableLabelDelegate {
         // Message status image view
         let (image, statusText, tintColor) = cellViewModel.state.statusIconInfo(
             variant: cellViewModel.variant,
-            hasAtLeastOneReadReceipt: cellViewModel.hasAtLeastOneReadReceipt,
+            hasBeenReadByRecipient: cellViewModel.hasBeenReadByRecipient,
             hasAttachments: (cellViewModel.attachments?.isEmpty == false)
         )
         messageStatusLabel.text = statusText
@@ -1089,6 +1089,7 @@ final class VisibleMessageCell: MessageCell, TappableLabelDelegate {
         }
     }
     
+    // stringlint:ignore_contents
     static func getBodyAttributedText(
         for cellViewModel: MessageViewModel,
         theme: Theme,
@@ -1186,7 +1187,7 @@ final class VisibleMessageCell: MessageCell, TappableLabelDelegate {
             
             SessionThreadViewModel.searchTermParts(searchText)
                 .map { part -> String in
-                    guard part.hasPrefix("\"") && part.hasSuffix("\"") else { return part }     // stringlint:disable
+                    guard part.hasPrefix("\"") && part.hasSuffix("\"") else { return part }
                     
                     let partRange = (part.index(after: part.startIndex)..<part.index(before: part.endIndex))
                     return String(part[partRange])
@@ -1198,8 +1199,8 @@ final class VisibleMessageCell: MessageCell, TappableLabelDelegate {
                     normalizedBody
                         .ranges(
                             of: (Dependencies.isRTL ?
-                                 "(\(part.lowercased()))(^|[^a-zA-Z0-9])" :         // stringlint:disable
-                                 "(^|[^a-zA-Z0-9])(\(part.lowercased()))"           // stringlint:disable
+                                 "(\(part.lowercased()))(^|[^a-zA-Z0-9])" :
+                                 "(^|[^a-zA-Z0-9])(\(part.lowercased()))"
                             ),
                             options: [.regularExpression]
                         )

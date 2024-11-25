@@ -1874,23 +1874,23 @@ public final class JobQueue: Hashable {
 
 private extension String.StringInterpolation {
     mutating func appendInterpolation(_ job: Job) {
-        appendLiteral("\(job.variant) job (id: \(job.id ?? -1))") // stringlint:disable
+        appendLiteral("\(job.variant) job (id: \(job.id ?? -1))")
     }
     
     mutating func appendInterpolation(_ job: Job?) {
         switch job {
             case .some(let job): appendInterpolation(job)
-            case .none: appendLiteral("null job") // stringlint:disable
+            case .none: appendLiteral("null job")
         }
     }
 }
 
 extension String.StringInterpolation {
     mutating func appendInterpolation(_ variant: Job.Variant?) {
-        appendLiteral(variant.map { "\($0)" } ?? "unknown") // stringlint:disable
+        appendLiteral(variant.map { "\($0)" } ?? "unknown")
     }
     
     mutating func appendInterpolation(_ behaviour: Job.Behaviour?) {
-        appendLiteral(behaviour.map { "\($0)" } ?? "unknown") // stringlint:disable
+        appendLiteral(behaviour.map { "\($0)" } ?? "unknown")
     }
 }

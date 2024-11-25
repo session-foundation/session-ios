@@ -1,6 +1,4 @@
 //  Copyright (c) 2019 Open Whisper Systems. All rights reserved.
-//
-// stringlint:disable
 
 import UIKit
 import SessionUIKit
@@ -43,7 +41,7 @@ private class VAlignTextView: UITextView {
 
         super.init(frame: .zero, textContainer: nil)
 
-        self.addObserver(self, forKeyPath: "contentSize", options: .new, context: nil)  // stringlint:disable
+        self.addObserver(self, forKeyPath: "contentSize", options: .new, context: nil)  // stringlint:ignore
     }
 
     @available(*, unavailable, message: "use other init() instead.")
@@ -52,7 +50,7 @@ private class VAlignTextView: UITextView {
     }
 
     deinit {
-        self.removeObserver(self, forKeyPath: "contentSize")    // stringlint:disable
+        self.removeObserver(self, forKeyPath: "contentSize")    // stringlint:ignore
     }
 
     private func updateInsets() {

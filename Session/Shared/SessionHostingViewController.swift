@@ -163,7 +163,7 @@ public class SessionHostingViewController<Content>: UIHostingController<Modified
                     }
                     
                     offlineLabel?.attributedText = NSAttributedString(
-                        string: "Offline",  // stringlint:disable
+                        string: "Offline",  // stringlint:ignore
                         attributes: [
                             .foregroundColor: textColor,
                             .strokeColor: strokeColor,

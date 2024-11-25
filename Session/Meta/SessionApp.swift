@@ -24,16 +24,16 @@ public class SessionApp: SessionAppType {
     
     static var versionInfo: String {
         let buildNumber: String = (Bundle.main.infoDictionary?["CFBundleVersion"] as? String)
-            .map { " (\($0))" } // stringlint:disable
+            .map { " (\($0))" }
             .defaulting(to: "")
         let appVersion: String? = (Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String)
-            .map { "App: \($0)\(buildNumber)" } // stringlint:disable
+            .map { "App: \($0)\(buildNumber)" }
         let commitInfo: String? = (Bundle.main.infoDictionary?["GitCommitHash"] as? String).map { "Commit: \($0)" }
         
         let versionInfo: [String] = [
-            "iOS \(UIDevice.current.systemVersion)",        // stringlint:disable
+            "iOS \(UIDevice.current.systemVersion)",
             appVersion,
-            "libSession: \(LibSession.version)",            // stringlint:disable
+            "libSession: \(LibSession.version)",
             commitInfo
         ].compactMap { $0 }
         

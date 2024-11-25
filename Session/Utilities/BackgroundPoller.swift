@@ -58,7 +58,7 @@ public final class BackgroundPoller {
             .map { groupIds, servers -> ([GroupPoller], [CommunityPoller]) in
                 let groupPollers: [GroupPoller] = groupIds.map { groupId in
                     GroupPoller(
-                        pollerName: "Background Group poller for: \(groupId)",   // stringlint:disable
+                        pollerName: "Background Group poller for: \(groupId)",   // stringlint:ignore
                         pollerQueue: DispatchQueue.main,
                         pollerDestination: .swarm(groupId),
                         pollerDrainBehaviour: .alwaysRandom,
@@ -70,7 +70,7 @@ public final class BackgroundPoller {
                 }
                 let communityPollers: [CommunityPoller] = servers.map { server in
                     CommunityPoller(
-                        pollerName: "Background Community poller for: \(server)",   // stringlint:disable
+                        pollerName: "Background Community poller for: \(server)",   // stringlint:ignore
                         pollerQueue: DispatchQueue.main,
                         pollerDestination: .server(server),
                         failureCount: 0,

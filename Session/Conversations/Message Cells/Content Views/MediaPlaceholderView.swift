@@ -34,13 +34,31 @@ final class MediaPlaceholderView: UIView {
                 cellViewModel.variant == .standardIncoming,
                 let attachment: Attachment = cellViewModel.attachments?.first
             else {
-                return ("actionsheet_document_black", "file".localized().lowercased()) // Should never occur
+                return (
+                    "actionsheet_document_black", // stringlint:ignore
+                    "file".localized().lowercased()
+                ) // Should never occur
             }
             
-            if attachment.isAudio { return ("attachment_audio", "audio".localized().lowercased()) }
-            if attachment.isImage || attachment.isVideo { return ("actionsheet_camera_roll_black", "media".localized().lowercased()) }
-            
-            return ("actionsheet_document_black", "file".localized().lowercased())
+            switch (attachment.isAudio, (attachment.isImage || attachment.isVideo)) {
+                case (true, _):
+                    return (
+                        "attachment_audio", // stringlint:ignore
+                        "audio".localized().lowercased()
+                    )
+                    
+                case (_, true):
+                    return (
+                        "actionsheet_camera_roll_black", // stringlint:ignore
+                        "media".localized().lowercased()
+                    )
+                    
+                default:
+                    return (
+                        "actionsheet_document_black", // stringlint:ignore
+                        "file".localized().lowercased()
+                    )
+            }
         }()
         
         // Image view

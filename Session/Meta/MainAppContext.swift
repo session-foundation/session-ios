@@ -144,11 +144,12 @@ final class MainAppContext: AppContext {
     func endBackgroundTask(_ backgroundTaskIdentifier: UIBackgroundTaskIdentifier) {
         UIApplication.shared.endBackgroundTask(backgroundTaskIdentifier)
     }
-        
+    
+    // stringlint:ignore_contents
     func ensureSleepBlocking(_ shouldBeBlocking: Bool, blockingObjects: [Any]) {
         if UIApplication.shared.isIdleTimerDisabled != shouldBeBlocking {
             if shouldBeBlocking {
-                var logString: String = "Blocking sleep because of: \(String(describing: blockingObjects.first))" // stringlint:disable
+                var logString: String = "Blocking sleep because of: \(String(describing: blockingObjects.first))"
                 
                 if blockingObjects.count > 1 {
                     logString = "\(logString) (and \(blockingObjects.count - 1) others)"

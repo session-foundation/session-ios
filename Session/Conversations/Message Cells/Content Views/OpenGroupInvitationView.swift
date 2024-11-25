@@ -48,7 +48,7 @@ final class OpenGroupInvitationView: UIView {
         let urlLabel = UILabel()
         urlLabel.font = .systemFont(ofSize: Values.verySmallFontSize)
         urlLabel.text = {
-            if let range = rawUrl.range(of: "?public_key=") { // stringlint:disable
+            if let range = rawUrl.range(of: "?public_key=") { // stringlint:ignore
                 return String(rawUrl[..<range.lowerBound])
             }
 
@@ -69,7 +69,7 @@ final class OpenGroupInvitationView: UIView {
         iconContainerView.set(.width, to: OpenGroupInvitationView.iconImageViewSize)
         iconContainerView.set(.height, to: OpenGroupInvitationView.iconImageViewSize)
         
-        let iconName = (isOutgoing ? "Globe" : "Plus") // stringlint:disable
+        let iconName = (isOutgoing ? "Globe" : "Plus") // stringlint:ignore
         let iconImageView = UIImageView(
             image: UIImage(named: iconName)?.withRenderingMode(.alwaysTemplate)
         )

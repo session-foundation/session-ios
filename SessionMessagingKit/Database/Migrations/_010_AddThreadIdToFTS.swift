@@ -8,7 +8,7 @@ import SessionUtilitiesKit
 /// searh (currently it's much slower than the global search)
 enum _010_AddThreadIdToFTS: Migration {
     static let target: TargetMigrations.Identifier = .messagingKit
-    static let identifier: String = "AddThreadIdToFTS" // stringlint:disable
+    static let identifier: String = "AddThreadIdToFTS"
     static let needsConfigSync: Bool = false
     static let minExpectedRunDuration: TimeInterval = 3
     static let fetchedTables: [(TableRecord & FetchableRecord).Type] = []

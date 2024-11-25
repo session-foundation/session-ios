@@ -16,6 +16,7 @@ public class PlaceholderIcon {
         if let colors = colors { self.colors = colors }
     }
     
+    // stringlint:ignore_contents
     convenience init(seed: String, colors: [UIColor]? = nil) {
         // Ensure we have a correct hash
         var hash = seed
@@ -23,7 +24,7 @@ public class PlaceholderIcon {
         if (hash.matches("^[0-9A-Fa-f]+$") && hash.count >= 12) {
             // This is the same as the `SessionUtilitiesKit` `toHexString` function
             hash = Data(SHA512.hash(data: Data(Array(seed.utf8))).makeIterator())
-                .map { String(format: "%02x", $0) }.joined() // stringlint:disable
+                .map { String(format: "%02x", $0) }.joined()
         }
         
         guard let number = Int(String(hash.prefix(12)), radix: 16) else {
@@ -36,6 +37,7 @@ public class PlaceholderIcon {
     
     // MARK: - Convenience
     
+    // stringlint:ignore_contents
     public static func generate(seed: String, text: String, size: CGFloat) -> UIImage {
         let icon = PlaceholderIcon(seed: seed)
         

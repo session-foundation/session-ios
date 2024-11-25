@@ -56,8 +56,14 @@ extension MessageReceiver {
             .select(.id)
             .filter(SessionThread.Columns.variant == SessionThread.Variant.contact)
             .filter(
-                SessionThread.Columns.id.like("\(SessionId.Prefix.blinded15.rawValue)%") ||
-                SessionThread.Columns.id.like("\(SessionId.Prefix.blinded25.rawValue)%")
+                (
+                    ClosedGroup.Columns.threadId > SessionId.Prefix.blinded15.rawValue &&
+                    ClosedGroup.Columns.threadId < SessionId.Prefix.blinded15.endOfRangeString
+                ) ||
+                (
+                    ClosedGroup.Columns.threadId > SessionId.Prefix.blinded25.rawValue &&
+                    ClosedGroup.Columns.threadId < SessionId.Prefix.blinded25.endOfRangeString
+                )
             )
             .asRequest(of: String.self)
             .fetchSet(db))
@@ -117,9 +123,9 @@ extension MessageReceiver {
             _ = try SessionThread
                 .deleteOrLeave(
                     db,
+                    type: .deleteContactConversationAndContact, // Blinded contact isn't synced anyway
                     threadId: blindedIdLookup.blindedId,
                     threadVariant: .contact,
-                    groupLeaveType: .forced,
                     calledFromConfig: nil,
                     using: dependencies
                 )

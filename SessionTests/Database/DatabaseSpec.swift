@@ -51,6 +51,7 @@ class DatabaseSpec: QuickSpec {
             // Specific enum values needed
             TableColumn(SessionThread.self, .notificationSound): 1000,
             TableColumn(ConfigDump.self, .variant): "userProfile",
+            TableColumn(Interaction.self, .state): Interaction.State.sent.rawValue,
             
             // libSession will throw if we try to insert a community with an invalid
             // 'server' value or a room that is too long
@@ -460,7 +461,7 @@ enum TestMigratableTarget: MigratableTarget { // Just to make the external API n
 
 enum TestRequiresLibSessionStateMigration: Migration {
     static let target: TargetMigrations.Identifier = .session
-    static let identifier: String = "test" // stringlint:disable
+    static let identifier: String = "test" // stringlint:ignore
     static let needsConfigSync: Bool = false
     static let minExpectedRunDuration: TimeInterval = 0.1
     static var requirements: [MigrationRequirement] = [.libSessionStateLoaded]

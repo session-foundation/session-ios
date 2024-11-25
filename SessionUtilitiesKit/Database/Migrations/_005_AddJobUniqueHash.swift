@@ -5,7 +5,7 @@ import GRDB
 
 enum _005_AddJobUniqueHash: Migration {
     static let target: TargetMigrations.Identifier = .utilitiesKit
-    static let identifier: String = "AddJobUniqueHash" // stringlint:disable
+    static let identifier: String = "AddJobUniqueHash"
     static let needsConfigSync: Bool = false
     static let minExpectedRunDuration: TimeInterval = 0.1
     static let fetchedTables: [(TableRecord & FetchableRecord).Type] = []

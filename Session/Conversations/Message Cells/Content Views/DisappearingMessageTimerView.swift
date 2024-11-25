@@ -54,8 +54,9 @@ class DisappearingMessageTimerView: UIView {
         self.updateIcon()
     }
     
+    // stringlint:ignore_contents
     private func updateIcon() {
-        let imageName: String = "disappearing_message_\(String(format: "%02d", 5 * self.progress))" // stringlint:disable
+        let imageName: String = "disappearing_message_\(String(format: "%02d", 5 * self.progress))"
         self.iconImageView.image = UIImage(named: imageName)?.withRenderingMode(.alwaysTemplate)
     }
     

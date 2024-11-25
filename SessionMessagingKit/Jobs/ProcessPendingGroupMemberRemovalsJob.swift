@@ -181,6 +181,7 @@ public enum ProcessPendingGroupMemberRemovalsJob: JobExecutor {
                         .compactMap { $0 },
                     requireAllBatchResponses: true,
                     swarmPublicKey: groupSessionId.hexString,
+                    snodeRetrievalRetryCount: 0, // Job has a built-in retry
                     using: dependencies
                 )
             }

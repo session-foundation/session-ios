@@ -471,6 +471,8 @@ class MessageSenderGroupsSpec: QuickSpec {
                             ],
                             requireAllBatchResponses: false,
                             swarmPublicKey: groupId.hexString,
+                            snodeRetrievalRetryCount: 0,
+                            requestAndPathBuildTimeout: Network.defaultTimeout,
                             using: dependencies
                         )
                         

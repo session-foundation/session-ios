@@ -131,14 +131,17 @@ public extension Identity {
                     (Identity.fetchUserEd25519KeyPair(db) != nil)
                 )
             }.defaulting(to: (false, false))
+
+            // stringlint:ignore_start
             let dbStates: [String] = [
-                "dbIsValid: \(dbIsValid)",                      // stringlint:disable
-                "dbHasRead: \(dbHasRead)",                      // stringlint:disable
-                "dbHasWritten: \(dbHasWritten)",                // stringlint:disable
-                "dbIsSuspended: \(dbIsSuspended)",              // stringlint:disable
-                "userXKeyPair: \(hasStoredXKeyPair)",           // stringlint:disable
-                "userEdKeyPair: \(hasStoredEdKeyPair)"          // stringlint:disable
+                "dbIsValid: \(dbIsValid)",
+                "dbHasRead: \(dbHasRead)",
+                "dbHasWritten: \(dbHasWritten)",
+                "dbIsSuspended: \(dbIsSuspended)",
+                "userXKeyPair: \(hasStoredXKeyPair)",
+                "userEdKeyPair: \(hasStoredEdKeyPair)"
             ]
+            // stringlint:ignore_stop
 
             SNLog("Failed to retrieve keys for mnemonic generation (\(dbStates.joined(separator: ", ")))")
             throw StorageError.objectNotFound

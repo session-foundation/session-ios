@@ -373,16 +373,15 @@ public class ConfirmationModal: Modal, UITextFieldDelegate, UITextViewDelegate {
                 imageViewTapGestureRecognizer.isEnabled = true
         }
         
-        confirmButton.accessibilityLabel = info.confirmAccessibility?.label
-        confirmButton.accessibilityIdentifier = info.confirmAccessibility?.identifier
+        confirmButton.accessibilityIdentifier = info.confirmTitle
         confirmButton.isAccessibilityElement = true
         confirmButton.setTitle(info.confirmTitle, for: .normal)
         confirmButton.setThemeTitleColor(info.confirmStyle, for: .normal)
         confirmButton.setThemeTitleColor(.disabled, for: .disabled)
         confirmButton.isHidden = (info.confirmTitle == nil)
         confirmButton.isEnabled = info.confirmEnabled.isValid(with: info)
-        cancelButton.accessibilityLabel = info.cancelAccessibility?.label
-        cancelButton.accessibilityIdentifier = info.cancelAccessibility?.identifier
+        
+        cancelButton.accessibilityIdentifier = info.cancelTitle
         cancelButton.isAccessibilityElement = true
         cancelButton.setTitle(info.cancelTitle, for: .normal)
         cancelButton.setThemeTitleColor(info.cancelStyle, for: .normal)
@@ -390,8 +389,13 @@ public class ConfirmationModal: Modal, UITextFieldDelegate, UITextViewDelegate {
         cancelButton.isEnabled = info.cancelEnabled.isValid(with: info)
         closeButton.isHidden = !info.hasCloseButton
         
-        contentView.accessibilityLabel = info.accessibility?.label
-        contentView.accessibilityIdentifier = info.accessibility?.identifier
+        titleLabel.isAccessibilityElement = true
+        titleLabel.accessibilityIdentifier = "Modal heading"
+        titleLabel.accessibilityLabel = titleLabel.text
+        
+        explanationLabel.isAccessibilityElement = true
+        explanationLabel.accessibilityIdentifier = "Modal description"
+        explanationLabel.accessibilityLabel = explanationLabel.text
     }
     
     // MARK: - UITextFieldDelegate
@@ -478,14 +482,11 @@ public extension ConfirmationModal {
     struct Info: Equatable, Hashable {
         internal let title: String
         public let body: Body
-        let accessibility: Accessibility?
         public let showCondition: ShowCondition
         internal let confirmTitle: String?
-        let confirmAccessibility: Accessibility?
         let confirmStyle: ThemeValue
         let confirmEnabled: ButtonValidator
         internal let cancelTitle: String
-        let cancelAccessibility: Accessibility?
         let cancelStyle: ThemeValue
         let cancelEnabled: ButtonValidator
         let hasCloseButton: Bool
@@ -500,16 +501,11 @@ public extension ConfirmationModal {
         public init(
             title: String,
             body: Body = .none,
-            accessibility: Accessibility? = nil,
             showCondition: ShowCondition = .none,
             confirmTitle: String? = nil,
-            confirmAccessibility: Accessibility? = nil,
             confirmStyle: ThemeValue = .alert_text,
             confirmEnabled: ButtonValidator = true,
             cancelTitle: String = SNUIKit.localizedString(for: "cancel"),
-            cancelAccessibility: Accessibility? = Accessibility(
-                identifier: "Cancel button"
-            ),
             cancelStyle: ThemeValue = .danger,
             cancelEnabled: ButtonValidator = true,
             hasCloseButton: Bool = false,
@@ -521,14 +517,11 @@ public extension ConfirmationModal {
         ) {
             self.title = title
             self.body = body
-            self.accessibility = accessibility
             self.showCondition = showCondition
             self.confirmTitle = confirmTitle
-            self.confirmAccessibility = confirmAccessibility
             self.confirmStyle = confirmStyle
             self.confirmEnabled = confirmEnabled
             self.cancelTitle = cancelTitle
-            self.cancelAccessibility = cancelAccessibility
             self.cancelStyle = cancelStyle
             self.cancelEnabled = cancelEnabled
             self.hasCloseButton = hasCloseButton
@@ -550,14 +543,11 @@ public extension ConfirmationModal {
             return Info(
                 title: self.title,
                 body: (body ?? self.body),
-                accessibility: self.accessibility,
                 showCondition: self.showCondition,
                 confirmTitle: self.confirmTitle,
-                confirmAccessibility: self.confirmAccessibility,
                 confirmStyle: self.confirmStyle,
                 confirmEnabled: self.confirmEnabled,
                 cancelTitle: self.cancelTitle,
-                cancelAccessibility: self.cancelAccessibility,
                 cancelStyle: self.cancelStyle,
                 cancelEnabled: self.cancelEnabled,
                 hasCloseButton: self.hasCloseButton,
@@ -575,14 +565,11 @@ public extension ConfirmationModal {
             return (
                 lhs.title == rhs.title &&
                 lhs.body == rhs.body &&
-                lhs.accessibility == rhs.accessibility &&
                 lhs.showCondition == rhs.showCondition &&
                 lhs.confirmTitle == rhs.confirmTitle &&
-                lhs.confirmAccessibility == rhs.confirmAccessibility &&
                 lhs.confirmStyle == rhs.confirmStyle &&
                 lhs.confirmEnabled.isValid(with: lhs) == rhs.confirmEnabled.isValid(with: rhs) &&
                 lhs.cancelTitle == rhs.cancelTitle &&
-                lhs.cancelAccessibility == rhs.cancelAccessibility &&
                 lhs.cancelStyle == rhs.cancelStyle &&
                 lhs.cancelEnabled.isValid(with: lhs) == rhs.cancelEnabled.isValid(with: rhs) &&
                 lhs.hasCloseButton == rhs.hasCloseButton &&
@@ -594,14 +581,11 @@ public extension ConfirmationModal {
         public func hash(into hasher: inout Hasher) {
             title.hash(into: &hasher)
             body.hash(into: &hasher)
-            accessibility.hash(into: &hasher)
             showCondition.hash(into: &hasher)
             confirmTitle.hash(into: &hasher)
-            confirmAccessibility.hash(into: &hasher)
             confirmStyle.hash(into: &hasher)
             confirmEnabled.isValid(with: self).hash(into: &hasher)
             cancelTitle.hash(into: &hasher)
-            cancelAccessibility.hash(into: &hasher)
             cancelStyle.hash(into: &hasher)
             cancelEnabled.isValid(with: self).hash(into: &hasher)
             hasCloseButton.hash(into: &hasher)

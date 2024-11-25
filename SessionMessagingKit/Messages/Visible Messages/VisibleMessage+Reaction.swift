@@ -26,10 +26,11 @@ public extension VisibleMessage {
             case react
             case remove
             
+            // stringlint:ignore_contents
             var description: String {
                 switch self {
-                    case .react: return "react" // stringlint:disable
-                    case .remove: return "remove" // stringlint:disable
+                    case .react: return "react"
+                    case .remove: return "remove"
                 }
             }
             

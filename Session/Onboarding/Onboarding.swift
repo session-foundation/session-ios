@@ -33,12 +33,13 @@ public enum Onboarding {
         case missingName
         case completed
         
+        // stringlint:ignore_contents
         public var description: String {
             switch self {
-                case .noUser: return "No User"                                  // stringlint:disable
-                case .noUserFailedIdentity: return "No User Failed Identity"    // stringlint:disable
-                case .missingName: return "Missing Name"                        // stringlint:disable
-                case .completed: return "Completed"                             // stringlint:disable
+                case .noUser: return "No User"
+                case .noUserFailedIdentity: return "No User Failed Identity"
+                case .missingName: return "Missing Name"
+                case .completed: return "Completed"
             }
         }
     }
@@ -214,7 +215,7 @@ extension Onboarding {
             /// **Note:** We trigger this as a "background poll" as doing so means the received messages will be
             /// processed immediately rather than async as part of a Job
             let poller: CurrentUserPoller = CurrentUserPoller(
-                pollerName: "Onboarding Poller", // stringlint:disable
+                pollerName: "Onboarding Poller", // stringlint:ignore
                 pollerQueue: Threading.pollerQueue,
                 pollerDestination: .swarm(self.userSessionId.hexString),
                 pollerDrainBehaviour: .alwaysRandom,

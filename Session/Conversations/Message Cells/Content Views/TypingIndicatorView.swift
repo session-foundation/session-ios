@@ -134,6 +134,7 @@ import SessionUtilitiesKit
             }
         }
 
+        // stringlint:ignore_contents
         fileprivate func startAnimation() {
             stopAnimation()
 
@@ -201,8 +202,8 @@ import SessionUtilitiesKit
 
             let groupAnimation = CAAnimationGroup()
             groupAnimation.animations = [
-                makeAnimation("fillColor", colorValues), // stringlint:disable
-                makeAnimation("path", pathValues) // stringlint:disable
+                makeAnimation("fillColor", colorValues),
+                makeAnimation("path", pathValues)
             ]
             groupAnimation.duration = animationDuration
             groupAnimation.repeatCount = MAXFLOAT

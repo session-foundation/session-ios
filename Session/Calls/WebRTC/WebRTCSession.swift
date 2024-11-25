@@ -28,7 +28,7 @@ public final class WebRTCSession : NSObject, RTCPeerConnectionDelegate {
     private var iceCandidateSendTimer: Timer?
     
     private lazy var defaultICEServer: TurnServerInfo? = {
-        let url = Bundle.main.url(forResource: "Session-Turn-Server", withExtension: nil)!  // stringlint:disable
+        let url = Bundle.main.url(forResource: "Session-Turn-Server", withExtension: nil)!  // stringlint:ignroe
         let data = try! Data(contentsOf: url)
         let json = try! JSONSerialization.jsonObject(with: data, options: [ .fragmentsAllowed ]) as! JSON
         return TurnServerInfo(attributes: json, random: 2)
@@ -86,9 +86,10 @@ public final class WebRTCSession : NSObject, RTCPeerConnectionDelegate {
     public enum WebRTCSessionError: LocalizedError {
         case noThread
         
+        // stringlint:ignore_contents
         public var errorDescription: String? {
             switch self {
-                case .noThread: return "Couldn't find thread for contact." // stringlint:disable
+                case .noThread: return "Couldn't find thread for contact."
             }
         }
     }
@@ -387,10 +388,11 @@ public final class WebRTCSession : NSObject, RTCPeerConnectionDelegate {
         return RTCMediaConstraints(mandatoryConstraints: mandatory, optionalConstraints: optional)
     }
     
+    // stringlint:ignore_contents
     private func correctSessionDescription(sdp: RTCSessionDescription?) -> RTCSessionDescription? {
         guard let sdp = sdp else { return nil }
-        let cbrSdp = sdp.sdp.description.replace(regex: "(a=fmtp:111 ((?!cbr=).)*)\r?\n", with: "$1;cbr=1\r\n") // stringlint:disable
-        let finalSdp = cbrSdp.replace(regex: ".+urn:ietf:params:rtp-hdrext:ssrc-audio-level.*\r?\n", with: "") // stringlint:disable
+        let cbrSdp = sdp.sdp.description.replace(regex: "(a=fmtp:111 ((?!cbr=).)*)\r?\n", with: "$1;cbr=1\r\n")
+        let finalSdp = cbrSdp.replace(regex: ".+urn:ietf:params:rtp-hdrext:ssrc-audio-level.*\r?\n", with: "")
         return RTCSessionDescription(type: sdp.type, sdp: finalSdp)
     }
     

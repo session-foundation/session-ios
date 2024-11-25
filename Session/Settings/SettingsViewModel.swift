@@ -145,8 +145,8 @@ class SettingsViewModel: SessionTableViewModel, NavigationItemSource, Navigatabl
                             profile: state.profile,
                             profileIcon: {
                                 switch (dependencies[feature: .serviceNetwork], dependencies[feature: .forceOffline]) {
-                                    case (.testnet, false): return .letter("T", false)     // stringlint:disable
-                                    case (.testnet, true): return .letter("T", true)       // stringlint:disable
+                                    case (.testnet, false): return .letter("T", false)     // stringlint:ignore
+                                    case (.testnet, true): return .letter("T", true)       // stringlint:ignore
                                     default: return .none
                                 }
                             }()
@@ -255,7 +255,7 @@ class SettingsViewModel: SessionTableViewModel, NavigationItemSource, Navigatabl
                 elements: [
                     SessionCell.Info(
                         id: .path,
-                        leadingAccessory: .customView(uniqueId: "PathStatusView") { [dependencies] in // stringlint:disable
+                        leadingAccessory: .customView(uniqueId: "PathStatusView") { [dependencies] in // stringlint:ignore
                             // Need to ensure this view is the same size as the icons so
                             // wrap it in a larger view
                             let result: UIView = UIView()
@@ -409,7 +409,7 @@ class SettingsViewModel: SessionTableViewModel, NavigationItemSource, Navigatabl
                                 UIImage(systemName: "wrench.and.screwdriver")?
                                     .withRenderingMode(.alwaysTemplate)
                             ),
-                            title: "Developer Settings",    // stringlint:disable
+                            title: "Developer Settings",    // stringlint:ignore
                             styling: SessionCell.StyleInfo(tintColor: .warning),
                             onTap: { [weak self, dependencies] in
                                 self?.transitionToScreen(
@@ -527,9 +527,6 @@ class SettingsViewModel: SessionTableViewModel, NavigationItemSource, Navigatabl
                         }
                     ),
                     confirmTitle: "save".localized(),
-                    confirmAccessibility: Accessibility(
-                        identifier: "Save button"
-                    ),
                     confirmEnabled: .afterChange { info in
                         switch info.body {
                             case .image(_, let valueData, _, _, _, _): return (valueData != nil)
@@ -537,9 +534,6 @@ class SettingsViewModel: SessionTableViewModel, NavigationItemSource, Navigatabl
                         }
                     },
                     cancelTitle: "remove".localized(),
-                    cancelAccessibility: Accessibility(
-                        identifier: "Remove button"
-                    ),
                     cancelEnabled: .bool(existingImageData != nil),
                     hasCloseButton: true,
                     dismissOnConfirm: false,
@@ -571,7 +565,7 @@ class SettingsViewModel: SessionTableViewModel, NavigationItemSource, Navigatabl
             DispatchQueue.main.async {
                 let picker: UIImagePickerController = UIImagePickerController()
                 picker.sourceType = .photoLibrary
-                picker.mediaTypes = [ "public.image" ]  // stringlint:disable
+                picker.mediaTypes = [ "public.image" ]  // stringlint:ignore
                 picker.delegate = self?.imagePickerHandler
                 
                 self?.transitionToScreen(picker, transitionType: .present)

@@ -76,7 +76,7 @@ public class ConversationViewModel: OWSAudioPlayerDelegate, NavigatableStateHold
                 
             return "blockBlockedDescription".localized()
                 
-            default: return "Thread is blocked. Unblock it?" // Should not happen // stringlint:disable
+            default: return "blockUnblock".localized() // Should not happen
         }
     }()
     
@@ -423,16 +423,6 @@ public class ConversationViewModel: OWSAudioPlayerDelegate, NavigatableStateHold
                         let profile: TypedTableAlias<Profile> = TypedTableAlias()
                         
                         return SQL("JOIN \(Profile.self) ON \(profile[.id]) = \(interaction[.authorId])")
-                    }()
-                ),
-                PagedData.ObservedChanges(
-                    table: RecipientState.self,
-                    columns: [.state, .readTimestampMs, .mostRecentFailureText],
-                    joinToPagedType: {
-                        let interaction: TypedTableAlias<Interaction> = TypedTableAlias()
-                        let recipientState: TypedTableAlias<RecipientState> = TypedTableAlias()
-                        
-                        return SQL("LEFT JOIN \(RecipientState.self) ON \(recipientState[.interactionId]) = \(interaction[.id])")
                     }()
                 ),
                 PagedData.ObservedChanges(
