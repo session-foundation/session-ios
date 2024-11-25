@@ -74,7 +74,7 @@ final class NewClosedGroupVC: BaseVC, UITableViewDataSource, UITableViewDelegate
                 accessibility: Accessibility(label: "Version warning banner")
             )
         )
-        result.isHidden = dependencies[feature: .updatedGroups]
+        result.isHidden = !dependencies[feature: .updatedGroups]
         
         return result
     }()
@@ -100,6 +100,7 @@ final class NewClosedGroupVC: BaseVC, UITableViewDataSource, UITableViewDelegate
         result.themeTintColor = .textPrimary
         result.themeBackgroundColor = .clear
         result.delegate = self
+        result.searchTextField.accessibilityIdentifier = "Search contacts field"
         result.set(.height, to: NewClosedGroupVC.searchBarHeight)
 
         return result

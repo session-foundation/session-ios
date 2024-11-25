@@ -929,7 +929,15 @@ class ThreadSettingsViewModel: SessionTableViewModel, NavigatableStateHolder, Ob
                     title: "groupMembers".localized(),
                     showProfileIcons: true,
                     request: GroupMember
-                        .filter(GroupMember.Columns.groupId == threadId),
+                        .select(
+                            GroupMember.Columns.groupId,
+                            GroupMember.Columns.profileId,
+                            max(GroupMember.Columns.role).forKey(GroupMember.Columns.role.name),
+                            GroupMember.Columns.roleStatus,
+                            GroupMember.Columns.isHidden
+                        )
+                        .filter(GroupMember.Columns.groupId == threadId)
+                        .group(GroupMember.Columns.profileId),
                     onTap: .callback { [weak self, dependencies] _, memberInfo in
                         dependencies[singleton: .storage].write { db in
                             try SessionThread.fetchOrCreate(

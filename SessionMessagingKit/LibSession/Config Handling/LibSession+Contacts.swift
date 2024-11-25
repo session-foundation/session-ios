@@ -213,8 +213,8 @@ internal extension LibSessionCacheType {
             .filter(SessionThread.Columns.variant == SessionThread.Variant.contact)
             .filter(
                 /// Only want to include include standard contact conversations (not blinded conversations)
-                ClosedGroup.Columns.threadId > SessionId.Prefix.standard.rawValue &&
-                ClosedGroup.Columns.threadId < SessionId.Prefix.standard.endOfRangeString
+                SessionThread.Columns.id > SessionId.Prefix.standard.rawValue &&
+                SessionThread.Columns.id < SessionId.Prefix.standard.endOfRangeString
             )
             .select(.id)
             .asRequest(of: String.self)

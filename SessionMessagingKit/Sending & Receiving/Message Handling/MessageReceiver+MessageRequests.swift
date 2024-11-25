@@ -57,12 +57,12 @@ extension MessageReceiver {
             .filter(SessionThread.Columns.variant == SessionThread.Variant.contact)
             .filter(
                 (
-                    ClosedGroup.Columns.threadId > SessionId.Prefix.blinded15.rawValue &&
-                    ClosedGroup.Columns.threadId < SessionId.Prefix.blinded15.endOfRangeString
+                    SessionThread.Columns.id > SessionId.Prefix.blinded15.rawValue &&
+                    SessionThread.Columns.id < SessionId.Prefix.blinded15.endOfRangeString
                 ) ||
                 (
-                    ClosedGroup.Columns.threadId > SessionId.Prefix.blinded25.rawValue &&
-                    ClosedGroup.Columns.threadId < SessionId.Prefix.blinded25.endOfRangeString
+                    SessionThread.Columns.id > SessionId.Prefix.blinded25.rawValue &&
+                    SessionThread.Columns.id < SessionId.Prefix.blinded25.endOfRangeString
                 )
             )
             .asRequest(of: String.self)

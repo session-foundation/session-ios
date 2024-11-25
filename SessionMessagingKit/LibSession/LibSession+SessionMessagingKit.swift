@@ -171,7 +171,10 @@ public extension LibSession {
             let missingRequiredVariants: Set<ConfigDump.Variant> = ConfigDump.Variant.userVariants
                 .subtracting(existingDumpVariants)
             let groupsByKey: [String: ClosedGroup] = (try? ClosedGroup
-                .filter(ClosedGroup.Columns.threadId.like("\(SessionId.Prefix.group.rawValue)%"))
+                .filter(
+                    ClosedGroup.Columns.threadId > SessionId.Prefix.group.rawValue &&
+                    ClosedGroup.Columns.threadId < SessionId.Prefix.group.endOfRangeString
+                )
                 .fetchAll(db)
                 .reduce(into: [:]) { result, next in result[next.threadId] = next })
                 .defaulting(to: [:])

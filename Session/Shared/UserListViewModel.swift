@@ -23,6 +23,7 @@ class UserListViewModel<T: ProfileAssociated & FetchableRecord>: SessionTableVie
     private let showProfileIcons: Bool
     private let request: (any FetchRequest<T>)
     private let footerTitle: String?
+    private let footerAccessibility: Accessibility?
     private let onTapAction: OnTapAction
     private let onSubmitAction: OnSubmitAction
     
@@ -35,6 +36,7 @@ class UserListViewModel<T: ProfileAssociated & FetchableRecord>: SessionTableVie
         showProfileIcons: Bool,
         request: (any FetchRequest<T>),
         footerTitle: String? = nil,
+        footerAccessibility: Accessibility? = nil,
         onTap: OnTapAction = .radio,
         onSubmit: OnSubmitAction = .none,
         using dependencies: Dependencies
@@ -46,6 +48,7 @@ class UserListViewModel<T: ProfileAssociated & FetchableRecord>: SessionTableVie
         self.showProfileIcons = showProfileIcons
         self.request = request
         self.footerTitle = footerTitle
+        self.footerAccessibility = footerAccessibility
         self.onTapAction = onTap
         self.onSubmitAction = onSubmit
     }
@@ -189,13 +192,14 @@ class UserListViewModel<T: ProfileAssociated & FetchableRecord>: SessionTableVie
     
     lazy var footerButtonInfo: AnyPublisher<SessionButton.Info?, Never> = selectedUsersSubject
         .prepend([])
-        .map { [weak self, dependencies, footerTitle] selectedUsers -> SessionButton.Info? in
+        .map { [weak self, dependencies, footerTitle, footerAccessibility] selectedUsers -> SessionButton.Info? in
             guard self?.onSubmitAction.hasAction == true, let title: String = footerTitle else { return nil }
             
             return SessionButton.Info(
                 style: .bordered,
                 title: title,
                 isEnabled: !selectedUsers.isEmpty,
+                accessibility: footerAccessibility,
                 onTap: { self?.submit(with: selectedUsers) }
             )
         }

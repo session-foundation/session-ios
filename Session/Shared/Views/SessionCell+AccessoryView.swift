@@ -464,6 +464,7 @@ extension SessionCell {
                     
                 // MARK: -- HighlightingBackgroundLabel
                 case let accessory as SessionCell.AccessoryConfig.HighlightingBackgroundLabel:
+                    highlightingBackgroundLabel.isAccessibilityElement = (accessory.accessibility != nil)
                     highlightingBackgroundLabel.accessibilityIdentifier = accessory.accessibility?.identifier
                     highlightingBackgroundLabel.accessibilityLabel = accessory.accessibility?.label
                     highlightingBackgroundLabel.text = accessory.title
@@ -476,9 +477,13 @@ extension SessionCell {
                 case let accessory as SessionCell.AccessoryConfig.HighlightingBackgroundLabelAndRadio:
                     let isSelected: Bool = accessory.liveIsSelected()
                     let wasOldSelection: Bool = (!isSelected && accessory.wasSavedSelection)
+                    highlightingBackgroundLabel.isAccessibilityElement = (accessory.labelAccessibility != nil)
                     highlightingBackgroundLabel.accessibilityIdentifier = accessory.labelAccessibility?.identifier
                     highlightingBackgroundLabel.accessibilityLabel = accessory.labelAccessibility?.label
-                    radioView.isAccessibilityElement = true
+                    
+                    radioBorderView.isAccessibilityElement = true
+                    radioBorderView.accessibilityIdentifier = accessory.accessibility?.identifier
+                    radioBorderView.accessibilityLabel = accessory.accessibility?.label
                 
                     if isSelected || wasOldSelection {
                         radioView.accessibilityTraits.insert(.selected)
@@ -503,8 +508,6 @@ extension SessionCell {
                     
                     radioBorderView.layer.cornerRadius = (accessory.size.borderSize / 2)
                     
-                    radioView.accessibilityIdentifier = accessory.accessibility?.identifier
-                    radioView.accessibilityLabel = accessory.accessibility?.label
                     radioView.alpha = (wasOldSelection ? 0.3 : 1)
                     radioView.isHidden = (!isSelected && !accessory.wasSavedSelection)
                     radioView.themeBackgroundColor = {
