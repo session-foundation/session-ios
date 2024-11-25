@@ -28,6 +28,10 @@ class MockJobRunner: Mock<JobRunnerType>, JobRunnerType {
         return mock(args: [jobs, state, variant])
     }
     
+    func deferCount(for jobId: Int64?, of variant: Job.Variant) -> Int {
+        return mock(args: [jobId, variant])
+    }
+    
     func appDidFinishLaunching() {}
     func appDidBecomeActive() {}
     func startNonBlockingQueues() {}

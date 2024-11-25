@@ -3,6 +3,7 @@
 import Foundation
 import Combine
 import GRDB
+import SessionUtil
 import SessionUIKit
 import SessionUtilitiesKit
 import SessionSnodeKit
@@ -68,7 +69,7 @@ public enum ProcessPendingGroupMemberRemovalsJob: JobExecutor {
         
         /// If there are no pending removals then we can just complete
         guard
-            let pendingRemovals: [String: Bool] = try? LibSession.getPendingMemberRemovals(
+            let pendingRemovals: [String: GROUP_MEMBER_STATUS] = try? LibSession.getPendingMemberRemovals(
                 groupSessionId: groupSessionId,
                 using: dependencies
             ),
@@ -87,7 +88,7 @@ public enum ProcessPendingGroupMemberRemovalsJob: JobExecutor {
         )
         let messageSendTimestamp: Int64 = dependencies[cache: .snodeAPI].currentOffsetTimestampMs()
         let memberIdsToRemoveContent: Set<String> = pendingRemovals
-            .filter { _, shouldRemoveContent -> Bool in shouldRemoveContent }
+            .filter { _, status -> Bool in status == GROUP_MEMBER_STATUS_REMOVED_MEMBER_AND_MESSAGES }
             .map { memberId, _ -> String in memberId }
             .asSet()
         

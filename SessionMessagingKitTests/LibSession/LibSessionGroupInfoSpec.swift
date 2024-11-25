@@ -90,6 +90,7 @@ class LibSessionGroupInfoSpec: QuickSpec {
                     .thenReturn(createGroupOutput.groupState[.groupKeys])
                 cache.when { $0.configNeedsDump(.any) }.thenReturn(true)
                 cache.when { try $0.createDump(config: .any, for: .any, sessionId: .any, timestampMs: .any) }.thenReturn(nil)
+                cache.when { try $0.performAndPushChange(.any, for: .any, sessionId: .any, change: { _ in }) }.thenReturn(nil)
             }
         )
         
