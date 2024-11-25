@@ -163,7 +163,7 @@ internal extension LibSession {
     static func getPendingMemberRemovals(
         groupSessionId: SessionId,
         using dependencies: Dependencies
-    ) throws -> [String: Bool] {
+    ) throws -> [String: GROUP_MEMBER_STATUS] {
         return try dependencies.mutate(cache: .libSession) { cache in
             guard case .object(let conf) = cache.config(for: .groupMembers, sessionId: groupSessionId) else {
                 throw LibSessionError.invalidConfigObject
@@ -322,12 +322,7 @@ internal extension LibSession {
                 try memberIds.forEach { memberId in
                     // Only update members if they already exist in the group
                     var cMemberId: [CChar] = try memberId.cString(using: .utf8) ?? { throw LibSessionError.invalidCConversion }()
-                    var groupMember: config_group_member = config_group_member()
-                    
-                    guard groups_members_get(conf, &groupMember, &cMemberId) else { return }
-                    
-                    groupMember.removed = (removeMessages ? 2 : 1)
-                    groups_members_set(conf, &groupMember)
+                    groups_members_set_removed(conf, &cMemberId, removeMessages)
                     try LibSessionError.throwIfNeeded(conf)
                 }
             }
@@ -381,26 +376,20 @@ internal extension LibSession {
                     var cMemberId: [CChar] = try member.profileId.cString(using: .utf8) ?? {
                         throw LibSessionError.invalidCConversion
                     }()
-                    var groupMember: config_group_member = config_group_member()
-                    
-                    guard groups_members_get(conf, &groupMember, &cMemberId) else {
-                        return
-                    }
                     
                     // Update the role and status to match
-                    switch member.role {
-                        case .admin:
-                            groupMember.admin = true
-                            groupMember.invited = 0
-                            groupMember.promoted = member.roleStatus.libSessionValue
-                            
-                        default:
-                            groupMember.admin = false
-                            groupMember.invited = member.roleStatus.libSessionValue
-                            groupMember.promoted = 0
+                    switch (member.role, member.roleStatus) {
+                        case (.admin, .accepted): groups_members_set_promotion_accepted(conf, &cMemberId)
+                        case (.admin, .failed): groups_members_set_promotion_failed(conf, &cMemberId)
+                        case (.admin, .pending): groups_members_set_promotion_sent(conf, &cMemberId)
+                        case (.admin, .notSentYet): groups_members_set_promoted(conf, &cMemberId)
+                        
+                        case (_, .accepted): groups_members_set_invite_accepted(conf, &cMemberId)
+                        case (_, .failed): groups_members_set_invite_failed(conf, &cMemberId)
+                        case (_, .pending): groups_members_set_invite_sent(conf, &cMemberId)
+                        case (_, .notSentYet): break    // Default state (can't return to this after creation)
                     }
                     
-                    groups_members_set(conf, &groupMember)
                     try LibSessionError.throwIfNeeded(conf)
                 }
             }
@@ -434,23 +423,17 @@ internal extension LibSession {
         
         while !groups_members_iterator_done(membersIterator, &member) {
             try LibSession.checkLoopLimitReached(&infiniteLoopGuard, for: .groupMembers)
+            let status: GROUP_MEMBER_STATUS = group_member_status(&member);
             
             // Ignore members pending removal
-            guard member.removed == 0 else { continue }
+            guard !status.isRemoveStatus else { continue }
             
             result.append(
                 GroupMember(
                     groupId: groupSessionId.hexString,
                     profileId: member.get(\.session_id),
-                    role: (member.admin || (member.promoted > 0) ? .admin : .standard),
-                    roleStatus: {
-                        switch (member.invited, member.promoted, member.admin) {
-                            case (2, _, _), (_, 2, _): return .failed               // Explicitly failed
-                            case (3, _, _), (_, 3, _): return .notSentYet           // Explicitly notSentYet
-                            case (1..., _, _), (_, 1..., _): return .pending        // Pending if not one of the above
-                            default: return .accepted                               // Otherwise it's accepted
-                        }
-                    }(),
+                    role: (status.isAdmin(member.get(\.admin)) ? .admin : .standard),
+                    roleStatus: status.roleStatus,
                     isHidden: false
                 )
             )
@@ -465,21 +448,22 @@ internal extension LibSession {
     static func extractPendingRemovals(
         from conf: UnsafeMutablePointer<config_object>?,
         groupSessionId: SessionId
-    ) throws -> [String: Bool] {
+    ) throws -> [String: GROUP_MEMBER_STATUS] {
         var infiniteLoopGuard: Int = 0
-        var result: [String: Bool] = [:]
+        var result: [String: GROUP_MEMBER_STATUS] = [:]
         var member: config_group_member = config_group_member()
         let membersIterator: UnsafeMutablePointer<groups_members_iterator> = groups_members_iterator_new(conf)
         
         while !groups_members_iterator_done(membersIterator, &member) {
             try LibSession.checkLoopLimitReached(&infiniteLoopGuard, for: .groupMembers)
+            let status: GROUP_MEMBER_STATUS = group_member_status(&member);
             
-            guard member.removed > 0 else {
+            guard status.isRemoveStatus else {
                 groups_members_iterator_advance(membersIterator)
                 continue
             }
             
-            result[member.get(\.session_id)] = (member.removed == 2)
+            result[member.get(\.session_id)] = status
             groups_members_iterator_advance(membersIterator)
         }
         groups_members_iterator_free(membersIterator) // Need to free the iterator
@@ -533,6 +517,48 @@ fileprivate extension GroupMember.RoleStatus {
             case .pending: return Int32(INVITE_SENT.rawValue)
             case .failed: return Int32(INVITE_FAILED.rawValue)
             case .notSentYet: return Int32(INVITE_NOT_SENT.rawValue)
+        }
+    }
+}
+
+fileprivate extension GROUP_MEMBER_STATUS {
+    func isAdmin(_ memberAdminFlag: Bool) -> Bool {
+        switch self {
+            case GROUP_MEMBER_STATUS_PROMOTION_UNKNOWN, GROUP_MEMBER_STATUS_PROMOTION_NOT_SENT,
+                GROUP_MEMBER_STATUS_PROMOTION_FAILED, GROUP_MEMBER_STATUS_PROMOTION_SENT,
+                GROUP_MEMBER_STATUS_PROMOTION_ACCEPTED:
+                return true
+                
+            default: return memberAdminFlag
+        }
+    }
+    
+    var roleStatus: GroupMember.RoleStatus {
+        switch self {
+            case GROUP_MEMBER_STATUS_INVITE_NOT_SENT, GROUP_MEMBER_STATUS_PROMOTION_NOT_SENT:
+                return .notSentYet
+            
+            case GROUP_MEMBER_STATUS_INVITE_ACCEPTED, GROUP_MEMBER_STATUS_PROMOTION_ACCEPTED:
+                return .accepted
+                
+            case GROUP_MEMBER_STATUS_INVITE_FAILED, GROUP_MEMBER_STATUS_PROMOTION_FAILED:
+                return .failed
+            
+            case GROUP_MEMBER_STATUS_INVITE_SENT, GROUP_MEMBER_STATUS_PROMOTION_SENT:
+                return .pending
+            
+            // Default to "accepted" as that's what the `libSession.groups.member.status()` function does
+            default: return .accepted
+        }
+    }
+    
+    var isRemoveStatus: Bool {
+        switch self {
+            case GROUP_MEMBER_STATUS_REMOVED, GROUP_MEMBER_STATUS_REMOVED_UNKNOWN,
+                GROUP_MEMBER_STATUS_REMOVED_MEMBER_AND_MESSAGES:
+                return true
+                
+            default: return false
         }
     }
 }
