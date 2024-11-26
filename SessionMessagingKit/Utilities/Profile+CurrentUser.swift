@@ -131,9 +131,23 @@ public extension Profile {
         let profile: Profile = Profile.fetchOrCreate(db, id: publicKey)
         var profileChanges: [ConfigColumnAssignment] = []
         
+        /// There were some bugs (somewhere) where some of these timestamps valid could be in seconds or milliseconds so we need to try to
+        /// detect this and convert it to proper seconds (if we don't then we will never update the profile)
+        func convertToSections(_ maybeValue: Double?) -> TimeInterval {
+            guard let value: Double = maybeValue else { return 0 }
+            
+            if value > 9_000_000_000_000 {  // Microseconds
+                return (value / 1_000_000)
+            } else if value > 9_000_000_000 {  // Milliseconds
+                return (value / 1000)
+            }
+            
+            return TimeInterval(value)  // Seconds
+        }
+        
         // Name
         // FIXME: This 'lastNameUpdate' approach is buggy - we should have a timestamp on the ConvoInfoVolatile
-        switch (displayNameUpdate, isCurrentUser, (sentTimestamp > (profile.lastNameUpdate ?? 0))) {
+        switch (displayNameUpdate, isCurrentUser, (sentTimestamp > convertToSections(profile.lastNameUpdate))) {
             case (.none, _, _): break
             case (.currentUserUpdate(let name), true, _), (.contactUpdate(let name), false, true):
                 guard let name: String = name, !name.isEmpty, name != profile.name else { break }
@@ -146,7 +160,7 @@ public extension Profile {
         }
         
         // Blocks community message requests flag
-        if let blocksCommunityMessageRequests: Bool = blocksCommunityMessageRequests, sentTimestamp > (profile.lastBlocksCommunityMessageRequests ?? 0) {
+        if let blocksCommunityMessageRequests: Bool = blocksCommunityMessageRequests, sentTimestamp > convertToSections(profile.lastBlocksCommunityMessageRequests) {
             profileChanges.append(Profile.Columns.blocksCommunityMessageRequests.set(to: blocksCommunityMessageRequests))
             profileChanges.append(Profile.Columns.lastBlocksCommunityMessageRequests.set(to: sentTimestamp))
         }

@@ -182,8 +182,7 @@ public extension ClosedGroup {
         case userGroup
     }
     
-    /// Approves the group and returns the `Poller.receivedPollResult` publisher for the group
-    static func approveGroup(
+    static func approveGroupIfNeeded(
         _ db: Database,
         group: ClosedGroup,
         calledFromConfig configTriggeringChange: ConfigDump.Variant?,
@@ -206,16 +205,24 @@ public extension ClosedGroup {
                 )
         }
         
-        /// Wait until after the transaction completes before creating the group state (this is needed as it's possible that
+        /// Wait until after the transaction completes before creating the group state if needed (this is needed as it's possible that
         /// we are already mutating the `libSessionCache` when this function gets called)
         db.afterNextTransaction { db in
-            _ = try? LibSession.createGroupState(
-                groupSessionId: SessionId(.group, hex: group.id),
-                userED25519KeyPair: userED25519KeyPair,
-                groupIdentityPrivateKey: group.groupIdentityPrivateKey,
-                shouldLoadState: true,
-                using: dependencies
-            )
+            dependencies.mutate(cache: .libSession) { cache in
+                let groupSessionId: SessionId = .init(.group, hex: group.id)
+                
+                guard
+                    !cache.hasConfig(for: .groupKeys, sessionId: groupSessionId) ||
+                    !cache.hasConfig(for: .groupInfo, sessionId: groupSessionId) ||
+                    !cache.hasConfig(for: .groupMembers, sessionId: groupSessionId)
+                else { return }
+                
+                _ = try? cache.createAndLoadGroupState(
+                    groupSessionId: groupSessionId,
+                    userED25519KeyPair: userED25519KeyPair,
+                    groupIdentityPrivateKey: group.groupIdentityPrivateKey
+                )
+            }
         }
         
         /// Update the `USER_GROUPS` config
@@ -364,13 +371,10 @@ public extension ClosedGroup {
             /// re-invited to the group with historic access (these are repeatable records so won't cause issues if we re-run them)
             try ControlMessageProcessRecord
                 .filter(threadIds.contains(ControlMessageProcessRecord.Columns.threadId))
-                .filter([
-                    ControlMessageProcessRecord.Variant.visibleMessageDedupe,
-                    ControlMessageProcessRecord.Variant.groupUpdateInfoChange,
-                    ControlMessageProcessRecord.Variant.groupUpdateMemberChange,
-                    ControlMessageProcessRecord.Variant.groupUpdateMemberLeft,
-                    ControlMessageProcessRecord.Variant.groupUpdateDeleteMemberContent
-                ].contains(ControlMessageProcessRecord.Columns.variant))
+                .filter(
+                    ControlMessageProcessRecord.Variant.variantsToBeReprocessedAfterLeavingAndRejoiningConversation
+                        .contains(ControlMessageProcessRecord.Columns.variant)
+                )
                 .deleteAll(db)
             
             /// Also want to delete the `SnodeReceivedMessageInfo` so if the member gets re-invited to the group with

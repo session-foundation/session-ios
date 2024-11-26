@@ -16,7 +16,9 @@ public final class GroupUpdateMemberLeftNotificationMessage: ControlMessage {
     /// to having the same keys
     private let memberLeftCodableId: UUID = UUID()
     
-    override public var processWithBlockedSender: Bool { true }
+    public override var isSelfSendValid: Bool { true }
+    
+    public override var processWithBlockedSender: Bool { true }
     
     // MARK: - Proto Conversion
     

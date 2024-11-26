@@ -595,12 +595,12 @@ public enum MessageReceiver {
             switch message {
                 case is GroupUpdateInviteResponseMessage: return false
                 case is GroupUpdateDeleteMemberContentMessage: return false
-                    // TODO: Add the 'memberLeft' (non UI based one) here
+                case is GroupUpdateMemberLeftMessage: return false
                 default: break
             }
             
             // Note: 'sentTimestamp' is in milliseconds so convert it
-            let messageSentTimestamp: TimeInterval = TimeInterval((message.sentTimestampMs ?? 0) * 1000)
+            let messageSentTimestamp: TimeInterval = TimeInterval((message.sentTimestampMs ?? 0) / 1000)
             let deletionInfo: (deleteBefore: TimeInterval, deleteAttachmentsBefore: TimeInterval) = dependencies.mutate(cache: .libSession) { cache in
                 let config: LibSession.Config? = cache.config(for: .groupInfo, sessionId: SessionId(.group, hex: threadId))
                 

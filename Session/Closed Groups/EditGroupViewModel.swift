@@ -93,7 +93,13 @@ class EditGroupViewModel: SessionTableViewModel, NavigatableStateHolder, Editabl
     
     let title: String = "groupEdit".localized()
     
-    var bannerInfo: AnyPublisher<InfoBanner.Info?, Never> { Just(EditGroupViewModel.minVersionBannerInfo).eraseToAnyPublisher() }
+    var bannerInfo: AnyPublisher<InfoBanner.Info?, Never> {
+        guard (try? SessionId.Prefix(from: threadId)) == .group else {
+            return Just(nil).eraseToAnyPublisher()
+        }
+        
+        return Just(EditGroupViewModel.minVersionBannerInfo).eraseToAnyPublisher()
+    }
     
     lazy var observation: TargetObservation = ObservationBuilder
         .databaseObservation(self) { [dependencies, threadId, userSessionId] db -> State in
@@ -419,7 +425,9 @@ class EditGroupViewModel: SessionTableViewModel, NavigatableStateHolder, Editabl
             SessionTableViewController(
                 viewModel: UserListViewModel<Contact>(
                     title: "membersInvite".localized(),
-                    infoBanner: EditGroupViewModel.minVersionBannerInfo,
+                    infoBanner: ((try? SessionId.Prefix(from: threadId)) != .group ? nil :
+                        EditGroupViewModel.minVersionBannerInfo
+                    ),
                     emptyState: "contactNone".localized(),
                     showProfileIcons: true,
                     request: SQLRequest("""

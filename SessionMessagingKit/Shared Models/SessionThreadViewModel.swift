@@ -51,6 +51,7 @@ public struct SessionThreadViewModel: FetchableRecordWithRowId, Decodable, Equat
         case closedGroupProfileFront
         case closedGroupProfileBack
         case closedGroupProfileBackFallback
+        case closedGroupAdminProfile
         case closedGroupName
         case closedGroupDescription
         case closedGroupUserCount
@@ -84,6 +85,7 @@ public struct SessionThreadViewModel: FetchableRecordWithRowId, Decodable, Equat
         case currentUserBlinded25SessionId
         case recentReactionEmoji
         case wasKickedFromGroup
+        case groupIsDestroyed
     }
     
     public var differenceIdentifier: String { threadId }
@@ -132,6 +134,7 @@ public struct SessionThreadViewModel: FetchableRecordWithRowId, Decodable, Equat
                 )
                 
             case .group:
+                guard groupIsDestroyed != true else { return false }
                 guard wasKickedFromGroup != true else { return false }
                 guard threadIsMessageRequest == false else { return true }
                 
@@ -155,6 +158,7 @@ public struct SessionThreadViewModel: FetchableRecordWithRowId, Decodable, Equat
     private let closedGroupProfileFront: Profile?
     private let closedGroupProfileBack: Profile?
     private let closedGroupProfileBackFallback: Profile?
+    public let closedGroupAdminProfile: Profile?
     public let closedGroupName: String?
     private let closedGroupDescription: String?
     private let closedGroupUserCount: Int?
@@ -188,6 +192,7 @@ public struct SessionThreadViewModel: FetchableRecordWithRowId, Decodable, Equat
     public let currentUserBlinded25SessionId: String?
     public let recentReactionEmoji: [String]?
     public let wasKickedFromGroup: Bool?
+    public let groupIsDestroyed: Bool?
     
     // UI specific logic
     
@@ -396,6 +401,7 @@ public extension SessionThreadViewModel {
         threadIsMessageRequest: Bool? = nil,
         threadIsBlocked: Bool? = nil,
         contactProfile: Profile? = nil,
+        closedGroupAdminProfile: Profile? = nil,
         currentUserIsClosedGroupMember: Bool? = nil,
         currentUserIsClosedGroupAdmin: Bool? = nil,
         openGroupPermissions: OpenGroup.Permissions? = nil,
@@ -437,6 +443,7 @@ public extension SessionThreadViewModel {
         self.closedGroupProfileFront = nil
         self.closedGroupProfileBack = nil
         self.closedGroupProfileBackFallback = nil
+        self.closedGroupAdminProfile = closedGroupAdminProfile
         self.closedGroupName = nil
         self.closedGroupDescription = nil
         self.closedGroupUserCount = nil
@@ -470,6 +477,7 @@ public extension SessionThreadViewModel {
         self.currentUserBlinded25SessionId = nil
         self.recentReactionEmoji = nil
         self.wasKickedFromGroup = false
+        self.groupIsDestroyed = false
     }
 }
 
@@ -507,6 +515,7 @@ public extension SessionThreadViewModel {
             closedGroupProfileFront: self.closedGroupProfileFront,
             closedGroupProfileBack: self.closedGroupProfileBack,
             closedGroupProfileBackFallback: self.closedGroupProfileBackFallback,
+            closedGroupAdminProfile: self.closedGroupAdminProfile,
             closedGroupName: self.closedGroupName,
             closedGroupDescription: self.closedGroupDescription,
             closedGroupUserCount: self.closedGroupUserCount,
@@ -535,7 +544,8 @@ public extension SessionThreadViewModel {
             currentUserBlinded15SessionId: self.currentUserBlinded15SessionId,
             currentUserBlinded25SessionId: self.currentUserBlinded25SessionId,
             recentReactionEmoji: (recentReactionEmoji ?? self.recentReactionEmoji),
-            wasKickedFromGroup: self.wasKickedFromGroup
+            wasKickedFromGroup: self.wasKickedFromGroup,
+            groupIsDestroyed: self.groupIsDestroyed
         )
     }
     
@@ -544,6 +554,7 @@ public extension SessionThreadViewModel {
         currentUserBlinded15SessionIdForThisThread: String?,
         currentUserBlinded25SessionIdForThisThread: String?,
         wasKickedFromGroup: Bool,
+        groupIsDestroyed: Bool,
         using dependencies: Dependencies
     ) -> SessionThreadViewModel {
         return SessionThreadViewModel(
@@ -574,6 +585,7 @@ public extension SessionThreadViewModel {
             closedGroupProfileFront: self.closedGroupProfileFront,
             closedGroupProfileBack: self.closedGroupProfileBack,
             closedGroupProfileBackFallback: self.closedGroupProfileBackFallback,
+            closedGroupAdminProfile: self.closedGroupAdminProfile,
             closedGroupName: self.closedGroupName,
             closedGroupDescription: self.closedGroupDescription,
             closedGroupUserCount: self.closedGroupUserCount,
@@ -620,7 +632,8 @@ public extension SessionThreadViewModel {
                 )?.hexString
             ),
             recentReactionEmoji: self.recentReactionEmoji,
-            wasKickedFromGroup: wasKickedFromGroup
+            wasKickedFromGroup: wasKickedFromGroup,
+            groupIsDestroyed: groupIsDestroyed
         )
     }
 }
@@ -700,6 +713,7 @@ public extension SessionThreadViewModel {
             let closedGroupProfileFront: TypedTableAlias<Profile> = TypedTableAlias(ViewModel.self, column: .closedGroupProfileFront)
             let closedGroupProfileBack: TypedTableAlias<Profile> = TypedTableAlias(ViewModel.self, column: .closedGroupProfileBack)
             let closedGroupProfileBackFallback: TypedTableAlias<Profile> = TypedTableAlias(ViewModel.self, column: .closedGroupProfileBackFallback)
+            let closedGroupAdminProfile: TypedTableAlias<Profile> = TypedTableAlias(ViewModel.self, column: .closedGroupAdminProfile)
             let groupMember: TypedTableAlias<GroupMember> = TypedTableAlias()
             let openGroup: TypedTableAlias<OpenGroup> = TypedTableAlias()
             
@@ -739,6 +753,7 @@ public extension SessionThreadViewModel {
                     \(closedGroupProfileFront.allColumns),
                     \(closedGroupProfileBack.allColumns),
                     \(closedGroupProfileBackFallback.allColumns),
+                    \(closedGroupAdminProfile.allColumns),
                     \(closedGroup[.name]) AS \(ViewModel.Columns.closedGroupName),
 
                     EXISTS (
@@ -861,6 +876,17 @@ public extension SessionThreadViewModel {
                     \(closedGroupProfileBack[.id]) IS NULL AND
                     \(closedGroupProfileBackFallback[.id]) = \(SQL("\(userSessionId.hexString)"))
                 )
+                LEFT JOIN \(closedGroupAdminProfile) ON (
+                    \(closedGroupAdminProfile[.id]) = (
+                        SELECT MIN(\(groupMember[.profileId]))
+                        FROM \(GroupMember.self)
+                        JOIN \(Profile.self) ON \(profile[.id]) = \(groupMember[.profileId])
+                        WHERE (
+                            \(groupMember[.groupId]) = \(closedGroup[.threadId]) AND
+                            \(SQL("\(groupMember[.role]) = \(GroupMember.Role.admin)"))
+                        )
+                    )
+                )
 
                 WHERE \(thread[.rowId]) IN \(rowIds)
                 \(groupSQL)
@@ -874,6 +900,7 @@ public extension SessionThreadViewModel {
                     Profile.numberOfSelectedColumns(db),
                     Profile.numberOfSelectedColumns(db),
                     Profile.numberOfSelectedColumns(db),
+                    Profile.numberOfSelectedColumns(db),
                     numColumnsBetweenProfilesAndAttachmentInfo,
                     Attachment.DescriptionInfo.numberOfSelectedColumns()
                 ])
@@ -883,7 +910,8 @@ public extension SessionThreadViewModel {
                     .closedGroupProfileFront: adapters[2],
                     .closedGroupProfileBack: adapters[3],
                     .closedGroupProfileBackFallback: adapters[4],
-                    .interactionAttachmentDescriptionInfo: adapters[6]
+                    .closedGroupAdminProfile: adapters[5],
+                    .interactionAttachmentDescriptionInfo: adapters[7]
                 ])
             }
         }
@@ -1128,6 +1156,7 @@ public extension SessionThreadViewModel {
         let closedGroupProfileFront: TypedTableAlias<Profile> = TypedTableAlias(ViewModel.self, column: .closedGroupProfileFront)
         let closedGroupProfileBack: TypedTableAlias<Profile> = TypedTableAlias(ViewModel.self, column: .closedGroupProfileBack)
         let closedGroupProfileBackFallback: TypedTableAlias<Profile> = TypedTableAlias(ViewModel.self, column: .closedGroupProfileBackFallback)
+        let closedGroupAdminProfile: TypedTableAlias<Profile> = TypedTableAlias(ViewModel.self, column: .closedGroupAdminProfile)
         let groupMember: TypedTableAlias<GroupMember> = TypedTableAlias()
         let openGroup: TypedTableAlias<OpenGroup> = TypedTableAlias()
         let profile: TypedTableAlias<Profile> = TypedTableAlias()
@@ -1155,6 +1184,7 @@ public extension SessionThreadViewModel {
                 \(closedGroupProfileFront.allColumns),
                 \(closedGroupProfileBack.allColumns),
                 \(closedGroupProfileBackFallback.allColumns),
+                \(closedGroupAdminProfile.allColumns),
         
                 \(closedGroup[.name]) AS \(ViewModel.Columns.closedGroupName),
                 \(closedGroup[.groupDescription]) AS \(ViewModel.Columns.closedGroupDescription),
@@ -1228,7 +1258,8 @@ public extension SessionThreadViewModel {
                 \(closedGroup[.threadId]) IS NOT NULL AND
                 \(closedGroupProfileBack[.id]) IS NULL AND
                 \(closedGroupProfileBackFallback[.id]) = \(SQL("\(userSessionId.hexString)"))
-            )
+            )            
+            LEFT JOIN \(closedGroupAdminProfile.never)
             
             WHERE \(SQL("\(thread[.id]) = \(threadId)"))
         """
@@ -1239,6 +1270,7 @@ public extension SessionThreadViewModel {
                 Profile.numberOfSelectedColumns(db),
                 Profile.numberOfSelectedColumns(db),
                 Profile.numberOfSelectedColumns(db),
+                Profile.numberOfSelectedColumns(db),
                 Profile.numberOfSelectedColumns(db)
             ])
             
@@ -1246,7 +1278,8 @@ public extension SessionThreadViewModel {
                 .contactProfile: adapters[1],
                 .closedGroupProfileFront: adapters[2],
                 .closedGroupProfileBack: adapters[3],
-                .closedGroupProfileBackFallback: adapters[4]
+                .closedGroupProfileBackFallback: adapters[4],
+                .closedGroupAdminProfile: adapters[5]
             ])
         }
     }
@@ -1339,6 +1372,7 @@ public extension SessionThreadViewModel {
         let closedGroupProfileFront: TypedTableAlias<Profile> = TypedTableAlias(ViewModel.self, column: .closedGroupProfileFront)
         let closedGroupProfileBack: TypedTableAlias<Profile> = TypedTableAlias(ViewModel.self, column: .closedGroupProfileBack)
         let closedGroupProfileBackFallback: TypedTableAlias<Profile> = TypedTableAlias(ViewModel.self, column: .closedGroupProfileBackFallback)
+        let closedGroupAdminProfile: TypedTableAlias<Profile> = TypedTableAlias(ViewModel.self, column: .closedGroupAdminProfile)
         let groupMember: TypedTableAlias<GroupMember> = TypedTableAlias()
         let openGroup: TypedTableAlias<OpenGroup> = TypedTableAlias()
         let interactionFullTextSearch: TypedTableAlias<Interaction.FullTextSearch> = TypedTableAlias(name: Interaction.fullTextSearchTableName)
@@ -1363,6 +1397,7 @@ public extension SessionThreadViewModel {
                 \(closedGroupProfileFront.allColumns),
                 \(closedGroupProfileBack.allColumns),
                 \(closedGroupProfileBackFallback.allColumns),
+                \(closedGroupAdminProfile.allColumns),
                 \(closedGroup[.name]) AS \(ViewModel.Columns.closedGroupName),
                 \(openGroup[.name]) AS \(ViewModel.Columns.openGroupName),
         
@@ -1421,7 +1456,8 @@ public extension SessionThreadViewModel {
                 \(closedGroup[.threadId]) IS NOT NULL AND
                 \(closedGroupProfileBack[.id]) IS NULL AND
                 \(closedGroupProfileBackFallback[.id]) = \(userSessionId.hexString)
-            )
+            )            
+            LEFT JOIN \(closedGroupAdminProfile.never)
         
             ORDER BY \(Column.rank), \(interaction[.timestampMs].desc)
             LIMIT \(SQL("\(SessionThreadViewModel.searchResultsLimit)"))
@@ -1433,6 +1469,7 @@ public extension SessionThreadViewModel {
                 Profile.numberOfSelectedColumns(db),
                 Profile.numberOfSelectedColumns(db),
                 Profile.numberOfSelectedColumns(db),
+                Profile.numberOfSelectedColumns(db),
                 Profile.numberOfSelectedColumns(db)
             ])
             
@@ -1440,7 +1477,8 @@ public extension SessionThreadViewModel {
                 .contactProfile: adapters[1],
                 .closedGroupProfileFront: adapters[2],
                 .closedGroupProfileBack: adapters[3],
-                .closedGroupProfileBackFallback: adapters[4]
+                .closedGroupProfileBackFallback: adapters[4],
+                .closedGroupAdminProfile: adapters[5]
             ])
         }
     }
@@ -1468,6 +1506,7 @@ public extension SessionThreadViewModel {
         let closedGroupProfileFront: TypedTableAlias<Profile> = TypedTableAlias(ViewModel.self, column: .closedGroupProfileFront)
         let closedGroupProfileBack: TypedTableAlias<Profile> = TypedTableAlias(ViewModel.self, column: .closedGroupProfileBack)
         let closedGroupProfileBackFallback: TypedTableAlias<Profile> = TypedTableAlias(ViewModel.self, column: .closedGroupProfileBackFallback)
+        let closedGroupAdminProfile: TypedTableAlias<Profile> = TypedTableAlias(ViewModel.self, column: .closedGroupAdminProfile)
         let groupMember: TypedTableAlias<GroupMember> = TypedTableAlias()
         let groupMemberProfile: TypedTableAlias<Profile> = TypedTableAlias(name: "groupMemberProfile")
         let openGroup: TypedTableAlias<OpenGroup> = TypedTableAlias()
@@ -1506,6 +1545,7 @@ public extension SessionThreadViewModel {
                 \(closedGroupProfileFront.allColumns),
                 \(closedGroupProfileBack.allColumns),
                 \(closedGroupProfileBackFallback.allColumns),
+                \(closedGroupAdminProfile.allColumns),
                 \(closedGroup[.name]) AS \(ViewModel.Columns.closedGroupName),
                 \(openGroup[.name]) AS \(ViewModel.Columns.openGroupName),
         
@@ -1527,6 +1567,7 @@ public extension SessionThreadViewModel {
             LEFT JOIN \(closedGroupProfileFront.never)
             LEFT JOIN \(closedGroupProfileBack.never)
             LEFT JOIN \(closedGroupProfileBackFallback.never)
+            LEFT JOIN \(closedGroupAdminProfile.never)
             LEFT JOIN \(closedGroup.never)
             LEFT JOIN \(openGroup.never)
             LEFT JOIN \(groupMemberInfo.never)
@@ -1607,6 +1648,7 @@ public extension SessionThreadViewModel {
                 \(closedGroupProfileBack[.id]) IS NULL AND
                 \(closedGroupProfileBackFallback[.id]) = \(userSessionId.hexString)
             )
+            LEFT JOIN \(closedGroupAdminProfile.never)
         
             LEFT JOIN \(contactProfile.never)
             LEFT JOIN \(openGroup.never)
@@ -1683,6 +1725,7 @@ public extension SessionThreadViewModel {
             LEFT JOIN \(closedGroupProfileFront.never)
             LEFT JOIN \(closedGroupProfileBack.never)
             LEFT JOIN \(closedGroupProfileBackFallback.never)
+            LEFT JOIN \(closedGroupAdminProfile.never)
             LEFT JOIN \(closedGroup.never)
             LEFT JOIN \(groupMemberInfo.never)
         
@@ -1698,6 +1741,7 @@ public extension SessionThreadViewModel {
             LEFT JOIN \(closedGroupProfileFront.never)
             LEFT JOIN \(closedGroupProfileBack.never)
             LEFT JOIN \(closedGroupProfileBackFallback.never)
+            LEFT JOIN \(closedGroupAdminProfile.never)
             LEFT JOIN \(openGroup.never)
             LEFT JOIN \(closedGroup.never)
             LEFT JOIN \(groupMemberInfo.never)
@@ -1781,6 +1825,7 @@ public extension SessionThreadViewModel {
                 \(closedGroupProfileFront.allColumns),
                 \(closedGroupProfileBack.allColumns),
                 \(closedGroupProfileBackFallback.allColumns),
+                \(closedGroupAdminProfile.allColumns),
                 \(closedGroup[.name]) AS \(ViewModel.Columns.closedGroupName),
                 \(openGroup[.name]) AS \(ViewModel.Columns.openGroupName),
                 
@@ -1800,6 +1845,7 @@ public extension SessionThreadViewModel {
             LEFT JOIN \(closedGroupProfileFront.never)
             LEFT JOIN \(closedGroupProfileBack.never)
             LEFT JOIN \(closedGroupProfileBackFallback.never)
+            LEFT JOIN \(closedGroupAdminProfile.never)
             LEFT JOIN \(closedGroup.never)
             LEFT JOIN \(openGroup.never)
             LEFT JOIN \(groupMemberInfo.never)
@@ -1882,6 +1928,7 @@ public extension SessionThreadViewModel {
                 Profile.numberOfSelectedColumns(db),
                 Profile.numberOfSelectedColumns(db),
                 Profile.numberOfSelectedColumns(db),
+                Profile.numberOfSelectedColumns(db),
                 Profile.numberOfSelectedColumns(db)
             ])
 
@@ -1889,7 +1936,8 @@ public extension SessionThreadViewModel {
                 .contactProfile: adapters[1],
                 .closedGroupProfileFront: adapters[2],
                 .closedGroupProfileBack: adapters[3],
-                .closedGroupProfileBackFallback: adapters[4]
+                .closedGroupProfileBackFallback: adapters[4],
+                .closedGroupAdminProfile: adapters[5]
             ])
         }
     }
@@ -1995,6 +2043,7 @@ public extension SessionThreadViewModel {
         let closedGroupProfileFront: TypedTableAlias<Profile> = TypedTableAlias(ViewModel.self, column: .closedGroupProfileFront)
         let closedGroupProfileBack: TypedTableAlias<Profile> = TypedTableAlias(ViewModel.self, column: .closedGroupProfileBack)
         let closedGroupProfileBackFallback: TypedTableAlias<Profile> = TypedTableAlias(ViewModel.self, column: .closedGroupProfileBackFallback)
+        let closedGroupAdminProfile: TypedTableAlias<Profile> = TypedTableAlias(ViewModel.self, column: .closedGroupAdminProfile)
         let groupMember: TypedTableAlias<GroupMember> = TypedTableAlias()
         let openGroup: TypedTableAlias<OpenGroup> = TypedTableAlias()
         let profile: TypedTableAlias<Profile> = TypedTableAlias()
@@ -2030,6 +2079,7 @@ public extension SessionThreadViewModel {
                 \(closedGroupProfileFront.allColumns),
                 \(closedGroupProfileBack.allColumns),
                 \(closedGroupProfileBackFallback.allColumns),
+                \(closedGroupAdminProfile.allColumns),
                 \(closedGroup[.name]) AS \(ViewModel.Columns.closedGroupName),
         
                 EXISTS (
@@ -2109,6 +2159,7 @@ public extension SessionThreadViewModel {
                 \(closedGroupProfileBack[.id]) IS NULL AND
                 \(closedGroupProfileBackFallback[.id]) = \(SQL("\(userSessionId.hexString)"))
             )
+            LEFT JOIN \(closedGroupAdminProfile.never)
             
             WHERE (
                 \(thread[.shouldBeVisible]) = true AND
@@ -2133,6 +2184,7 @@ public extension SessionThreadViewModel {
                 Profile.numberOfSelectedColumns(db),
                 Profile.numberOfSelectedColumns(db),
                 Profile.numberOfSelectedColumns(db),
+                Profile.numberOfSelectedColumns(db),
                 Profile.numberOfSelectedColumns(db)
             ])
             
@@ -2140,7 +2192,8 @@ public extension SessionThreadViewModel {
                 .contactProfile: adapters[1],
                 .closedGroupProfileFront: adapters[2],
                 .closedGroupProfileBack: adapters[3],
-                .closedGroupProfileBackFallback: adapters[4]
+                .closedGroupProfileBackFallback: adapters[4],
+                .closedGroupAdminProfile: adapters[5]
             ])
         }
     }

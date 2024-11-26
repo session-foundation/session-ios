@@ -249,10 +249,7 @@ final class ConversationVC: BaseVC, LibSessionRespondingViewController, Conversa
                 onTap: { [weak self] in self?.openUrl(Features.legacyGroupDepricationUrl) }
             )
         )
-        result.isHidden = (
-            self.viewModel.threadData.threadVariant != .legacyGroup ||
-            self.viewModel.threadData.currentUserIsClosedGroupAdmin != true
-        )
+        result.isHidden = (self.viewModel.threadData.threadVariant != .legacyGroup)
         
         return result
     }()
@@ -342,6 +339,7 @@ final class ConversationVC: BaseVC, LibSessionRespondingViewController, Conversa
         canWrite: self.viewModel.threadData.canWrite(using: self.viewModel.dependencies),
         threadIsMessageRequest: (self.viewModel.threadData.threadIsMessageRequest == true),
         threadRequiresApproval: (self.viewModel.threadData.threadRequiresApproval == true),
+        closedGroupAdminProfile: self.viewModel.threadData.closedGroupAdminProfile,
         onBlock: { [weak self] in self?.blockMessageRequest() },
         onAccept: { [weak self] in self?.acceptMessageRequest() },
         onDecline: { [weak self] in self?.declineMessageRequest() }
@@ -751,7 +749,8 @@ final class ConversationVC: BaseVC, LibSessionRespondingViewController, Conversa
             viewModel.threadData.canWrite(using: viewModel.dependencies) != updatedThreadData.canWrite(using: viewModel.dependencies) ||
             viewModel.threadData.threadVariant != updatedThreadData.threadVariant ||
             viewModel.threadData.threadIsMessageRequest != updatedThreadData.threadIsMessageRequest ||
-            viewModel.threadData.threadRequiresApproval != updatedThreadData.threadRequiresApproval
+            viewModel.threadData.threadRequiresApproval != updatedThreadData.threadRequiresApproval ||
+            viewModel.threadData.closedGroupAdminProfile != updatedThreadData.closedGroupAdminProfile
         {
             if updatedThreadData.canWrite(using: viewModel.dependencies) {
                 self.showInputAccessoryView()
@@ -766,7 +765,8 @@ final class ConversationVC: BaseVC, LibSessionRespondingViewController, Conversa
                     threadVariant: updatedThreadData.threadVariant,
                     canWrite: updatedThreadData.canWrite(using: dependencies),
                     threadIsMessageRequest: (updatedThreadData.threadIsMessageRequest == true),
-                    threadRequiresApproval: (updatedThreadData.threadRequiresApproval == true)
+                    threadRequiresApproval: (updatedThreadData.threadRequiresApproval == true),
+                    closedGroupAdminProfile: updatedThreadData.closedGroupAdminProfile
                 )
                 self?.scrollButtonMessageRequestsBottomConstraint?.isActive = (
                     self?.messageRequestFooterView.isHidden == false
@@ -806,10 +806,7 @@ final class ConversationVC: BaseVC, LibSessionRespondingViewController, Conversa
             viewModel.threadData.threadVariant != updatedThreadData.threadVariant ||
             viewModel.threadData.currentUserIsClosedGroupAdmin != updatedThreadData.currentUserIsClosedGroupAdmin
         {
-            legacyGroupsBanner.isHidden = (
-                updatedThreadData.threadVariant != .legacyGroup ||
-                updatedThreadData.currentUserIsClosedGroupAdmin != true
-            )
+            legacyGroupsBanner.isHidden = (updatedThreadData.threadVariant != .legacyGroup)
         }
         
         if initialLoad || viewModel.threadData.threadIsBlocked != updatedThreadData.threadIsBlocked {

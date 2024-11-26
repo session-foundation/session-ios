@@ -18,6 +18,7 @@ public enum LibSessionError: Error, CustomStringConvertible {
     case failedToMakeSubAccountInGroup
     case invalidCConversion
     case unableToGeneratePushData
+    case attemptedToModifyGroupWithoutAdminKey
     
     case libSessionError(String)
     
@@ -124,6 +125,8 @@ public enum LibSessionError: Error, CustomStringConvertible {
             case .failedToMakeSubAccountInGroup: return "Failed to make subaccount in group (LibSessionError.failedToMakeSubAccountInGroup)."
             case .invalidCConversion: return "Invalid conversation to C type (LibSessionError.invalidCConversion)."
             case .unableToGeneratePushData: return "Unable to generate push data (LibSessionError.unableToGeneratePushData)."
+            case .attemptedToModifyGroupWithoutAdminKey:
+                return "Attempted to modify group without admin key (LibSessionError.attemptedToModifyGroupWithoutAdminKey)."
             
             case .libSessionError(let error): return "\(error)"
         }

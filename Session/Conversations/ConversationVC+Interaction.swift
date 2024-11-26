@@ -2629,7 +2629,7 @@ extension ConversationVC {
                         }
                         
                         /// Actually trigger the approval
-                        try ClosedGroup.approveGroup(
+                        try ClosedGroup.approveGroupIfNeeded(
                             db,
                             group: group,
                             calledFromConfig: nil,

@@ -56,6 +56,12 @@ public struct ControlMessageProcessRecord: Codable, FetchableRecord, Persistable
         case groupUpdateMemberLeftNotification = 16
         case groupUpdateInviteResponse = 17
         case groupUpdateDeleteMemberContent = 18
+        
+        internal static let variantsToBeReprocessedAfterLeavingAndRejoiningConversation: Set<Variant> = [
+            .legacyGroupControlMessage, .dataExtractionNotification, .expirationTimerUpdate, .unsendRequest,
+            .messageRequestResponse, .call, .visibleMessageDedupe, .groupUpdateInfoChange, .groupUpdateMemberChange,
+            .groupUpdateMemberLeftNotification, .groupUpdateDeleteMemberContent
+        ]
     }
     
     /// The id for the thread the control message is associated to

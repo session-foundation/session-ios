@@ -147,7 +147,7 @@ extension GroupMember: ProfileAssociated {
                 default:
                     guard lhs.value.role == rhs.value.role else { return lhs.value.role < rhs.value.role }
                     
-                    return (lhsDisplayName < rhsDisplayName)
+                    return (lhsDisplayName.lowercased() < rhsDisplayName.lowercased())
             }
         }
         
@@ -169,8 +169,8 @@ extension GroupMember: ProfileAssociated {
                 case (_, userSessionId.hexString, _, _): return false
                 case (_, _, .none, .some): return true
                 case (_, _, .some, .none): return false
-                case (_, _, .none, .none): return (lhsDisplayName < rhsDisplayName)
-                case (_, _, .some, .some): return (lhsDisplayName < rhsDisplayName)
+                case (_, _, .none, .none): return (lhsDisplayName.lowercased() < rhsDisplayName.lowercased())
+                case (_, _, .some, .some): return (lhsDisplayName.lowercased() < rhsDisplayName.lowercased())
             }
         }
         

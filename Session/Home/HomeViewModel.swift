@@ -369,6 +369,13 @@ public class HomeViewModel: NavigatableStateHolder {
                                         using: dependencies
                                     )
                                 ),
+                                groupIsDestroyed: (
+                                    viewModel.threadVariant == .group &&
+                                    LibSession.groupIsDestroyed(
+                                        groupSessionId: SessionId(.group, hex: viewModel.threadId),
+                                        using: dependencies
+                                    )
+                                ),
                                 using: dependencies
                             )
                         }

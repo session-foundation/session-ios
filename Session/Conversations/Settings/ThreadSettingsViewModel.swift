@@ -1442,7 +1442,7 @@ class ThreadSettingsViewModel: SessionTableViewModel, NavigatableStateHolder, Ob
             try LibSession.deleteMessagesBefore(
                 db,
                 groupSessionId: SessionId(.group, hex: threadId),
-                timestamp: dependencies.dateNow.timeIntervalSince1970,
+                timestamp: (dependencies[cache: .snodeAPI].currentOffsetTimestampMs() / 1000),
                 using: dependencies
             )
         }
@@ -1455,7 +1455,7 @@ class ThreadSettingsViewModel: SessionTableViewModel, NavigatableStateHolder, Ob
             try LibSession.deleteAttachmentsBefore(
                 db,
                 groupSessionId: SessionId(.group, hex: threadId),
-                timestamp: dependencies.dateNow.timeIntervalSince1970,
+                timestamp: (dependencies[cache: .snodeAPI].currentOffsetTimestampMs() / 1000),
                 using: dependencies
             )
         }

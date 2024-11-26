@@ -98,4 +98,10 @@ class MockLibSessionCache: Mock<LibSessionCacheType>, LibSessionCacheType {
     ) throws {
         try mockThrowingNoReturn(args: [swarmPublicKey, messages])
     }
+    
+    // MARK: - Value Access
+    
+    func isAdmin(groupSessionId: SessionId) -> Bool {
+        return mock(args: [groupSessionId])
+    }
 }

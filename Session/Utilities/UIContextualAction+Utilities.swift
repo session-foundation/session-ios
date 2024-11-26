@@ -69,7 +69,7 @@ public extension UIContextualAction {
         
         return targetActions
             .enumerated()
-            .map { index, action -> UIContextualAction in
+            .compactMap { index, action -> UIContextualAction? in
                 // Even though we have to reverse the actions above, the indexes in the view hierarchy
                 // are in the expected order
                 let targetIndex: Int = (side == .trailing ? (targetActions.count - index) : index)
@@ -313,6 +313,36 @@ public extension UIContextualAction {
                     // MARK: -- block
                         
                     case .block:
+                        /// If we don't have the `profileInfo` then we can't actually block so don't offer the block option in that case
+                        guard
+                            let profileInfo: (id: String, profile: Profile?) = dependencies[singleton: .storage]
+                                .read({ db in
+                                switch threadViewModel.threadVariant {
+                                    case .contact:
+                                        return (
+                                            threadViewModel.threadId,
+                                            try Profile.fetchOne(db, id: threadViewModel.threadId)
+                                        )
+                                        
+                                    case .group:
+                                        let firstAdmin: GroupMember? = try GroupMember
+                                            .filter(GroupMember.Columns.groupId == threadViewModel.threadId)
+                                            .filter(GroupMember.Columns.role == GroupMember.Role.admin)
+                                            .fetchOne(db)
+                                        
+                                        return try firstAdmin
+                                            .map { admin in
+                                                (
+                                                    admin.profileId,
+                                                    try Profile.fetchOne(db, id: admin.profileId)
+                                                )
+                                            }
+                                        
+                                    default: return nil
+                                }
+                            })
+                        else { return nil }
+                        
                         return UIContextualAction(
                             title: (threadViewModel.threadIsBlocked == true ?
                                 "blockUnblock".localized() :
@@ -339,31 +369,6 @@ public extension UIContextualAction {
                                 (!threadIsMessageRequest ? nil : Contact.Columns.didApproveMe.set(to: true)),
                                 (!threadIsMessageRequest ? nil : Contact.Columns.isApproved.set(to: false))
                             ].compactMap { $0 }
-                            let profileInfo: (id: String, profile: Profile?)? = dependencies[singleton: .storage].read { db in
-                                switch threadViewModel.threadVariant {
-                                    case .contact:
-                                        return (
-                                            threadViewModel.threadId,
-                                            try Profile.fetchOne(db, id: threadViewModel.threadId)
-                                        )
-                                        
-                                    case .group:
-                                        let firstAdmin: GroupMember? = try GroupMember
-                                            .filter(GroupMember.Columns.groupId == threadViewModel.threadId)
-                                            .filter(GroupMember.Columns.role == GroupMember.Role.admin)
-                                            .fetchOne(db)
-                                        
-                                        return try firstAdmin
-                                            .map { admin in
-                                                (
-                                                    admin.profileId,
-                                                    try Profile.fetchOne(db, id: admin.profileId)
-                                                )
-                                            }
-                                        
-                                    default: return nil
-                                }
-                            }
                             
                             let performBlock: (UIViewController?) -> () = { viewController in
                                 (tableView.cellForRow(at: indexPath) as? SwipeActionOptimisticCell)?
@@ -377,8 +382,8 @@ public extension UIContextualAction {
                                     dependencies[singleton: .storage]
                                         .writePublisher { db in
                                             // Create the contact if it doesn't exist
-                                            switch (threadViewModel.threadVariant, profileInfo?.id) {
-                                                case (.contact, _):
+                                            switch threadViewModel.threadVariant {
+                                                case .contact:
                                                     try Contact
                                                         .fetchOrCreate(db, id: threadViewModel.threadId, using: dependencies)
                                                         .upsert(db)
@@ -391,12 +396,12 @@ public extension UIContextualAction {
                                                             using: dependencies
                                                         )
                                                     
-                                                case (.group, .some(let contactId)):
+                                                case .group:
                                                     try Contact
-                                                        .fetchOrCreate(db, id: contactId, using: dependencies)
+                                                        .fetchOrCreate(db, id: profileInfo.id, using: dependencies)
                                                         .upsert(db)
                                                     try Contact
-                                                        .filter(id: contactId)
+                                                        .filter(id: profileInfo.id)
                                                         .updateAllAndConfig(
                                                             db,
                                                             contactChanges,
@@ -427,12 +432,27 @@ public extension UIContextualAction {
                             switch threadIsMessageRequest {
                                 case false: performBlock(nil)
                                 case true:
+                                    let nameToUse: String = {
+                                        switch threadViewModel.threadVariant {
+                                            case .group:
+                                                return Profile.displayName(
+                                                    for: .contact,
+                                                    id: profileInfo.id,
+                                                    name: profileInfo.profile?.name,
+                                                    nickname: profileInfo.profile?.nickname,
+                                                    suppressId: false
+                                                )
+                                                
+                                            default: return threadViewModel.displayName
+                                        }
+                                    }()
+                                    
                                     let confirmationModal: ConfirmationModal = ConfirmationModal(
                                         info: ConfirmationModal.Info(
                                             title: "block".localized(),
                                             body: .attributedText(
                                                 "blockDescription"
-                                                    .put(key: "name", value: threadViewModel.displayName)
+                                                    .put(key: "name", value: nameToUse)
                                                     .localizedFormatted(baseFont: .systemFont(ofSize: Values.smallFontSize))
                                             ),
                                             confirmTitle: "block".localized(),

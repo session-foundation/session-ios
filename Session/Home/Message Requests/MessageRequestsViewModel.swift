@@ -161,6 +161,13 @@ class MessageRequestsViewModel: SessionTableViewModel, NavigatableStateHolder, O
                                             using: dependencies
                                         )
                                     ),
+                                    groupIsDestroyed: (
+                                        viewModel.threadVariant == .group &&
+                                        LibSession.groupIsDestroyed(
+                                            groupSessionId: SessionId(.group, hex: viewModel.threadId),
+                                            using: dependencies
+                                        )
+                                    ),
                                     using: dependencies
                                 ),
                                 accessibility: Accessibility(

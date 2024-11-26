@@ -82,19 +82,31 @@ internal extension LibSessionCacheType {
             )
         }
         
-        // If the current user is an admin but doesn't have the 'accepted' status then update it now
-        let currentMemberIsNewAdmin: Bool = updatedMembers.contains { member in
-            member.profileId == userSessionId.hexString &&
-            member.role == .admin &&
-            member.roleStatus != .accepted
-        }
-        if currentMemberIsNewAdmin {
+        // If the current user is an admin but doesn't have the correct member state then update it now
+        let maybeCurrentMember: GroupMember? = updatedMembers
+            .first { member in member.profileId == userSessionId.hexString }
+        let currentMemberHasAdminKey: Bool = isAdmin(groupSessionId: groupSessionId)
+        
+        if
+            let currentMember: GroupMember = maybeCurrentMember,
+            currentMemberHasAdminKey && (
+                currentMember.role != .admin ||
+                currentMember.roleStatus != .accepted
+            )
+        {
             try GroupMember
                 .filter(GroupMember.Columns.profileId == userSessionId.hexString)
                 .filter(GroupMember.Columns.groupId == groupSessionId.hexString)
                 .updateAllAndConfig(
                     db,
-                    GroupMember.Columns.roleStatus.set(to: GroupMember.RoleStatus.accepted),
+                    [
+                        (currentMember.role == .admin ? nil :
+                            GroupMember.Columns.role.set(to: GroupMember.Role.admin)
+                        ),
+                        (currentMember.roleStatus == .accepted ? nil :
+                            GroupMember.Columns.roleStatus.set(to: GroupMember.RoleStatus.accepted)
+                        ),
+                    ].compactMap { $0 },
                     calledFromConfig: .groupMembers,
                     using: dependencies
                 )
@@ -250,21 +262,20 @@ internal extension LibSession {
         
         // Only update members if they already exist in the group
         var cMemberId: [CChar] = try memberId.cString(using: .utf8) ?? { throw LibSessionError.invalidCConversion }()
-        var groupMember: config_group_member = config_group_member()
         
-        // If the member doesn't exist then do nothing
-        guard groups_members_get(conf, &groupMember, &cMemberId) else { return }
-        
-        switch role {
-            case .standard: groupMember.invited = status.libSessionValue
-            case .admin:
-                groupMember.admin = (groupMember.admin || status == .accepted)
-                groupMember.promoted = status.libSessionValue
-                
-            default: break
+        // Update the role and status to match
+        switch (role, status) {
+            case (.admin, .accepted): groups_members_set_promotion_accepted(conf, &cMemberId)
+            case (.admin, .failed): groups_members_set_promotion_failed(conf, &cMemberId)
+            case (.admin, .pending): groups_members_set_promotion_sent(conf, &cMemberId)
+            case (.admin, .notSentYet): groups_members_set_promoted(conf, &cMemberId)
+            
+            case (_, .accepted): groups_members_set_invite_accepted(conf, &cMemberId)
+            case (_, .failed): groups_members_set_invite_failed(conf, &cMemberId)
+            case (_, .pending): groups_members_set_invite_sent(conf, &cMemberId)
+            case (_, .notSentYet): break    // Default state (can't return to this after creation)
         }
         
-        groups_members_set(conf, &groupMember)
         try LibSessionError.throwIfNeeded(conf)
     }
     
@@ -370,27 +381,12 @@ internal extension LibSession {
         try targetMembers.forEach { member in
             try dependencies.mutate(cache: .libSession) { cache in
                 try cache.performAndPushChange(db, for: .groupMembers, sessionId: groupSessionId) { config in
-                    guard case .object(let conf) = config else { throw LibSessionError.invalidConfigObject }
-                    
-                    // Only update members if they already exist in the group
-                    var cMemberId: [CChar] = try member.profileId.cString(using: .utf8) ?? {
-                        throw LibSessionError.invalidCConversion
-                    }()
-                    
-                    // Update the role and status to match
-                    switch (member.role, member.roleStatus) {
-                        case (.admin, .accepted): groups_members_set_promotion_accepted(conf, &cMemberId)
-                        case (.admin, .failed): groups_members_set_promotion_failed(conf, &cMemberId)
-                        case (.admin, .pending): groups_members_set_promotion_sent(conf, &cMemberId)
-                        case (.admin, .notSentYet): groups_members_set_promoted(conf, &cMemberId)
-                        
-                        case (_, .accepted): groups_members_set_invite_accepted(conf, &cMemberId)
-                        case (_, .failed): groups_members_set_invite_failed(conf, &cMemberId)
-                        case (_, .pending): groups_members_set_invite_sent(conf, &cMemberId)
-                        case (_, .notSentYet): break    // Default state (can't return to this after creation)
-                    }
-                    
-                    try LibSessionError.throwIfNeeded(conf)
+                    try LibSession.updateMemberStatus(
+                        memberId: member.profileId,
+                        role: member.role,
+                        status: member.roleStatus,
+                        in: config
+                    )
                 }
             }
         }

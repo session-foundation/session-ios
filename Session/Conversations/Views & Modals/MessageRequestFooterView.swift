@@ -99,6 +99,7 @@ class MessageRequestFooterView: UIView {
         canWrite: Bool,
         threadIsMessageRequest: Bool,
         threadRequiresApproval: Bool,
+        closedGroupAdminProfile: Profile?,
         onBlock: @escaping () -> (),
         onAccept: @escaping () -> (),
         onDecline: @escaping () -> ()
@@ -114,7 +115,8 @@ class MessageRequestFooterView: UIView {
             threadVariant: threadVariant,
             canWrite: canWrite,
             threadIsMessageRequest: threadIsMessageRequest,
-            threadRequiresApproval: threadRequiresApproval
+            threadRequiresApproval: threadRequiresApproval,
+            closedGroupAdminProfile: closedGroupAdminProfile
         )
         setupLayout()
     }
@@ -155,13 +157,16 @@ class MessageRequestFooterView: UIView {
         threadVariant: SessionThread.Variant,
         canWrite: Bool,
         threadIsMessageRequest: Bool,
-        threadRequiresApproval: Bool
+        threadRequiresApproval: Bool,
+        closedGroupAdminProfile: Profile?
     ) {
         self.isHidden = (!canWrite || (!threadIsMessageRequest && !threadRequiresApproval))
-        self.blockButton.isHidden = (
-            threadVariant != .contact ||
-            threadRequiresApproval
-        )
+        
+        switch threadVariant {
+            case .contact: self.blockButton.isHidden = threadRequiresApproval
+            case .group: self.blockButton.isHidden = (closedGroupAdminProfile != nil)
+            default: self.blockButton.isHidden = true
+        }
         switch (threadVariant, threadRequiresApproval) {
             case (.contact, false): self.descriptionLabel.text = "messageRequestsAcceptDescription".localized()
             case (.contact, true): self.descriptionLabel.text = "messageRequestPendingDescription".localized()

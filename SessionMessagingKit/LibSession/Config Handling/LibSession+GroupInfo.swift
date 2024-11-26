@@ -46,7 +46,7 @@ internal extension LibSessionCacheType {
         // the group data (want to keep the group itself around because the UX of conversations randomly
         // disappearing isn't great) - no other changes matter and this can't be reversed
         guard !groups_info_is_destroyed(conf) else {
-            try markAsKicked(db, groupSessionIds: [groupSessionId.hexString], using: dependencies)
+            try markAsDestroyed(db, groupSessionIds: [groupSessionId.hexString], using: dependencies)
             
             try ClosedGroup.removeData(
                 db,
@@ -412,17 +412,6 @@ public extension LibSession {
                 
                 groups_info_destroy_group(conf)
             }
-        }
-    }
-    
-    static func groupIsDestroyed(
-        groupSessionId: SessionId,
-        using dependencies: Dependencies
-    ) -> Bool {
-        return dependencies.mutate(cache: .libSession) { cache in
-            guard case .object(let conf) = cache.config(for: .groupInfo, sessionId: groupSessionId) else { return false }
-            
-            return groups_info_is_destroyed(conf)
         }
     }
 }

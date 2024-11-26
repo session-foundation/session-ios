@@ -99,6 +99,6 @@ extension Contact: ProfileAssociated {
         let rhsDisplayName: String = (rhs.profile?.displayName(for: .contact))
             .defaulting(to: Profile.truncated(id: rhs.profileId, threadVariant: .contact))
         
-        return (lhsDisplayName < rhsDisplayName)
+        return (lhsDisplayName.lowercased() < rhsDisplayName.lowercased())
     }
 }

@@ -439,7 +439,7 @@ internal extension LibSessionCacheType {
                         authData: group.authData,
                         joinedAt: group.joinedAt,
                         invited: group.invited,
-                        hasAlreadyBeenKicked: group.wasKickedFromGroup,
+                        wasKickedFromGroup: group.wasKickedFromGroup,
                         calledFromConfig: .userGroups,
                         using: dependencies
                     )
@@ -518,7 +518,7 @@ internal extension LibSessionCacheType {
                         // If the group changed to no longer be in the invited state then we need to trigger the
                         // group approval process
                         if !group.invited && existingGroup.invited != group.invited {
-                            try ClosedGroup.approveGroup(
+                            try ClosedGroup.approveGroupIfNeeded(
                                 db,
                                 group: existingGroup,
                                 calledFromConfig: .userGroups,
@@ -579,6 +579,26 @@ internal extension LibSessionCacheType {
         return ugroups_group_is_kicked(&userGroup)
     }
     
+    func markAsInvited(
+        _ db: Database,
+        groupSessionIds: [String],
+        using dependencies: Dependencies
+    ) throws {
+        try performAndPushChange(db, for: .userGroups, sessionId: dependencies[cache: .general].sessionId) { config in
+            guard case .object(let conf) = config else { throw LibSessionError.invalidConfigObject }
+            
+            try groupSessionIds.forEach { groupId in
+                var cGroupId: [CChar] = try groupId.cString(using: .utf8) ?? { throw LibSessionError.invalidCConversion }()
+                var userGroup: ugroups_group_info = ugroups_group_info()
+                
+                guard user_groups_get_group(conf, &userGroup, &cGroupId) else { return }
+                
+                ugroups_group_set_invited(&userGroup)
+                user_groups_set_group(conf, &userGroup)
+            }
+        }
+    }
+    
     func markAsKicked(
         _ db: Database,
         groupSessionIds: [String],
@@ -594,6 +614,26 @@ internal extension LibSessionCacheType {
                 guard user_groups_get_group(conf, &userGroup, &cGroupId) else { return }
                 
                 ugroups_group_set_kicked(&userGroup)
+                user_groups_set_group(conf, &userGroup)
+            }
+        }
+    }
+    
+    func markAsDestroyed(
+        _ db: Database,
+        groupSessionIds: [String],
+        using dependencies: Dependencies
+    ) throws {
+        try performAndPushChange(db, for: .userGroups, sessionId: dependencies[cache: .general].sessionId) { config in
+            guard case .object(let conf) = config else { throw LibSessionError.invalidConfigObject }
+            
+            try groupSessionIds.forEach { groupId in
+                var cGroupId: [CChar] = try groupId.cString(using: .utf8) ?? { throw LibSessionError.invalidCConversion }()
+                var userGroup: ugroups_group_info = ugroups_group_info()
+                
+                guard user_groups_get_group(conf, &userGroup, &cGroupId) else { return }
+                
+                ugroups_group_set_destroyed(&userGroup)
                 user_groups_set_group(conf, &userGroup)
             }
         }
@@ -1165,6 +1205,25 @@ public extension LibSession {
             guard user_groups_get_group(conf, &userGroup, &cGroupId) else { return false }
             
             return ugroups_group_is_kicked(&userGroup)
+        }
+    }
+    
+    static func groupIsDestroyed(
+        groupSessionId: SessionId,
+        using dependencies: Dependencies
+    ) -> Bool {
+        return dependencies.mutate(cache: .libSession) { cache in
+            guard
+                case .object(let conf) = cache.config(for: .userGroups, sessionId: dependencies[cache: .general].sessionId),
+                var cGroupId: [CChar] = groupSessionId.hexString.cString(using: .utf8)
+            else { return false }
+            
+            var userGroup: ugroups_group_info = ugroups_group_info()
+            
+            // If the group doesn't exist then assume the user hasn't been kicked
+            guard user_groups_get_group(conf, &userGroup, &cGroupId) else { return false }
+            
+            return ugroups_group_is_destroyed(&userGroup)
         }
     }
     

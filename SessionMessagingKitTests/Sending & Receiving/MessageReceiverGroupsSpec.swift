@@ -185,6 +185,7 @@ class MessageReceiverGroupsSpec: QuickSpec {
                 
                 cache.when { $0.setConfig(for: .any, sessionId: .any, to: .any) }.thenReturn(())
                 cache.when { $0.removeConfigs(for: .any) }.thenReturn(())
+                cache.when { $0.hasConfig(for: .any, sessionId: .any) }.thenReturn(true)
                 cache
                     .when { $0.config(for: .userGroups, sessionId: userSessionId) }
                     .thenReturn(userGroupsConfig)
@@ -216,6 +217,7 @@ class MessageReceiverGroupsSpec: QuickSpec {
                         }
                     }
                     .thenReturn(())
+                cache.when { $0.isAdmin(groupSessionId: .any) }.thenReturn(true)
             }
         )
         @TestState(cache: .snodeAPI, in: dependencies) var mockSnodeAPICache: MockSnodeAPICache! = MockSnodeAPICache(
@@ -701,6 +703,9 @@ class MessageReceiverGroupsSpec: QuickSpec {
                     
                     // MARK: ------ creates the group state
                     it("creates the group state") {
+                        mockLibSessionCache
+                            .when { $0.hasConfig(for: .any, sessionId: .any) }
+                            .thenReturn(false)
                         mockStorage.write { db in
                             try MessageReceiver.handleGroupUpdateMessage(
                                 db,

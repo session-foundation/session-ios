@@ -15,6 +15,31 @@ public extension LibSession.Crypto.Domain {
 
 // MARK: - Convenience
 
+internal extension LibSessionCacheType {
+    @discardableResult func createAndLoadGroupState(
+        groupSessionId: SessionId,
+        userED25519KeyPair: KeyPair,
+        groupIdentityPrivateKey: Data?
+    ) throws -> [ConfigDump.Variant: LibSession.Config] {
+        let groupState: [ConfigDump.Variant: LibSession.Config] = try LibSession.createGroupState(
+            groupSessionId: groupSessionId,
+            userED25519KeyPair: userED25519KeyPair,
+            groupIdentityPrivateKey: groupIdentityPrivateKey
+        )
+        
+        guard groupState[.groupKeys] != nil && groupState[.groupInfo] != nil && groupState[.groupMembers] != nil else {
+            Log.error(.libSession, "Group config objects were null")
+            throw LibSessionError.unableToCreateConfigObject
+        }
+        
+        groupState.forEach { variant, config in
+            setConfig(for: variant, sessionId: groupSessionId, to: config)
+        }
+        
+        return groupState
+    }
+}
+
 internal extension LibSession {
     typealias CreatedGroupInfo = (
         groupSessionId: SessionId,
@@ -49,9 +74,7 @@ internal extension LibSession {
         let groupState: [ConfigDump.Variant: Config] = try createGroupState(
             groupSessionId: groupSessionId,
             userED25519KeyPair: userED25519KeyPair,
-            groupIdentityPrivateKey: Data(groupIdentityKeyPair.secretKey),
-            shouldLoadState: false, // We manually load the state after populating the configs
-            using: dependencies
+            groupIdentityPrivateKey: Data(groupIdentityKeyPair.secretKey)
         )
         
         // Extract the conf objects from the state to load in the initial data
@@ -169,58 +192,11 @@ internal extension LibSession {
         )
     }
     
-    static func removeGroupStateIfNeeded(
-        _ db: Database,
-        groupSessionId: SessionId,
-        using dependencies: Dependencies
-    ) {
-        dependencies.mutate(cache: .libSession) { cache in
-            cache.removeConfigs(for: groupSessionId)
-        }
-        
-        _ = try? ConfigDump
-            .filter(ConfigDump.Columns.sessionId == groupSessionId.hexString)
-            .deleteAll(db)
-    }
-    
-    static func saveCreatedGroup(
-        _ db: Database,
-        group: ClosedGroup,
-        groupState: [ConfigDump.Variant: Config],
-        using dependencies: Dependencies
-    ) throws {
-        // Create and save dumps for the configs
-        try dependencies.mutate(cache: .libSession) { cache in
-            try groupState.forEach { variant, config in
-                try cache.createDump(
-                    config: config,
-                    for: variant,
-                    sessionId: SessionId(.group, hex: group.id),
-                    timestampMs: Int64(floor(group.formationTimestamp * 1000))
-                )?.upsert(db)
-            }
-        }
-        
-        // Add the new group to the USER_GROUPS config message
-        try LibSession.add(
-            db,
-            groupSessionId: group.id,
-            groupIdentityPrivateKey: group.groupIdentityPrivateKey,
-            name: group.name,
-            authData: group.authData,
-            joinedAt: group.formationTimestamp,
-            invited: (group.invited == true),
-            using: dependencies
-        )
-    }
-    
-    @discardableResult static func createGroupState(
+    static func createGroupState(
         groupSessionId: SessionId,
         userED25519KeyPair: KeyPair,
-        groupIdentityPrivateKey: Data?,
-        shouldLoadState: Bool,
-        using dependencies: Dependencies
-    ) throws -> [ConfigDump.Variant: Config] {
+        groupIdentityPrivateKey: Data?
+    ) throws -> [ConfigDump.Variant: LibSession.Config] {
         var secretKey: [UInt8] = userED25519KeyPair.secretKey
         var groupIdentityPublicKey: [UInt8] = groupSessionId.publicKey
         
@@ -306,24 +282,58 @@ internal extension LibSession {
         }
         
         // Define the config state map and load it into memory
-        let groupState: [ConfigDump.Variant: Config] = [
+        let groupState: [ConfigDump.Variant: LibSession.Config] = [
             .groupKeys: .groupKeys(keysConf, info: infoConf, members: membersConf),
             .groupInfo: .object(infoConf),
             .groupMembers: .object(membersConf),
         ]
         
-        // Only load the state if specified (during initial group creation we want to
-        // load the state after populating the different configs incase invalid data
-        // was provided)
-        if shouldLoadState {
-            dependencies.mutate(cache: .libSession) { cache in
-                groupState.forEach { variant, config in
-                    cache.setConfig(for: variant, sessionId: groupSessionId, to: config)
-                }
+        return groupState
+    }
+    
+    static func removeGroupStateIfNeeded(
+        _ db: Database,
+        groupSessionId: SessionId,
+        using dependencies: Dependencies
+    ) {
+        dependencies.mutate(cache: .libSession) { cache in
+            cache.removeConfigs(for: groupSessionId)
+        }
+        
+        _ = try? ConfigDump
+            .filter(ConfigDump.Columns.sessionId == groupSessionId.hexString)
+            .deleteAll(db)
+    }
+    
+    static func saveCreatedGroup(
+        _ db: Database,
+        group: ClosedGroup,
+        groupState: [ConfigDump.Variant: Config],
+        using dependencies: Dependencies
+    ) throws {
+        // Create and save dumps for the configs
+        try dependencies.mutate(cache: .libSession) { cache in
+            try groupState.forEach { variant, config in
+                try cache.createDump(
+                    config: config,
+                    for: variant,
+                    sessionId: SessionId(.group, hex: group.id),
+                    timestampMs: Int64(floor(group.formationTimestamp * 1000))
+                )?.upsert(db)
             }
         }
         
-        return groupState
+        // Add the new group to the USER_GROUPS config message
+        try LibSession.add(
+            db,
+            groupSessionId: group.id,
+            groupIdentityPrivateKey: group.groupIdentityPrivateKey,
+            name: group.name,
+            authData: group.authData,
+            joinedAt: group.formationTimestamp,
+            invited: (group.invited == true),
+            using: dependencies
+        )
     }
     
     static func isAdmin(
@@ -331,11 +341,7 @@ internal extension LibSession {
         using dependencies: Dependencies
     ) -> Bool {
         return dependencies.mutate(cache: .libSession) { cache in
-            guard case .groupKeys(let conf, _, _) = cache.config(for: .groupKeys, sessionId: groupSessionId) else {
-                return false
-            }
-            
-            return groups_keys_is_admin(conf)
+            return cache.isAdmin(groupSessionId: groupSessionId)
         }
     }
 }

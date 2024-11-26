@@ -93,6 +93,7 @@ public class ConversationViewModel: OWSAudioPlayerDelegate, NavigatableStateHold
             initialUnreadInteractionInfo: Interaction.TimestampInfo?,
             threadIsBlocked: Bool,
             threadIsMessageRequest: Bool,
+            closedGroupAdminProfile: Profile?,
             currentUserIsClosedGroupMember: Bool?,
             currentUserIsClosedGroupAdmin: Bool?,
             openGroupPermissions: OpenGroup.Permissions?,
@@ -147,6 +148,16 @@ public class ConversationViewModel: OWSAudioPlayerDelegate, NavigatableStateHold
                     default: return false
                 }
             }()
+            
+            let closedGroupAdminProfile: Profile? = (threadVariant != .group ? nil :
+                try Profile
+                    .joining(
+                        required: Profile.groupMembers
+                            .filter(GroupMember.Columns.groupId == threadId)
+                            .filter(GroupMember.Columns.role == GroupMember.Role.admin)
+                    )
+                    .fetchOne(db)
+            )
             let currentUserIsClosedGroupAdmin: Bool? = (![.legacyGroup, .group].contains(threadVariant) ? nil :
                 GroupMember
                     .filter(groupMember[.groupId] == threadId)
@@ -191,6 +202,7 @@ public class ConversationViewModel: OWSAudioPlayerDelegate, NavigatableStateHold
                 initialUnreadInteractionInfo,
                 threadIsBlocked,
                 threadIsMessageRequest,
+                closedGroupAdminProfile,
                 currentUserIsClosedGroupMember,
                 currentUserIsClosedGroupAdmin,
                 openGroupPermissions,
@@ -211,6 +223,7 @@ public class ConversationViewModel: OWSAudioPlayerDelegate, NavigatableStateHold
                 threadIsNoteToSelf: (initialData?.userSessionId.hexString == threadId),
                 threadIsMessageRequest: initialData?.threadIsMessageRequest,
                 threadIsBlocked: initialData?.threadIsBlocked,
+                closedGroupAdminProfile: initialData?.closedGroupAdminProfile,
                 currentUserIsClosedGroupMember: initialData?.currentUserIsClosedGroupMember,
                 currentUserIsClosedGroupAdmin: initialData?.currentUserIsClosedGroupAdmin,
                 openGroupPermissions: initialData?.openGroupPermissions,
@@ -221,6 +234,10 @@ public class ConversationViewModel: OWSAudioPlayerDelegate, NavigatableStateHold
                 wasKickedFromGroup: (
                     threadVariant == .group &&
                     LibSession.wasKickedFromGroup(groupSessionId: SessionId(.group, hex: threadId), using: dependencies)
+                ),
+                groupIsDestroyed: (
+                    threadVariant == .group &&
+                    LibSession.groupIsDestroyed(groupSessionId: SessionId(.group, hex: threadId), using: dependencies)
                 ),
                 using: dependencies
             )
@@ -288,17 +305,27 @@ public class ConversationViewModel: OWSAudioPlayerDelegate, NavigatableStateHold
                 return threadViewModel
                     .map { $0.with(recentReactionEmoji: recentReactionEmoji) }
                     .map { viewModel -> SessionThreadViewModel in
-                        viewModel.populatingCurrentUserBlindedIds(
+                        let wasKickedFromGroup: Bool = (
+                            viewModel.threadVariant == .group &&
+                            LibSession.wasKickedFromGroup(
+                                groupSessionId: SessionId(.group, hex: viewModel.threadId),
+                                using: dependencies
+                            )
+                        )
+                        let groupIsDestroyed: Bool = (
+                            viewModel.threadVariant == .group &&
+                            LibSession.groupIsDestroyed(
+                                groupSessionId: SessionId(.group, hex: viewModel.threadId),
+                                using: dependencies
+                            )
+                        )
+                        
+                        return viewModel.populatingCurrentUserBlindedIds(
                             db,
                             currentUserBlinded15SessionIdForThisThread: self?.threadData.currentUserBlinded15SessionId,
                             currentUserBlinded25SessionIdForThisThread: self?.threadData.currentUserBlinded25SessionId,
-                            wasKickedFromGroup: (
-                                viewModel.threadVariant == .group &&
-                                LibSession.wasKickedFromGroup(
-                                    groupSessionId: SessionId(.group, hex: viewModel.threadId),
-                                    using: dependencies
-                                )
-                            ),
+                            wasKickedFromGroup: wasKickedFromGroup,
+                            groupIsDestroyed: groupIsDestroyed,
                             using: dependencies
                         )
                     }
@@ -344,20 +371,29 @@ public class ConversationViewModel: OWSAudioPlayerDelegate, NavigatableStateHold
             threadData.threadVariant == .group &&
             LibSession.wasKickedFromGroup(groupSessionId: SessionId(.group, hex: threadData.threadId), using: dependencies)
         )
+        let groupIsDestroyed: Bool = (
+            threadData.threadVariant == .group &&
+            LibSession.groupIsDestroyed(groupSessionId: SessionId(.group, hex: threadData.threadId), using: dependencies)
+        )
         
-        switch (threadData.threadIsNoteToSelf, threadData.canWrite(using: dependencies), blocksCommunityMessageRequests, wasKickedFromGroup) {
-            case (true, _, _, _): return "noteToSelfEmpty".localized()
-            case (_, false, true, _):
+        switch (threadData.threadIsNoteToSelf, threadData.canWrite(using: dependencies), blocksCommunityMessageRequests, wasKickedFromGroup, groupIsDestroyed) {
+            case (true, _, _, _, _): return "noteToSelfEmpty".localized()
+            case (_, false, true, _, _):
                 return "messageRequestsTurnedOff"
                     .put(key: "name", value: threadData.displayName)
                     .localized()
+            
+            case (_, _, _, _, true):
+                return "groupDeletedMemberDescription"
+                    .put(key: "group_name", value: threadData.displayName)
+                    .localized()
                 
-            case (_, _, _, true):
+            case (_, _, _, true, _):
                 return "groupRemovedYou"
                     .put(key: "group_name", value: threadData.displayName)
                     .localized()
                 
-            case (_, false, false, _):
+            case (_, false, false, _, _):
                 return "conversationsEmpty"
                     .put(key: "conversation_name", value: threadData.displayName)
                     .localized()

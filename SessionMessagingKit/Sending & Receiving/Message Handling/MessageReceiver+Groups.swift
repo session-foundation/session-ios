@@ -161,7 +161,7 @@ extension MessageReceiver {
         authData: Data?,
         joinedAt: TimeInterval,
         invited: Bool,
-        hasAlreadyBeenKicked: Bool,
+        wasKickedFromGroup: Bool,
         calledFromConfig configTriggeringChange: ConfigDump.Variant?,
         using dependencies: Dependencies
     ) throws {
@@ -175,8 +175,6 @@ extension MessageReceiver {
             calledFromConfig: configTriggeringChange,
             using: dependencies
         )
-        let groupAlreadyApproved: Bool = ((try? ClosedGroup.fetchOne(db, id: groupSessionId))?.invited == false)
-        let groupInvitedState: Bool = (!groupAlreadyApproved && invited)
         let closedGroup: ClosedGroup = try ClosedGroup(
             threadId: groupSessionId,
             name: name,
@@ -184,10 +182,22 @@ extension MessageReceiver {
             shouldPoll: false,  // Always false here - will be updated in `approveGroup`
             groupIdentityPrivateKey: groupIdentityPrivateKey,
             authData: authData,
-            invited: groupInvitedState
+            invited: invited
         ).upserted(db)
         
         if configTriggeringChange != .userGroups {
+            // If we had previously been kicked from a group then we need to update the flag in UserGroups
+            // so that we don't consider ourselves as kicked anymore
+            if wasKickedFromGroup {
+                dependencies.mutate(cache: .libSession) { cache in
+                    try? cache.markAsInvited(
+                        db,
+                        groupSessionIds: [groupSessionId],
+                        using: dependencies
+                    )
+                }
+            }
+            
             // Update libSession
             try? LibSession.add(
                 db,
@@ -196,15 +206,15 @@ extension MessageReceiver {
                 name: name,
                 authData: authData,
                 joinedAt: joinedAt,
-                invited: groupInvitedState,
+                invited: invited,
                 using: dependencies
             )
         }
         
         /// If the group wasn't already approved, is not in the invite state and the user hasn't been kicked from it then handle the approval process
-        guard !groupAlreadyApproved && !invited && !hasAlreadyBeenKicked else { return }
+        guard !invited else { return }
         
-        try ClosedGroup.approveGroup(
+        try ClosedGroup.approveGroupIfNeeded(
             db,
             group: closedGroup,
             calledFromConfig: configTriggeringChange,
@@ -476,11 +486,7 @@ extension MessageReceiver {
         guard
             let sender: String = message.sender,
             let sentTimestampMs: UInt64 = message.sentTimestampMs,
-            (try? ClosedGroup
-                .filter(id: groupSessionId.hexString)
-                .select(.groupIdentityPrivateKey)
-                .asRequest(of: Data.self)
-                .fetchOne(db)) != nil
+            LibSession.isAdmin(groupSessionId: groupSessionId, using: dependencies)
         else { throw MessageReceiverError.invalidMessage }
         
         // Trigger this removal in a separate process because it requires a number of requests to be made
@@ -848,7 +854,7 @@ extension MessageReceiver {
             authData: memberAuthData,
             joinedAt: TimeInterval(Double(sentTimestampMs) / 1000),
             invited: !inviteSenderIsApproved,
-            hasAlreadyBeenKicked: wasKickedFromGroup,
+            wasKickedFromGroup: wasKickedFromGroup,
             calledFromConfig: nil,
             using: dependencies
         )
@@ -1029,15 +1035,17 @@ extension MessageReceiver {
                         calledFromConfig: nil,
                         using: dependencies
                     )
-                try LibSession.updateMemberProfile(
-                    db,
-                    groupSessionId: groupSessionId,
-                    memberId: senderSessionId,
-                    profile: profile,
-                    using: dependencies
-                )
                 
             default: break  // Invalid cases
         }
+        
+        // Update the member profile information in the GroupMembers config
+        try LibSession.updateMemberProfile(
+            db,
+            groupSessionId: groupSessionId,
+            memberId: senderSessionId,
+            profile: profile,
+            using: dependencies
+        )
     }
 }

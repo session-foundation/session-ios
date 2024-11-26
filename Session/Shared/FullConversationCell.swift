@@ -590,6 +590,13 @@ public final class FullConversationCell: UITableViewCell, SwipeActionOptimisticC
         textColor: UIColor,
         using dependencies: Dependencies
     ) -> NSAttributedString {
+        guard cellViewModel.groupIsDestroyed != true else {
+            return NSAttributedString(
+                string: "groupDeletedMemberDescription"
+                    .put(key: "group_name", value: cellViewModel.displayName)
+                    .localizedDeformatted()
+            )
+        }
         guard cellViewModel.wasKickedFromGroup != true else {
             return NSAttributedString(
                 string: "groupRemovedYou"

@@ -87,6 +87,7 @@ class LibSessionGroupMembersSpec: QuickSpec {
                     .thenReturn(createGroupOutput.groupState[.groupMembers])
                 cache.when { $0.config(for: .groupKeys, sessionId: .any) }
                     .thenReturn(createGroupOutput.groupState[.groupKeys])
+                cache.when { $0.isAdmin(groupSessionId: .any) }.thenReturn(true)
             }
         )
         

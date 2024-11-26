@@ -204,8 +204,6 @@ public extension SessionCell.AccessoryConfig {
         public let customTint: ThemeValue?
         public let shouldFill: Bool
         
-        override public var shouldFitToEdge: Bool { shouldFill }
-        
         fileprivate init(
             image: UIImage?,
             iconSize: IconSize,
@@ -251,8 +249,6 @@ public extension SessionCell.AccessoryConfig {
         public let customTint: ThemeValue?
         public let shouldFill: Bool
         public let setter: (UIImageView) -> Void
-        
-        override public var shouldFitToEdge: Bool { shouldFill }
         
         fileprivate init(
             iconSize: IconSize,

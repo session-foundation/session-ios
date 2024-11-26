@@ -195,7 +195,7 @@ public extension LibSession {
                 )
             }
             
-            /// It's possible for there to not be dumps for all of the user configs so we load any missing ones to ensure funcitonality
+            /// It's possible for there to not be dumps for all of the configs so we load any missing ones to ensure functionality
             /// works smoothly
             ///
             /// It's also possible for a group to get created but for a dump to not be created (eg. when a crash happens at the right time), to
@@ -231,12 +231,10 @@ public extension LibSession {
             groups
                 .filter { $0.invited != true }
                 .forEach { group in
-                    _ = try? LibSession.createGroupState(
+                    _ = try? createAndLoadGroupState(
                         groupSessionId: SessionId(.group, hex: group.id),
                         userED25519KeyPair: userEd25519KeyPair,
-                        groupIdentityPrivateKey: group.groupIdentityPrivateKey,
-                        shouldLoadState: true,
-                        using: dependencies
+                        groupIdentityPrivateKey: group.groupIdentityPrivateKey
                     )
                 }
         }
@@ -439,6 +437,19 @@ public extension LibSession {
             sessionId: SessionId,
             change: (Config?) throws -> ()
         ) throws {
+            // To prevent crashes by trying to make an invalid change due to incorrect state being
+            // provided by a client, if we want to change one of the group configs then check if we
+            // are a group admin first
+            switch variant {
+                case .groupInfo, .groupMembers, .groupKeys:
+                    guard isAdmin(groupSessionId: sessionId) else {
+                        throw LibSessionError.attemptedToModifyGroupWithoutAdminKey
+                    }
+
+                    
+                default: break
+            }
+            
             guard let config: Config = configStore[sessionId, variant] else { return }
             
             do {
@@ -695,6 +706,16 @@ public extension LibSession {
                     _ = try configStore[sessionId, variant]?.merge(message)
                 }
         }
+        
+        // MARK: - Value Access
+        
+        public func isAdmin(groupSessionId: SessionId) -> Bool {
+            guard case .groupKeys(let conf, _, _) = configStore[groupSessionId, .groupKeys] else {
+                return false
+            }
+            
+            return groups_keys_is_admin(conf)
+        }
     }
 }
 
@@ -772,6 +793,10 @@ public protocol LibSessionCacheType: LibSessionImmutableCacheType, MutableCacheT
         swarmPublicKey: String,
         messages: [ConfigMessageReceiveJob.Details.MessageInfo]
     ) throws
+    
+    // MARK: - Value Access
+    
+    func isAdmin(groupSessionId: SessionId) -> Bool
 }
 
 private final class NoopLibSessionCache: LibSessionCacheType {
@@ -836,6 +861,10 @@ private final class NoopLibSessionCache: LibSessionCacheType {
         swarmPublicKey: String,
         messages: [ConfigMessageReceiveJob.Details.MessageInfo]
     ) throws {}
+    
+    // MARK: - Value Access
+    
+    func isAdmin(groupSessionId: SessionId) -> Bool { return false }
 }
 
 // MARK: - Convenience

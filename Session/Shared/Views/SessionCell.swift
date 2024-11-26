@@ -32,6 +32,7 @@ public class SessionCell: UITableViewCell {
     private lazy var contentStackViewTrailingConstraint: NSLayoutConstraint = contentStackView.pin(.trailing, to: .trailing, of: cellBackgroundView)
     private lazy var contentStackViewBottomConstraint: NSLayoutConstraint = contentStackView.pin(.bottom, to: .bottom, of: cellBackgroundView)
     private lazy var contentStackViewHorizontalCenterConstraint: NSLayoutConstraint = contentStackView.center(.horizontal, in: cellBackgroundView)
+    private lazy var contentStackViewWidthConstraint: NSLayoutConstraint = contentStackView.set(.width, lessThanOrEqualTo: .width, of: cellBackgroundView)
     private lazy var leadingAccessoryFillConstraint: NSLayoutConstraint = contentStackView.set(.height, to: .height, of: leadingAccessoryView)
     private lazy var titleTextFieldLeadingConstraint: NSLayoutConstraint = titleTextField.pin(.leading, to: .leading, of: cellBackgroundView)
     private lazy var titleTextFieldTrailingConstraint: NSLayoutConstraint = titleTextField.pin(.trailing, to: .trailing, of: cellBackgroundView)
@@ -294,6 +295,7 @@ public class SessionCell: UITableViewCell {
         contentStackViewLeadingConstraint.isActive = false
         contentStackViewTrailingConstraint.isActive = false
         contentStackViewHorizontalCenterConstraint.isActive = false
+        contentStackViewWidthConstraint.isActive = false
         titleMinHeightConstraint.isActive = false
         leadingAccessoryView.prepareForReuse()
         leadingAccessoryView.alpha = 1
@@ -383,6 +385,8 @@ public class SessionCell: UITableViewCell {
         contentStackViewTrailingConstraint.isActive = (info.styling.alignment == .leading)
         contentStackViewHorizontalCenterConstraint.constant = ((info.styling.customPadding?.leading ?? 0) + (info.styling.customPadding?.trailing ?? 0))
         contentStackViewHorizontalCenterConstraint.isActive = (info.styling.alignment == .centerHugging)
+        contentStackViewWidthConstraint.constant = -(abs((info.styling.customPadding?.leading ?? 0) + (info.styling.customPadding?.trailing ?? 0)) * 2) // Double the center offset to keep within bounds
+        contentStackViewWidthConstraint.isActive = (info.styling.alignment == .centerHugging)
         leadingAccessoryFillConstraint.isActive = leadingFitToEdge
         trailingAccessoryFillConstraint.isActive = trailingFitToEdge
         accessoryWidthMatchConstraint.isActive = {
