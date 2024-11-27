@@ -50,7 +50,8 @@ public extension UIContextualAction {
         tableView: UITableView,
         threadViewModel: SessionThreadViewModel,
         viewController: UIViewController?,
-        navigatableStateHolder: NavigatableStateHolder?
+        navigatableStateHolder: NavigatableStateHolder?,
+        using dependencies: Dependencies
     ) -> [UIContextualAction]? {
         guard !actions.isEmpty else { return nil }
         
@@ -106,10 +107,11 @@ public extension UIContextualAction {
                                     case true: threadViewModel.markAsRead(
                                         target: .threadAndInteractions(
                                             interactionsBeforeInclusive: threadViewModel.interactionId
-                                        )
+                                        ),
+                                        using: dependencies
                                     )
                                         
-                                    case false: threadViewModel.markAsUnread()
+                                    case false: threadViewModel.markAsUnread(using: dependencies)
                                 }
                             }
                             completionHandler(true)
@@ -142,7 +144,8 @@ public extension UIContextualAction {
                                                 db,
                                                 type: .deleteContactConversationAndMarkHidden,
                                                 threadId: threadViewModel.threadId,
-                                                calledFromConfigHandling: false
+                                                calledFromConfigHandling: false,
+                                                using: dependencies
                                             )
                                         }
                                         
@@ -188,7 +191,8 @@ public extension UIContextualAction {
                                                         db,
                                                         type: .hideContactConversation,
                                                         threadId: threadViewModel.threadId,
-                                                        calledFromConfigHandling: false
+                                                        calledFromConfigHandling: false,
+                                                        using: dependencies
                                                     )
                                                 }
                                                 
@@ -235,7 +239,8 @@ public extension UIContextualAction {
                                         .updateAllAndConfig(
                                             db,
                                             SessionThread.Columns.pinnedPriority
-                                                .set(to: (threadViewModel.threadPinnedPriority == 0 ? 1 : 0))
+                                                .set(to: (threadViewModel.threadPinnedPriority == 0 ? 1 : 0)),
+                                            using: dependencies
                                         )
                                 }
                             }
@@ -337,7 +342,11 @@ public extension UIContextualAction {
                                                 .save(db)
                                             try Contact
                                                 .filter(id: threadViewModel.threadId)
-                                                .updateAllAndConfig(db, contactChanges)
+                                                .updateAllAndConfig(
+                                                    db,
+                                                    contactChanges,
+                                                    using: dependencies
+                                                )
                                             
                                             // Blocked message requests should be deleted
                                             if threadIsMessageRequest {
@@ -345,7 +354,8 @@ public extension UIContextualAction {
                                                     db,
                                                     type: .deleteContactConversationAndMarkHidden,
                                                     threadId: threadViewModel.threadId,
-                                                    calledFromConfigHandling: false
+                                                    calledFromConfigHandling: false,
+                                                    using: dependencies
                                                 )
                                             }
                                         }
@@ -439,7 +449,8 @@ public extension UIContextualAction {
                                                     db,
                                                     type: deletionType,
                                                     threadId: threadViewModel.threadId,
-                                                    calledFromConfigHandling: false
+                                                    calledFromConfigHandling: false,
+                                                    using: dependencies
                                                 )
                                             } catch {
                                                 DispatchQueue.main.async {
@@ -551,7 +562,8 @@ public extension UIContextualAction {
                                                 db,
                                                 type: deletionType,
                                                 threadId: threadViewModel.threadId,
-                                                calledFromConfigHandling: false
+                                                calledFromConfigHandling: false,
+                                                using: dependencies
                                             )
                                         }
                                         

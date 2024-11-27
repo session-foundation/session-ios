@@ -240,7 +240,8 @@ public final class OpenGroupManager {
                 .updateAllAndConfig(
                     db,
                     OpenGroup.Columns.isActive.set(to: true),
-                    OpenGroup.Columns.sequenceNumber.set(to: 0)
+                    OpenGroup.Columns.sequenceNumber.set(to: 0),
+                    using: dependencies
                 )
         }
         
@@ -290,7 +291,8 @@ public final class OpenGroupManager {
                                 db,
                                 server: server,
                                 rootToken: roomToken,
-                                publicKey: publicKey
+                                publicKey: publicKey,
+                                using: dependencies
                             )
                         }
                         
@@ -395,11 +397,15 @@ public final class OpenGroupManager {
             // If it's a session-run room then just set it to inactive
             _ = try? OpenGroup
                 .filter(id: openGroupId)
-                .updateAllAndConfig(db, OpenGroup.Columns.isActive.set(to: false))
+                .updateAllAndConfig(
+                    db,
+                    OpenGroup.Columns.isActive.set(to: false),
+                    using: dependencies
+                )
         }
         
         if !calledFromConfigHandling, let server: String = server, let roomToken: String = roomToken {
-            try? LibSession.remove(db, server: server, roomToken: roomToken)
+            try? LibSession.remove(db, server: server, roomToken: roomToken, using: dependencies)
         }
     }
     
@@ -478,7 +484,7 @@ public final class OpenGroupManager {
         
         try OpenGroup
             .filter(id: openGroup.id)
-            .updateAllAndConfig(db, changes)
+            .updateAllAndConfig(db, changes, using: dependencies)
         
         // Update the admin/moderator group members
         if let roomDetails: OpenGroupAPI.Room = pollInfo.details {
@@ -764,7 +770,7 @@ public final class OpenGroupManager {
                 
                 switch processedMessage {
                     case .config, .none: break
-                    case .standard(let threadId, _, let proto, let messageInfo):
+                    case .standard(_, _, let proto, let messageInfo):
                         // We want to update the BlindedIdLookup cache with the message info so we can avoid using the
                         // "expensive" lookup when possible
                         let lookup: BlindedIdLookup = try {

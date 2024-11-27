@@ -120,12 +120,21 @@ extension ConversationVC:
         
         let threadId: String = self.viewModel.threadData.threadId
         
-        guard AVAudioSession.sharedInstance().recordPermission == .granted else { return }
-        guard self.viewModel.threadData.threadVariant == .contact else { return }
-        guard AppEnvironment.shared.callManager.currentCall == nil else { return }
-        guard let call: SessionCall = Storage.shared.read({ db in SessionCall(db, for: threadId, uuid: UUID().uuidString.lowercased(), mode: .offer, outgoing: true) }) else {
-            return
-        }
+        guard
+            AVAudioSession.sharedInstance().recordPermission == .granted,
+            self.viewModel.threadData.threadVariant == .contact,
+            Singleton.callManager.currentCall == nil,
+            let call: SessionCall = Storage.shared.read({ [dependencies = viewModel.dependencies] db in
+                SessionCall(
+                    db,
+                    for: threadId,
+                    uuid: UUID().uuidString.lowercased(),
+                    mode: .offer,
+                    outgoing: true,
+                    using: dependencies
+                )
+            })
+        else { return }
         
         let callVC = CallVC(for: call)
         callVC.conversationVC = self
@@ -540,7 +549,8 @@ extension ConversationVC:
                             .updateAllAndConfig(
                                 db,
                                 SessionThread.Columns.shouldBeVisible.set(to: true),
-                                SessionThread.Columns.pinnedPriority.set(to: LibSession.visiblePriority)
+                                SessionThread.Columns.pinnedPriority.set(to: LibSession.visiblePriority),
+                                using: dependencies
                             )
                     }
                     
@@ -958,7 +968,8 @@ extension ConversationVC:
                             .update(
                                 db,
                                 sessionId: cellViewModel.threadId,
-                                disappearingMessagesConfig: messageDisappearingConfig
+                                disappearingMessagesConfig: messageDisappearingConfig,
+                                using: dependencies
                             )
                     }
                     self?.dismiss(animated: true, completion: nil)
@@ -1517,7 +1528,11 @@ extension ConversationVC:
                 if self?.viewModel.threadData.threadShouldBeVisible == false {
                     _ = try SessionThread
                         .filter(id: cellViewModel.threadId)
-                        .updateAllAndConfig(db, SessionThread.Columns.shouldBeVisible.set(to: true))
+                        .updateAllAndConfig(
+                            db,
+                            SessionThread.Columns.shouldBeVisible.set(to: true),
+                            using: dependencies
+                        )
                 }
                 
                 let pendingReaction: Reaction? = {
@@ -2721,7 +2736,8 @@ extension ConversationVC {
                         db,
                         Contact.Columns.isApproved.set(to: true),
                         Contact.Columns.didApproveMe
-                            .set(to: contact.didApproveMe || !isNewThread)
+                            .set(to: contact.didApproveMe || !isNewThread),
+                        using: dependencies
                     )
             }
             .subscribe(on: DispatchQueue.global(qos: .userInitiated))
@@ -2751,7 +2767,8 @@ extension ConversationVC {
             tableView: self.tableView,
             threadViewModel: self.viewModel.threadData,
             viewController: self, 
-            navigatableStateHolder: nil
+            navigatableStateHolder: nil,
+            using: viewModel.dependencies
         )
         
         guard let action: UIContextualAction = actions?.first else { return }
@@ -2775,7 +2792,8 @@ extension ConversationVC {
             tableView: self.tableView,
             threadViewModel: self.viewModel.threadData,
             viewController: self,
-            navigatableStateHolder: nil
+            navigatableStateHolder: nil,
+            using: viewModel.dependencies
         )
         
         guard let action: UIContextualAction = actions?.first else { return }

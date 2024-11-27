@@ -12,7 +12,8 @@ extension MessageReceiver {
         threadVariant: SessionThread.Variant,
         message: ExpirationTimerUpdate,
         serverExpirationTimestamp: TimeInterval?,
-        proto: SNProtoContent
+        proto: SNProtoContent,
+        using dependencies: Dependencies
     ) throws {
         guard proto.hasExpirationType || proto.hasExpirationTimer else { return }
         guard
@@ -52,7 +53,8 @@ extension MessageReceiver {
                         .update(
                             db,
                             groupPublicKey: threadId,
-                            disappearingConfig: updatedConfig
+                            disappearingConfig: updatedConfig,
+                            using: dependencies
                         )
                 }
                 fallthrough
@@ -81,7 +83,8 @@ extension MessageReceiver {
         _ db: Database,
         messageVariant: Message.Variant?,
         contactId: String?,
-        version: FeatureVersion?
+        version: FeatureVersion?,
+        using dependencies: Dependencies
     ) {
         guard
             let messageVariant: Message.Variant = messageVariant,
@@ -97,7 +100,8 @@ extension MessageReceiver {
             .filter(id: contactId)
             .updateAllAndConfig(
                 db,
-                Contact.Columns.lastKnownClientVersion.set(to: version)
+                Contact.Columns.lastKnownClientVersion.set(to: version),
+                using: dependencies
             )
     }
 }

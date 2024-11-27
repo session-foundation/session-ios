@@ -118,7 +118,8 @@ extension MessageReceiver {
                     db,
                     type: .deleteContactConversationAndContact, // Blinded contact isn't synced anyway
                     threadId: blindedIdLookup.blindedId,
-                    calledFromConfigHandling: false
+                    calledFromConfigHandling: false,
+                    using: dependencies
                 )
         }
         
@@ -126,7 +127,8 @@ extension MessageReceiver {
         try updateContactApprovalStatusIfNeeded(
             db,
             senderSessionId: senderId,
-            threadId: nil
+            threadId: nil,
+            using: dependencies
         )
         
         // If there were blinded contacts which have now been resolved to this contact then we should remove
@@ -140,7 +142,8 @@ extension MessageReceiver {
             try updateContactApprovalStatusIfNeeded(
                 db,
                 senderSessionId: userPublicKey,
-                threadId: unblindedThread.id
+                threadId: unblindedThread.id,
+                using: dependencies
             )
         }
         
@@ -165,7 +168,8 @@ extension MessageReceiver {
     internal static func updateContactApprovalStatusIfNeeded(
         _ db: Database,
         senderSessionId: String,
-        threadId: String?
+        threadId: String?,
+        using dependencies: Dependencies
     ) throws {
         let userPublicKey: String = getUserHexEncodedPublicKey(db)
         
@@ -188,7 +192,11 @@ extension MessageReceiver {
             try? contact.save(db)
             _ = try? Contact
                 .filter(id: threadId)
-                .updateAllAndConfig(db, Contact.Columns.isApproved.set(to: true))
+                .updateAllAndConfig(
+                    db,
+                    Contact.Columns.isApproved.set(to: true),
+                    using: dependencies
+                )
         }
         else {
             // The message was sent to the current user so flag their 'didApproveMe' as true (can't send a message to
@@ -200,7 +208,11 @@ extension MessageReceiver {
             try? contact.save(db)
             _ = try? Contact
                 .filter(id: senderSessionId)
-                .updateAllAndConfig(db, Contact.Columns.didApproveMe.set(to: true))
+                .updateAllAndConfig(
+                    db,
+                    Contact.Columns.didApproveMe.set(to: true),
+                    using: dependencies
+                )
         }
     }
 }

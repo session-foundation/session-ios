@@ -93,7 +93,8 @@ extension MessageSender {
                     latestKeyPairReceivedTimestamp: latestKeyPairReceivedTimestamp,
                     disappearingConfig: DisappearingMessagesConfiguration.defaultWith(groupPublicKey),
                     members: members,
-                    admins: admins
+                    admins: admins,
+                    using: dependencies
                 )
                 
                 let memberSendData: [MessageSender.PreparedSendData] = try members
@@ -274,7 +275,8 @@ extension MessageSender {
                             admins: allGroupMembers
                                 .filter { $0.role == .admin }
                                 .map { $0.profileId }
-                                .asSet()
+                                .asSet(),
+                            using: dependencies
                         )
                     }
                     
@@ -344,7 +346,8 @@ extension MessageSender {
                     try? LibSession.update(
                         db,
                         groupPublicKey: closedGroup.threadId,
-                        name: name
+                        name: name,
+                        using: dependencies
                     )
                 }
                 
@@ -457,7 +460,8 @@ extension MessageSender {
             admins: allGroupMembers
                 .filter { $0.role == .admin }
                 .map { $0.profileId }
-                .asSet()
+                .asSet(),
+            using: dependencies
         )
         
         // Send the update to the group

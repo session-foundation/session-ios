@@ -9,7 +9,7 @@ import Nimble
 @testable import SessionMessagingKit
 @testable import SessionUtilitiesKit
 
-extension Job: MutableIdentifiable {
+extension Job: @retroactive MutableIdentifiable {
     public mutating func setId(_ id: Int64?) { self.id = id }
 }
 
@@ -67,7 +67,10 @@ class MessageSendJobSpec: QuickSpec {
                         db,
                         id: "Test1",
                         variant: .contact,
-                        values: SessionThread.TargetValues(shouldBeVisible: .setTo(true)),
+                        values: SessionThread.TargetValues(
+                            // False is the default and will mean we don't need libSession loaded
+                            shouldBeVisible: .setTo(false)
+                        ),
                         calledFromConfig: false,
                         using: dependencies
                     )

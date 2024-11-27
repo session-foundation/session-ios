@@ -491,7 +491,8 @@ public extension Interaction {
         threadId: String,
         threadVariant: SessionThread.Variant,
         includingOlder: Bool,
-        trySendReadReceipt: Bool
+        trySendReadReceipt: Bool,
+        using dependencies: Dependencies
     ) throws {
         guard let interactionId: Int64 = interactionId else { return }
         
@@ -535,7 +536,8 @@ public extension Interaction {
                 ],
                 lastReadTimestampMs: timestampMs,
                 trySendReadReceipt: trySendReadReceipt,
-                calledFromConfigHandling: false
+                calledFromConfigHandling: false,
+                using: dependencies
             )
             return
         }
@@ -560,7 +562,8 @@ public extension Interaction {
                 interactionInfo: [interactionInfo],
                 lastReadTimestampMs: interactionInfo.timestampMs,
                 trySendReadReceipt: trySendReadReceipt,
-                calledFromConfigHandling: false
+                calledFromConfigHandling: false,
+                using: dependencies
             )
             return
         }
@@ -576,7 +579,8 @@ public extension Interaction {
             interactionInfo: interactionInfoToMarkAsRead,
             lastReadTimestampMs: interactionInfo.timestampMs,
             trySendReadReceipt: trySendReadReceipt,
-            calledFromConfigHandling: false
+            calledFromConfigHandling: false,
+            using: dependencies
         )
     }
     
@@ -647,7 +651,8 @@ public extension Interaction {
         interactionInfo: [Interaction.ReadInfo],
         lastReadTimestampMs: Int64,
         trySendReadReceipt: Bool,
-        calledFromConfigHandling: Bool
+        calledFromConfigHandling: Bool,
+        using dependencies: Dependencies
     ) throws {
         guard !interactionInfo.isEmpty else { return }
         
@@ -657,7 +662,8 @@ public extension Interaction {
                 db,
                 threadId: threadId,
                 threadVariant: threadVariant,
-                lastReadTimestampMs: lastReadTimestampMs
+                lastReadTimestampMs: lastReadTimestampMs,
+                using: dependencies
             )
             
             // Add the 'DisappearingMessagesJob' if needed - this will update any expiring

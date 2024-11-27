@@ -8,37 +8,27 @@ import SessionMessagingKit
 import SignalUtilitiesKit
 import SessionUtilitiesKit
 
-public enum PushRegistrationError: Error {
-    case assertionError(description: String)
-    case pushNotSupported(description: String)
-    case timeout
-    case publisherNoLongerExists
+// MARK: - Singleton
+
+public extension Singleton {
+    // FIXME: This will be reworked to be part of dependencies in the Groups Rebuild branch
+    fileprivate static var _pushRegistrationManager: Atomic<PushRegistrationManagerType> = Atomic(NoopPushRegistrationManager())
+    static var pushRegistrationManager: PushRegistrationManagerType { _pushRegistrationManager.wrappedValue }
+    
+    static func setPushRegistrationManager(_ pushRegistrationManager: PushRegistrationManagerType) {
+        _pushRegistrationManager = Atomic(pushRegistrationManager)
+    }
 }
 
-/**
- * Singleton used to integrate with push notification services - registration and routing received remote notifications.
- */
-@objc public class PushRegistrationManager: NSObject, PKPushRegistryDelegate {
+// MARK: - PushRegistrationManager
+
+public class PushRegistrationManager: NSObject, PKPushRegistryDelegate, PushRegistrationManagerType {
+    private let dependencies: Dependencies
 
     // MARK: - Dependencies
 
     private var notificationPresenter: NotificationPresenter {
         return AppEnvironment.shared.notificationPresenter
-    }
-
-    // MARK: - Singleton class
-
-    @objc
-    public static var shared: PushRegistrationManager {
-        get {
-            return AppEnvironment.shared.pushRegistrationManager
-        }
-    }
-
-    override init() {
-        super.init()
-
-        SwiftSingletons.register(self)
     }
 
     private var vanillaTokenPublisher: AnyPublisher<Data, Error>?
@@ -47,6 +37,14 @@ public enum PushRegistrationError: Error {
     private var voipRegistry: PKPushRegistry?
     private var voipTokenPublisher: AnyPublisher<Data?, Error>?
     private var voipTokenResolver: ((Result<Data?, Error>) -> ())?
+    
+    // MARK: - Initialization
+
+    public init(using dependencies: Dependencies) {
+        self.dependencies = dependencies
+        
+        super.init()
+    }
 
     // MARK: - Public interface
 
@@ -72,7 +70,7 @@ public enum PushRegistrationError: Error {
     // MARK: Vanilla push token
 
     // Vanilla push token is obtained from the system via AppDelegate
-    public func didReceiveVanillaPushToken(_ tokenData: Data, using dependencies: Dependencies = Dependencies()) {
+    public func didReceiveVanillaPushToken(_ tokenData: Data) {
         guard let vanillaTokenResolver = self.vanillaTokenResolver else {
             Log.error("[PushRegistrationManager] Publisher completion in \(#function) unexpectedly nil")
             return
@@ -83,8 +81,8 @@ public enum PushRegistrationError: Error {
         }
     }
 
-    // Vanilla push token is obtained from the system via AppDelegate    
-    public func didFailToReceiveVanillaPushToken(error: Error, using dependencies: Dependencies = Dependencies()) {
+    // Vanilla push token is obtained from the system via AppDelegate
+    public func didFailToReceiveVanillaPushToken(error: Error) {
         guard let vanillaTokenResolver = self.vanillaTokenResolver else {
             Log.error("[PushRegistrationManager] Publisher completion in \(#function) unexpectedly nil")
             return
@@ -286,7 +284,7 @@ public enum PushRegistrationError: Error {
             let caller: String = payload["caller"] as? String,
             let timestampMs: Int64 = payload["timestamp"] as? Int64
         else {
-            SessionCallManager.reportFakeCall(info: "Missing payload data") // stringlint:ignore
+            SessionCallManager.reportFakeCall(info: "Missing payload data", using: dependencies) // stringlint:ignore
             return
         }
         
@@ -314,7 +312,7 @@ public enum PushRegistrationError: Error {
                 }
             }()
             
-            let call: SessionCall = SessionCall(db, for: caller, uuid: uuid, mode: .answer)
+            let call: SessionCall = SessionCall(db, for: caller, uuid: uuid, mode: .answer, using: dependencies)
             let thread: SessionThread = try SessionThread.upsert(
                 db,
                 id: caller,
@@ -342,7 +340,7 @@ public enum PushRegistrationError: Error {
         }
         
         guard let call: SessionCall = maybeCall else {
-            SessionCallManager.reportFakeCall(info: "Could not retrieve call from database") // stringlint:ignore
+            SessionCallManager.reportFakeCall(info: "Could not retrieve call from database", using: dependencies) // stringlint:ignore
             return
         }
         
@@ -362,4 +360,13 @@ fileprivate extension Data {
     var hexEncodedString: String {
         return map { String(format: "%02hhx", $0) }.joined() // stringlint:ignore
     }
+}
+
+// MARK: - PushRegistrationError
+
+public enum PushRegistrationError: Error {
+    case assertionError(description: String)
+    case pushNotSupported(description: String)
+    case timeout
+    case publisherNoLongerExists
 }

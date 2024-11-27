@@ -304,8 +304,9 @@ public extension SessionThread {
             .filter(id: id)
             .updateAllAndConfig(
                 db,
+                requiredChanges,
                 calledFromConfig: calledFromConfig,
-                requiredChanges
+                using: dependencies
             )
         
         /// We need to re-fetch the updated thread as the changes wouldn't have been applied to `result`, it's also possible additional
@@ -423,13 +424,15 @@ public extension SessionThread {
         _ db: Database,
         type: SessionThread.DeletionType,
         threadId: String,
-        calledFromConfigHandling: Bool
+        calledFromConfigHandling: Bool,
+        using dependencies: Dependencies
     ) throws {
         try deleteOrLeave(
             db,
             type: type,
             threadIds: [threadId],
-            calledFromConfigHandling: calledFromConfigHandling
+            calledFromConfigHandling: calledFromConfigHandling,
+            using: dependencies
         )
     }
     
@@ -437,7 +440,8 @@ public extension SessionThread {
         _ db: Database,
         type: SessionThread.DeletionType,
         threadIds: [String],
-        calledFromConfigHandling: Bool
+        calledFromConfigHandling: Bool,
+        using dependencies: Dependencies
     ) throws {
         let currentUserPublicKey: String = getUserHexEncodedPublicKey(db)
         let remainingThreadIds: Set<String> = threadIds.asSet().removing(currentUserPublicKey)
@@ -450,9 +454,10 @@ public extension SessionThread {
                         .filter(id: currentUserPublicKey)
                         .updateAllAndConfig(
                             db,
-                            calledFromConfig: calledFromConfigHandling,
                             SessionThread.Columns.pinnedPriority.set(to: LibSession.hiddenPriority),
-                            SessionThread.Columns.shouldBeVisible.set(to: false)
+                            SessionThread.Columns.shouldBeVisible.set(to: false),
+                            calledFromConfig: calledFromConfigHandling,
+                            using: dependencies
                         )
                 }
                 
@@ -461,9 +466,10 @@ public extension SessionThread {
                     .filter(ids: remainingThreadIds)
                     .updateAllAndConfig(
                         db,
-                        calledFromConfig: calledFromConfigHandling,
                         SessionThread.Columns.pinnedPriority.set(to: LibSession.hiddenPriority),
-                        SessionThread.Columns.shouldBeVisible.set(to: false)
+                        SessionThread.Columns.shouldBeVisible.set(to: false),
+                        calledFromConfig: calledFromConfigHandling,
+                        using: dependencies
                     )
                 
             case .hideContactConversationAndDeleteContentDirectly:
@@ -479,9 +485,10 @@ public extension SessionThread {
                         .filter(id: currentUserPublicKey)
                         .updateAllAndConfig(
                             db,
-                            calledFromConfig: calledFromConfigHandling,
                             SessionThread.Columns.pinnedPriority.set(to: LibSession.hiddenPriority),
-                            SessionThread.Columns.shouldBeVisible.set(to: false)
+                            SessionThread.Columns.shouldBeVisible.set(to: false),
+                            calledFromConfig: calledFromConfigHandling,
+                            using: dependencies
                         )
                 }
                 
@@ -491,9 +498,10 @@ public extension SessionThread {
                     .filter(ids: remainingThreadIds)
                     .updateAllAndConfig(
                         db,
-                        calledFromConfig: calledFromConfigHandling,
                         SessionThread.Columns.pinnedPriority.set(to: LibSession.hiddenPriority),
-                        SessionThread.Columns.shouldBeVisible.set(to: false)
+                        SessionThread.Columns.shouldBeVisible.set(to: false),
+                        calledFromConfig: calledFromConfigHandling,
+                        using: dependencies
                     )
             
             case .deleteContactConversationAndMarkHidden:
@@ -513,21 +521,22 @@ public extension SessionThread {
                         .filter(id: currentUserPublicKey)
                         .updateAllAndConfig(
                             db,
-                            calledFromConfig: calledFromConfigHandling,
                             SessionThread.Columns.pinnedPriority.set(to: LibSession.hiddenPriority),
-                            SessionThread.Columns.shouldBeVisible.set(to: false)
+                            SessionThread.Columns.shouldBeVisible.set(to: false),
+                            calledFromConfig: calledFromConfigHandling,
+                            using: dependencies
                         )
                 }
                 
                 if !calledFromConfigHandling {
                     // Update any other threads to be hidden
-                    try LibSession.hide(db, contactIds: Array(remainingThreadIds))
+                    try LibSession.hide(db, contactIds: Array(remainingThreadIds), using: dependencies)
                 }
                 
             case .deleteContactConversationAndContact:
                 // If this wasn't called from config handling then we need to hide the conversation
                 if !calledFromConfigHandling {
-                    try LibSession.remove(db, contactIds: Array(remainingThreadIds))
+                    try LibSession.remove(db, contactIds: Array(remainingThreadIds), using: dependencies)
                 }
                 
                 _ = try SessionThread
@@ -548,7 +557,8 @@ public extension SessionThread {
                     db,
                     threadIds: threadIds,
                     removeGroupData: true,
-                    calledFromConfigHandling: calledFromConfigHandling
+                    calledFromConfigHandling: calledFromConfigHandling,
+                    using: dependencies
                 )
                 
             case .deleteCommunityAndContent:

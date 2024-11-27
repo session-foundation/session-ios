@@ -119,7 +119,7 @@ struct DisplayNameScreen: View {
         // If we are not in the registration flow then we are finished and should go straight
         // to the home screen
         guard self.flow == .register else {
-            self.flow.completeRegistration()
+            self.flow.completeRegistration(using: dependencies)
             
             let homeVC: HomeVC = HomeVC(flow: self.flow, using: dependencies)
             self.host.controller?.navigationController?.setViewControllers([ homeVC ], animated: true)

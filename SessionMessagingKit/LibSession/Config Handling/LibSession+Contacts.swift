@@ -151,7 +151,8 @@ internal extension LibSession {
                             db,
                             type: .deleteContactConversationAndMarkHidden,
                             threadId: sessionId,
-                            calledFromConfigHandling: true
+                            calledFromConfigHandling: true,
+                            using: dependencies
                         )
                     
                     /// We need to create or update the thread
@@ -250,10 +251,15 @@ internal extension LibSession {
                     db,
                     type: .deleteContactConversationAndContact,
                     threadIds: combinedIds,
-                    calledFromConfigHandling: true
+                    calledFromConfigHandling: true,
+                    using: dependencies
                 )
             
-            try LibSession.remove(db, volatileContactIds: combinedIds)
+            try LibSession.remove(
+                db,
+                volatileContactIds: combinedIds,
+                using: dependencies
+            )
         }
     }
     
@@ -365,7 +371,11 @@ internal extension LibSession {
 // MARK: - Outgoing Changes
 
 internal extension LibSession {
-    static func updatingContacts<T>(_ db: Database, _ updated: [T]) throws -> [T] {
+    static func updatingContacts<T>(
+        _ db: Database,
+        _ updated: [T],
+        using dependencies: Dependencies
+    ) throws -> [T] {
         guard let updatedContacts: [Contact] = updated as? [Contact] else { throw StorageError.generic }
         
         // The current users contact data doesn't need to sync so exclude it, we also don't want to sync
@@ -383,7 +393,8 @@ internal extension LibSession {
         try LibSession.performAndPushChange(
             db,
             for: .contacts,
-            publicKey: userPublicKey
+            publicKey: userPublicKey,
+            using: dependencies
         ) { conf in
             // When inserting new contacts (or contacts with invalid profile data) we want
             // to add any valid profile information we have so identify if any of the updated
@@ -425,7 +436,11 @@ internal extension LibSession {
         return updated
     }
     
-    static func updatingProfiles<T>(_ db: Database, _ updated: [T]) throws -> [T] {
+    static func updatingProfiles<T>(
+        _ db: Database,
+        _ updated: [T],
+        using dependencies: Dependencies
+    ) throws -> [T] {
         guard let updatedProfiles: [Profile] = updated as? [Profile] else { throw StorageError.generic }
         
         // We should only sync profiles which are associated to contact data to avoid including profiles
@@ -456,7 +471,8 @@ internal extension LibSession {
             try LibSession.performAndPushChange(
                 db,
                 for: .userProfile,
-                publicKey: userPublicKey
+                publicKey: userPublicKey,
+                using: dependencies
             ) { conf in
                 try LibSession.update(
                     profile: updatedUserProfile,
@@ -468,7 +484,8 @@ internal extension LibSession {
         try LibSession.performAndPushChange(
             db,
             for: .contacts,
-            publicKey: userPublicKey
+            publicKey: userPublicKey,
+            using: dependencies
         ) { conf in
             try LibSession
                 .upsert(
@@ -481,7 +498,11 @@ internal extension LibSession {
         return updated
     }
     
-    static func updatingDisappearingConfigs<T>(_ db: Database, _ updated: [T]) throws -> [T] {
+    static func updatingDisappearingConfigs<T>(
+        _ db: Database,
+        _ updated: [T],
+        using dependencies: Dependencies
+    ) throws -> [T] {
         guard let updatedDisappearingConfigs: [DisappearingMessagesConfiguration] = updated as? [DisappearingMessagesConfiguration] else { throw StorageError.generic }
         
         // We should only sync disappearing messages configs which are associated to existing contacts
@@ -510,7 +531,8 @@ internal extension LibSession {
             try LibSession.performAndPushChange(
                 db,
                 for: .userProfile,
-                publicKey: userPublicKey
+                publicKey: userPublicKey,
+                using: dependencies
             ) { conf in
                 try LibSession.updateNoteToSelf(
                     disappearingMessagesConfig: updatedUserDisappearingConfig,
@@ -522,7 +544,8 @@ internal extension LibSession {
         try LibSession.performAndPushChange(
             db,
             for: .contacts,
-            publicKey: userPublicKey
+            publicKey: userPublicKey,
+            using: dependencies
         ) { conf in
             try LibSession
                 .upsert(
@@ -539,11 +562,16 @@ internal extension LibSession {
 // MARK: - External Outgoing Changes
 
 public extension LibSession {
-    static func hide(_ db: Database, contactIds: [String]) throws {
+    static func hide(
+        _ db: Database,
+        contactIds: [String],
+        using dependencies: Dependencies
+    ) throws {
         try LibSession.performAndPushChange(
             db,
             for: .contacts,
-            publicKey: getUserHexEncodedPublicKey(db)
+            publicKey: getUserHexEncodedPublicKey(db, using: dependencies),
+            using: dependencies
         ) { conf in
             // Mark the contacts as hidden
             try LibSession.upsert(
@@ -559,13 +587,18 @@ public extension LibSession {
         }
     }
     
-    static func remove(_ db: Database, contactIds: [String]) throws {
+    static func remove(
+        _ db: Database,
+        contactIds: [String],
+        using dependencies: Dependencies
+    ) throws {
         guard !contactIds.isEmpty else { return }
         
         try LibSession.performAndPushChange(
             db,
             for: .contacts,
-            publicKey: getUserHexEncodedPublicKey(db)
+            publicKey: getUserHexEncodedPublicKey(db, using: dependencies),
+            using: dependencies
         ) { conf in
             contactIds.forEach { sessionId in
                 guard var cSessionId: [CChar] = sessionId.cString(using: .utf8) else { return }
@@ -579,7 +612,8 @@ public extension LibSession {
     static func update(
         _ db: Database,
         sessionId: String,
-        disappearingMessagesConfig: DisappearingMessagesConfiguration
+        disappearingMessagesConfig: DisappearingMessagesConfiguration,
+        using dependencies: Dependencies
     ) throws {
         let userPublicKey: String = getUserHexEncodedPublicKey(db)
         
@@ -588,7 +622,8 @@ public extension LibSession {
                 try LibSession.performAndPushChange(
                     db,
                     for: .userProfile,
-                    publicKey: userPublicKey
+                    publicKey: userPublicKey,
+                    using: dependencies
                 ) { conf in
                     try LibSession.updateNoteToSelf(
                         disappearingMessagesConfig: disappearingMessagesConfig,
@@ -600,7 +635,8 @@ public extension LibSession {
                 try LibSession.performAndPushChange(
                     db,
                     for: .contacts,
-                    publicKey: userPublicKey
+                    publicKey: userPublicKey,
+                    using: dependencies
                 ) { conf in
                     try LibSession
                         .upsert(

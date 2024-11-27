@@ -14,8 +14,9 @@ public extension LibSession {
         public typealias Domain = String
     }
     
-    /// The default priority for newly created threads
-    static var defaultNewThreadPriority: Int32 { return visiblePriority }
+    /// The default priority for newly created threads - the default value is for threads to be hidden as we explicitly make threads visible
+    /// when sending or receiving messages
+    static var defaultNewThreadPriority: Int32 { return hiddenPriority }
 
     /// A `0` `priority` value indicates visible, but not pinned
     static let visiblePriority: Int32 = 0
@@ -57,7 +58,7 @@ internal extension LibSession {
         _ db: Database,
         for variant: ConfigDump.Variant,
         publicKey: String,
-        using dependencies: Dependencies = Dependencies(),
+        using dependencies: Dependencies,
         change: (UnsafeMutablePointer<config_object>?) throws -> ()
     ) throws {
         // Since we are doing direct memory manipulation we are using an `Atomic`
@@ -99,7 +100,11 @@ internal extension LibSession {
         }
     }
     
-    @discardableResult static func updatingThreads<T>(_ db: Database, _ updated: [T]) throws -> [T] {
+    @discardableResult static func updatingThreads<T>(
+        _ db: Database,
+        _ updated: [T],
+        using dependencies: Dependencies
+    ) throws -> [T] {
         guard let updatedThreads: [SessionThread] = updated as? [SessionThread] else {
             throw StorageError.generic
         }
@@ -115,7 +120,7 @@ internal extension LibSession {
             .reduce(into: [:]) { result, next in result[next.threadId] = next }
         
         // Update the unread state for the threads first (just in case that's what changed)
-        try LibSession.updateMarkedAsUnreadState(db, threads: updatedThreads)
+        try LibSession.updateMarkedAsUnreadState(db, threads: updatedThreads, using: dependencies)
         
         // Then update the `hidden` and `priority` values
         try groupedThreads.forEach { variant, threads in
@@ -127,7 +132,8 @@ internal extension LibSession {
                         try LibSession.performAndPushChange(
                             db,
                             for: .userProfile,
-                            publicKey: userPublicKey
+                            publicKey: userPublicKey,
+                            using: dependencies
                         ) { conf in
                             try LibSession.updateNoteToSelf(
                                 priority: {
@@ -150,7 +156,8 @@ internal extension LibSession {
                     try LibSession.performAndPushChange(
                         db,
                         for: .contacts,
-                        publicKey: userPublicKey
+                        publicKey: userPublicKey,
+                        using: dependencies
                     ) { conf in
                         try LibSession.upsert(
                             contactData: remainingThreads
@@ -174,7 +181,8 @@ internal extension LibSession {
                     try LibSession.performAndPushChange(
                         db,
                         for: .userGroups,
-                        publicKey: userPublicKey
+                        publicKey: userPublicKey,
+                        using: dependencies
                     ) { conf in
                         try LibSession.upsert(
                             communities: threads
@@ -196,7 +204,8 @@ internal extension LibSession {
                     try LibSession.performAndPushChange(
                         db,
                         for: .userGroups,
-                        publicKey: userPublicKey
+                        publicKey: userPublicKey,
+                        using: dependencies
                     ) { conf in
                         try LibSession.upsert(
                             legacyGroups: threads
@@ -240,7 +249,11 @@ internal extension LibSession {
         }
     }
     
-    static func updatingSetting(_ db: Database, _ updated: Setting?) throws {
+    static func updatingSetting(
+        _ db: Database,
+        _ updated: Setting?,
+        using dependencies: Dependencies
+    ) throws {
         // Don't current support any nullable settings
         guard let updatedSetting: Setting = updated else { return }
         
@@ -252,7 +265,8 @@ internal extension LibSession {
                 try LibSession.performAndPushChange(
                     db,
                     for: .userProfile,
-                    publicKey: userPublicKey
+                    publicKey: userPublicKey,
+                    using: dependencies
                 ) { conf in
                     try LibSession.updateSettings(
                         checkForCommunityMessageRequests: updatedSetting.unsafeValue(as: Bool.self),

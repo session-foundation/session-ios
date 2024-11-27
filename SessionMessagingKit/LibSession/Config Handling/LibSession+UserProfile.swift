@@ -93,7 +93,8 @@ internal extension LibSession {
                     db,
                     type: .hideContactConversation,
                     threadId: userPublicKey,
-                    calledFromConfigHandling: true
+                    calledFromConfigHandling: true,
+                    using: dependencies
                 )
             }
             else {
@@ -216,12 +217,14 @@ public extension LibSession {
     static func updateNoteToSelf(
         _ db: Database,
         priority: Int32? = nil,
-        disappearingMessagesConfig: DisappearingMessagesConfiguration? = nil
+        disappearingMessagesConfig: DisappearingMessagesConfiguration? = nil,
+        using dependencies: Dependencies
     ) throws {
         try LibSession.performAndPushChange(
             db,
             for: .userProfile,
-            publicKey: getUserHexEncodedPublicKey(db)
+            publicKey: getUserHexEncodedPublicKey(db),
+            using: dependencies
         ) { conf in
             try LibSession.updateNoteToSelf(
                 priority: priority,

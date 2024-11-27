@@ -282,7 +282,8 @@ public enum MessageReceiver {
             version: ((!proto.hasExpirationType && !proto.hasExpirationTimer) ?
                 .legacyDisappearingMessages :
                 .newDisappearingMessages
-            )
+            ),
+            using: dependencies
         )
         
         switch message {
@@ -327,7 +328,8 @@ public enum MessageReceiver {
                     threadVariant: threadVariant,
                     message: message,
                     serverExpirationTimestamp: serverExpirationTimestamp,
-                    proto: proto
+                    proto: proto,
+                    using: dependencies
                 )
                 
             case let message as UnsendRequest:
@@ -335,7 +337,8 @@ public enum MessageReceiver {
                     db,
                     threadId: threadId,
                     threadVariant: threadVariant,
-                    message: message
+                    message: message,
+                    using: dependencies
                 )
                 
             case let message as CallMessage:
@@ -361,21 +364,29 @@ public enum MessageReceiver {
                     threadVariant: threadVariant,
                     message: message, 
                     serverExpirationTimestamp: serverExpirationTimestamp,
-                    associatedWithProto: proto
+                    associatedWithProto: proto,
+                    using: dependencies
                 )
             
             default: throw MessageReceiverError.unknownMessage
         }
         
         // Perform any required post-handling logic
-        try MessageReceiver.postHandleMessage(db, threadId: threadId, threadVariant: threadVariant, message: message)
+        try MessageReceiver.postHandleMessage(
+            db,
+            threadId: threadId,
+            threadVariant: threadVariant,
+            message: message,
+            using: dependencies
+        )
     }
     
     public static func postHandleMessage(
         _ db: Database,
         threadId: String,
         threadVariant: SessionThread.Variant,
-        message: Message
+        message: Message,
+        using dependencies: Dependencies
     ) throws {
         // When handling any message type which has related UI we want to make sure the thread becomes
         // visible (the only other spot this flag gets set is when sending messages)
@@ -424,7 +435,8 @@ public enum MessageReceiver {
                     .updateAllAndConfig(
                         db,
                         SessionThread.Columns.shouldBeVisible.set(to: true),
-                        SessionThread.Columns.pinnedPriority.set(to: LibSession.visiblePriority)
+                        SessionThread.Columns.pinnedPriority.set(to: LibSession.visiblePriority),
+                        using: dependencies
                     )
         }
     }

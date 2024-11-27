@@ -199,7 +199,8 @@ public final class NotificationServiceExtension: UNNotificationServiceExtension 
                                     db,
                                     threadId: threadId,
                                     threadVariant: threadVariant,
-                                    message: messageInfo.message
+                                    message: messageInfo.message,
+                                    using: dependencies
                                 )
                                 
                                 return self?.handleSuccessForIncomingCall(db, for: callMessage)
@@ -210,7 +211,8 @@ public final class NotificationServiceExtension: UNNotificationServiceExtension 
                             db,
                             threadId: threadId,
                             threadVariant: threadVariant,
-                            message: messageInfo.message
+                            message: messageInfo.message,
+                            using: dependencies
                         )
                         
                     case .standard(let threadId, let threadVariant, let proto, let messageInfo):

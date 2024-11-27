@@ -13,7 +13,7 @@ extension MessageReceiver {
         message: VisibleMessage,
         serverExpirationTimestamp: TimeInterval?,
         associatedWithProto proto: SNProtoContent,
-        using dependencies: Dependencies = Dependencies()
+        using dependencies: Dependencies
     ) throws -> Int64 {
         guard let sender: String = message.sender, let dataMessage = proto.dataMessage else {
             throw MessageReceiverError.invalidMessage
@@ -212,7 +212,8 @@ extension MessageReceiver {
                         interactionId: existingInteractionId,
                         messageSentTimestamp: messageSentTimestamp,
                         variant: variant,
-                        syncTarget: message.syncTarget
+                        syncTarget: message.syncTarget,
+                        using: dependencies
                     )
                     
                     Message.getExpirationForOutgoingDisappearingMessages(
@@ -239,7 +240,8 @@ extension MessageReceiver {
             interactionId: interactionId,
             messageSentTimestamp: messageSentTimestamp,
             variant: variant,
-            syncTarget: message.syncTarget
+            syncTarget: message.syncTarget,
+            using: dependencies
         )
         
         if messageExpirationInfo.shouldUpdateExpiry {
@@ -356,7 +358,8 @@ extension MessageReceiver {
             try MessageReceiver.updateContactApprovalStatusIfNeeded(
                 db,
                 senderSessionId: sender,
-                threadId: thread.id
+                threadId: thread.id,
+                using: dependencies
             )
         }
         
@@ -463,7 +466,8 @@ extension MessageReceiver {
         interactionId: Int64,
         messageSentTimestamp: TimeInterval,
         variant: Interaction.Variant,
-        syncTarget: String?
+        syncTarget: String?,
+        using dependencies: Dependencies
     ) throws {
         guard variant == .standardOutgoing else { return }
         
@@ -487,7 +491,8 @@ extension MessageReceiver {
             threadId: thread.id,
             threadVariant: thread.variant,
             includingOlder: true,
-            trySendReadReceipt: false
+            trySendReadReceipt: false,
+            using: dependencies
         )
         
         // Process any PendingReadReceipt values

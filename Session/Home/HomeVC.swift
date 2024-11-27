@@ -751,7 +751,8 @@ final class HomeVC: BaseVC, LibSessionRespondingViewController, UITableViewDataS
                         tableView: tableView,
                         threadViewModel: threadViewModel,
                         viewController: self,
-                        navigatableStateHolder: viewModel
+                        navigatableStateHolder: viewModel,
+                        using: viewModel.dependencies
                     )
                 )
             
@@ -773,7 +774,8 @@ final class HomeVC: BaseVC, LibSessionRespondingViewController, UITableViewDataS
                         tableView: tableView,
                         threadViewModel: threadViewModel,
                         viewController: self,
-                        navigatableStateHolder: viewModel
+                        navigatableStateHolder: viewModel,
+                        using: viewModel.dependencies
                     )
                 )
                 
@@ -820,7 +822,8 @@ final class HomeVC: BaseVC, LibSessionRespondingViewController, UITableViewDataS
                         tableView: tableView,
                         threadViewModel: threadViewModel,
                         viewController: self,
-                        navigatableStateHolder: viewModel
+                        navigatableStateHolder: viewModel,
+                        using: viewModel.dependencies
                     )
                 )
                 

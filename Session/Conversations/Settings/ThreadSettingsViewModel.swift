@@ -157,7 +157,8 @@ class ThreadSettingsViewModel: SessionTableViewModel, NavigationItemSource, Navi
                                     .updateAllAndConfig(
                                         db,
                                         Profile.Columns.nickname
-                                            .set(to: (updatedNickname.isEmpty ? nil : editedDisplayName))
+                                            .set(to: (updatedNickname.isEmpty ? nil : editedDisplayName)),
+                                        using: dependencies
                                     )
                             }
                         }
@@ -537,7 +538,8 @@ class ThreadSettingsViewModel: SessionTableViewModel, NavigationItemSource, Navi
                                         db,
                                         type: .leaveGroupAsync,
                                         threadId: threadViewModel.threadId,
-                                        calledFromConfigHandling: false
+                                        calledFromConfigHandling: false,
+                                        using: dependencies
                                     )
                                 }
                             }
@@ -837,12 +839,13 @@ class ThreadSettingsViewModel: SessionTableViewModel, NavigationItemSource, Navi
     ) {
         guard oldBlockedState != isBlocked else { return }
         
-        dependencies.storage.writeAsync { db in
+        dependencies.storage.writeAsync { [dependencies] db in
             try Contact
                 .filter(id: threadId)
                 .updateAllAndConfig(
                     db,
-                    Contact.Columns.isBlocked.set(to: isBlocked)
+                    Contact.Columns.isBlocked.set(to: isBlocked),
+                    using: dependencies
                 )
         }
     }
