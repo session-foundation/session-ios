@@ -448,22 +448,8 @@ public extension SessionThread {
         
         switch type {
             case .hideContactConversation:
-                // We need to custom handle the 'Note to Self' conversation
-                if threadIds.contains(currentUserPublicKey) {
-                    _ = try SessionThread
-                        .filter(id: currentUserPublicKey)
-                        .updateAllAndConfig(
-                            db,
-                            SessionThread.Columns.pinnedPriority.set(to: LibSession.hiddenPriority),
-                            SessionThread.Columns.shouldBeVisible.set(to: false),
-                            calledFromConfig: calledFromConfigHandling,
-                            using: dependencies
-                        )
-                }
-                
-                // Update any other threads to be hidden
                 _ = try SessionThread
-                    .filter(ids: remainingThreadIds)
+                    .filter(ids: threadIds)
                     .updateAllAndConfig(
                         db,
                         SessionThread.Columns.pinnedPriority.set(to: LibSession.hiddenPriority),
@@ -478,24 +464,9 @@ public extension SessionThread {
                     .filter(threadIds.contains(Interaction.Columns.threadId))
                     .deleteAll(db)
                 
-                // We need to custom handle the 'Note to Self' conversation (it should just be
-                // hidden rather than deleted)
-                if threadIds.contains(currentUserPublicKey) {
-                    _ = try SessionThread
-                        .filter(id: currentUserPublicKey)
-                        .updateAllAndConfig(
-                            db,
-                            SessionThread.Columns.pinnedPriority.set(to: LibSession.hiddenPriority),
-                            SessionThread.Columns.shouldBeVisible.set(to: false),
-                            calledFromConfig: calledFromConfigHandling,
-                            using: dependencies
-                        )
-                }
-                
-                // Update any other threads to be hidden (don't want to actually delete the thread
-                // record in case it's settings get changed while it's not visible)
+                // Hide the threads
                 _ = try SessionThread
-                    .filter(ids: remainingThreadIds)
+                    .filter(ids: threadIds)
                     .updateAllAndConfig(
                         db,
                         SessionThread.Columns.pinnedPriority.set(to: LibSession.hiddenPriority),
