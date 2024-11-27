@@ -40,8 +40,14 @@ extension MessageSender {
                 let formationTimestamp: TimeInterval = (TimeInterval(SnodeAPI.currentOffsetTimestampMs()) / 1000)
                 
                 // Create the relevant objects in the database
-                let thread: SessionThread = try SessionThread
-                    .fetchOrCreate(db, id: groupPublicKey, variant: .legacyGroup, shouldBeVisible: true)
+                let thread: SessionThread = try SessionThread.upsert(
+                    db,
+                    id: groupPublicKey,
+                    variant: .legacyGroup,
+                    values: SessionThread.TargetValues(shouldBeVisible: .setTo(true)),
+                    calledFromConfig: false,
+                    using: dependencies
+                )
                 try ClosedGroup(
                     threadId: groupPublicKey,
                     name: name,
@@ -468,7 +474,14 @@ extension MessageSender {
         
         try addedMembers.forEach { member in
             // Send updates to the new members individually
-            try SessionThread.fetchOrCreate(db, id: member, variant: .contact, shouldBeVisible: nil)
+            try SessionThread.upsert(
+                db,
+                id: member,
+                variant: .contact,
+                values: .existingOrDefault,
+                calledFromConfig: false,
+                using: dependencies
+            )
             
             try MessageSender.send(
                 db,
@@ -675,8 +688,14 @@ extension MessageSender {
                 privateKey: keyPair.secretKey
             ).build()
             let plaintext = try proto.serializedData()
-            let thread: SessionThread = try SessionThread
-                .fetchOrCreate(db, id: publicKey, variant: .contact, shouldBeVisible: nil)
+            let thread: SessionThread = try SessionThread.upsert(
+                db,
+                id: publicKey,
+                variant: .contact,
+                values: .existingOrDefault,
+                calledFromConfig: false,
+                using: dependencies
+            )
             let ciphertext = try dependencies.crypto.tryGenerate(
                 .ciphertextWithSessionProtocol(
                     db,

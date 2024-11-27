@@ -169,8 +169,14 @@ enum Onboarding {
                 ///
                 /// **Note:** We need to explicitly `updateAllAndConfig` the `shouldBeVisible` value to `false`
                 /// otherwise it won't actually get synced correctly
-                try SessionThread
-                    .fetchOrCreate(db, id: x25519PublicKey, variant: .contact, shouldBeVisible: false)
+                try SessionThread.upsert(
+                    db,
+                    id: x25519PublicKey,
+                    variant: .contact,
+                    values: SessionThread.TargetValues(shouldBeVisible: .setTo(false)),
+                    calledFromConfig: false,
+                    using: dependencies
+                )
                 
                 try SessionThread
                     .filter(id: x25519PublicKey)

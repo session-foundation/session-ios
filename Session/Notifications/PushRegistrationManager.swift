@@ -315,8 +315,14 @@ public enum PushRegistrationError: Error {
             }()
             
             let call: SessionCall = SessionCall(db, for: caller, uuid: uuid, mode: .answer)
-            let thread: SessionThread = try SessionThread
-                .fetchOrCreate(db, id: caller, variant: .contact, shouldBeVisible: nil)
+            let thread: SessionThread = try SessionThread.upsert(
+                db,
+                id: caller,
+                variant: .contact,
+                values: .existingOrDefault,
+                calledFromConfig: false,
+                using: dependencies
+            )
             
             let interaction: Interaction = try Interaction(
                 messageUuid: uuid,

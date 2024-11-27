@@ -576,7 +576,8 @@ class NotificationActionHandler {
             for: threadId,
             variant: threadVariant,
             dismissing: nil,
-            animated: (UIApplication.shared.applicationState == .active)
+            animated: (UIApplication.shared.applicationState == .active),
+            using: dependencies
         )
         
         return Just(())

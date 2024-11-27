@@ -97,7 +97,7 @@ public extension QueryInterfaceRequest where RowDecoder: FetchableRecord & Table
         // Then check if any of the changes could affect the config
         guard
             !calledFromConfig &&
-                LibSession.assignmentsRequireConfigUpdate(assignments)
+            LibSession.assignmentsRequireConfigUpdate(assignments)
         else { return updatedData }
         
         defer {

@@ -774,8 +774,14 @@ class ThreadSettingsViewModel: SessionTableViewModel, NavigationItemSource, Navi
         dependencies.storage.writeAsync { [dependencies] db in
             let currentUserSessionId: String = getUserHexEncodedPublicKey(db, using: dependencies)
             try selectedUsers.forEach { userId in
-                let thread: SessionThread = try SessionThread
-                    .fetchOrCreate(db, id: userId, variant: .contact, shouldBeVisible: nil)
+                let thread: SessionThread = try SessionThread.upsert(
+                    db,
+                    id: userId,
+                    variant: .contact,
+                    values: .existingOrDefault,
+                    calledFromConfig: false,
+                    using: dependencies
+                )
                 
                 try LinkPreview(
                     url: communityUrl,

@@ -1256,9 +1256,15 @@ extension ConversationVC:
         // FIXME: Add in support for starting a thread with a 'blinded25' id
         guard (try? SessionId.Prefix(from: sessionId)) != .blinded25 else { return }
         guard (try? SessionId.Prefix(from: sessionId)) == .blinded15 else {
-            Storage.shared.write { db in
-                try SessionThread
-                    .fetchOrCreate(db, id: sessionId, variant: .contact, shouldBeVisible: nil)
+            Storage.shared.write { [dependencies = viewModel.dependencies] db in
+                try SessionThread.upsert(
+                    db,
+                    id: sessionId,
+                    variant: .contact,
+                    values: .existingOrDefault,
+                    calledFromConfig: false,
+                    using: dependencies
+                )
             }
             
             let conversationVC: ConversationVC = ConversationVC(
@@ -1277,7 +1283,7 @@ extension ConversationVC:
             return
         }
         
-        let targetThreadId: String? = Storage.shared.write { db in
+        let targetThreadId: String? = Storage.shared.write { [dependencies = viewModel.dependencies] db in
             let lookup: BlindedIdLookup = try BlindedIdLookup
                 .fetchOrCreate(
                     db,
@@ -1287,14 +1293,14 @@ extension ConversationVC:
                     isCheckingForOutbox: false
                 )
             
-            return try SessionThread
-                .fetchOrCreate(
-                    db,
-                    id: (lookup.sessionId ?? lookup.blindedId),
-                    variant: .contact,
-                    shouldBeVisible: nil
-                )
-                .id
+            return try SessionThread.upsert(
+                db,
+                id: (lookup.sessionId ?? lookup.blindedId),
+                variant: .contact,
+                values: .existingOrDefault,
+                calledFromConfig: false,
+                using: dependencies
+            ).id
         }
         
         guard let threadId: String = targetThreadId else { return }

@@ -802,7 +802,7 @@ final class HomeVC: BaseVC, LibSessionRespondingViewController, UITableViewDataS
                 }()
                 let destructiveAction: UIContextualAction.SwipeAction = {
                     switch (threadViewModel.threadVariant, threadViewModel.threadIsNoteToSelf, threadViewModel.currentUserIsClosedGroupMember) {
-                        case (.contact, true, _): return .clear
+                        case (.contact, true, _): return .hide
                         case (.legacyGroup, _, true), (.group, _, true), (.community, _, _): return .leave
                         default: return .delete
                     }
@@ -897,7 +897,7 @@ final class HomeVC: BaseVC, LibSessionRespondingViewController, UITableViewDataS
     
     @objc func createNewConversation() {
         let viewController = SessionHostingViewController(
-            rootView: StartConversationScreen(),
+            rootView: StartConversationScreen(using: viewModel.dependencies),
             customizedNavigationBackground: .backgroundSecondary
         )
         viewController.setNavBarTitle("conversationsStart".localized())
@@ -912,7 +912,7 @@ final class HomeVC: BaseVC, LibSessionRespondingViewController, UITableViewDataS
     }
     
     func createNewDMFromDeepLink(sessionId: String) {
-        let viewController: SessionHostingViewController = SessionHostingViewController(rootView: NewMessageScreen(accountId: sessionId))
+        let viewController: SessionHostingViewController = SessionHostingViewController(rootView: NewMessageScreen(accountId: sessionId, using: viewModel.dependencies))
         viewController.setNavBarTitle(
             "messageNew"
                 .putNumber(1)

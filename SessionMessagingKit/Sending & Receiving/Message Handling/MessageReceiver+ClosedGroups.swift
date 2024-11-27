@@ -152,14 +152,17 @@ extension MessageReceiver {
         guard hasApprovedAdmin || calledFromConfigHandling else { return }
         
         // Create the group
-        let thread: SessionThread = try SessionThread
-            .fetchOrCreate(
-                db,
-                id: groupPublicKey,
-                variant: .legacyGroup,
+        let thread: SessionThread = try SessionThread.upsert(
+            db,
+            id: groupPublicKey,
+            variant: .legacyGroup,
+            values: SessionThread.TargetValues(
                 creationDateTimestamp: (TimeInterval(formationTimestampMs) / 1000),
-                shouldBeVisible: true
-            )
+                shouldBeVisible: .setTo(true)
+            ),
+            calledFromConfig: false,
+            using: dependencies
+        )
         let closedGroup: ClosedGroup = try ClosedGroup(
             threadId: groupPublicKey,
             name: name,

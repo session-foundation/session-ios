@@ -457,7 +457,8 @@ public extension LibSession {
                                         db,
                                         in: conf,
                                         mergeNeedsDump: config_needs_dump(conf),
-                                        latestConfigSentTimestampMs: latestConfigSentTimestampMs
+                                        latestConfigSentTimestampMs: latestConfigSentTimestampMs,
+                                        using: dependencies
                                     )
                                     
                                 case .convoInfoVolatile:

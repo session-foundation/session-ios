@@ -63,11 +63,13 @@ class MessageSendJobSpec: QuickSpec {
                     SNMessagingKit.self
                 ],
                 initialData: { db in
-                    try SessionThread.fetchOrCreate(
+                    try SessionThread.upsert(
                         db,
                         id: "Test1",
                         variant: .contact,
-                        shouldBeVisible: true
+                        values: SessionThread.TargetValues(shouldBeVisible: .setTo(true)),
+                        calledFromConfig: false,
+                        using: dependencies
                     )
                 },
                 using: dependencies

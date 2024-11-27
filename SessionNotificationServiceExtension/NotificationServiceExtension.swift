@@ -164,13 +164,14 @@ public final class NotificationServiceExtension: UNNotificationServiceExtension 
                                         using: dependencies
                                     )
                                 {
-                                    let thread: SessionThread = try SessionThread
-                                        .fetchOrCreate(
-                                            db,
-                                            id: sender,
-                                            variant: .contact,
-                                            shouldBeVisible: nil
-                                        )
+                                    let thread: SessionThread = try SessionThread.upsert(
+                                        db,
+                                        id: sender,
+                                        variant: .contact,
+                                        values: .existingOrDefault,
+                                        calledFromConfig: false,
+                                        using: dependencies
+                                    )
 
                                     // Notify the user if the call message wasn't already read
                                     if !interaction.wasRead {
