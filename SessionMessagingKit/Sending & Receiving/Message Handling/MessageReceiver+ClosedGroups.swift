@@ -164,7 +164,7 @@ extension MessageReceiver {
                 creationDateTimestamp: (TimeInterval(formationTimestampMs) / 1000),
                 shouldBeVisible: .setTo(true)
             ),
-            calledFromConfig: false,
+            calledFromConfig: calledFromConfigHandling,
             using: dependencies
         )
         let closedGroup: ClosedGroup = try ClosedGroup(

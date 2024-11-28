@@ -485,7 +485,7 @@ public extension SessionThread {
                 if threadIds.contains(currentUserPublicKey) {
                     // Clear any interactions for the deleted thread
                     _ = try Interaction
-                        .filter(threadIds.contains(Interaction.Columns.threadId))
+                        .filter(Interaction.Columns.threadId == currentUserPublicKey)
                         .deleteAll(db)
                     
                     _ = try SessionThread
