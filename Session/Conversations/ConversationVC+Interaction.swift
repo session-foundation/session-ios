@@ -2109,6 +2109,7 @@ extension ConversationVC:
                 }
                 
                 // Delete the message from the open group
+                self.hideInputAccessoryView()
                 deleteRemotely(
                     from: self,
                     request: Storage.shared
@@ -2133,13 +2134,14 @@ extension ConversationVC:
                     userPublicKey :
                     cellViewModel.threadId
                 )
-                let serverHash: String? = Storage.shared.read { db -> String? in
-                    try Interaction
-                        .select(.serverHash)
-                        .filter(id: cellViewModel.id)
-                        .asRequest(of: String.self)
-                        .fetchOne(db)
-                }
+                let serverHashes: Set<String> = Storage.shared
+                    .read { db -> Set<String> in
+                        try Interaction.serverHashesForDeletion(
+                            db,
+                            interactionIds: [cellViewModel.id]
+                        )
+                    }
+                    .defaulting(to: [])
                 let unsendRequest: UnsendRequest = UnsendRequest(
                     timestamp: UInt64(cellViewModel.timestampMs),
                     author: (cellViewModel.variant == .standardOutgoing ?
@@ -2153,7 +2155,7 @@ extension ConversationVC:
                 )
                 
                 // For incoming interactions or interactions with no serverHash just delete them locally
-                guard cellViewModel.variant == .standardOutgoing, let serverHash: String = serverHash else {
+                guard cellViewModel.variant == .standardOutgoing, !serverHashes.isEmpty else {
                     Storage.shared.writeAsync { db in
                         _ = try Interaction
                             .filter(id: cellViewModel.id)
@@ -2161,7 +2163,7 @@ extension ConversationVC:
                         
                         // No need to send the unsendRequest if there is no serverHash (ie. the message
                         // was outgoing but never got to the server)
-                        guard serverHash != nil else { return }
+                        guard !serverHashes.isEmpty else { return }
                         
                         MessageSender
                             .send(
@@ -2209,7 +2211,6 @@ extension ConversationVC:
                 actionSheet.addAction(UIAlertAction(
                     title: {
                         switch (cellViewModel.threadVariant, cellViewModel.threadId) {
-                            case (.legacyGroup, _), (.group, _): return "clearMessagesForEveryone".localized()
                             case (_, userPublicKey): return "deleteMessageDevicesAll".localized()
                             default: return "deleteMessageEveryone".localized()
                         }
@@ -2219,6 +2220,10 @@ extension ConversationVC:
                 ) { [weak self] _ in
                     let completeServerDeletion = {
                         Storage.shared.writeAsync { db in
+                            _ = try Interaction
+                                .filter(id: cellViewModel.id)
+                                .deleteAll(db)
+                            
                             try MessageSender
                                 .send(
                                     db,
@@ -2228,7 +2233,15 @@ extension ConversationVC:
                                     threadVariant: cellViewModel.threadVariant,
                                     using: dependencies
                                 )
+                            
+                            /// We should also remove the `SnodeReceivedMessageInfo` entries for the hashes (otherwise we
+                            /// might try to poll for a hash which no longer exists, resulting in fetching the last 14 days of messages)
+                            try SnodeReceivedMessageInfo.handlePotentialDeletedOrInvalidHash(
+                                db,
+                                potentiallyInvalidHashes: Array(serverHashes)
+                            )
                         }
+                        self?.showInputAccessoryView()
                     }
                         
                     // We can only delete messages on the server for `contact` and `group` conversations
@@ -2241,7 +2254,7 @@ extension ConversationVC:
                         request: SnodeAPI
                             .deleteMessages(
                                 swarmPublicKey: targetPublicKey,
-                                serverHashes: [serverHash]
+                                serverHashes: Array(serverHashes)
                             )
                             .map { _ in () }
                             .eraseToAnyPublisher()
