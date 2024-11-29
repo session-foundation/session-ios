@@ -346,6 +346,8 @@ public enum PushRegistrationError: Error {
         call.reportIncomingCallIfNeeded { error in
             if let error = error {
                 SNLog("[Calls] Failed to report incoming call to CallKit due to error: \(error)")
+            } else {
+                SNLog("[Calls] Succeeded to report incoming call to CallKit")
             }
         }
     }

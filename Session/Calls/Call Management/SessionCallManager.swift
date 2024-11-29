@@ -113,7 +113,7 @@ public final class SessionCallManager: NSObject, CallManagerProtocol {
         // Construct a CXCallUpdate describing the incoming call, including the caller.
         let update = CXCallUpdate()
         update.localizedCallerName = callerName
-        update.remoteHandle = CXHandle(type: .generic, value: call.callId.uuidString)
+        update.remoteHandle = CXHandle(type: .generic, value: call.sessionId)
         update.hasVideo = false
 
         disableUnsupportedFeatures(callUpdate: update)
