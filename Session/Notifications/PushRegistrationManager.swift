@@ -300,39 +300,27 @@ public enum PushRegistrationError: Error {
             var call: SessionCall? = nil
             
             do {
-                let messageInfo: CallMessage.MessageInfo = CallMessage.MessageInfo(state: .incoming)
-                SNLog("[Calls] messageInfo done")
-                
-                let messageInfoString: String? = {
-                    if let messageInfoData: Data = try? JSONEncoder().encode(messageInfo) {
-                       return String(data: messageInfoData, encoding: .utf8)
-                    } else {
-                        return "callsIncoming"
-                            .put(key: "name", value: caller)
-                            .localized()
-                    }
-                }()
-                SNLog("[Calls] messageInfoString done: \(messageInfoString ?? "nil")")
-                
-                call = SessionCall(db, for: caller, uuid: uuid, mode: .answer)
-                SNLog("[Calls] call instance done")
-                let thread: SessionThread = try SessionThread.fetchOrCreate(db, id: caller, variant: .contact, shouldBeVisible: nil)
-                SNLog("[Calls] thread got")
-                
-                let interaction: Interaction = try Interaction(
-                    messageUuid: uuid,
-                    threadId: thread.id,
-                    threadVariant: thread.variant,
-                    authorId: caller,
-                    variant: .infoCall,
-                    body: messageInfoString,
-                    timestampMs: timestampMs
+                call = SessionCall(
+                    db,
+                    for: caller,
+                    uuid: uuid,
+                    mode: .answer
                 )
-                .withDisappearingMessagesConfiguration(db, threadVariant: thread.variant)
-                .inserted(db)
-                SNLog("[Calls] control message inserted")
                 
-                call?.callInteractionId = interaction.id
+                let thread: SessionThread = try SessionThread
+                    .fetchOrCreate(
+                        db,
+                        id: caller,
+                        variant: .contact,
+                        shouldBeVisible: nil
+                    )
+                
+                let interaction: Interaction? = try Interaction
+                    .filter(Interaction.Columns.threadId == thread.id)
+                    .filter(Interaction.Columns.messageUuid == uuid)
+                    .fetchOne(db)
+                
+                call?.callInteractionId = interaction?.id
             } catch {
                 SNLog("[Calls] Failed to creat call due to error: \(error)")
             }
