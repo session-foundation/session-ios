@@ -781,7 +781,7 @@ class ThreadSettingsViewModel: SessionTableViewModel, NavigationItemSource, Navi
                     id: userId,
                     variant: .contact,
                     values: .existingOrDefault,
-                    calledFromConfig: false,
+                    calledFromConfig: nil,
                     using: dependencies
                 )
                 

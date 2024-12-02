@@ -32,7 +32,7 @@ internal extension LibSession {
         using dependencies: Dependencies = Dependencies()
     ) throws {
         guard mergeNeedsDump else { return }
-        guard conf != nil else { throw LibSessionError.nilConfigObject }
+        guard let conf: UnsafeMutablePointer<config_object> = conf else { throw LibSessionError.nilConfigObject }
         
         var infiniteLoopGuard: Int = 0
         var communities: [PrioritisedData<OpenGroupUrlInfo>] = []
@@ -133,14 +133,13 @@ internal extension LibSession {
         
         // Add any new communities (via the OpenGroupManager)
         communities.forEach { community in
-            let successfullyAddedGroup: Bool = OpenGroupManager.shared
-                .add(
-                    db,
-                    roomToken: community.data.roomToken,
-                    server: community.data.server,
-                    publicKey: community.data.publicKey,
-                    calledFromConfigHandling: true
-                )
+            let successfullyAddedGroup: Bool = OpenGroupManager.shared.add(
+                db,
+                roomToken: community.data.roomToken,
+                server: community.data.server,
+                publicKey: community.data.publicKey,
+                calledFromConfig: .userGroups(conf)
+            )
             
             if successfullyAddedGroup {
                 db.afterNextTransactionNested { _ in
@@ -241,7 +240,7 @@ internal extension LibSession {
                     admins: updatedAdmins.map { $0.profileId },
                     expirationTimer: UInt32(group.disappearingConfig?.durationSeconds ?? 0),
                     formationTimestampMs: UInt64(joinedAt * 1000),
-                    calledFromConfigHandling: true,
+                    calledFromConfig: .userGroups(conf),
                     using: dependencies
                 )
             }

@@ -180,12 +180,12 @@ public final class OpenGroupManager {
         roomToken: String,
         server: String,
         publicKey: String,
-        calledFromConfigHandling: Bool,
+        calledFromConfig configTriggeringChange: LibSession.Config.Variant?,
         using dependencies: Dependencies = Dependencies()
     ) -> Bool {
         // If we are currently polling for this server and already have a TSGroupThread for this room the do nothing
         if hasExistingOpenGroup(db, roomToken: roomToken, server: server, publicKey: publicKey, using: dependencies) {
-            SNLog("Ignoring join open group attempt (already joined), user initiated: \(!calledFromConfigHandling)")
+            SNLog("Ignoring join open group attempt (already joined), user initiated: \(configTriggeringChange != nil)")
             return false
         }
         
@@ -211,9 +211,9 @@ public final class OpenGroupManager {
                 ///
                 /// **Note:** We **MUST** provide a `nil` value if this method was called from the config handling as updating
                 /// the `shouldVeVisible` state can trigger a config update which could result in an infinite loop in the future
-                shouldBeVisible: (calledFromConfigHandling ? .useExisting : .setTo(true))
+                shouldBeVisible: (configTriggeringChange != nil ? .useExisting : .setTo(true))
             ),
-            calledFromConfig: calledFromConfigHandling,
+            calledFromConfig: configTriggeringChange,
             using: dependencies
         )
         
@@ -225,7 +225,7 @@ public final class OpenGroupManager {
         
         // Set the group to active and reset the sequenceNumber (handle groups which have
         // been deactivated)
-        if calledFromConfigHandling {
+        if configTriggeringChange != nil {
             _ = try? OpenGroup
                 .filter(id: OpenGroup.idFor(roomToken: roomToken, server: targetServer))
                 .updateAll( // Handling a config update so don't use `updateAllAndConfig`

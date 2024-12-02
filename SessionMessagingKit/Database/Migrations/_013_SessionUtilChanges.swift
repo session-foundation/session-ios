@@ -248,7 +248,7 @@ enum _013_SessionUtilChanges: Migration {
                     id: userPublicKey,
                     variant: .contact,
                     values: SessionThread.TargetValues(shouldBeVisible: .setTo(false)),
-                    calledFromConfig: false,
+                    calledFromConfig: nil,
                     using: dependencies
                 )
             }

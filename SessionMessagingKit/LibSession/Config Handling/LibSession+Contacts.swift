@@ -39,7 +39,7 @@ internal extension LibSession {
         using dependencies: Dependencies
     ) throws {
         guard mergeNeedsDump else { return }
-        guard conf != nil else { throw LibSessionError.nilConfigObject }
+        guard let conf: UnsafeMutablePointer<config_object> = conf else { throw LibSessionError.nilConfigObject }
         
         // The current users contact data is handled separately so exclude it if it's present (as that's
         // actually a bug)
@@ -178,7 +178,7 @@ internal extension LibSession {
                                     .useExisting
                                 )
                             ),
-                            calledFromConfig: true,
+                            calledFromConfig: .contacts(conf),
                             using: dependencies
                         )
                     

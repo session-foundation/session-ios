@@ -28,7 +28,7 @@ internal extension LibSession {
         typealias ProfileData = (profileName: String, profilePictureUrl: String?, profilePictureKey: Data?)
         
         guard mergeNeedsDump else { return }
-        guard conf != nil else { throw LibSessionError.nilConfigObject }
+        guard let conf: UnsafeMutablePointer<config_object> = conf else { throw LibSessionError.nilConfigObject }
         
         // A profile must have a name so if this is null then it's invalid and can be ignored
         guard let profileNamePtr: UnsafePointer<CChar> = user_profile_get_name(conf) else { return }
@@ -106,7 +106,7 @@ internal extension LibSession {
                         shouldBeVisible: .setTo(LibSession.shouldBeVisible(priority: targetPriority)),
                         pinnedPriority: .setTo(targetPriority)
                     ),
-                    calledFromConfig: true,
+                    calledFromConfig: .userProfile(conf),
                     using: dependencies
                 )
             }

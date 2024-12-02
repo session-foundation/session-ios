@@ -206,7 +206,7 @@ final class JoinOpenGroupVC: BaseVC, UIPageViewControllerDataSource, UIPageViewC
                         roomToken: roomToken,
                         server: server,
                         publicKey: publicKey,
-                        calledFromConfigHandling: false
+                        calledFromConfig: nil
                     )
                 }
                 .flatMap { successfullyAddedGroup in

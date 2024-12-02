@@ -764,7 +764,11 @@ class OpenGroupManagerSpec: QuickSpec {
                                     roomToken: "testRoom",
                                     server: "http://127.0.0.1",
                                     publicKey: TestConstants.serverPublicKey,
-                                    calledFromConfigHandling: true, // Don't trigger LibSession logic
+                                    calledFromConfig: .userGroups( // Don't trigger LibSession logic
+                                        dependencies.caches[.libSession]
+                                            .config(for: .userGroups, publicKey: "05\(TestConstants.publicKey)")
+                                            .wrappedValue!
+                                    ),
                                     using: dependencies
                                 )
                         }
@@ -802,7 +806,11 @@ class OpenGroupManagerSpec: QuickSpec {
                                     roomToken: "testRoom",
                                     server: "http://127.0.0.1",
                                     publicKey: TestConstants.serverPublicKey,
-                                    calledFromConfigHandling: true, // Don't trigger LibSession logic
+                                    calledFromConfig: .userGroups( // Don't trigger LibSession logic
+                                        dependencies.caches[.libSession]
+                                            .config(for: .userGroups, publicKey: "05\(TestConstants.publicKey)")
+                                            .wrappedValue!
+                                    ),
                                     using: dependencies
                                 )
                         }
@@ -849,7 +857,11 @@ class OpenGroupManagerSpec: QuickSpec {
                                         publicKey: TestConstants.serverPublicKey
                                             .replacingOccurrences(of: "c3", with: "00")
                                             .replacingOccurrences(of: "b3", with: "00"),
-                                        calledFromConfigHandling: true, // Don't trigger LibSession logic
+                                        calledFromConfig: .userGroups( // Don't trigger LibSession logic
+                                            dependencies.caches[.libSession]
+                                                .config(for: .userGroups, publicKey: "05\(TestConstants.publicKey)")
+                                                .wrappedValue!
+                                        ),
                                         using: dependencies
                                     )
                             }
@@ -914,7 +926,11 @@ class OpenGroupManagerSpec: QuickSpec {
                                         roomToken: "testRoom",
                                         server: "http://127.0.0.1",
                                         publicKey: TestConstants.serverPublicKey,
-                                        calledFromConfigHandling: true, // Don't trigger LibSession logic
+                                        calledFromConfig: .userGroups( // Don't trigger LibSession logic
+                                            dependencies.caches[.libSession]
+                                                .config(for: .userGroups, publicKey: "05\(TestConstants.publicKey)")
+                                                .wrappedValue!
+                                        ),
                                         using: dependencies
                                     )
                             }

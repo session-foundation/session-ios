@@ -65,7 +65,7 @@ extension MessageReceiver {
                     id: sender,
                     variant: .contact,
                     values: .existingOrDefault,
-                    calledFromConfig: false,
+                    calledFromConfig: nil,
                     using: dependencies
                 )
                 
@@ -92,7 +92,7 @@ extension MessageReceiver {
                     id: sender,
                     variant: .contact,
                     values: .existingOrDefault,
-                    calledFromConfig: false,
+                    calledFromConfig: nil,
                     using: dependencies
                 )
                 

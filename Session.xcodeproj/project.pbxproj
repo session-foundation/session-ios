@@ -842,6 +842,7 @@
 		FDC13D562A171FE4007267C7 /* UnsubscribeRequest.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDC13D552A171FE4007267C7 /* UnsubscribeRequest.swift */; };
 		FDC13D582A17207D007267C7 /* UnsubscribeResponse.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDC13D572A17207D007267C7 /* UnsubscribeResponse.swift */; };
 		FDC13D5A2A1721C5007267C7 /* LegacyNotifyRequest.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDC13D592A1721C5007267C7 /* LegacyNotifyRequest.swift */; };
+		FDC1BD662CFD6C4F002CDC71 /* Config.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDC1BD652CFD6C4E002CDC71 /* Config.swift */; };
 		FDC289422C86AB5800020BC2 /* GRDB in Frameworks */ = {isa = PBXBuildFile; productRef = FDC289412C86AB5800020BC2 /* GRDB */; };
 		FDC289472C881A3800020BC2 /* MutableIdentifiable.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDC289462C881A3800020BC2 /* MutableIdentifiable.swift */; };
 		FDC2908727D7047F005DAE71 /* RoomSpec.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDC2908627D7047F005DAE71 /* RoomSpec.swift */; };
@@ -1966,6 +1967,7 @@
 		FDC13D552A171FE4007267C7 /* UnsubscribeRequest.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UnsubscribeRequest.swift; sourceTree = "<group>"; };
 		FDC13D572A17207D007267C7 /* UnsubscribeResponse.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UnsubscribeResponse.swift; sourceTree = "<group>"; };
 		FDC13D592A1721C5007267C7 /* LegacyNotifyRequest.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LegacyNotifyRequest.swift; sourceTree = "<group>"; };
+		FDC1BD652CFD6C4E002CDC71 /* Config.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Config.swift; sourceTree = "<group>"; };
 		FDC289462C881A3800020BC2 /* MutableIdentifiable.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MutableIdentifiable.swift; sourceTree = "<group>"; };
 		FDC2908627D7047F005DAE71 /* RoomSpec.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RoomSpec.swift; sourceTree = "<group>"; };
 		FDC2908827D70656005DAE71 /* RoomPollInfoSpec.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RoomPollInfoSpec.swift; sourceTree = "<group>"; };
@@ -4168,8 +4170,9 @@
 		FD8ECF7529340F4800C0D1BB /* LibSession */ = {
 			isa = PBXGroup;
 			children = (
-				FD2B4B022949886900AB4848 /* Database */,
 				FD8ECF8E29381FB200C0D1BB /* Config Handling */,
+				FD2B4B022949886900AB4848 /* Database */,
+				FDC1BD642CFD6C44002CDC71 /* Types */,
 				FD8ECF7A29340FFD00C0D1BB /* LibSession+SessionMessagingKit.swift */,
 			);
 			path = LibSession;
@@ -4250,6 +4253,14 @@
 				FDD82C3E2A205D0A00425F05 /* ProcessResult.swift */,
 				FDC13D4F2A16EE50007267C7 /* PushNotificationAPIEndpoint.swift */,
 				FD7F74872BB2929B006DDFD8 /* Request+PushNotificationAPI.swift */,
+			);
+			path = Types;
+			sourceTree = "<group>";
+		};
+		FDC1BD642CFD6C44002CDC71 /* Types */ = {
+			isa = PBXGroup;
+			children = (
+				FDC1BD652CFD6C4E002CDC71 /* Config.swift */,
 			);
 			path = Types;
 			sourceTree = "<group>";
@@ -5997,6 +6008,7 @@
 				FD5C72FD284F0EC90029977D /* MessageReceiver+ExpirationTimers.swift in Sources */,
 				C32C5A88256DBCF9003C73A2 /* MessageReceiver+ClosedGroups.swift in Sources */,
 				B8D0A25925E367AC00C1835E /* Notification+MessageReceiver.swift in Sources */,
+				FDC1BD662CFD6C4F002CDC71 /* Config.swift in Sources */,
 				FD245C53285065DB00B966DD /* ProximityMonitoringManager.swift in Sources */,
 				FD245C55285065E500B966DD /* OpenGroupManager.swift in Sources */,
 				C32C599E256DB02B003C73A2 /* TypingIndicators.swift in Sources */,

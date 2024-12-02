@@ -399,7 +399,7 @@ extension GlobalSearchViewController {
                     id: threadId,
                     variant: threadVariant,
                     values: .existingOrDefault,
-                    calledFromConfig: false,
+                    calledFromConfig: nil,
                     using: dependencies
                 )
             }

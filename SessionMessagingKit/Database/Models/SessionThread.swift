@@ -202,7 +202,7 @@ public extension SessionThread {
         id: ID,
         variant: Variant,
         values: TargetValues,
-        calledFromConfig: Bool,
+        calledFromConfig configTriggeringChange: LibSession.Config.Variant?,
         using dependencies: Dependencies
     ) throws -> SessionThread {
         var result: SessionThread
@@ -215,6 +215,7 @@ public extension SessionThread {
                     db,
                     threadId: id,
                     threadVariant: variant,
+                    conf: configTriggeringChange?.conf,
                     using: dependencies
                 )
                 
@@ -239,13 +240,14 @@ public extension SessionThread {
                     )
             
             case (_, .useLibSession):                           // Create and save the config from libSession
-                guard !calledFromConfig else { throw LibSessionError.invalidConfigAccess }
+                guard configTriggeringChange == nil else { throw LibSessionError.invalidConfigAccess }
                 
                 try LibSession
                     .disappearingMessagesConfig(
                         db,
                         threadId: id,
                         threadVariant: variant,
+                        conf: configTriggeringChange?.conf,
                         using: dependencies
                     )?
                     .upserted(db)
@@ -268,6 +270,7 @@ public extension SessionThread {
                     db,
                     threadId: id,
                     threadVariant: variant,
+                    conf: configTriggeringChange?.conf,
                     using: dependencies
                 )
                 let libSessionShouldBeVisible: Bool = LibSession.shouldBeVisible(priority: targetPriority)
@@ -305,7 +308,7 @@ public extension SessionThread {
             .updateAllAndConfig(
                 db,
                 requiredChanges,
-                calledFromConfig: calledFromConfig,
+                calledFromConfig: (configTriggeringChange != nil),
                 using: dependencies
             )
         

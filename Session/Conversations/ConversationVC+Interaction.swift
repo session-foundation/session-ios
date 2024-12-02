@@ -1273,7 +1273,7 @@ extension ConversationVC:
                     id: sessionId,
                     variant: .contact,
                     values: .existingOrDefault,
-                    calledFromConfig: false,
+                    calledFromConfig: nil,
                     using: dependencies
                 )
             }
@@ -1309,7 +1309,7 @@ extension ConversationVC:
                 id: (lookup.sessionId ?? lookup.blindedId),
                 variant: .contact,
                 values: .existingOrDefault,
-                calledFromConfig: false,
+                calledFromConfig: nil,
                 using: dependencies
             ).id
         }
@@ -1766,7 +1766,7 @@ extension ConversationVC:
                                 roomToken: room,
                                 server: server,
                                 publicKey: publicKey,
-                                calledFromConfigHandling: false
+                                calledFromConfig: nil
                             )
                         }
                         .flatMap { successfullyAddedGroup in

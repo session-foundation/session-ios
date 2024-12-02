@@ -55,7 +55,7 @@ extension MessageReceiver {
             id: senderId,
             variant: .contact,
             values: .existingOrDefault,
-            calledFromConfig: false,
+            calledFromConfig: nil,
             using: dependencies
         )
         

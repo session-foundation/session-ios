@@ -318,7 +318,7 @@ public class PushRegistrationManager: NSObject, PKPushRegistryDelegate, PushRegi
                 id: caller,
                 variant: .contact,
                 values: .existingOrDefault,
-                calledFromConfig: false,
+                calledFromConfig: nil,
                 using: dependencies
             )
             

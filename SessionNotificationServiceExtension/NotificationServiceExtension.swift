@@ -169,7 +169,7 @@ public final class NotificationServiceExtension: UNNotificationServiceExtension 
                                         id: sender,
                                         variant: .contact,
                                         values: .existingOrDefault,
-                                        calledFromConfig: false,
+                                        calledFromConfig: nil,
                                         using: dependencies
                                     )
 
