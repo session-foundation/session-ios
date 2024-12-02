@@ -354,7 +354,7 @@ final class HomeVC: BaseVC, LibSessionRespondingViewController, UITableViewDataS
         
         // Start polling if needed (i.e. if the user just created or restored their Session ID)
         if Identity.userExists(), let appDelegate: AppDelegate = UIApplication.shared.delegate as? AppDelegate, Singleton.appContext.isInBackground == false {
-            SNLog("[HomeVC]: Starting pollers... \(Singleton.appContext.reportedApplicationState)")
+            SNLog("[HomeVC]: Starting pollers...")
             appDelegate.startPollersIfNeeded()
         }
         

@@ -46,7 +46,9 @@ public extension AppContext {
     var frontmostViewController: UIViewController? { nil }
     var backgroundTimeRemaining: TimeInterval { 0 }
     
-    var isInBackground: Bool { reportedApplicationState == .background }
+    // Note: .inactive is a strange state, if the app is activated by VOIP and CallKit is up in the front,
+    // the app will report .inactive state
+    var isInBackground: Bool { reportedApplicationState == .background || reportedApplicationState == .inactive }
     var isAppForegroundAndActive: Bool { reportedApplicationState == .active }
     
     // MARK: - Paths

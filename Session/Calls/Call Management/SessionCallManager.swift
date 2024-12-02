@@ -199,6 +199,7 @@ public final class SessionCallManager: NSObject, CallManagerProtocol {
     }
     
     public static func suspendDatabaseIfCallEndedInBackground() {
+        SNLog("[Calls] suspendDatabaseIfCallEndedInBackground.")
         if Singleton.hasAppContext && Singleton.appContext.isInBackground {
             // FIXME: Initialise the `SessionCallManager` with a dependencies instance
             let dependencies: Dependencies = Dependencies()
