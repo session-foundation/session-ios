@@ -334,6 +334,8 @@ public enum PushRegistrationError: Error {
             return
         }
         
+        JobRunner.appDidBecomeActive()
+        
         // NOTE: Just start 1-1 poller so that it won't wait for polling group messages
         (UIApplication.shared.delegate as? AppDelegate)?.startPollersIfNeeded(shouldStartGroupPollers: false)
         
