@@ -145,7 +145,7 @@ public final class SessionCallManager: NSObject, CallManagerProtocol {
             UserDefaults.sharedLokiProject?[.isCallOngoing] = false
             UserDefaults.sharedLokiProject?[.lastCallPreOffer] = nil
             
-            if Singleton.hasAppContext && Singleton.appContext.isInBackground {
+            if Singleton.hasAppContext && Singleton.appContext.isNotInForeground {
                 (UIApplication.shared.delegate as? AppDelegate)?.stopPollers()
                 Log.flush()
             }
