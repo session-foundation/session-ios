@@ -140,6 +140,7 @@ public final class SessionCallManager: NSObject, CallManagerProtocol {
         }
         
         func handleCallEnded() {
+            SNLog("[Calls] Call ended.")
             WebRTCSession.current = nil
             UserDefaults.sharedLokiProject?[.isCallOngoing] = false
             UserDefaults.sharedLokiProject?[.lastCallPreOffer] = nil
