@@ -267,9 +267,11 @@ internal extension LibSession {
     ) throws -> [T] {
         guard let updatedGroups: [ClosedGroup] = updated as? [ClosedGroup] else { throw StorageError.generic }
         
-        // Exclude legacy groups as they aren't managed via LibSession
+        // Exclude legacy groups as they aren't managed via LibSession and groups where the current user isn't an
+        // admin (non-admins can't update `GroupInfo` anyway)
         let targetGroups: [ClosedGroup] = updatedGroups
             .filter { (try? SessionId(from: $0.id))?.prefix == .group }
+            .filter { isAdmin(groupSessionId: SessionId(.group, hex: $0.id), using: dependencies) }
         
         // If we only updated the current user contact then no need to continue
         guard !targetGroups.isEmpty else { return updated }
@@ -310,9 +312,11 @@ internal extension LibSession {
     ) throws -> [T] {
         guard let updatedDisappearingConfigs: [DisappearingMessagesConfiguration] = updated as? [DisappearingMessagesConfiguration] else { throw StorageError.generic }
         
-        // Filter out any disappearing config changes not related to updated groups
+        // Filter out any disappearing config changes not related to updated groups and groups where
+        // the current user isn't an admin (non-admins can't update `GroupInfo` anyway)
         let targetUpdatedConfigs: [DisappearingMessagesConfiguration] = updatedDisappearingConfigs
             .filter { (try? SessionId.Prefix(from: $0.id)) == .group }
+            .filter { isAdmin(groupSessionId: SessionId(.group, hex: $0.id), using: dependencies) }
         
         guard !targetUpdatedConfigs.isEmpty else { return updated }
         

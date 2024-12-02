@@ -366,9 +366,11 @@ internal extension LibSession {
     ) throws -> [T] {
         guard let updatedMembers: [GroupMember] = updated as? [GroupMember] else { throw StorageError.generic }
         
-        // Exclude legacy groups as they aren't managed via SessionUtil
+        // Exclude legacy groups as they aren't managed via SessionUtil and groups where the current user
+        // isn't an admin (non-admins can't update `GroupMembers` anyway)
         let targetMembers: [GroupMember] = updatedMembers
             .filter { (try? SessionId(from: $0.groupId))?.prefix == .group }
+            .filter { isAdmin(groupSessionId: SessionId(.group, hex: $0.groupId), using: dependencies) }
         
         // If we only updated the current user contact then no need to continue
         guard
