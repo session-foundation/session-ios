@@ -284,7 +284,8 @@ public enum PushRegistrationError: Error {
         guard
             let uuid: String = payload["uuid"] as? String,
             let caller: String = payload["caller"] as? String,
-            let timestampMs: Int64 = payload["timestamp"] as? Int64
+            let timestampMs: UInt64 = payload["timestamp"] as? UInt64,
+            TimestampUtils.isWithinOneMinute(timestampMs: timestampMs)
         else {
             SessionCallManager.reportFakeCall(info: "Missing payload data") // stringlint:ignore
             return
