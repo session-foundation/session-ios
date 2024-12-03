@@ -732,9 +732,8 @@ public extension ValueObservation {
 
 // MARK: - Debug Convenience
 
-#if DEBUG
 public extension Storage {
-    func exportInfo(password: String) throws -> (dbPath: String, keyPath: String) {
+    func secureExportKey(password: String) throws -> String {
         var keySpec: Data = try getOrGenerateDatabaseKeySpec()
         defer { keySpec.resetBytes(in: 0..<keySpec.count) } // Reset content immediately after use
         
@@ -753,17 +752,16 @@ public extension Storage {
         let hash: SHA256.Digest = SHA256.hash(data: passwordData)
         let key: SymmetricKey = SymmetricKey(data: Data(hash.makeIterator()))
         let sealedBox: ChaChaPoly.SealedBox = try ChaChaPoly.seal(keySpec, using: key, nonce: nonce, authenticating: Data())
-        let keyInfoPath: String = "\(NSTemporaryDirectory())key.enc"
+        let keyInfoPath: String = (Singleton.hasAppContext ?
+            "\(Singleton.appContext.temporaryDirectory)/key.enc" :
+            "\(NSTemporaryDirectory())key.enc"
+        )
         let encryptedKeyBase64: String = sealedBox.combined.base64EncodedString()
         try encryptedKeyBase64.write(toFile: keyInfoPath, atomically: true, encoding: .utf8)
         
-        return (
-            Storage.databasePath,
-            keyInfoPath
-        )
+        return keyInfoPath
     }
 }
-#endif
 
 // MARK: - CallInfo
 

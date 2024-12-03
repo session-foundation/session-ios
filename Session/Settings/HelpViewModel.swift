@@ -15,10 +15,7 @@ class HelpViewModel: SessionTableViewModel, NavigatableStateHolder, ObservableTa
     public let navigatableState: NavigatableState = NavigatableState()
     public let state: TableDataState<Section, TableItem> = TableDataState()
     public let observableState: ObservableTableSourceState<Section, TableItem> = ObservableTableSourceState()
-    
-#if DEBUG
-    private var databaseKeyEncryptionPassword: String = ""
-#endif
+    private static var documentPickerResult: DocumentPickerResult?
     
     // MARK: - Initialization
     
@@ -34,9 +31,6 @@ class HelpViewModel: SessionTableViewModel, NavigatableStateHolder, ObservableTa
         case feedback
         case faq
         case support
-#if DEBUG
-        case exportDatabase
-#endif
         
         var style: SessionTableSectionStyle { .padding }
     }
@@ -147,32 +141,8 @@ class HelpViewModel: SessionTableViewModel, NavigatableStateHolder, ObservableTa
                     }
                 )
             ]
-        ),
-        maybeExportDbSection
+        )
     ]
-    
-#if DEBUG
-    private lazy var maybeExportDbSection: SectionModel? = SectionModel(
-        model: .exportDatabase,
-        elements: [
-            SessionCell.Info(
-                id: .support,
-                title: "Export Database", // stringlint:ignore
-                rightAccessory: .icon(
-                    UIImage(systemName: "square.and.arrow.up.trianglebadge.exclamationmark")?
-                        .withRenderingMode(.alwaysTemplate),
-                    size: .small
-                ),
-                styling: SessionCell.StyleInfo(
-                    tintColor: .danger
-                ),
-                onTapView: { [weak self] view in self?.exportDatabase(view) }
-            )
-        ]
-    )
-#else
-    private let maybeExportDbSection: SectionModel? = nil
-#endif
     
     // MARK: - Functions
     
@@ -188,41 +158,54 @@ class HelpViewModel: SessionTableViewModel, NavigatableStateHolder, ObservableTa
             let viewController: UIViewController = Singleton.appContext.frontmostViewController
         else { return }
         
-        #if targetEnvironment(simulator)
-        // stringlint:ignore_start
         let modal: ConfirmationModal = ConfirmationModal(
             info: ConfirmationModal.Info(
-                title: "Export Logs",
-                body: .text(
-                    "How would you like to export the logs?\n\n(This modal only appears on the Simulator)"
-                ),
-                confirmTitle: "Copy Path",
-                cancelTitle: "Share",
+                title: "helpReportABugExportLogs".localized(),
+                body: .text("helpReportABugExportLogsDescription"
+                    .put(key: "app_name", value: Constants.app_name)
+                    .localized()),
+                confirmTitle: "save".localized(),
+                cancelTitle: "share".localized(),
                 cancelStyle: .alert_text,
-                onConfirm: { _ in UIPasteboard.general.string = latestLogFilePath },
-                onCancel: { _ in
-                    HelpViewModel.shareLogsInternal(
-                        viewControllerToDismiss: viewControllerToDismiss,
-                        targetView: targetView,
-                        animated: animated,
-                        onShareComplete: onShareComplete
-                    )
+                hasCloseButton: true,
+                dismissOnConfirm: false,
+                onConfirm: { modal in
+                    #if targetEnvironment(simulator)
+                    UIPasteboard.general.string = latestLogFilePath
+                    #endif
+                    
+                    modal.dismiss(animated: true) {
+                        HelpViewModel.shareLogsInternal(
+                            viaShareSheet: false,
+                            viewControllerToDismiss: viewControllerToDismiss,
+                            targetView: targetView,
+                            animated: animated,
+                            onShareComplete: onShareComplete
+                        )
+                    }
+                },
+                onCancel: { modal in
+                    #if targetEnvironment(simulator)
+                    UIPasteboard.general.string = latestLogFilePath
+                    #endif
+                    
+                    modal.dismiss(animated: true) {
+                        HelpViewModel.shareLogsInternal(
+                            viaShareSheet: true,
+                            viewControllerToDismiss: viewControllerToDismiss,
+                            targetView: targetView,
+                            animated: animated,
+                            onShareComplete: onShareComplete
+                        )
+                    }
                 }
             )
         )
-        // stringlint:ignore_stop
         viewController.present(modal, animated: animated, completion: nil)
-        #else
-        HelpViewModel.shareLogsInternal(
-            viewControllerToDismiss: viewControllerToDismiss,
-            targetView: targetView,
-            animated: animated,
-            onShareComplete: onShareComplete
-        )
-        #endif
     }
     
     private static func shareLogsInternal(
+        viaShareSheet: Bool,
         viewControllerToDismiss: UIViewController? = nil,
         targetView: UIView? = nil,
         animated: Bool = true,
@@ -237,158 +220,70 @@ class HelpViewModel: SessionTableViewModel, NavigatableStateHolder, ObservableTa
             let viewController: UIViewController = Singleton.appContext.frontmostViewController
         else { return }
         
-        let showShareSheet: () -> () = {
-            let shareVC = UIActivityViewController(
-                activityItems: [ URL(fileURLWithPath: latestLogFilePath) ],
-                applicationActivities: nil
-            )
-            shareVC.completionWithItemsHandler = { _, _, _, _ in onShareComplete?() }
-            
-            if UIDevice.current.isIPad {
-                shareVC.excludedActivityTypes = []
-                shareVC.popoverPresentationController?.permittedArrowDirections = (targetView != nil ? [.up] : [])
-                shareVC.popoverPresentationController?.sourceView = (targetView ?? viewController.view)
-                shareVC.popoverPresentationController?.sourceRect = (targetView ?? viewController.view).bounds
+        let showExportOption: () -> () = {
+            switch viaShareSheet {
+                case true:
+                    let shareVC = UIActivityViewController(
+                        activityItems: [ URL(fileURLWithPath: latestLogFilePath) ],
+                        applicationActivities: nil
+                    )
+                    shareVC.completionWithItemsHandler = { _, _, _, _ in onShareComplete?() }
+                    
+                    if UIDevice.current.isIPad {
+                        shareVC.excludedActivityTypes = []
+                        shareVC.popoverPresentationController?.permittedArrowDirections = (targetView != nil ? [.up] : [])
+                        shareVC.popoverPresentationController?.sourceView = (targetView ?? viewController.view)
+                        shareVC.popoverPresentationController?.sourceRect = (targetView ?? viewController.view).bounds
+                    }
+                    viewController.present(shareVC, animated: animated, completion: nil)
+                    
+                case false:
+                    // Create and present the document picker
+                    let documentPickerResult: DocumentPickerResult = DocumentPickerResult { _ in
+                        HelpViewModel.documentPickerResult = nil
+                        onShareComplete?()
+                    }
+                    HelpViewModel.documentPickerResult = documentPickerResult
+                    
+                    let documentPicker: UIDocumentPickerViewController = UIDocumentPickerViewController(
+                        forExporting: [URL(fileURLWithPath: latestLogFilePath)]
+                    )
+                    documentPicker.delegate = documentPickerResult
+                    documentPicker.modalPresentationStyle = .formSheet
+                    viewController.present(documentPicker, animated: animated, completion: nil)
             }
-            viewController.present(shareVC, animated: animated, completion: nil)
         }
         
         guard let viewControllerToDismiss: UIViewController = viewControllerToDismiss else {
-            showShareSheet()
+            showExportOption()
             return
         }
 
         viewControllerToDismiss.dismiss(animated: animated) {
-            showShareSheet()
+            showExportOption()
         }
     }
+}
+
+private class DocumentPickerResult: NSObject, UIDocumentPickerDelegate {
+    private let onResult: (URL?) -> Void
     
-#if DEBUG
-    // stringlint:ignore_contents
-    private func exportDatabase(_ targetView: UIView?) {
-        let generatedPassword: String = UUID().uuidString
-        self.databaseKeyEncryptionPassword = generatedPassword
-        
-        self.transitionToScreen(
-            ConfirmationModal(
-                info: ConfirmationModal.Info(
-                    title: "Export Database",
-                    body: .input(
-                        explanation: NSAttributedString(
-                            string: """
-                            Sharing the database and key together is dangerous!
-
-                            We've generated a secure password for you but feel free to provide your own (we will show the generated password again after exporting)
-
-                            This password will be used to encrypt the database decryption key and will be exported alongside the database
-                            """
-                        ),
-                        placeholder: "Enter a password",
-                        initialValue: generatedPassword,
-                        clearButton: true,
-                        onChange: { [weak self] value in self?.databaseKeyEncryptionPassword = value }
-                    ),
-                    confirmTitle: "Export",
-                    dismissOnConfirm: false,
-                    onConfirm: { [weak self] modal in
-                        modal.dismiss(animated: true) {
-                            guard let password: String = self?.databaseKeyEncryptionPassword, password.count >= 6 else {
-                                self?.transitionToScreen(
-                                    ConfirmationModal(
-                                        info: ConfirmationModal.Info(
-                                            title: "Error",
-                                            body: .text("Password must be at least 6 characters")
-                                        )
-                                    ),
-                                    transitionType: .present
-                                )
-                                return
-                            }
-                            
-                            do {
-                                let exportInfo = try Storage.shared.exportInfo(password: password)
-                                let shareVC = UIActivityViewController(
-                                    activityItems: [
-                                        URL(fileURLWithPath: exportInfo.dbPath),
-                                        URL(fileURLWithPath: exportInfo.keyPath)
-                                    ],
-                                    applicationActivities: nil
-                                )
-                                shareVC.completionWithItemsHandler = { [weak self] _, completed, _, _ in
-                                    guard
-                                        completed &&
-                                        generatedPassword == self?.databaseKeyEncryptionPassword
-                                    else { return }
-                                    
-                                    self?.transitionToScreen(
-                                        ConfirmationModal(
-                                            info: ConfirmationModal.Info(
-                                                title: "Password",
-                                                body: .text("""
-                                                The generated password was:
-                                                \(generatedPassword)
-                                                
-                                                Avoid sending this via the same means as the database
-                                                """),
-                                                confirmTitle: "Share",
-                                                dismissOnConfirm: false,
-                                                onConfirm: { [weak self] modal in
-                                                    modal.dismiss(animated: true) {
-                                                        let passwordShareVC = UIActivityViewController(
-                                                            activityItems: [generatedPassword],
-                                                            applicationActivities: nil
-                                                        )
-                                                        if UIDevice.current.isIPad {
-                                                            passwordShareVC.excludedActivityTypes = []
-                                                            passwordShareVC.popoverPresentationController?.permittedArrowDirections = (targetView != nil ? [.up] : [])
-                                                            passwordShareVC.popoverPresentationController?.sourceView = targetView
-                                                            passwordShareVC.popoverPresentationController?.sourceRect = (targetView?.bounds ?? .zero)
-                                                        }
-                                                        
-                                                        self?.transitionToScreen(passwordShareVC, transitionType: .present)
-                                                    }
-                                                }
-                                            )
-                                        ),
-                                        transitionType: .present
-                                    )
-                                }
-                                
-                                if UIDevice.current.isIPad {
-                                    shareVC.excludedActivityTypes = []
-                                    shareVC.popoverPresentationController?.permittedArrowDirections = (targetView != nil ? [.up] : [])
-                                    shareVC.popoverPresentationController?.sourceView = targetView
-                                    shareVC.popoverPresentationController?.sourceRect = (targetView?.bounds ?? .zero)
-                                }
-                                
-                                self?.transitionToScreen(shareVC, transitionType: .present)
-                            }
-                            catch {
-                                let message: String = {
-                                    switch error {
-                                        case CryptoKitError.incorrectKeySize:
-                                            return "The password must be between 6 and 32 characters (padded to 32 bytes)"
-                                        
-                                        default: return "Failed to export database"
-                                    }
-                                }()
-                                
-                                self?.transitionToScreen(
-                                    ConfirmationModal(
-                                        info: ConfirmationModal.Info(
-                                            title: "Error",
-                                            body: .text(message)
-                                        )
-                                    ),
-                                    transitionType: .present
-                                )
-                            }
-                        }
-                    }
-                )
-            ),
-            transitionType: .present
-        )
+    init(onResult: @escaping (URL?) -> Void) {
+        self.onResult = onResult
     }
-#endif
+    
+    // MARK: - UIDocumentPickerDelegate
+    
+    func documentPicker(_ controller: UIDocumentPickerViewController, didPickDocumentsAt urls: [URL]) {
+        guard let url: URL = urls.first else {
+            self.onResult(nil)
+            return
+        }
+        
+        self.onResult(url)
+    }
+    
+    func documentPickerWasCancelled(_ controller: UIDocumentPickerViewController) {
+        self.onResult(nil)
+    }
 }
