@@ -791,17 +791,29 @@ extension ConversationVC:
     }
     
     func hideInputAccessoryView() {
-        DispatchQueue.main.async {
-            self.inputAccessoryView?.isHidden = true
-            self.inputAccessoryView?.alpha = 0
+        guard Thread.isMainThread else {
+            DispatchQueue.main.async {
+                self.hideInputAccessoryView()
+            }
+            return
         }
+        self.inputAccessoryView?.isHidden = true
+        self.inputAccessoryView?.alpha = 0
     }
     
     func showInputAccessoryView() {
-        UIView.animate(withDuration: 0.25, animations: {
-            self.inputAccessoryView?.isHidden = false
-            self.inputAccessoryView?.alpha = 1
-        })
+        guard Thread.isMainThread else {
+            DispatchQueue.main.async {
+                self.showInputAccessoryView()
+            }
+            return
+        }
+        self.inputAccessoryView?.isHidden = false
+        self.inputAccessoryView?.alpha = 1
+//        UIView.animate(withDuration: 0.25, animations: {
+//            self.inputAccessoryView?.isHidden = false
+//            self.inputAccessoryView?.alpha = 1
+//        })
     }
 
     // MARK: MessageCellDelegate

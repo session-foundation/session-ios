@@ -600,8 +600,11 @@ final class CallVC: UIViewController, VideoPreviewDelegate {
         }
         
         Timer.scheduledTimer(withTimeInterval: 2, repeats: false) { [weak self] _ in
-            self?.conversationVC?.showInputAccessoryView()
-            self?.presentingViewController?.dismiss(animated: true, completion: nil)
+            DispatchQueue.main.async {
+                self?.presentingViewController?.dismiss(animated: true, completion: {
+                    self?.conversationVC?.showInputAccessoryView()
+                })
+            }
         }
     }
     

@@ -240,8 +240,7 @@ public final class SessionCallManager: NSObject, CallManagerProtocol {
                 {
                     let callVC = CallVC(for: call)
                     callVC.conversationVC = conversationVC
-                    conversationVC.inputAccessoryView?.isHidden = true
-                    conversationVC.inputAccessoryView?.alpha = 0
+                    conversationVC.hideInputAccessoryView()
                     presentingVC.present(callVC, animated: true, completion: nil)
                 }
                 else if !Preferences.isCallKitSupported {
