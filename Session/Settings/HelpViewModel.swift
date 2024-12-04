@@ -15,7 +15,6 @@ class HelpViewModel: SessionTableViewModel, NavigatableStateHolder, ObservableTa
     public let navigatableState: NavigatableState = NavigatableState()
     public let state: TableDataState<Section, TableItem> = TableDataState()
     public let observableState: ObservableTableSourceState<Section, TableItem> = ObservableTableSourceState()
-    private static var documentPickerResult: DocumentPickerResult?
     
     // MARK: - Initialization
     
@@ -158,54 +157,41 @@ class HelpViewModel: SessionTableViewModel, NavigatableStateHolder, ObservableTa
             let viewController: UIViewController = Singleton.appContext.frontmostViewController
         else { return }
         
+        #if targetEnvironment(simulator)
+        // stringlint:ignore_start
         let modal: ConfirmationModal = ConfirmationModal(
             info: ConfirmationModal.Info(
-                title: "helpReportABugExportLogs".localized(),
-                body: .text("helpReportABugExportLogsDescription"
-                    .put(key: "app_name", value: Constants.app_name)
-                    .localized()),
-                confirmTitle: "save".localized(),
-                cancelTitle: "share".localized(),
+                title: "Export Logs",
+                body: .text(
+                    "How would you like to export the logs?\n\n(This modal only appears on the Simulator)"
+                ),
+                confirmTitle: "Copy Path",
+                cancelTitle: "Share",
                 cancelStyle: .alert_text,
-                hasCloseButton: true,
-                dismissOnConfirm: false,
-                onConfirm: { modal in
-                    #if targetEnvironment(simulator)
-                    UIPasteboard.general.string = latestLogFilePath
-                    #endif
-                    
-                    modal.dismiss(animated: true) {
-                        HelpViewModel.shareLogsInternal(
-                            viaShareSheet: false,
-                            viewControllerToDismiss: viewControllerToDismiss,
-                            targetView: targetView,
-                            animated: animated,
-                            onShareComplete: onShareComplete
-                        )
-                    }
-                },
-                onCancel: { modal in
-                    #if targetEnvironment(simulator)
-                    UIPasteboard.general.string = latestLogFilePath
-                    #endif
-                    
-                    modal.dismiss(animated: true) {
-                        HelpViewModel.shareLogsInternal(
-                            viaShareSheet: true,
-                            viewControllerToDismiss: viewControllerToDismiss,
-                            targetView: targetView,
-                            animated: animated,
-                            onShareComplete: onShareComplete
-                        )
-                    }
+                onConfirm: { _ in UIPasteboard.general.string = latestLogFilePath },
+                onCancel: { _ in
+                    HelpViewModel.shareLogsInternal(
+                        viewControllerToDismiss: viewControllerToDismiss,
+                        targetView: targetView,
+                        animated: animated,
+                        onShareComplete: onShareComplete
+                    )
                 }
             )
         )
+        // stringlint:ignore_stop
         viewController.present(modal, animated: animated, completion: nil)
+        #else
+        HelpViewModel.shareLogsInternal(
+            viewControllerToDismiss: viewControllerToDismiss,
+            targetView: targetView,
+            animated: animated,
+            onShareComplete: onShareComplete
+        )
+        #endif
     }
     
     private static func shareLogsInternal(
-        viaShareSheet: Bool,
         viewControllerToDismiss: UIViewController? = nil,
         targetView: UIView? = nil,
         animated: Bool = true,
@@ -220,47 +206,29 @@ class HelpViewModel: SessionTableViewModel, NavigatableStateHolder, ObservableTa
             let viewController: UIViewController = Singleton.appContext.frontmostViewController
         else { return }
         
-        let showExportOption: () -> () = {
-            switch viaShareSheet {
-                case true:
-                    let shareVC = UIActivityViewController(
-                        activityItems: [ URL(fileURLWithPath: latestLogFilePath) ],
-                        applicationActivities: nil
-                    )
-                    shareVC.completionWithItemsHandler = { _, _, _, _ in onShareComplete?() }
-                    
-                    if UIDevice.current.isIPad {
-                        shareVC.excludedActivityTypes = []
-                        shareVC.popoverPresentationController?.permittedArrowDirections = (targetView != nil ? [.up] : [])
-                        shareVC.popoverPresentationController?.sourceView = (targetView ?? viewController.view)
-                        shareVC.popoverPresentationController?.sourceRect = (targetView ?? viewController.view).bounds
-                    }
-                    viewController.present(shareVC, animated: animated, completion: nil)
-                    
-                case false:
-                    // Create and present the document picker
-                    let documentPickerResult: DocumentPickerResult = DocumentPickerResult { _ in
-                        HelpViewModel.documentPickerResult = nil
-                        onShareComplete?()
-                    }
-                    HelpViewModel.documentPickerResult = documentPickerResult
-                    
-                    let documentPicker: UIDocumentPickerViewController = UIDocumentPickerViewController(
-                        forExporting: [URL(fileURLWithPath: latestLogFilePath)]
-                    )
-                    documentPicker.delegate = documentPickerResult
-                    documentPicker.modalPresentationStyle = .formSheet
-                    viewController.present(documentPicker, animated: animated, completion: nil)
+        let showShareSheet: () -> () = {
+            let shareVC = UIActivityViewController(
+                activityItems: [ URL(fileURLWithPath: latestLogFilePath) ],
+                applicationActivities: nil
+            )
+            shareVC.completionWithItemsHandler = { _, _, _, _ in onShareComplete?() }
+            
+            if UIDevice.current.isIPad {
+                shareVC.excludedActivityTypes = []
+                shareVC.popoverPresentationController?.permittedArrowDirections = (targetView != nil ? [.up] : [])
+                shareVC.popoverPresentationController?.sourceView = (targetView ?? viewController.view)
+                shareVC.popoverPresentationController?.sourceRect = (targetView ?? viewController.view).bounds
             }
+            viewController.present(shareVC, animated: animated, completion: nil)
         }
         
         guard let viewControllerToDismiss: UIViewController = viewControllerToDismiss else {
-            showExportOption()
+            showShareSheet()
             return
         }
 
         viewControllerToDismiss.dismiss(animated: animated) {
-            showExportOption()
+            showShareSheet()
         }
     }
 }
