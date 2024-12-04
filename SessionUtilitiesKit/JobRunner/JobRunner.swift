@@ -1901,7 +1901,6 @@ public extension JobRunner {
     }
     
     static func appDidBecomeActive(using dependencies: Dependencies = Dependencies()) {
-        SNLog("[JobRunner] appDidBecomeActive")
         instance.appDidBecomeActive(using: dependencies)
     }
     

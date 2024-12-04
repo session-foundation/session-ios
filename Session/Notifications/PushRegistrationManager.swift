@@ -323,7 +323,7 @@ public enum PushRegistrationError: Error {
                 
                 call?.callInteractionId = interaction?.id
             } catch {
-                SNLog("[Calls] Failed to creat call due to error: \(error)")
+                SNLog("[Calls] Failed to create call due to error: \(error)")
             }
             
             return call
