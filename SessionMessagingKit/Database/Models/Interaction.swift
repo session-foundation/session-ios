@@ -799,32 +799,6 @@ public extension Interaction {
         return "\(threadId)-\(id)"
     }
     
-    func markingAsDeleted() -> Interaction {
-        return Interaction(
-            id: id,
-            serverHash: nil,
-            messageUuid: messageUuid,
-            threadId: threadId,
-            authorId: authorId,
-            variant: .standardIncomingDeleted,
-            body: nil,
-            timestampMs: timestampMs,
-            receivedAtTimestampMs: receivedAtTimestampMs,
-            wasRead: true, // Never consider deleted messages unread
-            hasMention: false,
-            expiresInSeconds: expiresInSeconds,
-            expiresStartedAtMs: expiresStartedAtMs,
-            linkPreviewUrl: nil,
-            openGroupServerMessageId: openGroupServerMessageId,
-            openGroupWhisper: openGroupWhisper,
-            openGroupWhisperMods: openGroupWhisperMods,
-            openGroupWhisperTo: openGroupWhisperTo,
-            state: .deleted,
-            recipientReadTimestampMs: nil,
-            mostRecentFailureText: nil
-        )
-    }
-    
     static func isUserMentioned(
         _ db: Database,
         threadId: String,
@@ -1144,5 +1118,58 @@ public extension Interaction.State {
                 )
 
         }
+    }
+}
+
+// MARK: - Deletion
+
+public extension Interaction {
+    /// When deleting a message we should also delete any reactions which were on the message, so fetch and
+    /// return those hashes as well
+    static func serverHashesForDeletion(
+        _ db: Database,
+        interactionIds: Set<Int64>,
+        additionalServerHashesToRemove: [String] = []
+    ) throws -> Set<String> {
+        let messageHashes: [String] = try Interaction
+            .filter(ids: interactionIds)
+            .filter(Interaction.Columns.serverHash != nil)
+            .select(.serverHash)
+            .asRequest(of: String.self)
+            .fetchAll(db)
+        let reactionHashes: [String] = try Reaction
+            .filter(interactionIds.contains(Reaction.Columns.interactionId))
+            .filter(Reaction.Columns.serverHash != nil)
+            .select(.serverHash)
+            .asRequest(of: String.self)
+            .fetchAll(db)
+        
+        return Set(messageHashes + reactionHashes + additionalServerHashesToRemove)
+    }
+    
+    func markingAsDeleted() -> Interaction {
+        return Interaction(
+            id: id,
+            serverHash: nil,
+            messageUuid: messageUuid,
+            threadId: threadId,
+            authorId: authorId,
+            variant: .standardIncomingDeleted,
+            body: nil,
+            timestampMs: timestampMs,
+            receivedAtTimestampMs: receivedAtTimestampMs,
+            wasRead: true, // Never consider deleted messages unread
+            hasMention: false,
+            expiresInSeconds: expiresInSeconds,
+            expiresStartedAtMs: expiresStartedAtMs,
+            linkPreviewUrl: nil,
+            openGroupServerMessageId: openGroupServerMessageId,
+            openGroupWhisper: openGroupWhisper,
+            openGroupWhisperMods: openGroupWhisperMods,
+            openGroupWhisperTo: openGroupWhisperTo,
+            state: .deleted,
+            recipientReadTimestampMs: nil,
+            mostRecentFailureText: nil
+        )
     }
 }
