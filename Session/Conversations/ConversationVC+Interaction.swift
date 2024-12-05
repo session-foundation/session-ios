@@ -1254,7 +1254,9 @@ extension ConversationVC:
             )
         )
         
-        self.present(modal, animated: true)
+        self.present(modal, animated: true) { [weak self] in
+            self?.hideInputAccessoryView()
+        }
     }
     
     func handleReplyButtonTapped(for cellViewModel: MessageViewModel, using dependencies: Dependencies) {
