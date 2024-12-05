@@ -791,13 +791,23 @@ extension ConversationVC:
     }
     
     func hideInputAccessoryView() {
-        DispatchQueue.main.async {
-            self.inputAccessoryView?.isHidden = true
-            self.inputAccessoryView?.alpha = 0
+        guard Thread.isMainThread else {
+            DispatchQueue.main.async {
+                self.hideInputAccessoryView()
+            }
+            return
         }
+        self.inputAccessoryView?.isHidden = true
+        self.inputAccessoryView?.alpha = 0
     }
     
     func showInputAccessoryView() {
+        guard Thread.isMainThread else {
+            DispatchQueue.main.async {
+                self.showInputAccessoryView()
+            }
+            return
+        }
         UIView.animate(withDuration: 0.25, animations: {
             self.inputAccessoryView?.isHidden = false
             self.inputAccessoryView?.alpha = 1

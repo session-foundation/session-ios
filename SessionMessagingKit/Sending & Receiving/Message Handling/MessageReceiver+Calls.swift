@@ -109,6 +109,7 @@ extension MessageReceiver {
         
         // Ignore pre offer message after the same call instance has been generated
         if let currentCall: CurrentCallProtocol = callManager.currentCall, currentCall.uuid == message.uuid {
+            SNLog("[MessageReceiver+Calls] Ignoring pre-offer message for call[\(currentCall.uuid)] instance because it is already active.")
             return
         }
         

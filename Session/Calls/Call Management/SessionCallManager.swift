@@ -113,7 +113,7 @@ public final class SessionCallManager: NSObject, CallManagerProtocol {
         // Construct a CXCallUpdate describing the incoming call, including the caller.
         let update = CXCallUpdate()
         update.localizedCallerName = callerName
-        update.remoteHandle = CXHandle(type: .generic, value: call.callId.uuidString)
+        update.remoteHandle = CXHandle(type: .generic, value: call.sessionId)
         update.hasVideo = false
 
         disableUnsupportedFeatures(callUpdate: update)
@@ -140,11 +140,12 @@ public final class SessionCallManager: NSObject, CallManagerProtocol {
         }
         
         func handleCallEnded() {
+            SNLog("[Calls] Call ended.")
             WebRTCSession.current = nil
             UserDefaults.sharedLokiProject?[.isCallOngoing] = false
             UserDefaults.sharedLokiProject?[.lastCallPreOffer] = nil
             
-            if Singleton.hasAppContext && Singleton.appContext.isInBackground {
+            if Singleton.hasAppContext && Singleton.appContext.isNotInForeground {
                 (UIApplication.shared.delegate as? AppDelegate)?.stopPollers()
                 Log.flush()
             }
@@ -198,6 +199,7 @@ public final class SessionCallManager: NSObject, CallManagerProtocol {
     }
     
     public static func suspendDatabaseIfCallEndedInBackground() {
+        SNLog("[Calls] suspendDatabaseIfCallEndedInBackground.")
         if Singleton.hasAppContext && Singleton.appContext.isInBackground {
             // FIXME: Initialise the `SessionCallManager` with a dependencies instance
             let dependencies: Dependencies = Dependencies()
@@ -238,8 +240,7 @@ public final class SessionCallManager: NSObject, CallManagerProtocol {
                 {
                     let callVC = CallVC(for: call)
                     callVC.conversationVC = conversationVC
-                    conversationVC.inputAccessoryView?.isHidden = true
-                    conversationVC.inputAccessoryView?.alpha = 0
+                    conversationVC.hideInputAccessoryView()
                     presentingVC.present(callVC, animated: true, completion: nil)
                 }
                 else if !Preferences.isCallKitSupported {
