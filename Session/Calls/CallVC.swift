@@ -601,7 +601,7 @@ final class CallVC: UIViewController, VideoPreviewDelegate {
         
         Timer.scheduledTimer(withTimeInterval: 2, repeats: false) { [weak self] _ in
             DispatchQueue.main.async {
-                self?.presentingViewController?.dismiss(animated: true, completion: {
+                self?.dismiss(animated: true, completion: {
                     self?.conversationVC?.showInputAccessoryView()
                 })
             }
@@ -626,9 +626,13 @@ final class CallVC: UIViewController, VideoPreviewDelegate {
                 AppEnvironment.shared.callManager.reportCurrentCallEnded(reason: nil)
             }
             
-            DispatchQueue.main.async {
-                self?.conversationVC?.showInputAccessoryView()
-                self?.presentingViewController?.dismiss(animated: true, completion: nil)
+            Timer.scheduledTimer(withTimeInterval: 1, repeats: false) { [weak self] _ in
+                DispatchQueue.main.async {
+                    self?.dismiss(animated: true, completion: {
+                        self?.conversationVC?.becomeFirstResponder()
+                        self?.conversationVC?.showInputAccessoryView()
+                    })
+                }
             }
         }
     }

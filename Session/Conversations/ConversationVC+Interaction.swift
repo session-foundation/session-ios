@@ -808,12 +808,10 @@ extension ConversationVC:
             }
             return
         }
-        self.inputAccessoryView?.isHidden = false
-        self.inputAccessoryView?.alpha = 1
-//        UIView.animate(withDuration: 0.25, animations: {
-//            self.inputAccessoryView?.isHidden = false
-//            self.inputAccessoryView?.alpha = 1
-//        })
+        UIView.animate(withDuration: 0.25, animations: {
+            self.inputAccessoryView?.isHidden = false
+            self.inputAccessoryView?.alpha = 1
+        })
     }
 
     // MARK: MessageCellDelegate
