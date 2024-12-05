@@ -232,26 +232,3 @@ class HelpViewModel: SessionTableViewModel, NavigatableStateHolder, ObservableTa
         }
     }
 }
-
-private class DocumentPickerResult: NSObject, UIDocumentPickerDelegate {
-    private let onResult: (URL?) -> Void
-    
-    init(onResult: @escaping (URL?) -> Void) {
-        self.onResult = onResult
-    }
-    
-    // MARK: - UIDocumentPickerDelegate
-    
-    func documentPicker(_ controller: UIDocumentPickerViewController, didPickDocumentsAt urls: [URL]) {
-        guard let url: URL = urls.first else {
-            self.onResult(nil)
-            return
-        }
-        
-        self.onResult(url)
-    }
-    
-    func documentPickerWasCancelled(_ controller: UIDocumentPickerViewController) {
-        self.onResult(nil)
-    }
-}

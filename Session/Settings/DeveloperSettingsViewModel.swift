@@ -200,10 +200,12 @@ class DeveloperSettingsViewModel: SessionTableViewModel, NavigatableStateHolder,
                         explanation: NSAttributedString(
                             string: """
                             This will generate a file encrypted using the provided password includes all app data, attachments, settings and keys.
-
-                            We've generated a secure password for you but feel free to provide your own. 
+                            
+                            This exported file can only be imported by Session iOS. 
                             
                             Use at your own risk!
+
+                            We've generated a secure password for you but feel free to provide your own.
                             """
                         ),
                         placeholder: "Enter a password",
@@ -234,25 +236,6 @@ class DeveloperSettingsViewModel: SessionTableViewModel, NavigatableStateHolder,
     }
     
     private func importDatabase(_ targetView: UIView?) {
-        func showError(_ error: Error) {
-            self.transitionToScreen(
-                ConfirmationModal(
-                    info: ConfirmationModal.Info(
-                        title: "theError".localized(),
-                        body: {
-                            switch error {
-                                case CryptoKitError.incorrectKeySize:
-                                    return .text("The password must be between 6 and 32 characters (padded to 32 bytes)")
-                                
-                                default: return .text("Failed to export database")
-                            }
-                        }()
-                    )
-                ),
-                transitionType: .present
-            )
-        }
-        
         self.databaseKeyEncryptionPassword = ""
         self.transitionToScreen(
             ConfirmationModal(
@@ -262,6 +245,8 @@ class DeveloperSettingsViewModel: SessionTableViewModel, NavigatableStateHolder,
                         explanation: NSAttributedString(
                             string: """
                             Importing a database will result in the loss of all data stored locally.
+                            
+                            This can only import backup files exported by Session iOS.
 
                             Use at your own risk!
                             """
@@ -277,57 +262,7 @@ class DeveloperSettingsViewModel: SessionTableViewModel, NavigatableStateHolder,
                     dismissOnConfirm: false,
                     onConfirm: { [weak self] modal in
                         modal.dismiss(animated: true) {
-                            guard
-                                let password: String = self?.databaseKeyEncryptionPassword,
-                                password.count >= 6
-                            else { return showError(CryptoKitError.incorrectKeySize) }
-                            
-                            let documentPickerResult: DocumentPickerResult = DocumentPickerResult { url in
-                                guard let url: URL = url else { return }
-
-                                let viewController: UIViewController = ModalActivityIndicatorViewController(canCancel: false) { modalActivityIndicator in
-                                    do {
-                                        let tmpUnencryptPath: String = "\(Singleton.appContext.temporaryDirectory)/new_session.bak"
-                                        let extraFilePaths: [String] = try DirectoryArchiver.unarchiveDirectory(
-                                            archivePath: url.path,
-                                            destinationPath: tmpUnencryptPath,
-                                            password: password,
-                                            progressChanged: { fileProgress, fileSize in
-                                                let percentage: Int = {
-                                                    guard fileSize > 0 else { return 0 }
-                                                    
-                                                    return Int((Double(fileProgress) / Double(fileSize)) * 100)
-                                                }()
-                                                
-                                                DispatchQueue.main.async {
-                                                    modalActivityIndicator.setMessage(
-                                                        "Decryption progress: \(percentage)%"
-                                                    )
-                                                }
-                                            }
-                                        )
-                                        
-                                        // TODO: Need to actually replace the current content then kill the app
-                                        // TODO: Might be nice to validate that we have database access to the new database with the key
-                                        print("RAWR")
-                                        modalActivityIndicator.dismiss {
-                                            print("RAWR2")
-                                        }
-                                    }
-                                    catch { showError(error) }
-                                }
-                                
-                                self?.transitionToScreen(viewController, transitionType: .present)
-                            }
-                            self?.documentPickerResult = documentPickerResult
-                            
-                            // UIDocumentPickerModeImport copies to a temp file within our container.
-                            // It uses more memory than "open" but lets us avoid working with security scoped URLs.
-                            let documentPickerVC = UIDocumentPickerViewController(forOpeningContentTypes: [.item], asCopy: true)
-                            documentPickerVC.delegate = documentPickerResult
-                            documentPickerVC.modalPresentationStyle = .fullScreen
-                            
-                            self?.transitionToScreen(documentPickerVC, transitionType: .present)
+                            self?.performImport()
                         }
                     }
                 )
@@ -349,6 +284,8 @@ class DeveloperSettingsViewModel: SessionTableViewModel, NavigatableStateHolder,
                             switch error {
                                 case CryptoKitError.incorrectKeySize:
                                     return .text("The password must be between 6 and 32 characters (padded to 32 bytes)")
+                                case is DatabaseError:
+                                    return .text("An error occurred finalising pending changes in the database")
                                 
                                 default: return .text("Failed to export database")
                             }
@@ -365,6 +302,9 @@ class DeveloperSettingsViewModel: SessionTableViewModel, NavigatableStateHolder,
             let backupFile: String = "\(Singleton.appContext.temporaryDirectory)/session.bak"
             
             do {
+                /// Perform a full checkpoint to ensure any pending changes are written to the main database file
+                try dependencies.storage.checkpoint(.truncate)
+                
                 let secureDbKey: String = try dependencies.storage.secureExportKey(
                     password: databaseKeyEncryptionPassword
                 )
@@ -372,6 +312,11 @@ class DeveloperSettingsViewModel: SessionTableViewModel, NavigatableStateHolder,
                 try DirectoryArchiver.archiveDirectory(
                     sourcePath: FileManager.default.appSharedDataDirectoryPath,
                     destinationPath: backupFile,
+                    filenamesToExclude: [
+                        ".DS_Store",
+                        "\(Storage.dbFileName)-wal",
+                        "\(Storage.dbFileName)-shm"
+                    ],
                     additionalPaths: [secureDbKey],
                     password: databaseKeyEncryptionPassword,
                     progressChanged: { fileIndex, totalFiles, currentFileProgress, currentFileSize in
@@ -394,7 +339,12 @@ class DeveloperSettingsViewModel: SessionTableViewModel, NavigatableStateHolder,
                     }
                 )
             }
-            catch { return showError(error) }
+            catch {
+                modalActivityIndicator.dismiss {
+                    showError(error)
+                }
+                return
+            }
             
             modalActivityIndicator.dismiss {
                 switch viaShareSheet {
@@ -430,6 +380,173 @@ class DeveloperSettingsViewModel: SessionTableViewModel, NavigatableStateHolder,
         }
         
         self.transitionToScreen(viewController, transitionType: .present)
+    }
+    
+    private func performImport() {
+        func showError(_ error: Error) {
+            self.transitionToScreen(
+                ConfirmationModal(
+                    info: ConfirmationModal.Info(
+                        title: "theError".localized(),
+                        body: {
+                            switch error {
+                                case CryptoKitError.incorrectKeySize:
+                                    return .text("The password must be between 6 and 32 characters (padded to 32 bytes)")
+                                
+                                case is DatabaseError: return .text("Database key in backup file was invalid.")
+                                default: return .text("\(error)")
+                            }
+                        }()
+                    )
+                ),
+                transitionType: .present
+            )
+        }
+        
+        guard databaseKeyEncryptionPassword.count >= 6 else { return showError(CryptoKitError.incorrectKeySize) }
+        
+        let documentPickerResult: DocumentPickerResult = DocumentPickerResult { url in
+            guard let url: URL = url else { return }
+
+            let viewController: UIViewController = ModalActivityIndicatorViewController(canCancel: false) { [weak self, password = self.databaseKeyEncryptionPassword, dependencies = self.dependencies] modalActivityIndicator in
+                do {
+                    let tmpUnencryptPath: String = "\(Singleton.appContext.temporaryDirectory)/new_session.bak"
+                    let (paths, additionalFilePaths): ([String], [String]) = try DirectoryArchiver.unarchiveDirectory(
+                        archivePath: url.path,
+                        destinationPath: tmpUnencryptPath,
+                        password: password,
+                        progressChanged: { filesSaved, totalFiles, fileProgress, fileSize in
+                            let percentage: Int = {
+                                guard fileSize > 0 else { return 0 }
+                                
+                                return Int((Double(fileProgress) / Double(fileSize)) * 100)
+                            }()
+                            
+                            DispatchQueue.main.async {
+                                modalActivityIndicator.setMessage([
+                                    "Decryption progress: \(percentage)%",
+                                    "Files imported: \(filesSaved)/\(totalFiles)"
+                                ].compactMap { $0 }.joined(separator: "\n"))
+                            }
+                        }
+                    )
+                    
+                    /// Test that we actually have valid access to the database
+                    guard
+                        let encKeyPath: String = additionalFilePaths
+                            .first(where: { $0.hasSuffix(Storage.encKeyFilename) }),
+                        let databasePath: String = paths
+                            .first(where: { $0.hasSuffix(Storage.dbFileName) })
+                    else { throw ArchiveError.unableToFindDatabaseKey }
+                    
+                    DispatchQueue.main.async {
+                        modalActivityIndicator.setMessage(
+                            "Checking for valid database..."
+                        )
+                    }
+                    
+                    let testStorage: Storage = try Storage(
+                        testAccessTo: databasePath,
+                        encryptedKeyPath: encKeyPath,
+                        encryptedKeyPassword: password
+                    )
+                    
+                    guard testStorage.isValid else {
+                        throw ArchiveError.decryptionFailed
+                    }
+                    
+                    /// Now that we have confirmed access to the replacement database we need to
+                    /// stop the current account from doing anything
+                    DispatchQueue.main.async {
+                        modalActivityIndicator.setMessage(
+                            "Clearing current account data..."
+                        )
+                        
+                        (UIApplication.shared.delegate as? AppDelegate)?.stopPollers()
+                    }
+                    
+                    dependencies.jobRunner.stopAndClearPendingJobs(using: dependencies)
+                    LibSession.suspendNetworkAccess()
+                    dependencies.storage.suspendDatabaseAccess()
+                    try dependencies.storage.closeDatabase()
+                    
+                    let deleteEnumerator: FileManager.DirectoryEnumerator? = FileManager.default.enumerator(
+                        at: URL(
+                            fileURLWithPath: FileManager.default.appSharedDataDirectoryPath
+                        ),
+                        includingPropertiesForKeys: [.isRegularFileKey]
+                    )
+                    let fileUrls: [URL] = (deleteEnumerator?.allObjects.compactMap { $0 as? URL } ?? [])
+                    try fileUrls.forEach { url in
+                        /// The database `wal` and `shm` files might not exist anymore at this point
+                        /// so we should only remove files which exist to prevent errors
+                        guard FileManager.default.fileExists(atPath: url.path) else { return }
+                        
+                        try FileManager.default.removeItem(atPath: url.path)
+                    }
+                    
+                    /// Current account data has been removed, we now need to copy over the
+                    /// newly imported data
+                    DispatchQueue.main.async {
+                        modalActivityIndicator.setMessage(
+                            "Moving imported data..."
+                        )
+                    }
+                    
+                    try paths.forEach { path in
+                        /// Need to ensure the destination directry
+                        let targetPath: String = [
+                            FileManager.default.appSharedDataDirectoryPath,
+                            path.replacingOccurrences(of: tmpUnencryptPath, with: "")
+                        ].joined()  // Already has '/' after 'appSharedDataDirectoryPath'
+                        
+                        try FileManager.default.createDirectory(
+                            atPath: URL(fileURLWithPath: targetPath)
+                                .deletingLastPathComponent()
+                                .path,
+                            withIntermediateDirectories: true
+                        )
+                        try FileManager.default.moveItem(atPath: path, toPath: targetPath)
+                    }
+                    
+                    /// All of the main files have been moved across, we now need to replace the current database key with
+                    /// the one included in the backup
+                    try dependencies.storage.replaceDatabaseKey(path: encKeyPath, password: password)
+                    
+                    /// The import process has completed so we need to restart the app
+                    DispatchQueue.main.async {
+                        self?.transitionToScreen(
+                            ConfirmationModal(
+                                info: ConfirmationModal.Info(
+                                    title: "Import Complete",
+                                    body: .text("The import completed successfully, Session must be reopened in order to complete the process."),
+                                    cancelTitle: "Exit",
+                                    cancelStyle: .alert_text,
+                                    onCancel: { _ in exit(0) }
+                                )
+                            ),
+                            transitionType: .present
+                        )
+                    }
+                }
+                catch {
+                    modalActivityIndicator.dismiss {
+                        showError(error)
+                    }
+                }
+            }
+            
+            self.transitionToScreen(viewController, transitionType: .present)
+        }
+        self.documentPickerResult = documentPickerResult
+        
+        // UIDocumentPickerModeImport copies to a temp file within our container.
+        // It uses more memory than "open" but lets us avoid working with security scoped URLs.
+        let documentPickerVC = UIDocumentPickerViewController(forOpeningContentTypes: [.item], asCopy: true)
+        documentPickerVC.delegate = documentPickerResult
+        documentPickerVC.modalPresentationStyle = .fullScreen
+        
+        self.transitionToScreen(documentPickerVC, transitionType: .present)
     }
 }
 

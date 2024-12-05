@@ -1,16 +1,40 @@
 // Copyright © 2024 Rangeproof Pty Ltd. All rights reserved.
+//
+// stringlint:disable
 
 import Foundation
 import CryptoKit
 import Compression
 
-enum ArchiveError: Error {
+public enum ArchiveError: Error, CustomStringConvertible {
     case invalidSourcePath
     case archiveFailed
     case unarchiveFailed
+    case decryptionFailed
+    case incompatibleVersion
+    case unableToFindDatabaseKey
+    case importedFileCountMismatch
+    case importedFileCountMetadataMismatch
+    
+    public var description: String {
+        switch self {
+            case .invalidSourcePath: "Invalid source path provided."
+            case .archiveFailed: "Failed to archive."
+            case .unarchiveFailed: "Failed to unarchive."
+            case .decryptionFailed: "Decryption failed."
+            case .incompatibleVersion: "This exported bundle is not compatible with this version of Session."
+            case .unableToFindDatabaseKey: "Unable to find database key."
+            case .importedFileCountMismatch: "The number of files imported doesn't match the number of files written to disk."
+            case .importedFileCountMetadataMismatch: "The number of files imported doesn't match the number of files reported."
+        }
+    }
 }
 
 public class DirectoryArchiver {
+    /// This value is here in case we need to change the structure of the exported data in the future, this would allow us to have
+    /// some form of backwards compatibility if desired
+    private static let version: UInt32 = 1
+    
     /// Archive an entire directory
     /// - Parameters:
     ///   - sourcePath: Full path to the directory to compress
@@ -20,6 +44,7 @@ public class DirectoryArchiver {
     public static func archiveDirectory(
         sourcePath: String,
         destinationPath: String,
+        filenamesToExclude: [String] = [],
         additionalPaths: [String] = [],
         password: String?,
         progressChanged: ((Int, Int, UInt64, UInt64) -> Void)?
@@ -42,19 +67,47 @@ public class DirectoryArchiver {
         // Stream-based directory traversal and compression
         let enumerator: FileManager.DirectoryEnumerator? = FileManager.default.enumerator(
             at: sourceUrl,
-            includingPropertiesForKeys: [.isRegularFileKey]
+            includingPropertiesForKeys: [.isRegularFileKey, .isDirectoryKey]
         )
-        let fileUrls: [URL] = (enumerator?.allObjects.compactMap { $0 as? URL } ?? [])
-            .appending(contentsOf: additionalPaths.map { URL(fileURLWithPath: $0) })
+        let fileUrls: [URL] = (enumerator?.allObjects
+            .compactMap { $0 as? URL }
+            .filter { url -> Bool in
+                guard !filenamesToExclude.contains(url.lastPathComponent) else { return false }
+                guard
+                    let resourceValues = try? url.resourceValues(
+                        forKeys: [.isRegularFileKey, .isDirectoryKey]
+                    )
+                else { return true }
+                
+                return (resourceValues.isRegularFile == true)
+            })
+            .defaulting(to: [])
         var index: Int = 0
-        progressChanged?(index, fileUrls.count, 0, 0)
+        progressChanged?(index, (fileUrls.count + additionalPaths.count), 0, 0)
         
+        // Include the archiver version so we can validate compatibility when importing
+        var version: UInt32 = DirectoryArchiver.version
+        let versionData: [UInt8] = Array(Data(bytes: &version, count: MemoryLayout<UInt32>.size))
+        try write(versionData, to: outputStream, blockSize: UInt8.self, password: password)
+        
+        // Store general metadata to help with validation and any other non-file related info
+        var fileCount: UInt32 = UInt32(fileUrls.count)
+        var additionalFileCount: UInt32 = UInt32(additionalPaths.count)
+        
+        let metadata: Data = (
+            Data(bytes: &fileCount, count: MemoryLayout<UInt32>.size) +
+            Data(bytes: &additionalFileCount, count: MemoryLayout<UInt32>.size)
+        )
+        try write(Array(metadata), to: outputStream, blockSize: UInt64.self, password: password)
+        
+        // Write the main file content
         try fileUrls.forEach { url in
             index += 1
             
             try exportFile(
                 sourcePath: sourcePath,
                 fileURL: url,
+                customRelativePath: nil,
                 outputStream: outputStream,
                 password: password,
                 index: index,
@@ -67,10 +120,12 @@ public class DirectoryArchiver {
         // Add any extra files which we want to include
         try additionalPaths.forEach { path in
             index += 1
-            // TODO: Need to fix these so that the path replacement with `sourcePath` isn't busted
+            
+            let fileUrl: URL = URL(fileURLWithPath: path)
             try exportFile(
                 sourcePath: sourcePath,
-                fileURL: URL(fileURLWithPath: path),
+                fileURL: fileUrl,
+                customRelativePath: "_extra/\(fileUrl.lastPathComponent)",
                 outputStream: outputStream,
                 password: password,
                 index: index,
@@ -81,103 +136,12 @@ public class DirectoryArchiver {
         }
     }
     
-    private static func exportFile(
-        sourcePath: String,
-        fileURL: URL,
-        outputStream: OutputStream,
-        password: String?,
-        index: Int,
-        totalFiles: Int,
-        isExtraFile: Bool,
-        progressChanged: ((Int, Int, UInt64, UInt64) -> Void)?
-    ) throws {
-        guard
-            let values: URLResourceValues = try? fileURL.resourceValues(
-                forKeys: [.isRegularFileKey, .fileSizeKey]
-            ),
-            values.isRegularFile == true,
-            var fileSize: UInt64 = values.fileSize.map({ UInt64($0) })
-        else {
-            progressChanged?(index, totalFiles, 1, 1)
-            return
-        }
-        
-        // Relative path preservation
-        let relativePath: String = fileURL.path.replacingOccurrences(
-            of: sourcePath,
-            with: ""
-        ).trimmingCharacters(in: CharacterSet(charactersIn: "/"))
-        
-        // Write path length and path
-        let pathData: Data = relativePath.data(using: .utf8)!
-        var pathLength: UInt32 = UInt32(pathData.count)
-        var isExtraFile: Bool = isExtraFile
-        
-        // Encrypt and write metadata (path length + path data)
-        let metadata: Data = (
-            Data(bytes: &pathLength, count: MemoryLayout<UInt32>.size) +
-            pathData +
-            Data(bytes: &fileSize, count: MemoryLayout<UInt64>.size) +
-            Data(bytes: &isExtraFile, count: MemoryLayout<Bool>.size)
-        )
-        let processedMetadata: [UInt8]
-        
-        switch password {
-            case .none: processedMetadata = Array(metadata)
-            case .some(let password):
-                processedMetadata = try encrypt(
-                    buffer: Array(metadata),
-                    password: password
-                )
-        }
-        
-        var blockSize: UInt64 = UInt64(processedMetadata.count)
-        let blockSizeData: [UInt8] = Array(Data(bytes: &blockSize, count: MemoryLayout<UInt64>.size))
-        outputStream.write(blockSizeData, maxLength: blockSizeData.count)
-        outputStream.write(processedMetadata, maxLength: processedMetadata.count)
-        
-        // Stream file contents
-        guard let inputStream: InputStream = InputStream(url: fileURL) else {
-            progressChanged?(index, totalFiles, 1, 1)
-            return
-        }
-        
-        inputStream.open()
-        defer { inputStream.close() }
-        
-        var buffer: [UInt8] = [UInt8](repeating: 0, count: 4096)
-        var currentFileProcessAmount: UInt64 = 0
-        while inputStream.hasBytesAvailable {
-            let bytesRead: Int = inputStream.read(&buffer, maxLength: buffer.count)
-            currentFileProcessAmount += UInt64(bytesRead)
-            progressChanged?(index, totalFiles, currentFileProcessAmount, fileSize)
-            
-            if bytesRead > 0 {
-                let processedBytes: [UInt8]
-                
-                switch password {
-                    case .none: processedBytes = buffer
-                    case .some(let password):
-                        processedBytes = try encrypt(
-                            buffer: Array(buffer.prefix(bytesRead)),
-                            password: password
-                        )
-                }
-                
-                var chunkSize: UInt32 = UInt32(processedBytes.count)
-                let chunkSizeData: [UInt8] = Array(Data(bytes: &chunkSize, count: MemoryLayout<UInt32>.size))
-                outputStream.write(chunkSizeData, maxLength: chunkSizeData.count)
-                outputStream.write(processedBytes, maxLength: processedBytes.count)
-            }
-        }
-    }
-    
     public static func unarchiveDirectory(
         archivePath: String,
         destinationPath: String,
         password: String?,
-        progressChanged: ((UInt64, UInt64) -> Void)?
-    ) throws -> [String] {
+        progressChanged: ((Int, Int, UInt64, UInt64) -> Void)?
+    ) throws -> (paths: [String], additional: [String]) {
         // Remove any old imported data as we don't want to muddy the new data
         if FileManager.default.fileExists(atPath: destinationPath) {
             try? FileManager.default.removeItem(atPath: destinationPath)
@@ -200,38 +164,57 @@ public class DirectoryArchiver {
         inputStream.open()
         defer { inputStream.close() }
         
-        var extraFilePaths: [String] = []
+        // First we need to check the version included in the export is compatible with the current one
+        let (versionData, _, _): ([UInt8], Int, UInt8) = try read(from: inputStream, password: password)
+        
+        guard !versionData.isEmpty else { throw ArchiveError.incompatibleVersion }
+        
+        var version: UInt32 = 0
+        _ = withUnsafeMutableBytes(of: &version) { versionBuffer in
+            versionData.copyBytes(to: versionBuffer)
+        }
+        
+        // Retrieve and process the general metadata
+        var metadataOffset = 0
+        let (metadataBytes, _, _): ([UInt8], Int, UInt64) = try read(from: inputStream, password: password)
+        
+        guard !metadataBytes.isEmpty else { throw ArchiveError.unarchiveFailed }
+        
+        // Extract path length and path
+        let expectedFileCountRange: Range<Int> = metadataOffset..<(metadataOffset + MemoryLayout<UInt32>.size)
+        var expectedFileCount: UInt32 = 0
+        _ = withUnsafeMutableBytes(of: &expectedFileCount) { expectedFileCountBuffer in
+            metadataBytes.copyBytes(to: expectedFileCountBuffer, from: expectedFileCountRange)
+        }
+        metadataOffset += MemoryLayout<UInt32>.size
+        
+        let expectedAdditionalFileCountRange: Range<Int> = metadataOffset..<(metadataOffset + MemoryLayout<UInt32>.size)
+        var expectedAdditionalFileCount: UInt32 = 0
+        _ = withUnsafeMutableBytes(of: &expectedAdditionalFileCount) { expectedAdditionalFileCountBuffer in
+            metadataBytes.copyBytes(to: expectedAdditionalFileCountBuffer, from: expectedAdditionalFileCountRange)
+        }
+        
+        var filePaths: [String] = []
+        var additionalFilePaths: [String] = []
         var fileAmountProcessed: UInt64 = 0
-        progressChanged?(0, encryptedFileSize)
+        progressChanged?(0, Int(expectedFileCount + expectedAdditionalFileCount), 0, encryptedFileSize)
         while inputStream.hasBytesAvailable {
-            // Read block size
-            var blockSizeBytes: [UInt8] = [UInt8](repeating: 0, count: MemoryLayout<UInt64>.size)
-            let bytesRead: Int = inputStream.read(&blockSizeBytes, maxLength: blockSizeBytes.count)
-            fileAmountProcessed += UInt64(bytesRead)
-            progressChanged?(fileAmountProcessed, encryptedFileSize)
+            let (metadata, blockSizeBytesRead, encryptedSize): ([UInt8], Int, UInt64) = try read(
+                from: inputStream,
+                password: password
+            )
+            fileAmountProcessed += UInt64(blockSizeBytesRead)
+            progressChanged?(
+                (filePaths.count + additionalFilePaths.count),
+                Int(expectedFileCount + expectedAdditionalFileCount),
+                fileAmountProcessed,
+                encryptedFileSize
+            )
             
-            switch bytesRead {
-                case 0: continue                            // We have finished reading
-                case blockSizeBytes.count: break            // We have started the next block
-                default: throw ArchiveError.unarchiveFailed // Invalid
-            }
+            // Stop here if we have finished reading
+            guard blockSizeBytesRead > 0 else { continue }
             
-            var blockSize: UInt64 = 0
-            _ = withUnsafeMutableBytes(of: &blockSize) { blockSizeBuffer in
-                blockSizeBytes.copyBytes(to: blockSizeBuffer, from: ..<MemoryLayout<UInt64>.size)
-            }
-            
-            // Read and decrypt metadata
-            var encryptedMetadata: [UInt8] = [UInt8](repeating: 0, count: Int(blockSize))
-            guard inputStream.read(&encryptedMetadata, maxLength: encryptedMetadata.count) == encryptedMetadata.count else {
-                throw ArchiveError.unarchiveFailed
-            }
-            
-            let metadata: [UInt8]
-            switch password {
-                case .none: metadata = encryptedMetadata
-                case .some(let password): metadata = try decrypt(buffer: encryptedMetadata, password: password)
-            }
+            // Process the metadata
             var offset = 0
             
             // Extract path length and path
@@ -267,8 +250,13 @@ public class DirectoryArchiver {
                 atPath: (fullPath as NSString).deletingLastPathComponent,
                 withIntermediateDirectories: true
             )
-            fileAmountProcessed += UInt64(encryptedMetadata.count)
-            progressChanged?(fileAmountProcessed, encryptedFileSize)
+            fileAmountProcessed += encryptedSize
+            progressChanged?(
+                (filePaths.count + additionalFilePaths.count),
+                Int(expectedFileCount + expectedAdditionalFileCount),
+                fileAmountProcessed,
+                encryptedFileSize
+            )
             
             // Read and decrypt file content
             guard let outputStream: OutputStream = OutputStream(toFileAtPath: fullPath, append: false) else {
@@ -279,43 +267,65 @@ public class DirectoryArchiver {
             
             var remainingFileSize: Int = Int(fileSize)
             while remainingFileSize > 0 {
-                // Read chunk size
-                var chunkSizeBytes: [UInt8] = [UInt8](repeating: 0, count: MemoryLayout<UInt32>.size)
-                guard inputStream.read(&chunkSizeBytes, maxLength: chunkSizeBytes.count) == chunkSizeBytes.count else {
-                    throw ArchiveError.unarchiveFailed
-                }
-                var chunkSize: UInt32 = 0
-                _ = withUnsafeMutableBytes(of: &chunkSize) { chunkSizeBuffer in
-                    chunkSizeBytes.copyBytes(to: chunkSizeBuffer, from: ..<MemoryLayout<UInt32>.size)
-                }
-                fileAmountProcessed += UInt64(chunkSizeBytes.count)
-                progressChanged?(fileAmountProcessed, encryptedFileSize)
+                let (chunk, chunkSizeBytesRead, encryptedSize): ([UInt8], Int, UInt32) = try read(
+                    from: inputStream,
+                    password: password
+                )
                 
-                // Read the chunk
-                var chunkBytes: [UInt8] = [UInt8](repeating: 0, count: Int(chunkSize))
-                guard inputStream.read(&chunkBytes, maxLength: chunkBytes.count) == chunkBytes.count else {
-                    throw ArchiveError.unarchiveFailed
-                }
+                // Write to the output
+                outputStream.write(chunk, maxLength: chunk.count)
+                remainingFileSize -= chunk.count
                 
-                let processedChunk: [UInt8]
-                switch password {
-                    case .none: processedChunk = chunkBytes
-                    case .some(let password): processedChunk = try decrypt(buffer: chunkBytes, password: password)
-                }
-                
-                outputStream.write(processedChunk, maxLength: processedChunk.count)
-                remainingFileSize -= processedChunk.count
-                
-                fileAmountProcessed += UInt64(chunkBytes.count)
-                progressChanged?(fileAmountProcessed, encryptedFileSize)
+                // Update the progress
+                fileAmountProcessed += UInt64(chunkSizeBytesRead + chunk.count)
+                progressChanged?(
+                    (filePaths.count + additionalFilePaths.count),
+                    Int(expectedFileCount + expectedAdditionalFileCount),
+                    fileAmountProcessed,
+                    encryptedFileSize
+                )
             }
             
-            if isExtraFile {
-                extraFilePaths.append(fullPath)
+            // Store the file path info and update the progress
+            switch isExtraFile {
+                case false: filePaths.append(fullPath)
+                case true: additionalFilePaths.append(fullPath)
             }
+            progressChanged?(
+                (filePaths.count + additionalFilePaths.count),
+                Int(expectedFileCount + expectedAdditionalFileCount),
+                fileAmountProcessed,
+                encryptedFileSize
+            )
         }
         
-        return extraFilePaths
+        // Validate that the number of files exported matches the number of paths we got back
+        let testEnumerator: FileManager.DirectoryEnumerator? = FileManager.default.enumerator(
+            at: URL(fileURLWithPath: destinationPath),
+            includingPropertiesForKeys: [.isRegularFileKey, .isDirectoryKey]
+        )
+        let tempFileUrls: [URL] = (testEnumerator?.allObjects
+            .compactMap { $0 as? URL }
+            .filter { url -> Bool in
+                guard
+                    let resourceValues = try? url.resourceValues(
+                        forKeys: [.isRegularFileKey, .isDirectoryKey]
+                    )
+                else { return true }
+                
+                return (resourceValues.isRegularFile == true)
+            })
+            .defaulting(to: [])
+        
+        guard tempFileUrls.count == (filePaths.count + additionalFilePaths.count) else {
+            throw ArchiveError.importedFileCountMismatch
+        }
+        guard
+            filePaths.count == expectedFileCount &&
+            additionalFilePaths.count == expectedAdditionalFileCount
+        else { throw ArchiveError.importedFileCountMetadataMismatch }
+        
+        return (filePaths, additionalFilePaths)
     }
     
     private static func encrypt(buffer: [UInt8], password: String) throws -> [UInt8] {
@@ -373,6 +383,132 @@ public class DirectoryArchiver {
         
         let decryptedData: Data = try AES.GCM.open(sealedBox, using: symmetricKey)
         return [UInt8](decryptedData)
+    }
+    
+    private static func write<T>(
+        _ data: [UInt8],
+        to outputStream: OutputStream,
+        blockSize: T.Type,
+        password: String?
+    ) throws where T: FixedWidthInteger, T: UnsignedInteger {
+        let processedBytes: [UInt8]
+        
+        switch password {
+            case .none: processedBytes = data
+            case .some(let password):
+                processedBytes = try encrypt(
+                    buffer: data,
+                    password: password
+                )
+        }
+        
+        var blockSize: T = T(processedBytes.count)
+        let blockSizeData: [UInt8] = Array(Data(bytes: &blockSize, count: MemoryLayout<T>.size))
+        outputStream.write(blockSizeData, maxLength: blockSizeData.count)
+        outputStream.write(processedBytes, maxLength: processedBytes.count)
+    }
+    
+    private static func read<T>(
+        from inputStream: InputStream,
+        password: String?
+    ) throws -> (value: [UInt8], blockSizeBytesRead: Int, encryptedSize: T) where T: FixedWidthInteger, T: UnsignedInteger {
+        var blockSizeBytes: [UInt8] = [UInt8](repeating: 0, count: MemoryLayout<T>.size)
+        let bytesRead: Int = inputStream.read(&blockSizeBytes, maxLength: blockSizeBytes.count)
+        
+        switch bytesRead {
+            case 0: return ([], bytesRead, 0)           // We have finished reading
+            case blockSizeBytes.count: break            // We have started the next block
+            default: throw ArchiveError.unarchiveFailed // Invalid
+        }
+        
+        var blockSize: T = 0
+        _ = withUnsafeMutableBytes(of: &blockSize) { blockSizeBuffer in
+            blockSizeBytes.copyBytes(to: blockSizeBuffer, from: ..<MemoryLayout<T>.size)
+        }
+        
+        var encryptedResult: [UInt8] = [UInt8](repeating: 0, count: Int(blockSize))
+        guard inputStream.read(&encryptedResult, maxLength: encryptedResult.count) == encryptedResult.count else {
+            throw ArchiveError.unarchiveFailed
+        }
+        
+        let result: [UInt8]
+        switch password {
+            case .none: result = encryptedResult
+            case .some(let password): result = try decrypt(buffer: encryptedResult, password: password)
+        }
+        
+        return (result, bytesRead, blockSize)
+    }
+    
+    private static func exportFile(
+        sourcePath: String,
+        fileURL: URL,
+        customRelativePath: String?,
+        outputStream: OutputStream,
+        password: String?,
+        index: Int,
+        totalFiles: Int,
+        isExtraFile: Bool,
+        progressChanged: ((Int, Int, UInt64, UInt64) -> Void)?
+    ) throws {
+        guard
+            let values: URLResourceValues = try? fileURL.resourceValues(
+                forKeys: [.isRegularFileKey, .fileSizeKey]
+            ),
+            values.isRegularFile == true,
+            var fileSize: UInt64 = values.fileSize.map({ UInt64($0) })
+        else {
+            progressChanged?(index, totalFiles, 1, 1)
+            return
+        }
+        
+        // Relative path preservation
+        let relativePath: String = customRelativePath
+            .defaulting(
+                to: fileURL.path
+                    .replacingOccurrences(of: sourcePath, with: "")
+                    .trimmingCharacters(in: CharacterSet(charactersIn: "/"))
+            )
+        
+        // Write path length and path
+        let pathData: Data = relativePath.data(using: .utf8)!
+        var pathLength: UInt32 = UInt32(pathData.count)
+        var isExtraFile: Bool = isExtraFile
+        
+        // Encrypt and write metadata (path length + path data)
+        let metadata: Data = (
+            Data(bytes: &pathLength, count: MemoryLayout<UInt32>.size) +
+            pathData +
+            Data(bytes: &fileSize, count: MemoryLayout<UInt64>.size) +
+            Data(bytes: &isExtraFile, count: MemoryLayout<Bool>.size)
+        )
+        try write(Array(metadata), to: outputStream, blockSize: UInt64.self, password: password)
+        
+        // Stream file contents
+        guard let inputStream: InputStream = InputStream(url: fileURL) else {
+            progressChanged?(index, totalFiles, 1, 1)
+            return
+        }
+        
+        inputStream.open()
+        defer { inputStream.close() }
+        
+        var buffer: [UInt8] = [UInt8](repeating: 0, count: 4096)
+        var currentFileProcessAmount: UInt64 = 0
+        while inputStream.hasBytesAvailable {
+            let bytesRead: Int = inputStream.read(&buffer, maxLength: buffer.count)
+            currentFileProcessAmount += UInt64(bytesRead)
+            progressChanged?(index, totalFiles, currentFileProcessAmount, fileSize)
+            
+            if bytesRead > 0 {
+                try write(
+                    Array(buffer.prefix(bytesRead)),
+                    to: outputStream,
+                    blockSize: UInt32.self,
+                    password: password
+                )
+            }
+        }
     }
 }
 
