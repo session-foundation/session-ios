@@ -160,7 +160,7 @@ struct PNModeScreen: View {
     }
     
     private func finishRegister() {
-        self.flow.completeRegistration()
+        self.flow.completeRegistration(using: dependencies)
         
         let homeVC: HomeVC = HomeVC(flow: self.flow, using: dependencies)
         self.host.controller?.navigationController?.setViewControllers([ homeVC ], animated: true)

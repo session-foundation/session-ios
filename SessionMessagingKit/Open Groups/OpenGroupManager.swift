@@ -180,12 +180,12 @@ public final class OpenGroupManager {
         roomToken: String,
         server: String,
         publicKey: String,
-        calledFromConfigHandling: Bool,
+        calledFromConfig configTriggeringChange: LibSession.Config.Variant?,
         using dependencies: Dependencies = Dependencies()
     ) -> Bool {
         // If we are currently polling for this server and already have a TSGroupThread for this room the do nothing
         if hasExistingOpenGroup(db, roomToken: roomToken, server: server, publicKey: publicKey, using: dependencies) {
-            SNLog("Ignoring join open group attempt (already joined), user initiated: \(!calledFromConfigHandling)")
+            SNLog("Ignoring join open group attempt (already joined), user initiated: \(configTriggeringChange != nil)")
             return false
         }
         
@@ -201,18 +201,21 @@ public final class OpenGroupManager {
         
         // Optionally try to insert a new version of the OpenGroup (it will fail if there is already an
         // inactive one but that won't matter as we then activate it)
-        _ = try? SessionThread
-            .fetchOrCreate(
-                db,
-                id: threadId,
-                variant: .community,
+        _ = try? SessionThread.upsert(
+            db,
+            id: threadId,
+            variant: .community,
+            values: SessionThread.TargetValues(
                 /// If we didn't add this open group via config handling then flag it to be visible (if it did come via config handling then
                 /// we want to wait until it actually has messages before making it visible)
                 ///
                 /// **Note:** We **MUST** provide a `nil` value if this method was called from the config handling as updating
                 /// the `shouldVeVisible` state can trigger a config update which could result in an infinite loop in the future
-                shouldBeVisible: (calledFromConfigHandling ? nil : true)
-            )
+                shouldBeVisible: (configTriggeringChange != nil ? .useExisting : .setTo(true))
+            ),
+            calledFromConfig: configTriggeringChange,
+            using: dependencies
+        )
         
         if (try? OpenGroup.exists(db, id: threadId)) == false {
             try? OpenGroup
@@ -222,7 +225,7 @@ public final class OpenGroupManager {
         
         // Set the group to active and reset the sequenceNumber (handle groups which have
         // been deactivated)
-        if calledFromConfigHandling {
+        if configTriggeringChange != nil {
             _ = try? OpenGroup
                 .filter(id: OpenGroup.idFor(roomToken: roomToken, server: targetServer))
                 .updateAll( // Handling a config update so don't use `updateAllAndConfig`
@@ -237,7 +240,8 @@ public final class OpenGroupManager {
                 .updateAllAndConfig(
                     db,
                     OpenGroup.Columns.isActive.set(to: true),
-                    OpenGroup.Columns.sequenceNumber.set(to: 0)
+                    OpenGroup.Columns.sequenceNumber.set(to: 0),
+                    using: dependencies
                 )
         }
         
@@ -287,7 +291,8 @@ public final class OpenGroupManager {
                                 db,
                                 server: server,
                                 rootToken: roomToken,
-                                publicKey: publicKey
+                                publicKey: publicKey,
+                                using: dependencies
                             )
                         }
                         
@@ -392,11 +397,15 @@ public final class OpenGroupManager {
             // If it's a session-run room then just set it to inactive
             _ = try? OpenGroup
                 .filter(id: openGroupId)
-                .updateAllAndConfig(db, OpenGroup.Columns.isActive.set(to: false))
+                .updateAllAndConfig(
+                    db,
+                    OpenGroup.Columns.isActive.set(to: false),
+                    using: dependencies
+                )
         }
         
         if !calledFromConfigHandling, let server: String = server, let roomToken: String = roomToken {
-            try? LibSession.remove(db, server: server, roomToken: roomToken)
+            try? LibSession.remove(db, server: server, roomToken: roomToken, using: dependencies)
         }
     }
     
@@ -475,7 +484,7 @@ public final class OpenGroupManager {
         
         try OpenGroup
             .filter(id: openGroup.id)
-            .updateAllAndConfig(db, changes)
+            .updateAllAndConfig(db, changes, using: dependencies)
         
         // Update the admin/moderator group members
         if let roomDetails: OpenGroupAPI.Room = pollInfo.details {
@@ -761,7 +770,7 @@ public final class OpenGroupManager {
                 
                 switch processedMessage {
                     case .config, .none: break
-                    case .standard(let threadId, _, let proto, let messageInfo):
+                    case .standard(_, _, let proto, let messageInfo):
                         // We want to update the BlindedIdLookup cache with the message info so we can avoid using the
                         // "expensive" lookup when possible
                         let lookup: BlindedIdLookup = try {

@@ -340,7 +340,8 @@ public enum PushNotificationAPI {
                 receiveCompletion: { result in
                     switch result {
                         case .finished: break
-                        case .failure: Log.error("[PushNotificationAPI] Couldn't subscribe for legacy groups.")
+                        case .failure(let error):
+                            Log.error("[PushNotificationAPI] Couldn't subscribe for legacy groups due to error: \(error).")
                     }
                 }
             )

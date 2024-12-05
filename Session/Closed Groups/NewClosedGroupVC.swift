@@ -28,13 +28,27 @@ final class NewClosedGroupVC: BaseVC, UITableViewDataSource, UITableViewDelegate
         case contacts
     }
     
-    private let contactProfiles: [Profile] = Profile.fetchAllContactProfiles(excludeCurrentUser: true)
+    private let dependencies: Dependencies
+    private let contactProfiles: [Profile]
     private lazy var data: [ArraySection<Section, Profile>] = [
         ArraySection(model: .contacts, elements: contactProfiles)
     ]
     private var selectedContacts: Set<String> = []
     private var searchText: String = ""
-
+    
+    // MARK: - Initialization
+    
+    init(using dependencies: Dependencies) {
+        self.dependencies = dependencies
+        self.contactProfiles = Profile.fetchAllContactProfiles(excludeCurrentUser: true)
+        
+        super.init(nibName: nil, bundle: nil)
+    }
+    
+    required init?(coder: NSCoder) {
+        fatalError("init(coder:) has not been implemented")
+    }
+    
     // MARK: - Components
     
     private static let textFieldHeight: CGFloat = 50
@@ -329,7 +343,7 @@ final class NewClosedGroupVC: BaseVC, UITableViewDataSource, UITableViewDelegate
         }
         let selectedContacts = self.selectedContacts
         let message: String? = (selectedContacts.count > 20 ? "deleteAfterLegacyGroupsGroupCreation".localized() : nil)
-        ModalActivityIndicatorViewController.present(fromViewController: navigationController!, message: message) { [weak self] _ in
+        ModalActivityIndicatorViewController.present(fromViewController: navigationController!, message: message) { [weak self, dependencies] _ in
             MessageSender
                 .createClosedGroup(name: name, members: selectedContacts)
                 .subscribe(on: DispatchQueue.global(qos: .userInitiated))
@@ -358,7 +372,8 @@ final class NewClosedGroupVC: BaseVC, UITableViewDataSource, UITableViewDelegate
                             for: thread.id,
                             variant: thread.variant,
                             dismissing: self?.presentingViewController,
-                            animated: false
+                            animated: false,
+                            using: dependencies
                         )
                     }
                 )

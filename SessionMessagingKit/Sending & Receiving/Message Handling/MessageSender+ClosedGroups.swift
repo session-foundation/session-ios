@@ -40,8 +40,14 @@ extension MessageSender {
                 let formationTimestamp: TimeInterval = (TimeInterval(SnodeAPI.currentOffsetTimestampMs()) / 1000)
                 
                 // Create the relevant objects in the database
-                let thread: SessionThread = try SessionThread
-                    .fetchOrCreate(db, id: groupPublicKey, variant: .legacyGroup, shouldBeVisible: true)
+                let thread: SessionThread = try SessionThread.upsert(
+                    db,
+                    id: groupPublicKey,
+                    variant: .legacyGroup,
+                    values: SessionThread.TargetValues(shouldBeVisible: .setTo(true)),
+                    calledFromConfig: nil,
+                    using: dependencies
+                )
                 try ClosedGroup(
                     threadId: groupPublicKey,
                     name: name,
@@ -87,7 +93,8 @@ extension MessageSender {
                     latestKeyPairReceivedTimestamp: latestKeyPairReceivedTimestamp,
                     disappearingConfig: DisappearingMessagesConfiguration.defaultWith(groupPublicKey),
                     members: members,
-                    admins: admins
+                    admins: admins,
+                    using: dependencies
                 )
                 
                 let memberSendData: [MessageSender.PreparedSendData] = try members
@@ -268,7 +275,8 @@ extension MessageSender {
                             admins: allGroupMembers
                                 .filter { $0.role == .admin }
                                 .map { $0.profileId }
-                                .asSet()
+                                .asSet(),
+                            using: dependencies
                         )
                     }
                     
@@ -338,7 +346,8 @@ extension MessageSender {
                     try? LibSession.update(
                         db,
                         groupPublicKey: closedGroup.threadId,
-                        name: name
+                        name: name,
+                        using: dependencies
                     )
                 }
                 
@@ -451,7 +460,8 @@ extension MessageSender {
             admins: allGroupMembers
                 .filter { $0.role == .admin }
                 .map { $0.profileId }
-                .asSet()
+                .asSet(),
+            using: dependencies
         )
         
         // Send the update to the group
@@ -468,7 +478,14 @@ extension MessageSender {
         
         try addedMembers.forEach { member in
             // Send updates to the new members individually
-            try SessionThread.fetchOrCreate(db, id: member, variant: .contact, shouldBeVisible: nil)
+            try SessionThread.upsert(
+                db,
+                id: member,
+                variant: .contact,
+                values: .existingOrDefault,
+                calledFromConfig: nil,
+                using: dependencies
+            )
             
             try MessageSender.send(
                 db,
@@ -675,8 +692,14 @@ extension MessageSender {
                 privateKey: keyPair.secretKey
             ).build()
             let plaintext = try proto.serializedData()
-            let thread: SessionThread = try SessionThread
-                .fetchOrCreate(db, id: publicKey, variant: .contact, shouldBeVisible: nil)
+            let thread: SessionThread = try SessionThread.upsert(
+                db,
+                id: publicKey,
+                variant: .contact,
+                values: .existingOrDefault,
+                calledFromConfig: nil,
+                using: dependencies
+            )
             let ciphertext = try dependencies.crypto.tryGenerate(
                 .ciphertextWithSessionProtocol(
                     db,

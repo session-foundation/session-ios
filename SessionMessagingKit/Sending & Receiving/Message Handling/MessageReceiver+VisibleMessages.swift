@@ -13,7 +13,7 @@ extension MessageReceiver {
         message: VisibleMessage,
         serverExpirationTimestamp: TimeInterval?,
         associatedWithProto proto: SNProtoContent,
-        using dependencies: Dependencies = Dependencies()
+        using dependencies: Dependencies
     ) throws -> Int64 {
         guard let sender: String = message.sender, let dataMessage = proto.dataMessage else {
             throw MessageReceiverError.invalidMessage
@@ -67,8 +67,14 @@ extension MessageReceiver {
         
         // Store the message variant so we can run variant-specific behaviours
         let currentUserPublicKey: String = getUserHexEncodedPublicKey(db, using: dependencies)
-        let thread: SessionThread = try SessionThread
-            .fetchOrCreate(db, id: threadId, variant: threadVariant, shouldBeVisible: nil)
+        let thread: SessionThread = try SessionThread.upsert(
+            db,
+            id: threadId,
+            variant: threadVariant,
+            values: .existingOrDefault,
+            calledFromConfig: nil,
+            using: dependencies
+        )
         let maybeOpenGroup: OpenGroup? = {
             guard threadVariant == .community else { return nil }
             
@@ -206,7 +212,8 @@ extension MessageReceiver {
                         interactionId: existingInteractionId,
                         messageSentTimestamp: messageSentTimestamp,
                         variant: variant,
-                        syncTarget: message.syncTarget
+                        syncTarget: message.syncTarget,
+                        using: dependencies
                     )
                     
                     Message.getExpirationForOutgoingDisappearingMessages(
@@ -233,7 +240,8 @@ extension MessageReceiver {
             interactionId: interactionId,
             messageSentTimestamp: messageSentTimestamp,
             variant: variant,
-            syncTarget: message.syncTarget
+            syncTarget: message.syncTarget,
+            using: dependencies
         )
         
         if messageExpirationInfo.shouldUpdateExpiry {
@@ -350,7 +358,8 @@ extension MessageReceiver {
             try MessageReceiver.updateContactApprovalStatusIfNeeded(
                 db,
                 senderSessionId: sender,
-                threadId: thread.id
+                threadId: thread.id,
+                using: dependencies
             )
         }
         
@@ -457,7 +466,8 @@ extension MessageReceiver {
         interactionId: Int64,
         messageSentTimestamp: TimeInterval,
         variant: Interaction.Variant,
-        syncTarget: String?
+        syncTarget: String?,
+        using dependencies: Dependencies
     ) throws {
         guard variant == .standardOutgoing else { return }
         
@@ -481,7 +491,8 @@ extension MessageReceiver {
             threadId: thread.id,
             threadVariant: thread.variant,
             includingOlder: true,
-            trySendReadReceipt: false
+            trySendReadReceipt: false,
+            using: dependencies
         )
         
         // Process any PendingReadReceipt values

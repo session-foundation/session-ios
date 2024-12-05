@@ -274,7 +274,8 @@ final class ThreadPickerVC: UIViewController, UITableViewDataSource, UITableView
                                 .updateAllAndConfig(
                                     db,
                                     SessionThread.Columns.shouldBeVisible.set(to: true),
-                                    SessionThread.Columns.pinnedPriority.set(to: LibSession.visiblePriority)
+                                    SessionThread.Columns.pinnedPriority.set(to: LibSession.visiblePriority),
+                                    using: dependencies
                                 )
                         }
                         

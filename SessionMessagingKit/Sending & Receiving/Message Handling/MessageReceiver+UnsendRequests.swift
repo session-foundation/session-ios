@@ -36,7 +36,8 @@ extension MessageReceiver {
                 threadId: interaction.threadId,
                 threadVariant: threadVariant,
                 includingOlder: false,
-                trySendReadReceipt: false
+                trySendReadReceipt: false,
+                using: dependencies
             )
             
             UNUserNotificationCenter.current().removeDeliveredNotifications(withIdentifiers: interaction.notificationIdentifiers)

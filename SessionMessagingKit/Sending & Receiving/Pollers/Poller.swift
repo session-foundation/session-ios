@@ -415,7 +415,7 @@ public class Poller {
                                         !forceSynchronousProcessing &&
                                         (Singleton.hasAppContext && !Singleton.appContext.isInBackground) ||
                                         // FIXME: Better seperate the call messages handling, since we need to handle them all the time
-                                        SessionEnvironment.shared?.callManager.wrappedValue?.currentCall != nil
+                                        Singleton.callManager.currentCall != nil
                                     ),
                                     using: dependencies
                                 )

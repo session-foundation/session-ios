@@ -146,7 +146,7 @@ class SettingsViewModel: SessionTableViewModel, NavigationItemSource, Navigatabl
         .eraseToAnyPublisher()
     
     lazy var rightNavItems: AnyPublisher<[SessionNavItem<NavItem>], Never> = navState
-        .map { [weak self] navState -> [SessionNavItem<NavItem>] in
+        .map { [weak self, dependencies] navState -> [SessionNavItem<NavItem>] in
             switch navState {
                 case .standard:
                     return [
@@ -157,7 +157,9 @@ class SettingsViewModel: SessionTableViewModel, NavigationItemSource, Navigatabl
                             style: .plain,
                             accessibilityIdentifier: "View QR code",
                             action: { [weak self] in
-                                let viewController: SessionHostingViewController = SessionHostingViewController(rootView: QRCodeScreen())
+                                let viewController: SessionHostingViewController = SessionHostingViewController(
+                                    rootView: QRCodeScreen(using: dependencies)
+                                )
                                 viewController.setNavBarTitle("qrCode".localized())
                                 self?.transitionToScreen(viewController)
                             }

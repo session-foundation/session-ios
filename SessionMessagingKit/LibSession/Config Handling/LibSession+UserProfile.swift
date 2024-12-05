@@ -28,7 +28,7 @@ internal extension LibSession {
         typealias ProfileData = (profileName: String, profilePictureUrl: String?, profilePictureKey: Data?)
         
         guard mergeNeedsDump else { return }
-        guard conf != nil else { throw LibSessionError.nilConfigObject }
+        guard let conf: UnsafeMutablePointer<config_object> = conf else { throw LibSessionError.nilConfigObject }
         
         // A profile must have a name so if this is null then it's invalid and can be ignored
         guard let profileNamePtr: UnsafePointer<CChar> = user_profile_get_name(conf) else { return }
@@ -86,30 +86,28 @@ internal extension LibSession {
             }
         }
         else {
-            try SessionThread
-                .fetchOrCreate(
-                    db,
-                    id: userPublicKey,
-                    variant: .contact,
-                    shouldBeVisible: LibSession.shouldBeVisible(priority: targetPriority)
-                )
-            
-            try SessionThread
-                .filter(id: userPublicKey)
-                .updateAll( // Handling a config update so don't use `updateAllAndConfig`
-                    db,
-                    SessionThread.Columns.pinnedPriority.set(to: targetPriority)
-                )
-            
             // If the 'Note to Self' conversation is hidden then we should trigger the proper
-            // `deleteOrLeave` behaviour (for 'Note to Self' this will leave the conversation
-            // but remove the associated interactions)
+            // `deleteOrLeave` behaviour
             if !LibSession.shouldBeVisible(priority: targetPriority) {
                 try SessionThread.deleteOrLeave(
                     db,
-                    type: .hideContactConversationAndDeleteContent,
+                    type: .hideContactConversation,
                     threadId: userPublicKey,
-                    calledFromConfigHandling: true
+                    calledFromConfigHandling: true,
+                    using: dependencies
+                )
+            }
+            else {
+                try SessionThread.upsert(
+                    db,
+                    id: userPublicKey,
+                    variant: .contact,
+                    values: SessionThread.TargetValues(
+                        shouldBeVisible: .setTo(LibSession.shouldBeVisible(priority: targetPriority)),
+                        pinnedPriority: .setTo(targetPriority)
+                    ),
+                    calledFromConfig: .userProfile(conf),
+                    using: dependencies
                 )
             }
         }
@@ -209,6 +207,30 @@ internal extension LibSession {
         
         if let blindedMessageRequests: Bool = checkForCommunityMessageRequests {
             user_profile_set_blinded_msgreqs(conf, (blindedMessageRequests ? 1 : 0))
+        }
+    }
+}
+
+// MARK: - External Outgoing Changes
+
+public extension LibSession {
+    static func updateNoteToSelf(
+        _ db: Database,
+        priority: Int32? = nil,
+        disappearingMessagesConfig: DisappearingMessagesConfiguration? = nil,
+        using dependencies: Dependencies
+    ) throws {
+        try LibSession.performAndPushChange(
+            db,
+            for: .userProfile,
+            publicKey: getUserHexEncodedPublicKey(db),
+            using: dependencies
+        ) { conf in
+            try LibSession.updateNoteToSelf(
+                priority: priority,
+                disappearingMessagesConfig: disappearingMessagesConfig,
+                in: conf
+            )
         }
     }
 }
