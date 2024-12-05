@@ -593,7 +593,7 @@ extension Attachment {
         return UInt(floor(max(screenSizePoints.width, screenSizePoints.height) * minZoomFactor))
     }()
     
-    private static var sharedDataAttachmentsDirPath: String = {
+    public static var sharedDataAttachmentsDirPath: String = {
         URL(fileURLWithPath: FileManager.default.appSharedDataDirectoryPath)
             .appendingPathComponent("Attachments") // stringlint:ignore
             .path

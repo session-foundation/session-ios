@@ -413,9 +413,6 @@ public final class SnodeAPI {
         
         let sendTimestamp: UInt64 = UInt64(SnodeAPI.currentOffsetTimestampMs())
         
-        // FIXME: There is a bug on SS now that a single-hash lookup is not working. Remove it when the bug is fixed
-        let serverHashes: [String] = serverHashes.appending("///////////////////////////////////////////") // Fake hash with valid length
-        
         do {
             return try SnodeAPI
                 .prepareRequest(
@@ -682,9 +679,6 @@ public final class SnodeAPI {
             return Fail(error: NetworkError.invalidPreparedRequest)
                 .eraseToAnyPublisher()
         }
-        
-        // FIXME: There is a bug on SS now that a single-hash lookup is not working. Remove it when the bug is fixed
-        let serverHashes: [String] = serverHashes.appending("///////////////////////////////////////////") // Fake hash with valid length
         
         do {
             return try SnodeAPI

@@ -20,7 +20,7 @@ public final class SessionCall: CurrentCallProtocol, WebRTCSessionDelegate {
     // MARK: - Metadata Properties
     public let uuid: String
     public let callId: UUID // This is for CallKit
-    let sessionId: String
+    public let sessionId: String
     let mode: CallMode
     var audioMode: AudioMode
     public let webRTCSession: WebRTCSession

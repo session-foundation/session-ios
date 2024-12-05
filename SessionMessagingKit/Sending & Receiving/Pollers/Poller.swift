@@ -413,7 +413,9 @@ public class Poller {
                                     job: job,
                                     canStartJob: (
                                         !forceSynchronousProcessing &&
-                                        (Singleton.hasAppContext && !Singleton.appContext.isInBackground)
+                                        (Singleton.hasAppContext && !Singleton.appContext.isInBackground) ||
+                                        // FIXME: Better seperate the call messages handling, since we need to handle them all the time
+                                        Singleton.callManager.currentCall != nil
                                     ),
                                     using: dependencies
                                 )
