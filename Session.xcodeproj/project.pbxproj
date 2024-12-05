@@ -734,6 +734,7 @@
 		FD716E7128505E5200C96BF4 /* MessageRequestsCell.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD716E7028505E5100C96BF4 /* MessageRequestsCell.swift */; };
 		FD716E722850647600C96BF4 /* Data+Utilities.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD859EF127BF6BA200510D0C /* Data+Utilities.swift */; };
 		FD72BD9A2BDF5EEA00CF6CF6 /* Message+Origin.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD72BD992BDF5EEA00CF6CF6 /* Message+Origin.swift */; };
+		FD756BEB2D0181D700BD7199 /* GRDB in Frameworks */ = {isa = PBXBuildFile; productRef = FD756BEA2D0181D700BD7199 /* GRDB */; };
 		FD7692F72A53A2ED000E4B70 /* SessionThreadViewModelSpec.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD7692F62A53A2ED000E4B70 /* SessionThreadViewModelSpec.swift */; };
 		FD7728962849E7E90018502F /* String+Utilities.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD7728952849E7E90018502F /* String+Utilities.swift */; };
 		FD7728982849E8110018502F /* UITableView+ReusableView.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD7728972849E8110018502F /* UITableView+ReusableView.swift */; };
@@ -845,7 +846,6 @@
 		FDC1BD662CFD6C4F002CDC71 /* Config.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDC1BD652CFD6C4E002CDC71 /* Config.swift */; };
 		FDC1BD682CFE6EEB002CDC71 /* DeveloperSettingsViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDC1BD672CFE6EEA002CDC71 /* DeveloperSettingsViewModel.swift */; };
 		FDC1BD6A2CFE7B6B002CDC71 /* DirectoryArchiver.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDC1BD692CFE7B67002CDC71 /* DirectoryArchiver.swift */; };
-		FDC289422C86AB5800020BC2 /* GRDB in Frameworks */ = {isa = PBXBuildFile; productRef = FDC289412C86AB5800020BC2 /* GRDB */; };
 		FDC289472C881A3800020BC2 /* MutableIdentifiable.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDC289462C881A3800020BC2 /* MutableIdentifiable.swift */; };
 		FDC2908727D7047F005DAE71 /* RoomSpec.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDC2908627D7047F005DAE71 /* RoomSpec.swift */; };
 		FDC2908927D70656005DAE71 /* RoomPollInfoSpec.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDC2908827D70656005DAE71 /* RoomPollInfoSpec.swift */; };
@@ -2208,7 +2208,7 @@
 				FD6A38EC2C2A63B500762359 /* KeychainSwift in Frameworks */,
 				FD6A38EF2C2A641200762359 /* DifferenceKit in Frameworks */,
 				FD6A396D2C2D284B00762359 /* YYImage in Frameworks */,
-				FDC289422C86AB5800020BC2 /* GRDB in Frameworks */,
+				FD756BEB2D0181D700BD7199 /* GRDB in Frameworks */,
 				FD6A38E92C2A630E00762359 /* CocoaLumberjackSwift in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -4762,7 +4762,7 @@
 				FD6A38EE2C2A641200762359 /* DifferenceKit */,
 				FD6A39652C2D21E400762359 /* libwebp */,
 				FD6A396C2C2D284B00762359 /* YYImage */,
-				FDC289412C86AB5800020BC2 /* GRDB */,
+				FD756BEA2D0181D700BD7199 /* GRDB */,
 			);
 			productName = SessionUtilities;
 			productReference = C3C2A679255388CC00C340D1 /* SessionUtilitiesKit.framework */;
@@ -5071,7 +5071,7 @@
 				FD6A39392C2AD3A300762359 /* XCRemoteSwiftPackageReference "Nimble" */,
 				FD6A39642C2D21E400762359 /* XCRemoteSwiftPackageReference "libwebp-Xcode" */,
 				FD6A39672C2D283A00762359 /* XCRemoteSwiftPackageReference "session-ios-yyimage" */,
-				FDC289402C86AB5800020BC2 /* XCRemoteSwiftPackageReference "session-grdb-swift" */,
+				FD6DA9D52D017F480092085A /* XCRemoteSwiftPackageReference "session-grdb-swift" */,
 			);
 			productRefGroup = D221A08A169C9E5E00537ABF /* Products */;
 			projectDirPath = "";
@@ -8654,18 +8654,18 @@
 		};
 		FD6A39672C2D283A00762359 /* XCRemoteSwiftPackageReference "session-ios-yyimage" */ = {
 			isa = XCRemoteSwiftPackageReference;
-			repositoryURL = "https://github.com/oxen-io/session-ios-yyimage.git";
+			repositoryURL = "https://github.com/session-foundation/session-ios-yyimage";
 			requirement = {
 				kind = upToNextMajorVersion;
 				minimumVersion = 1.1.0;
 			};
 		};
-		FDC289402C86AB5800020BC2 /* XCRemoteSwiftPackageReference "session-grdb-swift" */ = {
+		FD6DA9D52D017F480092085A /* XCRemoteSwiftPackageReference "session-grdb-swift" */ = {
 			isa = XCRemoteSwiftPackageReference;
-			repositoryURL = "https://github.com/oxen-io/session-grdb-swift.git";
+			repositoryURL = "https://github.com/session-foundation/session-grdb-swift.git";
 			requirement = {
 				kind = upToNextMajorVersion;
-				minimumVersion = 106.29.2;
+				minimumVersion = 106.29.3;
 			};
 		};
 /* End XCRemoteSwiftPackageReference section */
@@ -8799,9 +8799,9 @@
 			package = FD6A39672C2D283A00762359 /* XCRemoteSwiftPackageReference "session-ios-yyimage" */;
 			productName = YYImage;
 		};
-		FDC289412C86AB5800020BC2 /* GRDB */ = {
+		FD756BEA2D0181D700BD7199 /* GRDB */ = {
 			isa = XCSwiftPackageProductDependency;
-			package = FDC289402C86AB5800020BC2 /* XCRemoteSwiftPackageReference "session-grdb-swift" */;
+			package = FD6DA9D52D017F480092085A /* XCRemoteSwiftPackageReference "session-grdb-swift" */;
 			productName = GRDB;
 		};
 		FDEF57292C3CF50B00131302 /* WebRTC */ = {
