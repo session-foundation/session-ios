@@ -124,7 +124,7 @@ extension MessageReceiver {
         }
         
         // Update the `didApproveMe` state of the sender
-        let shouldInsertControlMessage: Bool = try updateContactApprovalStatusIfNeeded(
+        try updateContactApprovalStatusIfNeeded(
             db,
             senderSessionId: senderId,
             threadId: nil,
@@ -147,7 +147,6 @@ extension MessageReceiver {
             )
         }
         
-        guard shouldInsertControlMessage else { return }
         // Notify the user of their approval (Note: This will always appear in the un-blinded thread)
         //
         // Note: We want to do this last as it'll mean the un-blinded thread gets updated and the
@@ -166,12 +165,12 @@ extension MessageReceiver {
         ).inserted(db)
     }
     
-    @discardableResult internal static func updateContactApprovalStatusIfNeeded(
+    internal static func updateContactApprovalStatusIfNeeded(
         _ db: Database,
         senderSessionId: String,
         threadId: String?,
         using dependencies: Dependencies
-    ) throws -> Bool {
+    ) throws {
         let userPublicKey: String = getUserHexEncodedPublicKey(db)
         
         // If the sender of the message was the current user
@@ -182,13 +181,13 @@ extension MessageReceiver {
                 let threadId: String = threadId,
                 let thread: SessionThread = try? SessionThread.fetchOne(db, id: threadId),
                 !thread.isNoteToSelf(db)
-            else { return true }
+            else { return }
             
             // Sending a message to someone flags them as approved so create the contact record if
             // it doesn't exist
             let contact: Contact = Contact.fetchOrCreate(db, id: threadId)
             
-            guard !contact.isApproved else { return false }
+            guard !contact.isApproved else { return }
             
             try? contact.save(db)
             _ = try? Contact
@@ -204,7 +203,7 @@ extension MessageReceiver {
             // someone without approving them)
             let contact: Contact = Contact.fetchOrCreate(db, id: senderSessionId)
             
-            guard !contact.didApproveMe else { return false }
+            guard !contact.didApproveMe else { return }
 
             try? contact.save(db)
             _ = try? Contact
@@ -215,7 +214,5 @@ extension MessageReceiver {
                     using: dependencies
                 )
         }
-        
-        return true
     }
 }
