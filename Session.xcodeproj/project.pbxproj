@@ -687,6 +687,8 @@
 		FD6A7A6D2818C61500035AC1 /* _002_SetupStandardJobs.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD6A7A6C2818C61500035AC1 /* _002_SetupStandardJobs.swift */; };
 		FD6C67242CF6E72E00B350A7 /* NoopSessionCallManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD6C67232CF6E72900B350A7 /* NoopSessionCallManager.swift */; };
 		FD6C67262CF6EA2300B350A7 /* PushRegistrationManagerType.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD6C67252CF6EA1E00B350A7 /* PushRegistrationManagerType.swift */; };
+		FD6DA9CF2D015B440092085A /* Lucide in Frameworks */ = {isa = PBXBuildFile; productRef = FD6DA9CE2D015B440092085A /* Lucide */; };
+		FD6DA9D22D0160F10092085A /* Lucide in Frameworks */ = {isa = PBXBuildFile; productRef = FD6DA9D12D0160F10092085A /* Lucide */; };
 		FD6DF00B2ACFE40D0084BA4C /* _005_AddSnodeReveivedMessageInfoPrimaryKey.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD6DF00A2ACFE40D0084BA4C /* _005_AddSnodeReveivedMessageInfoPrimaryKey.swift */; };
 		FD6E4C8A2A1AEE4700C7C243 /* LegacyUnsubscribeRequest.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD6E4C892A1AEE4700C7C243 /* LegacyUnsubscribeRequest.swift */; };
 		FD705A92278D051200F16121 /* ReusableView.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD705A91278D051200F16121 /* ReusableView.swift */; };
@@ -735,6 +737,8 @@
 		FD716E722850647600C96BF4 /* Data+Utilities.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD859EF127BF6BA200510D0C /* Data+Utilities.swift */; };
 		FD72BD9A2BDF5EEA00CF6CF6 /* Message+Origin.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD72BD992BDF5EEA00CF6CF6 /* Message+Origin.swift */; };
 		FD756BEB2D0181D700BD7199 /* GRDB in Frameworks */ = {isa = PBXBuildFile; productRef = FD756BEA2D0181D700BD7199 /* GRDB */; };
+		FD756BF02D06686500BD7199 /* Lucide in Frameworks */ = {isa = PBXBuildFile; productRef = FD756BEF2D06686500BD7199 /* Lucide */; };
+		FD756BF22D06687800BD7199 /* Lucide in Frameworks */ = {isa = PBXBuildFile; productRef = FD756BF12D06687800BD7199 /* Lucide */; };
 		FD7692F72A53A2ED000E4B70 /* SessionThreadViewModelSpec.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD7692F62A53A2ED000E4B70 /* SessionThreadViewModelSpec.swift */; };
 		FD7728962849E7E90018502F /* String+Utilities.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD7728952849E7E90018502F /* String+Utilities.swift */; };
 		FD7728982849E8110018502F /* UITableView+ReusableView.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD7728972849E8110018502F /* UITableView+ReusableView.swift */; };
@@ -2170,6 +2174,7 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				FD756BF22D06687800BD7199 /* Lucide in Frameworks */,
 				FD2286712C38D43000BC06F7 /* DifferenceKit in Frameworks */,
 				FD6A396B2C2D284500762359 /* YYImage in Frameworks */,
 				FD37E9EF28A5ED70003AE748 /* SessionUtilitiesKit.framework in Frameworks */,
@@ -2238,7 +2243,9 @@
 				455A16DD1F1FEA0000F86704 /* Metal.framework in Frameworks */,
 				455A16DE1F1FEA0000F86704 /* MetalKit.framework in Frameworks */,
 				45847E871E4283C30080EAB3 /* Intents.framework in Frameworks */,
+				FD756BF02D06686500BD7199 /* Lucide in Frameworks */,
 				4520D8D51D417D8E00123472 /* Photos.framework in Frameworks */,
+				FD6DA9D22D0160F10092085A /* Lucide in Frameworks */,
 				B6B226971BE4B7D200860F4D /* ContactsUI.framework in Frameworks */,
 				FDEF572A2C3CF50B00131302 /* WebRTC in Frameworks */,
 				45BD60821DE9547E00A8F436 /* Contacts.framework in Frameworks */,
@@ -2254,6 +2261,7 @@
 				A11CD70D17FA230600A2D1B1 /* QuartzCore.framework in Frameworks */,
 				A163E8AB16F3F6AA0094D68B /* Security.framework in Frameworks */,
 				A1C32D5117A06544000A904E /* AddressBook.framework in Frameworks */,
+				FD6DA9CF2D015B440092085A /* Lucide in Frameworks */,
 				A1C32D5017A06538000A904E /* AddressBookUI.framework in Frameworks */,
 				D2AEACDC16C426DA00C364C0 /* CFNetwork.framework in Frameworks */,
 				C331FF222558F9D300070591 /* SessionUIKit.framework in Frameworks */,
@@ -4694,6 +4702,7 @@
 			packageProductDependencies = (
 				FD6A396A2C2D284500762359 /* YYImage */,
 				FD2286702C38D43000BC06F7 /* DifferenceKit */,
+				FD756BF12D06687800BD7199 /* Lucide */,
 			);
 			productName = SessionUIKit;
 			productReference = C331FF1B2558F9D300070591 /* SessionUIKit.framework */;
@@ -4825,6 +4834,9 @@
 				FD6A39682C2D283A00762359 /* YYImage */,
 				FD2286782C38D4FF00BC06F7 /* DifferenceKit */,
 				FDEF57292C3CF50B00131302 /* WebRTC */,
+				FD6DA9CE2D015B440092085A /* Lucide */,
+				FD6DA9D12D0160F10092085A /* Lucide */,
+				FD756BEF2D06686500BD7199 /* Lucide */,
 			);
 			productName = RedPhone;
 			productReference = D221A089169C9E5E00537ABF /* Session.app */;
@@ -5072,6 +5084,7 @@
 				FD6A39642C2D21E400762359 /* XCRemoteSwiftPackageReference "libwebp-Xcode" */,
 				FD6A39672C2D283A00762359 /* XCRemoteSwiftPackageReference "session-ios-yyimage" */,
 				FD6DA9D52D017F480092085A /* XCRemoteSwiftPackageReference "session-grdb-swift" */,
+				FD756BEE2D06686500BD7199 /* XCRemoteSwiftPackageReference "session-lucide" */,
 			);
 			productRefGroup = D221A08A169C9E5E00537ABF /* Products */;
 			projectDirPath = "";
@@ -8668,6 +8681,14 @@
 				minimumVersion = 106.29.3;
 			};
 		};
+		FD756BEE2D06686500BD7199 /* XCRemoteSwiftPackageReference "session-lucide" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/session-foundation/session-lucide.git";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 0.468.0;
+			};
+		};
 /* End XCRemoteSwiftPackageReference section */
 
 /* Begin XCSwiftPackageProductDependency section */
@@ -8799,10 +8820,28 @@
 			package = FD6A39672C2D283A00762359 /* XCRemoteSwiftPackageReference "session-ios-yyimage" */;
 			productName = YYImage;
 		};
+		FD6DA9CE2D015B440092085A /* Lucide */ = {
+			isa = XCSwiftPackageProductDependency;
+			productName = Lucide;
+		};
+		FD6DA9D12D0160F10092085A /* Lucide */ = {
+			isa = XCSwiftPackageProductDependency;
+			productName = Lucide;
+		};
 		FD756BEA2D0181D700BD7199 /* GRDB */ = {
 			isa = XCSwiftPackageProductDependency;
 			package = FD6DA9D52D017F480092085A /* XCRemoteSwiftPackageReference "session-grdb-swift" */;
 			productName = GRDB;
+		};
+		FD756BEF2D06686500BD7199 /* Lucide */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = FD756BEE2D06686500BD7199 /* XCRemoteSwiftPackageReference "session-lucide" */;
+			productName = Lucide;
+		};
+		FD756BF12D06687800BD7199 /* Lucide */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = FD756BEE2D06686500BD7199 /* XCRemoteSwiftPackageReference "session-lucide" */;
+			productName = Lucide;
 		};
 		FDEF57292C3CF50B00131302 /* WebRTC */ = {
 			isa = XCSwiftPackageProductDependency;
