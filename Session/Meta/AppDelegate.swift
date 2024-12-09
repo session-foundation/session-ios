@@ -30,6 +30,10 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
     // MARK: - Lifecycle
 
     func application(_ application: UIApplication, didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]?) -> Bool {
+        // Just in case we are running automated tests we should process environment variables
+        // before we do anything else
+        DeveloperSettingsViewModel.processUnitTestEnvVariablesIfNeeded()
+        
         Log.info("[AppDelegate] didFinishLaunchingWithOptions called.")
         startTime = CACurrentMediaTime()
         
