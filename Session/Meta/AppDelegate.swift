@@ -30,6 +30,10 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
     // MARK: - Lifecycle
 
     func application(_ application: UIApplication, didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]?) -> Bool {
+        // Just in case we are running automated tests we should process environment variables
+        // before we do anything else
+        DeveloperSettingsViewModel.processUnitTestEnvVariablesIfNeeded()
+        
         Log.info("[AppDelegate] didFinishLaunchingWithOptions called.")
         startTime = CACurrentMediaTime()
         
@@ -38,7 +42,8 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
         verifyDBKeysAvailableBeforeBackgroundLaunch()
 
         _ = AppVersion.shared
-        AppEnvironment.shared.pushRegistrationManager.createVoipRegistryIfNecessary()
+        Singleton.setPushRegistrationManager(PushRegistrationManager(using: dependencies))
+        Singleton.pushRegistrationManager.createVoipRegistryIfNecessary()
 
         // Prevent the device from sleeping during database view async registration
         // (e.g. long database upgrades).
@@ -50,9 +55,12 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
         self.loadingViewController = LoadingViewController()
         
         AppSetup.setupEnvironment(
-            appSpecificBlock: {
+            appSpecificBlock: { [dependencies] in
                 Log.setup(with: Logger(primaryPrefix: "Session", level: .info))
                 Log.info("[AppDelegate] Setting up environment.")
+                
+                /// Create a proper `SessionCallManager` for the main app (defaults to a no-op version)
+                Singleton.setCallManager(SessionCallManager(using: dependencies))
                 
                 // Setup LibSession
                 LibSession.addLogger()
@@ -97,7 +105,7 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
             using: dependencies
         )
         
-        if SessionEnvironment.shared?.callManager.wrappedValue?.currentCall == nil {
+        if Singleton.callManager.currentCall == nil {
             UserDefaults.sharedLokiProject?[.isCallOngoing] = false
             UserDefaults.sharedLokiProject?[.lastCallPreOffer] = nil
         }
@@ -687,7 +695,7 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
     // MARK: - Notifications
     
     func application(_ application: UIApplication, didRegisterForRemoteNotificationsWithDeviceToken deviceToken: Data) {
-        PushRegistrationManager.shared.didReceiveVanillaPushToken(deviceToken)
+        Singleton.pushRegistrationManager.didReceiveVanillaPushToken(deviceToken)
         Log.info("Registering for push notifications.")
     }
     
@@ -696,9 +704,9 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
         
         #if DEBUG
         Log.warn("We're in debug mode. Faking success for remote registration with a fake push identifier.")
-        PushRegistrationManager.shared.didReceiveVanillaPushToken(Data(count: 32))
+        Singleton.pushRegistrationManager.didReceiveVanillaPushToken(Data(count: 32))
         #else
-        PushRegistrationManager.shared.didFailToReceiveVanillaPushToken(error: error)
+        Singleton.pushRegistrationManager.didFailToReceiveVanillaPushToken(error: error)
         #endif
     }
     
@@ -858,20 +866,20 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
     // MARK: - Call handling
         
     func hasIncomingCallWaiting() -> Bool {
-        guard let call = AppEnvironment.shared.callManager.currentCall else { return false }
+        guard let call = Singleton.callManager.currentCall else { return false }
         
         return !call.hasStartedConnecting
     }
     
     func hasCallOngoing() -> Bool {
-        guard let call = AppEnvironment.shared.callManager.currentCall else { return false }
+        guard let call = Singleton.callManager.currentCall else { return false }
         
         return !call.hasEnded
     }
     
     func handleAppActivatedWithOngoingCallIfNeeded() {
         guard
-            let call: SessionCall = (AppEnvironment.shared.callManager.currentCall as? SessionCall),
+            let call: SessionCall = (Singleton.callManager.currentCall as? SessionCall),
             MiniCallView.current == nil,
             Singleton.hasAppContext
         else { return }

@@ -13,6 +13,7 @@ public enum LibSessionError: Error, CustomStringConvertible {
     case processingLoopLimitReached
     case invalidCConversion
     case unableToGeneratePushData
+    case invalidConfigAccess
     
     case libSessionError(String)
     case unknown
@@ -70,6 +71,7 @@ public enum LibSessionError: Error, CustomStringConvertible {
             case .processingLoopLimitReached: return "Processing loop limit reached (LibSessionError.processingLoopLimitReached)."
             case .invalidCConversion: return "Invalid conversation to C type (LibSessionError.invalidCConversion)."
             case .unableToGeneratePushData: return "Unable to generate push data (LibSessionError.unableToGeneratePushData)."
+            case .invalidConfigAccess: return "Invalid config access (LibSessionError.invalidConfigAccess)."
             
             case .libSessionError(let error): return "\(error)\(error.hasSuffix(".") ? "" : ".")"
             case .unknown: return "An unknown error occurred (LibSessionError.unknown)."

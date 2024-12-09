@@ -157,7 +157,8 @@ class ThreadSettingsViewModel: SessionTableViewModel, NavigationItemSource, Navi
                                     .updateAllAndConfig(
                                         db,
                                         Profile.Columns.nickname
-                                            .set(to: (updatedNickname.isEmpty ? nil : editedDisplayName))
+                                            .set(to: (updatedNickname.isEmpty ? nil : editedDisplayName)),
+                                        using: dependencies
                                     )
                             }
                         }
@@ -537,7 +538,8 @@ class ThreadSettingsViewModel: SessionTableViewModel, NavigationItemSource, Navi
                                         db,
                                         type: .leaveGroupAsync,
                                         threadId: threadViewModel.threadId,
-                                        calledFromConfigHandling: false
+                                        calledFromConfigHandling: false,
+                                        using: dependencies
                                     )
                                 }
                             }
@@ -774,8 +776,14 @@ class ThreadSettingsViewModel: SessionTableViewModel, NavigationItemSource, Navi
         dependencies.storage.writeAsync { [dependencies] db in
             let currentUserSessionId: String = getUserHexEncodedPublicKey(db, using: dependencies)
             try selectedUsers.forEach { userId in
-                let thread: SessionThread = try SessionThread
-                    .fetchOrCreate(db, id: userId, variant: .contact, shouldBeVisible: nil)
+                let thread: SessionThread = try SessionThread.upsert(
+                    db,
+                    id: userId,
+                    variant: .contact,
+                    values: .existingOrDefault,
+                    calledFromConfig: nil,
+                    using: dependencies
+                )
                 
                 try LinkPreview(
                     url: communityUrl,
@@ -831,12 +839,13 @@ class ThreadSettingsViewModel: SessionTableViewModel, NavigationItemSource, Navi
     ) {
         guard oldBlockedState != isBlocked else { return }
         
-        dependencies.storage.writeAsync { db in
+        dependencies.storage.writeAsync { [dependencies] db in
             try Contact
                 .filter(id: threadId)
                 .updateAllAndConfig(
                     db,
-                    Contact.Columns.isBlocked.set(to: isBlocked)
+                    Contact.Columns.isBlocked.set(to: isBlocked),
+                    using: dependencies
                 )
         }
     }

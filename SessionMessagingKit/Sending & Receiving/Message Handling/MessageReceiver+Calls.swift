@@ -25,7 +25,7 @@ extension MessageReceiver {
             case .provisionalAnswer: break // TODO: Implement
                 
             case let .iceCandidates(sdpMLineIndexes, sdpMids):
-                SessionEnvironment.shared?.callManager.wrappedValue?.handleICECandidates(
+                Singleton.callManager.handleICECandidates(
                     message: message,
                     sdpMLineIndexes: sdpMLineIndexes,
                     sdpMids: sdpMids
@@ -60,8 +60,14 @@ extension MessageReceiver {
         guard let timestamp = message.sentTimestamp, TimestampUtils.isWithinOneMinute(timestampMs: timestamp) else {
             // Add missed call message for call offer messages from more than one minute
             if let interaction: Interaction = try MessageReceiver.insertCallInfoMessage(db, for: message, state: .missed, using: dependencies) {
-                let thread: SessionThread = try SessionThread
-                    .fetchOrCreate(db, id: sender, variant: .contact, shouldBeVisible: nil)
+                let thread: SessionThread = try SessionThread.upsert(
+                    db,
+                    id: sender,
+                    variant: .contact,
+                    values: .existingOrDefault,
+                    calledFromConfig: nil,
+                    using: dependencies
+                )
                 
                 if !interaction.wasRead {
                     SessionEnvironment.shared?.notificationsManager.wrappedValue?
@@ -81,8 +87,14 @@ extension MessageReceiver {
             let state: CallMessage.MessageInfo.State = (db[.areCallsEnabled] ? .permissionDeniedMicrophone : .permissionDenied)
             
             if let interaction: Interaction = try MessageReceiver.insertCallInfoMessage(db, for: message, state: state, using: dependencies) {
-                let thread: SessionThread = try SessionThread
-                    .fetchOrCreate(db, id: sender, variant: .contact, shouldBeVisible: nil)
+                let thread: SessionThread = try SessionThread.upsert(
+                    db,
+                    id: sender,
+                    variant: .contact,
+                    values: .existingOrDefault,
+                    calledFromConfig: nil,
+                    using: dependencies
+                )
                 
                 if !interaction.wasRead {
                     SessionEnvironment.shared?.notificationsManager.wrappedValue?
@@ -104,15 +116,13 @@ extension MessageReceiver {
             return
         }
         
-        // Ensure we have a call manager before continuing
-        guard let callManager: CallManagerProtocol = SessionEnvironment.shared?.callManager.wrappedValue else { return }
-        
         // Ignore pre offer message after the same call instance has been generated
-        if let currentCall: CurrentCallProtocol = callManager.currentCall, currentCall.uuid == message.uuid {
+        if let currentCall: CurrentCallProtocol = Singleton.callManager.currentCall, currentCall.uuid == message.uuid {
+            SNLog("[MessageReceiver+Calls] Ignoring pre-offer message for call[\(currentCall.uuid)] instance because it is already active.")
             return
         }
         
-        guard callManager.currentCall == nil else {
+        guard Singleton.callManager.currentCall == nil else {
             try MessageReceiver.handleIncomingCallOfferInBusyState(db, message: message)
             return
         }
@@ -120,7 +130,7 @@ extension MessageReceiver {
         let interaction: Interaction? = try MessageReceiver.insertCallInfoMessage(db, for: message, using: dependencies)
         
         // Handle UI
-        callManager.showCallUIForCall(
+        Singleton.callManager.showCallUIForCall(
             caller: sender,
             uuid: message.uuid,
             mode: .answer,
@@ -133,8 +143,7 @@ extension MessageReceiver {
         
         // Ensure we have a call manager before continuing
         guard
-            let callManager: CallManagerProtocol = SessionEnvironment.shared?.callManager.wrappedValue,
-            let currentCall: CurrentCallProtocol = callManager.currentCall,
+            let currentCall: CurrentCallProtocol = Singleton.callManager.currentCall,
             currentCall.uuid == message.uuid,
             let sdp: String = message.sdps.first
         else { return }
@@ -147,9 +156,8 @@ extension MessageReceiver {
         SNLog("[Calls] Received answer message.")
         
         guard
-            let callManager: CallManagerProtocol = SessionEnvironment.shared?.callManager.wrappedValue,
-            callManager.currentWebRTCSessionMatches(callId: message.uuid),
-            var currentCall: CurrentCallProtocol = callManager.currentCall,
+            Singleton.callManager.currentWebRTCSessionMatches(callId: message.uuid),
+            var currentCall: CurrentCallProtocol = Singleton.callManager.currentCall,
             currentCall.uuid == message.uuid,
             let sender: String = message.sender
         else { return }
@@ -157,8 +165,8 @@ extension MessageReceiver {
         guard sender != getUserHexEncodedPublicKey(db) else {
             guard !currentCall.hasStartedConnecting else { return }
             
-            callManager.dismissAllCallUI()
-            callManager.reportCurrentCallEnded(reason: .answeredElsewhere)
+            Singleton.callManager.dismissAllCallUI()
+            Singleton.callManager.reportCurrentCallEnded(reason: .answeredElsewhere)
             return
         }
         guard let sdp: String = message.sdps.first else { return }
@@ -166,22 +174,21 @@ extension MessageReceiver {
         let sdpDescription: RTCSessionDescription = RTCSessionDescription(type: .answer, sdp: sdp)
         currentCall.hasStartedConnecting = true
         currentCall.didReceiveRemoteSDP(sdp: sdpDescription)
-        callManager.handleAnswerMessage(message)
+        Singleton.callManager.handleAnswerMessage(message)
     }
     
     private static func handleEndCallMessage(_ db: Database, message: CallMessage) {
         SNLog("[Calls] Received end call message.")
         
         guard
-            let callManager: CallManagerProtocol = SessionEnvironment.shared?.callManager.wrappedValue,
-            callManager.currentWebRTCSessionMatches(callId: message.uuid),
-            let currentCall: CurrentCallProtocol = callManager.currentCall,
+            Singleton.callManager.currentWebRTCSessionMatches(callId: message.uuid),
+            let currentCall: CurrentCallProtocol = Singleton.callManager.currentCall,
             currentCall.uuid == message.uuid,
             let sender: String = message.sender
         else { return }
         
-        callManager.dismissAllCallUI()
-        callManager.reportCurrentCallEnded(
+        Singleton.callManager.dismissAllCallUI()
+        Singleton.callManager.reportCurrentCallEnded(
             reason: (sender == getUserHexEncodedPublicKey(db) ?
                 .declinedElsewhere :
                 .remoteEnded

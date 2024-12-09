@@ -31,7 +31,8 @@ extension MessageReceiver {
                     db,
                     threadId: threadId,
                     threadVariant: threadVariant,
-                    message: message
+                    message: message,
+                    using: dependencies
                 )
                 
             case .membersAdded:
@@ -39,7 +40,8 @@ extension MessageReceiver {
                     db,
                     threadId: threadId,
                     threadVariant: threadVariant,
-                    message: message
+                    message: message,
+                    using: dependencies
                 )
                 
             case .membersRemoved:
@@ -47,7 +49,8 @@ extension MessageReceiver {
                     db,
                     threadId: threadId,
                     threadVariant: threadVariant,
-                    message: message
+                    message: message,
+                    using: dependencies
                 )
                 
             case .memberLeft:
@@ -55,7 +58,8 @@ extension MessageReceiver {
                     db,
                     threadId: threadId,
                     threadVariant: threadVariant,
-                    message: message
+                    message: message,
+                    using: dependencies
                 )
                 
             case .encryptionKeyPairRequest: break // Currently not used
@@ -117,7 +121,7 @@ extension MessageReceiver {
             admins: adminsAsData.map { $0.toHexString() },
             expirationTimer: expirationTimer,
             formationTimestampMs: sentTimestamp,
-            calledFromConfigHandling: false,
+            calledFromConfig: nil,
             using: dependencies
         )
     }
@@ -131,7 +135,7 @@ extension MessageReceiver {
         admins: [String],
         expirationTimer: UInt32,
         formationTimestampMs: UInt64,
-        calledFromConfigHandling: Bool,
+        calledFromConfig configTriggeringChange: LibSession.Config.Variant?,
         using dependencies: Dependencies
     ) throws {
         // With new closed groups we only want to create them if the admin creating the closed group is an
@@ -149,17 +153,20 @@ extension MessageReceiver {
         // If the group came from the updated config handling then it doesn't matter if we
         // have an approved admin - we should add it regardless (as it's been synced from
         // antoher device)
-        guard hasApprovedAdmin || calledFromConfigHandling else { return }
+        guard hasApprovedAdmin || configTriggeringChange != nil else { return }
         
         // Create the group
-        let thread: SessionThread = try SessionThread
-            .fetchOrCreate(
-                db,
-                id: groupPublicKey,
-                variant: .legacyGroup,
+        let thread: SessionThread = try SessionThread.upsert(
+            db,
+            id: groupPublicKey,
+            variant: .legacyGroup,
+            values: SessionThread.TargetValues(
                 creationDateTimestamp: (TimeInterval(formationTimestampMs) / 1000),
-                shouldBeVisible: true
-            )
+                shouldBeVisible: .setTo(true)
+            ),
+            calledFromConfig: configTriggeringChange,
+            using: dependencies
+        )
         let closedGroup: ClosedGroup = try ClosedGroup(
             threadId: groupPublicKey,
             name: name,
@@ -219,7 +226,7 @@ extension MessageReceiver {
             try newKeyPair.insert(db)
         }
         
-        if !calledFromConfigHandling {
+        if configTriggeringChange == nil {
             // Update libSession
             try? LibSession.add(
                 db,
@@ -231,7 +238,8 @@ extension MessageReceiver {
                 latestKeyPairReceivedTimestamp: receivedTimestamp,
                 disappearingConfig: disappearingConfig,
                 members: members.asSet(),
-                admins: admins.asSet()
+                admins: admins.asSet(),
+                using: dependencies
             )
         }
         
@@ -333,7 +341,8 @@ extension MessageReceiver {
             try? LibSession.update(
                 db,
                 groupPublicKey: groupPublicKey,
-                latestKeyPair: keyPair
+                latestKeyPair: keyPair,
+                using: dependencies
             )
         }
         catch {
@@ -351,7 +360,8 @@ extension MessageReceiver {
         _ db: Database,
         threadId: String,
         threadVariant: SessionThread.Variant,
-        message: ClosedGroupControlMessage
+        message: ClosedGroupControlMessage,
+        using dependencies: Dependencies
     ) throws {
         guard
             let messageKind: ClosedGroupControlMessage.Kind = message.kind,
@@ -370,7 +380,8 @@ extension MessageReceiver {
                 try? LibSession.update(
                     db,
                     groupPublicKey: threadId,
-                    name: name
+                    name: name,
+                    using: dependencies
                 )
                 
                 _ = try ClosedGroup
@@ -387,7 +398,8 @@ extension MessageReceiver {
         _ db: Database,
         threadId: String,
         threadVariant: SessionThread.Variant,
-        message: ClosedGroupControlMessage
+        message: ClosedGroupControlMessage,
+        using dependencies: Dependencies
     ) throws {
         guard
             let messageKind: ClosedGroupControlMessage.Kind = message.kind,
@@ -421,7 +433,8 @@ extension MessageReceiver {
                     admins: allMembers
                         .filter { $0.role == .admin }
                         .map { $0.profileId }
-                        .asSet()
+                        .asSet(),
+                    using: dependencies
                 )
                 
                 // Create records for any new members
@@ -476,7 +489,8 @@ extension MessageReceiver {
         _ db: Database,
         threadId: String,
         threadVariant: SessionThread.Variant,
-        message: ClosedGroupControlMessage
+        message: ClosedGroupControlMessage,
+        using dependencies: Dependencies
     ) throws {
         guard
             let messageKind: ClosedGroupControlMessage.Kind = message.kind,
@@ -528,7 +542,8 @@ extension MessageReceiver {
                     admins: allMembers
                         .filter { $0.role == .admin }
                         .map { $0.profileId }
-                        .asSet()
+                        .asSet(),
+                    using: dependencies
                 )
                 
                 // Delete the removed members
@@ -549,7 +564,8 @@ extension MessageReceiver {
                         db,
                         threadId: threadId,
                         removeGroupData: true,
-                        calledFromConfigHandling: false
+                        calledFromConfigHandling: false,
+                        using: dependencies
                     )
                 }
             }
@@ -564,7 +580,8 @@ extension MessageReceiver {
         _ db: Database,
         threadId: String,
         threadVariant: SessionThread.Variant,
-        message: ClosedGroupControlMessage
+        message: ClosedGroupControlMessage,
+        using dependencies: Dependencies
     ) throws {
         guard
             let messageKind: ClosedGroupControlMessage.Kind = message.kind,
@@ -603,7 +620,8 @@ extension MessageReceiver {
                     admins: allMembers
                         .filter { $0.role == .admin }
                         .map { $0.profileId }
-                        .asSet()
+                        .asSet(),
+                    using: dependencies
                 )
                 
                 // Delete the members to remove
@@ -617,7 +635,8 @@ extension MessageReceiver {
                         db,
                         threadId: threadId,
                         removeGroupData: (sender == userPublicKey),
-                        calledFromConfigHandling: false
+                        calledFromConfigHandling: false,
+                        using: dependencies
                     )
                 }
                 

@@ -197,7 +197,7 @@ enum _014_GenerateInitialUserConfigDumps: Migration {
                 
         // MARK: - Threads
         
-        try LibSession.updatingThreads(db, Array(allThreads.values))
+        try LibSession.updatingThreads(db, Array(allThreads.values), using: dependencies)
         
         // MARK: - Syncing
         

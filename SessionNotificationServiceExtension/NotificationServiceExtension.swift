@@ -164,13 +164,14 @@ public final class NotificationServiceExtension: UNNotificationServiceExtension 
                                         using: dependencies
                                     )
                                 {
-                                    let thread: SessionThread = try SessionThread
-                                        .fetchOrCreate(
-                                            db,
-                                            id: sender,
-                                            variant: .contact,
-                                            shouldBeVisible: nil
-                                        )
+                                    let thread: SessionThread = try SessionThread.upsert(
+                                        db,
+                                        id: sender,
+                                        variant: .contact,
+                                        values: .existingOrDefault,
+                                        calledFromConfig: nil,
+                                        using: dependencies
+                                    )
 
                                     // Notify the user if the call message wasn't already read
                                     if !interaction.wasRead {
@@ -198,7 +199,8 @@ public final class NotificationServiceExtension: UNNotificationServiceExtension 
                                     db,
                                     threadId: threadId,
                                     threadVariant: threadVariant,
-                                    message: messageInfo.message
+                                    message: messageInfo.message,
+                                    using: dependencies
                                 )
                                 
                                 return self?.handleSuccessForIncomingCall(db, for: callMessage)
@@ -209,7 +211,8 @@ public final class NotificationServiceExtension: UNNotificationServiceExtension 
                             db,
                             threadId: threadId,
                             threadVariant: threadVariant,
-                            message: messageInfo.message
+                            message: messageInfo.message,
+                            using: dependencies
                         )
                         
                     case .standard(let threadId, let threadVariant, let proto, let messageInfo):

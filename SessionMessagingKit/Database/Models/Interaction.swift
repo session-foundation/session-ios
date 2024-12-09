@@ -491,7 +491,8 @@ public extension Interaction {
         threadId: String,
         threadVariant: SessionThread.Variant,
         includingOlder: Bool,
-        trySendReadReceipt: Bool
+        trySendReadReceipt: Bool,
+        using dependencies: Dependencies
     ) throws {
         guard let interactionId: Int64 = interactionId else { return }
         
@@ -535,7 +536,8 @@ public extension Interaction {
                 ],
                 lastReadTimestampMs: timestampMs,
                 trySendReadReceipt: trySendReadReceipt,
-                calledFromConfigHandling: false
+                calledFromConfigHandling: false,
+                using: dependencies
             )
             return
         }
@@ -560,7 +562,8 @@ public extension Interaction {
                 interactionInfo: [interactionInfo],
                 lastReadTimestampMs: interactionInfo.timestampMs,
                 trySendReadReceipt: trySendReadReceipt,
-                calledFromConfigHandling: false
+                calledFromConfigHandling: false,
+                using: dependencies
             )
             return
         }
@@ -576,7 +579,8 @@ public extension Interaction {
             interactionInfo: interactionInfoToMarkAsRead,
             lastReadTimestampMs: interactionInfo.timestampMs,
             trySendReadReceipt: trySendReadReceipt,
-            calledFromConfigHandling: false
+            calledFromConfigHandling: false,
+            using: dependencies
         )
     }
     
@@ -647,7 +651,8 @@ public extension Interaction {
         interactionInfo: [Interaction.ReadInfo],
         lastReadTimestampMs: Int64,
         trySendReadReceipt: Bool,
-        calledFromConfigHandling: Bool
+        calledFromConfigHandling: Bool,
+        using dependencies: Dependencies
     ) throws {
         guard !interactionInfo.isEmpty else { return }
         
@@ -657,7 +662,8 @@ public extension Interaction {
                 db,
                 threadId: threadId,
                 threadVariant: threadVariant,
-                lastReadTimestampMs: lastReadTimestampMs
+                lastReadTimestampMs: lastReadTimestampMs,
+                using: dependencies
             )
             
             // Add the 'DisappearingMessagesJob' if needed - this will update any expiring
@@ -797,32 +803,6 @@ public extension Interaction {
         guard !shouldGroupMessagesForThread else { return threadId }
         
         return "\(threadId)-\(id)"
-    }
-    
-    func markingAsDeleted() -> Interaction {
-        return Interaction(
-            id: id,
-            serverHash: nil,
-            messageUuid: messageUuid,
-            threadId: threadId,
-            authorId: authorId,
-            variant: .standardIncomingDeleted,
-            body: nil,
-            timestampMs: timestampMs,
-            receivedAtTimestampMs: receivedAtTimestampMs,
-            wasRead: true, // Never consider deleted messages unread
-            hasMention: false,
-            expiresInSeconds: expiresInSeconds,
-            expiresStartedAtMs: expiresStartedAtMs,
-            linkPreviewUrl: nil,
-            openGroupServerMessageId: openGroupServerMessageId,
-            openGroupWhisper: openGroupWhisper,
-            openGroupWhisperMods: openGroupWhisperMods,
-            openGroupWhisperTo: openGroupWhisperTo,
-            state: .deleted,
-            recipientReadTimestampMs: nil,
-            mostRecentFailureText: nil
-        )
     }
     
     static func isUserMentioned(
@@ -1144,5 +1124,58 @@ public extension Interaction.State {
                 )
 
         }
+    }
+}
+
+// MARK: - Deletion
+
+public extension Interaction {
+    /// When deleting a message we should also delete any reactions which were on the message, so fetch and
+    /// return those hashes as well
+    static func serverHashesForDeletion(
+        _ db: Database,
+        interactionIds: Set<Int64>,
+        additionalServerHashesToRemove: [String] = []
+    ) throws -> Set<String> {
+        let messageHashes: [String] = try Interaction
+            .filter(ids: interactionIds)
+            .filter(Interaction.Columns.serverHash != nil)
+            .select(.serverHash)
+            .asRequest(of: String.self)
+            .fetchAll(db)
+        let reactionHashes: [String] = try Reaction
+            .filter(interactionIds.contains(Reaction.Columns.interactionId))
+            .filter(Reaction.Columns.serverHash != nil)
+            .select(.serverHash)
+            .asRequest(of: String.self)
+            .fetchAll(db)
+        
+        return Set(messageHashes + reactionHashes + additionalServerHashesToRemove)
+    }
+    
+    func markingAsDeleted() -> Interaction {
+        return Interaction(
+            id: id,
+            serverHash: nil,
+            messageUuid: messageUuid,
+            threadId: threadId,
+            authorId: authorId,
+            variant: .standardIncomingDeleted,
+            body: nil,
+            timestampMs: timestampMs,
+            receivedAtTimestampMs: receivedAtTimestampMs,
+            wasRead: true, // Never consider deleted messages unread
+            hasMention: false,
+            expiresInSeconds: expiresInSeconds,
+            expiresStartedAtMs: expiresStartedAtMs,
+            linkPreviewUrl: nil,
+            openGroupServerMessageId: openGroupServerMessageId,
+            openGroupWhisper: openGroupWhisper,
+            openGroupWhisperMods: openGroupWhisperMods,
+            openGroupWhisperTo: openGroupWhisperTo,
+            state: .deleted,
+            recipientReadTimestampMs: nil,
+            mostRecentFailureText: nil
+        )
     }
 }

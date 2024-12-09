@@ -272,7 +272,7 @@ public struct SessionThreadViewModel: FetchableRecordWithRowId, Decodable, Equat
     }
     
     /// This method marks a thread as read and depending on the target may also update the interactions within a thread as read
-    public func markAsRead(target: ReadTarget) {
+    public func markAsRead(target: ReadTarget, using dependencies: Dependencies) {
         // Store the logic to mark a thread as read (to paths need to run this)
         let threadId: String = self.threadId
         let threadWasMarkedUnread: Bool? = self.threadWasMarkedUnread
@@ -286,7 +286,8 @@ public struct SessionThreadViewModel: FetchableRecordWithRowId, Decodable, Equat
                     .filter(id: threadId)
                     .updateAllAndConfig(
                         db,
-                        SessionThread.Columns.markedAsUnread.set(to: false)
+                        SessionThread.Columns.markedAsUnread.set(to: false),
+                        using: dependencies
                     )
             }
         }
@@ -327,14 +328,15 @@ public struct SessionThreadViewModel: FetchableRecordWithRowId, Decodable, Equat
                             threadVariant: threadVariant,
                             isBlocked: threadIsBlocked,
                             isMessageRequest: threadIsMessageRequest
-                        )
+                        ),
+                        using: dependencies
                     )
                 }
         }
     }
     
     /// This method will mark a thread as read
-    public func markAsUnread() {
+    public func markAsUnread(using dependencies: Dependencies) {
         guard self.threadWasMarkedUnread != true else { return }
         
         let threadId: String = self.threadId
@@ -344,7 +346,8 @@ public struct SessionThreadViewModel: FetchableRecordWithRowId, Decodable, Equat
                 .filter(id: threadId)
                 .updateAllAndConfig(
                     db,
-                    SessionThread.Columns.markedAsUnread.set(to: true)
+                    SessionThread.Columns.markedAsUnread.set(to: true),
+                    using: dependencies
                 )
         }
     }

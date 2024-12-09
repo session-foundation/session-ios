@@ -120,12 +120,21 @@ extension ConversationVC:
         
         let threadId: String = self.viewModel.threadData.threadId
         
-        guard AVAudioSession.sharedInstance().recordPermission == .granted else { return }
-        guard self.viewModel.threadData.threadVariant == .contact else { return }
-        guard AppEnvironment.shared.callManager.currentCall == nil else { return }
-        guard let call: SessionCall = Storage.shared.read({ db in SessionCall(db, for: threadId, uuid: UUID().uuidString.lowercased(), mode: .offer, outgoing: true) }) else {
-            return
-        }
+        guard
+            AVAudioSession.sharedInstance().recordPermission == .granted,
+            self.viewModel.threadData.threadVariant == .contact,
+            Singleton.callManager.currentCall == nil,
+            let call: SessionCall = Storage.shared.read({ [dependencies = viewModel.dependencies] db in
+                SessionCall(
+                    db,
+                    for: threadId,
+                    uuid: UUID().uuidString.lowercased(),
+                    mode: .offer,
+                    outgoing: true,
+                    using: dependencies
+                )
+            })
+        else { return }
         
         let callVC = CallVC(for: call)
         callVC.conversationVC = self
@@ -540,7 +549,8 @@ extension ConversationVC:
                             .updateAllAndConfig(
                                 db,
                                 SessionThread.Columns.shouldBeVisible.set(to: true),
-                                SessionThread.Columns.pinnedPriority.set(to: LibSession.visiblePriority)
+                                SessionThread.Columns.pinnedPriority.set(to: LibSession.visiblePriority),
+                                using: dependencies
                             )
                     }
                     
@@ -791,13 +801,23 @@ extension ConversationVC:
     }
     
     func hideInputAccessoryView() {
-        DispatchQueue.main.async {
-            self.inputAccessoryView?.isHidden = true
-            self.inputAccessoryView?.alpha = 0
+        guard Thread.isMainThread else {
+            DispatchQueue.main.async {
+                self.hideInputAccessoryView()
+            }
+            return
         }
+        self.inputAccessoryView?.isHidden = true
+        self.inputAccessoryView?.alpha = 0
     }
     
     func showInputAccessoryView() {
+        guard Thread.isMainThread else {
+            DispatchQueue.main.async {
+                self.showInputAccessoryView()
+            }
+            return
+        }
         UIView.animate(withDuration: 0.25, animations: {
             self.inputAccessoryView?.isHidden = false
             self.inputAccessoryView?.alpha = 1
@@ -958,7 +978,8 @@ extension ConversationVC:
                             .update(
                                 db,
                                 sessionId: cellViewModel.threadId,
-                                disappearingMessagesConfig: messageDisappearingConfig
+                                disappearingMessagesConfig: messageDisappearingConfig,
+                                using: dependencies
                             )
                     }
                     self?.dismiss(animated: true, completion: nil)
@@ -1244,7 +1265,9 @@ extension ConversationVC:
             )
         )
         
-        self.present(modal, animated: true)
+        self.present(modal, animated: true) { [weak self] in
+            self?.hideInputAccessoryView()
+        }
     }
     
     func handleReplyButtonTapped(for cellViewModel: MessageViewModel, using dependencies: Dependencies) {
@@ -1256,9 +1279,15 @@ extension ConversationVC:
         // FIXME: Add in support for starting a thread with a 'blinded25' id
         guard (try? SessionId.Prefix(from: sessionId)) != .blinded25 else { return }
         guard (try? SessionId.Prefix(from: sessionId)) == .blinded15 else {
-            Storage.shared.write { db in
-                try SessionThread
-                    .fetchOrCreate(db, id: sessionId, variant: .contact, shouldBeVisible: nil)
+            Storage.shared.write { [dependencies = viewModel.dependencies] db in
+                try SessionThread.upsert(
+                    db,
+                    id: sessionId,
+                    variant: .contact,
+                    values: .existingOrDefault,
+                    calledFromConfig: nil,
+                    using: dependencies
+                )
             }
             
             let conversationVC: ConversationVC = ConversationVC(
@@ -1277,7 +1306,7 @@ extension ConversationVC:
             return
         }
         
-        let targetThreadId: String? = Storage.shared.write { db in
+        let targetThreadId: String? = Storage.shared.write { [dependencies = viewModel.dependencies] db in
             let lookup: BlindedIdLookup = try BlindedIdLookup
                 .fetchOrCreate(
                     db,
@@ -1287,14 +1316,14 @@ extension ConversationVC:
                     isCheckingForOutbox: false
                 )
             
-            return try SessionThread
-                .fetchOrCreate(
-                    db,
-                    id: (lookup.sessionId ?? lookup.blindedId),
-                    variant: .contact,
-                    shouldBeVisible: nil
-                )
-                .id
+            return try SessionThread.upsert(
+                db,
+                id: (lookup.sessionId ?? lookup.blindedId),
+                variant: .contact,
+                values: .existingOrDefault,
+                calledFromConfig: nil,
+                using: dependencies
+            ).id
         }
         
         guard let threadId: String = targetThreadId else { return }
@@ -1511,7 +1540,11 @@ extension ConversationVC:
                 if self?.viewModel.threadData.threadShouldBeVisible == false {
                     _ = try SessionThread
                         .filter(id: cellViewModel.threadId)
-                        .updateAllAndConfig(db, SessionThread.Columns.shouldBeVisible.set(to: true))
+                        .updateAllAndConfig(
+                            db,
+                            SessionThread.Columns.shouldBeVisible.set(to: true),
+                            using: dependencies
+                        )
                 }
                 
                 let pendingReaction: Reaction? = {
@@ -1745,7 +1778,7 @@ extension ConversationVC:
                                 roomToken: room,
                                 server: server,
                                 publicKey: publicKey,
-                                calledFromConfigHandling: false
+                                calledFromConfig: nil
                             )
                         }
                         .flatMap { successfullyAddedGroup in
@@ -2109,6 +2142,7 @@ extension ConversationVC:
                 }
                 
                 // Delete the message from the open group
+                self.hideInputAccessoryView()
                 deleteRemotely(
                     from: self,
                     request: Storage.shared
@@ -2133,13 +2167,14 @@ extension ConversationVC:
                     userPublicKey :
                     cellViewModel.threadId
                 )
-                let serverHash: String? = Storage.shared.read { db -> String? in
-                    try Interaction
-                        .select(.serverHash)
-                        .filter(id: cellViewModel.id)
-                        .asRequest(of: String.self)
-                        .fetchOne(db)
-                }
+                let serverHashes: Set<String> = Storage.shared
+                    .read { db -> Set<String> in
+                        try Interaction.serverHashesForDeletion(
+                            db,
+                            interactionIds: [cellViewModel.id]
+                        )
+                    }
+                    .defaulting(to: [])
                 let unsendRequest: UnsendRequest = UnsendRequest(
                     timestamp: UInt64(cellViewModel.timestampMs),
                     author: (cellViewModel.variant == .standardOutgoing ?
@@ -2153,7 +2188,7 @@ extension ConversationVC:
                 )
                 
                 // For incoming interactions or interactions with no serverHash just delete them locally
-                guard cellViewModel.variant == .standardOutgoing, let serverHash: String = serverHash else {
+                guard cellViewModel.variant == .standardOutgoing, !serverHashes.isEmpty else {
                     Storage.shared.writeAsync { db in
                         _ = try Interaction
                             .filter(id: cellViewModel.id)
@@ -2161,7 +2196,7 @@ extension ConversationVC:
                         
                         // No need to send the unsendRequest if there is no serverHash (ie. the message
                         // was outgoing but never got to the server)
-                        guard serverHash != nil else { return }
+                        guard !serverHashes.isEmpty else { return }
                         
                         MessageSender
                             .send(
@@ -2209,7 +2244,6 @@ extension ConversationVC:
                 actionSheet.addAction(UIAlertAction(
                     title: {
                         switch (cellViewModel.threadVariant, cellViewModel.threadId) {
-                            case (.legacyGroup, _), (.group, _): return "clearMessagesForEveryone".localized()
                             case (_, userPublicKey): return "deleteMessageDevicesAll".localized()
                             default: return "deleteMessageEveryone".localized()
                         }
@@ -2219,6 +2253,10 @@ extension ConversationVC:
                 ) { [weak self] _ in
                     let completeServerDeletion = {
                         Storage.shared.writeAsync { db in
+                            _ = try Interaction
+                                .filter(id: cellViewModel.id)
+                                .deleteAll(db)
+                            
                             try MessageSender
                                 .send(
                                     db,
@@ -2228,7 +2266,15 @@ extension ConversationVC:
                                     threadVariant: cellViewModel.threadVariant,
                                     using: dependencies
                                 )
+                            
+                            /// We should also remove the `SnodeReceivedMessageInfo` entries for the hashes (otherwise we
+                            /// might try to poll for a hash which no longer exists, resulting in fetching the last 14 days of messages)
+                            try SnodeReceivedMessageInfo.handlePotentialDeletedOrInvalidHash(
+                                db,
+                                potentiallyInvalidHashes: Array(serverHashes)
+                            )
                         }
+                        self?.showInputAccessoryView()
                     }
                         
                     // We can only delete messages on the server for `contact` and `group` conversations
@@ -2241,7 +2287,7 @@ extension ConversationVC:
                         request: SnodeAPI
                             .deleteMessages(
                                 swarmPublicKey: targetPublicKey,
-                                serverHashes: [serverHash]
+                                serverHashes: Array(serverHashes)
                             )
                             .map { _ in () }
                             .eraseToAnyPublisher()
@@ -2715,7 +2761,8 @@ extension ConversationVC {
                         db,
                         Contact.Columns.isApproved.set(to: true),
                         Contact.Columns.didApproveMe
-                            .set(to: contact.didApproveMe || !isNewThread)
+                            .set(to: contact.didApproveMe || !isNewThread),
+                        using: dependencies
                     )
             }
             .subscribe(on: DispatchQueue.global(qos: .userInitiated))
@@ -2745,7 +2792,8 @@ extension ConversationVC {
             tableView: self.tableView,
             threadViewModel: self.viewModel.threadData,
             viewController: self, 
-            navigatableStateHolder: nil
+            navigatableStateHolder: nil,
+            using: viewModel.dependencies
         )
         
         guard let action: UIContextualAction = actions?.first else { return }
@@ -2769,7 +2817,8 @@ extension ConversationVC {
             tableView: self.tableView,
             threadViewModel: self.viewModel.threadData,
             viewController: self,
-            navigatableStateHolder: nil
+            navigatableStateHolder: nil,
+            using: viewModel.dependencies
         )
         
         guard let action: UIContextualAction = actions?.first else { return }

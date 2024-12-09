@@ -10,7 +10,8 @@ extension MessageReceiver {
         _ db: Database,
         threadId: String,
         threadVariant: SessionThread.Variant,
-        message: UnsendRequest
+        message: UnsendRequest,
+        using dependencies: Dependencies
     ) throws {
         let userPublicKey: String = getUserHexEncodedPublicKey(db)
         
@@ -27,7 +28,7 @@ extension MessageReceiver {
             let interaction: Interaction = maybeInteraction
         else { return }
         
-        // Mark incoming messages as read and remove any of their notifications
+        /// Mark incoming messages as read and remove any of their notifications
         if interaction.variant == .standardIncoming {
             try Interaction.markAsRead(
                 db,
@@ -35,23 +36,20 @@ extension MessageReceiver {
                 threadId: interaction.threadId,
                 threadVariant: threadVariant,
                 includingOlder: false,
-                trySendReadReceipt: false
+                trySendReadReceipt: false,
+                using: dependencies
             )
             
             UNUserNotificationCenter.current().removeDeliveredNotifications(withIdentifiers: interaction.notificationIdentifiers)
             UNUserNotificationCenter.current().removePendingNotificationRequests(withIdentifiers: interaction.notificationIdentifiers)
         }
         
-        if author == message.sender, let serverHash: String = interaction.serverHash {
-            SnodeAPI
-                .deleteMessages(
-                    swarmPublicKey: author,
-                    serverHashes: [serverHash]
-                )
-                .subscribe(on: DispatchQueue.global(qos: .background))
-                .sinkUntilComplete()
-        }
-         
+        /// Retrieve the hashes which should be deleted first (these will be removed by marking the message as deleted)
+        let hashes: Set<String> = try Interaction.serverHashesForDeletion(
+            db,
+            interactionIds: [interactionId]
+        )
+        
         switch (interaction.variant, (author == message.sender)) {
             case (.standardOutgoing, _), (_, false):
                 _ = try interaction.delete(db)
@@ -70,6 +68,41 @@ extension MessageReceiver {
                         potentiallyInvalidHashes: [serverHash]
                     )
                 }
+        }
+        
+        /// Can't delete from the legacy group swarm so only bother for contact conversations
+        switch threadVariant {
+            case .legacyGroup, .group, .community: break
+            case .contact:
+                dependencies.storage
+                    .readPublisher { db in
+                        try SnodeAPI.preparedDeleteMessages(
+                            db,
+                            swarmPublicKey: userPublicKey,
+                            serverHashes: Array(hashes),
+                            requireSuccessfulDeletion: false,
+                            using: dependencies
+                        )
+                    }
+                    .flatMap { $0.send(using: dependencies) }
+                    .subscribe(on: DispatchQueue.global(qos: .background), using: dependencies)
+                    .sinkUntilComplete(
+                        receiveCompletion: { result in
+                            switch result {
+                                case .failure: break
+                                case .finished:
+                                    /// Since the server deletion was successful we should also remove the `SnodeReceivedMessageInfo`
+                                    /// entries for the hashes (otherwise we might try to poll for a hash which no longer exists, resulting in fetching
+                                    /// the last 14 days of messages)
+                                    dependencies.storage.writeAsync { db in
+                                        try SnodeReceivedMessageInfo.handlePotentialDeletedOrInvalidHash(
+                                            db,
+                                            potentiallyInvalidHashes: Array(hashes)
+                                        )
+                                    }
+                            }
+                        }
+                    )
         }
     }
 }

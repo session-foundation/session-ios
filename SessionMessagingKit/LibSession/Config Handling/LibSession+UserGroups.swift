@@ -32,7 +32,7 @@ internal extension LibSession {
         using dependencies: Dependencies = Dependencies()
     ) throws {
         guard mergeNeedsDump else { return }
-        guard conf != nil else { throw LibSessionError.nilConfigObject }
+        guard let conf: UnsafeMutablePointer<config_object> = conf else { throw LibSessionError.nilConfigObject }
         
         var infiniteLoopGuard: Int = 0
         var communities: [PrioritisedData<OpenGroupUrlInfo>] = []
@@ -133,14 +133,13 @@ internal extension LibSession {
         
         // Add any new communities (via the OpenGroupManager)
         communities.forEach { community in
-            let successfullyAddedGroup: Bool = OpenGroupManager.shared
-                .add(
-                    db,
-                    roomToken: community.data.roomToken,
-                    server: community.data.server,
-                    publicKey: community.data.publicKey,
-                    calledFromConfigHandling: true
-                )
+            let successfullyAddedGroup: Bool = OpenGroupManager.shared.add(
+                db,
+                roomToken: community.data.roomToken,
+                server: community.data.server,
+                publicKey: community.data.publicKey,
+                calledFromConfig: .userGroups(conf)
+            )
             
             if successfullyAddedGroup {
                 db.afterNextTransactionNested { _ in
@@ -181,7 +180,8 @@ internal extension LibSession {
                 db,
                 type: .deleteCommunityAndContent,
                 threadIds: Array(communityIdsToRemove),
-                calledFromConfigHandling: true
+                calledFromConfigHandling: true,
+                using: dependencies
             )
         }
         
@@ -240,7 +240,7 @@ internal extension LibSession {
                     admins: updatedAdmins.map { $0.profileId },
                     expirationTimer: UInt32(group.disappearingConfig?.durationSeconds ?? 0),
                     formationTimestampMs: UInt64(joinedAt * 1000),
-                    calledFromConfigHandling: true,
+                    calledFromConfig: .userGroups(conf),
                     using: dependencies
                 )
             }
@@ -365,13 +365,13 @@ internal extension LibSession {
         if !legacyGroupIdsToRemove.isEmpty {
             LibSession.kickFromConversationUIIfNeeded(removedThreadIds: Array(legacyGroupIdsToRemove))
             
-            try SessionThread
-                .deleteOrLeave(
-                    db,
-                    type: .deleteGroupAndContent,
-                    threadIds: Array(legacyGroupIdsToRemove),
-                    calledFromConfigHandling: true
-                )
+            try SessionThread.deleteOrLeave(
+                db,
+                type: .deleteGroupAndContent,
+                threadIds: Array(legacyGroupIdsToRemove),
+                calledFromConfigHandling: true,
+                using: dependencies
+            )
         }
         
         // MARK: -- Handle Group Changes
@@ -546,12 +546,14 @@ public extension LibSession {
         _ db: Database,
         server: String,
         rootToken: String,
-        publicKey: String
+        publicKey: String,
+        using dependencies: Dependencies
     ) throws {
         try LibSession.performAndPushChange(
             db,
             for: .userGroups,
-            publicKey: getUserHexEncodedPublicKey(db)
+            publicKey: getUserHexEncodedPublicKey(db, using: dependencies),
+            using: dependencies
         ) { conf in
             try LibSession.upsert(
                 communities: [
@@ -569,11 +571,17 @@ public extension LibSession {
         }
     }
     
-    static func remove(_ db: Database, server: String, roomToken: String) throws {
+    static func remove(
+        _ db: Database,
+        server: String,
+        roomToken: String,
+        using dependencies: Dependencies
+    ) throws {
         try LibSession.performAndPushChange(
             db,
             for: .userGroups,
-            publicKey: getUserHexEncodedPublicKey(db)
+            publicKey: getUserHexEncodedPublicKey(db, using: dependencies),
+            using: dependencies
         ) { conf in
             var cBaseUrl: [CChar] = try server.cString(using: .utf8) ?? { throw LibSessionError.invalidCConversion }()
             var cRoom: [CChar] = try roomToken.cString(using: .utf8) ?? { throw LibSessionError.invalidCConversion }()
@@ -592,7 +600,8 @@ public extension LibSession {
                     roomToken: roomToken,
                     publicKey: ""
                 )
-            ]
+            ],
+            using: dependencies
         )
     }
     
@@ -608,12 +617,14 @@ public extension LibSession {
         latestKeyPairReceivedTimestamp: TimeInterval,
         disappearingConfig: DisappearingMessagesConfiguration,
         members: Set<String>,
-        admins: Set<String>
+        admins: Set<String>,
+        using dependencies: Dependencies
     ) throws {
         try LibSession.performAndPushChange(
             db,
             for: .userGroups,
-            publicKey: getUserHexEncodedPublicKey(db)
+            publicKey: getUserHexEncodedPublicKey(db, using: dependencies),
+            using: dependencies
         ) { conf in
             guard conf != nil else { throw LibSessionError.nilConfigObject }
             
@@ -674,12 +685,14 @@ public extension LibSession {
         latestKeyPair: ClosedGroupKeyPair? = nil,
         disappearingConfig: DisappearingMessagesConfiguration? = nil,
         members: Set<String>? = nil,
-        admins: Set<String>? = nil
+        admins: Set<String>? = nil,
+        using dependencies: Dependencies
     ) throws {
         try LibSession.performAndPushChange(
             db,
             for: .userGroups,
-            publicKey: getUserHexEncodedPublicKey(db)
+            publicKey: getUserHexEncodedPublicKey(db, using: dependencies),
+            using: dependencies
         ) { conf in
             try LibSession.upsert(
                 legacyGroups: [
@@ -736,13 +749,18 @@ public extension LibSession {
         }
     }
     
-    static func remove(_ db: Database, legacyGroupIds: [String]) throws {
+    static func remove(
+        _ db: Database,
+        legacyGroupIds: [String],
+        using dependencies: Dependencies
+    ) throws {
         guard !legacyGroupIds.isEmpty else { return }
         
         try LibSession.performAndPushChange(
             db,
             for: .userGroups,
-            publicKey: getUserHexEncodedPublicKey(db)
+            publicKey: getUserHexEncodedPublicKey(db, using: dependencies),
+            using: dependencies
         ) { conf in
             legacyGroupIds.forEach { threadId in
                 guard var cGroupId: [CChar] = threadId.cString(using: .utf8) else { return }
@@ -753,7 +771,7 @@ public extension LibSession {
         }
         
         // Remove the volatile info as well
-        try LibSession.remove(db, volatileLegacyGroupIds: legacyGroupIds)
+        try LibSession.remove(db, volatileLegacyGroupIds: legacyGroupIds, using: dependencies)
     }
     
     // MARK: -- Group Changes

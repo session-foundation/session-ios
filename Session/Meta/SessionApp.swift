@@ -37,7 +37,8 @@ public struct SessionApp {
         variant: SessionThread.Variant,
         action: ConversationViewModel.Action = .none,
         dismissing presentingViewController: UIViewController?,
-        animated: Bool
+        animated: Bool,
+        using dependencies: Dependencies
     ) {
         let threadInfo: (threadExists: Bool, isMessageRequest: Bool)? = Storage.shared.read { db in
             let isMessageRequest: Bool = {
@@ -84,7 +85,14 @@ public struct SessionApp {
         guard threadInfo?.threadExists == true else {
             DispatchQueue.global(qos: .userInitiated).async {
                 Storage.shared.write { db in
-                    try SessionThread.fetchOrCreate(db, id: threadId, variant: variant, shouldBeVisible: nil)
+                    try SessionThread.upsert(
+                        db,
+                        id: threadId,
+                        variant: variant,
+                        values: .existingOrDefault,
+                        calledFromConfig: nil,
+                        using: dependencies
+                    )
                 }
 
                 // Send back to main thread for UI transitions

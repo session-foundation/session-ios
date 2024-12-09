@@ -162,21 +162,29 @@ enum Onboarding {
                         db,
                         Contact.Columns.isTrusted.set(to: true),    // Always trust the current user
                         Contact.Columns.isApproved.set(to: true),
-                        Contact.Columns.didApproveMe.set(to: true)
+                        Contact.Columns.didApproveMe.set(to: true),
+                        using: dependencies
                     )
 
                 /// Create the 'Note to Self' thread (not visible by default)
                 ///
                 /// **Note:** We need to explicitly `updateAllAndConfig` the `shouldBeVisible` value to `false`
                 /// otherwise it won't actually get synced correctly
-                try SessionThread
-                    .fetchOrCreate(db, id: x25519PublicKey, variant: .contact, shouldBeVisible: false)
+                try SessionThread.upsert(
+                    db,
+                    id: x25519PublicKey,
+                    variant: .contact,
+                    values: SessionThread.TargetValues(shouldBeVisible: .setTo(false)),
+                    calledFromConfig: nil,
+                    using: dependencies
+                )
                 
                 try SessionThread
                     .filter(id: x25519PublicKey)
                     .updateAllAndConfig(
                         db,
-                        SessionThread.Columns.shouldBeVisible.set(to: false)
+                        SessionThread.Columns.shouldBeVisible.set(to: false),
+                        using: dependencies
                     )
             }
             
@@ -195,7 +203,7 @@ enum Onboarding {
                 .sinkUntilComplete()
         }
         
-        func completeRegistration() {
+        func completeRegistration(using dependencies: Dependencies) {
             // Set the `lastNameUpdate` to the current date, so that we don't overwrite
             // what the user set in the display name step with whatever we find in their
             // swarm (otherwise the user could enter a display name and have it immediately
@@ -205,7 +213,8 @@ enum Onboarding {
                     .filter(id: getUserHexEncodedPublicKey(db))
                     .updateAllAndConfig(
                         db,
-                        Profile.Columns.lastNameUpdate.set(to: Date().timeIntervalSince1970)
+                        Profile.Columns.lastNameUpdate.set(to: Date().timeIntervalSince1970),
+                        using: dependencies
                     )
             }
             

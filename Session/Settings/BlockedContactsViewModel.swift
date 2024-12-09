@@ -205,12 +205,16 @@ public class BlockedContactsViewModel: SessionTableViewModel, NavigatableStateHo
                 confirmTitle: "blockUnblock".localized(),
                 confirmStyle: .danger,
                 cancelStyle: .alert_text
-            ) { [weak self] _ in
+            ) { [weak self, dependencies] _ in
                 // Unblock the contacts
                 Storage.shared.write { db in
                     _ = try Contact
                         .filter(ids: contactIds)
-                        .updateAllAndConfig(db, Contact.Columns.isBlocked.set(to: false))
+                        .updateAllAndConfig(
+                            db,
+                            Contact.Columns.isBlocked.set(to: false),
+                            using: dependencies
+                        )
                 }
                 
                 self?.selectedContactIdsSubject.send([])

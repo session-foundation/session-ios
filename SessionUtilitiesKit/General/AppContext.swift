@@ -46,7 +46,9 @@ public extension AppContext {
     var frontmostViewController: UIViewController? { nil }
     var backgroundTimeRemaining: TimeInterval { 0 }
     
+    // Note: CallKit will make the app state as .inactive
     var isInBackground: Bool { reportedApplicationState == .background }
+    var isNotInForeground: Bool { reportedApplicationState != .active }
     var isAppForegroundAndActive: Bool { reportedApplicationState == .active }
     
     // MARK: - Paths

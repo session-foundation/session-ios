@@ -104,7 +104,7 @@ public enum SyncPushTokensJob: JobExecutor {
         /// **Note:** Apple's documentation states that we should re-register for notifications on every launch:
         /// https://developer.apple.com/library/archive/documentation/NetworkingInternet/Conceptual/RemoteNotificationsPG/HandlingRemoteNotifications.html#//apple_ref/doc/uid/TP40008194-CH6-SW1
         Log.info("[SyncPushTokensJob] Re-registering for remote notifications")
-        PushRegistrationManager.shared.requestPushTokens()
+        Singleton.pushRegistrationManager.requestPushTokens()
             .flatMap { (pushToken: String, voipToken: String) -> AnyPublisher<(String, String)?, Error> in
                 Deferred {
                     Future<(String, String)?, Error> { resolver in

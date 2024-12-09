@@ -79,7 +79,7 @@ public extension LibSession {
         
         // If we weren't given a database instance then get one
         guard let db: Database = db else {
-            Storage.shared.read { db in
+            dependencies.storage.read { db in
                 LibSession.loadState(db, userPublicKey: userPublicKey, ed25519SecretKey: secretKey, using: dependencies)
             }
             return
@@ -457,14 +457,16 @@ public extension LibSession {
                                         db,
                                         in: conf,
                                         mergeNeedsDump: config_needs_dump(conf),
-                                        latestConfigSentTimestampMs: latestConfigSentTimestampMs
+                                        latestConfigSentTimestampMs: latestConfigSentTimestampMs,
+                                        using: dependencies
                                     )
                                     
                                 case .convoInfoVolatile:
                                     try LibSession.handleConvoInfoVolatileUpdate(
                                         db,
                                         in: conf,
-                                        mergeNeedsDump: config_needs_dump(conf)
+                                        mergeNeedsDump: config_needs_dump(conf),
+                                        using: dependencies
                                     )
                                     
                                 case .userGroups:

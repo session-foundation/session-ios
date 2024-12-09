@@ -375,23 +375,23 @@ class ThreadDisappearingMessagesSettingsViewModel: SessionTableViewModel, Naviga
         }
         
         // Contacts & legacy closed groups need to update the LibSession
-        dependencies.storage.writeAsync(using: dependencies) { [threadId, threadVariant] db in
+        dependencies.storage.writeAsync(using: dependencies) { [threadId, threadVariant, dependencies] db in
             switch threadVariant {
                 case .contact:
-                    try LibSession
-                        .update(
-                            db,
-                            sessionId: threadId,
-                            disappearingMessagesConfig: updatedConfig
-                        )
+                    try LibSession.update(
+                        db,
+                        sessionId: threadId,
+                        disappearingMessagesConfig: updatedConfig,
+                        using: dependencies
+                    )
                 
                 case .legacyGroup:
-                    try LibSession
-                        .update(
-                            db,
-                            groupPublicKey: threadId,
-                            disappearingConfig: updatedConfig
-                        )
+                    try LibSession.update(
+                        db,
+                        groupPublicKey: threadId,
+                        disappearingConfig: updatedConfig,
+                        using: dependencies
+                    )
                     
                 default: break
             }

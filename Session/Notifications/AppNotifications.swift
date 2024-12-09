@@ -480,7 +480,7 @@ class NotificationActionHandler {
 
     // MARK: -
 
-    func markAsRead(userInfo: [AnyHashable: Any]) -> AnyPublisher<Void, Error> {
+    func markAsRead(userInfo: [AnyHashable: Any], using dependencies: Dependencies) -> AnyPublisher<Void, Error> {
         guard let threadId: String = userInfo[AppNotificationUserInfoKey.threadId] as? String else {
             return Fail(error: NotificationError.failDebug("threadId was unexpectedly nil"))
                 .eraseToAnyPublisher()
@@ -491,7 +491,7 @@ class NotificationActionHandler {
                 .eraseToAnyPublisher()
         }
 
-        return markAsRead(threadId: threadId)
+        return markAsRead(threadId: threadId, using: dependencies)
     }
 
     func reply(
@@ -532,7 +532,8 @@ class NotificationActionHandler {
                         db,
                         threadId: threadId,
                         threadVariant: thread.variant
-                    )
+                    ),
+                    using: dependencies
                 )
                 
                 return try MessageSender.preparedSendData(
@@ -576,7 +577,8 @@ class NotificationActionHandler {
             for: threadId,
             variant: threadVariant,
             dismissing: nil,
-            animated: (UIApplication.shared.applicationState == .active)
+            animated: (UIApplication.shared.applicationState == .active),
+            using: dependencies
         )
         
         return Just(())
@@ -589,7 +591,7 @@ class NotificationActionHandler {
             .eraseToAnyPublisher()
     }
     
-    private func markAsRead(threadId: String) -> AnyPublisher<Void, Error> {
+    private func markAsRead(threadId: String, using dependencies: Dependencies) -> AnyPublisher<Void, Error> {
         return Storage.shared
             .writePublisher { db in
                 guard
@@ -616,7 +618,8 @@ class NotificationActionHandler {
                         db,
                         threadId: threadId,
                         threadVariant: threadVariant
-                    )
+                    ),
+                    using: dependencies
                 )
             }
             .eraseToAnyPublisher()

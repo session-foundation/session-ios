@@ -429,7 +429,7 @@ final class CallVC: UIViewController, VideoPreviewDelegate {
         
         _ = call.videoCapturer // Force the lazy var to instantiate
         titleLabel.text = self.call.contactName
-        AppEnvironment.shared.callManager.startCall(call) { [weak self] error in
+        Singleton.callManager.startCall(call) { [weak self] error in
             DispatchQueue.main.async {
                 if let _ = error {
                     self?.callInfoLabel.text = "callsErrorStart".localized()
@@ -600,13 +600,16 @@ final class CallVC: UIViewController, VideoPreviewDelegate {
         }
         
         Timer.scheduledTimer(withTimeInterval: 2, repeats: false) { [weak self] _ in
-            self?.conversationVC?.showInputAccessoryView()
-            self?.presentingViewController?.dismiss(animated: true, completion: nil)
+            DispatchQueue.main.async {
+                self?.dismiss(animated: true, completion: {
+                    self?.conversationVC?.showInputAccessoryView()
+                })
+            }
         }
     }
     
     @objc private func answerCall() {
-        AppEnvironment.shared.callManager.answerCall(call) { [weak self] error in
+        Singleton.callManager.answerCall(call) { [weak self] error in
             DispatchQueue.main.async {
                 if let _ = error {
                     self?.callInfoLabel.text = "callsErrorAnswer".localized()
@@ -617,15 +620,19 @@ final class CallVC: UIViewController, VideoPreviewDelegate {
     }
     
     @objc private func endCall() {
-        AppEnvironment.shared.callManager.endCall(call) { [weak self] error in
+        Singleton.callManager.endCall(call) { [weak self] error in
             if let _ = error {
                 self?.call.endSessionCall()
-                AppEnvironment.shared.callManager.reportCurrentCallEnded(reason: nil)
+                Singleton.callManager.reportCurrentCallEnded(reason: nil)
             }
             
-            DispatchQueue.main.async {
-                self?.conversationVC?.showInputAccessoryView()
-                self?.presentingViewController?.dismiss(animated: true, completion: nil)
+            Timer.scheduledTimer(withTimeInterval: 1, repeats: false) { [weak self] _ in
+                DispatchQueue.main.async {
+                    self?.dismiss(animated: true, completion: {
+                        self?.conversationVC?.becomeFirstResponder()
+                        self?.conversationVC?.showInputAccessoryView()
+                    })
+                }
             }
         }
     }

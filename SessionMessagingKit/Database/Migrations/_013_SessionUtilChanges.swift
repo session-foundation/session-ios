@@ -243,8 +243,14 @@ enum _013_SessionUtilChanges: Migration {
         /// counts so don't do this when running tests (this logic is the same as in `MainAppContext.isRunningTests`
         if ProcessInfo.processInfo.environment["XCTestConfigurationFilePath"] == nil {
             if (try SessionThread.exists(db, id: userPublicKey)) == false {
-                try SessionThread
-                    .fetchOrCreate(db, id: userPublicKey, variant: .contact, shouldBeVisible: false)
+                try SessionThread.upsert(
+                    db,
+                    id: userPublicKey,
+                    variant: .contact,
+                    values: SessionThread.TargetValues(shouldBeVisible: .setTo(false)),
+                    calledFromConfig: nil,
+                    using: dependencies
+                )
             }
         }
         

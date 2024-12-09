@@ -115,13 +115,15 @@ public extension ClosedGroup {
         _ db: Database? = nil,
         threadId: String,
         removeGroupData: Bool,
-        calledFromConfigHandling: Bool
+        calledFromConfigHandling: Bool,
+        using dependencies: Dependencies
     ) throws {
         try removeKeysAndUnsubscribe(
             db,
             threadIds: [threadId],
             removeGroupData: removeGroupData,
-            calledFromConfigHandling: calledFromConfigHandling
+            calledFromConfigHandling: calledFromConfigHandling,
+            using: dependencies
         )
     }
     
@@ -129,16 +131,18 @@ public extension ClosedGroup {
         _ db: Database? = nil,
         threadIds: [String],
         removeGroupData: Bool,
-        calledFromConfigHandling: Bool
+        calledFromConfigHandling: Bool,
+        using dependencies: Dependencies
     ) throws {
         guard !threadIds.isEmpty else { return }
         guard let db: Database = db else {
-            Storage.shared.write { db in
+            dependencies.storage.write { db in
                 try ClosedGroup.removeKeysAndUnsubscribe(
                     db,
                     threadIds: threadIds,
                     removeGroupData: removeGroupData,
-                    calledFromConfigHandling: calledFromConfigHandling
+                    calledFromConfigHandling: calledFromConfigHandling,
+                    using: dependencies
                 )
             }
             return
@@ -196,7 +200,8 @@ public extension ClosedGroup {
                 db,
                 legacyGroupIds: threadVariants
                     .filter { $0.variant == .legacyGroup }
-                    .map { $0.id }
+                    .map { $0.id },
+                using: dependencies
             )
             
             try LibSession.remove(

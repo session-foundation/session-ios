@@ -50,8 +50,14 @@ extension MessageReceiver {
         }
         
         // Prep the unblinded thread
-        let unblindedThread: SessionThread = try SessionThread
-            .fetchOrCreate(db, id: senderId, variant: .contact, shouldBeVisible: nil)
+        let unblindedThread: SessionThread = try SessionThread.upsert(
+            db,
+            id: senderId,
+            variant: .contact,
+            values: .existingOrDefault,
+            calledFromConfig: nil,
+            using: dependencies
+        )
         
         // Need to handle a `MessageRequestResponse` sent to a blinded thread (ie. check if the sender matches
         // the blinded ids of any threads)
@@ -60,12 +66,12 @@ extension MessageReceiver {
             .filter(SessionThread.Columns.variant == SessionThread.Variant.contact)
             .filter(
                 (
-                    ClosedGroup.Columns.threadId > SessionId.Prefix.blinded15.rawValue &&
-                    ClosedGroup.Columns.threadId < SessionId.Prefix.blinded15.endOfRangeString
+                    SessionThread.Columns.id > SessionId.Prefix.blinded15.rawValue &&
+                    SessionThread.Columns.id < SessionId.Prefix.blinded15.endOfRangeString
                 ) ||
                 (
-                    ClosedGroup.Columns.threadId > SessionId.Prefix.blinded25.rawValue &&
-                    ClosedGroup.Columns.threadId < SessionId.Prefix.blinded25.endOfRangeString
+                    SessionThread.Columns.id > SessionId.Prefix.blinded25.rawValue &&
+                    SessionThread.Columns.id < SessionId.Prefix.blinded25.endOfRangeString
                 )
             )
             .asRequest(of: String.self)
@@ -112,7 +118,8 @@ extension MessageReceiver {
                     db,
                     type: .deleteContactConversationAndContact, // Blinded contact isn't synced anyway
                     threadId: blindedIdLookup.blindedId,
-                    calledFromConfigHandling: false
+                    calledFromConfigHandling: false,
+                    using: dependencies
                 )
         }
         
@@ -120,7 +127,8 @@ extension MessageReceiver {
         try updateContactApprovalStatusIfNeeded(
             db,
             senderSessionId: senderId,
-            threadId: nil
+            threadId: nil,
+            using: dependencies
         )
         
         // If there were blinded contacts which have now been resolved to this contact then we should remove
@@ -134,7 +142,8 @@ extension MessageReceiver {
             try updateContactApprovalStatusIfNeeded(
                 db,
                 senderSessionId: userPublicKey,
-                threadId: unblindedThread.id
+                threadId: unblindedThread.id,
+                using: dependencies
             )
         }
         
@@ -159,7 +168,8 @@ extension MessageReceiver {
     internal static func updateContactApprovalStatusIfNeeded(
         _ db: Database,
         senderSessionId: String,
-        threadId: String?
+        threadId: String?,
+        using dependencies: Dependencies
     ) throws {
         let userPublicKey: String = getUserHexEncodedPublicKey(db)
         
@@ -182,7 +192,11 @@ extension MessageReceiver {
             try? contact.save(db)
             _ = try? Contact
                 .filter(id: threadId)
-                .updateAllAndConfig(db, Contact.Columns.isApproved.set(to: true))
+                .updateAllAndConfig(
+                    db,
+                    Contact.Columns.isApproved.set(to: true),
+                    using: dependencies
+                )
         }
         else {
             // The message was sent to the current user so flag their 'didApproveMe' as true (can't send a message to
@@ -194,7 +208,11 @@ extension MessageReceiver {
             try? contact.save(db)
             _ = try? Contact
                 .filter(id: senderSessionId)
-                .updateAllAndConfig(db, Contact.Columns.didApproveMe.set(to: true))
+                .updateAllAndConfig(
+                    db,
+                    Contact.Columns.didApproveMe.set(to: true),
+                    using: dependencies
+                )
         }
     }
 }

@@ -294,7 +294,7 @@ public class UserNotificationActionHandler: NSObject {
 
         switch action {
             case .markAsRead:
-                return actionHandler.markAsRead(userInfo: userInfo)
+                return actionHandler.markAsRead(userInfo: userInfo, using: dependencies)
                 
             case .reply:
                 guard let textInputResponse = response as? UNTextInputNotificationResponse else {

@@ -80,7 +80,7 @@ enum _018_DisappearingMessagesConfiguration: Migration {
             }
         
         // Update the configs so the settings are synced
-        _ = try LibSession.updatingDisappearingConfigs(db, contactUpdate)
+        _ = try LibSession.updatingDisappearingConfigs(db, contactUpdate, using: dependencies)
         _ = try LibSession.batchUpdate(db, disappearingConfigs: legacyGroupUpdate, using: dependencies)
         
         Storage.update(progress: 1, for: self, in: target) // In case this is the last migration
