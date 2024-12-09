@@ -550,6 +550,31 @@ class DeveloperSettingsViewModel: SessionTableViewModel, NavigatableStateHolder,
     }
 }
 
+// MARK: - Automated Test Convenience
+
+extension DeveloperSettingsViewModel {
+    static func processUnitTestEnvVaraiblesIfNeeded() {
+#if targetEnvironment(simulator)
+        enum EnvironmentVariable: String {
+            case animationsEnabled
+        }
+        
+        ProcessInfo.processInfo.environment.forEach { key, value in
+            guard let variable: EnvironmentVariable = EnvironmentVariable(rawValue: key) else { return }
+            
+            switch variable {
+                case .animationsEnabled:
+                    guard value == "false" else { return }
+                    
+                    UIView.setAnimationsEnabled(false)
+            }
+        }
+#endif
+    }
+}
+
+// MARK: - DocumentPickerResult
+
 private class DocumentPickerResult: NSObject, UIDocumentPickerDelegate {
     private let onResult: (URL?) -> Void
     
