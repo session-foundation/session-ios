@@ -553,7 +553,7 @@ class DeveloperSettingsViewModel: SessionTableViewModel, NavigatableStateHolder,
 // MARK: - Automated Test Convenience
 
 extension DeveloperSettingsViewModel {
-    static func processUnitTestEnvVaraiblesIfNeeded() {
+    static func processUnitTestEnvVariablesIfNeeded() {
 #if targetEnvironment(simulator)
         enum EnvironmentVariable: String {
             case animationsEnabled
