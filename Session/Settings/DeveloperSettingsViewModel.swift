@@ -779,6 +779,14 @@ class DeveloperSettingsViewModel: SessionTableViewModel, NavigatableStateHolder,
     }
     
     private func updateServiceNetwork(to updatedNetwork: ServiceNetwork?) {
+        DeveloperSettingsViewModel.updateServiceNetwork(to: updatedNetwork, using: dependencies)
+        forceRefresh(type: .databaseQuery)
+    }
+    
+    private static func updateServiceNetwork(
+        to updatedNetwork: ServiceNetwork?,
+        using dependencies: Dependencies
+    ) {
         struct IdentityData {
             let ed25519KeyPair: KeyPair
             let x25519KeyPair: KeyPair
@@ -888,8 +896,6 @@ class DeveloperSettingsViewModel: SessionTableViewModel, NavigatableStateHolder,
             
             Log.info("[DevSettings] Completed swap to \(String(describing: updatedNetwork))")
         }
-        
-        forceRefresh(type: .databaseQuery)
     }
     
     private func updateFlag(for feature: FeatureConfig<Bool>, to updatedFlag: Bool?) {
@@ -1303,10 +1309,14 @@ class DeveloperSettingsViewModel: SessionTableViewModel, NavigatableStateHolder,
 // MARK: - Automated Test Convenience
 
 extension DeveloperSettingsViewModel {
-    static func processUnitTestEnvVariablesIfNeeded() {
+    static func processUnitTestEnvVariablesIfNeeded(using dependencies: Dependencies) {
 #if targetEnvironment(simulator)
         enum EnvironmentVariable: String {
             case animationsEnabled
+            case showStringKeys
+            
+            case serviceNetwork
+            case forceOffline
         }
         
         ProcessInfo.processInfo.environment.forEach { key, value in
@@ -1314,9 +1324,27 @@ extension DeveloperSettingsViewModel {
             
             switch variable {
                 case .animationsEnabled:
+                    dependencies.set(feature: .animationsEnabled, to: (value == "true"))
+                    
                     guard value == "false" else { return }
                     
                     UIView.setAnimationsEnabled(false)
+                    
+                case .showStringKeys:
+                    dependencies.set(feature: .showStringKeys, to: (value == "true"))
+                    
+                case .serviceNetwork:
+                    let network: ServiceNetwork
+                    
+                    switch value {
+                        case "testnet": network = .testnet
+                        default: network = .mainnet
+                    }
+                    
+                    DeveloperSettingsViewModel.updateServiceNetwork(to: network, using: dependencies)
+                    
+                case .forceOffline:
+                    dependencies.set(feature: .forceOffline, to: (value == "true"))
             }
         }
 #endif

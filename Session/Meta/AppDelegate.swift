@@ -36,7 +36,7 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
 
     func application(_ application: UIApplication, didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]?) -> Bool {
         /// If we are running automated tests we should process environment variables before we do anything else
-        DeveloperSettingsViewModel.processUnitTestEnvVariablesIfNeeded()
+        DeveloperSettingsViewModel.processUnitTestEnvVariablesIfNeeded(using: dependencies)
         
 #if DEBUG
         /// If we are running a Preview then we don't want to setup the application (previews are generally self contained individual views so
