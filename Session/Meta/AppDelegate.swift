@@ -35,6 +35,9 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
     // MARK: - Lifecycle
 
     func application(_ application: UIApplication, didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]?) -> Bool {
+        /// If we are running automated tests we should process environment variables before we do anything else
+        DeveloperSettingsViewModel.processUnitTestEnvVariablesIfNeeded()
+        
 #if DEBUG
         /// If we are running a Preview then we don't want to setup the application (previews are generally self contained individual views so
         /// doing all this application setup is a waste or work, and could even cause crashes for the preview)
