@@ -28,32 +28,13 @@ public extension LibSession {
     // MARK: - Config
     
     enum Config {
-        public enum Variant {
-            case userProfile(UnsafeMutablePointer<config_object>)
-            case contacts(UnsafeMutablePointer<config_object>)
-            case convoInfoVolatile(UnsafeMutablePointer<config_object>)
-            case userGroups(UnsafeMutablePointer<config_object>)
-            
-            var conf: UnsafeMutablePointer<config_object> {
-                switch self {
-                    case .userProfile(let value), .contacts(let value),
-                        .convoInfoVolatile(let value), .userGroups(let value):
-                        return value
-                }
-            }
-            
-            var dumpVariant: ConfigDump.Variant {
-                switch self {
-                    case .userProfile: return .userProfile
-                    case .contacts: return .contacts
-                    case .convoInfoVolatile: return .convoInfoVolatile
-                    case .userGroups: return .userGroups
-                }
-            }
-        }
+        case userProfile(UnsafeMutablePointer<config_object>)
+        case contacts(UnsafeMutablePointer<config_object>)
+        case convoInfoVolatile(UnsafeMutablePointer<config_object>)
+        case userGroups(UnsafeMutablePointer<config_object>)
         
-        case invalid
-        case object(UnsafeMutablePointer<config_object>)
+        case groupInfo(UnsafeMutablePointer<config_object>)
+        case groupMembers(UnsafeMutablePointer<config_object>)
         case groupKeys(
             UnsafeMutablePointer<config_group_keys>,
             info: UnsafeMutablePointer<config_object>,
@@ -62,10 +43,25 @@ public extension LibSession {
         
         // MARK: - Variables
         
+        var variant: ConfigDump.Variant {
+            switch self {
+                case .userProfile: return .userProfile
+                case .contacts: return .contacts
+                case .convoInfoVolatile: return .convoInfoVolatile
+                case .userGroups: return .userGroups
+                    
+                case .groupInfo: return .groupInfo
+                case .groupMembers: return .groupMembers
+                case .groupKeys: return .groupKeys
+            }
+        }
+        
         var needsPush: Bool {
             switch self {
-                case .invalid: return false
-                case .object(let conf): return config_needs_push(conf)
+                case .userProfile(let conf), .contacts(let conf),
+                    .convoInfoVolatile(let conf), .userGroups(let conf),
+                    .groupInfo(let conf), .groupMembers(let conf):
+                    return config_needs_push(conf)
                 
                 case .groupKeys(let conf, _, _):
                     var pushResult: UnsafePointer<UInt8>? = nil
@@ -78,8 +74,9 @@ public extension LibSession {
         var lastError: LibSessionError? {
             let maybeErrorString: String? = {
                 switch self {
-                    case .invalid: return "Invalid"
-                    case .object(let conf):
+                    case .userProfile(let conf), .contacts(let conf),
+                        .convoInfoVolatile(let conf), .userGroups(let conf),
+                        .groupInfo(let conf), .groupMembers(let conf):
                         guard conf.pointee.last_error != nil else { return nil }
                         
                         return String(cString: conf.pointee.last_error)
@@ -100,8 +97,9 @@ public extension LibSession {
         
         func push(variant: ConfigDump.Variant) -> PendingChanges.PushData? {
             switch self {
-                case .invalid: return nil
-                case .object(let conf):
+                case .userProfile(let conf), .contacts(let conf),
+                    .convoInfoVolatile(let conf), .userGroups(let conf),
+                    .groupInfo(let conf), .groupMembers(let conf):
                     let cPushData: UnsafeMutablePointer<config_push_data> = config_push(conf)
                     let pushData: Data = Data(
                         bytes: cPushData.pointee.config,
@@ -137,8 +135,10 @@ public extension LibSession {
             guard let cHash: [CChar] = hash.cString(using: .ascii) else { return }
             
             switch self {
-                case .invalid: return
-                case .object(let conf): return config_confirm_pushed(conf, seqNo, cHash)
+                case .userProfile(let conf), .contacts(let conf),
+                    .convoInfoVolatile(let conf), .userGroups(let conf),
+                    .groupInfo(let conf), .groupMembers(let conf):
+                    return config_confirm_pushed(conf, seqNo, cHash)
                 case .groupKeys: return // No need to do anything here
             }
         }
@@ -148,8 +148,10 @@ public extension LibSession {
             var dumpResultLen: Int = 0
             
             switch self {
-                case .invalid: throw LibSessionError.invalidConfigObject
-                case .object(let conf): config_dump(conf, &dumpResult, &dumpResultLen)
+                case .userProfile(let conf), .contacts(let conf),
+                    .convoInfoVolatile(let conf), .userGroups(let conf),
+                    .groupInfo(let conf), .groupMembers(let conf):
+                    config_dump(conf, &dumpResult, &dumpResultLen)
                 case .groupKeys(let conf, _, _): groups_keys_dump(conf, &dumpResult, &dumpResultLen)
             }
             
@@ -166,8 +168,9 @@ public extension LibSession {
         
         func currentHashes() -> [String] {
             switch self {
-                case .invalid: return []
-                case .object(let conf):
+                case .userProfile(let conf), .contacts(let conf),
+                    .convoInfoVolatile(let conf), .userGroups(let conf),
+                    .groupInfo(let conf), .groupMembers(let conf):
                     guard let hashList: UnsafeMutablePointer<config_string_list> = config_current_hashes(conf) else {
                         return []
                     }
@@ -199,8 +202,10 @@ public extension LibSession {
         
         func obsoleteHashes() -> [String] {
             switch self {
-                case .invalid, .groupKeys: return []
-                case .object(let conf):
+                case .groupKeys: return []
+                case .userProfile(let conf), .contacts(let conf),
+                    .convoInfoVolatile(let conf), .userGroups(let conf),
+                    .groupInfo(let conf), .groupMembers(let conf):
                     guard let hashList: UnsafeMutablePointer<config_string_list> = config_old_hashes(conf) else {
                         return []
                     }
@@ -218,8 +223,9 @@ public extension LibSession {
         
         func merge(_ messages: [ConfigMessageReceiveJob.Details.MessageInfo]) throws -> Int64? {
             switch self {
-                case .invalid: throw LibSessionError.invalidConfigObject
-                case .object(let conf):
+                case .userProfile(let conf), .contacts(let conf),
+                    .convoInfoVolatile(let conf), .userGroups(let conf),
+                    .groupInfo(let conf), .groupMembers(let conf):
                     var mergeHashes: [UnsafePointer<CChar>?] = (try? (messages
                         .compactMap { message in message.serverHash.cString(using: .utf8) }
                         .unsafeCopyCStringArray()))
@@ -277,6 +283,7 @@ public extension LibSession {
                         .sorted()
                         .last
                     
+                    
                 case .groupKeys(let conf, let infoConf, let membersConf):
                     let successfulMergeTimestamps: [Int64] = try messages
                         .map { message -> (Bool, Int64) in
@@ -323,9 +330,11 @@ public extension LibSession {
             ]
             
             switch self {
-                case .invalid: return "Invalid"
                 case .groupKeys(let conf, _, _): return "\(groups_keys_size(conf)) group keys"
-                case .object(let conf):
+                
+                case .userProfile(let conf), .contacts(let conf),
+                    .convoInfoVolatile(let conf), .userGroups(let conf),
+                    .groupInfo(let conf), .groupMembers(let conf):
                     return funcMap[variant]
                         .map { "\($0.size(conf)) \($0.info)" }
                         .defaulting(to: "Invalid")
@@ -373,14 +382,17 @@ public extension LibSessionError {
         logMessage: String? = nil
     ) {
         switch config {
-            case .none, .invalid:
+            case .none:
                 self = fallbackError
                 
                 if let logMessage: String = logMessage {
                     Log.error("\(logMessage): \(self)")
                 }
                 
-            case .object(let conf): self = LibSessionError(conf, fallbackError: fallbackError, logMessage: logMessage)
+            case .userProfile(let conf), .contacts(let conf),
+                .convoInfoVolatile(let conf), .userGroups(let conf),
+                .groupInfo(let conf), .groupMembers(let conf):
+                self = LibSessionError(conf, fallbackError: fallbackError, logMessage: logMessage)
             case .groupKeys(let conf, _, _): self = LibSessionError(conf, fallbackError: fallbackError, logMessage: logMessage)
         }
     }
@@ -388,8 +400,10 @@ public extension LibSessionError {
     static func throwIfNeeded(_ config: LibSession.Config?) throws {
         switch config {
             case .none: return
-            case .invalid: throw LibSessionError.invalidConfigObject
-            case .object(let conf): try LibSessionError.throwIfNeeded(conf)
+            case .userProfile(let conf), .contacts(let conf),
+                .convoInfoVolatile(let conf), .userGroups(let conf),
+                .groupInfo(let conf), .groupMembers(let conf):
+                try LibSessionError.throwIfNeeded(conf)
             case .groupKeys(let conf, _, _): try LibSessionError.throwIfNeeded(conf)
         }
     }

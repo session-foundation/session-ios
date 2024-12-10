@@ -22,6 +22,19 @@ class DisplayPictureDownloadJobSpec: QuickSpec {
             dependencies.forceSynchronous = true
             dependencies.dateNow = Date(timeIntervalSince1970: 1234567890)
         }
+        @TestState(cache: .libSession, in: dependencies) var mockLibSessionCache: MockLibSessionCache! = MockLibSessionCache(
+            initialSetup: { cache in
+                cache
+                    .when { try $0.performAndPushChange(.any, for: .any, sessionId: .any, change: { _ in }) }
+                    .thenReturn(())
+                cache
+                    .when { $0.pinnedPriority(.any, threadId: .any, threadVariant: .any) }
+                    .thenReturn(LibSession.defaultNewThreadPriority)
+                cache.when { $0.disappearingMessagesConfig(threadId: .any, threadVariant: .any) }
+                    .thenReturn(nil)
+                cache.when { $0.isAdmin(groupSessionId: .any) }.thenReturn(false)
+            }
+        )
         @TestState(singleton: .storage, in: dependencies) var mockStorage: Storage! = SynchronousStorage(
             customWriter: try! DatabaseQueue(),
             migrationTargets: [
@@ -886,12 +899,14 @@ class DisplayPictureDownloadJobSpec: QuickSpec {
                         )
                         mockStorage.write { db in
                             _ = try ClosedGroup.deleteAll(db)
-                            try SessionThread.fetchOrCreate(
+                            try SessionThread.upsert(
                                 db,
                                 id: "03cbd569f56fb13ea95a3f0c05c331cc24139c0090feb412069dc49fab34406ece",
                                 variant: .group,
-                                creationDateTimestamp: 1234567890,
-                                shouldBeVisible: true,
+                                values: SessionThread.TargetValues(
+                                    creationDateTimestamp: .setTo(1234567890),
+                                    shouldBeVisible: .setTo(true)
+                                ),
                                 calledFromConfig: nil,
                                 using: dependencies
                             ).upsert(db)
@@ -1101,12 +1116,14 @@ class DisplayPictureDownloadJobSpec: QuickSpec {
                         )
                         mockStorage.write { db in
                             _ = try OpenGroup.deleteAll(db)
-                            try SessionThread.fetchOrCreate(
+                            try SessionThread.upsert(
                                 db,
                                 id: OpenGroup.idFor(roomToken: "testRoom", server: "testServer"),
                                 variant: .community,
-                                creationDateTimestamp: 1234567890,
-                                shouldBeVisible: true,
+                                values: SessionThread.TargetValues(
+                                    creationDateTimestamp: .setTo(1234567890),
+                                    shouldBeVisible: .setTo(true)
+                                ),
                                 calledFromConfig: nil,
                                 using: dependencies
                             ).upsert(db)

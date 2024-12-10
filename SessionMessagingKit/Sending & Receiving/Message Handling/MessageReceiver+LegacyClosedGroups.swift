@@ -136,7 +136,7 @@ extension MessageReceiver {
         admins: [String],
         expirationTimer: UInt32,
         formationTimestampMs: UInt64,
-        calledFromConfig configTriggeringChange: LibSession.Config.Variant?,
+        calledFromConfig configTriggeringChange: LibSession.Config?,
         using dependencies: Dependencies
     ) throws {
         // With new closed groups we only want to create them if the admin creating the closed group is an
@@ -231,7 +231,7 @@ extension MessageReceiver {
             try newKeyPair.insert(db)
         }
         
-        if configTriggeringChange?.dumpVariant != .userGroups {
+        if configTriggeringChange?.variant != .userGroups {
             // Update libSession
             try? LibSession.add(
                 db,

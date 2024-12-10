@@ -40,7 +40,7 @@ internal extension LibSessionCacheType {
         serverTimestampMs: Int64
     ) throws {
         guard configNeedsDump(config) else { return }
-        guard case .object(let conf) = config else { throw LibSessionError.invalidConfigObject }
+        guard case .groupInfo(let conf) = config else { throw LibSessionError.invalidConfigObject }
         
         // If the group is destroyed then mark the group as kicked in the USER_GROUPS config and remove
         // the group data (want to keep the group itself around because the UX of conversations randomly
@@ -55,7 +55,7 @@ internal extension LibSessionCacheType {
                     .poller, .pushNotifications, .messages, .members,
                     .encryptionKeys, .authDetails, .libSessionState
                 ],
-                calledFromConfig: .groupInfo,
+                calledFromConfig: config,
                 using: dependencies
             )
             return
@@ -117,7 +117,7 @@ internal extension LibSessionCacheType {
                 .updateAllAndConfig(
                     db,
                     groupChanges,
-                    calledFromConfig: .groupInfo,
+                    calledFromConfig: config,
                     using: dependencies
                 )
         }
@@ -280,7 +280,7 @@ internal extension LibSession {
         try targetGroups.forEach { group in
             try dependencies.mutate(cache: .libSession) { cache in
                 try cache.performAndPushChange(db, for: .groupInfo, sessionId: SessionId(.group, hex: group.threadId)) { config in
-                    guard case .object(let conf) = config else { throw LibSessionError.invalidConfigObject }
+                    guard case .groupInfo(let conf) = config else { throw LibSessionError.invalidConfigObject }
                     guard
                         var cGroupName: [CChar] = group.name.cString(using: .utf8),
                         var cGroupDesc: [CChar] = (group.groupDescription ?? "").cString(using: .utf8)
@@ -338,7 +338,7 @@ internal extension LibSession {
             .forEach { groupId, updatedConfig in
                 try dependencies.mutate(cache: .libSession) { cache in
                     try cache.performAndPushChange(db, for: .groupInfo, sessionId: SessionId(.group, hex: groupId)) { config in
-                        guard case .object(let conf) = config else { throw LibSessionError.invalidConfigObject }
+                        guard case .groupInfo(let conf) = config else { throw LibSessionError.invalidConfigObject }
                         
                         groups_info_set_expiry_timer(conf, Int32(updatedConfig.durationSeconds))
                     }
@@ -360,7 +360,7 @@ public extension LibSession {
     ) throws {
         try dependencies.mutate(cache: .libSession) { cache in
             try cache.performAndPushChange(db, for: .groupInfo, sessionId: groupSessionId) { config in
-                guard case .object(let conf) = config else { throw LibSessionError.invalidConfigObject }
+                guard case .groupInfo(let conf) = config else { throw LibSessionError.invalidConfigObject }
                 
                 if let config: DisappearingMessagesConfiguration = disappearingConfig {
                     groups_info_set_expiry_timer(conf, Int32(config.durationSeconds))
@@ -377,7 +377,7 @@ public extension LibSession {
     ) throws {
         try dependencies.mutate(cache: .libSession) { cache in
             try cache.performAndPushChange(db, for: .groupInfo, sessionId: groupSessionId) { config in
-                guard case .object(let conf) = config else { throw LibSessionError.invalidConfigObject }
+                guard case .groupInfo(let conf) = config else { throw LibSessionError.invalidConfigObject }
                 
                 // Do nothing if the timestamp isn't newer than the current value
                 guard Int64(timestamp) > groups_info_get_delete_before(conf) else { return }
@@ -395,7 +395,7 @@ public extension LibSession {
     ) throws {
         try dependencies.mutate(cache: .libSession) { cache in
             try cache.performAndPushChange(db, for: .groupInfo, sessionId: groupSessionId) { config in
-                guard case .object(let conf) = config else { throw LibSessionError.invalidConfigObject }
+                guard case .groupInfo(let conf) = config else { throw LibSessionError.invalidConfigObject }
                 
                 // Do nothing if the timestamp isn't newer than the current value
                 guard Int64(timestamp) > groups_info_get_attach_delete_before(conf) else { return }
@@ -412,7 +412,7 @@ public extension LibSession {
     ) throws {
         try dependencies.mutate(cache: .libSession) { cache in
             try cache.performAndPushChange(db, for: .groupInfo, sessionId: groupSessionId) { config in
-                guard case .object(let conf) = config else { throw LibSessionError.invalidConfigObject }
+                guard case .groupInfo(let conf) = config else { throw LibSessionError.invalidConfigObject }
                 
                 groups_info_destroy_group(conf)
             }
@@ -425,7 +425,7 @@ public extension LibSession {
 extension LibSession {
     static func groupName(in config: Config?) throws -> String {
         guard
-            case .object(let conf) = config,
+            case .groupInfo(let conf) = config,
             let groupNamePtr: UnsafePointer<CChar> = groups_info_get_name(conf)
         else { throw LibSessionError.invalidConfigObject }
         
@@ -433,13 +433,13 @@ extension LibSession {
     }
     
     static func groupDeleteBefore(in config: Config?) throws -> TimeInterval {
-        guard case .object(let conf) = config else { throw LibSessionError.invalidConfigObject }
+        guard case .groupInfo(let conf) = config else { throw LibSessionError.invalidConfigObject }
         
         return TimeInterval(groups_info_get_delete_before(conf))
     }
     
     static func groupAttachmentDeleteBefore(in config: Config?) throws -> TimeInterval {
-        guard case .object(let conf) = config else { throw LibSessionError.invalidConfigObject }
+        guard case .groupInfo(let conf) = config else { throw LibSessionError.invalidConfigObject }
         
         return TimeInterval(groups_info_get_attach_delete_before(conf))
     }

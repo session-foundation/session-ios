@@ -1172,7 +1172,8 @@ class DeveloperSettingsViewModel: SessionTableViewModel, NavigatableStateHolder,
                     let testStorage: Storage = try Storage(
                         testAccessTo: databasePath,
                         encryptedKeyPath: encKeyPath,
-                        encryptedKeyPassword: password
+                        encryptedKeyPassword: password,
+                        using: dependencies
                     )
                     
                     guard testStorage.isValid else {

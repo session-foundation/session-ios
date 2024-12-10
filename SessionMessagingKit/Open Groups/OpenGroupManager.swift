@@ -157,7 +157,7 @@ public final class OpenGroupManager {
         roomToken: String,
         server: String,
         publicKey: String,
-        calledFromConfig configTriggeringChange: LibSession.Config.Variant?
+        calledFromConfig configTriggeringChange: LibSession.Config?
     ) -> Bool {
         // If we are currently polling for this server and already have a TSGroupThread for this room the do nothing
         if hasExistingOpenGroup(db, roomToken: roomToken, server: server, publicKey: publicKey) {
@@ -207,7 +207,7 @@ public final class OpenGroupManager {
                 db,
                 OpenGroup.Columns.isActive.set(to: true),
                 OpenGroup.Columns.sequenceNumber.set(to: 0),
-                calledFromConfig: configTriggeringChange?.dumpVariant,
+                calledFromConfig: configTriggeringChange,
                 using: dependencies
             )
         
@@ -220,7 +220,7 @@ public final class OpenGroupManager {
         roomToken: String,
         server: String,
         publicKey: String,
-        calledFromConfig configTriggeringChange: ConfigDump.Variant?
+        calledFromConfig configTriggeringChange: LibSession.Config?
     ) -> AnyPublisher<Void, Error> {
         guard successfullyAddedGroup else {
             return Just(())
@@ -249,7 +249,7 @@ public final class OpenGroupManager {
             .flatMap { [dependencies] request in request.send(using: dependencies) }
             .flatMapStorageWritePublisher(using: dependencies) { [dependencies] (db: Database, response: (info: ResponseInfoType, value: OpenGroupAPI.CapabilitiesAndRoomResponse)) -> Void in
                 // Add the new open group to libSession
-                if configTriggeringChange != .userGroups {
+                if configTriggeringChange?.variant != .userGroups {
                     try LibSession.add(
                         db,
                         server: server,
@@ -298,7 +298,7 @@ public final class OpenGroupManager {
     public func delete(
         _ db: Database,
         openGroupId: String,
-        calledFromConfig configTriggeringChange: ConfigDump.Variant?
+        calledFromConfig configTriggeringChange: LibSession.Config?
     ) throws {
         let server: String? = try? OpenGroup
             .select(.server)
@@ -357,7 +357,7 @@ public final class OpenGroupManager {
                 )
         }
         
-        if configTriggeringChange != .userGroups, let server: String = server, let roomToken: String = roomToken {
+        if configTriggeringChange?.variant != .userGroups, let server: String = server, let roomToken: String = roomToken {
             try LibSession.remove(db, server: server, roomToken: roomToken, using: dependencies)
         }
     }

@@ -80,13 +80,18 @@ class LibSessionGroupMembersSpec: QuickSpec {
                 
                 cache.when { $0.setConfig(for: .any, sessionId: .any, to: .any) }.thenReturn(())
                 cache.when { $0.config(for: .userGroups, sessionId: .any) }
-                    .thenReturn(.object(conf))
+                    .thenReturn(.userGroups(conf))
                 cache.when { $0.config(for: .groupInfo, sessionId: .any) }
                     .thenReturn(createGroupOutput.groupState[.groupInfo])
                 cache.when { $0.config(for: .groupMembers, sessionId: .any) }
                     .thenReturn(createGroupOutput.groupState[.groupMembers])
                 cache.when { $0.config(for: .groupKeys, sessionId: .any) }
                     .thenReturn(createGroupOutput.groupState[.groupKeys])
+                cache.when { try $0.performAndPushChange(.any, for: .any, sessionId: .any, change: { _ in }) }.thenReturn(nil)
+                cache.when { $0.pinnedPriority(.any, threadId: .any, threadVariant: .any) }
+                    .thenReturn(LibSession.defaultNewThreadPriority)
+                cache.when { $0.disappearingMessagesConfig(threadId: .any, threadVariant: .any) }
+                    .thenReturn(nil)
                 cache.when { $0.isAdmin(groupSessionId: .any) }.thenReturn(true)
             }
         )
@@ -99,12 +104,14 @@ class LibSessionGroupMembersSpec: QuickSpec {
                 
                 beforeEach {
                     mockStorage.write { db in
-                        try SessionThread.fetchOrCreate(
+                        try SessionThread.upsert(
                             db,
                             id: createGroupOutput.group.threadId,
                             variant: .group,
-                            creationDateTimestamp: 1234567890,
-                            shouldBeVisible: true,
+                            values: SessionThread.TargetValues(
+                                creationDateTimestamp: .setTo(1234567890),
+                                shouldBeVisible: .setTo(true)
+                            ),
                             calledFromConfig: nil,
                             using: dependencies
                         )
@@ -150,7 +157,7 @@ class LibSessionGroupMembersSpec: QuickSpec {
                         expect {
                             try mockLibSessionCache.handleGroupMembersUpdate(
                                 db,
-                                in: .invalid,
+                                in: createGroupOutput.groupState[.groupInfo]!,
                                 groupSessionId: createGroupOutput.groupSessionId,
                                 serverTimestampMs: 1234567891000
                             )
@@ -249,7 +256,10 @@ class LibSessionGroupMembersSpec: QuickSpec {
 private extension LibSession.Config {
     var conf: UnsafeMutablePointer<config_object>? {
         switch self {
-            case .object(let conf): return conf
+            case .userProfile(let conf), .contacts(let conf),
+                .convoInfoVolatile(let conf), .userGroups(let conf),
+                .groupInfo(let conf), .groupMembers(let conf):
+                return conf
             default: return nil
         }
     }

@@ -91,7 +91,7 @@ class LibSessionSpec: QuickSpec {
                 
                 cache.when { $0.setConfig(for: .any, sessionId: .any, to: .any) }.thenReturn(())
                 cache.when { $0.config(for: .userGroups, sessionId: .any) }
-                    .thenReturn(.object(conf))
+                    .thenReturn(.userGroups(conf))
                 cache.when { $0.config(for: .groupInfo, sessionId: .any) }
                     .thenReturn(createGroupOutput.groupState[.groupInfo])
                 cache.when { $0.config(for: .groupMembers, sessionId: .any) }
@@ -108,7 +108,7 @@ class LibSessionSpec: QuickSpec {
                         let callback: ((LibSession.Config?) throws -> Void)? = (untrackedArgs[test: 1] as? (LibSession.Config?) throws -> Void)
                         
                         switch args[test: 0] as? ConfigDump.Variant {
-                            case .userGroups: try? callback?(.object(conf))
+                            case .userGroups: try? callback?(.userGroups(conf))
                             case .groupInfo: try? callback?(createGroupOutput.groupState[.groupInfo])
                             case .groupMembers: try? callback?(createGroupOutput.groupState[.groupMembers])
                             case .groupKeys: try? callback?(createGroupOutput.groupState[.groupKeys])
@@ -335,7 +335,7 @@ class LibSessionSpec: QuickSpec {
                     var userGroupsConf: UnsafeMutablePointer<config_object>!
                     var secretKey: [UInt8] = Array(Data(hex: TestConstants.edSecretKey))
                     _ = user_groups_init(&userGroupsConf, &secretKey, nil, 0, nil)
-                    userGroupsConfig = .object(userGroupsConf)
+                    userGroupsConfig = .userGroups(userGroupsConf)
                     
                     mockLibSessionCache
                         .when { $0.config(for: .userGroups, sessionId: .any) }
@@ -739,7 +739,10 @@ class LibSessionSpec: QuickSpec {
 private extension LibSession.Config {
     var conf: UnsafeMutablePointer<config_object>? {
         switch self {
-            case .object(let conf): return conf
+            case .userProfile(let conf), .contacts(let conf),
+                .convoInfoVolatile(let conf), .userGroups(let conf),
+                .groupInfo(let conf), .groupMembers(let conf):
+                return conf
             default: return nil
         }
     }

@@ -192,6 +192,7 @@ public final class CommunityPoller: CommunityPollerType & PollerType {
                             )
                             .asRequest(of: String.self)
                             .fetchSet(db)
+                        let userSessionId: SessionId = dependencies[cache: .general].sessionId
 
                         try hiddenRoomIds.forEach { id in
                             try dependencies[singleton: .openGroupManager].delete(
@@ -202,7 +203,9 @@ public final class CommunityPoller: CommunityPollerType & PollerType {
                                 /// not be in an invalid state on other devices - one of the other devices
                                 /// will eventually trigger a new config update which will re-add this room
                                 /// and hopefully at that time it'll work again
-                                calledFromConfig: .userGroups
+                                calledFromConfig: dependencies.mutate(cache: .libSession) { cache in
+                                    cache.config(for: .userGroups, sessionId: userSessionId)
+                                }
                             )
                         }
 

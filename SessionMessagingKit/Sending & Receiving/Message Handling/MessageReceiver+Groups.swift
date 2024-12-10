@@ -162,16 +162,18 @@ extension MessageReceiver {
         joinedAt: TimeInterval,
         invited: Bool,
         wasKickedFromGroup: Bool,
-        calledFromConfig configTriggeringChange: ConfigDump.Variant?,
+        calledFromConfig configTriggeringChange: LibSession.Config?,
         using dependencies: Dependencies
     ) throws {
         // Create the group
-        try SessionThread.fetchOrCreate(
+        try SessionThread.upsert(
             db,
             id: groupSessionId,
             variant: .group,
-            creationDateTimestamp: joinedAt,
-            shouldBeVisible: true,
+            values: SessionThread.TargetValues(
+                creationDateTimestamp: .useExistingOrSetTo(joinedAt),
+                shouldBeVisible: .setTo(true)
+            ),
             calledFromConfig: configTriggeringChange,
             using: dependencies
         )
@@ -185,7 +187,7 @@ extension MessageReceiver {
             invited: invited
         ).upserted(db)
         
-        if configTriggeringChange != .userGroups {
+        if configTriggeringChange?.variant != .userGroups {
             // If we had previously been kicked from a group then we need to update the flag in UserGroups
             // so that we don't consider ourselves as kicked anymore
             if wasKickedFromGroup {
@@ -968,12 +970,16 @@ extension MessageReceiver {
                 dependencies[singleton: .notificationsManager].notifyUser(
                     db,
                     for: interaction,
-                    in: try SessionThread.fetchOrCreate(
+                    in: try SessionThread.upsert(
                         db,
                         id: groupSessionId.hexString,
                         variant: .group,
-                        creationDateTimestamp: (dependencies[cache: .snodeAPI].currentOffsetTimestampMs() / 1000),
-                        shouldBeVisible: nil,
+                        values: SessionThread.TargetValues(
+                            creationDateTimestamp: .useExistingOrSetTo(
+                                dependencies[cache: .snodeAPI].currentOffsetTimestampMs() / 1000
+                            ),
+                            shouldBeVisible: .useExisting
+                        ),
                         calledFromConfig: nil,
                         using: dependencies
                     ),

@@ -30,6 +30,15 @@ class MessageSendJobSpec: QuickSpec {
         @TestState var dependencies: TestDependencies! = TestDependencies { dependencies in
             dependencies.dateNow = Date(timeIntervalSince1970: 1234567890)
         }
+        @TestState(cache: .libSession, in: dependencies) var mockLibSessionCache: MockLibSessionCache! = MockLibSessionCache(
+            initialSetup: { cache in
+                cache
+                    .when { $0.pinnedPriority(.any, threadId: .any, threadVariant: .any) }
+                    .thenReturn(LibSession.defaultNewThreadPriority)
+                cache.when { $0.disappearingMessagesConfig(threadId: .any, threadVariant: .any) }
+                    .thenReturn(nil)
+            }
+        )
         @TestState(singleton: .storage, in: dependencies) var mockStorage: Storage! = SynchronousStorage(
             customWriter: try! DatabaseQueue(),
             migrationTargets: [
@@ -38,7 +47,7 @@ class MessageSendJobSpec: QuickSpec {
             ],
             using: dependencies,
             initialData: { db in
-                try SessionThread.fetchOrCreate(
+                try SessionThread.upsert(
                     db,
                     id: "Test1",
                     variant: .contact,

@@ -123,8 +123,11 @@ private class ConfigStore {
         /// Finally we free any remaining configs
         store.forEach { _, config in
             switch config {
-                case .invalid, .groupKeys: break    // Shouldn't happen
-                case .object(let conf): config_free(conf)
+                case .groupKeys: break    // Shouldn't happen
+                case .userProfile(let conf), .contacts(let conf),
+                    .convoInfoVolatile(let conf), .userGroups(let conf),
+                    .groupInfo(let conf), .groupMembers(let conf):
+                    config_free(conf)
             }
         }
         store.removeAll()
@@ -302,8 +305,8 @@ public extension LibSession {
                     var identityPublicKey: [UInt8] = sessionId.publicKey
                     
                     guard
-                        case .object(let infoConf) = configStore[sessionId, .groupInfo],
-                        case .object(let membersConf) = configStore[sessionId, .groupMembers]
+                        case .groupInfo(let infoConf) = configStore[sessionId, .groupInfo],
+                        case .groupMembers(let membersConf) = configStore[sessionId, .groupMembers]
                     else {
                         throw LibSessionError.unableToCreateConfigObject
                             .logging("Unable to create \(variant.rawValue) config object: Group info and member config states not loaded")
@@ -343,8 +346,8 @@ public extension LibSession {
                     var identityPublicKey: [UInt8] = sessionId.publicKey
                     
                     guard
-                        case .object(let infoConf) = configStore[sessionId, .groupInfo],
-                        case .object(let membersConf) = configStore[sessionId, .groupMembers]
+                        case .groupInfo(let infoConf) = configStore[sessionId, .groupInfo],
+                        case .groupMembers(let membersConf) = configStore[sessionId, .groupMembers]
                     else {
                         throw LibSessionError.unableToCreateConfigObject
                             .logging("Unable to create \(variant.rawValue) config object: Group info and member config states not loaded")
@@ -402,8 +405,11 @@ public extension LibSession {
                 default:
                     configs.forEach { config in
                         switch config {
-                            case .invalid, .groupKeys: break    // Should be handled above
-                            case .object(let conf): config_free(conf)
+                            case .groupKeys: break    // Should be handled above
+                            case .userProfile(let conf), .contacts(let conf),
+                                .convoInfoVolatile(let conf), .userGroups(let conf),
+                                .groupInfo(let conf), .groupMembers(let conf):
+                                config_free(conf)
                         }
                     }
             }
@@ -561,8 +567,11 @@ public extension LibSession {
         
         public func configNeedsDump(_ config: LibSession.Config?) -> Bool {
             switch config {
-                case .invalid, .none: return false
-                case .object(let conf): return config_needs_dump(conf)
+                case .none: return false
+                case .userProfile(let conf), .contacts(let conf),
+                    .convoInfoVolatile(let conf), .userGroups(let conf),
+                    .groupInfo(let conf), .groupMembers(let conf):
+                    return config_needs_dump(conf)
                 case .groupKeys(let conf, _, _): return groups_keys_needs_dump(conf)
             }
         }
@@ -709,6 +718,64 @@ public extension LibSession {
         
         // MARK: - Value Access
         
+        public func pinnedPriority(
+            _ db: Database,
+            threadId: String,
+            threadVariant: SessionThread.Variant
+        ) -> Int32? {
+            let userSessionId: SessionId = dependencies[cache: .general].sessionId
+            
+            switch threadVariant {
+                case .contact where threadId == userSessionId.hexString:
+                    return configStore[userSessionId, .userProfile]?.pinnedPriority(
+                        db,
+                        threadId: threadId,
+                        threadVariant: threadVariant
+                    )
+                    
+                case .contact:
+                    return configStore[userSessionId, .contacts]?.pinnedPriority(
+                        db,
+                        threadId: threadId,
+                        threadVariant: threadVariant
+                    )
+                    
+                case .community, .group, .legacyGroup:
+                    return configStore[userSessionId, .userGroups]?.pinnedPriority(
+                        db,
+                        threadId: threadId,
+                        threadVariant: threadVariant
+                    )
+            }
+        }
+        
+        public func disappearingMessagesConfig(
+            threadId: String,
+            threadVariant: SessionThread.Variant
+        ) -> DisappearingMessagesConfiguration? {
+            let userSessionId: SessionId = dependencies[cache: .general].sessionId
+            
+            switch threadVariant {
+                case .contact where threadId == userSessionId.hexString:
+                    return configStore[userSessionId, .userProfile]?.disappearingMessagesConfig(
+                        threadId: threadId,
+                        threadVariant: threadVariant
+                    )
+                    
+                case .contact:
+                    return configStore[userSessionId, .contacts]?.disappearingMessagesConfig(
+                        threadId: threadId,
+                        threadVariant: threadVariant
+                    )
+                    
+                case .community, .group, .legacyGroup:
+                    return configStore[userSessionId, .userGroups]?.disappearingMessagesConfig(
+                        threadId: threadId,
+                        threadVariant: threadVariant
+                    )
+            }
+        }
+        
         public func isAdmin(groupSessionId: SessionId) -> Bool {
             guard case .groupKeys(let conf, _, _) = configStore[groupSessionId, .groupKeys] else {
                 return false
@@ -796,6 +863,15 @@ public protocol LibSessionCacheType: LibSessionImmutableCacheType, MutableCacheT
     
     // MARK: - Value Access
     
+    func pinnedPriority(
+        _ db: Database,
+        threadId: String,
+        threadVariant: SessionThread.Variant
+    ) -> Int32?
+    func disappearingMessagesConfig(
+        threadId: String,
+        threadVariant: SessionThread.Variant
+    ) -> DisappearingMessagesConfiguration?
     func isAdmin(groupSessionId: SessionId) -> Bool
 }
 
@@ -864,6 +940,15 @@ private final class NoopLibSessionCache: LibSessionCacheType {
     
     // MARK: - Value Access
     
+    func pinnedPriority(
+        _ db: Database,
+        threadId: String,
+        threadVariant: SessionThread.Variant
+    ) -> Int32? { return nil }
+    func disappearingMessagesConfig(
+        threadId: String,
+        threadVariant: SessionThread.Variant
+    ) -> DisappearingMessagesConfiguration? { return nil }
     func isAdmin(groupSessionId: SessionId) -> Bool { return false }
 }
 
@@ -881,9 +966,12 @@ private extension Optional where Wrapped == Int32 {
         }
         
         switch variant {
-            case .userProfile, .contacts, .convoInfoVolatile,
-                .userGroups, .groupInfo, .groupMembers:
-                return .object(conf)
+            case .userProfile: return .userProfile(conf)
+            case .contacts: return .contacts(conf)
+            case .convoInfoVolatile: return .convoInfoVolatile(conf)
+            case .userGroups: return .userGroups(conf)
+            case .groupInfo: return .groupInfo(conf)
+            case .groupMembers: return .groupMembers(conf)
             
             case .groupKeys, .invalid: throw LibSessionError.unableToCreateConfigObject
         }

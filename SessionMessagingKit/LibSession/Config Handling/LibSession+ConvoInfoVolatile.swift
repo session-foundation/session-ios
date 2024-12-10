@@ -23,7 +23,7 @@ internal extension LibSessionCacheType {
         in config: LibSession.Config?
     ) throws {
         guard configNeedsDump(config) else { return }
-        guard case .object(let conf) = config else { throw LibSessionError.invalidConfigObject }
+        guard case .convoInfoVolatile(let conf) = config else { throw LibSessionError.invalidConfigObject }
         
         // Get the volatile thread info from the conf and local conversations
         let volatileThreadInfo: [LibSession.VolatileThreadInfo] = try LibSession.extractConvoVolatileInfo(from: conf)
@@ -59,7 +59,7 @@ internal extension LibSessionCacheType {
                         .updateAllAndConfig(
                             db,
                             SessionThread.Columns.markedAsUnread.set(to: markedAsUnread),
-                            calledFromConfig: .convoInfoVolatile,
+                            calledFromConfig: config,
                             using: dependencies
                         )
                 }
@@ -94,7 +94,7 @@ internal extension LibSessionCacheType {
                     .updateAllAndConfig(
                         db,
                         Interaction.Columns.wasRead.set(to: true),
-                        calledFromConfig: .convoInfoVolatile,
+                        calledFromConfig: config,
                         using: dependencies
                     )
                 try Interaction.scheduleReadJobs(
@@ -104,7 +104,7 @@ internal extension LibSessionCacheType {
                     interactionInfo: interactionInfoToMarkAsRead,
                     lastReadTimestampMs: lastReadTimestampMs,
                     trySendReadReceipt: false,  // Interactions already read, no need to send
-                    calledFromConfig: .convoInfoVolatile,
+                    calledFromConfig: config,
                     using: dependencies
                 )
                 return nil
@@ -125,7 +125,7 @@ internal extension LibSession {
         convoInfoVolatileChanges: [VolatileThreadInfo],
         in config: Config?
     ) throws {
-        guard case .object(let conf) = config else { throw LibSessionError.invalidConfigObject }
+        guard case .convoInfoVolatile(let conf) = config else { throw LibSessionError.invalidConfigObject }
         
         // Exclude any invalid thread info
         let validChanges: [VolatileThreadInfo] = convoInfoVolatileChanges
@@ -301,7 +301,7 @@ internal extension LibSession {
     ) throws {
         try dependencies.mutate(cache: .libSession) { cache in
             try cache.performAndPushChange(db, for: .convoInfoVolatile, sessionId: dependencies[cache: .general].sessionId) { config in
-                guard case .object(let conf) = config else { throw LibSessionError.invalidConfigObject }
+                guard case .convoInfoVolatile(let conf) = config else { throw LibSessionError.invalidConfigObject }
                 
                 try volatileContactIds.forEach { contactId in
                     var cSessionId: [CChar] = try contactId.cString(using: .utf8) ?? { throw LibSessionError.invalidCConversion }()
@@ -320,7 +320,7 @@ internal extension LibSession {
     ) throws {
         try dependencies.mutate(cache: .libSession) { cache in
             try cache.performAndPushChange(db, for: .convoInfoVolatile, sessionId: dependencies[cache: .general].sessionId) { config in
-                guard case .object(let conf) = config else { throw LibSessionError.invalidConfigObject }
+                guard case .convoInfoVolatile(let conf) = config else { throw LibSessionError.invalidConfigObject }
                 
                 try volatileLegacyGroupIds.forEach { legacyGroupId in
                     var cLegacyGroupId: [CChar] = try legacyGroupId.cString(using: .utf8) ?? {
@@ -341,7 +341,7 @@ internal extension LibSession {
     ) throws {
         try dependencies.mutate(cache: .libSession) { cache in
             try cache.performAndPushChange(db, for: .convoInfoVolatile, sessionId: dependencies[cache: .general].sessionId) { config in
-                guard case .object(let conf) = config else { throw LibSessionError.invalidConfigObject }
+                guard case .convoInfoVolatile(let conf) = config else { throw LibSessionError.invalidConfigObject }
                 
                 try volatileGroupSessionIds.forEach { groupSessionId in
                     var cGroupId: [CChar] = try groupSessionId.hexString.cString(using: .utf8) ?? {
@@ -362,7 +362,7 @@ internal extension LibSession {
     ) throws {
         try dependencies.mutate(cache: .libSession) { cache in
             try cache.performAndPushChange(db, for: .convoInfoVolatile, sessionId: dependencies[cache: .general].sessionId) { config in
-                guard case .object(let conf) = config else { throw LibSessionError.invalidConfigObject }
+                guard case .convoInfoVolatile(let conf) = config else { throw LibSessionError.invalidConfigObject }
                 
                 try volatileCommunityInfo.forEach { urlInfo in
                     var cBaseUrl: [CChar] = try urlInfo.server.cString(using: .utf8) ?? { throw LibSessionError.invalidCConversion }()
@@ -415,7 +415,9 @@ public extension LibSessionCacheType {
         openGroup: OpenGroup?
     ) -> Bool {
         // If we don't have a config then just assume it's unread
-        guard case .object(let conf) = config(for: .convoInfoVolatile, sessionId: userSessionId) else { return false }
+        guard case .convoInfoVolatile(let conf) = config(for: .convoInfoVolatile, sessionId: userSessionId) else {
+            return false
+        }
                 
         switch threadVariant {
             case .contact:

@@ -3,6 +3,7 @@
 import UIKit
 import Combine
 import GRDB
+import SessionUtil
 import SessionSnodeKit
 import SessionUtilitiesKit
 
@@ -213,6 +214,12 @@ class OpenGroupManagerSpec: QuickSpec {
                 cache.when { $0.stopAndRemoveAllPollers() }.thenReturn(())
             }
         )
+        @TestState var userGroupsConf: UnsafeMutablePointer<config_object>!
+        @TestState var userGroupsInitResult: Int32! = {
+            var secretKey: [UInt8] = Array(Data(hex: TestConstants.edSecretKey))
+            
+            return user_groups_init(&userGroupsConf, &secretKey, nil, 0, nil)
+        }()
         @TestState var disposables: [AnyCancellable]! = []
         
         @TestState var cache: OpenGroupManager.Cache! = OpenGroupManager.Cache(using: dependencies)
@@ -221,11 +228,7 @@ class OpenGroupManagerSpec: QuickSpec {
         // MARK: - an OpenGroupManager
         describe("an OpenGroupManager") {
             beforeEach {
-                LibSession.loadState(
-                    userPublicKey: "05\(TestConstants.publicKey)",
-                    ed25519SecretKey: Array(Data(hex: TestConstants.edSecretKey)),
-                    using: dependencies
-                )
+                _ = userGroupsInitResult
             }
             
             // MARK: -- cache data
@@ -353,7 +356,7 @@ class OpenGroupManagerSpec: QuickSpec {
                 // MARK: ---- when there is a thread for the room and the cache has a poller
                 context("when there is a thread for the room and the cache has a poller") {
                     beforeEach {
-                        mockCommunityPollerCache.when { $0.serversBeingPolled }.thenReturn(["testserver"])
+                        mockCommunityPollerCache.when { $0.serversBeingPolled }.thenReturn(["http://127.0.0.1"])
                     }
                     
                     // MARK: ------ for the no-scheme variant
@@ -610,14 +613,6 @@ class OpenGroupManagerSpec: QuickSpec {
         
         // MARK: - an OpenGroupManager
         describe("an OpenGroupManager") {
-            beforeEach {
-                LibSession.loadState(
-                    userPublicKey: "05\(TestConstants.publicKey)",
-                    ed25519SecretKey: Array(Data(hex: TestConstants.edSecretKey)),
-                    using: dependencies
-                )
-            }
-            
             // MARK: -- when adding
             context("when adding") {
                 beforeEach {
@@ -645,11 +640,7 @@ class OpenGroupManagerSpec: QuickSpec {
                                 roomToken: "testRoom",
                                 server: "http://127.0.0.1",
                                 publicKey: TestConstants.serverPublicKey,
-                                calledFromConfig: .userGroups( // Don't trigger LibSession logic
-                                    dependencies.caches[.libSession]
-                                        .config(for: .userGroups, publicKey: "05\(TestConstants.publicKey)")
-                                        .wrappedValue!
-                                )
+                                calledFromConfig: .userGroups(userGroupsConf)  // Don't trigger LibSession logic
                             )
                         }
                         .flatMap { successfullyAddedGroup in
@@ -659,7 +650,7 @@ class OpenGroupManagerSpec: QuickSpec {
                                 roomToken: "testRoom",
                                 server: "http://127.0.0.1",
                                 publicKey: TestConstants.serverPublicKey,
-                                calledFromConfig: .userGroups // Don't trigger LibSession logic
+                                calledFromConfig: .userGroups(userGroupsConf)  // Don't trigger LibSession logic
                             )
                         }
                         .sinkAndStore(in: &disposables)
@@ -685,11 +676,7 @@ class OpenGroupManagerSpec: QuickSpec {
                                 roomToken: "testRoom",
                                 server: "http://127.0.0.1",
                                 publicKey: TestConstants.serverPublicKey,
-                                calledFromConfig: .userGroups( // Don't trigger LibSession logic
-                                    dependencies.caches[.libSession]
-                                        .config(for: .userGroups, publicKey: "05\(TestConstants.publicKey)")
-                                        .wrappedValue!
-                                )
+                                calledFromConfig: .userGroups(userGroupsConf)  // Don't trigger LibSession logic
                             )
                         }
                         .flatMap { successfullyAddedGroup in
@@ -699,7 +686,7 @@ class OpenGroupManagerSpec: QuickSpec {
                                 roomToken: "testRoom",
                                 server: "http://127.0.0.1",
                                 publicKey: TestConstants.serverPublicKey,
-                                calledFromConfig: .userGroups // Don't trigger LibSession logic
+                                calledFromConfig: .userGroups(userGroupsConf)  // Don't trigger LibSession logic
                             )
                         }
                         .sinkAndStore(in: &disposables)
@@ -736,11 +723,7 @@ class OpenGroupManagerSpec: QuickSpec {
                                     publicKey: TestConstants.serverPublicKey
                                         .replacingOccurrences(of: "c3", with: "00")
                                         .replacingOccurrences(of: "b3", with: "00"),
-                                    calledFromConfig: .userGroups( // Don't trigger LibSession logic
-                                        dependencies.caches[.libSession]
-                                            .config(for: .userGroups, publicKey: "05\(TestConstants.publicKey)")
-                                            .wrappedValue!
-                                    )
+                                    calledFromConfig: .userGroups(userGroupsConf)  // Don't trigger LibSession logic
                                 )
                             }
                             .flatMap { successfullyAddedGroup in
@@ -752,7 +735,7 @@ class OpenGroupManagerSpec: QuickSpec {
                                     publicKey: TestConstants.serverPublicKey
                                         .replacingOccurrences(of: "c3", with: "00")
                                         .replacingOccurrences(of: "b3", with: "00"),
-                                    calledFromConfig: .userGroups // Don't trigger LibSession logic
+                                    calledFromConfig: .userGroups(userGroupsConf)  // Don't trigger LibSession logic
                                 )
                             }
                             .sinkAndStore(in: &disposables)
@@ -801,11 +784,7 @@ class OpenGroupManagerSpec: QuickSpec {
                                     roomToken: "testRoom",
                                     server: "http://127.0.0.1",
                                     publicKey: TestConstants.serverPublicKey,
-                                    calledFromConfig: .userGroups( // Don't trigger LibSession logic
-                                        dependencies.caches[.libSession]
-                                            .config(for: .userGroups, publicKey: "05\(TestConstants.publicKey)")
-                                            .wrappedValue!
-                                    )
+                                    calledFromConfig: .userGroups(userGroupsConf)  // Don't trigger LibSession logic
                                 )
                             }
                             .flatMap { successfullyAddedGroup in
@@ -815,7 +794,7 @@ class OpenGroupManagerSpec: QuickSpec {
                                     roomToken: "testRoom",
                                     server: "http://127.0.0.1",
                                     publicKey: TestConstants.serverPublicKey,
-                                    calledFromConfig: .userGroups // Don't trigger LibSession logic
+                                    calledFromConfig: .userGroups(userGroupsConf)  // Don't trigger LibSession logic
                                 )
                             }
                             .mapError { result -> Error in error.setting(to: result) }
@@ -851,7 +830,7 @@ class OpenGroupManagerSpec: QuickSpec {
                         try openGroupManager.delete(
                             db,
                             openGroupId: OpenGroup.idFor(roomToken: "testRoom", server: "http://127.0.0.1"),
-                            calledFromConfig: .userGroups // Don't trigger LibSession logic
+                            calledFromConfig: .userGroups(userGroupsConf)  // Don't trigger LibSession logic
                         )
                     }
                     
@@ -865,7 +844,7 @@ class OpenGroupManagerSpec: QuickSpec {
                         try openGroupManager.delete(
                             db,
                             openGroupId: OpenGroup.idFor(roomToken: "testRoom", server: "http://127.0.0.1"),
-                            calledFromConfig: .userGroups // Don't trigger LibSession logic
+                            calledFromConfig: .userGroups(userGroupsConf)  // Don't trigger LibSession logic
                         )
                     }
                     
@@ -881,7 +860,7 @@ class OpenGroupManagerSpec: QuickSpec {
                             try openGroupManager.delete(
                                 db,
                                 openGroupId: OpenGroup.idFor(roomToken: "testRoom", server: "http://127.0.0.1"),
-                                calledFromConfig: .userGroups // Don't trigger LibSession logic
+                                calledFromConfig: .userGroups(userGroupsConf)  // Don't trigger LibSession logic
                             )
                         }
                         
@@ -895,7 +874,7 @@ class OpenGroupManagerSpec: QuickSpec {
                             try openGroupManager.delete(
                                 db,
                                 openGroupId: OpenGroup.idFor(roomToken: "testRoom", server: "http://127.0.0.1"),
-                                calledFromConfig: .userGroups // Don't trigger LibSession logic
+                                calledFromConfig: .userGroups(userGroupsConf)  // Don't trigger LibSession logic
                             )
                         }
                         
@@ -933,7 +912,7 @@ class OpenGroupManagerSpec: QuickSpec {
                             try openGroupManager.delete(
                                 db,
                                 openGroupId: OpenGroup.idFor(roomToken: "testRoom", server: "http://127.0.0.1"),
-                                calledFromConfig: .userGroups // Don't trigger LibSession logic
+                                calledFromConfig: .userGroups(userGroupsConf)  // Don't trigger LibSession logic
                             )
                         }
                         
@@ -984,7 +963,7 @@ class OpenGroupManagerSpec: QuickSpec {
                             try openGroupManager.delete(
                                 db,
                                 openGroupId: OpenGroup.idFor(roomToken: "testRoom", server: OpenGroupAPI.defaultServer),
-                                calledFromConfig: .userGroups // Don't trigger LibSession logic
+                                calledFromConfig: .userGroups(userGroupsConf)  // Don't trigger LibSession logic
                             )
                         }
                         
@@ -998,7 +977,7 @@ class OpenGroupManagerSpec: QuickSpec {
                             try openGroupManager.delete(
                                 db,
                                 openGroupId: OpenGroup.idFor(roomToken: "testRoom", server: OpenGroupAPI.defaultServer),
-                                calledFromConfig: .userGroups // Don't trigger LibSession logic
+                                calledFromConfig: .userGroups(userGroupsConf)  // Don't trigger LibSession logic
                             )
                         }
                         
@@ -1038,14 +1017,6 @@ class OpenGroupManagerSpec: QuickSpec {
         
         // MARK: - an OpenGroupManager
         describe("an OpenGroupManager") {
-            beforeEach {
-                LibSession.loadState(
-                    userPublicKey: "05\(TestConstants.publicKey)",
-                    ed25519SecretKey: Array(Data(hex: TestConstants.edSecretKey)),
-                    using: dependencies
-                )
-            }
-            
             // MARK: -- when handling room poll info
             context("when handling room poll info") {
                 beforeEach {
@@ -1137,7 +1108,6 @@ class OpenGroupManagerSpec: QuickSpec {
                             publicKey: TestConstants.publicKey,
                             for: "testRoom",
                             on: "http://127.0.0.1",
-                            waitForImageToComplete: true,
                             using: dependencies
                         )
                     }
@@ -1503,7 +1473,7 @@ class OpenGroupManagerSpec: QuickSpec {
                                             target: .community(
                                                 imageId: "10",
                                                 roomToken: "testRoom",
-                                                server: "testServer"
+                                                server: "http://127.0.0.1"
                                             ),
                                             timestamp: 1234567890
                                         )
@@ -1635,7 +1605,7 @@ class OpenGroupManagerSpec: QuickSpec {
                                             target: .community(
                                                 imageId: "10",
                                                 roomToken: "testRoom",
-                                                server: "testServer"
+                                                server: "http://127.0.0.1"
                                             ),
                                             timestamp: 1234567890
                                         )
@@ -1674,14 +1644,6 @@ class OpenGroupManagerSpec: QuickSpec {
         
         // MARK: - an OpenGroupManager
         describe("an OpenGroupManager") {
-            beforeEach {
-                LibSession.loadState(
-                    userPublicKey: "05\(TestConstants.publicKey)",
-                    ed25519SecretKey: Array(Data(hex: TestConstants.edSecretKey)),
-                    using: dependencies
-                )
-            }
-            
             // MARK: -- when handling messages
             context("when handling messages") {
                 beforeEach {
@@ -2318,14 +2280,6 @@ class OpenGroupManagerSpec: QuickSpec {
         
         // MARK: - an OpenGroupManager
         describe("an OpenGroupManager") {
-            beforeEach {
-                LibSession.loadState(
-                    userPublicKey: "05\(TestConstants.publicKey)",
-                    ed25519SecretKey: Array(Data(hex: TestConstants.edSecretKey)),
-                    using: dependencies
-                )
-            }
-            
             // MARK: -- when determining if a user is a moderator or an admin
             context("when determining if a user is a moderator or an admin") {
                 beforeEach {

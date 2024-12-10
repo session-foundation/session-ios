@@ -11,7 +11,10 @@ extension Message.Destination: Mocked {
 }
 
 extension LibSession.Config: Mocked {
-    static var mock: LibSession.Config = .invalid
+    static var mock: LibSession.Config = {
+        var conf = config_object()
+        return withUnsafeMutablePointer(to: &conf) { .contacts($0) }
+    }()
 }
 
 extension ConfigDump.Variant: Mocked {
@@ -33,6 +36,10 @@ extension SessionThread: Mocked {
         pinnedPriority: nil,
         using: .any
     )
+}
+
+extension SessionThread.Variant: Mocked {
+    static var mock: SessionThread.Variant = .contact
 }
 
 extension Interaction: Mocked {

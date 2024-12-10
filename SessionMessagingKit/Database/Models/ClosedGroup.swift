@@ -185,7 +185,7 @@ public extension ClosedGroup {
     static func approveGroupIfNeeded(
         _ db: Database,
         group: ClosedGroup,
-        calledFromConfig configTriggeringChange: ConfigDump.Variant?,
+        calledFromConfig configTriggeringChange: LibSession.Config?,
         using dependencies: Dependencies
     ) throws {
         guard let userED25519KeyPair: KeyPair = Identity.fetchUserEd25519KeyPair(db) else {
@@ -226,7 +226,7 @@ public extension ClosedGroup {
         }
         
         /// Update the `USER_GROUPS` config
-        if configTriggeringChange != .userGroups {
+        if configTriggeringChange?.variant != .userGroups {
             try? LibSession.update(
                 db,
                 groupSessionId: group.id,
@@ -257,7 +257,7 @@ public extension ClosedGroup {
         _ db: Database,
         threadIds: [String],
         dataToRemove: [RemovableGroupData],
-        calledFromConfig configTriggeringChange: ConfigDump.Variant?,
+        calledFromConfig configTriggeringChange: LibSession.Config?,
         using dependencies: Dependencies
     ) throws {
         guard !threadIds.isEmpty && !dataToRemove.isEmpty else { return }
@@ -412,7 +412,7 @@ public extension ClosedGroup {
         }
         
         // Ignore if called from the config handling
-        if dataToRemove.contains(.userGroup) && configTriggeringChange != .userGroups {
+        if dataToRemove.contains(.userGroup) && configTriggeringChange?.variant != .userGroups {
             try LibSession.remove(
                 db,
                 legacyGroupIds: threadVariants

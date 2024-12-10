@@ -101,6 +101,21 @@ class MockLibSessionCache: Mock<LibSessionCacheType>, LibSessionCacheType {
     
     // MARK: - Value Access
     
+    public func pinnedPriority(
+        _ db: Database,
+        threadId: String,
+        threadVariant: SessionThread.Variant
+    ) -> Int32? {
+        return mock(args: [threadId, threadVariant], untrackedArgs: [db])
+    }
+    
+    public func disappearingMessagesConfig(
+        threadId: String,
+        threadVariant: SessionThread.Variant
+    ) -> DisappearingMessagesConfiguration? {
+        return mock(args: [threadId, threadVariant])
+    }
+    
     func isAdmin(groupSessionId: SessionId) -> Bool {
         return mock(args: [groupSessionId])
     }

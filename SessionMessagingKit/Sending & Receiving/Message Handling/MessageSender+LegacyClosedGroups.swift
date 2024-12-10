@@ -42,7 +42,7 @@ extension MessageSender {
                 // Create the relevant objects in the database
                 let thread: SessionThread = try SessionThread.upsert(
                     db,
-                    id: groupPublicKey,
+                    id: legacyGroupSessionId,
                     variant: .legacyGroup,
                     values: SessionThread.TargetValues(
                         creationDateTimestamp: .setTo(formationTimestamp),

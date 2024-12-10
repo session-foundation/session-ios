@@ -17,8 +17,15 @@ extension Optional {
         }
     }
     
-    public func defaulting(to value: Wrapped) -> Wrapped {
-        return (self ?? value)
+    public func defaulting(to value: @autoclosure () -> Wrapped) -> Wrapped {
+        return (self ?? value())
+    }
+    
+    public func defaulting(toThrowing value: @autoclosure () throws -> Wrapped) throws -> Wrapped {
+        switch self {
+            case .some(let value): return value
+            case .none: return try value()
+        }
     }
     
     public func mapOrThrow<U>(error: Error, _ transform: (Wrapped) throws -> U) throws -> U {

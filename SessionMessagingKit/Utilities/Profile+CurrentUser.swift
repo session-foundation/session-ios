@@ -124,7 +124,7 @@ public extension Profile {
         displayPictureUpdate: DisplayPictureManager.Update,
         blocksCommunityMessageRequests: Bool? = nil,
         sentTimestamp: TimeInterval,
-        calledFromConfig configTriggeringChange: ConfigDump.Variant?,
+        calledFromConfig configTriggeringChange: LibSession.Config?,
         using dependencies: Dependencies
     ) throws {
         let isCurrentUser = (publicKey == dependencies[cache: .general].sessionId.hexString)

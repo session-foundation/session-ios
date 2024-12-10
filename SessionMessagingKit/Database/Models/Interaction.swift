@@ -710,13 +710,13 @@ public extension Interaction {
         interactionInfo: [Interaction.ReadInfo],
         lastReadTimestampMs: Int64,
         trySendReadReceipt: Bool,
-        calledFromConfig configTriggeringChange: ConfigDump.Variant?,
+        calledFromConfig configTriggeringChange: LibSession.Config?,
         using dependencies: Dependencies
     ) throws {
         guard !interactionInfo.isEmpty else { return }
         
         // Update the last read timestamp if needed
-        if configTriggeringChange != .convoInfoVolatile {
+        if configTriggeringChange?.variant != .convoInfoVolatile {
             try LibSession.syncThreadLastReadIfNeeded(
                 db,
                 threadId: threadId,

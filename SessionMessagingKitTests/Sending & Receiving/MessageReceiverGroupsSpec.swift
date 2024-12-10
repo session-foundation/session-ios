@@ -146,13 +146,13 @@ class MessageReceiverGroupsSpec: QuickSpec {
             var conf: UnsafeMutablePointer<config_object>!
             _ = user_groups_init(&conf, &secretKey, nil, 0, nil)
             
-            return .object(conf)
+            return .userGroups(conf)
         }()
         @TestState var convoInfoVolatileConfig: LibSession.Config! = {
             var conf: UnsafeMutablePointer<config_object>!
             _ = convo_info_volatile_init(&conf, &secretKey, nil, 0, nil)
             
-            return .object(conf)
+            return .convoInfoVolatile(conf)
         }()
         @TestState var groupInfoConf: UnsafeMutablePointer<config_object>! = {
             var conf: UnsafeMutablePointer<config_object>!
@@ -172,8 +172,8 @@ class MessageReceiverGroupsSpec: QuickSpec {
             
             return conf
         }()
-        @TestState var groupInfoConfig: LibSession.Config! = .object(groupInfoConf)
-        @TestState var groupMembersConfig: LibSession.Config! = .object(groupMembersConf)
+        @TestState var groupInfoConfig: LibSession.Config! = .groupInfo(groupInfoConf)
+        @TestState var groupMembersConfig: LibSession.Config! = .groupMembers(groupMembersConf)
         @TestState var groupKeysConfig: LibSession.Config! = .groupKeys(
             groupKeysConf,
             info: groupInfoConf,
@@ -217,6 +217,12 @@ class MessageReceiverGroupsSpec: QuickSpec {
                         }
                     }
                     .thenReturn(())
+                cache
+                    .when { $0.pinnedPriority(.any, threadId: .any, threadVariant: .any) }
+                    .thenReturn(LibSession.defaultNewThreadPriority)
+                cache
+                    .when { $0.disappearingMessagesConfig(threadId: .any, threadVariant: .any) }
+                    .thenReturn(nil)
                 cache.when { $0.isAdmin(groupSessionId: .any) }.thenReturn(true)
             }
         )
@@ -813,12 +819,14 @@ class MessageReceiverGroupsSpec: QuickSpec {
                                 .when { $0.bool(forKey: UserDefaults.BoolKey.isUsingFullAPNs.rawValue) }
                                 .thenReturn(true)
                             let expectedRequest: Network.PreparedRequest<PushNotificationAPI.SubscribeResponse> = mockStorage.write { db in
-                                _ = try SessionThread.fetchOrCreate(
+                                _ = try SessionThread.upsert(
                                     db,
                                     id: groupId.hexString,
                                     variant: .group,
-                                    creationDateTimestamp: 0,
-                                    shouldBeVisible: nil,
+                                    values: SessionThread.TargetValues(
+                                        creationDateTimestamp: .setTo(0),
+                                        shouldBeVisible: .useExisting
+                                    ),
                                     calledFromConfig: nil,
                                     using: dependencies
                                 )
@@ -883,12 +891,14 @@ class MessageReceiverGroupsSpec: QuickSpec {
                         // MARK: -------- subscribes for push notifications
                         it("subscribes for push notifications") {
                             let expectedRequest: Network.PreparedRequest<PushNotificationAPI.SubscribeResponse> = mockStorage.read { db in
-                                _ = try SessionThread.fetchOrCreate(
+                                _ = try SessionThread.upsert(
                                     db,
                                     id: groupId.hexString,
                                     variant: .group,
-                                    creationDateTimestamp: 0,
-                                    shouldBeVisible: nil,
+                                    values: SessionThread.TargetValues(
+                                        creationDateTimestamp: .setTo(0),
+                                        shouldBeVisible: .useExisting
+                                    ),
                                     calledFromConfig: nil,
                                     using: dependencies
                                 )
@@ -958,12 +968,14 @@ class MessageReceiverGroupsSpec: QuickSpec {
                 // MARK: ---- does not add the invited control message if the thread already exists
                 it("does not add the invited control message if the thread already exists") {
                     mockStorage.write { db in
-                        try SessionThread.fetchOrCreate(
+                        try SessionThread.upsert(
                             db,
                             id: groupId.hexString,
                             variant: .group,
-                            creationDateTimestamp: 1234567890,
-                            shouldBeVisible: true,
+                            values: SessionThread.TargetValues(
+                                creationDateTimestamp: .setTo(1234567890),
+                                shouldBeVisible: .setTo(true)
+                            ),
                             calledFromConfig: nil,
                             using: dependencies
                         )
@@ -996,12 +1008,14 @@ class MessageReceiverGroupsSpec: QuickSpec {
                     groups_members_set(groupMembersConf, &member)
                     
                     mockStorage.write { db in
-                        try SessionThread.fetchOrCreate(
+                        try SessionThread.upsert(
                             db,
                             id: groupId.hexString,
                             variant: .group,
-                            creationDateTimestamp: 1234567890,
-                            shouldBeVisible: true,
+                            values: SessionThread.TargetValues(
+                                creationDateTimestamp: .setTo(1234567890),
+                                shouldBeVisible: .setTo(true)
+                            ),
                             calledFromConfig: nil,
                             using: dependencies
                         )
@@ -1092,12 +1106,14 @@ class MessageReceiverGroupsSpec: QuickSpec {
             context("when receiving an info changed message") {
                 beforeEach {
                     mockStorage.write { db in
-                        try SessionThread.fetchOrCreate(
+                        try SessionThread.upsert(
                             db,
                             id: groupId.hexString,
                             variant: .group,
-                            creationDateTimestamp: 1234567890,
-                            shouldBeVisible: true,
+                            values: SessionThread.TargetValues(
+                                creationDateTimestamp: .setTo(1234567890),
+                                shouldBeVisible: .setTo(true)
+                            ),
                             calledFromConfig: nil,
                             using: dependencies
                         )
@@ -1264,12 +1280,14 @@ class MessageReceiverGroupsSpec: QuickSpec {
             context("when receiving a member changed message") {
                 beforeEach {
                     mockStorage.write { db in
-                        try SessionThread.fetchOrCreate(
+                        try SessionThread.upsert(
                             db,
                             id: groupId.hexString,
                             variant: .group,
-                            creationDateTimestamp: 1234567890,
-                            shouldBeVisible: true,
+                            values: SessionThread.TargetValues(
+                                creationDateTimestamp: .setTo(1234567890),
+                                shouldBeVisible: .setTo(true)
+                            ),
                             calledFromConfig: nil,
                             using: dependencies
                         )
@@ -1680,12 +1698,14 @@ class MessageReceiverGroupsSpec: QuickSpec {
             context("when receiving a member left message") {
                 beforeEach {
                     mockStorage.write { db in
-                        try SessionThread.fetchOrCreate(
+                        try SessionThread.upsert(
                             db,
                             id: groupId.hexString,
                             variant: .group,
-                            creationDateTimestamp: 1234567890,
-                            shouldBeVisible: true,
+                            values: SessionThread.TargetValues(
+                                creationDateTimestamp: .setTo(1234567890),
+                                shouldBeVisible: .setTo(true)
+                            ),
                             calledFromConfig: nil,
                             using: dependencies
                         )
@@ -1883,12 +1903,14 @@ class MessageReceiverGroupsSpec: QuickSpec {
             context("when receiving a member left notification message") {
                 beforeEach {
                     mockStorage.write { db in
-                        try SessionThread.fetchOrCreate(
+                        try SessionThread.upsert(
                             db,
                             id: groupId.hexString,
                             variant: .group,
-                            creationDateTimestamp: 1234567890,
-                            shouldBeVisible: true,
+                            values: SessionThread.TargetValues(
+                                creationDateTimestamp: .setTo(1234567890),
+                                shouldBeVisible: .setTo(true)
+                            ),
                             calledFromConfig: nil,
                             using: dependencies
                         )
@@ -1949,12 +1971,14 @@ class MessageReceiverGroupsSpec: QuickSpec {
             context("when receiving an invite response message") {
                 beforeEach {
                     mockStorage.write { db in
-                        try SessionThread.fetchOrCreate(
+                        try SessionThread.upsert(
                             db,
                             id: groupId.hexString,
                             variant: .group,
-                            creationDateTimestamp: 1234567890,
-                            shouldBeVisible: true,
+                            values: SessionThread.TargetValues(
+                                creationDateTimestamp: .setTo(1234567890),
+                                shouldBeVisible: .setTo(true)
+                            ),
                             calledFromConfig: nil,
                             using: dependencies
                         )
@@ -2167,12 +2191,14 @@ class MessageReceiverGroupsSpec: QuickSpec {
             context("when receiving a delete content message") {
                 beforeEach {
                     mockStorage.write { db in
-                        try SessionThread.fetchOrCreate(
+                        try SessionThread.upsert(
                             db,
                             id: groupId.hexString,
                             variant: .group,
-                            creationDateTimestamp: 1234567890,
-                            shouldBeVisible: true,
+                            values: SessionThread.TargetValues(
+                                creationDateTimestamp: .setTo(1234567890),
+                                shouldBeVisible: .setTo(true)
+                            ),
                             calledFromConfig: nil,
                             using: dependencies
                         )
@@ -2746,12 +2772,14 @@ class MessageReceiverGroupsSpec: QuickSpec {
                     _ = groups_keys_load_message(groupKeysConf, &fakeHash2, pushResult, pushResultLen, 1234567890, groupInfoConf, groupMembersConf)
                     
                     mockStorage.write { db in
-                        try SessionThread.fetchOrCreate(
+                        try SessionThread.upsert(
                             db,
                             id: groupId.hexString,
                             variant: .group,
-                            creationDateTimestamp: 1234567890,
-                            shouldBeVisible: true,
+                            values: SessionThread.TargetValues(
+                                creationDateTimestamp: .setTo(1234567890),
+                                shouldBeVisible: .setTo(true)
+                            ),
                             calledFromConfig: nil,
                             using: dependencies
                         )
@@ -3181,12 +3209,14 @@ class MessageReceiverGroupsSpec: QuickSpec {
                     groups_members_set(groupMembersConf, &groupMember)
                     
                     mockStorage.write { db in
-                        try SessionThread.fetchOrCreate(
+                        try SessionThread.upsert(
                             db,
                             id: groupId.hexString,
                             variant: .group,
-                            creationDateTimestamp: 1234567890,
-                            shouldBeVisible: true,
+                            values: SessionThread.TargetValues(
+                                creationDateTimestamp: .setTo(1234567890),
+                                shouldBeVisible: .setTo(true)
+                            ),
                             calledFromConfig: nil,
                             using: dependencies
                         )
@@ -3318,7 +3348,10 @@ class MessageReceiverGroupsSpec: QuickSpec {
 private extension LibSession.Config {
     var conf: UnsafeMutablePointer<config_object>? {
         switch self {
-            case .object(let conf): return conf
+            case .userProfile(let conf), .contacts(let conf),
+                .convoInfoVolatile(let conf), .userGroups(let conf),
+                .groupInfo(let conf), .groupMembers(let conf):
+                return conf
             default: return nil
         }
     }

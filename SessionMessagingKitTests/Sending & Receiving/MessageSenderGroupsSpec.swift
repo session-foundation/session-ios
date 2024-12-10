@@ -159,7 +159,7 @@ class MessageSenderGroupsSpec: QuickSpec {
             var userGroupsConf: UnsafeMutablePointer<config_object>!
             _ = user_groups_init(&userGroupsConf, &secretKey, nil, 0, nil)
             
-            return .object(userGroupsConf)
+            return .userGroups(userGroupsConf)
         }()
         @TestState var groupInfoConf: UnsafeMutablePointer<config_object>! = {
             var groupInfoConf: UnsafeMutablePointer<config_object>!
@@ -179,8 +179,8 @@ class MessageSenderGroupsSpec: QuickSpec {
             
             return groupKeysConf
         }()
-        @TestState var groupInfoConfig: LibSession.Config! = .object(groupInfoConf)
-        @TestState var groupMembersConfig: LibSession.Config! = .object(groupMembersConf)
+        @TestState var groupInfoConfig: LibSession.Config! = .groupInfo(groupInfoConf)
+        @TestState var groupMembersConfig: LibSession.Config! = .groupMembers(groupMembersConf)
         @TestState var groupKeysConfig: LibSession.Config! = {
             return .groupKeys(groupKeysConf, info: groupInfoConf, members: groupMembersConf)
         }()
@@ -224,6 +224,11 @@ class MessageSenderGroupsSpec: QuickSpec {
                         }
                     }
                     .thenReturn(())
+                cache
+                    .when { $0.pinnedPriority(.any, threadId: .any, threadVariant: .any) }
+                    .thenReturn(LibSession.defaultNewThreadPriority)
+                cache.when { $0.disappearingMessagesConfig(threadId: .any, threadVariant: .any) }
+                    .thenReturn(nil)
             }
         )
         @TestState(cache: .snodeAPI, in: dependencies) var mockSnodeAPICache: MockSnodeAPICache! = MockSnodeAPICache(
@@ -432,12 +437,14 @@ class MessageSenderGroupsSpec: QuickSpec {
                         )
                     let expectedRequest: Network.PreparedRequest<Network.BatchResponse> = mockStorage.write { db in
                         // Need the auth data to exist in the database to prepare the request
-                        _ = try SessionThread.fetchOrCreate(
+                        _ = try SessionThread.upsert(
                             db,
                             id: groupId.hexString,
                             variant: .group,
-                            creationDateTimestamp: 0,
-                            shouldBeVisible: nil,
+                            values: SessionThread.TargetValues(
+                                creationDateTimestamp: .setTo(0),
+                                shouldBeVisible: .useExisting
+                            ),
                             calledFromConfig: nil,
                             using: dependencies
                         )
@@ -746,12 +753,14 @@ class MessageSenderGroupsSpec: QuickSpec {
                             .when { $0.bool(forKey: UserDefaults.BoolKey.isUsingFullAPNs.rawValue) }
                             .thenReturn(true)
                         expectedRequest = mockStorage.write { db in
-                            _ = try SessionThread.fetchOrCreate(
+                            _ = try SessionThread.upsert(
                                 db,
                                 id: groupId.hexString,
                                 variant: .group,
-                                creationDateTimestamp: 0,
-                                shouldBeVisible: nil,
+                                values: SessionThread.TargetValues(
+                                    creationDateTimestamp: .setTo(0),
+                                    shouldBeVisible: .useExisting
+                                ),
                                 calledFromConfig: nil,
                                 using: dependencies
                             )
@@ -891,12 +900,14 @@ class MessageSenderGroupsSpec: QuickSpec {
                         _ = groups_keys_load_message(groupKeysConf, &fakeHash2, pushResult, pushResultLen, 1234567890, groupInfoConf, groupMembersConf)
                         
                         mockStorage.write { db in
-                            try SessionThread.fetchOrCreate(
+                            try SessionThread.upsert(
                                 db,
                                 id: groupId.hexString,
                                 variant: .group,
-                                creationDateTimestamp: 1234567890,
-                                shouldBeVisible: true,
+                                values: SessionThread.TargetValues(
+                                    creationDateTimestamp: .setTo(1234567890),
+                                    shouldBeVisible: .setTo(true)
+                                ),
                                 calledFromConfig: nil,
                                 using: dependencies
                             )

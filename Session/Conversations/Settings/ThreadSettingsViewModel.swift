@@ -856,12 +856,16 @@ class ThreadSettingsViewModel: SessionTableViewModel, NavigatableStateHolder, Ob
                         dependencies[singleton: .storage]
                             .writePublisher { db in
                                 try selectedUserInfo.forEach { userInfo in
-                                    let thread: SessionThread = try SessionThread.fetchOrCreate(
+                                    let thread: SessionThread = try SessionThread.upsert(
                                         db,
                                         id: userInfo.profileId,
                                         variant: .contact,
-                                        creationDateTimestamp: (dependencies[cache: .snodeAPI].currentOffsetTimestampMs() / 1000),
-                                        shouldBeVisible: nil,
+                                        values: SessionThread.TargetValues(
+                                            creationDateTimestamp: .useExistingOrSetTo(
+                                                dependencies[cache: .snodeAPI].currentOffsetTimestampMs() / 1000
+                                            ),
+                                            shouldBeVisible: .useExisting
+                                        ),
                                         calledFromConfig: nil,
                                         using: dependencies
                                     )
@@ -940,12 +944,16 @@ class ThreadSettingsViewModel: SessionTableViewModel, NavigatableStateHolder, Ob
                         .group(GroupMember.Columns.profileId),
                     onTap: .callback { [weak self, dependencies] _, memberInfo in
                         dependencies[singleton: .storage].write { db in
-                            try SessionThread.fetchOrCreate(
+                            try SessionThread.upsert(
                                 db,
                                 id: memberInfo.profileId,
                                 variant: .contact,
-                                creationDateTimestamp: (dependencies[cache: .snodeAPI].currentOffsetTimestampMs() / 1000),
-                                shouldBeVisible: nil,
+                                values: SessionThread.TargetValues(
+                                    creationDateTimestamp: .useExistingOrSetTo(
+                                        dependencies[cache: .snodeAPI].currentOffsetTimestampMs() / 1000
+                                    ),
+                                    shouldBeVisible: .useExisting
+                                ),
                                 calledFromConfig: nil,
                                 using: dependencies
                             )

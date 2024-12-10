@@ -206,7 +206,7 @@ public extension SessionThread {
         id: ID,
         variant: Variant,
         values: TargetValues,
-        calledFromConfig configTriggeringChange: LibSession.Config.Variant?,
+        calledFromConfig configTriggeringChange: LibSession.Config?,
         using dependencies: Dependencies
     ) throws -> SessionThread {
         var result: SessionThread
@@ -215,12 +215,11 @@ public extension SessionThread {
         switch try? fetchOne(db, id: id) {
             case .some(let existingThread): result = existingThread
             case .none:
-                let targetPriority: Int32 = LibSession.pinnedPriority(
-                    db,
-                    threadId: id,
-                    threadVariant: variant,
-                    conf: configTriggeringChange?.conf,
-                    using: dependencies
+                let targetPriority: Int32 = (
+                    configTriggeringChange?.pinnedPriority(db, threadId: id, threadVariant: variant) ??
+                    dependencies
+                        .mutate(cache: .libSession) { $0.pinnedPriority(db, threadId: id, threadVariant: variant) }
+                        .defaulting(to: LibSession.defaultNewThreadPriority)
                 )
                 
                 result = try SessionThread(
@@ -231,7 +230,8 @@ public extension SessionThread {
                         (dependencies[cache: .snodeAPI].currentOffsetTimestampMs() / 1000)
                     ),
                     shouldBeVisible: LibSession.shouldBeVisible(priority: targetPriority),
-                    pinnedPriority: targetPriority
+                    pinnedPriority: targetPriority,
+                    using: dependencies
                 ).upserted(db)
         }
         
@@ -243,7 +243,8 @@ public extension SessionThread {
                     .upserted(db)
                     .clearUnrelatedControlMessages(
                         db,
-                        threadVariant: variant
+                        threadVariant: variant,
+                        using: dependencies
                     )
             
             case (_, .useExistingOrSetTo(let config)):          // Update if we don't have an existing entry
@@ -253,24 +254,24 @@ public extension SessionThread {
                     .upserted(db)
                     .clearUnrelatedControlMessages(
                         db,
-                        threadVariant: variant
+                        threadVariant: variant,
+                        using: dependencies
                     )
             
             case (_, .useLibSession):                           // Create and save the config from libSession
-                guard configTriggeringChange == nil else { throw LibSessionError.invalidConfigAccess }
+                let disappearingConfig: DisappearingMessagesConfiguration? = (
+                    configTriggeringChange?.disappearingMessagesConfig(threadId: id, threadVariant: variant) ??
+                    dependencies.mutate(cache: .libSession) {
+                        $0.disappearingMessagesConfig(threadId: id, threadVariant: variant)
+                    }
+                )
                 
-                try LibSession
-                    .disappearingMessagesConfig(
-                        db,
-                        threadId: id,
-                        threadVariant: variant,
-                        conf: configTriggeringChange?.conf,
-                        using: dependencies
-                    )?
+                try disappearingConfig?
                     .upserted(db)
                     .clearUnrelatedControlMessages(
                         db,
-                        threadVariant: variant
+                        threadVariant: variant,
+                        using: dependencies
                     )
         }
         
@@ -284,12 +285,11 @@ public extension SessionThread {
         /// should both be sourced from `libSession`
         switch (values.pinnedPriority, values.shouldBeVisible) {
             case (.useLibSession, .useLibSession):
-                let targetPriority: Int32 = LibSession.pinnedPriority(
-                    db,
-                    threadId: id,
-                    threadVariant: variant,
-                    conf: configTriggeringChange?.conf,
-                    using: dependencies
+                let targetPriority: Int32 = (
+                    configTriggeringChange?.pinnedPriority(db, threadId: id, threadVariant: variant) ??
+                    dependencies
+                        .mutate(cache: .libSession) { $0.pinnedPriority(db, threadId: id, threadVariant: variant) }
+                        .defaulting(to: LibSession.defaultNewThreadPriority)
                 )
                 let libSessionShouldBeVisible: Bool = LibSession.shouldBeVisible(priority: targetPriority)
                 
@@ -340,14 +340,15 @@ public extension SessionThread {
         ///
         /// Since we want to avoid returning a nullable `SessionThread` here we need to fallback to a non-null instance, but it should
         /// never be called
-        return (try fetchOne(db, id: id))
+        return try fetchOne(db, id: id)
             .defaulting(
-                to: try SessionThread(
+                toThrowing: try SessionThread(
                     id: id,
                     variant: variant,
                     creationDateTimestamp: finalCreationDateTimestamp,
                     shouldBeVisible: finalShouldBeVisible,
-                    pinnedPriority: finalPinnedPriority
+                    pinnedPriority: finalPinnedPriority,
+                    using: dependencies
                 ).upserted(db)
             )
     }
@@ -452,7 +453,7 @@ public extension SessionThread {
         type: SessionThread.DeletionType,
         threadId: String,
         threadVariant: Variant,
-        calledFromConfig configTriggeringChange: ConfigDump.Variant?,
+        calledFromConfig configTriggeringChange: LibSession.Config?,
         using dependencies: Dependencies
     ) throws {
         try deleteOrLeave(
@@ -470,7 +471,7 @@ public extension SessionThread {
         type: SessionThread.DeletionType,
         threadIds: [String],
         threadVariant: Variant,
-        calledFromConfig configTriggeringChange: ConfigDump.Variant?,
+        calledFromConfig configTriggeringChange: LibSession.Config?,
         using dependencies: Dependencies
     ) throws {
         let userSessionId: SessionId = dependencies[cache: .general].sessionId
@@ -484,7 +485,7 @@ public extension SessionThread {
                         db,
                         SessionThread.Columns.pinnedPriority.set(to: LibSession.hiddenPriority),
                         SessionThread.Columns.shouldBeVisible.set(to: false),
-                        calledFromConfig: calledFromConfigHandling,
+                        calledFromConfig: configTriggeringChange,
                         using: dependencies
                     )
                 
@@ -501,7 +502,7 @@ public extension SessionThread {
                         db,
                         SessionThread.Columns.pinnedPriority.set(to: LibSession.hiddenPriority),
                         SessionThread.Columns.shouldBeVisible.set(to: false),
-                        calledFromConfig: calledFromConfigHandling,
+                        calledFromConfig: configTriggeringChange,
                         using: dependencies
                     )
             
@@ -529,14 +530,14 @@ public extension SessionThread {
                         )
                 }
                 
-                if !calledFromConfigHandling {
+                if configTriggeringChange == nil {
                     // Update any other threads to be hidden
                     try LibSession.hide(db, contactIds: Array(remainingThreadIds), using: dependencies)
                 }
                 
             case .deleteContactConversationAndContact:
                 // If this wasn't called from config handling then we need to hide the conversation
-                if !calledFromConfigHandling {
+                if configTriggeringChange == nil {
                     try LibSession.remove(db, contactIds: Array(remainingThreadIds), using: dependencies)
                 }
                 

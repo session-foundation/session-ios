@@ -24,7 +24,7 @@ internal extension LibSession {
 public extension LibSessionCacheType {
     var userProfileDisplayName: String {
         guard
-            case .object(let conf) = config(for: .userProfile, sessionId: userSessionId),
+            case .userProfile(let conf) = config(for: .userProfile, sessionId: userSessionId),
             let profileNamePtr: UnsafePointer<CChar> = user_profile_get_name(conf)
         else { return "" }
         
@@ -41,7 +41,7 @@ internal extension LibSessionCacheType {
         serverTimestampMs: Int64
     ) throws {
         guard configNeedsDump(config) else { return }
-        guard case .object(let conf) = config else { throw LibSessionError.invalidConfigObject }
+        guard case .userProfile(let conf) = config else { throw LibSessionError.invalidConfigObject }
         
         // A profile must have a name so if this is null then it's invalid and can be ignored
         guard let profileNamePtr: UnsafePointer<CChar> = user_profile_get_name(conf) else { return }
@@ -66,7 +66,7 @@ internal extension LibSessionCacheType {
                 )
             }(),
             sentTimestamp: TimeInterval(Double(serverTimestampMs) / 1000),
-            calledFromConfig: .userProfile,
+            calledFromConfig: config,
             using: dependencies
         )
         
@@ -95,7 +95,7 @@ internal extension LibSessionCacheType {
                     .updateAllAndConfig(
                         db,
                         threadChanges,
-                        calledFromConfig: .userProfile,
+                        calledFromConfig: config,
                         using: dependencies
                     )
             }
@@ -109,20 +109,20 @@ internal extension LibSessionCacheType {
                     type: .hideContactConversation,
                     threadId: userSessionId.hexString,
                     threadVariant: .contact,
-                    calledFromConfig: .userProfile,
+                    calledFromConfig: config,
                     using: dependencies
                 )
             }
             else {
                 try SessionThread.upsert(
                     db,
-                    id: userPublicKey,
+                    id: userSessionId.hexString,
                     variant: .contact,
                     values: SessionThread.TargetValues(
                         shouldBeVisible: .setTo(LibSession.shouldBeVisible(priority: targetPriority)),
                         pinnedPriority: .setTo(targetPriority)
                     ),
-                    calledFromConfig: .userProfile(conf),
+                    calledFromConfig: config,
                     using: dependencies
                 )
             }
@@ -175,7 +175,7 @@ internal extension LibSessionCacheType {
                     Contact.Columns.isTrusted.set(to: true),    // Always trust the current user
                     Contact.Columns.isApproved.set(to: true),
                     Contact.Columns.didApproveMe.set(to: true),
-                    calledFromConfig: .userProfile,
+                    calledFromConfig: config,
                     using: dependencies
                 )
         }
@@ -189,7 +189,7 @@ internal extension LibSession {
         profile: Profile,
         in config: Config?
     ) throws {
-        guard case .object(let conf) = config else { throw LibSessionError.invalidConfigObject }
+        guard case .userProfile(let conf) = config else { throw LibSessionError.invalidConfigObject }
         
         // Update the name
         var cUpdatedName: [CChar] = try profile.name.cString(using: .utf8) ?? { throw LibSessionError.invalidCConversion }()
@@ -209,7 +209,7 @@ internal extension LibSession {
         disappearingMessagesConfig: DisappearingMessagesConfiguration? = nil,
         in config: Config?
     ) throws {
-        guard case .object(let conf) = config else { throw LibSessionError.invalidConfigObject }
+        guard case .userProfile(let conf) = config else { throw LibSessionError.invalidConfigObject }
         
         if let priority: Int32 = priority {
             user_profile_set_nts_priority(conf, priority)
@@ -224,7 +224,7 @@ internal extension LibSession {
         checkForCommunityMessageRequests: Bool? = nil,
         in config: Config?
     ) throws {
-        guard case .object(let conf) = config else { throw LibSessionError.invalidConfigObject }
+        guard case .userProfile(let conf) = config else { throw LibSessionError.invalidConfigObject }
         
         if let blindedMessageRequests: Bool = checkForCommunityMessageRequests {
             user_profile_set_blinded_msgreqs(conf, (blindedMessageRequests ? 1 : 0))
@@ -241,17 +241,14 @@ public extension LibSession {
         disappearingMessagesConfig: DisappearingMessagesConfiguration? = nil,
         using dependencies: Dependencies
     ) throws {
-        try LibSession.performAndPushChange(
-            db,
-            for: .userProfile,
-            publicKey: getUserHexEncodedPublicKey(db),
-            using: dependencies
-        ) { conf in
-            try LibSession.updateNoteToSelf(
-                priority: priority,
-                disappearingMessagesConfig: disappearingMessagesConfig,
-                in: conf
-            )
+        try dependencies.mutate(cache: .libSession) { cache in
+            try cache.performAndPushChange(db, for: .userProfile, sessionId: dependencies[cache: .general].sessionId) { config in
+                try LibSession.updateNoteToSelf(
+                    priority: priority,
+                    disappearingMessagesConfig: disappearingMessagesConfig,
+                    in: config
+                )
+            }
         }
     }
 }
@@ -260,7 +257,7 @@ public extension LibSession {
 
 extension LibSession {
     static func rawBlindedMessageRequestValue(in config: Config?) throws -> Int32 {
-        guard case .object(let conf) = config else { throw LibSessionError.invalidConfigObject }
+        guard case .userProfile(let conf) = config else { throw LibSessionError.invalidConfigObject }
     
         return user_profile_get_blinded_msgreqs(conf)
     }

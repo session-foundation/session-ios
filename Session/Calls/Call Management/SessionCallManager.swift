@@ -22,7 +22,7 @@ public extension Cache {
 
 // MARK: - SessionCallManager
 
-public final class SessionCallManager: CallManagerProtocol {
+public final class SessionCallManager: NSObject, CallManagerProtocol {
     let dependencies: Dependencies
     
     let provider: CXProvider?
@@ -57,6 +57,8 @@ public final class SessionCallManager: CallManagerProtocol {
             self.provider = nil
             self.callController = nil
         }
+        
+        super.init()
         
         // We cannot assert singleton here, because this class gets rebuilt when the user changes relevant call settings
         self.provider?.setDelegate(self, queue: nil)

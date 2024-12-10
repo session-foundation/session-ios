@@ -67,6 +67,14 @@ class ThreadSettingsViewModelSpec: QuickSpec {
                 cache
                     .when { try $0.performAndPushChange(.any, for: .any, sessionId: .any, change: { _ in }) }
                     .thenReturn(())
+                cache
+                    .when { $0.pinnedPriority(.any, threadId: .any, threadVariant: .any) }
+                    .thenReturn(LibSession.defaultNewThreadPriority)
+                cache.when { $0.disappearingMessagesConfig(threadId: .any, threadVariant: .any) }
+                    .thenReturn(nil)
+                cache
+                    .when { $0.isAdmin(groupSessionId: .any) }
+                    .thenReturn(false)
             }
         )
         @TestState(singleton: .crypto, in: dependencies) var mockCrypto: MockCrypto! = MockCrypto(
@@ -897,6 +905,10 @@ class ThreadSettingsViewModelSpec: QuickSpec {
                             
                             // MARK: ---- triggers a libSession change
                             it("triggers a libSession change") {
+                                mockLibSessionCache
+                                    .when { $0.isAdmin(groupSessionId: .any) }
+                                    .thenReturn(true)
+                                
                                 onChange2?("Test", "TestNewGroupDescription")
                                 modal?.confirmationPressed()
                                 
@@ -1044,6 +1056,10 @@ class ThreadSettingsViewModelSpec: QuickSpec {
                             
                             // MARK: ---- triggers a libSession change
                             it("triggers a libSession change") {
+                                mockLibSessionCache
+                                    .when { $0.isAdmin(groupSessionId: .any) }
+                                    .thenReturn(true)
+                                
                                 onChange?("TestNewGroupName")
                                 modal?.confirmationPressed()
                                 

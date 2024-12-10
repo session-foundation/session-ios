@@ -366,49 +366,22 @@ internal extension LibSession {
     }
 }
 
-// MARK: - External Outgoing Changes
+// MARK: - State Access
 
-public extension LibSession {
-    static func pinnedPriority(
+public extension LibSession.Config {
+    func pinnedPriority(
         _ db: Database,
         threadId: String,
-        threadVariant: SessionThread.Variant,
-        conf: UnsafeMutablePointer<config_object>?,
-        using dependencies: Dependencies
+        threadVariant: SessionThread.Variant
     ) -> Int32 {
-        let userPublicKey: String = getUserHexEncodedPublicKey(db)
-        let configVariant: ConfigDump.Variant = {
-            switch threadVariant {
-                case .contact: return (threadId == userPublicKey ? .userProfile : .contacts)
-                case .legacyGroup, .group, .community: return .userGroups
-            }
-        }()
-        
-        guard let conf: UnsafeMutablePointer<config_object> = conf else {
-            return dependencies.caches[.libSession]
-                .config(for: configVariant, publicKey: userPublicKey)
-                .wrappedValue
-                .map { conf in
-                    LibSession.pinnedPriority(
-                        db,
-                        threadId: threadId,
-                        threadVariant: threadVariant,
-                        conf: conf,
-                        using: dependencies
-                    )
-                }
-                .defaulting(to: LibSession.defaultNewThreadPriority)
-        }
-        
         guard var cThreadId: [CChar] = threadId.cString(using: .utf8) else {
             return LibSession.defaultNewThreadPriority
         }
         
-        switch threadVariant {
-            case .contact where threadId == userPublicKey:
-                return user_profile_get_nts_priority(conf)
+        switch (threadVariant, self) {
+            case (_, .userProfile(let conf)): return user_profile_get_nts_priority(conf)
                 
-            case .contact:
+            case (_, .contacts(let conf)):
                 var contact: contacts_contact = contacts_contact()
                 
                 guard contacts_get(conf, &contact, &cThreadId) else {
@@ -418,24 +391,20 @@ public extension LibSession {
                 
                 return contact.priority
                 
-            case .community:
-                let maybeUrlInfo: OpenGroupUrlInfo? = Storage.shared
-                    .read { db in try OpenGroupUrlInfo.fetchAll(db, ids: [threadId]) }?
-                    .first
-                
+            case (.community, .userGroups(let conf)):
                 guard
-                    let urlInfo: OpenGroupUrlInfo = maybeUrlInfo,
+                    let urlInfo: LibSession.OpenGroupUrlInfo = try? LibSession.OpenGroupUrlInfo.fetchOne(db, id: threadId),
                     var cBaseUrl: [CChar] = urlInfo.server.cString(using: .utf8),
                     var cRoom: [CChar] = urlInfo.roomToken.cString(using: .utf8)
                 else { return LibSession.defaultNewThreadPriority }
                 
                 var community: ugroups_community_info = ugroups_community_info()
-                let result: Bool = user_groups_get_community(conf, &community, &cBaseUrl, &cRoom)
+                _ = user_groups_get_community(conf, &community, &cBaseUrl, &cRoom)
                 LibSessionError.clear(conf)
                 
                 return community.priority
-                
-            case .legacyGroup:
+            
+            case (.legacyGroup, .userGroups(let conf)):
                 let groupInfo: UnsafeMutablePointer<ugroups_legacy_group_info>? = user_groups_get_legacy_group(conf, &cThreadId)
                 LibSessionError.clear(conf)
                 
@@ -447,51 +416,28 @@ public extension LibSession {
                 
                 return (groupInfo?.pointee.priority ?? LibSession.defaultNewThreadPriority)
                 
-            case .group:
-                return LibSession.defaultNewThreadPriority // FIXME: Add in groups rebuild
+            case (.group, .userGroups(let conf)):
+                var group: ugroups_group_info = ugroups_group_info()
+                _ = user_groups_get_group(conf, &group, &cThreadId)
+                LibSessionError.clear(conf)
+                
+                return group.priority
+            
+            default:
+                Log.warn(.libSession, "Attempted to retrieve priority for invalid combination of threadVariant: \(threadVariant) and config variant: \(variant)")
+                return LibSession.defaultNewThreadPriority
         }
     }
     
-    static func disappearingMessagesConfig(
-        _ db: Database,
+    func disappearingMessagesConfig(
         threadId: String,
-        threadVariant: SessionThread.Variant,
-        conf: UnsafeMutablePointer<config_object>?,
-        using dependencies: Dependencies
+        threadVariant: SessionThread.Variant
     ) -> DisappearingMessagesConfiguration? {
-        switch threadVariant {
-            case .community: return nil
-            default: break
-        }
-        
-        let userPublicKey: String = getUserHexEncodedPublicKey(db)
-        let configVariant: ConfigDump.Variant = {
-            switch threadVariant {
-                case .contact: return (threadId == userPublicKey ? .userProfile : .contacts)
-                case .legacyGroup, .group, .community: return .userGroups
-            }
-        }()
-        
-        guard let conf: UnsafeMutablePointer<config_object> = conf else {
-            return dependencies.caches[.libSession]
-                .config(for: configVariant, publicKey: userPublicKey)
-                .wrappedValue
-                .map { conf in
-                    LibSession.disappearingMessagesConfig(
-                        db,
-                        threadId: threadId,
-                        threadVariant: threadVariant,
-                        conf: conf,
-                        using: dependencies
-                    )
-                }
-        }
-        
         guard var cThreadId: [CChar] = threadId.cString(using: .utf8) else { return nil }
         
-        switch threadVariant {
-            case .community: return nil
-            case .contact where threadId == userPublicKey:
+        switch (threadVariant, self) {
+            case (.community, _): return nil
+            case (_, .userProfile(let conf)):
                 let targetExpiry: Int32 = user_profile_get_nts_expiry(conf)
                 let targetIsEnabled: Bool = (targetExpiry > 0)
                 
@@ -502,7 +448,7 @@ public extension LibSession {
                     type: targetIsEnabled ? .disappearAfterSend : .unknown
                 )
                 
-            case .contact:
+            case (_, .contacts(let conf)):
                 var contact: contacts_contact = contacts_contact()
                 
                 guard contacts_get(conf, &contact, &cThreadId) else {
@@ -519,7 +465,7 @@ public extension LibSession {
                     )
                 )
                 
-            case .legacyGroup:
+            case (.legacyGroup, .userGroups(let conf)):
                 let groupInfo: UnsafeMutablePointer<ugroups_legacy_group_info>? = user_groups_get_legacy_group(conf, &cThreadId)
                 LibSessionError.clear(conf)
                 
@@ -531,18 +477,31 @@ public extension LibSession {
                 
                 return groupInfo.map { info in
                     DisappearingMessagesConfiguration(
-                        threadId: userPublicKey,
+                        threadId: threadId,
                         isEnabled: (info.pointee.disappearing_timer > 0),
                         durationSeconds: TimeInterval(info.pointee.disappearing_timer),
                         type: .disappearAfterSend
                     )
                 }
                 
-            case .group:
-                return nil // FIXME: Add in groups rebuild
+            case (.group, .groupInfo(let conf)):
+                let durationSeconds: Int32 = groups_info_get_expiry_timer(conf)
+                
+                return DisappearingMessagesConfiguration(
+                    threadId: threadId,
+                    isEnabled: (durationSeconds > 0),
+                    durationSeconds: TimeInterval(durationSeconds),
+                    type: .disappearAfterSend
+                )
+            
+            default:
+                Log.warn(.libSession, "Attempted to retrieve disappearing messages config for invalid combination of threadVariant: \(threadVariant) and config variant: \(variant)")
+                return nil
         }
     }
-    
+}
+
+public extension LibSession {
     static func conversationInConfig(
         _ db: Database? = nil,
         threadId: String,
@@ -568,21 +527,16 @@ public extension LibSession {
         }()
         
         return dependencies.mutate(cache: .libSession) { cache in
-            guard
-                case .object(let conf) = cache.config(for: configVariant, sessionId: userSessionId),
-                var cThreadId: [CChar] = threadId.cString(using: .utf8)
-            else { return false }
+            guard var cThreadId: [CChar] = threadId.cString(using: .utf8) else { return false }
             
-            switch threadVariant {
-                case .contact:
-                    // The 'Note to Self' conversation is stored in the 'userProfile' config
-                    guard threadId != userSessionId.hexString else {
-                        return (
-                            !visibleOnly ||
-                            LibSession.shouldBeVisible(priority: user_profile_get_nts_priority(conf))
-                        )
-                    }
-                    
+            switch (threadVariant, cache.config(for: configVariant, sessionId: userSessionId)) {
+                case (_, .userProfile(let conf)):
+                    return (
+                        !visibleOnly ||
+                        LibSession.shouldBeVisible(priority: user_profile_get_nts_priority(conf))
+                    )
+                
+                case (_, .contacts(let conf)):
                     var contact: contacts_contact = contacts_contact()
                     
                     guard contacts_get(conf, &contact, &cThreadId) else {
@@ -595,7 +549,7 @@ public extension LibSession {
                     /// when leaving the conversation
                     return (!visibleOnly || LibSession.shouldBeVisible(priority: contact.priority))
                     
-                case .community:
+                case (.community, .userGroups(let conf)):
                     let maybeUrlInfo: OpenGroupUrlInfo? = dependencies[singleton: .storage]
                         .read { db in try OpenGroupUrlInfo.fetchAll(db, ids: [threadId]) }?
                         .first
@@ -614,7 +568,7 @@ public extension LibSession {
                     
                     return result
                     
-                case .legacyGroup:
+                case (.legacyGroup, .userGroups(let conf)):
                     let groupInfo: UnsafeMutablePointer<ugroups_legacy_group_info>? = user_groups_get_legacy_group(conf, &cThreadId)
                     LibSessionError.clear(conf)
                     
@@ -626,11 +580,13 @@ public extension LibSession {
                     
                     return false
                     
-                case .group:
+                case (.group, .userGroups(let conf)):
                     var group: ugroups_group_info = ugroups_group_info()
                     
                     /// Not handling the `hidden` behaviour for legacy groups so just indicate the existence
                     return user_groups_get_group(conf, &group, &cThreadId)
+                
+                default: return false
             }
         }
     }

@@ -31,7 +31,7 @@ internal extension LibSessionCacheType {
         serverTimestampMs: Int64
     ) throws {
         guard configNeedsDump(config) else { return }
-        guard case .object(let conf) = config else { throw LibSessionError.invalidConfigObject }
+        guard case .groupMembers(let conf) = config else { throw LibSessionError.invalidConfigObject }
         
         // Get the two member sets
         let userSessionId: SessionId = dependencies[cache: .general].sessionId
@@ -107,7 +107,7 @@ internal extension LibSessionCacheType {
                             GroupMember.Columns.roleStatus.set(to: GroupMember.RoleStatus.accepted)
                         ),
                     ].compactMap { $0 },
-                    calledFromConfig: .groupMembers,
+                    calledFromConfig: config,
                     using: dependencies
                 )
             try LibSession.updateMemberStatus(
@@ -146,7 +146,7 @@ internal extension LibSessionCacheType {
                     )
                 }(),
                 sentTimestamp: TimeInterval(Double(serverTimestampMs) * 1000),
-                calledFromConfig: .groupMembers,
+                calledFromConfig: config,
                 using: dependencies
             )
         }
@@ -161,7 +161,7 @@ internal extension LibSession {
         using dependencies: Dependencies
     ) throws -> Set<GroupMember> {
         return try dependencies.mutate(cache: .libSession) { cache in
-            guard case .object(let conf) = cache.config(for: .groupMembers, sessionId: groupSessionId) else {
+            guard case .groupMembers(let conf) = cache.config(for: .groupMembers, sessionId: groupSessionId) else {
                 throw LibSessionError.invalidConfigObject
             }
             
@@ -177,7 +177,7 @@ internal extension LibSession {
         using dependencies: Dependencies
     ) throws -> [String: GROUP_MEMBER_STATUS] {
         return try dependencies.mutate(cache: .libSession) { cache in
-            guard case .object(let conf) = cache.config(for: .groupMembers, sessionId: groupSessionId) else {
+            guard case .groupMembers(let conf) = cache.config(for: .groupMembers, sessionId: groupSessionId) else {
                 throw LibSessionError.invalidConfigObject
             }
             
@@ -197,7 +197,7 @@ internal extension LibSession {
     ) throws {
         try dependencies.mutate(cache: .libSession) { cache in
             try cache.performAndPushChange(db, for: .groupMembers, sessionId: groupSessionId) { config in
-                guard case .object(let conf) = config else { throw LibSessionError.invalidConfigObject }
+                guard case .groupMembers(let conf) = config else { throw LibSessionError.invalidConfigObject }
                 
                 try members.forEach { memberId, profile in
                     var cMemberId: [CChar] = try memberId.cString(using: .utf8) ?? { throw LibSessionError.invalidCConversion }()
@@ -258,7 +258,7 @@ internal extension LibSession {
         status: GroupMember.RoleStatus,
         in config: Config?
     ) throws {
-        guard case .object(let conf) = config else { throw LibSessionError.invalidConfigObject }
+        guard case .groupMembers(let conf) = config else { throw LibSessionError.invalidConfigObject }
         
         // Only update members if they already exist in the group
         var cMemberId: [CChar] = try memberId.cString(using: .utf8) ?? { throw LibSessionError.invalidCConversion }()
@@ -299,7 +299,7 @@ internal extension LibSession {
         in config: Config?
     ) throws {
         guard let profile: Profile = profile else { return }
-        guard case .object(let conf) = config else { throw LibSessionError.invalidConfigObject }
+        guard case .groupMembers(let conf) = config else { throw LibSessionError.invalidConfigObject }
         
         // Only update members if they already exist in the group
         var cMemberId: [CChar] = try memberId.cString(using: .utf8) ?? { throw LibSessionError.invalidCConversion }()
@@ -328,7 +328,7 @@ internal extension LibSession {
     ) throws {
         try dependencies.mutate(cache: .libSession) { cache in
             try cache.performAndPushChange(db, for: .groupMembers, sessionId: groupSessionId) { config in
-                guard case .object(let conf) = config else { throw LibSessionError.invalidConfigObject }
+                guard case .groupMembers(let conf) = config else { throw LibSessionError.invalidConfigObject }
                 
                 try memberIds.forEach { memberId in
                     // Only update members if they already exist in the group
@@ -348,7 +348,7 @@ internal extension LibSession {
     ) throws {
         try dependencies.mutate(cache: .libSession) { cache in
             try cache.performAndPushChange(db, for: .groupMembers, sessionId: groupSessionId) { config in
-                guard case .object(let conf) = config else { throw LibSessionError.invalidConfigObject }
+                guard case .groupMembers(let conf) = config else { throw LibSessionError.invalidConfigObject }
                 
                 try memberIds.forEach { memberId in
                     var cMemberId: [CChar] = try memberId.cString(using: .utf8) ?? { throw LibSessionError.invalidCConversion }()

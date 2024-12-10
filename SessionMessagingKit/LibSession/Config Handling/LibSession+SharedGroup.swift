@@ -284,8 +284,8 @@ internal extension LibSession {
         // Define the config state map and load it into memory
         let groupState: [ConfigDump.Variant: LibSession.Config] = [
             .groupKeys: .groupKeys(keysConf, info: infoConf, members: membersConf),
-            .groupInfo: .object(infoConf),
-            .groupMembers: .object(membersConf),
+            .groupInfo: .groupInfo(infoConf),
+            .groupMembers: .groupMembers(membersConf),
         ]
         
         return groupState

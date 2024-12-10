@@ -45,7 +45,7 @@ internal extension LibSessionCacheType {
         serverTimestampMs: Int64
     ) throws {
         guard configNeedsDump(config) else { return }
-        guard case .object(let conf) = config else { throw LibSessionError.invalidConfigObject }
+        guard case .userGroups(let conf) = config else { throw LibSessionError.invalidConfigObject }
         
         var infiniteLoopGuard: Int = 0
         var communities: [PrioritisedData<LibSession.OpenGroupUrlInfo>] = []
@@ -195,7 +195,7 @@ internal extension LibSessionCacheType {
                     .updateAllAndConfig(
                         db,
                         SessionThread.Columns.pinnedPriority.set(to: community.priority),
-                        calledFromConfig: .userGroups,
+                        calledFromConfig: config,
                         using: dependencies
                     )
             }
@@ -215,7 +215,7 @@ internal extension LibSessionCacheType {
                 type: .deleteCommunityAndContent,
                 threadIds: Array(communityIdsToRemove),
                 threadVariant: .community,
-                calledFromConfig: .userGroups,
+                calledFromConfig: config,
                 using: dependencies
             )
         }
@@ -274,8 +274,8 @@ internal extension LibSessionCacheType {
                         .map { $0.profileId },
                     admins: updatedAdmins.map { $0.profileId },
                     expirationTimer: UInt32(group.disappearingConfig?.durationSeconds ?? 0),
-                    formationTimestamp: joinedAt,
-                    calledFromConfig: .userGroups(conf),
+                    formationTimestampMs: UInt64(joinedAt * 1000),
+                    calledFromConfig: config,
                     using: dependencies
                 )
             }
@@ -297,7 +297,7 @@ internal extension LibSessionCacheType {
                         .updateAllAndConfig(
                             db,
                             groupChanges,
-                            calledFromConfig: .userGroups,
+                            calledFromConfig: config,
                             using: dependencies
                         )
                 }
@@ -393,7 +393,7 @@ internal extension LibSessionCacheType {
                     .updateAllAndConfig(
                         db,
                         SessionThread.Columns.pinnedPriority.set(to: group.priority),
-                        calledFromConfig: .userGroups,
+                        calledFromConfig: config,
                         using: dependencies
                     )
             }
@@ -411,7 +411,7 @@ internal extension LibSessionCacheType {
                 type: .deleteGroupAndContent,
                 threadIds: Array(legacyGroupIdsToRemove),
                 threadVariant: .legacyGroup,
-                calledFromConfig: .userGroups,
+                calledFromConfig: config,
                 using: dependencies
             )
         }
@@ -440,7 +440,7 @@ internal extension LibSessionCacheType {
                         joinedAt: group.joinedAt,
                         invited: group.invited,
                         wasKickedFromGroup: group.wasKickedFromGroup,
-                        calledFromConfig: .userGroups,
+                        calledFromConfig: config,
                         using: dependencies
                     )
                     
@@ -511,7 +511,7 @@ internal extension LibSessionCacheType {
                             .updateAllAndConfig(
                                 db,
                                 groupChanges,
-                                calledFromConfig: .userGroups,
+                                calledFromConfig: config,
                                 using: dependencies
                             )
                         
@@ -521,7 +521,7 @@ internal extension LibSessionCacheType {
                             try ClosedGroup.approveGroupIfNeeded(
                                 db,
                                 group: existingGroup,
-                                calledFromConfig: .userGroups,
+                                calledFromConfig: config,
                                 using: dependencies
                             )
                         }
@@ -535,7 +535,7 @@ internal extension LibSessionCacheType {
                     .updateAllAndConfig(
                         db,
                         SessionThread.Columns.pinnedPriority.set(to: group.priority),
-                        calledFromConfig: .userGroups,
+                        calledFromConfig: config,
                         using: dependencies
                     )
             }
@@ -553,7 +553,7 @@ internal extension LibSessionCacheType {
                 type: .deleteGroupAndContent,
                 threadIds: Array(groupSessionIdsToRemove),
                 threadVariant: .group,
-                calledFromConfig: .userGroups,
+                calledFromConfig: config,
                 using: dependencies
             )
             
@@ -568,7 +568,7 @@ internal extension LibSessionCacheType {
         config: LibSession.Config?
     ) -> Bool {
         guard
-            case .object(let conf) = config,
+            case .userGroups(let conf) = config,
             var cGroupId: [CChar] = groupSessionId.hexString.cString(using: .utf8)
         else { return false }
         
@@ -585,7 +585,7 @@ internal extension LibSessionCacheType {
         using dependencies: Dependencies
     ) throws {
         try performAndPushChange(db, for: .userGroups, sessionId: dependencies[cache: .general].sessionId) { config in
-            guard case .object(let conf) = config else { throw LibSessionError.invalidConfigObject }
+            guard case .userGroups(let conf) = config else { throw LibSessionError.invalidConfigObject }
             
             try groupSessionIds.forEach { groupId in
                 var cGroupId: [CChar] = try groupId.cString(using: .utf8) ?? { throw LibSessionError.invalidCConversion }()
@@ -605,7 +605,7 @@ internal extension LibSessionCacheType {
         using dependencies: Dependencies
     ) throws {
         try performAndPushChange(db, for: .userGroups, sessionId: dependencies[cache: .general].sessionId) { config in
-            guard case .object(let conf) = config else { throw LibSessionError.invalidConfigObject }
+            guard case .userGroups(let conf) = config else { throw LibSessionError.invalidConfigObject }
             
             try groupSessionIds.forEach { groupId in
                 var cGroupId: [CChar] = try groupId.cString(using: .utf8) ?? { throw LibSessionError.invalidCConversion }()
@@ -625,7 +625,7 @@ internal extension LibSessionCacheType {
         using dependencies: Dependencies
     ) throws {
         try performAndPushChange(db, for: .userGroups, sessionId: dependencies[cache: .general].sessionId) { config in
-            guard case .object(let conf) = config else { throw LibSessionError.invalidConfigObject }
+            guard case .userGroups(let conf) = config else { throw LibSessionError.invalidConfigObject }
             
             try groupSessionIds.forEach { groupId in
                 var cGroupId: [CChar] = try groupId.cString(using: .utf8) ?? { throw LibSessionError.invalidCConversion }()
@@ -664,7 +664,7 @@ internal extension LibSession {
         legacyGroups: [LegacyGroupInfo],
         in config: Config?
     ) throws {
-        guard case .object(let conf) = config else { throw LibSessionError.invalidConfigObject }
+        guard case .userGroups(let conf) = config else { throw LibSessionError.invalidConfigObject }
         guard !legacyGroups.isEmpty else { return }
         
         try legacyGroups
@@ -771,7 +771,7 @@ internal extension LibSession {
         in config: Config?,
         using dependencies: Dependencies
     ) throws {
-        guard case .object(let conf) = config else { throw LibSessionError.invalidConfigObject }
+        guard case .userGroups(let conf) = config else { throw LibSessionError.invalidConfigObject }
         guard !groups.isEmpty else { return }
         
         try groups
@@ -821,7 +821,7 @@ internal extension LibSession {
         communities: [CommunityInfo],
         in config: Config?
     ) throws {
-        guard case .object(let conf) = config else { throw LibSessionError.invalidConfigObject }
+        guard case .userGroups(let conf) = config else { throw LibSessionError.invalidConfigObject }
         guard !communities.isEmpty else { return }
         
         try communities
@@ -929,7 +929,7 @@ public extension LibSession {
     ) throws {
         try dependencies.mutate(cache: .libSession) { cache in
             try cache.performAndPushChange(db, for: .userGroups, sessionId: dependencies[cache: .general].sessionId) { config in
-                guard case .object(let conf) = config else { throw LibSessionError.invalidConfigObject }
+                guard case .userGroups(let conf) = config else { throw LibSessionError.invalidConfigObject }
                 
                 var cBaseUrl: [CChar] = try server.cString(using: .utf8) ?? { throw LibSessionError.invalidCConversion }()
                 var cRoom: [CChar] = try roomToken.cString(using: .utf8) ?? { throw LibSessionError.invalidCConversion }()
@@ -971,7 +971,7 @@ public extension LibSession {
     ) throws {
         try dependencies.mutate(cache: .libSession) { cache in
             try cache.performAndPushChange(db, for: .userGroups, sessionId: dependencies[cache: .general].sessionId) { config in
-                guard case .object(let conf) = config else { throw LibSessionError.invalidConfigObject }
+                guard case .userGroups(let conf) = config else { throw LibSessionError.invalidConfigObject }
                 
                 var cGroupId: [CChar] = try legacyGroupSessionId.cString(using: .utf8) ?? { throw LibSessionError.invalidCConversion }()
                 let userGroup: UnsafeMutablePointer<ugroups_legacy_group_info>? = user_groups_get_legacy_group(conf, &cGroupId)
@@ -1102,7 +1102,7 @@ public extension LibSession {
         
         try dependencies.mutate(cache: .libSession) { cache in
             try cache.performAndPushChange(db, for: .userGroups, sessionId: dependencies[cache: .general].sessionId) { config in
-                guard case .object(let conf) = config else { throw LibSessionError.invalidConfigObject }
+                guard case .userGroups(let conf) = config else { throw LibSessionError.invalidConfigObject }
                 
                 legacyGroupIds.forEach { legacyGroupId in
                     guard var cGroupId: [CChar] = legacyGroupId.cString(using: .utf8) else { return }
@@ -1195,7 +1195,7 @@ public extension LibSession {
     ) -> Bool {
         return dependencies.mutate(cache: .libSession) { cache in
             guard
-                case .object(let conf) = cache.config(for: .userGroups, sessionId: dependencies[cache: .general].sessionId),
+                case .userGroups(let conf) = cache.config(for: .userGroups, sessionId: dependencies[cache: .general].sessionId),
                 var cGroupId: [CChar] = groupSessionId.hexString.cString(using: .utf8)
             else { return false }
             
@@ -1214,7 +1214,7 @@ public extension LibSession {
     ) -> Bool {
         return dependencies.mutate(cache: .libSession) { cache in
             guard
-                case .object(let conf) = cache.config(for: .userGroups, sessionId: dependencies[cache: .general].sessionId),
+                case .userGroups(let conf) = cache.config(for: .userGroups, sessionId: dependencies[cache: .general].sessionId),
                 var cGroupId: [CChar] = groupSessionId.hexString.cString(using: .utf8)
             else { return false }
             
@@ -1236,7 +1236,7 @@ public extension LibSession {
         
         try dependencies.mutate(cache: .libSession) { cache in
             try cache.performAndPushChange(db, for: .userGroups, sessionId: dependencies[cache: .general].sessionId) { config in
-                guard case .object(let conf) = config else { throw LibSessionError.invalidConfigObject }
+                guard case .userGroups(let conf) = config else { throw LibSessionError.invalidConfigObject }
                 
                 try groupSessionIds.forEach { groupSessionId in
                     var cGroupId: [CChar] = try groupSessionId.hexString.cString(using: .utf8) ?? {

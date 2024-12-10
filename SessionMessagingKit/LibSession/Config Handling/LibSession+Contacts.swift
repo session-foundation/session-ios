@@ -39,7 +39,7 @@ internal extension LibSessionCacheType {
         serverTimestampMs: Int64
     ) throws {
         guard configNeedsDump(config) else { return }
-        guard case .object(let conf) = config else { throw LibSessionError.invalidConfigObject }
+        guard case .contacts(let conf) = config else { throw LibSessionError.invalidConfigObject }
         
         // The current users contact data is handled separately so exclude it if it's present (as that's
         // actually a bug)
@@ -103,7 +103,7 @@ internal extension LibSessionCacheType {
                                     Profile.Columns.lastProfilePictureUpdate.set(to: data.profile.lastProfilePictureUpdate)
                                 )
                             ].compactMap { $0 },
-                            calledFromConfig: .contacts,
+                            calledFromConfig: config,
                             using: dependencies
                         )
                 }
@@ -132,7 +132,7 @@ internal extension LibSessionCacheType {
                                     Contact.Columns.didApproveMe.set(to: true)
                                 )
                             ].compactMap { $0 },
-                            calledFromConfig: .contacts,
+                            calledFromConfig: config,
                             using: dependencies
                         )
                 }
@@ -156,7 +156,8 @@ internal extension LibSessionCacheType {
                             db,
                             type: .deleteContactConversationAndMarkHidden,
                             threadId: sessionId,
-                            calledFromConfig: .contacts,
+                            threadVariant: .contact,
+                            calledFromConfig: config,
                             using: dependencies
                         )
                     
@@ -175,7 +176,7 @@ internal extension LibSessionCacheType {
                             id: sessionId,
                             variant: .contact,
                             values: SessionThread.TargetValues(
-                                creationDateTimestamp: data.created,
+                                creationDateTimestamp: .setTo(data.created),
                                 shouldBeVisible: .setTo(updatedShouldBeVisible),
                                 pinnedPriority: .setTo(data.priority),
                                 disappearingMessagesConfig: (disappearingMessagesConfigChanged ?
@@ -248,7 +249,7 @@ internal extension LibSessionCacheType {
                 .updateAllAndConfig(
                     db,
                     Profile.Columns.nickname.set(to: nil),
-                    calledFromConfig: .contacts,
+                    calledFromConfig: config,
                     using: dependencies
                 )
             
@@ -259,7 +260,7 @@ internal extension LibSessionCacheType {
                     type: .deleteContactConversationAndContact,
                     threadIds: combinedIds,
                     threadVariant: .contact,
-                    calledFromConfig: .contacts,
+                    calledFromConfig: config,
                     using: dependencies
                 )
             
@@ -280,7 +281,7 @@ internal extension LibSession {
         in config: Config?,
         using dependencies: Dependencies
     ) throws {
-        guard case .object(let conf) = config else { throw LibSessionError.invalidConfigObject }
+        guard case .contacts(let conf) = config else { throw LibSessionError.invalidConfigObject }
         
         // The current users contact data doesn't need to sync so exclude it, we also don't want to sync
         // blinded message requests so exclude those as well
@@ -399,7 +400,7 @@ internal extension LibSession {
         
         try dependencies.mutate(cache: .libSession) { cache in
             try cache.performAndPushChange(db, for: .contacts, sessionId: userSessionId) { config in
-                guard case .object(let conf) = config else { throw LibSessionError.invalidConfigObject }
+                guard case .contacts(let conf) = config else { throw LibSessionError.invalidConfigObject }
                 
                 // When inserting new contacts (or contacts with invalid profile data) we want
                 // to add any valid profile information we have so identify if any of the updated
@@ -597,7 +598,7 @@ public extension LibSession {
         
         try dependencies.mutate(cache: .libSession) { cache in
             try cache.performAndPushChange(db, for: .contacts, sessionId: dependencies[cache: .general].sessionId) { config in
-                guard case .object(let conf) = config else { throw LibSessionError.invalidConfigObject }
+                guard case .contacts(let conf) = config else { throw LibSessionError.invalidConfigObject }
                 
                 contactIds.forEach { sessionId in
                     guard var cSessionId: [CChar] = sessionId.cString(using: .utf8) else { return }
