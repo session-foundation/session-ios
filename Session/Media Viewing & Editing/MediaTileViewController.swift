@@ -313,7 +313,7 @@ public class MediaTileViewController: UIViewController, UICollectionViewDataSour
     ) {
         // Ensure the first load runs without animations (if we don't do this the cells will animate
         // in from a frame of CGRect.zero)
-        guard hasLoadedInitialData else {
+        guard hasLoadedInitialData && viewModel.dependencies[feature: .animationsEnabled] else {
             self.viewModel.updateGalleryData(updatedGalleryData)
             self.updateSelectButton(updatedData: updatedGalleryData, inBatchSelectMode: isInBatchSelectMode)
             

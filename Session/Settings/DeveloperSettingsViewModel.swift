@@ -63,6 +63,7 @@ class DeveloperSettingsViewModel: SessionTableViewModel, NavigatableStateHolder,
     public enum TableItem: Hashable, Differentiable, CaseIterable {
         case developerMode
         
+        case animationsEnabled
         case showStringKeys
         
         case defaultLogLevel
@@ -97,6 +98,7 @@ class DeveloperSettingsViewModel: SessionTableViewModel, NavigatableStateHolder,
         public var differenceIdentifier: String {
             switch self {
                 case .developerMode: return "developerMode"
+                case .animationsEnabled: return "animationsEnabled"
                 case .showStringKeys: return "showStringKeys"
                 
                 case .defaultLogLevel: return "defaultLogLevel"
@@ -134,6 +136,7 @@ class DeveloperSettingsViewModel: SessionTableViewModel, NavigatableStateHolder,
             var result: [TableItem] = []
             switch TableItem.developerMode {
                 case .developerMode: result.append(.developerMode); fallthrough
+                case .animationsEnabled: result.append(.animationsEnabled); fallthrough
                 case .showStringKeys: result.append(.showStringKeys); fallthrough
                 
                 case .defaultLogLevel: result.append(.defaultLogLevel); fallthrough
@@ -172,6 +175,7 @@ class DeveloperSettingsViewModel: SessionTableViewModel, NavigatableStateHolder,
     private struct State: Equatable {
         let developerMode: Bool
         
+        let animationsEnabled: Bool
         let showStringKeys: Bool
         
         let defaultLogLevel: Log.Level
@@ -202,6 +206,7 @@ class DeveloperSettingsViewModel: SessionTableViewModel, NavigatableStateHolder,
         .refreshableData(self) { [weak self, dependencies] () -> State in
             State(
                 developerMode: dependencies[singleton: .storage, key: .developerModeEnabled],
+                animationsEnabled: dependencies[feature: .animationsEnabled],
                 showStringKeys: dependencies[feature: .showStringKeys],
                 
                 defaultLogLevel: dependencies[feature: .logLevel(cat: .default)],
@@ -257,6 +262,25 @@ class DeveloperSettingsViewModel: SessionTableViewModel, NavigatableStateHolder,
         let general: SectionModel = SectionModel(
             model: .general,
             elements: [
+                SessionCell.Info(
+                    id: .animationsEnabled,
+                    title: "Animations Enabled",
+                    subtitle: """
+                    Controls whether animations are enabled throughout the app
+                    
+                    Note: There may be some custom or low-level animations which can't be disabled via this setting
+                    """,
+                    trailingAccessory: .toggle(
+                        current.animationsEnabled,
+                        oldValue: previous?.animationsEnabled
+                    ),
+                    onTap: { [weak self] in
+                        self?.updateFlag(
+                            for: .animationsEnabled,
+                            to: !current.animationsEnabled
+                        )
+                    }
+                ),
                 SessionCell.Info(
                     id: .showStringKeys,
                     title: "Show String Keys",
@@ -688,6 +712,7 @@ class DeveloperSettingsViewModel: SessionTableViewModel, NavigatableStateHolder,
         TableItem.allCases.forEach { item in
             switch item {
                 case .developerMode: break      // Not a feature
+                case .animationsEnabled: updateFlag(for: .animationsEnabled, to: nil)
                 case .showStringKeys: updateFlag(for: .showStringKeys, to: nil)
                 
                 case .resetSnodeCache: break    // Not a feature

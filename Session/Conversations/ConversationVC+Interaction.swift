@@ -1450,7 +1450,11 @@ extension ConversationVC:
             at: [IndexPath(row: targetMessageIndex, section: messageSectionIndex)],
             with: .none
         )
-        UIView.setAnimationsEnabled(true)
+        
+        // Only re-enable animations if the feature flag isn't disabled
+        if viewModel.dependencies[feature: .animationsEnabled] {
+            UIView.setAnimationsEnabled(true)
+        }
     }
     
     func react(_ cellViewModel: MessageViewModel, with emoji: EmojiWithSkinTones) {

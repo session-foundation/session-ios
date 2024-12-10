@@ -33,14 +33,31 @@ extension MessageReceiver {
         else { return }
         guard let author: String = message.author, let timestampMs: UInt64 = message.timestamp else { return }
         
-        let maybeInteractionId: Int64? = try Interaction
+        let maybeInteraction: Interaction? = try Interaction
             .filter(Interaction.Columns.timestampMs == Int64(timestampMs))
             .filter(Interaction.Columns.authorId == author)
-            .select(.id)
-            .asRequest(of: Int64.self)
             .fetchOne(db)
         
-        guard let interactionId: Int64 = maybeInteractionId else { return }
+        guard
+            let interactionId: Int64 = maybeInteraction?.id,
+            let interaction: Interaction = maybeInteraction
+        else { return }
+        
+        // Mark incoming messages as read and remove any of their notifications
+        if interaction.variant == .standardIncoming {
+            try Interaction.markAsRead(
+                db,
+                interactionId: interactionId,
+                threadId: interaction.threadId,
+                threadVariant: threadVariant,
+                includingOlder: false,
+                trySendReadReceipt: false,
+                using: dependencies
+            )
+            
+            UNUserNotificationCenter.current().removeDeliveredNotifications(withIdentifiers: interaction.notificationIdentifiers)
+            UNUserNotificationCenter.current().removePendingNotificationRequests(withIdentifiers: interaction.notificationIdentifiers)
+        }
         
         /// Retrieve the hashes which should be deleted first (these will be removed by marking the message as deleted)
         let hashes: Set<String> = try Interaction.serverHashesForDeletion(

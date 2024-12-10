@@ -10,6 +10,11 @@ public final class Features {
 }
 
 public extension FeatureStorage {
+    static let animationsEnabled: FeatureConfig<Bool> = Dependencies.create(
+        identifier: "animationsEnabled",
+        defaultOption: true
+    )
+    
     static let showStringKeys: FeatureConfig<Bool> = Dependencies.create(
         identifier: "showStringKeys"
     )

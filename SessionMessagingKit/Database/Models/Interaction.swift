@@ -845,7 +845,23 @@ public extension Interaction {
         return (expiresInSeconds ?? 0 > 0)
     }
     
+    var notificationIdentifiers: [String] {
+        [
+            notificationIdentifier(shouldGroupMessagesForThread: true),
+            notificationIdentifier(shouldGroupMessagesForThread: false)
+        ]
+    }
+    
     // MARK: - Functions
+    
+    func notificationIdentifier(shouldGroupMessagesForThread: Bool) -> String {
+        // When the app is in the background we want the notifications to be grouped to prevent spam
+        return Interaction.notificationIdentifier(
+            for: (id ?? 0),
+            threadId: threadId,
+            shouldGroupMessagesForThread: shouldGroupMessagesForThread
+        )
+    }
     
     static func notificationIdentifier(for id: Int64, threadId: String, shouldGroupMessagesForThread: Bool) -> String {
         // When the app is in the background we want the notifications to be grouped to prevent spam
@@ -1247,10 +1263,12 @@ public extension Interaction {
         public enum CodingKeys: String, CodingKey, ColumnExpression {
             case id
             case variant
+            case serverHash
         }
         
         let id: Int64
         let variant: Interaction.Variant
+        let serverHash: String?
     }
     
     /// When deleting a message we should also delete any reactions which were on the message, so fetch and
@@ -1286,7 +1304,7 @@ public extension Interaction {
     ) throws {
         let interactionInfo: [InteractionVariantInfo] = try Interaction
             .filter(ids: interactionIds)
-            .select(.id, .variant)
+            .select(.id, .variant, .serverHash)
             .asRequest(of: InteractionVariantInfo.self)
             .fetchAll(db)
         
@@ -1323,6 +1341,19 @@ public extension Interaction {
         
         /// Delete any attachments from the database
         try attachments.forEach { try $0.delete(db) }
+        
+        /// Remove the `SnodeReceivedMessageInfo` records (otherwise we might try to poll for a hash which no longer exists, resulting
+        /// in fetching the last 14 days of messages)
+        let serverHashes: Set<String> = interactionInfo.compactMap(\.serverHash).asSet()
+        
+        if !serverHashes.isEmpty {
+            _ = try SnodeReceivedMessageInfo
+                .filter(serverHashes.contains(SnodeReceivedMessageInfo.Columns.hash))
+                .updateAll(
+                    db,
+                    SnodeReceivedMessageInfo.Columns.wasDeletedOrInvalid.set(to: true)
+                )
+        }
         
         /// Mark the messages as deleted (ie. remove as much message data as we can)
         try interactionInfo.grouped(by: { $0.variant }).forEach { variant, info in
