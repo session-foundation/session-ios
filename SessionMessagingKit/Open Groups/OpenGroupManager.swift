@@ -157,7 +157,7 @@ public final class OpenGroupManager {
         roomToken: String,
         server: String,
         publicKey: String,
-        calledFromConfig configTriggeringChange: ConfigDump.Variant?
+        calledFromConfig configTriggeringChange: LibSession.Config.Variant?
     ) -> Bool {
         // If we are currently polling for this server and already have a TSGroupThread for this room the do nothing
         if hasExistingOpenGroup(db, roomToken: roomToken, server: server, publicKey: publicKey) {
@@ -177,21 +177,21 @@ public final class OpenGroupManager {
         
         // Optionally try to insert a new version of the OpenGroup (it will fail if there is already an
         // inactive one but that won't matter as we then activate it)
-        _ = try? SessionThread
-            .fetchOrCreate(
-                db,
-                id: threadId,
-                variant: .community,
-                creationDateTimestamp: (dependencies[cache: .snodeAPI].currentOffsetTimestampMs() / 1000),
+        _ = try? SessionThread.upsert(
+            db,
+            id: threadId,
+            variant: .community,
+            values: SessionThread.TargetValues(
                 /// If we didn't add this open group via config handling then flag it to be visible (if it did come via config handling then
                 /// we want to wait until it actually has messages before making it visible)
                 ///
                 /// **Note:** We **MUST** provide a `nil` value if this method was called from the config handling as updating
                 /// the `shouldVeVisible` state can trigger a config update which could result in an infinite loop in the future
-                shouldBeVisible: (configTriggeringChange != nil ? nil : true),
-                calledFromConfig: configTriggeringChange,
-                using: dependencies
-            )
+                shouldBeVisible: (configTriggeringChange != nil ? .useExisting : .setTo(true))
+            ),
+            calledFromConfig: configTriggeringChange,
+            using: dependencies
+        )
         
         if (try? OpenGroup.exists(db, id: threadId)) == false {
             try? OpenGroup
@@ -207,7 +207,7 @@ public final class OpenGroupManager {
                 db,
                 OpenGroup.Columns.isActive.set(to: true),
                 OpenGroup.Columns.sequenceNumber.set(to: 0),
-                calledFromConfig: configTriggeringChange,
+                calledFromConfig: configTriggeringChange?.dumpVariant,
                 using: dependencies
             )
         

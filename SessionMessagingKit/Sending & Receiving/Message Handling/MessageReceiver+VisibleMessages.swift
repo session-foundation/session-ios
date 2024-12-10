@@ -68,12 +68,14 @@ extension MessageReceiver {
         
         // Store the message variant so we can run variant-specific behaviours
         let userSessionId: SessionId = dependencies[cache: .general].sessionId
-        let thread: SessionThread = try SessionThread.fetchOrCreate(
+        let thread: SessionThread = try SessionThread.upsert(
             db,
             id: threadId,
             variant: threadVariant,
-            creationDateTimestamp: messageSentTimestamp,
-            shouldBeVisible: nil,
+            values: SessionThread.TargetValues(
+                creationDateTimestamp: .useExistingOrSetTo(messageSentTimestamp),
+                shouldBeVisible: .useExisting
+            ),
             calledFromConfig: nil,
             using: dependencies
         )

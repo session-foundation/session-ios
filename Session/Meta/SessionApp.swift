@@ -185,12 +185,11 @@ public class SessionApp: SessionAppType {
         }
         
         dependencies[singleton: .storage].write { [dependencies] db in
-            try SessionThread.fetchOrCreate(
+            try SessionThread.upsert(
                 db,
                 id: threadId,
                 variant: variant,
-                creationDateTimestamp: (dependencies[cache: .snodeAPI].currentOffsetTimestampMs() / 1000),
-                shouldBeVisible: nil,
+                values: .existingOrDefault,
                 calledFromConfig: nil,
                 using: dependencies
             )

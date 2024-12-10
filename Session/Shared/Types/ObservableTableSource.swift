@@ -219,13 +219,7 @@ public enum ObservationBuilder {
         }
     }
     
-    /// The `ValueObserveration` will trigger whenever any of the data fetched in the closure is updated, please see the following link for tips
-    /// to help optimise performance https://github.com/groue/GRDB.swift#valueobservation-performance
     static func databaseObservation<S: ObservableTableSource, T: Equatable>(_ source: S, fetch: @escaping (Database) throws -> [T]) -> TableObservation<[T]> {
-        /// **Note:** This observation will be triggered twice immediately (and be de-duped by the `removeDuplicates`)
-        /// this is due to the behaviour of `ValueConcurrentObserver.asyncStartObservation` which triggers it's own
-        /// fetch (after the ones in `ValueConcurrentObserver.asyncStart`/`ValueConcurrentObserver.syncStart`)
-        /// just in case the database has changed between the two reads - unfortunately it doesn't look like there is a way to prevent this
         return TableObservation { viewModel, dependencies in
             let subject: CurrentValueSubject<[T]?, Error> = CurrentValueSubject(nil)
             var forcedRefreshCancellable: AnyCancellable?

@@ -359,6 +359,20 @@ class ThreadDisappearingMessagesSettingsViewModel: SessionTableViewModel, Naviga
                     using: dependencies
                 )
             
+            // Send the ExpirationTimerUpdate message
+            let expirationTimerUpdateMessage: ExpirationTimerUpdate = ExpirationTimerUpdate()
+                .with(sentTimestampMs: UInt64(currentOffsetTimestampMs))
+                .with(updatedConfig)
+
+            try MessageSender.send(
+                db,
+                message: expirationTimerUpdateMessage,
+                interactionId: interactionId,
+                threadId: threadId,
+                threadVariant: threadVariant,
+                using: dependencies
+            )
+            
             // Update libSession
             switch threadVariant {
                 case .contact:

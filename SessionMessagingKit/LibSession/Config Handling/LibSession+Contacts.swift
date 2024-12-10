@@ -146,56 +146,49 @@ internal extension LibSessionCacheType {
                     .fetchOne(db)
                 let threadExists: Bool = (threadInfo != nil)
                 let updatedShouldBeVisible: Bool = LibSession.shouldBeVisible(priority: data.priority)
-
-                /// If we are hiding the conversation then kick the user from it if it's currently open
-                if !updatedShouldBeVisible {
-                    LibSession.kickFromConversationUIIfNeeded(removedThreadIds: [sessionId], using: dependencies)
-                }
                 
-                /// Create the thread if it doesn't exist, otherwise just update it's state
-                if !threadExists {
-                    try SessionThread(
-                        id: sessionId,
-                        variant: .contact,
-                        creationDateTimestamp: data.created,
-                        shouldBeVisible: updatedShouldBeVisible,
-                        pinnedPriority: data.priority,
-                        using: dependencies
-                    ).upsert(db)
-                }
-                else {
-                    let changes: [ConfigColumnAssignment] = [
-                        (threadInfo?.shouldBeVisible == updatedShouldBeVisible ? nil :
-                            SessionThread.Columns.shouldBeVisible.set(to: updatedShouldBeVisible)
-                        ),
-                        (threadInfo?.pinnedPriority == data.priority ? nil :
-                            SessionThread.Columns.pinnedPriority.set(to: data.priority)
-                        )
-                    ].compactMap { $0 }
-                    
-                    try SessionThread
-                        .filter(id: sessionId)
-                        .updateAllAndConfig(
+                switch (updatedShouldBeVisible, threadExists) {
+                    /// If we are hiding the conversation then kick the user from it if it's currently open then delete the thread
+                    case (false, true):
+                        LibSession.kickFromConversationUIIfNeeded(removedThreadIds: [sessionId], using: dependencies)
+                        
+                        try SessionThread.deleteOrLeave(
                             db,
-                            changes,
+                            type: .deleteContactConversationAndMarkHidden,
+                            threadId: sessionId,
                             calledFromConfig: .contacts,
                             using: dependencies
                         )
-                }
-                
-                // Update disappearing messages configuration if needed
-                let localConfig: DisappearingMessagesConfiguration = try DisappearingMessagesConfiguration
-                    .fetchOne(db, id: sessionId)
-                    .defaulting(to: DisappearingMessagesConfiguration.defaultWith(sessionId))
-                
-                if data.config.isValidV2Config() && data.config != localConfig {
-                    try data.config
-                        .saved(db)
-                        .clearUnrelatedControlMessages(
+                    
+                    /// We need to create or update the thread
+                    case (true, _):
+                        let localConfig: DisappearingMessagesConfiguration = try DisappearingMessagesConfiguration
+                            .fetchOne(db, id: sessionId)
+                            .defaulting(to: DisappearingMessagesConfiguration.defaultWith(sessionId))
+                        let disappearingMessagesConfigChanged: Bool = (
+                            data.config.isValidV2Config() &&
+                            data.config != localConfig
+                        )
+                        
+                        _ = try SessionThread.upsert(
                             db,
-                            threadVariant: .contact,
+                            id: sessionId,
+                            variant: .contact,
+                            values: SessionThread.TargetValues(
+                                creationDateTimestamp: data.created,
+                                shouldBeVisible: .setTo(updatedShouldBeVisible),
+                                pinnedPriority: .setTo(data.priority),
+                                disappearingMessagesConfig: (disappearingMessagesConfigChanged ?
+                                    .setTo(data.config) :
+                                    .useExisting
+                                )
+                            ),
+                            calledFromConfig: .contacts(conf),
                             using: dependencies
                         )
+                    
+                    /// Thread shouldn't be visible and doesn't exist so no need to do anything
+                    case (false, false): break
                 }
             }
         
@@ -270,7 +263,11 @@ internal extension LibSessionCacheType {
                     using: dependencies
                 )
             
-            try LibSession.remove(db, volatileContactIds: combinedIds, using: dependencies)
+            try LibSession.remove(
+                db,
+                volatileContactIds: combinedIds,
+                using: dependencies
+            )
         }
     }
 }

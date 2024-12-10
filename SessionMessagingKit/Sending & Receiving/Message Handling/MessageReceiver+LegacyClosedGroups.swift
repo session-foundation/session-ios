@@ -121,7 +121,7 @@ extension MessageReceiver {
             members: membersAsData.map { $0.toHexString() },
             admins: adminsAsData.map { $0.toHexString() },
             expirationTimer: expirationTimer,
-            formationTimestamp: TimeInterval(Double(sentTimestampMs) / 1000),
+            formationTimestampMs: sentTimestampMs,
             calledFromConfig: nil,
             using: dependencies
         )
@@ -135,8 +135,8 @@ extension MessageReceiver {
         members: [String],
         admins: [String],
         expirationTimer: UInt32,
-        formationTimestamp: TimeInterval,
-        calledFromConfig configTriggeringChange: ConfigDump.Variant?,
+        formationTimestampMs: UInt64,
+        calledFromConfig configTriggeringChange: LibSession.Config.Variant?,
         using dependencies: Dependencies
     ) throws {
         // With new closed groups we only want to create them if the admin creating the closed group is an
@@ -157,20 +157,21 @@ extension MessageReceiver {
         guard hasApprovedAdmin || configTriggeringChange != nil else { return }
         
         // Create the group
-        let thread: SessionThread = try SessionThread
-            .fetchOrCreate(
-                db,
-                id: legacyGroupSessionId,
-                variant: .legacyGroup,
-                creationDateTimestamp: formationTimestamp,
-                shouldBeVisible: true,
-                calledFromConfig: configTriggeringChange,
-                using: dependencies
-            )
+        let thread: SessionThread = try SessionThread.upsert(
+            db,
+            id: legacyGroupSessionId,
+            variant: .legacyGroup,
+            values: SessionThread.TargetValues(
+                creationDateTimestamp: .setTo((TimeInterval(formationTimestampMs) / 1000)),
+                shouldBeVisible: .setTo(true)
+            ),
+            calledFromConfig: configTriggeringChange,
+            using: dependencies
+        )
         let closedGroup: ClosedGroup = try ClosedGroup(
             threadId: legacyGroupSessionId,
             name: name,
-            formationTimestamp: formationTimestamp,
+            formationTimestamp: (TimeInterval(formationTimestampMs) / 1000),
             shouldPoll: true,   // Legacy groups should always poll
             invited: false      // Legacy groups are never in the "invite" state
         ).upserted(db)
@@ -230,13 +231,13 @@ extension MessageReceiver {
             try newKeyPair.insert(db)
         }
         
-        if configTriggeringChange != .userGroups {
+        if configTriggeringChange?.dumpVariant != .userGroups {
             // Update libSession
             try? LibSession.add(
                 db,
                 legacyGroupSessionId: legacyGroupSessionId,
                 name: name,
-                joinedAt: formationTimestamp,
+                joinedAt: (TimeInterval(formationTimestampMs) / 1000),
                 latestKeyPairPublicKey: Data(encryptionKeyPair.publicKey),
                 latestKeyPairSecretKey: Data(encryptionKeyPair.secretKey),
                 latestKeyPairReceivedTimestamp: receivedTimestamp,

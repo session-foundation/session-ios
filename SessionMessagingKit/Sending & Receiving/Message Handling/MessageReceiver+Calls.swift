@@ -71,12 +71,11 @@ extension MessageReceiver {
         guard let timestampMs = message.sentTimestampMs, TimestampUtils.isWithinOneMinute(timestampMs: timestampMs) else {
             // Add missed call message for call offer messages from more than one minute
             if let interaction: Interaction = try MessageReceiver.insertCallInfoMessage(db, for: message, state: .missed, using: dependencies) {
-                let thread: SessionThread = try SessionThread.fetchOrCreate(
+                let thread: SessionThread = try SessionThread.upsert(
                     db,
                     id: sender,
                     variant: .contact,
-                    creationDateTimestamp: TimeInterval(dependencies[cache: .snodeAPI].currentOffsetTimestampMs() / 1000),
-                    shouldBeVisible: nil,
+                    values: .existingOrDefault,
                     calledFromConfig: nil,
                     using: dependencies
                 )
@@ -98,12 +97,11 @@ extension MessageReceiver {
             let state: CallMessage.MessageInfo.State = (db[.areCallsEnabled] ? .permissionDeniedMicrophone : .permissionDenied)
             
             if let interaction: Interaction = try MessageReceiver.insertCallInfoMessage(db, for: message, state: state, using: dependencies) {
-                let thread: SessionThread = try SessionThread.fetchOrCreate(
+                let thread: SessionThread = try SessionThread.upsert(
                     db,
                     id: sender,
                     variant: .contact,
-                    creationDateTimestamp: TimeInterval(dependencies[cache: .snodeAPI].currentOffsetTimestampMs() / 1000),
-                    shouldBeVisible: nil,
+                    values: .existingOrDefault,
                     calledFromConfig: nil,
                     using: dependencies
                 )
@@ -129,6 +127,7 @@ extension MessageReceiver {
         
         // Ignore pre offer message after the same call instance has been generated
         if let currentCall: CurrentCallProtocol = dependencies[singleton: .callManager].currentCall, currentCall.uuid == message.uuid {
+            Log.info(.calls, "Ignoring pre-offer message for call[\(currentCall.uuid)] instance because it is already active.")
             return
         }
         

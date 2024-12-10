@@ -351,7 +351,11 @@ public final class HomeVC: BaseVC, LibSessionRespondingViewController, UITableVi
         )
         
         // Start polling if needed (i.e. if the user just created or restored their Session ID)
-        if Identity.userExists(using: viewModel.dependencies), let appDelegate: AppDelegate = UIApplication.shared.delegate as? AppDelegate {
+        if
+            Identity.userExists(using: viewModel.dependencies),
+            let appDelegate: AppDelegate = UIApplication.shared.delegate as? AppDelegate,
+            !viewModel.dependencies[singleton: .appContext].isNotInForeground
+        {
             appDelegate.startPollersIfNeeded()
         }
         
@@ -844,7 +848,7 @@ public final class HomeVC: BaseVC, LibSessionRespondingViewController, UITableVi
                 }()
                 let destructiveAction: UIContextualAction.SwipeAction = {
                     switch (threadViewModel.threadVariant, threadViewModel.threadIsNoteToSelf, threadViewModel.currentUserIsClosedGroupMember) {
-                        case (.contact, true, _): return .clear
+                        case (.contact, true, _): return .hide
                         case (.legacyGroup, _, true), (.group, _, true), (.community, _, _): return .leave
                         default: return .delete
                     }

@@ -272,7 +272,8 @@ public class PushRegistrationManager: NSObject, PKPushRegistryDelegate {
         guard
             let uuid: String = payload["uuid"] as? String,
             let caller: String = payload["caller"] as? String,
-            let timestampMs: Int64 = payload["timestamp"] as? Int64
+            let timestampMs: UInt64 = payload["timestamp"] as? UInt64,
+            TimestampUtils.isWithinOneMinute(timestampMs: timestampMs)
         else {
             SessionCallManager.reportFakeCall(info: "Missing payload data", using: dependencies) // stringlint:ignore
             return
@@ -282,48 +283,36 @@ public class PushRegistrationManager: NSObject, PKPushRegistryDelegate {
         dependencies.mutate(cache: .libSessionNetwork) { $0.resumeNetworkAccess() }
         
         let maybeCall: SessionCall? = dependencies[singleton: .storage].write { [dependencies] db in
-            let messageInfo: CallMessage.MessageInfo = CallMessage.MessageInfo(
-                state: (caller == dependencies[cache: .general].sessionId.hexString ?
-                    .outgoing :
-                    .incoming
+            var call: SessionCall? = nil
+            
+            do {
+                call = SessionCall(
+                    db,
+                    for: caller,
+                    uuid: uuid,
+                    mode: .answer,
+                    using: dependencies
                 )
-            )
-            
-            let messageInfoString: String? = {
-                if let messageInfoData: Data = try? JSONEncoder(using: dependencies).encode(messageInfo) {
-                   return String(data: messageInfoData, encoding: .utf8)
-                } else {
-                    return "callsIncoming"
-                        .put(key: "name", value: caller)
-                        .localized()
-                }
-            }()
-            
-            let call: SessionCall = SessionCall(db, for: caller, uuid: uuid, mode: .answer, using: dependencies)
-            let thread: SessionThread = try SessionThread.fetchOrCreate(
-                db,
-                id: caller,
-                variant: .contact,
-                creationDateTimestamp: TimeInterval(dependencies[cache: .snodeAPI].currentOffsetTimestampMs() / 1000),
-                shouldBeVisible: nil,
-                calledFromConfig: nil,
-                using: dependencies
-            )
-            
-            let interaction: Interaction = try Interaction(
-                messageUuid: uuid,
-                threadId: thread.id,
-                threadVariant: thread.variant,
-                authorId: caller,
-                variant: .infoCall,
-                body: messageInfoString,
-                timestampMs: timestampMs,
-                using: dependencies
-            )
-            .withDisappearingMessagesConfiguration(db, threadVariant: thread.variant)
-            .inserted(db)
-            
-            call.callInteractionId = interaction.id
+                
+                let thread: SessionThread = try SessionThread.upsert(
+                    db,
+                    id: caller,
+                    variant: .contact,
+                    values: .existingOrDefault,
+                    calledFromConfig: nil,
+                    using: dependencies
+                )
+                
+                let interaction: Interaction? = try Interaction
+                    .filter(Interaction.Columns.threadId == thread.id)
+                    .filter(Interaction.Columns.messageUuid == uuid)
+                    .fetchOne(db)
+                
+                call?.callInteractionId = interaction?.id
+            }
+            catch {
+                Log.error(.calls, "Failed to create call due to error: \(error)")
+            }
             
             return call
         }
@@ -333,12 +322,16 @@ public class PushRegistrationManager: NSObject, PKPushRegistryDelegate {
             return
         }
         
+        dependencies[singleton: .jobRunner].appDidBecomeActive()
+        
         // NOTE: Just start 1-1 poller so that it won't wait for polling group messages
         (UIApplication.shared.delegate as? AppDelegate)?.startPollersIfNeeded(shouldStartGroupPollers: false)
         
         call.reportIncomingCallIfNeeded { error in
             if let error = error {
                 Log.error(.calls, "Failed to report incoming call to CallKit due to error: \(error)")
+            } else {
+                Log.info(.calls, "Succeeded to report incoming call to CallKit")
             }
         }
     }

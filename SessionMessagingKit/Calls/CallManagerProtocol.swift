@@ -22,7 +22,7 @@ public protocol CallManagerProtocol {
     func reportIncomingCall(_ call: CurrentCallProtocol, callerName: String, completion: @escaping (Error?) -> Void)
     func reportCurrentCallEnded(reason: CXCallEndedReason?)
     func suspendDatabaseIfCallEndedInBackground()
-
+    
     func startCall(_ call: CurrentCallProtocol?, completion: ((Error?) -> Void)?)
     func answerCall(_ call: CurrentCallProtocol?, completion: ((Error?) -> Void)?)
     func endCall(_ call: CurrentCallProtocol?, completion: ((Error?) -> Void)?)

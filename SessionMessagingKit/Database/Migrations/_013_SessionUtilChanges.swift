@@ -244,12 +244,11 @@ enum _013_SessionUtilChanges: Migration {
         /// counts so don't do this when running tests (this logic is the same as in `MainAppContext.isRunningTests`
         if ProcessInfo.processInfo.environment["XCTestConfigurationFilePath"] == nil {
             if (try SessionThread.exists(db, id: userSessionId.hexString)) == false {
-                try SessionThread.fetchOrCreate(
+                try SessionThread.upsert(
                     db,
                     id: userSessionId.hexString,
                     variant: .contact,
-                    creationDateTimestamp: TimeInterval(dependencies[cache: .snodeAPI].currentOffsetTimestampMs() / 1000),
-                    shouldBeVisible: false,
+                    values: SessionThread.TargetValues(shouldBeVisible: .setTo(false)),
                     calledFromConfig: nil,
                     using: dependencies
                 )

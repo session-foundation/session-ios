@@ -527,7 +527,7 @@ private extension NotificationPresenter {
         guard category == .incomingMessage || category == .errorMessage else { return true }
 
         guard let notificationThreadId = userInfo[AppNotificationUserInfoKey.threadId] as? String else {
-            Log.error("[UserNotificationPresenterAdaptee] threadId was unexpectedly nil")
+            Log.error("[UserNotificationPresenter] threadId was unexpectedly nil")
             return true
         }
         

@@ -144,7 +144,7 @@ public extension UIContextualAction {
                                         dependencies[singleton: .storage].writeAsync { db in
                                             try SessionThread.deleteOrLeave(
                                                 db,
-                                                type: .hideContactConversationAndDeleteContent,
+                                                type: .deleteContactConversationAndMarkHidden,
                                                 threadId: threadViewModel.threadId,
                                                 threadVariant: threadViewModel.threadVariant,
                                                 calledFromConfig: nil,
@@ -195,7 +195,7 @@ public extension UIContextualAction {
                                                 dependencies[singleton: .storage].writeAsync { db in
                                                     try SessionThread.deleteOrLeave(
                                                         db,
-                                                        type: .hideContactConversationAndDeleteContent,
+                                                        type: .hideContactConversation,
                                                         threadId: threadViewModel.threadId,
                                                         threadVariant: threadViewModel.threadVariant,
                                                         calledFromConfig: nil,
@@ -416,7 +416,7 @@ public extension UIContextualAction {
                                             if threadIsMessageRequest {
                                                 try SessionThread.deleteOrLeave(
                                                     db,
-                                                    type: .hideContactConversationAndDeleteContent,
+                                                    type: .deleteContactConversationAndMarkHidden,
                                                     threadId: threadViewModel.threadId,
                                                     threadVariant: threadViewModel.threadVariant,
                                                     calledFromConfig: nil,
@@ -641,8 +641,7 @@ public extension UIContextualAction {
                                                 case (.group, _), (.legacyGroup, _):
                                                     return .leaveGroupAsync
                                                 
-                                                case (.contact, _):
-                                                    return .hideContactConversationAndDeleteContent
+                                                case (.contact, _): return .deleteContactConversationAndMarkHidden
                                             }
                                         }()
                                         

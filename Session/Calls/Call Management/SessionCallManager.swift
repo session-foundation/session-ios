@@ -22,7 +22,7 @@ public extension Cache {
 
 // MARK: - SessionCallManager
 
-public final class SessionCallManager: NSObject, CallManagerProtocol {
+public final class SessionCallManager: CallManagerProtocol {
     let dependencies: Dependencies
     
     let provider: CXProvider?
@@ -57,8 +57,6 @@ public final class SessionCallManager: NSObject, CallManagerProtocol {
             self.provider = nil
             self.callController = nil
         }
-        
-        super.init()
         
         // We cannot assert singleton here, because this class gets rebuilt when the user changes relevant call settings
         self.provider?.setDelegate(self, queue: nil)
@@ -115,7 +113,7 @@ public final class SessionCallManager: NSObject, CallManagerProtocol {
         // Construct a CXCallUpdate describing the incoming call, including the caller.
         let update = CXCallUpdate()
         update.localizedCallerName = callerName
-        update.remoteHandle = CXHandle(type: .generic, value: call.callId.uuidString)
+        update.remoteHandle = CXHandle(type: .generic, value: call.sessionId)
         update.hasVideo = false
 
         disableUnsupportedFeatures(callUpdate: update)
@@ -142,6 +140,7 @@ public final class SessionCallManager: NSObject, CallManagerProtocol {
         }
         
         func handleCallEnded() {
+            SNLog("[Calls] Call ended.")
             WebRTCSession.current = nil
             dependencies[defaults: .appGroup, key: .isCallOngoing] = false
             dependencies[defaults: .appGroup, key: .lastCallPreOffer] = nil
@@ -200,6 +199,8 @@ public final class SessionCallManager: NSObject, CallManagerProtocol {
     }
     
     public func suspendDatabaseIfCallEndedInBackground() {
+        Log.info(.calls, "Called suspendDatabaseIfCallEndedInBackground.")
+        
         if dependencies[singleton: .appContext].isInBackground {
             // Stop all jobs except for message sending and when completed suspend the database
             dependencies[singleton: .jobRunner].stopAndClearPendingJobs(exceptForVariant: .messageSend) { [dependencies] _ in
@@ -238,8 +239,7 @@ public final class SessionCallManager: NSObject, CallManagerProtocol {
                 {
                     let callVC = CallVC(for: call, using: dependencies)
                     callVC.conversationVC = conversationVC
-                    conversationVC.inputAccessoryView?.isHidden = true
-                    conversationVC.inputAccessoryView?.alpha = 0
+                    conversationVC.hideInputAccessoryView()
                     presentingVC.present(callVC, animated: true, completion: nil)
                 }
                 else if !Preferences.isCallKitSupported {

@@ -149,57 +149,205 @@ public struct SessionThread: Codable, Identifiable, Equatable, FetchableRecord, 
 // MARK: - GRDB Interactions
 
 public extension SessionThread {
-    /// Fetches or creates a SessionThread with the specified id, variant and visible state
+    /// This type allows the specification of different `SessionThread` properties to use when creating/updating a thread, by default
+    /// it will attempt to use the values set in `libSession` if none are present
+    struct TargetValues {
+        public enum Value<T> {
+            case setTo(T)
+            case useLibSession
+            
+            /// We should generally try to make `libSession` the source of truth for conversation settings (so they sync between
+            /// devices) but there are some cases where we don't want to modify a setting (eg. when handling a config change), so
+            /// this case can be used for those situations
+            case useExisting
+            
+            /// If the thread doesn't exist then the provided value will be used, if it does exist then the existing value will be used
+            case useExistingOrSetTo(T)
+            
+            var valueOrNull: T? {
+                switch self {
+                    case .setTo(let value), .useExistingOrSetTo(let value): return value
+                    default: return nil
+                }
+            }
+        }
+        
+        let creationDateTimestamp: Value<TimeInterval>
+        let shouldBeVisible: Value<Bool>
+        let pinnedPriority: Value<Int32>
+        let disappearingMessagesConfig: Value<DisappearingMessagesConfiguration>
+        
+        // MARK: - Convenience
+        
+        public static var existingOrDefault: TargetValues {
+            return TargetValues(shouldBeVisible: .useLibSession)
+        }
+        
+        // MARK: - Initialization
+        
+        public init(
+            creationDateTimestamp: Value<TimeInterval> = .useExisting,
+            shouldBeVisible: Value<Bool>,
+            pinnedPriority: Value<Int32> = .useLibSession,
+            disappearingMessagesConfig: Value<DisappearingMessagesConfiguration> = .useLibSession
+        ) {
+            self.creationDateTimestamp = creationDateTimestamp
+            self.shouldBeVisible = shouldBeVisible
+            self.pinnedPriority = pinnedPriority
+            self.disappearingMessagesConfig = disappearingMessagesConfig
+        }
+    }
+    
+    /// Updates or inserts a `SessionThread` with the specified `id`, `variant` and specified `values`
     ///
-    /// **Notes:**
-    /// - The `variant` will be ignored if an existing thread is found
-    /// - This method **will** save the newly created SessionThread to the database
-    @discardableResult static func fetchOrCreate(
+    /// **Note:** This method **will** save the newly created/updated `SessionThread` to the database
+    @discardableResult static func upsert(
         _ db: Database,
         id: ID,
         variant: Variant,
-        creationDateTimestamp: TimeInterval,
-        shouldBeVisible: Bool?,
-        calledFromConfig configTriggeringChange: ConfigDump.Variant?,
+        values: TargetValues,
+        calledFromConfig configTriggeringChange: LibSession.Config.Variant?,
         using dependencies: Dependencies
     ) throws -> SessionThread {
-        guard let existingThread: SessionThread = try? fetchOne(db, id: id) else {
-            return try SessionThread(
-                id: id,
-                variant: variant,
-                creationDateTimestamp: creationDateTimestamp,
-                shouldBeVisible: (shouldBeVisible ?? false),
-                using: dependencies
-            ).upserted(db)
+        var result: SessionThread
+        
+        /// If the thread doesn't already exist then create it (with the provided defaults)
+        switch try? fetchOne(db, id: id) {
+            case .some(let existingThread): result = existingThread
+            case .none:
+                let targetPriority: Int32 = LibSession.pinnedPriority(
+                    db,
+                    threadId: id,
+                    threadVariant: variant,
+                    conf: configTriggeringChange?.conf,
+                    using: dependencies
+                )
+                
+                result = try SessionThread(
+                    id: id,
+                    variant: variant,
+                    creationDateTimestamp: (
+                        values.creationDateTimestamp.valueOrNull ??
+                        (dependencies[cache: .snodeAPI].currentOffsetTimestampMs() / 1000)
+                    ),
+                    shouldBeVisible: LibSession.shouldBeVisible(priority: targetPriority),
+                    pinnedPriority: targetPriority
+                ).upserted(db)
         }
         
-        // If the `shouldBeVisible` state matches then we can finish early
-        guard
-            let desiredVisibility: Bool = shouldBeVisible,
-            existingThread.shouldBeVisible != desiredVisibility
-        else { return existingThread }
+        /// Setup the `DisappearingMessagesConfiguration` as specified
+        switch (variant, values.disappearingMessagesConfig) {
+            case (.community, _), (_, .useExisting): break      // No need to do anything
+            case (_, .setTo(let config)):                       // Save the explicit config
+                try config
+                    .upserted(db)
+                    .clearUnrelatedControlMessages(
+                        db,
+                        threadVariant: variant
+                    )
+            
+            case (_, .useExistingOrSetTo(let config)):          // Update if we don't have an existing entry
+                guard (try? DisappearingMessagesConfiguration.exists(db, id: id)) == false else { break }
+                
+                try config
+                    .upserted(db)
+                    .clearUnrelatedControlMessages(
+                        db,
+                        threadVariant: variant
+                    )
+            
+            case (_, .useLibSession):                           // Create and save the config from libSession
+                guard configTriggeringChange == nil else { throw LibSessionError.invalidConfigAccess }
+                
+                try LibSession
+                    .disappearingMessagesConfig(
+                        db,
+                        threadId: id,
+                        threadVariant: variant,
+                        conf: configTriggeringChange?.conf,
+                        using: dependencies
+                    )?
+                    .upserted(db)
+                    .clearUnrelatedControlMessages(
+                        db,
+                        threadVariant: variant
+                    )
+        }
         
-        // Update the `shouldBeVisible` state
+        /// Apply any changes if the provided `values` don't match the current or default settings
+        var requiredChanges: [ConfigColumnAssignment] = []
+        var finalCreationDateTimestamp: TimeInterval = result.creationDateTimestamp
+        var finalShouldBeVisible: Bool = result.shouldBeVisible
+        var finalPinnedPriority: Int32? = result.pinnedPriority
+        
+        /// The `shouldBeVisible` flag is based on `pinnedPriority` so we need to check these two together if they
+        /// should both be sourced from `libSession`
+        switch (values.pinnedPriority, values.shouldBeVisible) {
+            case (.useLibSession, .useLibSession):
+                let targetPriority: Int32 = LibSession.pinnedPriority(
+                    db,
+                    threadId: id,
+                    threadVariant: variant,
+                    conf: configTriggeringChange?.conf,
+                    using: dependencies
+                )
+                let libSessionShouldBeVisible: Bool = LibSession.shouldBeVisible(priority: targetPriority)
+                
+                if targetPriority != result.pinnedPriority {
+                    requiredChanges.append(SessionThread.Columns.pinnedPriority.set(to: targetPriority))
+                    finalPinnedPriority = targetPriority
+                }
+                
+                if libSessionShouldBeVisible != result.shouldBeVisible {
+                    requiredChanges.append(SessionThread.Columns.shouldBeVisible.set(to: libSessionShouldBeVisible))
+                    finalShouldBeVisible = libSessionShouldBeVisible
+                }
+                
+            default: break
+        }
+        
+        /// Otherwise we can just handle the explicit `setTo` cases for these
+        if case .setTo(let value) = values.creationDateTimestamp, value != result.creationDateTimestamp {
+            requiredChanges.append(SessionThread.Columns.creationDateTimestamp.set(to: value))
+            finalCreationDateTimestamp = value
+        }
+        
+        if case .setTo(let value) = values.pinnedPriority, value != result.pinnedPriority {
+            requiredChanges.append(SessionThread.Columns.pinnedPriority.set(to: value))
+            finalPinnedPriority = value
+        }
+        
+        if case .setTo(let value) = values.shouldBeVisible, value != result.shouldBeVisible {
+            requiredChanges.append(SessionThread.Columns.shouldBeVisible.set(to: value))
+            finalShouldBeVisible = value
+        }
+        
+        /// If no changes were needed we can just return the existing/default thread
+        guard !requiredChanges.isEmpty else { return result }
+        
+        /// Otherwise save the changes
         try SessionThread
             .filter(id: id)
             .updateAllAndConfig(
                 db,
-                SessionThread.Columns.shouldBeVisible.set(to: shouldBeVisible),
+                requiredChanges,
                 calledFromConfig: configTriggeringChange,
                 using: dependencies
             )
         
-        // Retrieve the updated thread and return it (we don't recursively call this method
-        // just in case something weird happened and the above update didn't work, as that
-        // would result in an infinite loop)
+        /// We need to re-fetch the updated thread as the changes wouldn't have been applied to `result`, it's also possible additional
+        /// changes could have happened to the thread during the database operations
+        ///
+        /// Since we want to avoid returning a nullable `SessionThread` here we need to fallback to a non-null instance, but it should
+        /// never be called
         return (try fetchOne(db, id: id))
             .defaulting(
                 to: try SessionThread(
                     id: id,
                     variant: variant,
-                    creationDateTimestamp: creationDateTimestamp,
-                    shouldBeVisible: desiredVisibility,
-                    using: dependencies
+                    creationDateTimestamp: finalCreationDateTimestamp,
+                    shouldBeVisible: finalShouldBeVisible,
+                    pinnedPriority: finalPinnedPriority
                 ).upserted(db)
             )
     }
@@ -290,7 +438,9 @@ public extension SessionThread {
 
 public extension SessionThread {
     enum DeletionType {
-        case hideContactConversationAndDeleteContent
+        case hideContactConversation
+        case hideContactConversationAndDeleteContentDirectly
+        case deleteContactConversationAndMarkHidden
         case deleteContactConversationAndContact
         case leaveGroupAsync
         case deleteGroupAndContent
@@ -327,43 +477,67 @@ public extension SessionThread {
         let remainingThreadIds: Set<String> = threadIds.asSet().removing(userSessionId.hexString)
         
         switch type {
-            case .hideContactConversationAndDeleteContent:
+            case .hideContactConversation:
+                _ = try SessionThread
+                    .filter(ids: threadIds)
+                    .updateAllAndConfig(
+                        db,
+                        SessionThread.Columns.pinnedPriority.set(to: LibSession.hiddenPriority),
+                        SessionThread.Columns.shouldBeVisible.set(to: false),
+                        calledFromConfig: calledFromConfigHandling,
+                        using: dependencies
+                    )
+                
+            case .hideContactConversationAndDeleteContentDirectly:
                 // Clear any interactions for the deleted thread
                 _ = try Interaction
                     .filter(threadIds.contains(Interaction.Columns.threadId))
                     .deleteAll(db)
                 
+                // Hide the threads
+                _ = try SessionThread
+                    .filter(ids: threadIds)
+                    .updateAllAndConfig(
+                        db,
+                        SessionThread.Columns.pinnedPriority.set(to: LibSession.hiddenPriority),
+                        SessionThread.Columns.shouldBeVisible.set(to: false),
+                        calledFromConfig: calledFromConfigHandling,
+                        using: dependencies
+                    )
+            
+            case .deleteContactConversationAndMarkHidden:
+                _ = try SessionThread
+                    .filter(ids: remainingThreadIds)
+                    .deleteAll(db)
+                
                 // We need to custom handle the 'Note to Self' conversation (it should just be
                 // hidden locally rather than deleted)
                 if threadIds.contains(userSessionId.hexString) {
+                    // Clear any interactions for the deleted thread
+                    _ = try Interaction
+                        .filter(Interaction.Columns.threadId == userSessionId.hexString)
+                        .deleteAll(db)
+                    
                     _ = try SessionThread
                         .filter(id: userSessionId.hexString)
                         .updateAllAndConfig(
                             db,
-                            SessionThread.Columns.pinnedPriority.set(to: 0),
+                            SessionThread.Columns.pinnedPriority.set(to: LibSession.hiddenPriority),
                             SessionThread.Columns.shouldBeVisible.set(to: false),
                             calledFromConfig: configTriggeringChange,
                             using: dependencies
                         )
                 }
                 
-                // Update any other threads to be hidden (don't want to actually delete the thread
-                // record in case it's settings get changed while it's not visible)
-                _ = try SessionThread
-                    .filter(ids: remainingThreadIds)
-                    .updateAllAndConfig(
-                        db,
-                        SessionThread.Columns.pinnedPriority.set(to: LibSession.hiddenPriority),
-                        SessionThread.Columns.shouldBeVisible.set(to: false),
-                        calledFromConfig: configTriggeringChange,
-                        using: dependencies
-                    )
+                if !calledFromConfigHandling {
+                    // Update any other threads to be hidden
+                    try LibSession.hide(db, contactIds: Array(remainingThreadIds), using: dependencies)
+                }
                 
             case .deleteContactConversationAndContact:
                 // If this wasn't called from config handling then we need to hide the conversation
-                if configTriggeringChange != .contacts {
-                    try LibSession
-                        .hide(db, contactIds: threadIds, using: dependencies)
+                if !calledFromConfigHandling {
+                    try LibSession.remove(db, contactIds: Array(remainingThreadIds), using: dependencies)
                 }
                 
                 _ = try SessionThread

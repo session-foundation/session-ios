@@ -54,12 +54,16 @@ extension ConversationVC:
                             .filter(GroupMember.Columns.groupId == self.viewModel.threadData.threadId),
                         onTap: .callback { [weak self, dependencies = viewModel.dependencies] _, memberInfo in
                             dependencies[singleton: .storage].write { db in
-                                try SessionThread.fetchOrCreate(
+                                try SessionThread.upsert(
                                     db,
                                     id: memberInfo.profileId,
                                     variant: .contact,
-                                    creationDateTimestamp: (dependencies[cache: .snodeAPI].currentOffsetTimestampMs() / 1000),
-                                    shouldBeVisible: nil,
+                                    values: SessionThread.TargetValues(
+                                        creationDateTimestamp: .useExistingOrSetTo(
+                                            (dependencies[cache: .snodeAPI].currentOffsetTimestampMs() / 1000)
+                                        ),
+                                        shouldBeVisible: .useExisting
+                                    ),
                                     calledFromConfig: nil,
                                     using: dependencies
                                 )
@@ -848,13 +852,23 @@ extension ConversationVC:
     }
     
     func hideInputAccessoryView() {
-        DispatchQueue.main.async {
-            self.inputAccessoryView?.isHidden = true
-            self.inputAccessoryView?.alpha = 0
+        guard Thread.isMainThread else {
+            DispatchQueue.main.async {
+                self.hideInputAccessoryView()
+            }
+            return
         }
+        self.inputAccessoryView?.isHidden = true
+        self.inputAccessoryView?.alpha = 0
     }
     
     func showInputAccessoryView() {
+        guard Thread.isMainThread else {
+            DispatchQueue.main.async {
+                self.showInputAccessoryView()
+            }
+            return
+        }
         UIView.animate(withDuration: 0.25, animations: {
             self.inputAccessoryView?.isHidden = false
             self.inputAccessoryView?.alpha = 1
@@ -1305,7 +1319,9 @@ extension ConversationVC:
             )
         )
         
-        self.present(modal, animated: true)
+        self.present(modal, animated: true) { [weak self] in
+            self?.hideInputAccessoryView()
+        }
     }
     
     func handleReplyButtonTapped(for cellViewModel: MessageViewModel) {
@@ -1322,12 +1338,11 @@ extension ConversationVC:
         guard (try? SessionId.Prefix(from: sessionId)) != .blinded25 else { return }
         guard (try? SessionId.Prefix(from: sessionId)) == .blinded15 else {
             viewModel.dependencies[singleton: .storage].write { [dependencies = viewModel.dependencies] db in
-                try SessionThread.fetchOrCreate(
+                try SessionThread.upsert(
                     db,
                     id: sessionId,
                     variant: .contact,
-                    creationDateTimestamp: (dependencies[cache: .snodeAPI].currentOffsetTimestampMs() / 1000),
-                    shouldBeVisible: nil,
+                    values: .existingOrDefault,
                     calledFromConfig: nil,
                     using: dependencies
                 )
@@ -1360,17 +1375,14 @@ extension ConversationVC:
                     using: dependencies
                 )
             
-            return try SessionThread
-                .fetchOrCreate(
-                    db,
-                    id: (lookup.sessionId ?? lookup.blindedId),
-                    variant: .contact,
-                    creationDateTimestamp: (dependencies[cache: .snodeAPI].currentOffsetTimestampMs() / 1000),
-                    shouldBeVisible: nil,
-                    calledFromConfig: nil,
-                    using: dependencies
-                )
-                .id
+            return try SessionThread.upsert(
+                db,
+                id: (lookup.sessionId ?? lookup.blindedId),
+                variant: .contact,
+                values: .existingOrDefault,
+                calledFromConfig: nil,
+                using: dependencies
+            ).id
         }
         
         guard let threadId: String = targetThreadId else { return }

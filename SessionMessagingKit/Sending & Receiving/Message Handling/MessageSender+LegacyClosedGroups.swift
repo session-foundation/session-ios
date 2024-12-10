@@ -40,12 +40,14 @@ extension MessageSender {
                 let formationTimestamp: TimeInterval = (dependencies[cache: .snodeAPI].currentOffsetTimestampMs() / 1000)
                 
                 // Create the relevant objects in the database
-                let thread: SessionThread = try SessionThread.fetchOrCreate(
+                let thread: SessionThread = try SessionThread.upsert(
                     db,
-                    id: legacyGroupSessionId,
+                    id: groupPublicKey,
                     variant: .legacyGroup,
-                    creationDateTimestamp: formationTimestamp,
-                    shouldBeVisible: true,
+                    values: SessionThread.TargetValues(
+                        creationDateTimestamp: .setTo(formationTimestamp),
+                        shouldBeVisible: .setTo(true)
+                    ),
                     calledFromConfig: nil,
                     using: dependencies
                 )
@@ -484,12 +486,14 @@ extension MessageSender {
         
         try addedMembers.forEach { member in
             // Send updates to the new members individually
-            try SessionThread.fetchOrCreate(
+            try SessionThread.upsert(
                 db,
                 id: member,
                 variant: .contact,
-                creationDateTimestamp: closedGroup.formationTimestamp,
-                shouldBeVisible: nil,
+                values: SessionThread.TargetValues(
+                    creationDateTimestamp: .useExistingOrSetTo(closedGroup.formationTimestamp),
+                    shouldBeVisible: .useExisting
+                ),
                 calledFromConfig: nil,
                 using: dependencies
             )
@@ -661,12 +665,14 @@ extension MessageSender {
                 privateKey: keyPair.secretKey
             ).build()
             let plaintext = try proto.serializedData()
-            let thread: SessionThread = try SessionThread.fetchOrCreate(
+            let thread: SessionThread = try SessionThread.upsert(
                 db,
                 id: publicKey,
                 variant: .contact,
-                creationDateTimestamp: closedGroup.formationTimestamp,
-                shouldBeVisible: nil,
+                values: SessionThread.TargetValues(
+                    creationDateTimestamp: .useExistingOrSetTo(closedGroup.formationTimestamp),
+                    shouldBeVisible: .useExisting
+                ),
                 calledFromConfig: nil,
                 using: dependencies
             )

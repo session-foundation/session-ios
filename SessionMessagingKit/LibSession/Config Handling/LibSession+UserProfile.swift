@@ -101,36 +101,28 @@ internal extension LibSessionCacheType {
             }
         }
         else {
-            try SessionThread
-                .fetchOrCreate(
-                    db,
-                    id: userSessionId.hexString,
-                    variant: .contact,
-                    creationDateTimestamp: (dependencies[cache: .snodeAPI].currentOffsetTimestampMs() / 1000),
-                    shouldBeVisible: LibSession.shouldBeVisible(priority: targetPriority),
-                    calledFromConfig: .userProfile,
-                    using: dependencies
-                )
-            
-            try SessionThread
-                .filter(id: userSessionId.hexString)
-                .updateAllAndConfig(
-                    db,
-                    SessionThread.Columns.pinnedPriority.set(to: targetPriority),
-                    calledFromConfig: .userProfile,
-                    using: dependencies
-                )
-            
             // If the 'Note to Self' conversation is hidden then we should trigger the proper
-            // `deleteOrLeave` behaviour (for 'Note to Self' this will leave the conversation
-            // but remove the associated interactions)
+            // `deleteOrLeave` behaviour
             if !LibSession.shouldBeVisible(priority: targetPriority) {
                 try SessionThread.deleteOrLeave(
                     db,
-                    type: .hideContactConversationAndDeleteContent,
+                    type: .hideContactConversation,
                     threadId: userSessionId.hexString,
                     threadVariant: .contact,
                     calledFromConfig: .userProfile,
+                    using: dependencies
+                )
+            }
+            else {
+                try SessionThread.upsert(
+                    db,
+                    id: userPublicKey,
+                    variant: .contact,
+                    values: SessionThread.TargetValues(
+                        shouldBeVisible: .setTo(LibSession.shouldBeVisible(priority: targetPriority)),
+                        pinnedPriority: .setTo(targetPriority)
+                    ),
+                    calledFromConfig: .userProfile(conf),
                     using: dependencies
                 )
             }
@@ -236,6 +228,30 @@ internal extension LibSession {
         
         if let blindedMessageRequests: Bool = checkForCommunityMessageRequests {
             user_profile_set_blinded_msgreqs(conf, (blindedMessageRequests ? 1 : 0))
+        }
+    }
+}
+
+// MARK: - External Outgoing Changes
+
+public extension LibSession {
+    static func updateNoteToSelf(
+        _ db: Database,
+        priority: Int32? = nil,
+        disappearingMessagesConfig: DisappearingMessagesConfiguration? = nil,
+        using dependencies: Dependencies
+    ) throws {
+        try LibSession.performAndPushChange(
+            db,
+            for: .userProfile,
+            publicKey: getUserHexEncodedPublicKey(db),
+            using: dependencies
+        ) { conf in
+            try LibSession.updateNoteToSelf(
+                priority: priority,
+                disappearingMessagesConfig: disappearingMessagesConfig,
+                in: conf
+            )
         }
     }
 }

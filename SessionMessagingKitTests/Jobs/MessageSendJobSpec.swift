@@ -42,8 +42,11 @@ class MessageSendJobSpec: QuickSpec {
                     db,
                     id: "Test1",
                     variant: .contact,
-                    creationDateTimestamp: 1234567890,
-                    shouldBeVisible: true,
+                    values: SessionThread.TargetValues(
+                        creationDateTimestamp: .setTo(1234567890),
+                        // False is the default and will mean we don't need libSession loaded
+                        shouldBeVisible: .setTo(false)
+                    ),
                     calledFromConfig: nil,
                     using: dependencies
                 )

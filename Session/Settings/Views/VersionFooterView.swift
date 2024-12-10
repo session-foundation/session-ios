@@ -40,14 +40,16 @@ class VersionFooterView: UIView {
         let version: String = ((infoDict?["CFBundleShortVersionString"] as? String) ?? "0.0.0")
         let buildNumber: String? = (infoDict?["CFBundleVersion"] as? String)
         let commitInfo: String? = (infoDict?["GitCommitHash"] as? String)
-        let buildInfo: String = [buildNumber, commitInfo]
+        let buildInfo: String? = [buildNumber, commitInfo]
             .compactMap { $0 }
             .joined(separator: " - ")
+            .nullIfEmpty
+            .map { "(\($0))" }
         // stringlint:ignore_stop
         result.text = [
-            "Version \(version)",                                                                 // stringlint:ignore
+            "Version \(version)",
             buildInfo
-        ].compactMap { $0 }.joined(separator: " ")                                                // stringlint:ignore
+        ].compactMap { $0 }.joined(separator: " ")
         
         return result
     }()

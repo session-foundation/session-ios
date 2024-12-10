@@ -56,7 +56,7 @@ final class JoinOpenGroupVC: BaseVC, UIPageViewControllerDataSource, UIPageViewC
         
         return result
     }()
-
+    
     // MARK: - Initialization
     
     init(using dependencies: Dependencies) {

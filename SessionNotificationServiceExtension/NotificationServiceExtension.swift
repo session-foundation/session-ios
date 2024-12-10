@@ -174,16 +174,19 @@ public final class NotificationServiceExtension: UNNotificationServiceExtension 
                                         using: dependencies
                                     )
                                 {
-                                    let thread: SessionThread = try SessionThread
-                                        .fetchOrCreate(
-                                            db,
-                                            id: sender,
-                                            variant: .contact,
-                                            creationDateTimestamp: (dependencies[cache: .snodeAPI].currentOffsetTimestampMs() / 1000),
-                                            shouldBeVisible: nil,
-                                            calledFromConfig: nil,
-                                            using: dependencies
-                                        )
+                                    let thread: SessionThread = try SessionThread.upsert(
+                                        db,
+                                        id: sender,
+                                        variant: .contact,
+                                        values: SessionThread.TargetValues(
+                                            creationDateTimestamp: .useExistingOrSetTo(
+                                                (dependencies[cache: .snodeAPI].currentOffsetTimestampMs() / 1000)
+                                            ),
+                                            shouldBeVisible: .useExisting
+                                        ),
+                                        calledFromConfig: nil,
+                                        using: dependencies
+                                    )
 
                                     // Notify the user if the call message wasn't already read
                                     if !interaction.wasRead {

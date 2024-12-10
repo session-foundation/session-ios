@@ -397,12 +397,11 @@ extension GlobalSearchViewController {
         // contact has been hidden)
         if threadVariant == .contact {
             dependencies[singleton: .storage].write { [dependencies] db in
-                try SessionThread.fetchOrCreate(
+                try SessionThread.upsert(
                     db,
                     id: threadId,
                     variant: threadVariant,
-                    creationDateTimestamp: (dependencies[cache: .snodeAPI].currentOffsetTimestampMs() / 1000),
-                    shouldBeVisible: nil,    // Don't change current state
+                    values: .existingOrDefault,
                     calledFromConfig: nil,
                     using: dependencies
                 )

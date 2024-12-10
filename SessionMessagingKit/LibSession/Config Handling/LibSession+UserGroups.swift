@@ -169,7 +169,7 @@ internal extension LibSessionCacheType {
                 roomToken: community.data.roomToken,
                 server: community.data.server,
                 publicKey: community.data.publicKey,
-                calledFromConfig: .userGroups
+                calledFromConfig: .userGroups(conf)
             )
             
             if successfullyAddedGroup {
@@ -275,7 +275,7 @@ internal extension LibSessionCacheType {
                     admins: updatedAdmins.map { $0.profileId },
                     expirationTimer: UInt32(group.disappearingConfig?.durationSeconds ?? 0),
                     formationTimestamp: joinedAt,
-                    calledFromConfig: .userGroups,
+                    calledFromConfig: .userGroups(conf),
                     using: dependencies
                 )
             }

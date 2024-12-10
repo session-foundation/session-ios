@@ -9,6 +9,7 @@ public enum LibSessionError: Error, CustomStringConvertible {
     case unableToCreateConfigObject
     case invalidConfigObject
     case invalidDataProvided
+    case invalidConfigAccess
     case userDoesNotExist
     case getOrConstructFailedUnexpectedly
     case processingLoopLimitReached
@@ -109,13 +110,14 @@ public enum LibSessionError: Error, CustomStringConvertible {
         return self
     }
     
-    // MARK: - CustomStringCOnvertible
+    // MARK: - CustomStringConvertible
     
     public var description: String {
         switch self {
             case .unableToCreateConfigObject: return "Unable to create config object (LibSessionError.unableToCreateConfigObject)."
             case .invalidConfigObject: return "Invalid config object (LibSessionError.invalidConfigObject)."
             case .invalidDataProvided: return "Invalid data provided (LibSessionError.invalidDataProvided)."
+            case .invalidConfigAccess: return "Invalid config access (LibSessionError.invalidConfigAccess)."
             case .userDoesNotExist: return "User does not exist (LibSessionError.userDoesNotExist)."
             case .getOrConstructFailedUnexpectedly: return "'getOrConstruct' failed unexpectedly (LibSessionError.getOrConstructFailedUnexpectedly)."
             case .processingLoopLimitReached: return "Processing loop limit reached (LibSessionError.processingLoopLimitReached)."

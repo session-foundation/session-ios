@@ -15,6 +15,9 @@ open class Modal: UIViewController, UIGestureRecognizerDelegate {
     
     // MARK: - Components
     
+    internal var contentTopConstraint: NSLayoutConstraint?
+    internal var contentCenterYConstraint: NSLayoutConstraint?
+    
     private lazy var dimmingView: UIView = {
         let result = UIVisualEffectView()
         
@@ -99,7 +102,6 @@ open class Modal: UIViewController, UIGestureRecognizerDelegate {
         
         if UIDevice.current.isIPad {
             containerView.set(.width, to: Values.iPadModalWidth)
-            containerView.center(in: view)
         }
         else {
             containerView.leadingAnchor
@@ -108,8 +110,13 @@ open class Modal: UIViewController, UIGestureRecognizerDelegate {
             view.trailingAnchor
                 .constraint(equalTo: containerView.trailingAnchor, constant: Values.veryLargeSpacing)
                 .isActive = true
-            containerView.center(.vertical, in: view)
         }
+        
+        containerView.center(.horizontal, in: view)
+        contentCenterYConstraint = containerView.center(.vertical, in: view)
+        contentTopConstraint = containerView
+            .pin(.top, toMargin: .top, of: view)
+            .setting(isActive: false)
         
         // Gestures
         let swipeGestureRecognizer = UISwipeGestureRecognizer(target: self, action: #selector(close))

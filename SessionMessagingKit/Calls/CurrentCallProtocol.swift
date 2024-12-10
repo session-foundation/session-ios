@@ -8,6 +8,7 @@ import SessionUtilitiesKit
 public protocol CurrentCallProtocol {
     var uuid: String { get }
     var callId: UUID { get }
+    var sessionId: String { get }
     var hasStartedConnecting: Bool { get set }
     var hasEnded: Bool { get set }
     

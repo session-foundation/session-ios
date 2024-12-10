@@ -222,7 +222,7 @@ class MessageRequestsViewModel: SessionTableViewModel, NavigatableStateHolder, O
                                     // Remove the one-to-one requests
                                     try SessionThread.deleteOrLeave(
                                         db,
-                                        type: .hideContactConversationAndDeleteContent,
+                                        type: .deleteContactConversationAndMarkHidden,
                                         threadIds: threadInfo
                                             .filter { _, variant in variant == .contact }
                                             .map { id, _ in id },

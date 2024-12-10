@@ -34,7 +34,7 @@ public extension KeychainStorage.DataKey { static let dbCipherKeySpec: Self = "G
 
 open class Storage {
     public static let queuePrefix: String = "SessionDatabase"
-    private static let dbFileName: String = "Session.sqlite"
+    public static let dbFileName: String = "Session.sqlite"
     private static let SQLCipherKeySpecLength: Int = 48
     
     /// If a transaction takes longer than this duration a warning will be logged but the transaction will continue to run
@@ -81,6 +81,21 @@ open class Storage {
         self.dependencies = dependencies
         
         configureDatabase(customWriter: customWriter)
+    }
+    
+    public init(
+        testAccessTo databasePath: String,
+        encryptedKeyPath: String,
+        encryptedKeyPassword: String,
+        using dependencies: Dependencies
+    ) throws {
+        self.dependencies = dependencies
+        
+        try testAccess(
+            databasePath: databasePath,
+            encryptedKeyPath: encryptedKeyPath,
+            encryptedKeyPassword: encryptedKeyPassword
+        )
     }
     
     private func configureDatabase(customWriter: DatabaseWriter? = nil) {
@@ -505,6 +520,16 @@ open class Storage {
         Log.info(.storage, "Database access resumed.")
     }
     
+    public func checkpoint(_ mode: Database.CheckpointMode) throws {
+        try dbWriter?.writeWithoutTransaction { db in _ = try db.checkpoint(mode) }
+    }
+    
+    public func closeDatabase() throws {
+        suspendDatabaseAccess()
+        isValid = false
+        dbWriter = nil
+    }
+    
     public func resetAllStorage() {
         isValid = false
         migrationsCompleted.mutate { $0 = false }
@@ -879,8 +904,60 @@ private extension Storage {
 // MARK: - Debug Convenience
 
 public extension Storage {
-    func exportInfo(password: String, using dependencies: Dependencies) throws -> (dbPath: String, keyPath: String) {
-        var keySpec: Data = try dependencies[singleton: .storage].getOrGenerateDatabaseKeySpec()
+    static let encKeyFilename: String = "key.enc"
+    
+    func testAccess(
+        databasePath: String,
+        encryptedKeyPath: String,
+        encryptedKeyPassword: String
+    ) throws {
+        /// First we need to ensure we can decrypt the encrypted key file
+        do {
+            var tmpKeySpec: Data = try decryptSecureExportedKey(
+                path: encryptedKeyPath,
+                password: encryptedKeyPassword
+            )
+            tmpKeySpec.resetBytes(in: 0..<tmpKeySpec.count)
+        }
+        catch { return }
+        
+        /// Then configure the database using the key
+        var config = Configuration()
+
+        /// Load in the SQLCipher keys
+        config.prepareDatabase { [weak self] db in
+            var keySpec: Data = try self?.decryptSecureExportedKey(
+                path: encryptedKeyPath,
+                password: encryptedKeyPassword
+            ) ?? { throw StorageError.invalidKeySpec }()
+            defer { keySpec.resetBytes(in: 0..<keySpec.count) } // Reset content immediately after use
+            
+            // Use a raw key spec, where the 96 hexadecimal digits are provided
+            // (i.e. 64 hex for the 256 bit key, followed by 32 hex for the 128 bit salt)
+            // using explicit BLOB syntax, e.g.:
+            //
+            // x'98483C6EB40B6C31A448C22A66DED3B5E5E8D5119CAC8327B655C8B5C483648101010101010101010101010101010101'
+            keySpec = try (keySpec.toHexString().data(using: .utf8) ?? { throw StorageError.invalidKeySpec }())
+            keySpec.insert(contentsOf: [120, 39], at: 0)    // "x'" prefix
+            keySpec.append(39)                              // "'" suffix
+            
+            try db.usePassphrase(keySpec)
+            
+            // According to the SQLCipher docs iOS needs the 'cipher_plaintext_header_size' value set to at least
+            // 32 as iOS extends special privileges to the database and needs this header to be in plaintext
+            // to determine the file type
+            //
+            // For more info see: https://www.zetetic.net/sqlcipher/sqlcipher-api/#cipher_plaintext_header_size
+            try db.execute(sql: "PRAGMA cipher_plaintext_header_size = 32")
+        }
+        
+        // Create the DatabasePool to allow us to connect to the database and mark the storage as valid
+        dbWriter = try DatabasePool(path: databasePath, configuration: config)
+        isValid = true
+    }
+    
+    func secureExportKey(password: String) throws -> String {
+        var keySpec: Data = try getOrGenerateDatabaseKeySpec()
         defer { keySpec.resetBytes(in: 0..<keySpec.count) } // Reset content immediately after use
         
         guard var passwordData: Data = password.data(using: .utf8) else { throw StorageError.generic }
@@ -898,13 +975,38 @@ public extension Storage {
         let hash: SHA256.Digest = SHA256.hash(data: passwordData)
         let key: SymmetricKey = SymmetricKey(data: Data(hash.makeIterator()))
         let sealedBox: ChaChaPoly.SealedBox = try ChaChaPoly.seal(keySpec, using: key, nonce: nonce, authenticating: Data())
-        let keyInfoPath: String = "\(dependencies[singleton: .fileManager].temporaryDirectory)key.enc"
+        let keyInfoPath: String = "\(dependencies[singleton: .fileManager].temporaryDirectory)/\(Storage.encKeyFilename)"
         let encryptedKeyBase64: String = sealedBox.combined.base64EncodedString()
         try encryptedKeyBase64.write(toFile: keyInfoPath, atomically: true, encoding: .utf8)
         
-        return (
-            Storage.databasePath,
-            keyInfoPath
-        )
+        return keyInfoPath
+    }
+    
+    func replaceDatabaseKey(path: String, password: String) throws {
+        var keySpec: Data = try decryptSecureExportedKey(path: path, password: password)
+        defer { keySpec.resetBytes(in: 0..<keySpec.count) } // Reset content immediately after use
+        
+        try dependencies[singleton: .keychain].set(data: keySpec, forKey: .dbCipherKeySpec)
+    }
+    
+    fileprivate func decryptSecureExportedKey(path: String, password: String) throws -> Data {
+        let encKeyBase64: String = try String(contentsOf: URL(fileURLWithPath: path), encoding: .utf8)
+        
+        guard
+            var passwordData: Data = password.data(using: .utf8),
+            var encKeyData: Data = Data(base64Encoded: encKeyBase64)
+        else { throw StorageError.generic }
+        defer {
+            // Reset content immediately after use
+            passwordData.resetBytes(in: 0..<passwordData.count)
+            encKeyData.resetBytes(in: 0..<encKeyData.count)
+        }
+        
+        let hash: SHA256.Digest = SHA256.hash(data: passwordData)
+        let key: SymmetricKey = SymmetricKey(data: Data(hash.makeIterator()))
+        
+        let sealedBox: ChaChaPoly.SealedBox = try ChaChaPoly.SealedBox(combined: encKeyData)
+        
+        return try ChaChaPoly.open(sealedBox, using: key, authenticating: Data())
     }
 }

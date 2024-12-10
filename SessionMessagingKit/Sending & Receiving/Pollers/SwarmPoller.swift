@@ -283,8 +283,11 @@ public class SwarmPoller: SwarmPollerType & PollerType {
                                 db,
                                 job: job,
                                 canStartJob: (
-                                    !forceSynchronousProcessing &&
-                                    !dependencies[singleton: .appContext].isInBackground
+                                    !forceSynchronousProcessing && (
+                                        !dependencies[singleton: .appContext].isInBackground ||
+                                        // FIXME: Better seperate the call messages handling, since we need to handle them all the time
+                                        dependencies[singleton: .callManager].currentCall != nil
+                                    )
                                 )
                             )
                             

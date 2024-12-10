@@ -79,12 +79,14 @@ extension MessageReceiver {
             .defaulting(to: (dependencies[cache: .snodeAPI].currentOffsetTimestampMs() / 1000))
         
         // Prep the unblinded thread
-        let unblindedThread: SessionThread = try SessionThread.fetchOrCreate(
+        let unblindedThread: SessionThread = try SessionThread.upsert(
             db,
             id: senderId,
             variant: .contact,
-            creationDateTimestamp: earliestCreationTimestamp,
-            shouldBeVisible: nil,
+            values: SessionThread.TargetValues(
+                creationDateTimestamp: .setTo(earliestCreationTimestamp),
+                shouldBeVisible: .useExisting
+            ),
             calledFromConfig: nil,
             using: dependencies
         )

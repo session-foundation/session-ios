@@ -46,7 +46,7 @@ extension MessageSender {
                     }
                 }.eraseToAnyPublisher()
             }
-            .flatMap { displayPictureInfo -> AnyPublisher<PreparedGroupData, Error> in
+            .flatMap { (displayPictureInfo: ImageUploadResponse?) -> AnyPublisher<PreparedGroupData, Error> in
                 dependencies[singleton: .storage].writePublisher { db -> PreparedGroupData in
                     // Create and cache the libSession entries
                     let createdInfo: LibSession.CreatedGroupInfo = try LibSession.createGroup(
@@ -61,16 +61,17 @@ extension MessageSender {
                     )
                     
                     // Save the relevant objects to the database
-                    let thread: SessionThread = try SessionThread
-                        .fetchOrCreate(
-                            db,
-                            id: createdInfo.group.id,
-                            variant: .group,
-                            creationDateTimestamp: createdInfo.group.formationTimestamp,
-                            shouldBeVisible: true,
-                            calledFromConfig: nil,
-                            using: dependencies
-                        )
+                    let thread: SessionThread = try SessionThread.upsert(
+                        db,
+                        id: createdInfo.group.id,
+                        variant: .group,
+                        values: SessionThread.TargetValues(
+                            creationDateTimestamp: .setTo(createdInfo.group.formationTimestamp),
+                            shouldBeVisible: .setTo(true)
+                        ),
+                        calledFromConfig: nil,
+                        using: dependencies
+                    )
                     try createdInfo.group.insert(db)
                     try createdInfo.members.forEach { try $0.insert(db) }
                     

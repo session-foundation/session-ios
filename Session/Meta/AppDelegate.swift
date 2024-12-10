@@ -68,7 +68,7 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
                 Log.setup(with: Logger(primaryPrefix: "Session", level: .info, using: dependencies))
                 Log.info(.cat, "Setting up environment.")
                 
-                /// Create a proper `NotificationPresenter` for the main app (defaults to a no-op version)
+                /// Create a proper `NotificationPresenter` and `SessionCallManager` for the main app (defaults to a no-op version)
                 dependencies.set(singleton: .notificationsManager, to: NotificationPresenter(using: dependencies))
                 dependencies.set(singleton: .callManager, to: SessionCallManager(using: dependencies))
                 

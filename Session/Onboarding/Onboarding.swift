@@ -342,12 +342,11 @@ extension Onboarding {
                             )
                         
                         /// Create the 'Note to Self' thread (not visible by default)
-                        try SessionThread.fetchOrCreate(
+                        try SessionThread.upsert(
                             db,
                             id: userSessionId.hexString,
                             variant: .contact,
-                            creationDateTimestamp: (dependencies[cache: .snodeAPI].currentOffsetTimestampMs() / 1000),
-                            shouldBeVisible: false,
+                            values: SessionThread.TargetValues(shouldBeVisible: .setTo(false)),
                             calledFromConfig: nil,
                             using: dependencies
                         )

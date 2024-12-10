@@ -288,7 +288,10 @@ final class NewClosedGroupVC: BaseVC, UITableViewDataSource, UITableViewDelegate
     }
     
     func scrollViewDidScroll(_ scrollView: UIScrollView) {
-        let nameTextFieldCenterY = nameTextField.convert(nameTextField.bounds.center, to: scrollView).y
+        let nameTextFieldCenterY = nameTextField.convert(
+            CGPoint(x: nameTextField.bounds.midX, y: nameTextField.bounds.midY),
+            to: scrollView
+        ).y
         let shouldShowGroupNameInTitle: Bool = (scrollView.contentOffset.y > nameTextFieldCenterY)
         let groupNameLabelVisible: Bool = (crossfadeLabel.alpha >= 1)
         
