@@ -156,7 +156,7 @@ public final class SessionCall: CurrentCallProtocol, WebRTCSessionDelegate {
         self.callId = UUID()
         self.mode = mode
         self.audioMode = .earpiece
-        self.webRTCSession = WebRTCSession.current ?? WebRTCSession(for: sessionId, with: uuid)
+        self.webRTCSession = WebRTCSession.current ?? WebRTCSession(for: sessionId, with: uuid, using: dependencies)
         self.isOutgoing = outgoing
         
         let avatarData: Data? = ProfileManager.profileAvatar(db, id: sessionId)
