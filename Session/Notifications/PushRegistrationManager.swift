@@ -289,13 +289,10 @@ public class PushRegistrationManager: NSObject, PKPushRegistryDelegate, PushRegi
             return
         }
         
-        // FIXME: Initialise the `PushRegistrationManager` with a dependencies instance
-        let dependencies: Dependencies = Dependencies()
-        
         dependencies.storage.resumeDatabaseAccess()
         LibSession.resumeNetworkAccess()
         
-        let maybeCall: SessionCall? = Storage.shared.write { db in
+        let maybeCall: SessionCall? = Storage.shared.read { [dependencies = self.dependencies] db in
             var call: SessionCall? = nil
             
             do {
@@ -307,17 +304,8 @@ public class PushRegistrationManager: NSObject, PKPushRegistryDelegate, PushRegi
                     using: dependencies
                 )
                 
-                let thread: SessionThread = try SessionThread.upsert(
-                        db,
-                        id: caller,
-                        variant: .contact,
-                        values: .existingOrDefault,
-                        calledFromConfig: nil,
-                        using: dependencies
-                    )
-                
                 let interaction: Interaction? = try Interaction
-                    .filter(Interaction.Columns.threadId == thread.id)
+                    .filter(Interaction.Columns.threadId == caller)
                     .filter(Interaction.Columns.messageUuid == uuid)
                     .fetchOne(db)
                 
