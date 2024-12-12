@@ -5,6 +5,7 @@
 import Foundation
 import GRDB
 import DifferenceKit
+import SessionUIKit
 import SessionUtilitiesKit
 
 fileprivate typealias ViewModel = SessionThreadViewModel
@@ -86,6 +87,29 @@ public struct SessionThreadViewModel: FetchableRecordWithRowId, Decodable, Equat
         case recentReactionEmoji
         case wasKickedFromGroup
         case groupIsDestroyed
+    }
+    
+    public struct MessageInputState: Equatable {
+        public let allowedInputTypes: MessageInputTypes
+        public let message: String?
+        public let accessibility: Accessibility?
+        public let messageAccessibility: Accessibility?
+        
+        public static var all: MessageInputState = MessageInputState(allowedInputTypes: .all)
+        
+        // MARK: - Initialization
+        
+        init(
+            allowedInputTypes: MessageInputTypes,
+            message: String? = nil,
+            accessibility: Accessibility? = nil,
+            messageAccessibility: Accessibility? = nil
+        ) {
+            self.allowedInputTypes = allowedInputTypes
+            self.message = message
+            self.accessibility = accessibility
+            self.messageAccessibility = messageAccessibility
+        }
     }
     
     public var differenceIdentifier: String { threadId }
@@ -239,12 +263,23 @@ public struct SessionThreadViewModel: FetchableRecordWithRowId, Decodable, Equat
         return Date(timeIntervalSince1970: TimeInterval(Double(interactionTimestampMs) / 1000))
     }
     
-    public var enabledMessageTypes: MessageInputTypes {
-        guard !threadIsNoteToSelf else { return .all }
+    public var messageInputState: MessageInputState {
+        guard !threadIsNoteToSelf else { return MessageInputState(allowedInputTypes: .all) }
+        guard threadIsBlocked != true else {
+            return MessageInputState(
+                allowedInputTypes: .none,
+                message: "blockBlockedDescription".localized(),
+                messageAccessibility: Accessibility(
+                    identifier: "Blocked banner"
+                )
+            )
+        }
         
-        return (threadRequiresApproval == false && threadIsMessageRequest == false ?
-            .all :
-            .textOnly
+        return MessageInputState(
+            allowedInputTypes: (threadRequiresApproval == false && threadIsMessageRequest == false ?
+                .all :
+                .textOnly
+            )
         )
     }
     

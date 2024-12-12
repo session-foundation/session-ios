@@ -48,7 +48,7 @@ public struct SessionId: Equatable, Hashable, CustomStringConvertible {
     
     public let prefix: Prefix
     public let publicKey: [UInt8]
-    private let publicKeyString: String
+    public let publicKeyString: String
     
     public var hexString: String {
         return prefix.rawValue + publicKeyString

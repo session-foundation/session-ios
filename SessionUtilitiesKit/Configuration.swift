@@ -51,6 +51,16 @@ public enum SNUtilitiesKit: MigratableTarget { // Just to make the external API 
 
 // MARK: - SNUIKit Localization
 
+public extension String {
+    func localizedFormatted(baseFont: UIFont) -> NSAttributedString {
+        return SNUtilitiesKit.localizedFormatted(LocalizationHelper(template: self), baseFont)
+    }
+    
+    func localizedDeformatted() -> String {
+        return SNUtilitiesKit.localizedDeformatted(LocalizationHelper(template: self))
+    }
+}
+
 public extension LocalizationHelper {
     func localizedFormatted(baseFont: UIFont) -> NSAttributedString {
         return SNUtilitiesKit.localizedFormatted(self, baseFont)

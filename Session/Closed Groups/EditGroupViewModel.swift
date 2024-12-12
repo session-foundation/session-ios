@@ -14,7 +14,7 @@ import SignalUtilitiesKit
 class EditGroupViewModel: SessionTableViewModel, NavigatableStateHolder, EditableStateHolder, ObservableTableSource {
     private static let minVersionBannerInfo: InfoBanner.Info = InfoBanner.Info(
         font: .systemFont(ofSize: Values.verySmallFontSize),
-        message: "groupInviteVersion".localized(),
+        message: "groupInviteVersion".localizedFormatted(baseFont: .systemFont(ofSize: Values.verySmallFontSize)),
         icon: .none,
         tintColor: .black,
         backgroundColor: .warning,

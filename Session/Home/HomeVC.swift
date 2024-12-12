@@ -21,7 +21,6 @@ public final class HomeVC: BaseVC, LibSessionRespondingViewController, UITableVi
     private var isLoadingMore: Bool = false
     private var isAutoLoadingNextPage: Bool = false
     private var viewHasAppeared: Bool = false
-    private var flow: Onboarding.Flow?
     
     // MARK: - LibSessionRespondingViewController
     
@@ -478,13 +477,13 @@ public final class HomeVC: BaseVC, LibSessionRespondingViewController, UITableVi
         // Ensure the first load runs without animations (if we don't do this the cells will animate
         // in from a frame of CGRect.zero)
         guard hasLoadedInitialThreadData else {
-            UIView.performWithoutAnimation { [weak self] in
+            UIView.performWithoutAnimation { [weak self, dependencies = viewModel.dependencies] in
                 // Hide the 'loading conversations' label (now that we have received conversation data)
                 self?.loadingConversationsLabel.isHidden = true
                 
                 // Show the empty state if there is no data
-                self?.accountCreatedView.isHidden = (self?.flow != .register)
-                self?.emptyStateLogoView.isHidden = (self?.flow == .register)
+                self?.accountCreatedView.isHidden = (dependencies[cache: .onboarding].initialFlow != .register)
+                self?.emptyStateLogoView.isHidden = (dependencies[cache: .onboarding].initialFlow == .register)
                 self?.emptyStateStackView.isHidden = (
                     !updatedData.isEmpty &&
                     updatedData.contains(where: { !$0.elements.isEmpty })
@@ -501,7 +500,7 @@ public final class HomeVC: BaseVC, LibSessionRespondingViewController, UITableVi
         loadingConversationsLabel.isHidden = true
         
         // Show the empty state if there is no data
-        if self.flow == .register {
+        if viewModel.dependencies[cache: .onboarding].initialFlow == .register {
             accountCreatedView.isHidden = false
             emptyStateLogoView.isHidden = true
         } else {

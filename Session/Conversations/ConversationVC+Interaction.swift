@@ -188,10 +188,6 @@ extension ConversationVC:
 
     // MARK: - Blocking
     
-    @objc func unblock() {
-        self.showBlockedModalIfNeeded()
-    }
-
     @discardableResult func showBlockedModalIfNeeded() -> Bool {
         guard
             self.viewModel.threadData.threadVariant == .contact &&
@@ -486,6 +482,12 @@ extension ConversationVC:
     }
     
     // MARK: - InputViewDelegate
+    
+    func handleDisabledInputTapped() {
+        guard viewModel.threadData.threadIsBlocked == true else { return }
+        
+        self.showBlockedModalIfNeeded()
+    }
 
     // MARK: --Message Sending
     

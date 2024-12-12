@@ -43,10 +43,11 @@ class LibSessionNetwork: NetworkType {
         return dependencies
             .mutate(cache: .libSessionNetwork) { $0.getOrCreateNetwork() }
             .tryMapCallbackWrapper(type: Output.self) { wrapper, network in
-                guard let cSwarmPublicKey: [CChar] = swarmPublicKey
-                    .suffix(64) // Quick way to drop '05' prefix if present
-                    .cString(using: .utf8)
-                else { throw LibSessionError.invalidCConversion }
+                let sessionId: SessionId = try SessionId(from: swarmPublicKey)
+                
+                guard let cSwarmPublicKey: [CChar] = sessionId.publicKeyString.cString(using: .utf8) else {
+                    throw LibSessionError.invalidCConversion
+                }
                 
                 network_get_swarm(network, cSwarmPublicKey, { swarmPtr, swarmSize, ctx in
                     guard
@@ -118,6 +119,9 @@ class LibSessionNetwork: NetworkType {
                 )
                 
             case .randomSnode(let swarmPublicKey, let retryCount):
+                guard (try? SessionId(from: swarmPublicKey)) != nil else {
+                    return Fail(error: SessionIdError.invalidSessionId).eraseToAnyPublisher()
+                }
                 guard body != nil else { return Fail(error: NetworkError.invalidPreparedRequest).eraseToAnyPublisher() }
                 
                 return getSwarm(for: swarmPublicKey)
@@ -131,6 +135,9 @@ class LibSessionNetwork: NetworkType {
                     }
                 
             case .randomSnodeLatestNetworkTimeTarget(let swarmPublicKey, let retryCount, let bodyWithUpdatedTimestampMs):
+                guard (try? SessionId(from: swarmPublicKey)) != nil else {
+                    return Fail(error: SessionIdError.invalidSessionId).eraseToAnyPublisher()
+                }
                 guard body != nil else { return Fail(error: NetworkError.invalidPreparedRequest).eraseToAnyPublisher() }
                 
                 return getSwarm(for: swarmPublicKey)
@@ -171,6 +178,8 @@ class LibSessionNetwork: NetworkType {
         return dependencies
             .mutate(cache: .libSessionNetwork) { $0.getOrCreateNetwork() }
             .tryMapCallbackWrapper(type: Output.self) { wrapper, network in
+                guard ed25519SecretKey.count == 64 else { throw LibSessionError.invalidCConversion }
+                
                 var cEd25519SecretKey: [UInt8] = Array(ed25519SecretKey)
                 
                 network_get_client_version(
@@ -237,9 +246,11 @@ class LibSessionNetwork: NetworkType {
                         throw NetworkError.invalidPreparedRequest
                     
                     case .snode(let snode, let swarmPublicKey):
-                        let cSwarmPublicKey: UnsafePointer<CChar>? = swarmPublicKey.map {
+                        let cSwarmPublicKey: UnsafePointer<CChar>? = try swarmPublicKey.map {
+                            _ = try SessionId(from: $0)
+                            
                             // Quick way to drop '05' prefix if present
-                            $0.suffix(64).cString(using: .utf8)?.unsafeCopy()
+                            return $0.suffix(64).cString(using: .utf8)?.unsafeCopy()
                         }
                         wrapper.addUnsafePointerToCleanup(cSwarmPublicKey)
                         
@@ -563,6 +574,9 @@ private extension LibSessionNetwork.CallbackWrapper {
         }
         
         guard let host: String = url.host else { throw NetworkError.invalidURL }
+        guard x25519PublicKey.count == 64 || x25519PublicKey.count == 66 else {
+            throw LibSessionError.invalidCConversion
+        }
         
         let headerInfo: [(key: String, value: String)]? = headers?.map { ($0.key, $0.value) }
         

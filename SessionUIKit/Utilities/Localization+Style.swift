@@ -179,7 +179,7 @@ private extension Collection where Element == NSAttributedString.HTMLTag {
                 case .primaryTheme: result[.foregroundColor] = ThemeManager.currentTheme.color(for: .sessionButton_text).defaulting(to: ThemeManager.primaryColor.color)
                 case .icon:
                     result[.font] = fontWith(Lucide.font(ofSize: (font.pointSize + 1)), traits: [])
-                    result[.baselineOffset] = -Lucide.defaultBaselineOffset
+                    result[.baselineOffset] = Lucide.defaultBaselineOffset
             }
         }
     }

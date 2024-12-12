@@ -103,7 +103,7 @@ internal extension LibSessionCacheType {
                                     Profile.Columns.lastProfilePictureUpdate.set(to: data.profile.lastProfilePictureUpdate)
                                 )
                             ].compactMap { $0 },
-                            calledFromConfig: config,
+                            calledFromConfig: config.viaCache(self),
                             using: dependencies
                         )
                 }
@@ -132,7 +132,7 @@ internal extension LibSessionCacheType {
                                     Contact.Columns.didApproveMe.set(to: true)
                                 )
                             ].compactMap { $0 },
-                            calledFromConfig: config,
+                            calledFromConfig: config.viaCache(self),
                             using: dependencies
                         )
                 }
@@ -157,7 +157,7 @@ internal extension LibSessionCacheType {
                             type: .deleteContactConversationAndMarkHidden,
                             threadId: sessionId,
                             threadVariant: .contact,
-                            calledFromConfig: config,
+                            calledFromConfig: config.viaCache(self),
                             using: dependencies
                         )
                     
@@ -184,7 +184,7 @@ internal extension LibSessionCacheType {
                                     .useExisting
                                 )
                             ),
-                            calledFromConfig: .contacts(conf),
+                            calledFromConfig: config.viaCache(self),
                             using: dependencies
                         )
                     
@@ -249,7 +249,7 @@ internal extension LibSessionCacheType {
                 .updateAllAndConfig(
                     db,
                     Profile.Columns.nickname.set(to: nil),
-                    calledFromConfig: config,
+                    calledFromConfig: config.viaCache(self),
                     using: dependencies
                 )
             
@@ -260,7 +260,7 @@ internal extension LibSessionCacheType {
                     type: .deleteContactConversationAndContact,
                     threadIds: combinedIds,
                     threadVariant: .contact,
-                    calledFromConfig: config,
+                    calledFromConfig: config.viaCache(self),
                     using: dependencies
                 )
             

@@ -852,6 +852,9 @@ class ThreadSettingsViewModel: SessionTableViewModel, NavigatableStateHolder, Ob
                         .filter(Contact.Columns.didApproveMe == true)
                         .filter(Contact.Columns.id != threadViewModel.currentUserSessionId),
                     footerTitle: "membersInvite".localized(),
+                    footerAccessibility: Accessibility(
+                        identifier: "Invite contacts button"
+                    ),
                     onSubmit: .publisher { [dependencies] _, selectedUserInfo in
                         dependencies[singleton: .storage]
                             .writePublisher { db in
@@ -1068,7 +1071,10 @@ class ThreadSettingsViewModel: SessionTableViewModel, NavigatableStateHolder, Ob
                             .localizedFormatted(baseFont: ConfirmationModal.explanationFont),
                         info: ConfirmationModal.Info.Body.InputInfo(
                             placeholder: "nicknameEnter".localized(),
-                            initialValue: current
+                            initialValue: current,
+                            accessibility: Accessibility(
+                                identifier: "Username"
+                            )
                         ),
                         onChange: { [weak self] updatedName in self?.updatedName = updatedName }
                     ),
@@ -1158,7 +1164,10 @@ class ThreadSettingsViewModel: SessionTableViewModel, NavigatableStateHolder, Ob
                                 explanation: NSAttributedString(string: "groupNameVisible".localized()),
                                 info: ConfirmationModal.Info.Body.InputInfo(
                                     placeholder: "groupNameEnter".localized(),
-                                    initialValue: currentName
+                                    initialValue: currentName,
+                                    accessibility: Accessibility(
+                                        identifier: "Group name text field"
+                                    )
                                 ),
                                 onChange: { updatedName in self?.updatedName = updatedName }
                             )
@@ -1169,11 +1178,17 @@ class ThreadSettingsViewModel: SessionTableViewModel, NavigatableStateHolder, Ob
                             explanation: NSAttributedString(string: "Group name and description are visible to all group members."),
                             firstInfo: ConfirmationModal.Info.Body.InputInfo(
                                 placeholder: "groupNameEnter".localized(),
-                                initialValue: currentName
+                                initialValue: currentName,
+                                accessibility: Accessibility(
+                                    identifier: "Group name text field"
+                                )
                             ),
                             secondInfo: ConfirmationModal.Info.Body.InputInfo(
                                 placeholder: "groupDescriptionEnter".localized(),
-                                initialValue: currentDescription
+                                initialValue: currentDescription,
+                                accessibility: Accessibility(
+                                    identifier: "Group description text field"
+                                )
                             ),
                             onChange: { updatedName, updatedDescription in
                                 self?.updatedName = updatedName

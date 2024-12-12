@@ -619,7 +619,7 @@ public extension UIContextualAction {
                                             .localizedFormatted(baseFont: .boldSystemFont(ofSize: Values.smallFontSize))
                                         
                                     default:
-                                        return "groupLeaveDescription"
+                                        return "groupDeleteDescriptionMember"
                                             .put(key: "group_name", value: threadViewModel.displayName)
                                             .localizedFormatted(baseFont: .boldSystemFont(ofSize: Values.smallFontSize))
                                 }

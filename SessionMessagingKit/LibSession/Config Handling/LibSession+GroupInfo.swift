@@ -32,6 +32,17 @@ internal extension LibSession {
 
 // MARK: - Incoming Changes
 
+private struct InteractionInfo: Codable, FetchableRecord {
+    public typealias Columns = CodingKeys
+    public enum CodingKeys: String, CodingKey, ColumnExpression {
+        case id
+        case serverHash
+    }
+    
+    let id: Int64
+    let serverHash: String?
+}
+
 internal extension LibSessionCacheType {
     func handleGroupInfoUpdate(
         _ db: Database,
@@ -55,7 +66,7 @@ internal extension LibSessionCacheType {
                     .poller, .pushNotifications, .messages, .members,
                     .encryptionKeys, .authDetails, .libSessionState
                 ],
-                calledFromConfig: config,
+                calledFromConfig: config.viaCache(self),
                 using: dependencies
             )
             return
@@ -117,7 +128,7 @@ internal extension LibSessionCacheType {
                 .updateAllAndConfig(
                     db,
                     groupChanges,
-                    calledFromConfig: config,
+                    calledFromConfig: config.viaCache(self),
                     using: dependencies
                 )
         }
@@ -173,24 +184,38 @@ internal extension LibSessionCacheType {
         let deleteBeforeTimestamp: Int64 = groups_info_get_delete_before(conf)
         
         if deleteBeforeTimestamp > 0 {
-            if isAdmin {
-                let hashesToDelete: Set<String>? = try? Interaction
-                    .filter(Interaction.Columns.threadId == groupSessionId.hexString)
-                    .filter(Interaction.Columns.timestampMs < (TimeInterval(deleteBeforeTimestamp) * 1000))
-                    .filter(Interaction.Columns.serverHash != nil)
-                    .select(.serverHash)
-                    .asRequest(of: String.self)
-                    .fetchSet(db)
-                messageHashesToDelete.insert(contentsOf: hashesToDelete)
-            }
-            
-            let deletionCount: Int = try Interaction
+            let interactionInfo: [InteractionInfo] = (try? Interaction
                 .filter(Interaction.Columns.threadId == groupSessionId.hexString)
                 .filter(Interaction.Columns.timestampMs < (TimeInterval(deleteBeforeTimestamp) * 1000))
-                .deleteAll(db)
+                .filter(Interaction.Columns.serverHash != nil)
+                .select(.id, .serverHash)
+                .asRequest(of: InteractionInfo.self)
+                .fetchAll(db))
+                .defaulting(to: [])
+            let interactionIdsToRemove: Set<Int64> = Set(interactionInfo.map { $0.id })
+            let reactionHashes: Set<String> = try Reaction
+                .filter(interactionIdsToRemove.contains(Reaction.Columns.interactionId))
+                .filter(Reaction.Columns.serverHash != nil)
+                .select(.serverHash)
+                .asRequest(of: String.self)
+                .fetchSet(db)
             
-            if deletionCount > 0 {
-                Log.info(.libSession, "Deleted \(deletionCount) message(s) from \(groupSessionId.hexString) due to 'delete_before' value.")
+            try Interaction.markAsDeleted(
+                db,
+                threadId: groupSessionId.hexString,
+                threadVariant: .group,
+                interactionIds: Set(interactionIdsToRemove),
+                localOnly: false,
+                using: dependencies
+            )
+            
+            if !interactionInfo.isEmpty {
+                Log.info(.libSession, "Deleted \(interactionInfo.count) message(s) from \(groupSessionId.hexString) due to 'delete_before' value.")
+            }
+            
+            if isAdmin {
+                messageHashesToDelete.insert(contentsOf: Set(interactionInfo.compactMap { $0.serverHash }))
+                messageHashesToDelete.insert(contentsOf: reactionHashes)
             }
         }
         
@@ -199,17 +224,22 @@ internal extension LibSessionCacheType {
         let attachDeleteBeforeTimestamp: Int64 = groups_info_get_attach_delete_before(conf)
         
         if attachDeleteBeforeTimestamp > 0 {
-            if isAdmin {
-                let hashesToDelete: Set<String>? = try? Interaction
-                    .filter(Interaction.Columns.threadId == groupSessionId.hexString)
-                    .filter(Interaction.Columns.timestampMs < (TimeInterval(attachDeleteBeforeTimestamp) * 1000))
-                    .filter(Interaction.Columns.serverHash != nil)
-                    .joining(required: Interaction.interactionAttachments)
-                    .select(.serverHash)
-                    .asRequest(of: String.self)
-                    .fetchSet(db)
-                messageHashesToDelete.insert(contentsOf: hashesToDelete)
-            }
+            let interactionInfo: [InteractionInfo] = (try? Interaction
+                .filter(Interaction.Columns.threadId == groupSessionId.hexString)
+                .filter(Interaction.Columns.timestampMs < (TimeInterval(deleteBeforeTimestamp) * 1000))
+                .filter(Interaction.Columns.serverHash != nil)
+                .joining(required: Interaction.interactionAttachments)
+                .select(.id, .serverHash)
+                .asRequest(of: InteractionInfo.self)
+                .fetchAll(db))
+                .defaulting(to: [])
+            let interactionIdsToRemove: Set<Int64> = Set(interactionInfo.map { $0.id })
+            let reactionHashes: Set<String> = try Reaction
+                .filter(interactionIdsToRemove.contains(Reaction.Columns.interactionId))
+                .filter(Reaction.Columns.serverHash != nil)
+                .select(.serverHash)
+                .asRequest(of: String.self)
+                .fetchSet(db)
             
             let deletionCount: Int = try Interaction
                 .filter(Interaction.Columns.threadId == groupSessionId.hexString)
@@ -217,8 +247,8 @@ internal extension LibSessionCacheType {
                 .joining(required: Interaction.interactionAttachments)
                 .deleteAll(db)
             
-            if deletionCount > 0 {
-                Log.info(.libSession, "Deleted \(deletionCount) message(s) with attachments from \(groupSessionId.hexString) due to 'attach_delete_before' value.")
+            if !interactionInfo.isEmpty {
+                Log.info(.libSession, "Deleted \(interactionInfo.count) message(s) with attachments from \(groupSessionId.hexString) due to 'attach_delete_before' value.")
                 
                 // Schedule a grabage collection job to clean up any now-orphaned attachment files
                 dependencies[singleton: .jobRunner].add(
@@ -231,6 +261,11 @@ internal extension LibSessionCacheType {
                     ),
                     canStartJob: true
                 )
+            }
+            
+            if isAdmin {
+                messageHashesToDelete.insert(contentsOf: Set(interactionInfo.compactMap { $0.serverHash }))
+                messageHashesToDelete.insert(contentsOf: reactionHashes)
             }
         }
         

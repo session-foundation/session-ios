@@ -827,6 +827,7 @@
 		FD96F3A529DBC3DC00401309 /* MessageSendJobSpec.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD96F3A429DBC3DC00401309 /* MessageSendJobSpec.swift */; };
 		FD97B2402A3FEB050027DD57 /* ARC4RandomNumberGenerator.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD97B23F2A3FEB050027DD57 /* ARC4RandomNumberGenerator.swift */; };
 		FD97B2422A3FEBF30027DD57 /* UnreadMarkerCell.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD97B2412A3FEBF30027DD57 /* UnreadMarkerCell.swift */; };
+		FD99D0832D0A882C005D2E15 /* LibSessionValueAccessor.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD99D0822D0A882B005D2E15 /* LibSessionValueAccessor.swift */; };
 		FD9AECA52AAA9609009B3406 /* NotificationError.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD9AECA42AAA9609009B3406 /* NotificationError.swift */; };
 		FD9BDE002A5D22B7005F1EBC /* libSessionUtil.a in Frameworks */ = {isa = PBXBuildFile; fileRef = FD9BDDF82A5D2294005F1EBC /* libSessionUtil.a */; };
 		FD9BDE012A5D24EA005F1EBC /* SessionUIKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = C331FF1B2558F9D300070591 /* SessionUIKit.framework */; };
@@ -2005,6 +2006,7 @@
 		FD96F3A429DBC3DC00401309 /* MessageSendJobSpec.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MessageSendJobSpec.swift; sourceTree = "<group>"; };
 		FD97B23F2A3FEB050027DD57 /* ARC4RandomNumberGenerator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ARC4RandomNumberGenerator.swift; sourceTree = "<group>"; };
 		FD97B2412A3FEBF30027DD57 /* UnreadMarkerCell.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UnreadMarkerCell.swift; sourceTree = "<group>"; };
+		FD99D0822D0A882B005D2E15 /* LibSessionValueAccessor.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LibSessionValueAccessor.swift; sourceTree = "<group>"; };
 		FD9AECA42AAA9609009B3406 /* NotificationError.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NotificationError.swift; sourceTree = "<group>"; };
 		FD9BDDF82A5D2294005F1EBC /* libSessionUtil.a */ = {isa = PBXFileReference; explicitFileType = archive.ar; includeInIndex = 0; path = libSessionUtil.a; sourceTree = BUILT_PRODUCTS_DIR; };
 		FD9DD2702A72516D00ECB68E /* TestExtensions.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TestExtensions.swift; sourceTree = "<group>"; };
@@ -4410,6 +4412,7 @@
 		FDC1BD642CFD6C44002CDC71 /* Types */ = {
 			isa = PBXGroup;
 			children = (
+				FD99D0822D0A882B005D2E15 /* LibSessionValueAccessor.swift */,
 				FDC1BD652CFD6C4E002CDC71 /* Config.swift */,
 			);
 			path = Types;
@@ -6275,6 +6278,7 @@
 				FD3559462CC1FF200088F2A9 /* _020_AddMissingWhisperFlag.swift in Sources */,
 				FD5C72F9284F0E880029977D /* MessageReceiver+TypingIndicators.swift in Sources */,
 				FD5C7303284F0FA50029977D /* MessageReceiver+Calls.swift in Sources */,
+				FD99D0832D0A882C005D2E15 /* LibSessionValueAccessor.swift in Sources */,
 				FD83B9C927D0487A005E1583 /* SendDirectMessageResponse.swift in Sources */,
 				FDC438AA27BB12BB00C60D73 /* UserModeratorRequest.swift in Sources */,
 				FD245C54285065E000B966DD /* ThumbnailService.swift in Sources */,
@@ -7884,7 +7888,7 @@
 				CLANG_WARN__ARC_BRIDGE_CAST_NONARC = YES;
 				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
 				CODE_SIGN_IDENTITY = "iPhone Developer";
-				CURRENT_PROJECT_VERSION = 507;
+				CURRENT_PROJECT_VERSION = 508;
 				ENABLE_BITCODE = NO;
 				ENABLE_STRICT_OBJC_MSGSEND = YES;
 				ENABLE_TESTABILITY = YES;
@@ -7960,7 +7964,7 @@
 				CLANG_WARN__ARC_BRIDGE_CAST_NONARC = YES;
 				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
 				CODE_SIGN_IDENTITY = "iPhone Distribution";
-				CURRENT_PROJECT_VERSION = 507;
+				CURRENT_PROJECT_VERSION = 508;
 				ENABLE_BITCODE = NO;
 				ENABLE_MODULE_VERIFIER = YES;
 				ENABLE_STRICT_OBJC_MSGSEND = YES;

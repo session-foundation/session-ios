@@ -123,7 +123,7 @@ private class ConfigStore {
         /// Finally we free any remaining configs
         store.forEach { _, config in
             switch config {
-                case .groupKeys: break    // Shouldn't happen
+                case .groupKeys, .viaCache: break    // Shouldn't happen
                 case .userProfile(let conf), .contacts(let conf),
                     .convoInfoVolatile(let conf), .userGroups(let conf),
                     .groupInfo(let conf), .groupMembers(let conf):
@@ -405,7 +405,7 @@ public extension LibSession {
                 default:
                     configs.forEach { config in
                         switch config {
-                            case .groupKeys: break    // Should be handled above
+                            case .groupKeys, .viaCache: break    // Should be handled above
                             case .userProfile(let conf), .contacts(let conf),
                                 .convoInfoVolatile(let conf), .userGroups(let conf),
                                 .groupInfo(let conf), .groupMembers(let conf):
@@ -573,6 +573,7 @@ public extension LibSession {
                     .groupInfo(let conf), .groupMembers(let conf):
                     return config_needs_dump(conf)
                 case .groupKeys(let conf, _, _): return groups_keys_needs_dump(conf)
+                case .viaCache(_, let config): return configNeedsDump(config)
             }
         }
         
@@ -777,11 +778,11 @@ public extension LibSession {
         }
         
         public func isAdmin(groupSessionId: SessionId) -> Bool {
-            guard case .groupKeys(let conf, _, _) = configStore[groupSessionId, .groupKeys] else {
+            guard let config: LibSession.Config = configStore[groupSessionId, .groupKeys] else {
                 return false
             }
             
-            return groups_keys_is_admin(conf)
+            return config.isAdmin(groupSessionId: groupSessionId)
         }
     }
 }
@@ -798,7 +799,7 @@ public protocol LibSessionImmutableCacheType: ImmutableCacheType {
 
 /// The majority `libSession` functions can only be accessed via the mutable cache because `libSession` isn't thread safe so if we try
 /// to read/write values while another thread is touching the same data then the app can crash due to bad memory issues
-public protocol LibSessionCacheType: LibSessionImmutableCacheType, MutableCacheType {
+public protocol LibSessionCacheType: LibSessionImmutableCacheType, MutableCacheType, LibSessionValueAccessor {
     var dependencies: Dependencies { get }
     var userSessionId: SessionId { get }
     var isEmpty: Bool { get }

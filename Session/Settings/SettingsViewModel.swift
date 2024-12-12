@@ -458,7 +458,10 @@ class SettingsViewModel: SessionTableViewModel, NavigationItemSource, Navigatabl
                         explanation: NSAttributedString(string: "displayNameVisible".localized()),
                         info: ConfirmationModal.Info.Body.InputInfo(
                             placeholder: "displayNameEnter".localized(),
-                            initialValue: current
+                            initialValue: current,
+                            accessibility: Accessibility(
+                                identifier: "Username"
+                            )
                         ),
                         onChange: { [weak self] updatedName in self?.updatedName = updatedName }
                     ),

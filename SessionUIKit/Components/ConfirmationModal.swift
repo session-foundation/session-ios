@@ -309,6 +309,8 @@ public class ConfirmationModal: Modal, UITextFieldDelegate, UITextViewDelegate {
                 textField.placeholder = inputInfo.placeholder
                 textField.text = (inputInfo.initialValue ?? "")
                 textField.clearButtonMode = (inputInfo.clearButton ? .always : .never)
+                textField.accessibilityIdentifier = inputInfo.accessibility?.identifier
+                textField.accessibilityLabel = inputInfo.accessibility?.label
                 textFieldContainer.isHidden = false
                 internalOnTextChanged = { [weak confirmButton, weak cancelButton] text, _ in
                     onTextChanged(text)
@@ -323,8 +325,12 @@ public class ConfirmationModal: Modal, UITextFieldDelegate, UITextViewDelegate {
                 textField.placeholder = firstInputInfo.placeholder
                 textField.text = (firstInputInfo.initialValue ?? "")
                 textField.clearButtonMode = (firstInputInfo.clearButton ? .always : .never)
+                textField.accessibilityIdentifier = firstInputInfo.accessibility?.identifier
+                textField.accessibilityLabel = firstInputInfo.accessibility?.label
                 textFieldContainer.isHidden = false
                 textView.text = (secondInputInfo.initialValue ?? "")
+                textView.accessibilityIdentifier = secondInputInfo.accessibility?.identifier
+                textView.accessibilityLabel = secondInputInfo.accessibility?.label
                 textViewPlaceholder.text = secondInputInfo.placeholder
                 textViewPlaceholder.isHidden = !textView.text.isEmpty
                 textViewContainer.isHidden = false
@@ -737,15 +743,18 @@ public extension ConfirmationModal.Info {
             public let placeholder: String
             public let initialValue: String?
             public let clearButton: Bool
+            public let accessibility: Accessibility?
             
             public init(
                 placeholder: String,
                 initialValue: String? = nil,
-                clearButton: Bool = false
+                clearButton: Bool = false,
+                accessibility: Accessibility? = nil
             ) {
                 self.placeholder = placeholder
                 self.initialValue = initialValue
                 self.clearButton = clearButton
+                self.accessibility = accessibility
             }
         }
         public enum ImageStyle: Equatable, Hashable {

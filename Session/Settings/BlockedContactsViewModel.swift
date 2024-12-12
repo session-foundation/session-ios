@@ -140,6 +140,9 @@ public class BlockedContactsViewModel: SessionTableViewModel, NavigatableStateHo
                                 trailingAccessory: .radio(
                                     liveIsSelected: { selectedIdsSubject.value.contains(model.id) == true }
                                 ),
+                                accessibility: Accessibility(
+                                    identifier: "Contact"
+                                ),
                                 onTap: {
                                     if !selectedIdsSubject.value.contains(model.id) {
                                         selectedIdsSubject.send(selectedIdsSubject.value.inserting(model.id))

@@ -215,12 +215,10 @@ public extension SessionThread {
         switch try? fetchOne(db, id: id) {
             case .some(let existingThread): result = existingThread
             case .none:
-                let targetPriority: Int32 = (
-                    configTriggeringChange?.pinnedPriority(db, threadId: id, threadVariant: variant) ??
-                    dependencies
-                        .mutate(cache: .libSession) { $0.pinnedPriority(db, threadId: id, threadVariant: variant) }
-                        .defaulting(to: LibSession.defaultNewThreadPriority)
-                )
+                let targetPriority: Int32 = configTriggeringChange
+                    .using(dependencies)
+                    .pinnedPriority(db, threadId: id, threadVariant: variant)
+                    .defaulting(to: LibSession.defaultNewThreadPriority)
                 
                 result = try SessionThread(
                     id: id,
@@ -259,12 +257,9 @@ public extension SessionThread {
                     )
             
             case (_, .useLibSession):                           // Create and save the config from libSession
-                let disappearingConfig: DisappearingMessagesConfiguration? = (
-                    configTriggeringChange?.disappearingMessagesConfig(threadId: id, threadVariant: variant) ??
-                    dependencies.mutate(cache: .libSession) {
-                        $0.disappearingMessagesConfig(threadId: id, threadVariant: variant)
-                    }
-                )
+                let disappearingConfig: DisappearingMessagesConfiguration? = configTriggeringChange
+                    .using(dependencies)
+                    .disappearingMessagesConfig(threadId: id, threadVariant: variant)
                 
                 try disappearingConfig?
                     .upserted(db)
@@ -285,12 +280,10 @@ public extension SessionThread {
         /// should both be sourced from `libSession`
         switch (values.pinnedPriority, values.shouldBeVisible) {
             case (.useLibSession, .useLibSession):
-                let targetPriority: Int32 = (
-                    configTriggeringChange?.pinnedPriority(db, threadId: id, threadVariant: variant) ??
-                    dependencies
-                        .mutate(cache: .libSession) { $0.pinnedPriority(db, threadId: id, threadVariant: variant) }
-                        .defaulting(to: LibSession.defaultNewThreadPriority)
-                )
+                let targetPriority: Int32 = configTriggeringChange
+                    .using(dependencies)
+                    .pinnedPriority(db, threadId: id, threadVariant: variant)
+                    .defaulting(to: LibSession.defaultNewThreadPriority)
                 let libSessionShouldBeVisible: Bool = LibSession.shouldBeVisible(priority: targetPriority)
                 
                 if targetPriority != result.pinnedPriority {

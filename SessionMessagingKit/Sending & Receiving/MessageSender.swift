@@ -235,15 +235,16 @@ public final class MessageSender {
         }()
         
         // Send the result
+        let swarmPublicKey: String = {
+            switch destination {
+                case .contact(let publicKey): return publicKey
+                case .syncMessage: return userSessionId.hexString
+                case .closedGroup(let groupPublicKey): return groupPublicKey
+                case .openGroup, .openGroupInbox: preconditionFailure()
+            }
+        }()
         let snodeMessage = SnodeMessage(
-            recipient: {
-                switch destination {
-                    case .contact(let publicKey): return publicKey
-                    case .syncMessage: return userSessionId.hexString
-                    case .closedGroup(let groupPublicKey): return groupPublicKey
-                    case .openGroup, .openGroupInbox: preconditionFailure()
-                }
-            }(),
+            recipient: swarmPublicKey,
             data: base64EncodedData,
             ttl: Message.getSpecifiedTTL(message: message, destination: destination, using: dependencies),
             timestampMs: UInt64(messageSendTimestampMs)
@@ -253,7 +254,7 @@ public final class MessageSender {
             .preparedSendMessage(
                 message: snodeMessage,
                 in: namespace,
-                authMethod: try Authentication.with(db, swarmPublicKey: threadId, using: dependencies),
+                authMethod: try Authentication.with(db, swarmPublicKey: swarmPublicKey, using: dependencies),
                 using: dependencies
             )
             .handleEvents(

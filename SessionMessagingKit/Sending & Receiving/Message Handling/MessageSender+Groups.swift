@@ -137,7 +137,10 @@ extension MessageSender {
                     .eraseToAnyPublisher()
             }
             .handleEvents(
-                receiveOutput: { groupSessionId, _, thread, group, members, preparedNotificationSubscription in
+                receiveOutput: { groupSessionId, _, thread, group, groupMembers, preparedNotificationSubscription in
+                    let userSessionId: SessionId = dependencies[cache: .general].sessionId
+                    let changeTimestampMs: Int64 = dependencies[cache: .snodeAPI].currentOffsetTimestampMs()
+                    
                     // Start polling
                     dependencies
                         .mutate(cache: .groupPollers) { $0.getOrCreatePoller(for: thread.id) }
@@ -150,10 +153,8 @@ extension MessageSender {
                         .sinkUntilComplete()
                     
                     dependencies[singleton: .storage].write { db in
-                        let userSessionId: SessionId = dependencies[cache: .general].sessionId
-                        
                         // Save jobs for sending group member invitations
-                        members
+                        groupMembers
                             .filter { $0.profileId != userSessionId.hexString }
                             .compactMap { member -> (GroupMember, GroupInviteMemberJob.Details)? in
                                 // Generate authData for the removed member
@@ -187,17 +188,39 @@ extension MessageSender {
                                 )
                             }
                         
+                        // Add a record of the initial invites going out
+                        _ = try? Interaction(
+                            threadId: thread.id,
+                            threadVariant: .group,
+                            authorId: userSessionId.hexString,
+                            variant: .infoGroupMembersUpdated,
+                            body: ClosedGroup.MessageInfo
+                                .addedUsers(
+                                    hasCurrentUser: false,
+                                    names: members
+                                        .filter { id, _ -> Bool in id != userSessionId.hexString }
+                                        .map { id, profile in
+                                            profile?.displayName(for: .group) ??
+                                            Profile.truncated(id: id, truncating: .middle)
+                                        },
+                                    historyShared: false
+                                )
+                                .infoString(using: dependencies),
+                            timestampMs: changeTimestampMs,
+                            using: dependencies
+                        ).inserted(db)
+                        
                         // Schedule the "members added" control message to be sent to the group
                         if let privateKey: Data = group.groupIdentityPrivateKey {
                             try? MessageSender.send(
                                 db,
                                 message: GroupUpdateMemberChangeMessage(
                                     changeType: .added,
-                                    memberSessionIds: members
+                                    memberSessionIds: groupMembers
                                         .filter { $0.profileId != userSessionId.hexString }
                                         .map { $0.profileId },
                                     historyShared: false,
-                                    sentTimestampMs: dependencies[cache: .snodeAPI].currentOffsetTimestampMs(),
+                                    sentTimestampMs: UInt64(changeTimestampMs),
                                     authMethod: Authentication.groupAdmin(
                                         groupSessionId: groupSessionId,
                                         ed25519SecretKey: Array(privateKey)

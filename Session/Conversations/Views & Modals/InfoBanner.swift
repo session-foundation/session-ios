@@ -26,7 +26,7 @@ final class InfoBanner: UIView {
     
     public struct Info: Equatable, Hashable {
         let font: UIFont
-        let message: String
+        let message: NSAttributedString
         let icon: Icon
         let tintColor: ThemeValue
         let backgroundColor: ThemeValue
@@ -35,11 +35,14 @@ final class InfoBanner: UIView {
         let height: CGFloat?
         let onTap: (() -> Void)?
         
-        static var empty: Info = Info(font: .systemFont(ofSize: Values.smallFontSize), message: "")
+        static var empty: Info = Info(
+            font: .systemFont(ofSize: Values.smallFontSize),
+            message: NSAttributedString()
+        )
         
         public init(
             font: UIFont,
-            message: String,
+            message: NSAttributedString,
             icon: Icon = .none,
             tintColor: ThemeValue = .black,
             backgroundColor: ThemeValue = .primary,
@@ -61,7 +64,7 @@ final class InfoBanner: UIView {
         
         func with(
             font: UIFont? = nil,
-            message: String? = nil,
+            message: NSAttributedString? = nil,
             icon: Icon? = nil,
             tintColor: ThemeValue? = nil,
             backgroundColor: ThemeValue? = nil,
@@ -151,6 +154,8 @@ final class InfoBanner: UIView {
     public var info: Info?
     private var heightConstraint: NSLayoutConstraint?
     
+    public var font: UIFont { info?.font ?? .systemFont(ofSize: Values.smallFontSize) }
+    
     // MARK: - Initialization
     
     init(info: Info) {
@@ -191,7 +196,7 @@ final class InfoBanner: UIView {
     
     public func update(
         font: UIFont? = nil,
-        message: String? = nil,
+        message: NSAttributedString? = nil,
         icon: Icon = .none,
         tintColor: ThemeValue? = nil,
         backgroundColor: ThemeValue? = nil,
@@ -232,7 +237,7 @@ final class InfoBanner: UIView {
         accessibilityLabel = info.accessibility?.label
         
         label.font = info.font
-        label.text = info.message
+        label.attributedText = info.message
         label.themeTextColor = info.tintColor
         label.accessibilityIdentifier = info.labelAccessibility?.identifier
         label.accessibilityLabel = info.labelAccessibility?.label

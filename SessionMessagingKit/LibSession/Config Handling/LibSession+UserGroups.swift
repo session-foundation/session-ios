@@ -169,7 +169,7 @@ internal extension LibSessionCacheType {
                 roomToken: community.data.roomToken,
                 server: community.data.server,
                 publicKey: community.data.publicKey,
-                calledFromConfig: .userGroups(conf)
+                calledFromConfig: config.viaCache(self)
             )
             
             if successfullyAddedGroup {
@@ -195,7 +195,7 @@ internal extension LibSessionCacheType {
                     .updateAllAndConfig(
                         db,
                         SessionThread.Columns.pinnedPriority.set(to: community.priority),
-                        calledFromConfig: config,
+                        calledFromConfig: config.viaCache(self),
                         using: dependencies
                     )
             }
@@ -215,7 +215,7 @@ internal extension LibSessionCacheType {
                 type: .deleteCommunityAndContent,
                 threadIds: Array(communityIdsToRemove),
                 threadVariant: .community,
-                calledFromConfig: config,
+                calledFromConfig: config.viaCache(self),
                 using: dependencies
             )
         }
@@ -275,7 +275,7 @@ internal extension LibSessionCacheType {
                     admins: updatedAdmins.map { $0.profileId },
                     expirationTimer: UInt32(group.disappearingConfig?.durationSeconds ?? 0),
                     formationTimestampMs: UInt64(joinedAt * 1000),
-                    calledFromConfig: config,
+                    calledFromConfig: config.viaCache(self),
                     using: dependencies
                 )
             }
@@ -297,7 +297,7 @@ internal extension LibSessionCacheType {
                         .updateAllAndConfig(
                             db,
                             groupChanges,
-                            calledFromConfig: config,
+                            calledFromConfig: config.viaCache(self),
                             using: dependencies
                         )
                 }
@@ -393,7 +393,7 @@ internal extension LibSessionCacheType {
                     .updateAllAndConfig(
                         db,
                         SessionThread.Columns.pinnedPriority.set(to: group.priority),
-                        calledFromConfig: config,
+                        calledFromConfig: config.viaCache(self),
                         using: dependencies
                     )
             }
@@ -411,7 +411,7 @@ internal extension LibSessionCacheType {
                 type: .deleteGroupAndContent,
                 threadIds: Array(legacyGroupIdsToRemove),
                 threadVariant: .legacyGroup,
-                calledFromConfig: config,
+                calledFromConfig: config.viaCache(self),
                 using: dependencies
             )
         }
@@ -440,7 +440,7 @@ internal extension LibSessionCacheType {
                         joinedAt: group.joinedAt,
                         invited: group.invited,
                         wasKickedFromGroup: group.wasKickedFromGroup,
-                        calledFromConfig: config,
+                        calledFromConfig: config.viaCache(self),
                         using: dependencies
                     )
                     
@@ -511,7 +511,7 @@ internal extension LibSessionCacheType {
                             .updateAllAndConfig(
                                 db,
                                 groupChanges,
-                                calledFromConfig: config,
+                                calledFromConfig: config.viaCache(self),
                                 using: dependencies
                             )
                         
@@ -521,7 +521,7 @@ internal extension LibSessionCacheType {
                             try ClosedGroup.approveGroupIfNeeded(
                                 db,
                                 group: existingGroup,
-                                calledFromConfig: config,
+                                calledFromConfig: config.viaCache(self),
                                 using: dependencies
                             )
                         }
@@ -535,7 +535,7 @@ internal extension LibSessionCacheType {
                     .updateAllAndConfig(
                         db,
                         SessionThread.Columns.pinnedPriority.set(to: group.priority),
-                        calledFromConfig: config,
+                        calledFromConfig: config.viaCache(self),
                         using: dependencies
                     )
             }
@@ -553,7 +553,7 @@ internal extension LibSessionCacheType {
                 type: .deleteGroupAndContent,
                 threadIds: Array(groupSessionIdsToRemove),
                 threadVariant: .group,
-                calledFromConfig: config,
+                calledFromConfig: config.viaCache(self),
                 using: dependencies
             )
             

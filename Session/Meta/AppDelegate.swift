@@ -881,6 +881,8 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
     }
     
     public func stopPollers(shouldStopUserPoller: Bool = true) {
+        guard dependencies[cache: .onboarding].state == .completed else { return }
+        
         if shouldStopUserPoller {
             dependencies[singleton: .currentUserPoller].stop()
         }

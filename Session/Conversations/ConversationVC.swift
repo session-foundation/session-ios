@@ -4,6 +4,7 @@ import UIKit
 import AVKit
 import GRDB
 import DifferenceKit
+import Lucide
 import SessionUIKit
 import SessionMessagingKit
 import SessionUtilitiesKit
@@ -203,7 +204,6 @@ final class ConversationVC: BaseVC, LibSessionRespondingViewController, Conversa
         let result: UIStackView = UIStackView(arrangedSubviews: [
             outdatedClientBanner,
             legacyGroupsBanner,
-            blockedBanner,
             emptyStatePaddingView,
             emptyStateLabelContainer
         ])
@@ -220,7 +220,7 @@ final class ConversationVC: BaseVC, LibSessionRespondingViewController, Conversa
                 font: .systemFont(ofSize: Values.verySmallFontSize),
                 message: "disappearingMessagesLegacy"
                     .put(key: "name", value: self.viewModel.threadData.displayName)
-                    .localized(),
+                    .localizedFormatted(baseFont: .systemFont(ofSize: Values.verySmallFontSize)),
                 icon: .close,
                 tintColor: .messageBubble_outgoingText,
                 backgroundColor: .primary,
@@ -240,8 +240,11 @@ final class ConversationVC: BaseVC, LibSessionRespondingViewController, Conversa
                 font: .systemFont(ofSize: Values.miniFontSize),
                 message: "groupLegacyBanner"
                     .put(key: "date", value: Features.legacyGroupDepricationDate.formattedForBanner)
-                    .localized(),
-                icon: .link,
+                    .localizedFormatted(baseFont: .systemFont(ofSize: Values.miniFontSize))
+                    .appending(
+                        Lucide.Icon.squareArrowUpRight.attributedString(for: .systemFont(ofSize: Values.miniFontSize))
+                    ),
+                icon: .none,
                 tintColor: .messageBubble_outgoingText,
                 backgroundColor: .primary,
                 accessibility: Accessibility(label: "Legacy group banner"),
@@ -250,25 +253,6 @@ final class ConversationVC: BaseVC, LibSessionRespondingViewController, Conversa
             )
         )
         result.isHidden = (self.viewModel.threadData.threadVariant != .legacyGroup)
-        
-        return result
-    }()
-
-    lazy var blockedBanner: InfoBanner = {
-        let result: InfoBanner = InfoBanner(
-            info: InfoBanner.Info(
-                font: .boldSystemFont(ofSize: Values.smallFontSize),
-                message: self.viewModel.blockedBannerMessage,
-                icon: .none,
-                tintColor: .textPrimary,
-                backgroundColor: .danger,
-                accessibility: Accessibility(label: "Blocked banner"),
-                labelAccessibility: Accessibility(label: "Blocked banner text"),
-                height: 54,
-                onTap: { [weak self] in self?.unblock() }
-            )
-        )
-        result.isHidden = true
         
         return result
     }()
@@ -809,19 +793,12 @@ final class ConversationVC: BaseVC, LibSessionRespondingViewController, Conversa
             legacyGroupsBanner.isHidden = (updatedThreadData.threadVariant != .legacyGroup)
         }
         
-        if initialLoad || viewModel.threadData.threadIsBlocked != updatedThreadData.threadIsBlocked {
-            addOrRemoveBlockedBanner(threadIsBlocked: (updatedThreadData.threadIsBlocked == true))
-        }
-        
         if initialLoad || viewModel.threadData.threadUnreadCount != updatedThreadData.threadUnreadCount {
             updateUnreadCountView(unreadCount: updatedThreadData.threadUnreadCount)
         }
         
-        if initialLoad || viewModel.threadData.enabledMessageTypes != updatedThreadData.enabledMessageTypes {
-            snInputView.setEnabledMessageTypes(
-                updatedThreadData.enabledMessageTypes,
-                message: nil
-            )
+        if initialLoad || viewModel.threadData.messageInputState != updatedThreadData.messageInputState {
+            snInputView.setMessageInputState(updatedThreadData.messageInputState)
         }
         
         // Only set the draft content on the initial load
@@ -1501,7 +1478,7 @@ final class ConversationVC: BaseVC, LibSessionRespondingViewController, Conversa
                         using: viewModel.dependencies
                     )
                 )
-                .localized(),
+                .localizedFormatted(baseFont: self.outdatedClientBanner.font),
             onTap: { [weak self] in self?.removeOutdatedClientBanner() }
         )
 
@@ -1520,33 +1497,6 @@ final class ConversationVC: BaseVC, LibSessionRespondingViewController, Conversa
                 .filter(id: outdatedMemberId)
                 .updateAll(db, Contact.Columns.lastKnownClientVersion.set(to: nil))
         }
-    }
-
-    func addOrRemoveBlockedBanner(threadIsBlocked: Bool) {
-        guard threadIsBlocked else {
-            UIView.animate(
-                withDuration: 0.25,
-                animations: { [weak self] in
-                    self?.blockedBanner.alpha = 0
-                },
-                completion: { [weak self] _ in
-                    self?.blockedBanner.alpha = 1
-                    self?.blockedBanner.isHidden = true
-                    self?.emptyStatePaddingView.isHidden = ((self?.stateStackView
-                        .arrangedSubviews
-                        .filter { !$0.isHidden })
-                        .defaulting(to: [])
-                        .count > 1)
-                }
-            )
-            return
-        }
-
-        self.blockedBanner.isHidden = false
-        self.emptyStatePaddingView.isHidden = (stateStackView
-            .arrangedSubviews
-            .filter { !$0.isHidden }
-            .count > 1)
     }
     
     func recoverInputView(completion: (() -> ())? = nil) {

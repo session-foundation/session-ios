@@ -107,7 +107,7 @@ internal extension LibSessionCacheType {
                             GroupMember.Columns.roleStatus.set(to: GroupMember.RoleStatus.accepted)
                         ),
                     ].compactMap { $0 },
-                    calledFromConfig: config,
+                    calledFromConfig: config.viaCache(self),
                     using: dependencies
                 )
             try LibSession.updateMemberStatus(
@@ -146,7 +146,7 @@ internal extension LibSessionCacheType {
                     )
                 }(),
                 sentTimestamp: TimeInterval(Double(serverTimestampMs) * 1000),
-                calledFromConfig: config,
+                calledFromConfig: config.viaCache(self),
                 using: dependencies
             )
         }
@@ -226,7 +226,6 @@ internal extension LibSession {
                         member.set(\.profile_pic.key, to: picKey)
                     }
                     
-                    member.set(\.invited, to: GroupMember.RoleStatus.notSentYet.libSessionValue)
                     member.set(\.supplement, to: allowAccessToHistoricMessages)
                     groups_members_set(conf, &member)
                     try LibSessionError.throwIfNeeded(conf)

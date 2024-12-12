@@ -368,12 +368,12 @@ internal extension LibSession {
 
 // MARK: - State Access
 
-public extension LibSession.Config {
-    func pinnedPriority(
+extension LibSession.Config: LibSessionValueAccessor {
+    public func pinnedPriority(
         _ db: Database,
         threadId: String,
         threadVariant: SessionThread.Variant
-    ) -> Int32 {
+    ) -> Int32? {
         guard var cThreadId: [CChar] = threadId.cString(using: .utf8) else {
             return LibSession.defaultNewThreadPriority
         }
@@ -429,7 +429,7 @@ public extension LibSession.Config {
         }
     }
     
-    func disappearingMessagesConfig(
+    public func disappearingMessagesConfig(
         threadId: String,
         threadVariant: SessionThread.Variant
     ) -> DisappearingMessagesConfiguration? {
@@ -498,6 +498,15 @@ public extension LibSession.Config {
                 Log.warn(.libSession, "Attempted to retrieve disappearing messages config for invalid combination of threadVariant: \(threadVariant) and config variant: \(variant)")
                 return nil
         }
+    }
+    
+    public func isAdmin(groupSessionId: SessionId) -> Bool {
+        guard
+            groupSessionId.prefix == .group,
+            case .groupKeys(let conf, _, _) = self
+        else { return false }
+        
+        return groups_keys_is_admin(conf)
     }
 }
 

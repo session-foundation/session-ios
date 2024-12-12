@@ -41,9 +41,9 @@ final class InputView: UIView, InputViewButtonDelegate, InputTextViewDelegate, M
         set { inputTextView.selectedRange = newValue }
     }
     
-    var enabledMessageTypes: MessageInputTypes = .all {
+    var inputState: SessionThreadViewModel.MessageInputState = .all {
         didSet {
-            setEnabledMessageTypes(enabledMessageTypes, message: nil)
+            setMessageInputState(inputState)
         }
     }
 
@@ -51,6 +51,14 @@ final class InputView: UIView, InputViewButtonDelegate, InputTextViewDelegate, M
     var lastSearchedText: String? { nil }
 
     // MARK: - UI
+    
+    private lazy var tapGestureRecognizer: UITapGestureRecognizer = {
+        let result: UITapGestureRecognizer = UITapGestureRecognizer()
+        result.addTarget(self, action: #selector(disabledInputTapped))
+        result.isEnabled = false
+        
+        return result
+    }()
 
     private var bottomStackView: UIStackView?
     private lazy var attachmentsButton: ExpandingAttachmentsButton = {
@@ -165,6 +173,8 @@ final class InputView: UIView, InputViewButtonDelegate, InputTextViewDelegate, M
 
     private func setUpViewHierarchy() {
         autoresizingMask = .flexibleHeight
+        
+        addGestureRecognizer(tapGestureRecognizer)
         
         // Background & blur
         let backgroundView = UIView()
@@ -284,7 +294,7 @@ final class InputView: UIView, InputViewButtonDelegate, InputTextViewDelegate, M
 
     private func autoGenerateLinkPreviewIfPossible() {
         // Don't allow link previews on 'none' or 'textOnly' input
-        guard enabledMessageTypes == .all else { return }
+        guard inputState.allowedInputTypes == .all else { return }
 
         // Suggest that the user enable link previews if they haven't already and we haven't
         // told them about link previews yet
@@ -360,26 +370,31 @@ final class InputView: UIView, InputViewButtonDelegate, InputTextViewDelegate, M
             .store(in: &disposables)
     }
 
-    func setEnabledMessageTypes(_ messageTypes: MessageInputTypes, message: String?) {
-        guard enabledMessageTypes != messageTypes else { return }
+    func setMessageInputState(_ updatedInputState: SessionThreadViewModel.MessageInputState) {
+        guard inputState != updatedInputState else { return }
 
-        enabledMessageTypes = messageTypes
-        disabledInputLabel.text = (message ?? "")
+        self.accessibilityIdentifier = updatedInputState.accessibility?.identifier
+        self.accessibilityLabel = updatedInputState.accessibility?.label
+        tapGestureRecognizer.isEnabled = (updatedInputState.allowedInputTypes == .none)
+        inputState = updatedInputState
+        disabledInputLabel.text = (updatedInputState.message ?? "")
+        disabledInputLabel.accessibilityIdentifier = updatedInputState.messageAccessibility?.identifier
+        disabledInputLabel.accessibilityLabel = updatedInputState.messageAccessibility?.label
 
-        attachmentsButton.isUserInteractionEnabled = (messageTypes == .all)
-        voiceMessageButton.isUserInteractionEnabled = (messageTypes == .all)
+        attachmentsButton.isUserInteractionEnabled = (updatedInputState.allowedInputTypes == .all)
+        voiceMessageButton.isUserInteractionEnabled = (updatedInputState.allowedInputTypes == .all)
 
         UIView.animate(withDuration: 0.3) { [weak self] in
-            self?.bottomStackView?.alpha = (messageTypes != .none ? 1 : 0)
-            self?.attachmentsButton.alpha = (messageTypes == .all ?
+            self?.bottomStackView?.alpha = (updatedInputState.allowedInputTypes != .none ? 1 : 0)
+            self?.attachmentsButton.alpha = (updatedInputState.allowedInputTypes == .all ?
                 1 :
-                (messageTypes == .textOnly ? 0.4 : 0)
+                (updatedInputState.allowedInputTypes == .textOnly ? 0.4 : 0)
             )
-            self?.voiceMessageButton.alpha =  (messageTypes == .all ?
+            self?.voiceMessageButton.alpha =  (updatedInputState.allowedInputTypes == .all ?
                 1 :
-                (messageTypes == .textOnly ? 0.4 : 0)
+                (updatedInputState.allowedInputTypes == .textOnly ? 0.4 : 0)
             )
-            self?.disabledInputLabel.alpha = (messageTypes != .none ? 0 : Values.mediumOpacity)
+            self?.disabledInputLabel.alpha = (updatedInputState.allowedInputTypes != .none ? 0 : Values.mediumOpacity)
         }
     }
 
@@ -522,6 +537,10 @@ final class InputView: UIView, InputViewButtonDelegate, InputTextViewDelegate, M
     func tapableLabel(_ label: TappableLabel, didTapUrl url: String, atRange range: NSRange) {
         // Do nothing
     }
+    
+    @objc private func disabledInputTapped() {
+        delegate?.handleDisabledInputTapped()
+    }
 
     // MARK: - Convenience
     
@@ -541,6 +560,7 @@ final class InputView: UIView, InputViewButtonDelegate, InputTextViewDelegate, M
 protocol InputViewDelegate: ExpandingAttachmentsButtonDelegate, VoiceMessageRecordingViewDelegate {
     func showLinkPreviewSuggestionModal()
     func handleSendButtonTapped()
+    func handleDisabledInputTapped()
     func inputTextViewDidChangeContent(_ inputTextView: InputTextView)
     func handleMentionSelected(_ mentionInfo: MentionInfo, from view: MentionSelectionView)
     func didPasteImageFromPasteboard(_ image: UIImage)
