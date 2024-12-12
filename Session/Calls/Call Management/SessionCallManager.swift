@@ -8,12 +8,13 @@ import SessionUIKit
 import SessionMessagingKit
 import SignalUtilitiesKit
 import SessionUtilitiesKit
-
+ 
 // MARK: - Cache
 
 public extension Cache {
-    static let callManager: CacheInfo.Config<CallManagerCacheType, CallManagerImmutableCacheType> = CacheInfo.create(
-        createInstance: { SessionCallManager.Cache() },
+    static let callManager: CacheConfig<CallManagerCacheType, CallManagerImmutableCacheType> = Dependencies.create(
+        identifier: "callManager",
+        createInstance: { _ in SessionCallManager.Cache() },
         mutableInstance: { $0 },
         immutableInstance: { $0 }
     )
@@ -47,7 +48,7 @@ public final class SessionCallManager: NSObject, CallManagerProtocol {
         self.dependencies = dependencies
         
         if Preferences.isCallKitSupported {
-            self.provider = dependencies.caches.mutate(cache: .callManager) {
+            self.provider = dependencies.mutate(cache: .callManager) {
                 $0.getOrCreateProvider(useSystemCallLog: useSystemCallLog)
             }
             self.callController = CXCallController()
@@ -67,14 +68,14 @@ public final class SessionCallManager: NSObject, CallManagerProtocol {
     
     public static func reportFakeCall(info: String, using dependencies: Dependencies) {
         let callId = UUID()
-        let provider: CXProvider = dependencies.caches.mutate(cache: .callManager) {
+        let provider: CXProvider = dependencies.mutate(cache: .callManager) {
             $0.getOrCreateProvider(useSystemCallLog: false)
         }
         provider.reportNewIncomingCall(
             with: callId,
             update: CXCallUpdate()
         ) { _ in
-            SNLog("[Calls] Reported fake incoming call to CallKit due to: \(info)")
+            Log.error(.calls, "Reported fake incoming call to CallKit due to: \(info)")
         }
         provider.reportCall(
             with: callId,
@@ -89,8 +90,8 @@ public final class SessionCallManager: NSObject, CallManagerProtocol {
     
     public func reportOutgoingCall(_ call: SessionCall) {
         Log.assertOnMainThread()
-        UserDefaults.sharedLokiProject?[.isCallOngoing] = true
-        UserDefaults.sharedLokiProject?[.lastCallPreOffer] = Date()
+        dependencies[defaults: .appGroup, key: .isCallOngoing] = true
+        dependencies[defaults: .appGroup, key: .lastCallPreOffer] = Date()
         
         call.stateDidChange = {
             if call.hasStartedConnecting {
@@ -103,8 +104,12 @@ public final class SessionCallManager: NSObject, CallManagerProtocol {
         }
     }
     
-    public func reportIncomingCall(_ call: CurrentCallProtocol, callerName: String, completion: @escaping (Error?) -> Void) {
-        let provider: CXProvider = dependencies.caches.mutate(cache: .callManager) {
+    public func reportIncomingCall(
+        _ call: CurrentCallProtocol,
+        callerName: String,
+        completion: @escaping (Error?) -> Void
+    ) {
+        let provider: CXProvider = dependencies.mutate(cache: .callManager) {
             $0.getOrCreateProvider(useSystemCallLog: false)
         }
         // Construct a CXCallUpdate describing the incoming call, including the caller.
@@ -116,14 +121,14 @@ public final class SessionCallManager: NSObject, CallManagerProtocol {
         disableUnsupportedFeatures(callUpdate: update)
 
         // Report the incoming call to the system
-        provider.reportNewIncomingCall(with: call.callId, update: update) { error in
+        provider.reportNewIncomingCall(with: call.callId, update: update) { [dependencies] error in
             guard error == nil else {
                 self.reportCurrentCallEnded(reason: .failed)
                 completion(error)
                 return
             }
-            UserDefaults.sharedLokiProject?[.isCallOngoing] = true
-            UserDefaults.sharedLokiProject?[.lastCallPreOffer] = Date()
+            dependencies[defaults: .appGroup, key: .isCallOngoing] = true
+            dependencies[defaults: .appGroup, key: .lastCallPreOffer] = Date()
             completion(nil)
         }
     }
@@ -139,10 +144,10 @@ public final class SessionCallManager: NSObject, CallManagerProtocol {
         func handleCallEnded() {
             SNLog("[Calls] Call ended.")
             WebRTCSession.current = nil
-            UserDefaults.sharedLokiProject?[.isCallOngoing] = false
-            UserDefaults.sharedLokiProject?[.lastCallPreOffer] = nil
+            dependencies[defaults: .appGroup, key: .isCallOngoing] = false
+            dependencies[defaults: .appGroup, key: .lastCallPreOffer] = nil
             
-            if Singleton.hasAppContext && Singleton.appContext.isNotInForeground {
+            if dependencies[singleton: .appContext].isInBackground {
                 (UIApplication.shared.delegate as? AppDelegate)?.stopPollers()
                 Log.flush()
             }
@@ -196,15 +201,13 @@ public final class SessionCallManager: NSObject, CallManagerProtocol {
     }
     
     public func suspendDatabaseIfCallEndedInBackground() {
-        SNLog("[Calls] suspendDatabaseIfCallEndedInBackground.")
-        if Singleton.hasAppContext && Singleton.appContext.isInBackground {
-            // FIXME: Initialise the `SessionCallManager` with a dependencies instance
-            let dependencies: Dependencies = Dependencies()
-            
+        Log.info(.calls, "Called suspendDatabaseIfCallEndedInBackground.")
+        
+        if dependencies[singleton: .appContext].isInBackground {
             // Stop all jobs except for message sending and when completed suspend the database
-            JobRunner.stopAndClearPendingJobs(exceptForVariant: .messageSend, using: dependencies) { _ in
-                LibSession.suspendNetworkAccess()
-                dependencies.storage.suspendDatabaseAccess()
+            dependencies[singleton: .jobRunner].stopAndClearPendingJobs(exceptForVariant: .messageSend) { [dependencies] _ in
+                dependencies.mutate(cache: .libSessionNetwork) { $0.suspendNetworkAccess() }
+                dependencies[singleton: .storage].suspendDatabaseAccess()
                 Log.flush()
             }
         }
@@ -214,36 +217,35 @@ public final class SessionCallManager: NSObject, CallManagerProtocol {
     
     public func showCallUIForCall(caller: String, uuid: String, mode: CallMode, interactionId: Int64?) {
         guard
-            let call: SessionCall = Storage.shared.read({ [dependencies] db in
+            let call: SessionCall = dependencies[singleton: .storage].read({ [dependencies] db in
                 SessionCall(db, for: caller, uuid: uuid, mode: mode, using: dependencies)
             })
         else { return }
         
         call.callInteractionId = interactionId
-        call.reportIncomingCallIfNeeded { error in
+        call.reportIncomingCallIfNeeded { [dependencies] error in
             if let error = error {
-                SNLog("[Calls] Failed to report incoming call to CallKit due to error: \(error)")
+                Log.error(.calls, "Failed to report incoming call to CallKit due to error: \(error)")
                 return
             }
             
             DispatchQueue.main.async {
-                guard Singleton.hasAppContext && Singleton.appContext.isMainAppAndActive else { return }
-                
-                guard let presentingVC = Singleton.appContext.frontmostViewController else {
-                    preconditionFailure()   // FIXME: Handle more gracefully
-                }
+                guard
+                    dependencies[singleton: .appContext].isMainAppAndActive,
+                    let presentingVC: UIViewController = dependencies[singleton: .appContext].frontMostViewController
+                else { return }
                 
                 if
                     let conversationVC: ConversationVC = (presentingVC as? TopBannerController)?.wrappedViewController() as? ConversationVC,
                     conversationVC.viewModel.threadData.threadId == call.sessionId
                 {
-                    let callVC = CallVC(for: call)
+                    let callVC = CallVC(for: call, using: dependencies)
                     callVC.conversationVC = conversationVC
                     conversationVC.hideInputAccessoryView()
                     presentingVC.present(callVC, animated: true, completion: nil)
                 }
                 else if !Preferences.isCallKitSupported {
-                    let incomingCallBanner = IncomingCallBanner(for: call)
+                    let incomingCallBanner = IncomingCallBanner(for: call, using: dependencies)
                     incomingCallBanner.show()
                 }
             }
@@ -269,7 +271,7 @@ public final class SessionCallManager: NSObject, CallManagerProtocol {
     }
     
     public func handleAnswerMessage(_ message: CallMessage) {
-        guard Singleton.hasAppContext else { return }
+        guard dependencies[singleton: .appContext].isValid else { return }
         guard Thread.isMainThread else {
             DispatchQueue.main.async {
                 self.handleAnswerMessage(message)
@@ -277,11 +279,11 @@ public final class SessionCallManager: NSObject, CallManagerProtocol {
             return
         }
         
-        (Singleton.appContext.frontmostViewController as? CallVC)?.handleAnswerMessage(message)
+        (dependencies[singleton: .appContext].frontMostViewController as? CallVC)?.handleAnswerMessage(message)
     }
     
     public func dismissAllCallUI() {
-        guard Singleton.hasAppContext else { return }
+        guard dependencies[singleton: .appContext].isValid else { return }
         guard Thread.isMainThread else {
             DispatchQueue.main.async {
                 self.dismissAllCallUI()
@@ -290,7 +292,7 @@ public final class SessionCallManager: NSObject, CallManagerProtocol {
         }
         
         IncomingCallBanner.current?.dismiss()
-        (Singleton.appContext.frontmostViewController as? CallVC)?.handleEndCallMessage()
+        (dependencies[singleton: .appContext].frontMostViewController as? CallVC)?.handleEndCallMessage()
         MiniCallView.current?.dismiss()
     }
 }

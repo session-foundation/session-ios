@@ -7,19 +7,16 @@ import SessionUtilitiesKit
 // MARK: - Singleton
 
 public extension Singleton {
-    // FIXME: This will be reworked to be part of dependencies in the Groups Rebuild branch
-    fileprivate static var _callManager: Atomic<CallManagerProtocol> = Atomic(NoopSessionCallManager())
-    static var callManager: CallManagerProtocol { _callManager.wrappedValue }
-    
-    static func setCallManager(_ callManager: CallManagerProtocol) {
-        _callManager = Atomic(callManager)
-    }
+    static let callManager: SingletonConfig<CallManagerProtocol> = Dependencies.create(
+        identifier: "sessionCallManager",
+        createInstance: { _ in NoopSessionCallManager() }
+    )
 }
 
 // MARK: - CallManagerProtocol
 
 public protocol CallManagerProtocol {
-    var currentCall: CurrentCallProtocol? { get set }
+    var currentCall: CurrentCallProtocol? { get }
     
     func setCurrentCall(_ call: CurrentCallProtocol?)
     func reportIncomingCall(_ call: CurrentCallProtocol, callerName: String, completion: @escaping (Error?) -> Void)

@@ -13,9 +13,24 @@ extension MessageReceiver {
         message: UnsendRequest,
         using dependencies: Dependencies
     ) throws {
-        let userPublicKey: String = getUserHexEncodedPublicKey(db)
+        let senderIsLegacyGroupAdmin: Bool = {
+            switch (message.sender, threadVariant) {
+                case (.some(let sender), .legacyGroup):
+                    return GroupMember
+                        .filter(GroupMember.Columns.groupId == threadId)
+                        .filter(GroupMember.Columns.profileId == sender)
+                        .filter(GroupMember.Columns.role == GroupMember.Role.admin)
+                        .isNotEmpty(db)
+                    
+                default: return false
+            }
+        }()
         
-        guard message.sender == message.author || userPublicKey == message.sender else { return }
+        guard
+            senderIsLegacyGroupAdmin ||
+            message.sender == message.author ||
+            dependencies[cache: .general].sessionId.hexString == message.sender
+        else { return }
         guard let author: String = message.author, let timestampMs: UInt64 = message.timestamp else { return }
         
         let maybeInteraction: Interaction? = try Interaction
@@ -28,7 +43,7 @@ extension MessageReceiver {
             let interaction: Interaction = maybeInteraction
         else { return }
         
-        /// Mark incoming messages as read and remove any of their notifications
+        // Mark incoming messages as read and remove any of their notifications
         if interaction.variant == .standardIncoming {
             try Interaction.markAsRead(
                 db,
@@ -49,38 +64,29 @@ extension MessageReceiver {
             db,
             interactionIds: [interactionId]
         )
-        
-        switch (interaction.variant, (author == message.sender)) {
-            case (.standardOutgoing, _), (_, false):
-                _ = try interaction.delete(db)
-                
-            case (_, true):
-                _ = try interaction
-                    .markingAsDeleted()
-                    .saved(db)
-                
-                _ = try interaction.attachments
-                    .deleteAll(db)
-                
-                if let serverHash: String = interaction.serverHash {
-                    try SnodeReceivedMessageInfo.handlePotentialDeletedOrInvalidHash(
-                        db,
-                        potentiallyInvalidHashes: [serverHash]
-                    )
-                }
-        }
+        try Interaction.markAsDeleted(
+            db,
+            threadId: threadId,
+            threadVariant: threadVariant,
+            interactionIds: [interactionId],
+            localOnly: false,
+            using: dependencies
+        )
         
         /// Can't delete from the legacy group swarm so only bother for contact conversations
         switch threadVariant {
             case .legacyGroup, .group, .community: break
             case .contact:
-                dependencies.storage
+                dependencies[singleton: .storage]
                     .readPublisher { db in
                         try SnodeAPI.preparedDeleteMessages(
-                            db,
-                            swarmPublicKey: userPublicKey,
                             serverHashes: Array(hashes),
                             requireSuccessfulDeletion: false,
+                            authMethod: try Authentication.with(
+                                db,
+                                swarmPublicKey: dependencies[cache: .general].sessionId.hexString,
+                                using: dependencies
+                            ),
                             using: dependencies
                         )
                     }
@@ -94,7 +100,7 @@ extension MessageReceiver {
                                     /// Since the server deletion was successful we should also remove the `SnodeReceivedMessageInfo`
                                     /// entries for the hashes (otherwise we might try to poll for a hash which no longer exists, resulting in fetching
                                     /// the last 14 days of messages)
-                                    dependencies.storage.writeAsync { db in
+                                    dependencies[singleton: .storage].writeAsync { db in
                                         try SnodeReceivedMessageInfo.handlePotentialDeletedOrInvalidHash(
                                             db,
                                             potentiallyInvalidHashes: Array(hashes)

@@ -11,36 +11,27 @@ import SessionUtilitiesKit
 // MARK: - Singleton
 
 public extension Singleton {
-    // FIXME: This will be reworked to be part of dependencies in the Groups Rebuild branch
-    fileprivate static var _pushRegistrationManager: Atomic<PushRegistrationManagerType> = Atomic(NoopPushRegistrationManager())
-    static var pushRegistrationManager: PushRegistrationManagerType { _pushRegistrationManager.wrappedValue }
-    
-    static func setPushRegistrationManager(_ pushRegistrationManager: PushRegistrationManagerType) {
-        _pushRegistrationManager = Atomic(pushRegistrationManager)
-    }
+    static let pushRegistrationManager: SingletonConfig<PushRegistrationManager> = Dependencies.create(
+        identifier: "pushRegistrationManager",
+        createInstance: { dependencies in PushRegistrationManager(using: dependencies) }
+    )
 }
 
 // MARK: - PushRegistrationManager
 
-public class PushRegistrationManager: NSObject, PKPushRegistryDelegate, PushRegistrationManagerType {
+public class PushRegistrationManager: NSObject, PKPushRegistryDelegate {
     private let dependencies: Dependencies
-
-    // MARK: - Dependencies
-
-    private var notificationPresenter: NotificationPresenter {
-        return AppEnvironment.shared.notificationPresenter
-    }
-
+    
     private var vanillaTokenPublisher: AnyPublisher<Data, Error>?
     private var vanillaTokenResolver: ((Result<Data, Error>) -> ())?
 
     private var voipRegistry: PKPushRegistry?
     private var voipTokenPublisher: AnyPublisher<Data?, Error>?
     private var voipTokenResolver: ((Result<Data?, Error>) -> ())?
-    
+
     // MARK: - Initialization
 
-    public init(using dependencies: Dependencies) {
+    fileprivate init(using dependencies: Dependencies) {
         self.dependencies = dependencies
         
         super.init()
@@ -69,7 +60,7 @@ public class PushRegistrationManager: NSObject, PKPushRegistryDelegate, PushRegi
 
     // MARK: Vanilla push token
 
-    // Vanilla push token is obtained from the system via AppDelegate
+    /// Vanilla push token is obtained from the system via AppDelegate
     public func didReceiveVanillaPushToken(_ tokenData: Data) {
         guard let vanillaTokenResolver = self.vanillaTokenResolver else {
             Log.error("[PushRegistrationManager] Publisher completion in \(#function) unexpectedly nil")
@@ -81,7 +72,7 @@ public class PushRegistrationManager: NSObject, PKPushRegistryDelegate, PushRegi
         }
     }
 
-    // Vanilla push token is obtained from the system via AppDelegate
+    /// Vanilla push token is obtained from the system via AppDelegate
     public func didFailToReceiveVanillaPushToken(error: Error) {
         guard let vanillaTokenResolver = self.vanillaTokenResolver else {
             Log.error("[PushRegistrationManager] Publisher completion in \(#function) unexpectedly nil")
@@ -95,10 +86,9 @@ public class PushRegistrationManager: NSObject, PKPushRegistryDelegate, PushRegi
 
     // MARK: helpers
 
-    // User notification settings must be registered *before* AppDelegate will
-    // return any requested push tokens.
+    /// User notification settings must be registered *before* AppDelegate will return any requested push tokens.
     public func registerUserNotificationSettings() -> AnyPublisher<Void, Never> {
-        return notificationPresenter.registerNotificationSettings()
+        return dependencies[singleton: .notificationsManager].registerNotificationSettings()
     }
 
     /**
@@ -275,7 +265,7 @@ public class PushRegistrationManager: NSObject, PKPushRegistryDelegate, PushRegi
     // NOTE: This function MUST report an incoming call.
     public func pushRegistry(_ registry: PKPushRegistry, didReceiveIncomingPushWith payload: PKPushPayload, for type: PKPushType) {
         Log.info("[PushRegistrationManager] Receive new voip notification.")
-        Log.assert(Singleton.hasAppContext && Singleton.appContext.isMainApp)
+        Log.assert(dependencies[singleton: .appContext].isMainApp)
         Log.assert(type == .voIP)
         let payload = payload.dictionaryPayload
         
@@ -289,13 +279,10 @@ public class PushRegistrationManager: NSObject, PKPushRegistryDelegate, PushRegi
             return
         }
         
-        // FIXME: Initialise the `PushRegistrationManager` with a dependencies instance
-        let dependencies: Dependencies = Dependencies()
+        dependencies[singleton: .storage].resumeDatabaseAccess()
+        dependencies.mutate(cache: .libSessionNetwork) { $0.resumeNetworkAccess() }
         
-        dependencies.storage.resumeDatabaseAccess()
-        LibSession.resumeNetworkAccess()
-        
-        let maybeCall: SessionCall? = Storage.shared.write { db in
+        let maybeCall: SessionCall? = dependencies[singleton: .storage].write { [dependencies] db in
             var call: SessionCall? = nil
             
             do {
@@ -308,13 +295,13 @@ public class PushRegistrationManager: NSObject, PKPushRegistryDelegate, PushRegi
                 )
                 
                 let thread: SessionThread = try SessionThread.upsert(
-                        db,
-                        id: caller,
-                        variant: .contact,
-                        values: .existingOrDefault,
-                        calledFromConfig: nil,
-                        using: dependencies
-                    )
+                    db,
+                    id: caller,
+                    variant: .contact,
+                    values: .existingOrDefault,
+                    calledFromConfig: nil,
+                    using: dependencies
+                )
                 
                 let interaction: Interaction? = try Interaction
                     .filter(Interaction.Columns.threadId == thread.id)
@@ -322,8 +309,9 @@ public class PushRegistrationManager: NSObject, PKPushRegistryDelegate, PushRegi
                     .fetchOne(db)
                 
                 call?.callInteractionId = interaction?.id
-            } catch {
-                SNLog("[Calls] Failed to create call due to error: \(error)")
+            }
+            catch {
+                Log.error(.calls, "Failed to create call due to error: \(error)")
             }
             
             return call
@@ -334,25 +322,18 @@ public class PushRegistrationManager: NSObject, PKPushRegistryDelegate, PushRegi
             return
         }
         
-        JobRunner.appDidBecomeActive()
+        dependencies[singleton: .jobRunner].appDidBecomeActive()
         
         // NOTE: Just start 1-1 poller so that it won't wait for polling group messages
         (UIApplication.shared.delegate as? AppDelegate)?.startPollersIfNeeded(shouldStartGroupPollers: false)
         
         call.reportIncomingCallIfNeeded { error in
             if let error = error {
-                SNLog("[Calls] Failed to report incoming call to CallKit due to error: \(error)")
+                Log.error(.calls, "Failed to report incoming call to CallKit due to error: \(error)")
             } else {
-                SNLog("[Calls] Succeeded to report incoming call to CallKit")
+                Log.info(.calls, "Succeeded to report incoming call to CallKit")
             }
         }
-    }
-}
-
-// We transmit pushToken data as hex encoded string to the server
-fileprivate extension Data {
-    var hexEncodedString: String {
-        return map { String(format: "%02hhx", $0) }.joined() // stringlint:ignore
     }
 }
 
