@@ -23,24 +23,20 @@ extension SessionCallManager: CXProviderDelegate {
     
     public func provider(_ provider: CXProvider, perform action: CXAnswerCallAction) {
         Log.assertOnMainThread()
-        Log.info("[CallKit] Perform CXAnswerCallAction")
+        Log.debug("[CallKit] Perform CXAnswerCallAction")
         
         guard let call: SessionCall = (self.currentCall as? SessionCall) else {
             Log.warn("[CallKit] No session call")
             return action.fail()
         }
         
+        call.answerCallAction = action
+        
         if Singleton.hasAppContext && Singleton.appContext.isMainAppAndActive {
-            if answerCallAction() {
-                action.fulfill()
-            }
-            else {
-                action.fail()
-            }
+            self.answerCallAction()
         }
         else {
             call.answerSessionCallInBackground()
-            action.fulfill()
         }
     }
     

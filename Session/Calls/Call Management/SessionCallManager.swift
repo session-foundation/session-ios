@@ -9,6 +9,23 @@ import SessionMessagingKit
 import SignalUtilitiesKit
 import SessionUtilitiesKit
 
+// MARK: - CXProviderConfiguration
+
+public extension CXProviderConfiguration {
+    static func defaultConfiguration(_ useSystemCallLog: Bool = false) -> CXProviderConfiguration {
+        let iconMaskImage: UIImage = #imageLiteral(resourceName: "SessionGreen32")
+        let configuration = CXProviderConfiguration()
+        configuration.supportsVideo = true
+        configuration.maximumCallGroups = 1
+        configuration.maximumCallsPerCallGroup = 1
+        configuration.supportedHandleTypes = [.generic]
+        configuration.iconTemplateImageData = iconMaskImage.pngData()
+        configuration.includesCallsInRecents = useSystemCallLog
+        
+        return configuration
+    }
+}
+
 // MARK: - SessionCallManager
 
 public final class SessionCallManager: NSObject, CallManagerProtocol {
@@ -37,7 +54,7 @@ public final class SessionCallManager: NSObject, CallManagerProtocol {
         self.dependencies = dependencies
         
         if Preferences.isCallKitSupported {
-            self.provider = Self.createProvider(useSystemCallLog: useSystemCallLog)
+            self.provider = CXProvider(configuration: .defaultConfiguration(useSystemCallLog))
             self.callController = CXCallController()
         }
         else {
@@ -49,20 +66,6 @@ public final class SessionCallManager: NSObject, CallManagerProtocol {
         
         // We cannot assert singleton here, because this class gets rebuilt when the user changes relevant call settings
         self.provider?.setDelegate(self, queue: nil)
-    }
-    
-    public static func createProvider(useSystemCallLog: Bool) -> CXProvider {
-        let iconMaskImage: UIImage = #imageLiteral(resourceName: "SessionGreen32")
-        let configuration = CXProviderConfiguration()
-        configuration.supportsVideo = true
-        configuration.maximumCallGroups = 1
-        configuration.maximumCallsPerCallGroup = 1
-        configuration.supportedHandleTypes = [.generic]
-        configuration.iconTemplateImageData = iconMaskImage.pngData()
-        configuration.includesCallsInRecents = useSystemCallLog
-        
-        let provider: CXProvider = CXProvider(configuration: configuration)
-        return provider
     }
     
     // MARK: - Report calls
