@@ -42,6 +42,8 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
         verifyDBKeysAvailableBeforeBackgroundLaunch()
 
         _ = AppVersion.shared
+        /// Create a proper `SessionCallManager` for the main app (defaults to a no-op version)
+        Singleton.setCallManager(SessionCallManager(using: dependencies))
         Singleton.setPushRegistrationManager(PushRegistrationManager(using: dependencies))
         Singleton.pushRegistrationManager.createVoipRegistryIfNecessary()
 
@@ -60,7 +62,7 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
                 Log.info("[AppDelegate] Setting up environment.")
                 
                 /// Create a proper `SessionCallManager` for the main app (defaults to a no-op version)
-                Singleton.setCallManager(SessionCallManager(using: dependencies))
+//                Singleton.setCallManager(SessionCallManager(using: dependencies))
                 
                 // Setup LibSession
                 LibSession.addLogger()

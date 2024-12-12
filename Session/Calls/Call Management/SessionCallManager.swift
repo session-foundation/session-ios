@@ -302,6 +302,7 @@ public extension SessionCallManager {
         public var provider: CXProvider?
         
         public func getOrCreateProvider(useSystemCallLog: Bool) -> CXProvider {
+            SNLog("[Calls] getOrCreateProvider")
             if let provider: CXProvider = self.provider {
                 return provider
             }
