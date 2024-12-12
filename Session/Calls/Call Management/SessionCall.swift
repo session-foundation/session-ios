@@ -27,7 +27,6 @@ public final class SessionCall: CurrentCallProtocol, WebRTCSessionDelegate {
     let isOutgoing: Bool
     var remoteSDP: RTCSessionDescription? = nil
     var callInteractionId: Int64?
-    var answerCallAction: CXAnswerCallAction? = nil
     
     let contactName: String
     let profilePicture: UIImage
@@ -268,12 +267,15 @@ public final class SessionCall: CurrentCallProtocol, WebRTCSessionDelegate {
         hasStartedConnecting = true
         
         if let sdp = remoteSDP {
+            SNLog("[Calls] Got remote sdp already")
             webRTCSession.handleRemoteSDP(sdp, from: sessionId) // This sends an answer message internally
+        } else {
+            SNLog("[Calls] Didn't get remote sdp yet, waiting for it")
         }
     }
     
-    func answerSessionCallInBackground(action: CXAnswerCallAction) {
-        answerCallAction = action
+    func answerSessionCallInBackground() {
+        SNLog("[Calls] Answering call in background")
         self.answerSessionCall()
     }
     
@@ -394,7 +396,6 @@ public final class SessionCall: CurrentCallProtocol, WebRTCSessionDelegate {
         }
         
         self.hasConnected = true
-        self.answerCallAction?.fulfill()
     }
     
     public func isRemoteVideoDidChange(isEnabled: Bool) {
