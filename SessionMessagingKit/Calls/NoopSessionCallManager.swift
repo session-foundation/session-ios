@@ -7,6 +7,7 @@ internal struct NoopSessionCallManager: CallManagerProtocol {
     var currentCall: CurrentCallProtocol?
 
     func setCurrentCall(_ call: CurrentCallProtocol?) {}
+    func reportFakeCall(info: String) {}
     func reportIncomingCall(_ call: CurrentCallProtocol, callerName: String, completion: @escaping (Error?) -> Void) {}
     func reportCurrentCallEnded(reason: CXCallEndedReason?) {}
     func suspendDatabaseIfCallEndedInBackground() {}
