@@ -380,7 +380,7 @@ class GifPickerViewController: OWSViewController, UISearchBarDelegate, UICollect
                         return
                     }
 
-                    let dataSource = DataSourcePath(filePath: asset.filePath, shouldDeleteOnDeinit: false)
+                    let dataSource = DataSourcePath(filePath: asset.filePath, sourceFilename: URL(fileURLWithPath: asset.filePath).pathExtension, shouldDeleteOnDeinit: false)
                     let attachment = SignalAttachment.attachment(dataSource: dataSource, type: rendition.type, imageQuality: .medium)
 
                     self?.dismiss(animated: true) {
