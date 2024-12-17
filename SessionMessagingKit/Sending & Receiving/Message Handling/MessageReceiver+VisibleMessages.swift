@@ -367,7 +367,7 @@ extension MessageReceiver {
         guard variant == .standardIncoming && !interaction.wasRead else { return interactionId }
         
         // Use the same identifier for notifications when in backgroud polling to prevent spam
-        SessionEnvironment.shared?.notificationsManager.wrappedValue?
+        SessionEnvironment.shared?.notificationsManager?
             .notifyUser(
                 db,
                 for: interaction,
@@ -441,7 +441,7 @@ extension MessageReceiver {
                 // Don't notify if the reaction was added before the lastest read timestamp for
                 // the conversation
                 if sender != currentUserPublicKey && !timestampAlreadyRead {
-                    SessionEnvironment.shared?.notificationsManager.wrappedValue?
+                    SessionEnvironment.shared?.notificationsManager?
                         .notifyUser(
                             db,
                             forReaction: reaction,

@@ -70,7 +70,7 @@ extension MessageReceiver {
                 )
                 
                 if !interaction.wasRead {
-                    SessionEnvironment.shared?.notificationsManager.wrappedValue?
+                    SessionEnvironment.shared?.notificationsManager?
                         .notifyUser(
                             db,
                             forIncomingCall: interaction,
@@ -97,7 +97,7 @@ extension MessageReceiver {
                 )
                 
                 if !interaction.wasRead {
-                    SessionEnvironment.shared?.notificationsManager.wrappedValue?
+                    SessionEnvironment.shared?.notificationsManager?
                         .notifyUser(
                             db,
                             forIncomingCall: interaction,

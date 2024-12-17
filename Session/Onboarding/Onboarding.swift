@@ -8,17 +8,16 @@ import SessionMessagingKit
 import SessionSnodeKit
 
 enum Onboarding {
-    private static let profileNameRetrievalIdentifier: Atomic<UUID?> = Atomic(nil)
-    private static let profileNameRetrievalPublisher: Atomic<AnyPublisher<String?, Error>?> = Atomic(nil)
+    @ThreadSafe private static var profileNameRetrievalIdentifier: UUID? = nil
+    @ThreadSafeObject private static var profileNameRetrievalPublisher: AnyPublisher<String?, Error>? = nil
     public static var profileNamePublisher: AnyPublisher<String?, Error> {
-        guard let existingPublisher: AnyPublisher<String?, Error> = profileNameRetrievalPublisher.wrappedValue else {
-            return profileNameRetrievalPublisher.mutate { value in
+        guard let existingPublisher: AnyPublisher<String?, Error> = profileNameRetrievalPublisher else {
+            return _profileNameRetrievalPublisher.performUpdateAndMap { value in
                 let requestId: UUID = UUID()
                 let result: AnyPublisher<String?, Error> = createProfileNameRetrievalPublisher(requestId)
                 
-                value = result
-                profileNameRetrievalIdentifier.mutate { $0 = requestId }
-                return result
+                profileNameRetrievalIdentifier = requestId
+                return (result, result)
             }
         }
         
@@ -40,7 +39,7 @@ enum Onboarding {
                 using: dependencies
             )
             .map { _ -> String? in
-                guard requestId == profileNameRetrievalIdentifier.wrappedValue else { return nil }
+                guard requestId == profileNameRetrievalIdentifier else { return nil }
                 
                 return Storage.shared.read { db in
                     try Profile
@@ -119,8 +118,8 @@ enum Onboarding {
             }
             
             // Clear the profile name retrieve publisher
-            profileNameRetrievalIdentifier.mutate { $0 = nil }
-            profileNameRetrievalPublisher.mutate { $0 = nil }
+            profileNameRetrievalIdentifier = nil
+            _profileNameRetrievalPublisher.set(to: nil)
             
             // Clear the cached 'encodedPublicKey' if needed
             dependencies.caches.mutate(cache: .general) { $0.encodedPublicKey = nil }

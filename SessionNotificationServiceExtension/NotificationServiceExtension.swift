@@ -16,7 +16,7 @@ public final class NotificationServiceExtension: UNNotificationServiceExtension 
     private var startTime: CFTimeInterval = 0
     private var contentHandler: ((UNNotificationContent) -> Void)?
     private var request: UNNotificationRequest?
-    private var hasCompleted: Atomic<Bool> = Atomic(false)
+    @ThreadSafe private var hasCompleted: Bool = false
 
     // stringlint:ignore_start
     public static let isFromRemoteKey = "remote"
@@ -34,7 +34,7 @@ public final class NotificationServiceExtension: UNNotificationServiceExtension 
         self.request = request
         
         // It's technically possible for 'completeSilently' to be called twice due to the NSE timeout so
-        self.hasCompleted.mutate { $0 = false }
+        self.hasCompleted = false
         
         // Abort if the main app is running
         guard !(UserDefaults.sharedLokiProject?[.isMainAppActive]).defaulting(to: false) else {
@@ -177,7 +177,7 @@ public final class NotificationServiceExtension: UNNotificationServiceExtension 
 
                                     // Notify the user if the call message wasn't already read
                                     if !interaction.wasRead {
-                                        SessionEnvironment.shared?.notificationsManager.wrappedValue?
+                                        SessionEnvironment.shared?.notificationsManager?
                                             .notifyUser(
                                                 db,
                                                 forIncomingCall: interaction,
@@ -315,9 +315,7 @@ public final class NotificationServiceExtension: UNNotificationServiceExtension 
                     forceNSLog: true
                 ))
                 
-                SessionEnvironment.shared?.notificationsManager.mutate {
-                    $0 = NSENotificationPresenter()
-                }
+                SessionEnvironment.shared?.setNotificationsManager(to: NSENotificationPresenter())
                 
                 // Setup LibSession
                 LibSession.addLogger()
@@ -373,13 +371,7 @@ public final class NotificationServiceExtension: UNNotificationServiceExtension 
     
     private func completeSilenty(handledNotification: Bool, isMainAppAndActive: Bool = false, noContent: Bool = false) {
         // Ensure we only run this once
-        guard
-            hasCompleted.mutate({ hasCompleted in
-                let wasCompleted: Bool = hasCompleted
-                hasCompleted = true
-                return wasCompleted
-            }) == false
-        else { return }
+        guard _hasCompleted.performUpdateAndMap({ (true, $0) }) == false else { return }
         
         let silentContent: UNMutableNotificationContent = UNMutableNotificationContent()
         
@@ -490,6 +482,6 @@ public final class NotificationServiceExtension: UNNotificationServiceExtension 
         let userInfo: [String: Any] = [ NotificationServiceExtension.isFromRemoteKey: true ]
         content.userInfo = userInfo
         contentHandler!(content)
-        hasCompleted.mutate { $0 = true }
+        hasCompleted = true
     }
 }

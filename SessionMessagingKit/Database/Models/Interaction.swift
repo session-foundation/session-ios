@@ -687,7 +687,7 @@ public extension Interaction {
         }
         
         // Clear out any notifications for the interactions we mark as read
-        SessionEnvironment.shared?.notificationsManager.wrappedValue?.cancelNotifications(
+        SessionEnvironment.shared?.notificationsManager?.cancelNotifications(
             identifiers: interactionInfo
                 .map { interactionInfo in
                     Interaction.notificationIdentifier(

@@ -25,16 +25,17 @@ public extension Network.RequestType {
 // MARK: - LibSession
 
 public extension LibSession {
-    private static var networkCache: Atomic<UnsafeMutablePointer<network_object>?> = Atomic(nil)
     private static var snodeCachePath: String { "\(FileManager.default.appSharedDataDirectoryPath)/snodeCache" }
-    private static var isSuspended: Atomic<Bool> = Atomic(false)
-    private static var lastPaths: Atomic<[[Snode]]> = Atomic([])
-    private static var lastNetworkStatus: Atomic<NetworkStatus> = Atomic(.unknown)
-    private static var pathsChangedCallbacks: Atomic<[UUID: ([[Snode]], UUID) -> ()]> = Atomic([:])
-    private static var networkStatusCallbacks: Atomic<[UUID: (NetworkStatus) -> ()]> = Atomic([:])
     
-    static var hasPaths: Bool { !lastPaths.wrappedValue.isEmpty }
-    static var pathsDescription: String { lastPaths.wrappedValue.prettifiedDescription }
+    @ThreadSafeObject private static var networkCache: UnsafeMutablePointer<network_object>? = nil
+    @ThreadSafe private static var isSuspended: Bool = false
+    @ThreadSafeObject private static var lastPaths: [[Snode]] = []
+    @ThreadSafe private static var lastNetworkStatus: NetworkStatus = .unknown
+    @ThreadSafeObject private static var pathsChangedCallbacks: [UUID: ([[Snode]], UUID) -> ()] = [:]
+    @ThreadSafeObject private static var networkStatusCallbacks: [UUID: (NetworkStatus) -> ()] = [:]
+    
+    static var hasPaths: Bool { !lastPaths.isEmpty }
+    static var pathsDescription: String { lastPaths.prettifiedDescription }
     
     // MARK: - Public Interface
     
@@ -46,10 +47,10 @@ public extension LibSession {
     
     static func onNetworkStatusChanged(callback: @escaping (NetworkStatus) -> ()) -> UUID {
         let callbackId: UUID = UUID()
-        networkStatusCallbacks.mutate { $0[callbackId] = callback }
+        _networkStatusCallbacks.performUpdate { $0.setting(callbackId, callback) }
         
         // Trigger the callback immediately with the most recent status
-        callback(lastNetworkStatus.wrappedValue)
+        callback(lastNetworkStatus)
         
         return callbackId
     }
@@ -57,15 +58,15 @@ public extension LibSession {
     static func removeNetworkChangedCallback(callbackId: UUID?) {
         guard let callbackId: UUID = callbackId else { return }
         
-        networkStatusCallbacks.mutate { $0.removeValue(forKey: callbackId) }
+        _networkStatusCallbacks.performUpdate { $0.removingValue(forKey: callbackId) }
     }
     
     static func onPathsChanged(skipInitialCallbackIfEmpty: Bool = false, callback: @escaping ([[Snode]], UUID) -> ()) -> UUID {
         let callbackId: UUID = UUID()
-        pathsChangedCallbacks.mutate { $0[callbackId] = callback }
+        _pathsChangedCallbacks.performUpdate { $0.setting(callbackId, callback) }
         
         // Trigger the callback immediately with the most recent status
-        let lastPaths: [[Snode]] = self.lastPaths.wrappedValue
+        let lastPaths: [[Snode]] = self.lastPaths
         if !lastPaths.isEmpty || !skipInitialCallbackIfEmpty {
             callback(lastPaths, callbackId)
         }
@@ -76,35 +77,35 @@ public extension LibSession {
     static func removePathsChangedCallback(callbackId: UUID?) {
         guard let callbackId: UUID = callbackId else { return }
         
-        pathsChangedCallbacks.mutate { $0.removeValue(forKey: callbackId) }
+        _pathsChangedCallbacks.performUpdate { $0.removingValue(forKey: callbackId) }
     }
     
     static func suspendNetworkAccess() {
         Log.info("[LibSession] suspendNetworkAccess called.")
-        isSuspended.mutate { $0 = true }
+        isSuspended = true
         
-        guard let network: UnsafeMutablePointer<network_object> = networkCache.wrappedValue else { return }
+        guard let network: UnsafeMutablePointer<network_object> = networkCache else { return }
         
         network_suspend(network)
     }
     
     static func resumeNetworkAccess() {
-        isSuspended.mutate { $0 = false }
+        isSuspended = false
         Log.info("[LibSession] resumeNetworkAccess called.")
         
-        guard let network: UnsafeMutablePointer<network_object> = networkCache.wrappedValue else { return }
+        guard let network: UnsafeMutablePointer<network_object> = networkCache else { return }
         
         network_resume(network)
     }
     
     static func clearSnodeCache() {
-        guard let network: UnsafeMutablePointer<network_object> = networkCache.wrappedValue else { return }
+        guard let network: UnsafeMutablePointer<network_object> = networkCache else { return }
         
         network_clear_cache(network)
     }
     
     static func snodeCacheSize() -> Int {
-        guard let network: UnsafeMutablePointer<network_object> = networkCache.wrappedValue else { return 0 }
+        guard let network: UnsafeMutablePointer<network_object> = networkCache else { return 0 }
         
         return network_get_snode_cache_size(network)
     }
@@ -353,7 +354,7 @@ public extension LibSession {
     // MARK: - Internal Functions
     
     private static func getOrCreateNetwork() -> AnyPublisher<UnsafeMutablePointer<network_object>?, Error> {
-        guard !isSuspended.wrappedValue else {
+        guard !isSuspended else {
             Log.warn("[LibSession] Attempted to access suspended network.")
             return Fail(error: NetworkError.suspended).eraseToAnyPublisher()
         }
@@ -362,19 +363,19 @@ public extension LibSession {
             return Fail(error: NetworkError.suspended).eraseToAnyPublisher()
         }
         
-        guard networkCache.wrappedValue == nil else {
-            return Just(networkCache.wrappedValue)
+        guard networkCache == nil else {
+            return Just(networkCache)
                 .setFailureType(to: Error.self)
                 .eraseToAnyPublisher()
         }
         
         return Deferred {
             Future<UnsafeMutablePointer<network_object>?, Error> { resolver in
-                let network: UnsafeMutablePointer<network_object>? = networkCache.mutate { cachedNetwork in
+                let network: UnsafeMutablePointer<network_object>? = _networkCache.performUpdateAndMap { cachedNetwork in
                     // It's possible for two threads to get past the initial `wrappedValue` check so just
                     // in case check and return the cached value if set
                     if let existingNetwork: UnsafeMutablePointer<network_object> = cachedNetwork {
-                        return existingNetwork
+                        return (existingNetwork, existingNetwork)
                     }
                     
                     // Otherwise create a new network
@@ -383,12 +384,12 @@ public extension LibSession {
                     
                     guard let cCachePath: [CChar] = snodeCachePath.cString(using: .utf8) else {
                         Log.error("[LibQuic] Unable to create network object: \(LibSessionError.invalidCConversion)")
-                        return nil
+                        return (nil, nil)
                     }
                     
                     guard network_init(&network, cCachePath, Features.useTestnet, !Singleton.appContext.isMainApp, true, &error) else {
                         Log.error("[LibQuic] Unable to create network object: \(String(cString: error))")
-                        return nil
+                        return (nil, nil)
                     }
                     
                     // Register for network status changes
@@ -401,8 +402,7 @@ public extension LibSession {
                         LibSession.updatePaths(cPathsPtr: pathsPtr, pathsLen: pathsLen)
                     }, nil)
                     
-                    cachedNetwork = network
-                    return network
+                    return (network, network)
                 }
                 
                 switch network {
@@ -416,10 +416,10 @@ public extension LibSession {
     private static func updateNetworkStatus(cStatus: CONNECTION_STATUS) {
         let status: NetworkStatus = NetworkStatus(status: cStatus)
         
-        guard status == .disconnected || !isSuspended.wrappedValue else {
+        guard status == .disconnected || !isSuspended else {
             Log.warn("[LibSession] Attempted to update network status to '\(status)' for suspended network, closing connections again.")
             
-            guard let network: UnsafeMutablePointer<network_object> = networkCache.wrappedValue else { return }
+            guard let network: UnsafeMutablePointer<network_object> = networkCache else { return }
             network_close_connections(network)
             return
         }
@@ -427,12 +427,10 @@ public extension LibSession {
         // Dispatch async so we don't hold up the libSession thread that triggered the update
         DispatchQueue.global(qos: .default).async {
             Log.info("Network status changed to: \(status)")
-            lastNetworkStatus.mutate { lastNetworkStatus in
-                lastNetworkStatus = status
-                
-                networkStatusCallbacks.wrappedValue.forEach { _, callback in
-                    callback(status)
-                }
+            lastNetworkStatus = status
+            
+            networkStatusCallbacks.forEach { _, callback in
+                callback(status)
             }
         }
     }
@@ -467,12 +465,12 @@ public extension LibSession {
         
         // Dispatch async so we don't hold up the libSession thread that triggered the update
         DispatchQueue.global(qos: .default).async {
-            lastPaths.mutate { lastPaths in
-                lastPaths = paths
-                
-                pathsChangedCallbacks.wrappedValue.forEach { id, callback in
+            _lastPaths.performUpdate { lastPaths in
+                pathsChangedCallbacks.forEach { id, callback in
                     callback(paths, id)
                 }
+                
+                return paths
             }
         }
     }
@@ -521,7 +519,7 @@ public extension LibSession {
                 
                 let nodeHex: String = String(responseString.suffix(64))
                 
-                for path in lastPaths.wrappedValue {
+                for path in lastPaths {
                     if let index: Int = path.firstIndex(where: { $0.ed25519PubkeyHex == nodeHex }) {
                         throw SnodeAPIError.nodeNotFound(index, nodeHex)
                     }
@@ -539,7 +537,7 @@ public extension LibSession {
 // MARK: - NetworkStatus
 
 extension LibSession {
-    public enum NetworkStatus {
+    public enum NetworkStatus: ThreadSafeType {
         case unknown
         case connecting
         case connected
@@ -770,7 +768,7 @@ private extension LibSession.CallbackWrapper {
 
 // MARK: - Convenience C Access
 
-extension network_service_node: CAccessible, CMutable {
+extension network_service_node: @retroactive CAccessible, @retroactive CMutable {
     var ipString: String {
         get { "\(ip.0).\(ip.1).\(ip.2).\(ip.3)" }
         set {

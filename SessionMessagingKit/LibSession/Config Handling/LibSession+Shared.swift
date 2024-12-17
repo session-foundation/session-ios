@@ -68,7 +68,7 @@ internal extension LibSession {
         do {
             needsPush = try dependencies.caches[.libSession]
                 .config(for: variant, publicKey: publicKey)
-                .mutate { conf in
+                .performMap { conf in
                     guard conf != nil else { throw LibSessionError.nilConfigObject }
                     
                     // Peform the change
