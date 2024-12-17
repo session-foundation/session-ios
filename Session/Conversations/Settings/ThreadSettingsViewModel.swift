@@ -538,7 +538,6 @@ class ThreadSettingsViewModel: SessionTableViewModel, NavigationItemSource, Navi
                                         db,
                                         type: .leaveGroupAsync,
                                         threadId: threadViewModel.threadId,
-                                        calledFromConfigHandling: false,
                                         using: dependencies
                                     )
                                 }
@@ -781,7 +780,6 @@ class ThreadSettingsViewModel: SessionTableViewModel, NavigationItemSource, Navi
                     id: userId,
                     variant: .contact,
                     values: .existingOrDefault,
-                    calledFromConfig: nil,
                     using: dependencies
                 )
                 

@@ -4,7 +4,7 @@ import UIKit
 import SessionUtilitiesKit
 
 public extension UIContextualAction {
-    private static var lookupMap: Atomic<[Int: [String: [Int: ThemeValue]]]> = Atomic([:])
+    @ThreadSafeObject private static var lookupMap: [Int: [String: [Int: ThemeValue]]] = [:]
     
     enum Side: Int {
         case leading
@@ -47,13 +47,16 @@ public extension UIContextualAction {
             .withRenderingMode(.alwaysTemplate)
         self.themeBackgroundColor = themeBackgroundColor
         
-        UIContextualAction.lookupMap.mutate {
-            $0[tableView.hashValue] = ($0[tableView.hashValue] ?? [:])
-                .setting(
-                    side.key(for: indexPath),
-                    (($0[tableView.hashValue] ?? [:])[side.key(for: indexPath)] ?? [:])
-                        .setting(actionIndex, themeTintColor)
-                )
+        UIContextualAction._lookupMap.performUpdate {
+            $0.setting(
+                tableView.hashValue,
+                ($0[tableView.hashValue] ?? [:])
+                    .setting(
+                        side.key(for: indexPath),
+                        (($0[tableView.hashValue] ?? [:])[side.key(for: indexPath)] ?? [:])
+                            .setting(actionIndex, themeTintColor)
+                    )
+            )
         }
     }
     
@@ -139,7 +142,7 @@ public extension UIContextualAction {
                 .filter({ $0 != targetCell })
                 .first,
             let side: Side = Side(for: targetSuperview),
-            let themeMap: [Int: ThemeValue] = UIContextualAction.lookupMap.wrappedValue
+            let themeMap: [Int: ThemeValue] = UIContextualAction.lookupMap
                 .getting(tableView.hashValue)?
                 .getting(side.key(for: indexPath)),
             targetSuperview.subviews.count == themeMap.count
@@ -165,17 +168,20 @@ public extension UIContextualAction {
         let trailingKey: String = Side.trailing.key(for: indexPath)
         
         guard
-            UIContextualAction.lookupMap.wrappedValue[tableView.hashValue]?[leadingKey] != nil ||
-            UIContextualAction.lookupMap.wrappedValue[tableView.hashValue]?[trailingKey] != nil
+            UIContextualAction.lookupMap[tableView.hashValue]?[leadingKey] != nil ||
+            UIContextualAction.lookupMap[tableView.hashValue]?[trailingKey] != nil
         else { return }
         
-        UIContextualAction.lookupMap.mutate {
-            $0[tableView.hashValue]?[leadingKey] = nil
-            $0[tableView.hashValue]?[trailingKey] = nil
+        UIContextualAction._lookupMap.performUpdate { lookupMap in
+            var updatedLookupMap: [Int: [String: [Int: ThemeValue]]] = lookupMap
+            updatedLookupMap[tableView.hashValue]?[leadingKey] = nil
+            updatedLookupMap[tableView.hashValue]?[trailingKey] = nil
             
-            if $0[tableView.hashValue]?.isEmpty == true {
-                $0[tableView.hashValue] = nil
+            if updatedLookupMap[tableView.hashValue]?.isEmpty == true {
+                updatedLookupMap[tableView.hashValue] = nil
             }
+            
+            return updatedLookupMap
         }
     }
 }

@@ -32,8 +32,8 @@ public struct ProfileManager {
     private static let avatarNonceLength: Int = 12
     private static let avatarTagLength: Int = 16
     
-    private static var profileAvatarCache: Atomic<[String: Data]> = Atomic([:])
-    private static var currentAvatarDownloads: Atomic<Set<String>> = Atomic([])
+    @ThreadSafeObject private static var profileAvatarCache: [String: Data] = [:]
+    @ThreadSafeObject private static var currentAvatarDownloads: Set<String> = []
     
     // MARK: - Functions
     
@@ -74,7 +74,7 @@ public struct ProfileManager {
     }
     
     private static func loadProfileAvatar(for fileName: String, profile: Profile) -> Data? {
-        if let cachedImageData: Data = profileAvatarCache.wrappedValue[fileName] {
+        if let cachedImageData: Data = profileAvatarCache[fileName] {
             return cachedImageData
         }
         
@@ -104,7 +104,7 @@ public struct ProfileManager {
             return nil
         }
     
-        profileAvatarCache.mutate { $0[fileName] = data }
+        _profileAvatarCache.performUpdate { $0.setting(fileName, data) }
         return data
     }
     
@@ -207,7 +207,7 @@ public struct ProfileManager {
     // MARK: - Other Users' Profiles
     
     public static func downloadAvatar(for profile: Profile, funcName: String = #function) {
-        guard !currentAvatarDownloads.wrappedValue.contains(profile.id) else {
+        guard !currentAvatarDownloads.contains(profile.id) else {
             // Download already in flight; ignore
             return
         }
@@ -225,7 +225,7 @@ public struct ProfileManager {
         var backgroundTask: SessionBackgroundTask? = SessionBackgroundTask(label: #function)
         
         Log.verbose("downloading profile avatar: \(profile.id)")
-        currentAvatarDownloads.mutate { $0.insert(profile.id) }
+        _currentAvatarDownloads.performUpdate { $0.inserting(profile.id) }
         
         LibSession
             .downloadFile(from: .fileServer(downloadUrl: profileUrl))
@@ -233,7 +233,7 @@ public struct ProfileManager {
             .receive(on: DispatchQueue.global(qos: .background))
             .sinkUntilComplete(
                 receiveCompletion: { _ in
-                    currentAvatarDownloads.mutate { $0.remove(profile.id) }
+                    _currentAvatarDownloads.performUpdate { $0.removing(profile.id) }
                     
                     // Redundant but without reading 'backgroundTask' it will warn that the variable
                     // isn't used
@@ -276,7 +276,7 @@ public struct ProfileManager {
                     
                     // Update the cache first (in case the DBWrite thread is blocked, this way other threads
                     // can retrieve from the cache and avoid triggering a download)
-                    profileAvatarCache.mutate { $0[fileName] = decryptedData }
+                    _profileAvatarCache.performUpdate { $0.setting(fileName, decryptedData) }
                     
                     // Store the updated 'profilePictureFileName'
                     Storage.shared.write { db in
@@ -326,7 +326,7 @@ public struct ProfileManager {
                         
                         // Remove any cached avatar image value
                         if let fileName: String = existingProfileFileName {
-                            profileAvatarCache.mutate { $0[fileName] = nil }
+                            _profileAvatarCache.performUpdate { $0.removingValue(forKey: fileName) }
                         }
                         
                         // stringlint:ignore_start
@@ -498,7 +498,7 @@ public struct ProfileManager {
                     },
                     receiveValue: { downloadUrl in
                         // Update the cached avatar image value
-                        profileAvatarCache.mutate { $0[fileName] = avatarImageData }
+                        _profileAvatarCache.performUpdate { $0.setting(fileName, avatarImageData) }
                         UserDefaults.standard[.lastProfilePictureUpload] = Date()
                         
                         SNLog("Successfully uploaded avatar image.")
@@ -515,7 +515,6 @@ public struct ProfileManager {
         displayPictureUpdate: DisplayPictureUpdate,
         blocksCommunityMessageRequests: Bool? = nil,
         sentTimestamp: TimeInterval,
-        calledFromConfigHandling: Bool = false,
         using dependencies: Dependencies
     ) throws {
         let isCurrentUser = (publicKey == getUserHexEncodedPublicKey(db, using: dependencies))
@@ -545,10 +544,6 @@ public struct ProfileManager {
         // Profile picture & profile key
         var avatarNeedsDownload: Bool = false
         var targetAvatarUrl: String? = nil
-        let shouldUpdateAvatar: Bool = (
-            (!isCurrentUser && (sentTimestamp > (profile.lastProfilePictureUpdate ?? 0))) ||  // Update other users
-            (isCurrentUser && calledFromConfigHandling) // Only update the current user via config messages
-        )
         
         switch (displayPictureUpdate, isCurrentUser) {
             case (.none, _): break
@@ -593,20 +588,9 @@ public struct ProfileManager {
         // Persist any changes
         if !profileChanges.isEmpty {
             try profile.save(db)
-            
-            if calledFromConfigHandling {
-                try Profile
-                    .filter(id: publicKey)
-                    .updateAll( // Handling a config update so don't use `updateAllAndConfig`
-                        db,
-                        profileChanges
-                    )
-            }
-            else {
-                try Profile
-                    .filter(id: publicKey)
-                    .updateAllAndConfig(db, profileChanges, using: dependencies)
-            }
+            try Profile
+                .filter(id: publicKey)
+                .updateAllAndConfig(db, profileChanges, using: dependencies)
         }
         
         // Download the profile picture if needed

@@ -1285,7 +1285,6 @@ extension ConversationVC:
                     id: sessionId,
                     variant: .contact,
                     values: .existingOrDefault,
-                    calledFromConfig: nil,
                     using: dependencies
                 )
             }
@@ -1321,7 +1320,6 @@ extension ConversationVC:
                 id: (lookup.sessionId ?? lookup.blindedId),
                 variant: .contact,
                 values: .existingOrDefault,
-                calledFromConfig: nil,
                 using: dependencies
             ).id
         }
@@ -1778,7 +1776,7 @@ extension ConversationVC:
                                 roomToken: room,
                                 server: server,
                                 publicKey: publicKey,
-                                calledFromConfig: nil
+                                forceVisible: false
                             )
                         }
                         .flatMap { successfullyAddedGroup in
@@ -1786,8 +1784,7 @@ extension ConversationVC:
                                 successfullyAddedGroup: successfullyAddedGroup,
                                 roomToken: room,
                                 server: server,
-                                publicKey: publicKey,
-                                calledFromConfigHandling: false
+                                publicKey: publicKey
                             )
                         }
                         .subscribe(on: DispatchQueue.global(qos: .userInitiated))
@@ -1804,7 +1801,7 @@ extension ConversationVC:
                                             OpenGroupManager.shared.delete(
                                                 db,
                                                 openGroupId: OpenGroup.idFor(roomToken: room, server: server),
-                                                calledFromConfigHandling: false
+                                                skipLibSessionUpdate: false
                                             )
                                         }
                                         

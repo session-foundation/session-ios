@@ -9,8 +9,8 @@ import KeychainSwift
 
 public extension Singleton {
     // FIXME: This will be reworked to be part of dependencies in the Groups Rebuild branch
-    fileprivate static var _keychain: Atomic<KeychainStorageType> = Atomic(KeychainStorage())
-    static var keychain: KeychainStorageType { _keychain.wrappedValue }
+    @ThreadSafeObject fileprivate static var cachedKeychain: KeychainStorageType = KeychainStorage()
+    static var keychain: KeychainStorageType { cachedKeychain }
 }
 
 public enum KeychainStorageError: Error {
@@ -25,7 +25,7 @@ public enum KeychainStorageError: Error {
 
 // MARK: - KeychainStorageType
 
-public protocol KeychainStorageType {
+public protocol KeychainStorageType: AnyObject {
     func string(forKey key: KeychainStorage.StringKey) throws -> String
     func set(string: String, forKey key: KeychainStorage.StringKey) throws
     func remove(key: KeychainStorage.StringKey) throws

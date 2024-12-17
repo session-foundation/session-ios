@@ -9,8 +9,8 @@ import SessionUIKit
 
 public struct SessionApp {
     // FIXME: Refactor this to be protocol based for unit testing (or even dynamic based on view hierarchy - do want to avoid needing to use the main thread to access them though)
-    static let homeViewController: Atomic<HomeVC?> = Atomic(nil)
-    static let currentlyOpenConversationViewController: Atomic<ConversationVC?> = Atomic(nil)
+    @ThreadSafeObject static var homeViewController: HomeVC? = nil
+    @ThreadSafeObject static var currentlyOpenConversationViewController: ConversationVC? = nil
     
     static var versionInfo: String {
         let buildNumber: String = (Bundle.main.infoDictionary?["CFBundleVersion"] as? String)
@@ -70,7 +70,7 @@ public struct SessionApp {
         let afterThreadCreated: () -> () = {
             presentingViewController?.dismiss(animated: true, completion: nil)
             
-            homeViewController.wrappedValue?.show(
+            homeViewController?.show(
                 threadId,
                 variant: variant,
                 isMessageRequest: (threadInfo?.isMessageRequest == true),
@@ -90,7 +90,6 @@ public struct SessionApp {
                         id: threadId,
                         variant: variant,
                         values: .existingOrDefault,
-                        calledFromConfig: nil,
                         using: dependencies
                     )
                 }
@@ -139,6 +138,14 @@ public struct SessionApp {
         DispatchQueue.main.async {
             exit(0)
         }
+    }
+    
+    static func setHomeViewController(_ homeVC: HomeVC) {
+        _homeViewController.set(to: homeVC)
+    }
+    
+    static func setCurrentlyOpenConversationViewController(_ viewController: ConversationVC?) {
+        _currentlyOpenConversationViewController.set(to: viewController)
     }
     
     public static func showHomeView(using dependencies: Dependencies) {

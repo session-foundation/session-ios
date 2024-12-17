@@ -151,7 +151,6 @@ internal extension LibSession {
                             db,
                             type: .deleteContactConversationAndMarkHidden,
                             threadId: sessionId,
-                            calledFromConfigHandling: true,
                             using: dependencies
                         )
                     
@@ -178,7 +177,6 @@ internal extension LibSession {
                                     .useExisting
                                 )
                             ),
-                            calledFromConfig: .contacts(conf),
                             using: dependencies
                         )
                     
@@ -246,14 +244,12 @@ internal extension LibSession {
                 )
             
             // Delete the one-to-one conversations associated to the contact
-            try SessionThread
-                .deleteOrLeave(
-                    db,
-                    type: .deleteContactConversationAndContact,
-                    threadIds: combinedIds,
-                    calledFromConfigHandling: true,
-                    using: dependencies
-                )
+            try SessionThread.deleteOrLeave(
+                db,
+                type: .deleteContactConversationAndContact,
+                threadIds: combinedIds,
+                using: dependencies
+            )
             
             try LibSession.remove(
                 db,

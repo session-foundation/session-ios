@@ -8,7 +8,7 @@ import GRDB
 import SessionSnodeKit
 import SessionUtilitiesKit
 
-// MARK: - Log.Level
+// MARK: - Log.Category
 
 public extension Log.Category {
     static let ip2Country: Log.Category = .create("IP2Country", defaultLevel: .info)
@@ -17,9 +17,9 @@ public extension Log.Category {
 // MARK: - IP2Country
 
 public enum IP2Country {
-    public static var isInitialized: Atomic<Bool> = Atomic(false)
-    private static var countryNamesCache: Atomic<[String: String]> = Atomic([:])
-    private static var pathsChangedCallbackId: Atomic<UUID?> = Atomic(nil)
+    @ThreadSafe public static var isInitialized: Bool = false
+    @ThreadSafeObject private static var countryNamesCache: [String: String] = [:]
+    @ThreadSafe private static var pathsChangedCallbackId: UUID? = nil
     private static let _cacheLoaded: CurrentValueSubject<Bool, Never> = CurrentValueSubject(false)
     public static var cacheLoaded: AnyPublisher<Bool, Never> {
         _cacheLoaded.filter { $0 }.eraseToAnyPublisher()
@@ -159,25 +159,27 @@ public enum IP2Country {
             /// Ensure the lookup tables get loaded in the background
             _ = cache
             
-            pathsChangedCallbackId.mutate { pathsChangedCallbackId in
-                guard pathsChangedCallbackId == nil else { return }
-                
-                pathsChangedCallbackId = LibSession.onPathsChanged(callback: { paths, _ in
-                    self.populateCacheIfNeeded(paths: paths)
-                })
-            }
+            guard pathsChangedCallbackId == nil else { return }
+            
+            pathsChangedCallbackId = LibSession.onPathsChanged(callback: { paths, _ in
+                self.populateCacheIfNeeded(paths: paths)
+            })
         }
     }
 
     private static func populateCacheIfNeeded(paths: [[LibSession.Snode]]) {
         guard !paths.isEmpty else { return }
         
-        countryNamesCache.mutate { cache in
+        _countryNamesCache.performUpdate { cache in
+            var result: [String: String] = cache
+            
             paths.forEach { path in
                 path.forEach { snode in
-                    self.cacheCountry(for: snode.ip, inCache: &cache)
+                    self.cacheCountry(for: snode.ip, inCache: &result)
                 }
             }
+            
+            return result
         }
         
         self._cacheLoaded.send(true)
@@ -210,6 +212,6 @@ public enum IP2Country {
         
         guard _cacheLoaded.value else { return fallback }
         
-        return (countryNamesCache.wrappedValue["\(ip)-\(currentLocale)"] ?? fallback)
+        return (countryNamesCache["\(ip)-\(currentLocale)"] ?? fallback)
     }
 }

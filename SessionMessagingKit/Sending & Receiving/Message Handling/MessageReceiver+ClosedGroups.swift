@@ -121,7 +121,7 @@ extension MessageReceiver {
             admins: adminsAsData.map { $0.toHexString() },
             expirationTimer: expirationTimer,
             formationTimestampMs: sentTimestamp,
-            calledFromConfig: nil,
+            forceApprove: false,
             using: dependencies
         )
     }
@@ -135,7 +135,7 @@ extension MessageReceiver {
         admins: [String],
         expirationTimer: UInt32,
         formationTimestampMs: UInt64,
-        calledFromConfig configTriggeringChange: LibSession.Config.Variant?,
+        forceApprove: Bool,
         using dependencies: Dependencies
     ) throws {
         // With new closed groups we only want to create them if the admin creating the closed group is an
@@ -150,10 +150,9 @@ extension MessageReceiver {
             }
         }
         
-        // If the group came from the updated config handling then it doesn't matter if we
-        // have an approved admin - we should add it regardless (as it's been synced from
-        // antoher device)
-        guard hasApprovedAdmin || configTriggeringChange != nil else { return }
+        // If we want to force approve the group (eg. if it came from config handling) then it
+        // doesn't matter if we have an approved admin - we should add it regardless
+        guard hasApprovedAdmin || forceApprove else { return }
         
         // Create the group
         let thread: SessionThread = try SessionThread.upsert(
@@ -164,7 +163,6 @@ extension MessageReceiver {
                 creationDateTimestamp: (TimeInterval(formationTimestampMs) / 1000),
                 shouldBeVisible: .setTo(true)
             ),
-            calledFromConfig: configTriggeringChange,
             using: dependencies
         )
         let closedGroup: ClosedGroup = try ClosedGroup(
@@ -226,22 +224,20 @@ extension MessageReceiver {
             try newKeyPair.insert(db)
         }
         
-        if configTriggeringChange == nil {
-            // Update libSession
-            try? LibSession.add(
-                db,
-                groupPublicKey: groupPublicKey,
-                name: name,
-                joinedAt: (TimeInterval(formationTimestampMs) / 1000),
-                latestKeyPairPublicKey: Data(encryptionKeyPair.publicKey),
-                latestKeyPairSecretKey: Data(encryptionKeyPair.secretKey),
-                latestKeyPairReceivedTimestamp: receivedTimestamp,
-                disappearingConfig: disappearingConfig,
-                members: members.asSet(),
-                admins: admins.asSet(),
-                using: dependencies
-            )
-        }
+        // Update libSession
+        try? LibSession.add(
+            db,
+            groupPublicKey: groupPublicKey,
+            name: name,
+            joinedAt: (TimeInterval(formationTimestampMs) / 1000),
+            latestKeyPairPublicKey: Data(encryptionKeyPair.publicKey),
+            latestKeyPairSecretKey: Data(encryptionKeyPair.secretKey),
+            latestKeyPairReceivedTimestamp: receivedTimestamp,
+            disappearingConfig: disappearingConfig,
+            members: members.asSet(),
+            admins: admins.asSet(),
+            using: dependencies
+        )
         
         // Start polling
         ClosedGroupPoller.shared.startIfNeeded(for: groupPublicKey, using: dependencies)
@@ -564,7 +560,6 @@ extension MessageReceiver {
                         db,
                         threadId: threadId,
                         removeGroupData: true,
-                        calledFromConfigHandling: false,
                         using: dependencies
                     )
                 }
@@ -635,7 +630,6 @@ extension MessageReceiver {
                         db,
                         threadId: threadId,
                         removeGroupData: (sender == userPublicKey),
-                        calledFromConfigHandling: false,
                         using: dependencies
                     )
                 }

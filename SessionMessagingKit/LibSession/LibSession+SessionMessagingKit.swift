@@ -233,7 +233,7 @@ public extension LibSession {
             .reduce(into: PendingChanges()) { result, variant in
                 try dependencies.caches[.libSession]
                     .config(for: variant, publicKey: publicKey)
-                    .mutate { conf in
+                    .perform { conf in
                         guard conf != nil else { return }
                         
                         // Check if the config needs to be pushed
@@ -308,7 +308,7 @@ public extension LibSession {
     ) -> ConfigDump? {
         return dependencies.caches[.libSession]
             .config(for: variant, publicKey: publicKey)
-            .mutate { conf in
+            .performMap { conf in
                 guard
                     conf != nil,
                     var cHash: [CChar] = serverHash.cString(using: .utf8)
@@ -384,7 +384,7 @@ public extension LibSession {
             .forEach { key, value in
                 try dependencies.caches[.libSession]
                     .config(for: key, publicKey: publicKey)
-                    .mutate { conf in
+                    .perform { conf in
                         // Merge the messages
                         var mergeHashes: [UnsafePointer<CChar>?] = (try? (value
                             .compactMap { message in message.serverHash.cString(using: .utf8) }
@@ -577,7 +577,7 @@ public extension LibSession {
             let publicKey: String
         }
         
-        private var configStore: [Key: Atomic<UnsafeMutablePointer<config_object>?>] = [:]
+        private var configStore: [Key: ThreadSafeObject<UnsafeMutablePointer<config_object>?>] = [:]
         
         public var isEmpty: Bool { configStore.isEmpty }
         
@@ -594,16 +594,16 @@ public extension LibSession {
         // MARK: - Functions
         
         public func setConfig(for variant: ConfigDump.Variant, publicKey: String, to config: UnsafeMutablePointer<config_object>?) {
-            configStore[Key(variant: variant, publicKey: publicKey)] = config.map { Atomic($0) }
+            configStore[Key(variant: variant, publicKey: publicKey)] = config.map { ThreadSafeObject($0) }
         }
         
         public func config(
             for variant: ConfigDump.Variant,
             publicKey: String
-        ) -> Atomic<UnsafeMutablePointer<config_object>?> {
+        ) -> ThreadSafeObject<UnsafeMutablePointer<config_object>?> {
             return (
                 configStore[Key(variant: variant, publicKey: publicKey)] ??
-                Atomic(nil)
+                ThreadSafeObject(nil)
             )
         }
         
@@ -628,7 +628,7 @@ public protocol LibSessionImmutableCacheType: ImmutableCacheType {
     var isEmpty: Bool { get }
     var needsSync: Bool { get }
     
-    func config(for variant: ConfigDump.Variant, publicKey: String) -> Atomic<UnsafeMutablePointer<config_object>?>
+    func config(for variant: ConfigDump.Variant, publicKey: String) -> ThreadSafeObject<UnsafeMutablePointer<config_object>?>
 }
 
 public protocol LibSessionCacheType: LibSessionImmutableCacheType, MutableCacheType {
@@ -636,6 +636,6 @@ public protocol LibSessionCacheType: LibSessionImmutableCacheType, MutableCacheT
     var needsSync: Bool { get }
     
     func setConfig(for variant: ConfigDump.Variant, publicKey: String, to config: UnsafeMutablePointer<config_object>?)
-    func config(for variant: ConfigDump.Variant, publicKey: String) -> Atomic<UnsafeMutablePointer<config_object>?>
+    func config(for variant: ConfigDump.Variant, publicKey: String) -> ThreadSafeObject<UnsafeMutablePointer<config_object>?>
     func removeAll()
 }

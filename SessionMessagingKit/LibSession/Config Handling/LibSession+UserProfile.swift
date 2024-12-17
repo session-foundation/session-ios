@@ -53,7 +53,6 @@ internal extension LibSession {
                 )
             }(),
             sentTimestamp: (TimeInterval(latestConfigSentTimestampMs) / 1000),
-            calledFromConfigHandling: true,
             using: dependencies
         )
         
@@ -93,7 +92,6 @@ internal extension LibSession {
                     db,
                     type: .hideContactConversation,
                     threadId: userPublicKey,
-                    calledFromConfigHandling: true,
                     using: dependencies
                 )
             }
@@ -106,7 +104,6 @@ internal extension LibSession {
                         shouldBeVisible: .setTo(LibSession.shouldBeVisible(priority: targetPriority)),
                         pinnedPriority: .setTo(targetPriority)
                     ),
-                    calledFromConfig: .userProfile(conf),
                     using: dependencies
                 )
             }

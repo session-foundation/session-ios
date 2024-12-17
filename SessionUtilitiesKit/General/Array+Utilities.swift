@@ -55,6 +55,12 @@ public extension Array {
         return updatedArray
     }
     
+    func setting(_ index: Int, _ element: Element) -> [Element] {
+        var updatedArray: [Element] = self
+        updatedArray[index] = element
+        return updatedArray
+    }
+    
     func grouped<Key: Hashable>(by keyForValue: (Element) throws -> Key) -> [Key: [Element]] {
         return ((try? Dictionary(grouping: self, by: keyForValue)) ?? [:])
     }

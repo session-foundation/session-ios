@@ -208,7 +208,6 @@ class MessageRequestsViewModel: SessionTableViewModel, NavigatableStateHolder, O
                                         threadIds: threadInfo
                                             .filter { _, variant in variant == .contact }
                                             .map { id, _ in id },
-                                        calledFromConfigHandling: false,
                                         using: dependencies
                                     )
                                     
@@ -219,7 +218,6 @@ class MessageRequestsViewModel: SessionTableViewModel, NavigatableStateHolder, O
                                         threadIds: threadInfo
                                             .filter { _, variant in variant == .legacyGroup || variant == .group }
                                             .map { id, _ in id },
-                                        calledFromConfigHandling: false,
                                         using: dependencies
                                     )
                                 }

@@ -34,11 +34,11 @@ public class MediaGalleryViewModel {
     public var mediaType: MediaType
     
     /// This value is the current state of an album view
-    private var cachedInteractionIdBefore: Atomic<[Int64: Int64]> = Atomic([:])
-    private var cachedInteractionIdAfter: Atomic<[Int64: Int64]> = Atomic([:])
+    @ThreadSafeObject private var cachedInteractionIdBefore: [Int64: Int64] = [:]
+    @ThreadSafeObject private var cachedInteractionIdAfter: [Int64: Int64] = [:]
     
-    public var interactionIdBefore: [Int64: Int64] { cachedInteractionIdBefore.wrappedValue }
-    public var interactionIdAfter: [Int64: Int64] { cachedInteractionIdAfter.wrappedValue }
+    public var interactionIdBefore: [Int64: Int64] { cachedInteractionIdBefore }
+    public var interactionIdAfter: [Int64: Int64] { cachedInteractionIdAfter }
     public private(set) var albumData: [Int64: [Item]] = [:]
     public private(set) var pagedDataObserver: PagedDatabaseObserver<Attachment, Item>?
     
@@ -448,8 +448,12 @@ public class MediaGalleryViewModel {
         
         // Cache the album info for the new interactionId
         self.updateAlbumData(newAlbumInfo.albumData, for: interactionId)
-        self.cachedInteractionIdBefore.mutate { $0[interactionId] = newAlbumInfo.interactionIdBefore }
-        self.cachedInteractionIdAfter.mutate { $0[interactionId] = newAlbumInfo.interactionIdAfter }
+        self._cachedInteractionIdBefore.performUpdate {
+            $0.setting(interactionId, newAlbumInfo.interactionIdBefore)
+        }
+        self._cachedInteractionIdAfter.performUpdate {
+            $0.setting(interactionId, newAlbumInfo.interactionIdAfter)
+        }
         
         return newAlbumInfo.albumData
     }

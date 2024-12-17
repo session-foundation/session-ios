@@ -297,7 +297,7 @@ final class HomeVC: BaseVC, LibSessionRespondingViewController, UITableViewDataS
         if Singleton.hasAppContext { _ = Singleton.appContext.isRTL }
         
         // Preparation
-        SessionApp.homeViewController.mutate { $0 = self }
+        SessionApp.setHomeViewController(self)
         
         updateNavBarButtons(userProfile: self.viewModel.state.userProfile)
         setUpNavBarSessionHeading()

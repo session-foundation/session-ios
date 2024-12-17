@@ -89,7 +89,7 @@ public extension Database {
         // Only allow a single observer per `dedupeId` per transaction, this allows us to
         // schedule an action to run at most once per transaction (eg. auto-scheduling a ConfigSyncJob
         // when receiving messages)
-        guard !TransactionHandler.registeredHandlers.wrappedValue.contains(dedupeId) else { return }
+        guard !TransactionHandler.registeredHandlers.contains(dedupeId) else { return }
         
         add(
             transactionObserver: TransactionHandler(
@@ -103,7 +103,7 @@ public extension Database {
 }
 
 fileprivate class TransactionHandler: TransactionObserver {
-    static var registeredHandlers: Atomic<Set<String>> = Atomic([])
+    @ThreadSafeObject static var registeredHandlers: Set<String> = []
     
     let identifier: String
     let onCommit: (Database) -> Void
@@ -118,7 +118,7 @@ fileprivate class TransactionHandler: TransactionObserver {
         self.onCommit = onCommit
         self.onRollback = onRollback
         
-        TransactionHandler.registeredHandlers.mutate { $0.insert(identifier) }
+        TransactionHandler._registeredHandlers.performUpdate { $0.inserting(identifier) }
     }
     
     // Ignore changes
@@ -126,7 +126,7 @@ fileprivate class TransactionHandler: TransactionObserver {
     func databaseDidChange(with event: DatabaseEvent) { }
     
     func databaseDidCommit(_ db: Database) {
-        TransactionHandler.registeredHandlers.mutate { $0.remove(identifier) }
+        TransactionHandler._registeredHandlers.performUpdate { $0.removing(identifier) }
         
         do {
             try db.inTransaction {
@@ -140,7 +140,7 @@ fileprivate class TransactionHandler: TransactionObserver {
     }
     
     func databaseDidRollback(_ db: Database) {
-        TransactionHandler.registeredHandlers.mutate { $0.remove(identifier) }
+        TransactionHandler._registeredHandlers.performUpdate { $0.removing(identifier) }
         onRollback(db)
     }
 }

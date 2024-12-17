@@ -12,11 +12,11 @@ import SessionUtilitiesKit
 
 public extension Singleton {
     // FIXME: This will be reworked to be part of dependencies in the Groups Rebuild branch
-    fileprivate static var _pushRegistrationManager: Atomic<PushRegistrationManagerType> = Atomic(NoopPushRegistrationManager())
-    static var pushRegistrationManager: PushRegistrationManagerType { _pushRegistrationManager.wrappedValue }
+    @ThreadSafeObject fileprivate static var cachedPushRegistrationManager: PushRegistrationManagerType = NoopPushRegistrationManager()
+    static var pushRegistrationManager: PushRegistrationManagerType { cachedPushRegistrationManager }
     
     static func setPushRegistrationManager(_ pushRegistrationManager: PushRegistrationManagerType) {
-        _pushRegistrationManager = Atomic(pushRegistrationManager)
+        _cachedPushRegistrationManager.set(to: pushRegistrationManager)
     }
 }
 

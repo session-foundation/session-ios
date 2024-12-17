@@ -65,12 +65,11 @@ extension MessageReceiver {
                     id: sender,
                     variant: .contact,
                     values: .existingOrDefault,
-                    calledFromConfig: nil,
                     using: dependencies
                 )
                 
                 if !interaction.wasRead {
-                    SessionEnvironment.shared?.notificationsManager.wrappedValue?
+                    SessionEnvironment.shared?.notificationsManager?
                         .notifyUser(
                             db,
                             forIncomingCall: interaction,
@@ -92,12 +91,11 @@ extension MessageReceiver {
                     id: sender,
                     variant: .contact,
                     values: .existingOrDefault,
-                    calledFromConfig: nil,
                     using: dependencies
                 )
                 
                 if !interaction.wasRead {
-                    SessionEnvironment.shared?.notificationsManager.wrappedValue?
+                    SessionEnvironment.shared?.notificationsManager?
                         .notifyUser(
                             db,
                             forIncomingCall: interaction,

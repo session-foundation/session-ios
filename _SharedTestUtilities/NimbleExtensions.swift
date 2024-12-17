@@ -198,7 +198,7 @@ fileprivate func generateCallInfo<M, T, R>(_ actualExpression: Nimble.Expression
                 return
             }
             
-            allFunctionsCalled = Array(validInstance.functionConsumer.calls.wrappedValue.keys)
+            allFunctionsCalled = Array(validInstance.functionConsumer.calls.keys)
             
             // Only check for the specific function calls if there was at least a single
             // call (if there weren't any this will likely throw errors when attempting
@@ -212,8 +212,7 @@ fileprivate func generateCallInfo<M, T, R>(_ actualExpression: Nimble.Expression
                     name: (maybeFunction?.name ?? ""),
                     paramCount: (maybeFunction?.parameterCount ?? 0)
                 )
-                desiredFunctionCalls = validInstance.functionConsumer.calls
-                    .wrappedValue[key]
+                desiredFunctionCalls = validInstance.functionConsumer.calls[key]
                     .defaulting(to: [])
                 validInstance.functionConsumer.trackCalls = true
             }

@@ -17,7 +17,7 @@ public enum Log {
         line: UInt
     )
     
-    public enum Level: Comparable {
+    public enum Level: Comparable, ThreadSafeType {
         case verbose
         case debug
         case info
@@ -64,32 +64,22 @@ public enum Log {
         }
     }
     
-    private static var logger: Atomic<Logger?> = Atomic(nil)
-    private static var pendingStartupLogs: Atomic<[LogInfo]> = Atomic([])
+    @ThreadSafeObject private static var logger: Logger? = nil
+    @ThreadSafeObject private static var pendingStartupLogs: [LogInfo] = []
     
     public static func setup(with logger: Logger) {
-        logger.pendingLogsRetriever.mutate { callback in
-            callback = {
-                pendingStartupLogs.mutate { pendingStartupLogs in
-                    let logs: [LogInfo] = pendingStartupLogs
-                    pendingStartupLogs = []
-                    return logs
-                }
-            }
+        logger.setPendingLogsRetriever {
+            _pendingStartupLogs.performUpdateAndMap { ([], $0) }
         }
-        Log.logger.mutate { $0 = logger }
+        Log._logger.set(to: logger)
     }
     
     public static func appResumedExecution() {
-        guard logger.wrappedValue != nil else { return }
-        
-        logger.wrappedValue?.loadExtensionLogsAndResumeLogging()
+        logger?.loadExtensionLogsAndResumeLogging()
     }
     
     public static func logFilePath() -> String? {
-        guard
-            let logger: Logger = logger.wrappedValue
-        else { return nil }
+        guard let logger: Logger = logger else { return nil }
         
         let logFiles: [String] = logger.fileLogger.logFileManager.sortedLogFilePaths
         
@@ -326,10 +316,11 @@ public enum Log {
         function: StaticString = #function,
         line: UInt = #line
     ) {
-        guard
-            let logger: Logger = logger.wrappedValue,
-            !logger.isSuspended.wrappedValue
-        else { return pendingStartupLogs.mutate { $0.append((level, categories, message, file, function, line)) } }
+        guard let logger: Logger = logger, !logger.isSuspended else {
+            return _pendingStartupLogs.performUpdate { logs in
+                logs.appending((level, categories, message, file, function, line))
+            }
+        }
         
         logger.log(level, categories, message, file: file, function: function, line: line)
     }
@@ -340,11 +331,11 @@ public enum Log {
 public class Logger {
     private let primaryPrefix: String
     private let forceNSLog: Bool
-    private let level: Atomic<Log.Level>
-    private let systemLoggers: Atomic<[String: SystemLoggerType]> = Atomic([:])
+    @ThreadSafe private var level: Log.Level
+    @ThreadSafeObject private var systemLoggers: [String: SystemLoggerType] = [:]
     fileprivate let fileLogger: DDFileLogger
-    fileprivate let isSuspended: Atomic<Bool> = Atomic(true)
-    fileprivate let pendingLogsRetriever: Atomic<(() -> [Log.LogInfo])?> = Atomic(nil)
+    @ThreadSafe fileprivate var isSuspended: Bool = true
+    @ThreadSafeObject fileprivate var pendingLogsRetriever: (() -> [Log.LogInfo])? = nil
     
     public init(
         primaryPrefix: String,
@@ -353,7 +344,7 @@ public class Logger {
         forceNSLog: Bool = false
     ) {
         self.primaryPrefix = primaryPrefix
-        self.level = Atomic(level)
+        self.level = level
         self.forceNSLog = forceNSLog
         
         switch customDirectory {
@@ -385,9 +376,13 @@ public class Logger {
     
     // MARK: - Functions
     
+    fileprivate func setPendingLogsRetriever(_ callback: @escaping () -> [Log.LogInfo]) {
+        _pendingLogsRetriever.set(to: callback)
+    }
+    
     fileprivate func loadExtensionLogsAndResumeLogging() {
         // Pause logging while we load the extension logs (want to avoid interleaving them where possible)
-        isSuspended.mutate { $0 = true }
+        isSuspended = true
         
         // The extensions write their logs to the app shared directory but the main app writes
         // to a local directory (so they can be exported via XCode) - the below code reads any
@@ -479,11 +474,10 @@ public class Logger {
     }
     
     private func completeResumeLogging(error: String? = nil) {
-        let pendingLogs: [Log.LogInfo] = isSuspended.mutate { isSuspended in
-            isSuspended = false
-            
-            // Retrieve any logs that were added during
-            return pendingLogsRetriever.mutate { retriever in (retriever?() ?? []) }
+        // Retrieve any logs that were added during startup
+        let pendingLogs: [Log.LogInfo] = _pendingLogsRetriever.performUpdateAndMap { retriever in
+            isSuspended = false // Update 'isSuspended' while blocking 'pendingLogsRetriever'
+            return (retriever, (retriever?() ?? []))
         }
         
         // If we had an error loading the extension logs then actually log it
@@ -510,7 +504,7 @@ public class Logger {
         function: StaticString,
         line: UInt
     ) {
-        guard level >= self.level.wrappedValue else { return }
+        guard level >= self.level else { return }
         
         // Sort out the prefixes
         let logPrefix: String = {
@@ -545,17 +539,20 @@ public class Logger {
         }
         
         let mainCategory: String = (categories.first?.rawValue ?? "General")
-        var systemLogger: SystemLoggerType? = systemLoggers.wrappedValue[mainCategory]
+        var systemLogger: SystemLoggerType? = systemLoggers[mainCategory]
         
         if systemLogger == nil {
-            systemLogger = systemLoggers.mutate {
+            systemLogger = _systemLoggers.performUpdateAndMap {
+                let result: SystemLoggerType
+                
                 if #available(iOS 14.0, *) {
-                    $0[mainCategory] = SystemLogger(category: mainCategory)
+                    result = SystemLogger(category: mainCategory)
                 }
                 else {
-                    $0[mainCategory] = LegacySystemLogger(forceNSLog: forceNSLog)
+                    result = LegacySystemLogger(forceNSLog: forceNSLog)
                 }
-                return $0[mainCategory]
+                
+                return ($0.setting(mainCategory, result), result)
             }
         }
         
@@ -647,10 +644,10 @@ public func SNLog(_ message: String, forceNSLog: Bool = false) {
 
 public struct AllLoggingCategories {
     public static var defaultLevels: [Log.Category: Log.Level] {
-        return AllLoggingCategories.registeredCategoryDefaults.wrappedValue
+        return AllLoggingCategories.registeredCategoryDefaults
             .reduce(into: [:]) { result, cat in result[cat] = cat.defaultLevel }
     }
-    private static let registeredCategoryDefaults: Atomic<Set<Log.Category>> = Atomic([])
+    @ThreadSafeObject private static var registeredCategoryDefaults: Set<Log.Category> = []
     
     // MARK: - Initialization
 
@@ -662,7 +659,7 @@ public struct AllLoggingCategories {
     
     fileprivate static func register(category: Log.Category) {
         guard
-            !registeredCategoryDefaults.wrappedValue.contains(where: { cat in
+            !registeredCategoryDefaults.contains(where: { cat in
                 /// **Note:** We only want to use the `rawValue` to distinguish between logging categories
                 /// as the `defaultLevel` can change via the dev settings and any additional metadata could
                 /// be file/class specific
@@ -670,6 +667,6 @@ public struct AllLoggingCategories {
             })
         else { return }
         
-        registeredCategoryDefaults.mutate { $0.insert(category) }
+        _registeredCategoryDefaults.performUpdate { $0.inserting(category) }
     }
 }

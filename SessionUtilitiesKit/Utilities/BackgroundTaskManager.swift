@@ -6,8 +6,8 @@ import UIKit
 
 public extension Singleton {
     // FIXME: This will be reworked to be part of dependencies in the Groups Rebuild branch
-    fileprivate static var _backgroundTaskManager: Atomic<SessionBackgroundTaskManager> = Atomic(SessionBackgroundTaskManager())
-    static var backgroundTaskManager: SessionBackgroundTaskManager { _backgroundTaskManager.wrappedValue }
+    @ThreadSafeObject fileprivate static var cachedBackgroundTaskManager: SessionBackgroundTaskManager = SessionBackgroundTaskManager()
+    static var backgroundTaskManager: SessionBackgroundTaskManager { cachedBackgroundTaskManager }
 }
 
 // MARK: - SessionBackgroundTaskState

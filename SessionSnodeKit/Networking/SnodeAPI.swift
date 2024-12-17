@@ -23,7 +23,7 @@ public final class SnodeAPI {
     /// user's clock is incorrect.
     ///
     /// - Note: Should only be accessed from `Threading.workQueue` to avoid race conditions.
-    public static var clockOffsetMs: Atomic<Int64> = Atomic(0)
+    @ThreadSafe public static var clockOffsetMs: Int64 = 0
     
     // MARK: - Hardfork version
     
@@ -37,7 +37,7 @@ public final class SnodeAPI {
     public static func currentOffsetTimestampMs() -> Int64 {
         return Int64(
             Int64(floor(Date().timeIntervalSince1970 * 1000)) +
-            SnodeAPI.clockOffsetMs.wrappedValue
+            SnodeAPI.clockOffsetMs
         )
     }
 
@@ -982,7 +982,7 @@ public final class SnodeAPI {
                     // Assume we've fetched the networkTime in order to send a message to the specified snode, in
                     // which case we want to update the 'clockOffsetMs' value for subsequent requests
                     let offset = (Int64(response.timestamp) - Int64(floor(dependencies.dateNow.timeIntervalSince1970 * 1000)))
-                    SnodeAPI.clockOffsetMs.mutate { $0 = offset }
+                    SnodeAPI.clockOffsetMs = offset
                     
                     return response.timestamp
                 }
@@ -1018,7 +1018,7 @@ public final class SnodeAPI {
                         // Update the network offset based on the response so subsequent requests have
                         // the correct network offset time
                         let offset = (Int64(snodeResponse.timeOffset) - Int64(floor(dependencies.dateNow.timeIntervalSince1970 * 1000)))
-                        SnodeAPI.clockOffsetMs.mutate { $0 = offset }
+                        SnodeAPI.clockOffsetMs = offset
                         
                         // Extract and store hard fork information if returned
                         guard snodeResponse.hardFork.count > 1 else { break }
@@ -1048,7 +1048,7 @@ public extension Publisher where Output == Set<LibSession.Snode> {
     func tryFlatMapWithRandomSnode<T, P>(
         maxPublishers: Subscribers.Demand = .unlimited,
         retry retries: Int = 0,
-        drainBehaviour: Atomic<SwarmDrainBehaviour> = .alwaysRandom,
+        drainBehaviour: ThreadSafeObject<SwarmDrainBehaviour> = .alwaysRandom,
         using dependencies: Dependencies,
         _ transform: @escaping (LibSession.Snode) throws -> P
     ) -> AnyPublisher<T, Error> where T == P.Output, P: Publisher, P.Failure == Error {
@@ -1057,36 +1057,37 @@ public extension Publisher where Output == Set<LibSession.Snode> {
             .flatMap(maxPublishers: maxPublishers) { swarm -> AnyPublisher<T, Error> in
                 // If we don't want to reuse a specific snode multiple times then just grab a
                 // random one from the swarm every time
-                var remainingSnodes: Set<LibSession.Snode> = {
-                    switch drainBehaviour.wrappedValue {
-                        case .alwaysRandom: return swarm
+                var remainingSnodes: Set<LibSession.Snode> = drainBehaviour.performUpdateAndMap { behaviour in
+                    switch behaviour {
+                        case .alwaysRandom: return (behaviour, swarm)
                         case .limitedReuse(_, let targetSnode, _, let usedSnodes, let swarmHash):
                             // If we've used all of the snodes or the swarm has changed then reset the used list
                             guard swarmHash == swarm.hashValue && (targetSnode != nil || usedSnodes != swarm) else {
-                                drainBehaviour.mutate { $0 = $0.reset() }
-                                return swarm
+                                return (behaviour.reset(), swarm)
                             }
                             
-                            return swarm.subtracting(usedSnodes)
+                            return (behaviour, swarm.subtracting(usedSnodes))
                     }
-                }()
+                }
                 var lastError: Error?
                 
                 return Just(())
                     .setFailureType(to: Error.self)
                     .tryFlatMap(maxPublishers: maxPublishers) { _ -> AnyPublisher<T, Error> in
-                        let snode: LibSession.Snode = try {
-                            switch drainBehaviour.wrappedValue {
-                                case .limitedReuse(_, .some(let targetSnode), _, _, _): return targetSnode
+                        let snode: LibSession.Snode = try drainBehaviour.performUpdateAndMap { behaviour in
+                            switch behaviour {
+                                case .limitedReuse(_, .some(let targetSnode), _, _, _):
+                                    return (behaviour.use(snode: targetSnode, from: swarm), targetSnode)
                                 default: break
                             }
                             
                             // Select the next snode
-                            return try dependencies.popRandomElement(&remainingSnodes) ?? {
+                            let result: LibSession.Snode = try dependencies.popRandomElement(&remainingSnodes) ?? {
                                 throw SnodeAPIError.ranOutOfRandomSnodes(lastError)
                             }()
-                        }()
-                        drainBehaviour.mutate { $0 = $0.use(snode: snode, from: swarm) }
+                            
+                            return (behaviour.use(snode: result, from: swarm), result)
+                        }
                         
                         return try transform(snode)
                             .eraseToAnyPublisher()

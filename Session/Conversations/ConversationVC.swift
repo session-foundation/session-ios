@@ -474,10 +474,10 @@ final class ConversationVC: BaseVC, LibSessionRespondingViewController, Conversa
         /// main thread (we don't currently care if it's still in the nav stack though - so if a user is on a conversation settings screen this should
         /// get cleared within `viewWillDisappear`)
         ///
-        /// **Note:** We do this on an async queue because `Atomic<T>` can block if something else is mutating it and we want to avoid
+        /// **Note:** We do this on an async queue because `@ThreadSafe` can block if something else is mutating it and we want to avoid
         /// the risk of blocking the conversation transition
         DispatchQueue.global(qos: .userInitiated).async { [weak self] in
-            SessionApp.currentlyOpenConversationViewController.mutate { $0 = self }
+            SessionApp.setCurrentlyOpenConversationViewController(self)
         }
         
         if delayFirstResponder || isShowingSearchUI {
@@ -514,10 +514,10 @@ final class ConversationVC: BaseVC, LibSessionRespondingViewController, Conversa
         /// main thread (we don't currently care if it's still in the nav stack though - so if a user leaves a conversation settings screen we clear
         /// it, and if a user moves to a different `ConversationVC` this will get updated to that one within `viewDidAppear`)
         ///
-        /// **Note:** We do this on an async queue because `Atomic<T>` can block if something else is mutating it and we want to avoid
+        /// **Note:** We do this on an async queue because `@ThreadSafe` can block if something else is mutating it and we want to avoid
         /// the risk of blocking the conversation transition
         DispatchQueue.global(qos: .userInitiated).async {
-            SessionApp.currentlyOpenConversationViewController.mutate { $0 = nil }
+            SessionApp.setCurrentlyOpenConversationViewController(nil)
         }
         
         viewIsDisappearing = true

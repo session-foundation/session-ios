@@ -26,18 +26,18 @@ class MockCaches: CachesType {
     
     @discardableResult public func mutate<M, I, R>(
         cache: CacheInfo.Config<M, I>,
-        _ mutation: (inout M) -> R
+        _ mutation: (M) -> R
     ) -> R {
         var value: M = ((cacheInstances[cache.key] as? M) ?? cache.createInstance())
-        return mutation(&value)
+        return mutation(value)
     }
     
     @discardableResult public func mutate<M, I, R>(
         cache: CacheInfo.Config<M, I>,
-        _ mutation: (inout M) throws -> R
+        _ mutation: (M) throws -> R
     ) throws -> R {
         var value: M = ((cacheInstances[cache.key] as? M) ?? cache.createInstance())
-        return try mutation(&value)
+        return try mutation(value)
     }
     
     @discardableResult private static func getValueSettingIfNull<M, I>(

@@ -4,8 +4,8 @@ import Foundation
 
 // MARK: - CacheType
 
-public protocol MutableCacheType {}
-public protocol ImmutableCacheType {}
+public protocol MutableCacheType: AnyObject {}
+public protocol ImmutableCacheType: AnyObject {}
 
 // MARK: - Cache
 
@@ -66,11 +66,11 @@ public protocol CachesType {
     
     @discardableResult func mutate<M, I, R>(
         cache: CacheInfo.Config<M, I>,
-        _ mutation: (inout M) -> R
+        _ mutation: (M) -> R
     ) -> R
     @discardableResult func mutate<M, I, R>(
         cache: CacheInfo.Config<M, I>,
-        _ mutation: (inout M) throws -> R
+        _ mutation: (M) throws -> R
     ) throws -> R
 }
 
@@ -79,7 +79,7 @@ public protocol CachesType {
 public extension Dependencies {
     class Caches: CachesType {
         /// The caches need to be accessed as singleton instances so we store them in a static variable in the `Caches` type
-        private static var cacheInstances: Atomic<[Int: MutableCacheType]> = Atomic([:])
+        @ThreadSafeObject private static var cacheInstances: [Int: MutableCacheType] = [:]
         
         // MARK: - Initialization
         
@@ -88,39 +88,48 @@ public extension Dependencies {
         // MARK: - Immutable Access
         
         public subscript<M, I>(cache: CacheInfo.Config<M, I>) -> I {
-            get { Caches.getValueSettingIfNull(cache: cache, &Caches.cacheInstances) }
+            get {
+                guard let value: M = (Caches.cacheInstances[cache.key] as? M) else {
+                    let value: M = cache.createInstance()
+                    let mutableInstance: MutableCacheType = cache.mutableInstance(value)
+                    Caches._cacheInstances.performUpdate { $0.setting(cache.key, mutableInstance) }
+                    return cache.immutableInstance(value)
+                }
+                
+                return cache.immutableInstance(value)
+            }
         }
         
         // MARK: - Mutable Access
         
-        @discardableResult public func mutate<M, I, R>(cache: CacheInfo.Config<M, I>, _ mutation: (inout M) -> R) -> R {
-            return Caches.cacheInstances.mutate { caches in
-                var value: M = ((caches[cache.key] as? M) ?? cache.createInstance())
-                return mutation(&value)
+        @discardableResult public func mutate<M, I, R>(cache: CacheInfo.Config<M, I>, _ mutation: (M) -> R) -> R {
+            return Caches._cacheInstances.performUpdateAndMap { caches in
+                switch caches[cache.key] as? M {
+                    case .some(let value):
+                        let result: R = mutation(value)
+                        return (caches, result)
+                    
+                    case .none:
+                        let value: M = cache.createInstance()
+                        let result: R = mutation(value)
+                        return (caches.setting(cache.key, cache.mutableInstance(value)), result)
+                }
             }
         }
         
-        @discardableResult public func mutate<M, I, R>(cache: CacheInfo.Config<M, I>, _ mutation: (inout M) throws -> R) throws -> R {
-            return try Caches.cacheInstances.mutate { caches in
-                var value: M = ((caches[cache.key] as? M) ?? cache.createInstance())
-                return try mutation(&value)
+        @discardableResult public func mutate<M, I, R>(cache: CacheInfo.Config<M, I>, _ mutation: (M) throws -> R) throws -> R {
+            return try Caches._cacheInstances.performUpdateAndMap { caches in
+                switch caches[cache.key] as? M {
+                    case .some(let value):
+                        let result: R = try mutation(value)
+                        return (caches, result)
+                    
+                    case .none:
+                        let value: M = cache.createInstance()
+                        let result: R = try mutation(value)
+                        return (caches.setting(cache.key, cache.mutableInstance(value)), result)
+                }
             }
-        }
-        
-        // MARK: - Convenience
-        
-        @discardableResult private static func getValueSettingIfNull<M, I>(
-            cache: CacheInfo.Config<M, I>,
-            _ store: inout Atomic<[Int: MutableCacheType]>
-        ) -> I {
-            guard let value: M = (store.wrappedValue[cache.key] as? M) else {
-                let value: M = cache.createInstance()
-                let mutableInstance: MutableCacheType = cache.mutableInstance(value)
-                store.mutate { $0[cache.key] = mutableInstance }
-                return cache.immutableInstance(value)
-            }
-            
-            return cache.immutableInstance(value)
         }
     }
 }

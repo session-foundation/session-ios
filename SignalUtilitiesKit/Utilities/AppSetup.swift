@@ -8,8 +8,8 @@ import SessionUIKit
 import SessionSnodeKit
 
 public enum AppSetup {
-    private static let _hasRun: Atomic<Bool> = Atomic(false)
-    public static var hasRun: Bool { _hasRun.wrappedValue }
+    @ThreadSafe private static var cachedHasRun: Bool = false
+    public static var hasRun: Bool { cachedHasRun }
     
     public static func setupEnvironment(
         retrySetupIfDatabaseInvalid: Bool = false,
@@ -19,13 +19,13 @@ public enum AppSetup {
         using dependencies: Dependencies
     ) {
         // If we've already run the app setup then only continue under certain circumstances
-        guard !AppSetup._hasRun.wrappedValue else {
+        guard !AppSetup.cachedHasRun else {
             let storageIsValid: Bool = dependencies.storage.isValid
             
             switch (retrySetupIfDatabaseInvalid, storageIsValid) {
                 case (true, false):
                     dependencies.storage.reconfigureDatabase()
-                    AppSetup._hasRun.mutate { $0 = false }
+                    AppSetup.cachedHasRun = false
                     AppSetup.setupEnvironment(
                         retrySetupIfDatabaseInvalid: false, // Don't want to get stuck in a loop
                         appSpecificBlock: appSpecificBlock,
@@ -43,7 +43,7 @@ public enum AppSetup {
             return
         }
         
-        AppSetup._hasRun.mutate { $0 = true }
+        AppSetup.cachedHasRun = true
         
         var backgroundTask: SessionBackgroundTask? = SessionBackgroundTask(label: #function)
         

@@ -138,7 +138,7 @@ internal extension LibSession {
                 roomToken: community.data.roomToken,
                 server: community.data.server,
                 publicKey: community.data.publicKey,
-                calledFromConfig: .userGroups(conf)
+                forceVisible: true
             )
             
             if successfullyAddedGroup {
@@ -147,8 +147,7 @@ internal extension LibSession {
                         successfullyAddedGroup: successfullyAddedGroup,
                         roomToken: community.data.roomToken,
                         server: community.data.server,
-                        publicKey: community.data.publicKey,
-                        calledFromConfigHandling: false
+                        publicKey: community.data.publicKey
                     )
                     .subscribe(on: OpenGroupAPI.workQueue)
                     .sinkUntilComplete()
@@ -180,7 +179,6 @@ internal extension LibSession {
                 db,
                 type: .deleteCommunityAndContent,
                 threadIds: Array(communityIdsToRemove),
-                calledFromConfigHandling: true,
                 using: dependencies
             )
         }
@@ -240,7 +238,7 @@ internal extension LibSession {
                     admins: updatedAdmins.map { $0.profileId },
                     expirationTimer: UInt32(group.disappearingConfig?.durationSeconds ?? 0),
                     formationTimestampMs: UInt64(joinedAt * 1000),
-                    calledFromConfig: .userGroups(conf),
+                    forceApprove: true,
                     using: dependencies
                 )
             }
@@ -369,7 +367,6 @@ internal extension LibSession {
                 db,
                 type: .deleteGroupAndContent,
                 threadIds: Array(legacyGroupIdsToRemove),
-                calledFromConfigHandling: true,
                 using: dependencies
             )
         }
