@@ -19,6 +19,8 @@ public protocol WebRTCSessionDelegate: AnyObject {
 
 /// See https://webrtc.org/getting-started/overview for more information.
 public final class WebRTCSession : NSObject, RTCPeerConnectionDelegate {
+    private let dependencies: Dependencies
+    
     public weak var delegate: WebRTCSessionDelegate?
     public let uuid: String
     private let contactSessionId: String
@@ -95,12 +97,13 @@ public final class WebRTCSession : NSObject, RTCPeerConnectionDelegate {
     // MARK: Initialization
     public static var current: WebRTCSession?
     
-    public init(for contactSessionId: String, with uuid: String) {
+    public init(for contactSessionId: String, with uuid: String, using dependencies: Dependencies) {
         RTCAudioSession.sharedInstance().useManualAudio = true
         RTCAudioSession.sharedInstance().isAudioEnabled = false
         
         self.contactSessionId = contactSessionId
         self.uuid = uuid
+        self.dependencies = dependencies
         
         super.init()
         
@@ -125,8 +128,7 @@ public final class WebRTCSession : NSObject, RTCPeerConnectionDelegate {
         _ db: Database,
         message: CallMessage,
         interactionId: Int64?,
-        in thread: SessionThread,
-        using dependencies: Dependencies = Dependencies()
+        in thread: SessionThread
     ) throws -> AnyPublisher<Void, Error> {
         SNLog("[Calls] Sending pre-offer message.")
         
@@ -151,12 +153,12 @@ public final class WebRTCSession : NSObject, RTCPeerConnectionDelegate {
     
     public func sendOffer(
         to thread: SessionThread,
-        isRestartingICEConnection: Bool = false,
-        using dependencies: Dependencies = Dependencies()
+        isRestartingICEConnection: Bool = false
     ) -> AnyPublisher<Void, Error> {
         SNLog("[Calls] Sending offer message.")
         let uuid: String = self.uuid
         let mediaConstraints: RTCMediaConstraints = mediaConstraints(isRestartingICEConnection)
+        let dependencies: Dependencies = self.dependencies
         
         return Deferred {
             Future<Void, Error> { [weak self] resolver in
@@ -215,13 +217,11 @@ public final class WebRTCSession : NSObject, RTCPeerConnectionDelegate {
         .eraseToAnyPublisher()
     }
     
-    public func sendAnswer(
-        to sessionId: String,
-        using dependencies: Dependencies = Dependencies()
-    ) -> AnyPublisher<Void, Error> {
+    public func sendAnswer(to sessionId: String) -> AnyPublisher<Void, Error> {
         SNLog("[Calls] Sending answer message.")
         let uuid: String = self.uuid
         let mediaConstraints: RTCMediaConstraints = mediaConstraints(false)
+        let dependencies: Dependencies = self.dependencies
         
         return dependencies.storage
             .readPublisher { db -> SessionThread in
@@ -299,10 +299,11 @@ public final class WebRTCSession : NSObject, RTCPeerConnectionDelegate {
         }
     }
     
-    private func sendICECandidates(using dependencies: Dependencies = Dependencies()) {
+    private func sendICECandidates() {
         let candidates: [RTCIceCandidate] = self.queuedICECandidates
         let uuid: String = self.uuid
         let contactSessionId: String = self.contactSessionId
+        let dependencies: Dependencies = self.dependencies
         
         // Empty the queue
         self.queuedICECandidates.removeAll()
@@ -346,8 +347,7 @@ public final class WebRTCSession : NSObject, RTCPeerConnectionDelegate {
     
     public func endCall(
         _ db: Database,
-        with sessionId: String,
-        using dependencies: Dependencies = Dependencies()
+        with sessionId: String
     ) throws {
         guard let thread: SessionThread = try SessionThread.fetchOne(db, id: sessionId) else { return }
         

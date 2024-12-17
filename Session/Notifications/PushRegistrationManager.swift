@@ -285,17 +285,14 @@ public class PushRegistrationManager: NSObject, PKPushRegistryDelegate, PushRegi
             let timestampMs: UInt64 = payload["timestamp"] as? UInt64,
             TimestampUtils.isWithinOneMinute(timestampMs: timestampMs)
         else {
-            SessionCallManager.reportFakeCall(info: "Missing payload data", using: dependencies) // stringlint:ignore
+            Singleton.callManager.reportFakeCall(info: "Missing payload data") // stringlint:ignore
             return
         }
-        
-        // FIXME: Initialise the `PushRegistrationManager` with a dependencies instance
-        let dependencies: Dependencies = Dependencies()
         
         dependencies.storage.resumeDatabaseAccess()
         LibSession.resumeNetworkAccess()
         
-        let maybeCall: SessionCall? = Storage.shared.write { db in
+        let maybeCall: SessionCall? = Storage.shared.read { [dependencies = self.dependencies] db in
             var call: SessionCall? = nil
             
             do {
@@ -307,17 +304,8 @@ public class PushRegistrationManager: NSObject, PKPushRegistryDelegate, PushRegi
                     using: dependencies
                 )
                 
-                let thread: SessionThread = try SessionThread.upsert(
-                        db,
-                        id: caller,
-                        variant: .contact,
-                        values: .existingOrDefault,
-                        calledFromConfig: nil,
-                        using: dependencies
-                    )
-                
                 let interaction: Interaction? = try Interaction
-                    .filter(Interaction.Columns.threadId == thread.id)
+                    .filter(Interaction.Columns.threadId == caller)
                     .filter(Interaction.Columns.messageUuid == uuid)
                     .fetchOne(db)
                 
@@ -330,7 +318,7 @@ public class PushRegistrationManager: NSObject, PKPushRegistryDelegate, PushRegi
         }
         
         guard let call: SessionCall = maybeCall else {
-            SessionCallManager.reportFakeCall(info: "Could not retrieve call from database", using: dependencies) // stringlint:ignore
+            Singleton.callManager.reportFakeCall(info: "Could not retrieve call from database") // stringlint:ignore
             return
         }
         
