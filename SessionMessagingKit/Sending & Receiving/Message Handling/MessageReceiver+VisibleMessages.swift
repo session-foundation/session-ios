@@ -72,7 +72,6 @@ extension MessageReceiver {
             id: threadId,
             variant: threadVariant,
             values: .existingOrDefault,
-            calledFromConfig: nil,
             using: dependencies
         )
         let maybeOpenGroup: OpenGroup? = {

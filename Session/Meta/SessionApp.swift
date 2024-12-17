@@ -90,7 +90,6 @@ public struct SessionApp {
                         id: threadId,
                         variant: variant,
                         values: .existingOrDefault,
-                        calledFromConfig: nil,
                         using: dependencies
                     )
                 }

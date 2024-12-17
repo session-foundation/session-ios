@@ -174,7 +174,6 @@ enum Onboarding {
                     id: x25519PublicKey,
                     variant: .contact,
                     values: SessionThread.TargetValues(shouldBeVisible: .setTo(false)),
-                    calledFromConfig: nil,
                     using: dependencies
                 )
                 

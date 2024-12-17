@@ -758,19 +758,14 @@ class OpenGroupManagerSpec: QuickSpec {
                 it("stores the open group server") {
                     mockStorage
                         .writePublisher { (db: Database) -> Bool in
-                            openGroupManager
-                                .add(
-                                    db,
-                                    roomToken: "testRoom",
-                                    server: "http://127.0.0.1",
-                                    publicKey: TestConstants.serverPublicKey,
-                                    calledFromConfig: .userGroups( // Don't trigger LibSession logic
-                                        dependencies.caches[.libSession]
-                                            .config(for: .userGroups, publicKey: "05\(TestConstants.publicKey)")
-                                            .wrappedValue!
-                                    ),
-                                    using: dependencies
-                                )
+                            openGroupManager.add(
+                                db,
+                                roomToken: "testRoom",
+                                server: "http://127.0.0.1",
+                                publicKey: TestConstants.serverPublicKey,
+                                forceVisible: false,
+                                using: dependencies
+                            )
                         }
                         .flatMap { successfullyAddedGroup in
                             openGroupManager.performInitialRequestsAfterAdd(
@@ -778,7 +773,6 @@ class OpenGroupManagerSpec: QuickSpec {
                                 roomToken: "testRoom",
                                 server: "http://127.0.0.1",
                                 publicKey: TestConstants.serverPublicKey,
-                                calledFromConfigHandling: true, // Don't trigger LibSession logic
                                 using: dependencies
                             )
                         }
@@ -800,19 +794,14 @@ class OpenGroupManagerSpec: QuickSpec {
                 it("adds a poller") {
                     mockStorage
                         .writePublisher { (db: Database) -> Bool in
-                            openGroupManager
-                                .add(
-                                    db,
-                                    roomToken: "testRoom",
-                                    server: "http://127.0.0.1",
-                                    publicKey: TestConstants.serverPublicKey,
-                                    calledFromConfig: .userGroups( // Don't trigger LibSession logic
-                                        dependencies.caches[.libSession]
-                                            .config(for: .userGroups, publicKey: "05\(TestConstants.publicKey)")
-                                            .wrappedValue!
-                                    ),
-                                    using: dependencies
-                                )
+                            openGroupManager.add(
+                                db,
+                                roomToken: "testRoom",
+                                server: "http://127.0.0.1",
+                                publicKey: TestConstants.serverPublicKey,
+                                forceVisible: false,
+                                using: dependencies
+                            )
                         }
                         .flatMap { successfullyAddedGroup in
                             openGroupManager.performInitialRequestsAfterAdd(
@@ -820,7 +809,6 @@ class OpenGroupManagerSpec: QuickSpec {
                                 roomToken: "testRoom",
                                 server: "http://127.0.0.1",
                                 publicKey: TestConstants.serverPublicKey,
-                                calledFromConfigHandling: true, // Don't trigger LibSession logic
                                 using: dependencies
                             )
                         }
@@ -849,21 +837,16 @@ class OpenGroupManagerSpec: QuickSpec {
                     it("does not reset the sequence number or update the public key") {
                         mockStorage
                             .writePublisher { (db: Database) -> Bool in
-                                openGroupManager
-                                    .add(
-                                        db,
-                                        roomToken: "testRoom",
-                                        server: "http://127.0.0.1",
-                                        publicKey: TestConstants.serverPublicKey
-                                            .replacingOccurrences(of: "c3", with: "00")
-                                            .replacingOccurrences(of: "b3", with: "00"),
-                                        calledFromConfig: .userGroups( // Don't trigger LibSession logic
-                                            dependencies.caches[.libSession]
-                                                .config(for: .userGroups, publicKey: "05\(TestConstants.publicKey)")
-                                                .wrappedValue!
-                                        ),
-                                        using: dependencies
-                                    )
+                                openGroupManager.add(
+                                    db,
+                                    roomToken: "testRoom",
+                                    server: "http://127.0.0.1",
+                                    publicKey: TestConstants.serverPublicKey
+                                        .replacingOccurrences(of: "c3", with: "00")
+                                        .replacingOccurrences(of: "b3", with: "00"),
+                                    forceVisible: false,
+                                    using: dependencies
+                                )
                             }
                             .flatMap { successfullyAddedGroup in
                                 openGroupManager.performInitialRequestsAfterAdd(
@@ -873,7 +856,6 @@ class OpenGroupManagerSpec: QuickSpec {
                                     publicKey: TestConstants.serverPublicKey
                                         .replacingOccurrences(of: "c3", with: "00")
                                         .replacingOccurrences(of: "b3", with: "00"),
-                                    calledFromConfigHandling: true, // Don't trigger LibSession logic
                                     using: dependencies
                                 )
                             }
@@ -920,19 +902,14 @@ class OpenGroupManagerSpec: QuickSpec {
                         
                         mockStorage
                             .writePublisher { (db: Database) -> Bool in
-                                openGroupManager
-                                    .add(
-                                        db,
-                                        roomToken: "testRoom",
-                                        server: "http://127.0.0.1",
-                                        publicKey: TestConstants.serverPublicKey,
-                                        calledFromConfig: .userGroups( // Don't trigger LibSession logic
-                                            dependencies.caches[.libSession]
-                                                .config(for: .userGroups, publicKey: "05\(TestConstants.publicKey)")
-                                                .wrappedValue!
-                                        ),
-                                        using: dependencies
-                                    )
+                                openGroupManager.add(
+                                    db,
+                                    roomToken: "testRoom",
+                                    server: "http://127.0.0.1",
+                                    publicKey: TestConstants.serverPublicKey,
+                                    forceVisible: false,
+                                    using: dependencies
+                                )
                             }
                             .flatMap { successfullyAddedGroup in
                                 openGroupManager.performInitialRequestsAfterAdd(
@@ -940,7 +917,6 @@ class OpenGroupManagerSpec: QuickSpec {
                                     roomToken: "testRoom",
                                     server: "http://127.0.0.1",
                                     publicKey: TestConstants.serverPublicKey,
-                                    calledFromConfigHandling: true, // Don't trigger LibSession logic
                                     using: dependencies
                                 )
                             }
@@ -974,13 +950,12 @@ class OpenGroupManagerSpec: QuickSpec {
                 // MARK: ---- removes all interactions for the thread
                 it("removes all interactions for the thread") {
                     mockStorage.write { db in
-                        openGroupManager
-                            .delete(
-                                db,
-                                openGroupId: OpenGroup.idFor(roomToken: "testRoom", server: "http://127.0.0.1"),
-                                calledFromConfigHandling: true, // Don't trigger LibSession logic
-                                using: dependencies
-                            )
+                        openGroupManager.delete(
+                            db,
+                            openGroupId: OpenGroup.idFor(roomToken: "testRoom", server: "http://127.0.0.1"),
+                            skipLibSessionUpdate: true, // Don't trigger LibSession logic
+                            using: dependencies
+                        )
                     }
                     
                     expect(mockStorage.read { db in try Interaction.fetchCount(db) })
@@ -990,13 +965,12 @@ class OpenGroupManagerSpec: QuickSpec {
                 // MARK: ---- removes the given thread
                 it("removes the given thread") {
                     mockStorage.write { db in
-                        openGroupManager
-                            .delete(
-                                db,
-                                openGroupId: OpenGroup.idFor(roomToken: "testRoom", server: "http://127.0.0.1"),
-                                calledFromConfigHandling: true, // Don't trigger LibSession logic
-                                using: dependencies
-                            )
+                        openGroupManager.delete(
+                            db,
+                            openGroupId: OpenGroup.idFor(roomToken: "testRoom", server: "http://127.0.0.1"),
+                            skipLibSessionUpdate: true, // Don't trigger LibSession logic
+                            using: dependencies
+                        )
                     }
                     
                     expect(mockStorage.read { db -> Int in try SessionThread.fetchCount(db) })
@@ -1008,13 +982,12 @@ class OpenGroupManagerSpec: QuickSpec {
                     // MARK: ------ stops the poller
                     it("stops the poller") {
                         mockStorage.write { db in
-                            openGroupManager
-                                .delete(
-                                    db,
-                                    openGroupId: OpenGroup.idFor(roomToken: "testRoom", server: "http://127.0.0.1"),
-                                    calledFromConfigHandling: true, // Don't trigger LibSession logic
-                                    using: dependencies
-                                )
+                            openGroupManager.delete(
+                                db,
+                                openGroupId: OpenGroup.idFor(roomToken: "testRoom", server: "http://127.0.0.1"),
+                                skipLibSessionUpdate: true, // Don't trigger LibSession logic
+                                using: dependencies
+                            )
                         }
                         
                         expect(mockOGMCache).to(call(matchingParameters: true) { $0.stopAndRemovePoller(for: "http://127.0.0.1") })
@@ -1023,13 +996,12 @@ class OpenGroupManagerSpec: QuickSpec {
                     // MARK: ------ removes the open group
                     it("removes the open group") {
                         mockStorage.write { db in
-                            openGroupManager
-                                .delete(
-                                    db,
-                                    openGroupId: OpenGroup.idFor(roomToken: "testRoom", server: "http://127.0.0.1"),
-                                    calledFromConfigHandling: true, // Don't trigger LibSession logic
-                                    using: dependencies
-                                )
+                            openGroupManager.delete(
+                                db,
+                                openGroupId: OpenGroup.idFor(roomToken: "testRoom", server: "http://127.0.0.1"),
+                                skipLibSessionUpdate: true, // Don't trigger LibSession logic
+                                using: dependencies
+                            )
                         }
                         
                         expect(mockStorage.read { db in try OpenGroup.fetchCount(db) })
@@ -1064,13 +1036,12 @@ class OpenGroupManagerSpec: QuickSpec {
                     // MARK: ------ removes the open group
                     it("removes the open group") {
                         mockStorage.write { db in
-                            openGroupManager
-                                .delete(
-                                    db,
-                                    openGroupId: OpenGroup.idFor(roomToken: "testRoom", server: "http://127.0.0.1"),
-                                    calledFromConfigHandling: true, // Don't trigger LibSession logic
-                                    using: dependencies
-                                )
+                            openGroupManager.delete(
+                                db,
+                                openGroupId: OpenGroup.idFor(roomToken: "testRoom", server: "http://127.0.0.1"),
+                                skipLibSessionUpdate: true, // Don't trigger LibSession logic
+                                using: dependencies
+                            )
                         }
                         
                         expect(mockStorage.read { db in try OpenGroup.fetchCount(db) })
@@ -1119,13 +1090,12 @@ class OpenGroupManagerSpec: QuickSpec {
                     // MARK: ------ does not remove the open group
                     it("does not remove the open group") {
                         mockStorage.write { db in
-                            openGroupManager
-                                .delete(
-                                    db,
-                                    openGroupId: OpenGroup.idFor(roomToken: "testRoom", server: OpenGroupAPI.defaultServer),
-                                    calledFromConfigHandling: true, // Don't trigger LibSession logic
-                                    using: dependencies
-                                )
+                            openGroupManager.delete(
+                                db,
+                                openGroupId: OpenGroup.idFor(roomToken: "testRoom", server: OpenGroupAPI.defaultServer),
+                                skipLibSessionUpdate: true, // Don't trigger LibSession logic
+                                using: dependencies
+                            )
                         }
                         
                         expect(mockStorage.read { db in try OpenGroup.fetchCount(db) })
@@ -1135,13 +1105,12 @@ class OpenGroupManagerSpec: QuickSpec {
                     // MARK: ------ deactivates the open group
                     it("deactivates the open group") {
                         mockStorage.write { db in
-                            openGroupManager
-                                .delete(
-                                    db,
-                                    openGroupId: OpenGroup.idFor(roomToken: "testRoom", server: OpenGroupAPI.defaultServer),
-                                    calledFromConfigHandling: true, // Don't trigger LibSession logic
-                                    using: dependencies
-                                )
+                            openGroupManager.delete(
+                                db,
+                                openGroupId: OpenGroup.idFor(roomToken: "testRoom", server: OpenGroupAPI.defaultServer),
+                                skipLibSessionUpdate: true, // Don't trigger LibSession logic
+                                using: dependencies
+                            )
                         }
                         
                         expect(

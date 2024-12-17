@@ -45,7 +45,6 @@ extension MessageSender {
                     id: groupPublicKey,
                     variant: .legacyGroup,
                     values: SessionThread.TargetValues(shouldBeVisible: .setTo(true)),
-                    calledFromConfig: nil,
                     using: dependencies
                 )
                 try ClosedGroup(
@@ -489,7 +488,6 @@ extension MessageSender {
                 id: member,
                 variant: .contact,
                 values: .existingOrDefault,
-                calledFromConfig: nil,
                 using: dependencies
             )
             
@@ -703,7 +701,6 @@ extension MessageSender {
                 id: publicKey,
                 variant: .contact,
                 values: .existingOrDefault,
-                calledFromConfig: nil,
                 using: dependencies
             )
             let ciphertext = try dependencies.crypto.tryGenerate(

@@ -515,7 +515,6 @@ public struct ProfileManager {
         displayPictureUpdate: DisplayPictureUpdate,
         blocksCommunityMessageRequests: Bool? = nil,
         sentTimestamp: TimeInterval,
-        calledFromConfigHandling: Bool = false,
         using dependencies: Dependencies
     ) throws {
         let isCurrentUser = (publicKey == getUserHexEncodedPublicKey(db, using: dependencies))
@@ -545,10 +544,6 @@ public struct ProfileManager {
         // Profile picture & profile key
         var avatarNeedsDownload: Bool = false
         var targetAvatarUrl: String? = nil
-        let shouldUpdateAvatar: Bool = (
-            (!isCurrentUser && (sentTimestamp > (profile.lastProfilePictureUpdate ?? 0))) ||  // Update other users
-            (isCurrentUser && calledFromConfigHandling) // Only update the current user via config messages
-        )
         
         switch (displayPictureUpdate, isCurrentUser) {
             case (.none, _): break
@@ -593,20 +588,9 @@ public struct ProfileManager {
         // Persist any changes
         if !profileChanges.isEmpty {
             try profile.save(db)
-            
-            if calledFromConfigHandling {
-                try Profile
-                    .filter(id: publicKey)
-                    .updateAll( // Handling a config update so don't use `updateAllAndConfig`
-                        db,
-                        profileChanges
-                    )
-            }
-            else {
-                try Profile
-                    .filter(id: publicKey)
-                    .updateAllAndConfig(db, profileChanges, using: dependencies)
-            }
+            try Profile
+                .filter(id: publicKey)
+                .updateAllAndConfig(db, profileChanges, using: dependencies)
         }
         
         // Download the profile picture if needed

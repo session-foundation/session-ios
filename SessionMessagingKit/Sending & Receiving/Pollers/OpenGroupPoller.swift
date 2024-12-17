@@ -238,12 +238,12 @@ extension OpenGroupAPI {
                                     OpenGroupManager.shared.delete(
                                         db,
                                         openGroupId: id,
-                                        /// **Note:** We pass `calledFromConfigHandling` as `true`
+                                        /// **Note:** We pass `skipLibSessionUpdate` as `true`
                                         /// here because we want to avoid syncing this deletion as the room might
                                         /// not be in an invalid state on other devices - one of the other devices
                                         /// will eventually trigger a new config update which will re-add this room
                                         /// and hopefully at that time it'll work again
-                                        calledFromConfigHandling: true,
+                                        skipLibSessionUpdate: true,
                                         using: dependencies
                                     )
                                 }

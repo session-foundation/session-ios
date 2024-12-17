@@ -55,7 +55,6 @@ extension MessageReceiver {
             id: senderId,
             variant: .contact,
             values: .existingOrDefault,
-            calledFromConfig: nil,
             using: dependencies
         )
         
@@ -118,7 +117,6 @@ extension MessageReceiver {
                     db,
                     type: .deleteContactConversationAndContact, // Blinded contact isn't synced anyway
                     threadId: blindedIdLookup.blindedId,
-                    calledFromConfigHandling: false,
                     using: dependencies
                 )
         }
