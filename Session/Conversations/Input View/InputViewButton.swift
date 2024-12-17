@@ -196,9 +196,3 @@ protocol InputViewButtonDelegate: AnyObject {
     func handleInputViewButtonLongPressMoved(_ inputViewButton: InputViewButton, with touch: UITouch?)
     func handleInputViewButtonLongPressEnded(_ inputViewButton: InputViewButton, with touch: UITouch?)
 }
-
-extension InputViewButtonDelegate {    
-    func handleInputViewButtonLongPressBegan(_ inputViewButton: InputViewButton?) { }
-    func handleInputViewButtonLongPressMoved(_ inputViewButton: InputViewButton, with touch: UITouch?) { }
-    func handleInputViewButtonLongPressEnded(_ inputViewButton: InputViewButton, with touch: UITouch?) { }
-}

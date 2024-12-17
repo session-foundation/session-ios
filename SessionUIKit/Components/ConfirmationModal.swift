@@ -519,12 +519,6 @@ public class ConfirmationModal: Modal, UITextFieldDelegate, UITextViewDelegate {
             )
         }
         
-        // No nothing if there was no change
-//        let keyboardEndFrameConverted: CGRect = self.view.convert(keyboardEndFrame, from: nil)
-//        guard keyboardEndFrameConverted != lastKnownKeyboardFrame else { return }
-//        
-//        self.lastKnownKeyboardFrame = keyboardEndFrameConverted
-        
         // Please refer to https://github.com/mapbox/mapbox-navigation-ios/issues/1600
         // and https://stackoverflow.com/a/25260930 to better understand what we are
         // doing with the UIViewAnimationOptions
@@ -555,7 +549,11 @@ public class ConfirmationModal: Modal, UITextFieldDelegate, UITextViewDelegate {
     }
     
     private func updateKeyboardAvoidance(keyboardEndFrame: CGRect) {
-        contentTopConstraint?.isActive = (keyboardEndFrame.minY < (view.bounds.height - 100))
+        let contentCenteredBottom: CGFloat = (view.center.y + (contentView.bounds.height / 2))
+        contentTopConstraint?.isActive = (
+            ((keyboardEndFrame.minY - contentCenteredBottom) < 10) &&
+            keyboardEndFrame.minY < (view.bounds.height - 100)
+        )
         contentCenterYConstraint?.isActive = (contentTopConstraint?.isActive != true)
     }
 }

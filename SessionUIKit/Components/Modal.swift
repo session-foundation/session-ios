@@ -115,7 +115,7 @@ open class Modal: UIViewController, UIGestureRecognizerDelegate {
         containerView.center(.horizontal, in: view)
         contentCenterYConstraint = containerView.center(.vertical, in: view)
         contentTopConstraint = containerView
-            .pin(.top, toMargin: .top, of: view)
+            .pin(.top, toMargin: .top, of: view, withInset: 10)
             .setting(isActive: false)
         
         // Gestures

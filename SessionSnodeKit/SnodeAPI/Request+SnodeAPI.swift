@@ -58,7 +58,12 @@ public extension Request where Endpoint == SnodeAPI.Endpoint {
             destination: .randomSnodeLatestNetworkTimeTarget(
                 swarmPublicKey: swarmPublicKey,
                 snodeRetrievalRetryCount: snodeRetrievalRetryCount,
-                bodyWithUpdatedTimestampMs: { timestampMs, dependencies in body.with(timestampMs: timestampMs) }
+                bodyWithUpdatedTimestampMs: { timestampMs, dependencies in
+                    SnodeRequest<B>(
+                        endpoint: endpoint,
+                        body: body.with(timestampMs: timestampMs)
+                    )
+                }
             ),
             body: SnodeRequest<B>(
                 endpoint: endpoint,

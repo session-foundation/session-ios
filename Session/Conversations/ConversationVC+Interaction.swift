@@ -1782,19 +1782,13 @@ extension ConversationVC:
     
     func joinOpenGroup(name: String?, url: String) {
         // Open groups can be unsafe, so always ask the user whether they want to join one
-        let finalName: String = (name ?? "communityUnknown".localized())
-        let message: String = "communityJoinDescription"
-            .put(key: "community_name", value: finalName)
-            .localized()
         let modal: ConfirmationModal = ConfirmationModal(
             info: ConfirmationModal.Info(
-                title: "join".localized() + " \(finalName)?",
+                title: "communityJoin".localized(),
                 body: .attributedText(
-                    NSMutableAttributedString(string: message)
-                        .adding(
-                            attributes: [ .font: UIFont.boldSystemFont(ofSize: Values.smallFontSize) ],
-                            range: (message as NSString).range(of: finalName)
-                        )
+                    "communityJoinDescription"
+                        .put(key: "community_name", value: (name ?? "communityUnknown".localized()))
+                        .localizedFormatted(baseFont: ConfirmationModal.explanationFont)
                 ),
                 confirmTitle: "join".localized(),
                 onConfirm: { [dependencies = viewModel.dependencies] modal in
@@ -1805,9 +1799,7 @@ extension ConversationVC:
                     guard let (room, server, publicKey) = LibSession.parseCommunity(url: url) else {
                         let errorModal: ConfirmationModal = ConfirmationModal(
                             info: ConfirmationModal.Info(
-                                title: "communityJoinError"
-                                    .put(key: "community_name", value: finalName)
-                                    .localized(),
+                                title: "communityJoinError".localized(),
                                 cancelTitle: "okay".localized(),
                                 cancelStyle: .alert_text
                             )
@@ -1857,9 +1849,7 @@ extension ConversationVC:
                                         // Show the user an error indicating they failed to properly join the group
                                         let errorModal: ConfirmationModal = ConfirmationModal(
                                             info: ConfirmationModal.Info(
-                                                title: "communityJoinError"
-                                                    .put(key: "community_name", value: finalName)
-                                                    .localized(),
+                                                title: "communityJoinError".localized(),
                                                 body: .text("\(error)"),
                                                 cancelTitle: "okay".localized(),
                                                 cancelStyle: .alert_text

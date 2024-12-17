@@ -235,15 +235,18 @@ final class ConversationVC: BaseVC, LibSessionRespondingViewController, Conversa
     }()
 
     lazy var legacyGroupsBanner: InfoBanner = {
+        // FIXME: String should be updated in Crowdin to include the {icon}
         let result: InfoBanner = InfoBanner(
             info: InfoBanner.Info(
                 font: .systemFont(ofSize: Values.miniFontSize),
                 message: "groupLegacyBanner"
                     .put(key: "date", value: Features.legacyGroupDepricationDate.formattedForBanner)
                     .localizedFormatted(baseFont: .systemFont(ofSize: Values.miniFontSize))
+                    .appending(string: " ")     // Designs have a space before the icon
                     .appending(
                         Lucide.Icon.squareArrowUpRight.attributedString(for: .systemFont(ofSize: Values.miniFontSize))
-                    ),
+                    )
+                    .appending(string: " "),    // In case it's a RTL font
                 icon: .none,
                 tintColor: .messageBubble_outgoingText,
                 backgroundColor: .primary,

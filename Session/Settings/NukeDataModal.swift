@@ -230,34 +230,19 @@ final class NukeDataModal: Modal {
                                 case .failure(let error):
                                     self?.dismiss(animated: true, completion: nil) // Dismiss the loader
                                 
-                                    switch error {
-                                        case NetworkError.timeout, NetworkError.gatewayTimeout:
-                                            let modal: ConfirmationModal = ConfirmationModal(
-                                                targetView: self?.view,
-                                                info: ConfirmationModal.Info(
-                                                    title: "clearDataAll".localized(),
-                                                    body: .text("clearDataErrorDescriptionGeneric".localized()),
-                                                    confirmTitle: "clearDevice".localized(),
-                                                    confirmStyle: .danger,
-                                                    cancelStyle: .alert_text
-                                                ) { [weak self] _ in
-                                                    self?.clearDeviceOnly()
-                                                }
-                                            )
-                                            self?.present(modal, animated: true)
-                                                                                
-                                        default:
-                                            let modal: ConfirmationModal = ConfirmationModal(
-                                                targetView: self?.view,
-                                                info: ConfirmationModal.Info(
-                                                    title: "clearDataError".localized(),
-                                                    body: .text("\(error)"),
-                                                    cancelTitle: "okay".localized(),
-                                                    cancelStyle: .alert_text
-                                                )
-                                            )
-                                            self?.present(modal, animated: true)
-                                    }
+                                    let modal: ConfirmationModal = ConfirmationModal(
+                                        targetView: self?.view,
+                                        info: ConfirmationModal.Info(
+                                            title: "clearDataAll".localized(),
+                                            body: .text("clearDataErrorDescriptionGeneric".localized()),
+                                            confirmTitle: "clearDevice".localized(),
+                                            confirmStyle: .danger,
+                                            cancelStyle: .alert_text
+                                        ) { [weak self] _ in
+                                            self?.clearDeviceOnly()
+                                        }
+                                    )
+                                    self?.present(modal, animated: true)
                             }
                         },
                         receiveValue: { confirmations in

@@ -563,10 +563,10 @@ public final class SnodeAPI {
                         namespace: namespace,
                         authMethod: authMethod,
                         timestampMs: dependencies[cache: .snodeAPI].currentOffsetTimestampMs()
-                    )
+                    ),
+                    snodeRetrievalRetryCount: 0
                 ),
                 responseType: DeleteAllMessagesResponse.self,
-                retryCount: maxRetryCount,
                 requestTimeout: requestTimeout,
                 requestAndPathBuildTimeout: requestAndPathBuildTimeout,
                 using: dependencies
