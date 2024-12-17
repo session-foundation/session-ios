@@ -107,26 +107,6 @@ public extension UTType {
     var isMicrosoftDoc: Bool { UTType.supportedMicrosoftDocTypes.contains(self) }
     var isVisualMedia: Bool { isImage || isVideo || isAnimated }
     
-    var sessionFileExtension: String? {
-        // Special-case the "aac" filetype we use for voice messages (for legacy reasons)
-        // to use a .m4a file extension, not .aac, since AVAudioPlayer can't handle .aac
-        // properly. Doesn't affect file contents.
-        guard identifier != "public.aac-audio" else { return "m4a" }
-        
-        // Try to deduce the file extension by using a lookup table.
-        //
-        // This should be more accurate than deducing the file extension by
-        // converting to a UTI type.  For example, .m4a files will have a
-        // UTI type of kUTTypeMPEG4Audio which incorrectly yields the file
-        // extension .mp4 instead of .m4a.
-        guard
-            let mimeType: String = preferredMIMEType,
-            let fileExtension: String = UTType.genericMimeTypesToExtensionTypes[mimeType]
-        else { return preferredFilenameExtension }
-        
-        return fileExtension
-    }
-    
     // MARK: - Initialization
     
     init?(sessionFileExtension: String) {
@@ -186,6 +166,38 @@ public extension UTType {
     
     static func isVisualMedia(_ mimeType: String) -> Bool {
         return (UTType(sessionMimeType: mimeType) ?? .invalid).isVisualMedia
+    }
+    
+    func sessionFileExtension(sourceFilename: String?) -> String? {
+        // First try to check if the file extension on `sourceFilename` is valid
+        // for the `preferredMIMEType` as we want to keep that if so (eg. use `.log`
+        // instead of `.txt`)
+        if
+            let sourceFileExtension: String = sourceFilename.map({ URL(fileURLWithPath: $0) })?.pathExtension,
+            let mimeType: String = preferredMIMEType,
+            let sourceExtensionMimeType: String = UTType.genericMimeTypesToExtensionTypes[sourceFileExtension],
+            UTType(mimeType: sourceExtensionMimeType)?.preferredMIMEType == mimeType
+        {
+            return sourceFileExtension
+        }
+        
+        // Special-case the "aac" filetype we use for voice messages (for legacy reasons)
+        // to use a .m4a file extension, not .aac, since AVAudioPlayer can't handle .aac
+        // properly. Doesn't affect file contents.
+        guard identifier != "public.aac-audio" else { return "m4a" }
+        
+        // Try to deduce the file extension by using a lookup table.
+        //
+        // This should be more accurate than deducing the file extension by
+        // converting to a UTI type.  For example, .m4a files will have a
+        // UTI type of kUTTypeMPEG4Audio which incorrectly yields the file
+        // extension .mp4 instead of .m4a.
+        guard
+            let mimeType: String = preferredMIMEType,
+            let fileExtension: String = UTType.genericMimeTypesToExtensionTypes[mimeType]
+        else { return preferredFilenameExtension }
+        
+        return fileExtension
     }
     
     // MARK: - Lookup Table

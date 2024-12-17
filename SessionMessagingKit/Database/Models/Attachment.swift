@@ -638,7 +638,10 @@ extension Attachment {
             // If the filename has not file extension, deduce one
             // from the MIME type.
             if targetFileExtension.isEmpty {
-                targetFileExtension = (UTType(sessionMimeType: mimeType)?.sessionFileExtension ?? UTType.fileExtensionDefault)
+                targetFileExtension = (
+                    UTType(sessionMimeType: mimeType)?.sessionFileExtension(sourceFilename: sourceFilename) ??
+                    UTType.fileExtensionDefault
+                )
             }
             
             targetFileExtension = targetFileExtension.lowercased()
@@ -657,7 +660,7 @@ extension Attachment {
         }
         
         let targetFileExtension: String = (
-            UTType(sessionMimeType: mimeType)?.sessionFileExtension ??
+            UTType(sessionMimeType: mimeType)?.sessionFileExtension(sourceFilename: sourceFilename) ??
             UTType.fileExtensionDefault
         ).lowercased()
         
