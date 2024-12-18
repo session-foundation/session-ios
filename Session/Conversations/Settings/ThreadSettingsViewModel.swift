@@ -792,18 +792,19 @@ class ThreadSettingsViewModel: SessionTableViewModel, NavigationItemSource, Navi
                 )
                 .save(db)
                 
+                let sentTimestampMs: Int64 = SnodeAPI.currentOffsetTimestampMs()
+                let destinationDisappearingMessagesConfiguration: DisappearingMessagesConfiguration? = try? DisappearingMessagesConfiguration
+                    .filter(id: userId)
+                    .filter(DisappearingMessagesConfiguration.Columns.isEnabled == true)
+                    .fetchOne(db)
                 let interaction: Interaction = try Interaction(
                     threadId: thread.id,
                     threadVariant: thread.variant,
                     authorId: currentUserSessionId,
                     variant: .standardOutgoing,
-                    timestampMs: SnodeAPI.currentOffsetTimestampMs(),
-                    expiresInSeconds: try? DisappearingMessagesConfiguration
-                        .select(.durationSeconds)
-                        .filter(id: userId)
-                        .filter(DisappearingMessagesConfiguration.Columns.isEnabled == true)
-                        .asRequest(of: TimeInterval.self)
-                        .fetchOne(db),
+                    timestampMs: sentTimestampMs,
+                    expiresInSeconds: destinationDisappearingMessagesConfiguration?.durationSeconds,
+                    expiresStartedAtMs: (destinationDisappearingMessagesConfiguration?.type == .disappearAfterSend ? Double(sentTimestampMs) : nil),
                     linkPreviewUrl: communityUrl
                 )
                 .inserted(db)

@@ -512,14 +512,21 @@ class NotificationActionHandler {
         
         return Storage.shared
             .writePublisher { db in
+                let sentTimestampMs: Int64 = SnodeAPI.currentOffsetTimestampMs()
+                let destinationDisappearingMessagesConfiguration: DisappearingMessagesConfiguration? = try? DisappearingMessagesConfiguration
+                    .filter(id: threadId)
+                    .filter(DisappearingMessagesConfiguration.Columns.isEnabled == true)
+                    .fetchOne(db)
                 let interaction: Interaction = try Interaction(
                     threadId: threadId,
                     threadVariant: thread.variant,
                     authorId: getUserHexEncodedPublicKey(db),
                     variant: .standardOutgoing,
                     body: replyText,
-                    timestampMs: SnodeAPI.currentOffsetTimestampMs(),
-                    hasMention: Interaction.isUserMentioned(db, threadId: threadId, body: replyText)
+                    timestampMs: sentTimestampMs,
+                    hasMention: Interaction.isUserMentioned(db, threadId: threadId, body: replyText),
+                    expiresInSeconds: destinationDisappearingMessagesConfiguration?.durationSeconds,
+                    expiresStartedAtMs: (destinationDisappearingMessagesConfiguration?.type == .disappearAfterSend ? Double(sentTimestampMs) : nil)
                 ).inserted(db)
                 
                 try Interaction.markAsRead(
