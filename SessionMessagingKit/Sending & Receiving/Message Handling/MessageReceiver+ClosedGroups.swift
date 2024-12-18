@@ -142,6 +142,7 @@ extension MessageReceiver {
         // approved contact (to prevent spam via closed groups getting around message requests if users are
         // on old or modified clients)
         var hasApprovedAdmin: Bool = false
+        let receivedTimestamp: TimeInterval = (TimeInterval(SnodeAPI.currentOffsetTimestampMs()) / 1000)
         
         for adminId in admins {
             if let contact: Contact = try? Contact.fetchOne(db, id: adminId), contact.isApproved {
@@ -154,6 +155,36 @@ extension MessageReceiver {
         // have an approved admin - we should add it regardless (as it's been synced from
         // antoher device)
         guard hasApprovedAdmin || configTriggeringChange != nil else { return }
+        
+        // Create the disappearing config
+        let disappearingConfig: DisappearingMessagesConfiguration = DisappearingMessagesConfiguration
+            .defaultWith(groupPublicKey)
+            .with(
+                isEnabled: (expirationTimer > 0),
+                durationSeconds: TimeInterval(expirationTimer),
+                type: (expirationTimer > 0 ? .disappearAfterSend : .unknown)
+            )
+        
+        /// Update `libSession` first
+        ///
+        /// **Note:** This **MUST** happen before we call `SessionThread.upsert` as we won't add the group
+        /// if it already exists in `libSession` and upserting the thread results in an update to `libSession` to set
+        /// the `priority`
+        if configTriggeringChange == nil {
+            try? LibSession.add(
+                db,
+                groupPublicKey: groupPublicKey,
+                name: name,
+                joinedAt: (TimeInterval(formationTimestampMs) / 1000),
+                latestKeyPairPublicKey: Data(encryptionKeyPair.publicKey),
+                latestKeyPairSecretKey: Data(encryptionKeyPair.secretKey),
+                latestKeyPairReceivedTimestamp: receivedTimestamp,
+                disappearingConfig: disappearingConfig,
+                members: members.asSet(),
+                admins: admins.asSet(),
+                using: dependencies
+            )
+        }
         
         // Create the group
         let thread: SessionThread = try SessionThread.upsert(
@@ -198,20 +229,11 @@ extension MessageReceiver {
         }
         
         // Update the DisappearingMessages config
-        var disappearingConfig = DisappearingMessagesConfiguration.defaultWith(thread.id)
         if (try? thread.disappearingMessagesConfiguration.fetchOne(db)) == nil {
-            let isEnabled: Bool = (expirationTimer > 0)
-            disappearingConfig = try disappearingConfig
-                .with(
-                    isEnabled: isEnabled,
-                    durationSeconds: TimeInterval(expirationTimer),
-                    type: isEnabled ? .disappearAfterSend : .unknown
-                )
-                .saved(db)
+            try disappearingConfig.upsert(db)
         }
         
         // Store the key pair if it doesn't already exist
-        let receivedTimestamp: TimeInterval = (TimeInterval(SnodeAPI.currentOffsetTimestampMs()) / 1000)
         let newKeyPair: ClosedGroupKeyPair = ClosedGroupKeyPair(
             threadId: groupPublicKey,
             publicKey: Data(encryptionKeyPair.publicKey),
