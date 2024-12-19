@@ -101,7 +101,6 @@ public final class WebRTCSession : NSObject, RTCPeerConnectionDelegate {
         RTCAudioSession.sharedInstance().useManualAudio = true
         RTCAudioSession.sharedInstance().isAudioEnabled = false
         
-        self.dependencies = dependencies
         self.contactSessionId = contactSessionId
         self.uuid = uuid
         self.dependencies = dependencies

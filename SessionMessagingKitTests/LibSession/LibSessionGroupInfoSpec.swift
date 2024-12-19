@@ -4,6 +4,7 @@ import Foundation
 import GRDB
 import SessionUtil
 import SessionUtilitiesKit
+import SessionSnodeKit
 
 import Quick
 import Nimble
@@ -28,7 +29,8 @@ class LibSessionGroupInfoSpec: QuickSpec {
             customWriter: try! DatabaseQueue(),
             migrationTargets: [
                 SNUtilitiesKit.self,
-                SNMessagingKit.self
+                SNMessagingKit.self,
+                SNSnodeKit.self
             ],
             using: dependencies,
             initialData: { db in
@@ -412,10 +414,11 @@ class LibSessionGroupInfoSpec: QuickSpec {
                             )
                         }
                         
-                        numInteractions = mockStorage.read { db in
-                            try Interaction.fetchCount(db)
+                        let result: [Interaction]? = mockStorage.read { db in
+                            try Interaction.fetchAll(db)
                         }
-                        expect(numInteractions).to(equal(0))
+                        expect(result?.count).to(equal(1))
+                        expect(result?.map { $0.variant }).to(equal([.standardIncomingDeleted]))
                     }
                     
                     // MARK: ------ does not delete messages after the timestamp
@@ -491,10 +494,11 @@ class LibSessionGroupInfoSpec: QuickSpec {
                             )
                         }
                         
-                        numInteractions = mockStorage.read { db in
-                            try Interaction.fetchCount(db)
+                        let result: [Interaction]? = mockStorage.read { db in
+                            try Interaction.fetchAll(db)
                         }
-                        expect(numInteractions).to(equal(1))
+                        expect(result?.count).to(equal(2))
+                        expect(result?.map { $0.variant }).to(equal([.standardIncomingDeleted, .standardIncoming]))
                     }
                 }
                 
@@ -565,10 +569,11 @@ class LibSessionGroupInfoSpec: QuickSpec {
                             )
                         }
                         
-                        numInteractions = mockStorage.read { db in
-                            try Interaction.fetchCount(db)
+                        let result: [Interaction]? = mockStorage.read { db in
+                            try Interaction.fetchAll(db)
                         }
-                        expect(numInteractions).to(equal(0))
+                        expect(result?.count).to(equal(1))
+                        expect(result?.map { $0.variant }).to(equal([.standardIncomingDeleted]))
                     }
                     
                     // MARK: ------ schedules a garbage collection job to clean up the attachments
@@ -750,10 +755,11 @@ class LibSessionGroupInfoSpec: QuickSpec {
                             )
                         }
                         
-                        numInteractions = mockStorage.read { db in
-                            try Interaction.fetchCount(db)
+                        let result: [Interaction]? = mockStorage.read { db in
+                            try Interaction.fetchAll(db)
                         }
-                        expect(numInteractions).to(equal(1))
+                        expect(result?.count).to(equal(2))
+                        expect(result?.map { $0.variant }).to(equal([.standardIncomingDeleted, .standardIncoming]))
                     }
                     
                     // MARK: ------ does not delete messages before the timestamp that have no attachments
@@ -842,10 +848,11 @@ class LibSessionGroupInfoSpec: QuickSpec {
                             )
                         }
                         
-                        numInteractions = mockStorage.read { db in
-                            try Interaction.fetchCount(db)
+                        let result: [Interaction]? = mockStorage.read { db in
+                            try Interaction.fetchAll(db)
                         }
-                        expect(numInteractions).to(equal(1))
+                        expect(result?.count).to(equal(2))
+                        expect(result?.map { $0.variant }).to(equal([.standardIncomingDeleted, .standardIncoming]))
                     }
                 }
                 
@@ -969,10 +976,11 @@ class LibSessionGroupInfoSpec: QuickSpec {
                         )
                     }
                     
-                    let numInteractions: Int? = mockStorage.read { db in
-                        try Interaction.fetchCount(db)
+                    let result: [Interaction]? = mockStorage.read { db in
+                        try Interaction.fetchAll(db)
                     }
-                    expect(numInteractions).to(equal(0))
+                    expect(result?.count).to(equal(1))
+                    expect(result?.map { $0.variant }).to(equal([.standardIncomingDeleted]))
                     expect(mockNetwork)
                         .toNot(call { network in
                             network.send(.any, to: .any, requestTimeout: .any, requestAndPathBuildTimeout: .any)

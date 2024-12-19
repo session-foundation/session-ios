@@ -545,7 +545,7 @@ extension MessageSender {
                         groupId: sessionId.hexString,
                         profileId: id,
                         role: .standard,
-                        roleStatus: .notSentYet,
+                        roleStatus: .sending,
                         isHidden: false
                     ).upsert(db)
                     

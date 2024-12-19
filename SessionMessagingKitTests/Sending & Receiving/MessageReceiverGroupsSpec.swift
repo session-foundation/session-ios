@@ -669,6 +669,7 @@ class MessageReceiverGroupsSpec: QuickSpec {
                                         variant: .group,
                                         creationDateTimestamp: 1234567890,
                                         shouldBeVisible: true,
+                                        isDraft: false,
                                         using: dependencies
                                     ),
                                     applicationState: .active

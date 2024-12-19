@@ -964,7 +964,7 @@ class MessageSenderGroupsSpec: QuickSpec {
                         expect(members?.first?.profileId)
                             .to(equal("051111111111111111111111111111111111111111111111111111111111111112"))
                         expect(members?.first?.role).to(equal(.standard))
-                        expect(members?.first?.roleStatus).to(equal(.notSentYet))
+                        expect(members?.first?.roleStatus).to(equal(.sending))
                     }
                     
                     // MARK: ---- adds the member to GROUP_MEMBERS
@@ -988,7 +988,7 @@ class MessageSenderGroupsSpec: QuickSpec {
                         expect(members?.first?.profileId)
                             .to(equal("051111111111111111111111111111111111111111111111111111111111111112"))
                         expect(members?.first?.role).to(equal(.standard))
-                        expect(members?.first?.roleStatus).to(equal(.notSentYet))
+                        expect(members?.first?.roleStatus).to(equal(.sending))
                     }
                     
                     // MARK: ---- and granting access to historic messages

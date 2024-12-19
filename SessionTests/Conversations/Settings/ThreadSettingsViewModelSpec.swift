@@ -327,7 +327,8 @@ class ThreadSettingsViewModelSpec: QuickSpec {
                                     .localizedFormatted(baseFont: ConfirmationModal.explanationFont),
                                 info: ConfirmationModal.Info.Body.InputInfo(
                                     placeholder: "nicknameEnter".localized(),
-                                    initialValue: nil
+                                    initialValue: nil,
+                                    accessibility: Accessibility(identifier: "Username")
                                 ),
                                 onChange: { _ in }
                             )
@@ -528,7 +529,8 @@ class ThreadSettingsViewModelSpec: QuickSpec {
                                     explanation: NSAttributedString(string: "groupNameVisible".localized()),
                                     info: ConfirmationModal.Info.Body.InputInfo(
                                         placeholder: "groupNameEnter".localized(),
-                                        initialValue: "TestGroup"
+                                        initialValue: "TestGroup",
+                                        accessibility: Accessibility(identifier: "Group name text field")
                                     ),
                                     onChange: { _ in }
                                 )
@@ -784,11 +786,13 @@ class ThreadSettingsViewModelSpec: QuickSpec {
                                         explanation: NSAttributedString(string: "Group name and description are visible to all group members."),
                                         firstInfo: ConfirmationModal.Info.Body.InputInfo(
                                             placeholder: "groupNameEnter".localized(),
-                                            initialValue: "TestGroup"
+                                            initialValue: "TestGroup",
+                                            accessibility: Accessibility(identifier: "Group name text field")
                                         ),
                                         secondInfo: ConfirmationModal.Info.Body.InputInfo(
                                             placeholder: "groupDescriptionEnter".localized(),
-                                            initialValue: nil
+                                            initialValue: nil,
+                                            accessibility: Accessibility(identifier: "Group description text field")
                                         ),
                                         onChange: { _, _ in }
                                     )
@@ -963,7 +967,8 @@ class ThreadSettingsViewModelSpec: QuickSpec {
                                         explanation: NSAttributedString(string: "groupNameVisible".localized()),
                                         info: ConfirmationModal.Info.Body.InputInfo(
                                             placeholder: "groupNameEnter".localized(),
-                                            initialValue: "TestGroup"
+                                            initialValue: "TestGroup",
+                                            accessibility: Accessibility(identifier: "Group name text field")
                                         ),
                                         onChange: { _ in }
                                     )

@@ -881,7 +881,7 @@ class ThreadSettingsViewModel: SessionTableViewModel, NavigatableStateHolder, Ob
                                     .upsert(db)
                                     
                                     let destinationDisappearingMessagesConfiguration: DisappearingMessagesConfiguration? = try? DisappearingMessagesConfiguration
-                                        .filter(id: userId)
+                                        .filter(id: userInfo.profileId)
                                         .filter(DisappearingMessagesConfiguration.Columns.isEnabled == true)
                                         .fetchOne(db)
                                     let interaction: Interaction = try Interaction(
@@ -911,7 +911,7 @@ class ThreadSettingsViewModel: SessionTableViewModel, NavigatableStateHolder, Ob
                                         job: DisappearingMessagesJob.updateNextRunIfNeeded(
                                             db,
                                             interaction: interaction,
-                                            startedAtMs: sentTimestampMs,
+                                            startedAtMs: Double(sentTimestampMs),
                                             using: dependencies
                                         ),
                                         canStartJob: true

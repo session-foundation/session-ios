@@ -186,7 +186,7 @@ public final class SessionCall: CurrentCallProtocol, WebRTCSessionDelegate {
     // stringlint:ignore_contents
     func reportIncomingCallIfNeeded(completion: @escaping (Error?) -> Void) {
         guard case .answer = mode else {
-            Singleton.callManager.reportFakeCall(info: "Call not in answer mode")
+            dependencies[singleton: .callManager].reportFakeCall(info: "Call not in answer mode")
             return
         }
         

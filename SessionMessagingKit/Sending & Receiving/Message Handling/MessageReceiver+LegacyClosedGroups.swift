@@ -253,23 +253,6 @@ extension MessageReceiver {
             try newKeyPair.insert(db)
         }
         
-        if configTriggeringChange?.variant != .userGroups {
-            // Update libSession
-            try? LibSession.add(
-                db,
-                legacyGroupSessionId: legacyGroupSessionId,
-                name: name,
-                joinedAt: (TimeInterval(formationTimestampMs) / 1000),
-                latestKeyPairPublicKey: Data(encryptionKeyPair.publicKey),
-                latestKeyPairSecretKey: Data(encryptionKeyPair.secretKey),
-                latestKeyPairReceivedTimestamp: receivedTimestamp,
-                disappearingConfig: disappearingConfig,
-                members: members.asSet(),
-                admins: admins.asSet(),
-                using: dependencies
-            )
-        }
-        
         // Start polling
         dependencies
             .mutate(cache: .groupPollers) { $0.getOrCreatePoller(for: legacyGroupSessionId) }
