@@ -53,13 +53,13 @@ public extension QueryInterfaceRequest where RowDecoder: FetchableRecord & Table
     func updateAllAndConfig(
         _ db: Database,
         _ assignments: ConfigColumnAssignment...,
-        calledFromConfig: Bool = false,
+        calledFromConfig configTriggeringChange: LibSession.Config?,
         using dependencies: Dependencies
     ) throws -> Int {
         return try updateAllAndConfig(
             db,
             assignments,
-            calledFromConfig: calledFromConfig,
+            calledFromConfig: configTriggeringChange,
             using: dependencies
         )
     }
@@ -68,20 +68,21 @@ public extension QueryInterfaceRequest where RowDecoder: FetchableRecord & Table
     func updateAllAndConfig(
         _ db: Database,
         _ assignments: [ConfigColumnAssignment],
-        calledFromConfig: Bool = false,
+        calledFromConfig configTriggeringChange: LibSession.Config?,
         using dependencies: Dependencies
     ) throws -> Int {
         let targetAssignments: [ColumnAssignment] = assignments.map { $0.assignment }
         
         // Before we do anything custom make sure the changes actually do need to be synced
-        guard LibSession.assignmentsRequireConfigUpdate(assignments) else {
-            return try self.updateAll(db, targetAssignments)
-        }
+        guard
+            configTriggeringChange == nil &&
+            LibSession.assignmentsRequireConfigUpdate(assignments)
+        else { return try self.updateAll(db, targetAssignments) }
         
         return try self.updateAndFetchAllAndUpdateConfig(
             db,
             assignments,
-            calledFromConfig: calledFromConfig,
+            calledFromConfig: configTriggeringChange,
             using: dependencies
         ).count
     }
@@ -92,13 +93,13 @@ public extension QueryInterfaceRequest where RowDecoder: FetchableRecord & Table
     func updateAndFetchAllAndUpdateConfig(
         _ db: Database,
         _ assignments: ConfigColumnAssignment...,
-        calledFromConfig: Bool = false,
+        calledFromConfig configTriggeringChange: LibSession.Config?,
         using dependencies: Dependencies
     ) throws -> [RowDecoder] {
         return try updateAndFetchAllAndUpdateConfig(
             db,
             assignments,
-            calledFromConfig: calledFromConfig,
+            calledFromConfig: configTriggeringChange,
             using: dependencies
         )
     }
@@ -107,7 +108,7 @@ public extension QueryInterfaceRequest where RowDecoder: FetchableRecord & Table
     func updateAndFetchAllAndUpdateConfig(
         _ db: Database,
         _ assignments: [ConfigColumnAssignment],
-        calledFromConfig: Bool = false,
+        calledFromConfig configTriggeringChange: LibSession.Config?,
         using dependencies: Dependencies
     ) throws -> [RowDecoder] {
         // First perform the actual updates
@@ -115,7 +116,7 @@ public extension QueryInterfaceRequest where RowDecoder: FetchableRecord & Table
         
         // Then check if any of the changes could affect the config
         guard
-            !calledFromConfig &&
+            configTriggeringChange == nil &&
             LibSession.assignmentsRequireConfigUpdate(assignments)
         else { return updatedData }
         
@@ -123,10 +124,10 @@ public extension QueryInterfaceRequest where RowDecoder: FetchableRecord & Table
             // If we changed a column that requires a config update then we may as well automatically
             // enqueue a new config sync job once the transaction completes (but only enqueue it once
             // per transaction - doing it more than once is pointless)
-            let userPublicKey: String = getUserHexEncodedPublicKey(db)
+            let userSessionId: SessionId = dependencies[cache: .general].sessionId
             
-            db.afterNextTransactionNestedOnce(dedupeId: LibSession.syncDedupeId(userPublicKey)) { db in
-                ConfigurationSyncJob.enqueue(db, publicKey: userPublicKey)
+            db.afterNextTransactionNestedOnce(dedupeId: LibSession.syncDedupeId(userSessionId.hexString), using: dependencies) { db in
+                ConfigurationSyncJob.enqueue(db, swarmPublicKey: userSessionId.hexString, using: dependencies)
             }
         }
         
@@ -140,6 +141,19 @@ public extension QueryInterfaceRequest where RowDecoder: FetchableRecord & Table
                 
             case is QueryInterfaceRequest<SessionThread>:
                 return try LibSession.updatingThreads(db, updatedData, using: dependencies)
+            
+            case is QueryInterfaceRequest<ClosedGroup>:
+                // Group data is stored both in the `USER_GROUPS` config and it's own `GROUP_INFO` config so we
+                // need to update both
+                try LibSession.updatingGroups(db, updatedData, using: dependencies)
+                return try LibSession.updatingGroupInfo(db, updatedData, using: dependencies)
+                
+            case is QueryInterfaceRequest<GroupMember>:
+                return try LibSession.updatingGroupMembers(db, updatedData, using: dependencies)
+                
+            case is QueryInterfaceRequest<DisappearingMessagesConfiguration>:
+                try LibSession.updatingDisappearingConfigsOneToOne(db, updatedData, using: dependencies)
+                return try LibSession.updatingDisappearingConfigsGroups(db, updatedData, using: dependencies)
                 
             default: return updatedData
         }
