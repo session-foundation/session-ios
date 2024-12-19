@@ -132,14 +132,21 @@ public class NotificationActionHandler {
         
         return dependencies[singleton: .storage]
             .writePublisher { [dependencies] db -> Network.PreparedRequest<Void> in
+                let sentTimestampMs: Int64 = dependencies[cache: .snodeAPI].currentOffsetTimestampMs()
+                let destinationDisappearingMessagesConfiguration: DisappearingMessagesConfiguration? = try? DisappearingMessagesConfiguration
+                    .filter(id: threadId)
+                    .filter(DisappearingMessagesConfiguration.Columns.isEnabled == true)
+                    .fetchOne(db)
                 let interaction: Interaction = try Interaction(
                     threadId: threadId,
                     threadVariant: thread.variant,
                     authorId: dependencies[cache: .general].sessionId.hexString,
                     variant: .standardOutgoing,
                     body: replyText,
-                    timestampMs: dependencies[cache: .snodeAPI].currentOffsetTimestampMs(),
+                    timestampMs: sentTimestampMs,
                     hasMention: Interaction.isUserMentioned(db, threadId: threadId, body: replyText, using: dependencies),
+                    expiresInSeconds: destinationDisappearingMessagesConfiguration?.durationSeconds,
+                    expiresStartedAtMs: (destinationDisappearingMessagesConfiguration?.type == .disappearAfterSend ? Double(sentTimestampMs) : nil),
                     using: dependencies
                 ).inserted(db)
                 

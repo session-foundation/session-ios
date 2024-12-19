@@ -416,7 +416,7 @@ extension ConversationVC:
         }
         
         let fileName: String = (urlResourceValues.name ?? "attachment".localized())
-        guard let dataSource = DataSourcePath(fileUrl: url, shouldDeleteOnDeinit: false, using: viewModel.dependencies) else {
+        guard let dataSource = DataSourcePath(fileUrl: url, sourceFilename: urlResourceValues.name, shouldDeleteOnDeinit: false, using: viewModel.dependencies) else {
             DispatchQueue.main.async { [weak self] in
                 self?.viewModel.showToast(text: "attachmentsErrorLoad".localized())
             }
@@ -451,7 +451,7 @@ extension ConversationVC:
     func showAttachmentApprovalDialogAfterProcessingVideo(at url: URL, with fileName: String) {
         ModalActivityIndicatorViewController.present(fromViewController: self, canCancel: true, message: nil) { [weak self, dependencies = viewModel.dependencies] modalActivityIndicator in
             
-            guard let dataSource = DataSourcePath(fileUrl: url, shouldDeleteOnDeinit: false, using: dependencies) else {
+            guard let dataSource = DataSourcePath(fileUrl: url, sourceFilename: fileName, shouldDeleteOnDeinit: false, using: dependencies) else {
                 self?.showErrorAlert(for: SignalAttachment.empty(using: dependencies))
                 return
             }
@@ -2410,7 +2410,7 @@ extension ConversationVC:
         }
         
         // Get data
-        let dataSourceOrNil = DataSourcePath(fileUrl: audioRecorder.url, shouldDeleteOnDeinit: true, using: viewModel.dependencies)
+        let dataSourceOrNil = DataSourcePath(fileUrl: audioRecorder.url, sourceFilename: nil, shouldDeleteOnDeinit: true, using: viewModel.dependencies)
         self.audioRecorder = nil
         
         guard let dataSource = dataSourceOrNil else { return SNLog("Couldn't load recorded data.") }

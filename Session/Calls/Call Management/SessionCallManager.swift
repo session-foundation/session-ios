@@ -8,16 +8,22 @@ import SessionUIKit
 import SessionMessagingKit
 import SignalUtilitiesKit
 import SessionUtilitiesKit
- 
-// MARK: - Cache
 
-public extension Cache {
-    static let callManager: CacheConfig<CallManagerCacheType, CallManagerImmutableCacheType> = Dependencies.create(
-        identifier: "callManager",
-        createInstance: { _ in SessionCallManager.Cache() },
-        mutableInstance: { $0 },
-        immutableInstance: { $0 }
-    )
+// MARK: - CXProviderConfiguration
+
+public extension CXProviderConfiguration {
+    static func defaultConfiguration(_ useSystemCallLog: Bool = false) -> CXProviderConfiguration {
+        let iconMaskImage: UIImage = #imageLiteral(resourceName: "SessionGreen32")
+        let configuration = CXProviderConfiguration()
+        configuration.supportsVideo = true
+        configuration.maximumCallGroups = 1
+        configuration.maximumCallsPerCallGroup = 1
+        configuration.supportedHandleTypes = [.generic]
+        configuration.iconTemplateImageData = iconMaskImage.pngData()
+        configuration.includesCallsInRecents = useSystemCallLog
+        
+        return configuration
+    }
 }
 
 // MARK: - SessionCallManager
@@ -48,9 +54,7 @@ public final class SessionCallManager: NSObject, CallManagerProtocol {
         self.dependencies = dependencies
         
         if Preferences.isCallKitSupported {
-            self.provider = dependencies.mutate(cache: .callManager) {
-                $0.getOrCreateProvider(useSystemCallLog: useSystemCallLog)
-            }
+            self.provider = CXProvider(configuration: .defaultConfiguration(useSystemCallLog))
             self.callController = CXCallController()
         }
         else {
@@ -66,18 +70,15 @@ public final class SessionCallManager: NSObject, CallManagerProtocol {
     
     // MARK: - Report calls
     
-    public static func reportFakeCall(info: String, using dependencies: Dependencies) {
+    public func reportFakeCall(info: String) {
         let callId = UUID()
-        let provider: CXProvider = dependencies.mutate(cache: .callManager) {
-            $0.getOrCreateProvider(useSystemCallLog: false)
-        }
-        provider.reportNewIncomingCall(
+        self.provider?.reportNewIncomingCall(
             with: callId,
             update: CXCallUpdate()
         ) { _ in
             Log.error(.calls, "Reported fake incoming call to CallKit due to: \(info)")
         }
-        provider.reportCall(
+        self.provider?.reportCall(
             with: callId,
             endedAt: nil,
             reason: .failed
@@ -104,14 +105,7 @@ public final class SessionCallManager: NSObject, CallManagerProtocol {
         }
     }
     
-    public func reportIncomingCall(
-        _ call: CurrentCallProtocol,
-        callerName: String,
-        completion: @escaping (Error?) -> Void
-    ) {
-        let provider: CXProvider = dependencies.mutate(cache: .callManager) {
-            $0.getOrCreateProvider(useSystemCallLog: false)
-        }
+    public func reportIncomingCall(_ call: CurrentCallProtocol, callerName: String, completion: @escaping (Error?) -> Void) {
         // Construct a CXCallUpdate describing the incoming call, including the caller.
         let update = CXCallUpdate()
         update.localizedCallerName = callerName
@@ -121,7 +115,7 @@ public final class SessionCallManager: NSObject, CallManagerProtocol {
         disableUnsupportedFeatures(callUpdate: update)
 
         // Report the incoming call to the system
-        provider.reportNewIncomingCall(with: call.callId, update: update) { [dependencies] error in
+        self.provider?.reportNewIncomingCall(with: call.callId, update: update) { [dependencies] error in
             guard error == nil else {
                 self.reportCurrentCallEnded(reason: .failed)
                 completion(error)
@@ -295,40 +289,4 @@ public final class SessionCallManager: NSObject, CallManagerProtocol {
         (dependencies[singleton: .appContext].frontMostViewController as? CallVC)?.handleEndCallMessage()
         MiniCallView.current?.dismiss()
     }
-}
-
-// MARK: - SessionCallManager Cache
-
-public extension SessionCallManager {
-    class Cache: CallManagerCacheType {
-        public var provider: CXProvider?
-        
-        public func getOrCreateProvider(useSystemCallLog: Bool) -> CXProvider {
-            if let provider: CXProvider = self.provider {
-                return provider
-            }
-            
-            let iconMaskImage: UIImage = #imageLiteral(resourceName: "SessionGreen32")
-            let configuration = CXProviderConfiguration()
-            configuration.supportsVideo = true
-            configuration.maximumCallGroups = 1
-            configuration.maximumCallsPerCallGroup = 1
-            configuration.supportedHandleTypes = [.generic]
-            configuration.iconTemplateImageData = iconMaskImage.pngData()
-            configuration.includesCallsInRecents = useSystemCallLog
-            
-            let provider: CXProvider = CXProvider(configuration: configuration)
-            self.provider = provider
-            return provider
-        }
-    }
-}
-
-// MARK: - OGMCacheType
-
-/// This is a read-only version of the Cache designed to avoid unintentionally mutating the instance in a non-thread-safe way
-public protocol CallManagerImmutableCacheType: ImmutableCacheType {}
-
-public protocol CallManagerCacheType: CallManagerImmutableCacheType, MutableCacheType {
-    func getOrCreateProvider(useSystemCallLog: Bool) -> CXProvider
 }

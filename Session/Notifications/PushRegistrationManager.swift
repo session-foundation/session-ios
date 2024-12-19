@@ -275,7 +275,7 @@ public class PushRegistrationManager: NSObject, PKPushRegistryDelegate {
             let timestampMs: UInt64 = payload["timestamp"] as? UInt64,
             TimestampUtils.isWithinOneMinute(timestampMs: timestampMs)
         else {
-            SessionCallManager.reportFakeCall(info: "Missing payload data", using: dependencies) // stringlint:ignore
+            dependencies[singleton: .callManager].reportFakeCall(info: "Missing payload data") // stringlint:ignore
             return
         }
         
@@ -294,17 +294,8 @@ public class PushRegistrationManager: NSObject, PKPushRegistryDelegate {
                     using: dependencies
                 )
                 
-                let thread: SessionThread = try SessionThread.upsert(
-                    db,
-                    id: caller,
-                    variant: .contact,
-                    values: .existingOrDefault,
-                    calledFromConfig: nil,
-                    using: dependencies
-                )
-                
                 let interaction: Interaction? = try Interaction
-                    .filter(Interaction.Columns.threadId == thread.id)
+                    .filter(Interaction.Columns.threadId == caller)
                     .filter(Interaction.Columns.messageUuid == uuid)
                     .fetchOne(db)
                 
@@ -318,7 +309,7 @@ public class PushRegistrationManager: NSObject, PKPushRegistryDelegate {
         }
         
         guard let call: SessionCall = maybeCall else {
-            SessionCallManager.reportFakeCall(info: "Could not retrieve call from database", using: dependencies) // stringlint:ignore
+            dependencies[singleton: .callManager].reportFakeCall(info: "Could not retrieve call from database") // stringlint:ignore
             return
         }
         

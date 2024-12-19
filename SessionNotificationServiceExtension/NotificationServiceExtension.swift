@@ -102,7 +102,10 @@ public final class NotificationServiceExtension: UNNotificationServiceExtension 
             }
         }
         
-        let isCallOngoing: Bool = dependencies[defaults: .appGroup, key: .isCallOngoing]
+        let isCallOngoing: Bool = (
+            dependencies[defaults: .appGroup, key: .isCallOngoing] &&
+            (dependencies[defaults: .appGroup, key: .lastCallPreOffer] != nil)
+        )
         
         // HACK: It is important to use write synchronously here to avoid a race condition
         // where the completeSilenty() is called before the local notification request

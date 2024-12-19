@@ -287,14 +287,21 @@ final class ThreadPickerVC: UIViewController, UITableViewDataSource, UITableView
                     }
                     
                     // Create the interaction
+                    let sentTimestampMs: Int64 = dependencies[cache: .snodeAPI].currentOffsetTimestampMs()
+                    let destinationDisappearingMessagesConfiguration: DisappearingMessagesConfiguration? = try? DisappearingMessagesConfiguration
+                        .filter(id: threadId)
+                        .filter(DisappearingMessagesConfiguration.Columns.isEnabled == true)
+                        .fetchOne(db)
                     let interaction: Interaction = try Interaction(
                         threadId: threadId,
                         threadVariant: threadVariant,
                         authorId: userSessionId.hexString,
                         variant: .standardOutgoing,
                         body: body,
-                        timestampMs: dependencies[cache: .snodeAPI].currentOffsetTimestampMs(),
+                        timestampMs: sentTimestampMs,
                         hasMention: Interaction.isUserMentioned(db, threadId: threadId, body: body, using: dependencies),
+                        expiresInSeconds: destinationDisappearingMessagesConfiguration?.durationSeconds,
+                        expiresStartedAtMs: (destinationDisappearingMessagesConfiguration?.type == .disappearAfterSend ? Double(sentTimestampMs) : nil),
                         linkPreviewUrl: (isSharingUrl ? attachments.first?.linkPreviewDraft?.urlString : nil),
                         using: dependencies
                     ).inserted(db)

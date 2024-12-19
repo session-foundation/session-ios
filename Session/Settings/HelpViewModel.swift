@@ -171,14 +171,16 @@ class HelpViewModel: SessionTableViewModel, NavigatableStateHolder, ObservableTa
                 cancelTitle: "Share",
                 cancelStyle: .alert_text,
                 onConfirm: { _ in UIPasteboard.general.string = latestLogFilePath },
-                onCancel: { _ in
-                    HelpViewModel.shareLogsInternal(
-                        viewControllerToDismiss: viewControllerToDismiss,
-                        targetView: targetView,
-                        animated: animated,
-                        using: dependencies,
-                        onShareComplete: onShareComplete
-                    )
+                onCancel: { modal in
+                    modal.dismiss(animated: true) {
+                        HelpViewModel.shareLogsInternal(
+                            viewControllerToDismiss: viewControllerToDismiss,
+                            targetView: targetView,
+                            animated: animated,
+                            using: dependencies,
+                            onShareComplete: onShareComplete
+                        )
+                    }
                 }
             )
         )

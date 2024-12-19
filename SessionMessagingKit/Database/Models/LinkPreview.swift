@@ -133,12 +133,17 @@ public extension LinkPreview {
     
     static func generateAttachmentIfPossible(imageData: Data?, type: UTType, using dependencies: Dependencies) throws -> Attachment? {
         guard let imageData: Data = imageData, !imageData.isEmpty else { return nil }
-        guard let fileExtension: String = type.sessionFileExtension else { return nil }
+        guard let fileExtension: String = type.sessionFileExtension(sourceFilename: nil) else { return nil }
         guard let mimeType: String = type.preferredMIMEType else { return nil }
         
         let filePath = dependencies[singleton: .fileManager].temporaryFilePath(fileExtension: fileExtension)
         try imageData.write(to: NSURL.fileURL(withPath: filePath), options: .atomicWrite)
-        let dataSource: DataSourcePath = DataSourcePath(filePath: filePath, shouldDeleteOnDeinit: true, using: dependencies)
+        let dataSource: DataSourcePath = DataSourcePath(
+            filePath: filePath,
+            sourceFilename: nil,
+            shouldDeleteOnDeinit: true,
+            using: dependencies
+        )
         
         return Attachment(contentType: mimeType, dataSource: dataSource, using: dependencies)
     }

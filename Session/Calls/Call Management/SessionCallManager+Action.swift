@@ -17,20 +17,16 @@ extension SessionCallManager {
         return true
     }
     
-    @discardableResult
-    public func answerCallAction() -> Bool {
-        guard
-            let call: SessionCall = (self.currentCall as? SessionCall),
-            dependencies[singleton: .appContext].isValid
-        else { return false }
+    public func answerCallAction() {
+        guard let call: SessionCall = (self.currentCall as? SessionCall) else { return }
         
         if dependencies[singleton: .appContext].frontMostViewController is CallVC {
             call.answerSessionCall()
         }
         else {
-            guard let presentingVC = dependencies[singleton: .appContext].frontMostViewController else { return false } // FIXME: Handle more gracefully
+            guard let presentingVC = dependencies[singleton: .appContext].frontMostViewController else { return } // FIXME: Handle more gracefully
             let callVC = CallVC(for: call, using: dependencies)
-            
+
             if let conversationVC = presentingVC as? ConversationVC {
                 callVC.conversationVC = conversationVC
                 conversationVC.inputAccessoryView?.isHidden = true
@@ -41,8 +37,6 @@ extension SessionCallManager {
                 call.answerSessionCall()
             }
         }
-        
-        return true
     }
     
     @discardableResult

@@ -603,6 +603,7 @@ final class CallVC: UIViewController, VideoPreviewDelegate {
         Timer.scheduledTimer(withTimeInterval: 2, repeats: false) { [weak self] _ in
             DispatchQueue.main.async {
                 self?.dismiss(animated: true, completion: {
+                    self?.conversationVC?.becomeFirstResponder()
                     self?.conversationVC?.showInputAccessoryView()
                 })
             }
@@ -648,6 +649,7 @@ final class CallVC: UIViewController, VideoPreviewDelegate {
     
     @objc private func minimize() {
         self.shouldRestartCamera = false
+        self.conversationVC?.becomeFirstResponder()
         self.conversationVC?.showInputAccessoryView()
         
         let miniCallView = MiniCallView(from: self, using: dependencies)

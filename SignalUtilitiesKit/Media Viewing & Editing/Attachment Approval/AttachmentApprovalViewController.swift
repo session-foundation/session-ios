@@ -542,7 +542,7 @@ public class AttachmentApprovalViewController: UIPageViewController, UIPageViewC
         // Rewrite the filename's extension to reflect the output file format.
         var filename: String? = attachmentItem.attachment.sourceFilename
         if let sourceFilename = attachmentItem.attachment.sourceFilename {
-            if let fileExtension: String = dataType.sessionFileExtension {
+            if let fileExtension: String = dataType.sessionFileExtension(sourceFilename: sourceFilename) {
                 filename = (sourceFilename as NSString).deletingPathExtension.appendingFileExtension(fileExtension)
             }
         }

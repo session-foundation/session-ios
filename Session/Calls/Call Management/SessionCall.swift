@@ -186,7 +186,7 @@ public final class SessionCall: CurrentCallProtocol, WebRTCSessionDelegate {
     // stringlint:ignore_contents
     func reportIncomingCallIfNeeded(completion: @escaping (Error?) -> Void) {
         guard case .answer = mode else {
-            SessionCallManager.reportFakeCall(info: "Call not in answer mode", using: dependencies)
+            Singleton.callManager.reportFakeCall(info: "Call not in answer mode")
             return
         }
         
@@ -269,12 +269,13 @@ public final class SessionCall: CurrentCallProtocol, WebRTCSessionDelegate {
         hasStartedConnecting = true
         
         if let sdp = remoteSDP {
+            SNLog("[Calls] Got remote sdp already")
             webRTCSession.handleRemoteSDP(sdp, from: sessionId) // This sends an answer message internally
         }
     }
     
-    func answerSessionCallInBackground(action: CXAnswerCallAction) {
-        answerCallAction = action
+    func answerSessionCallInBackground() {
+        SNLog("[Calls] Answering call in background")
         self.answerSessionCall()
     }
     

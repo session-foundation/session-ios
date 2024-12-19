@@ -446,7 +446,7 @@ extension PhotoCapture: CaptureOutputDelegate {
             Log.debug("[PhotoCapture] Ignoring error, since capture succeeded.")
         }
 
-        let dataSource = DataSourcePath(fileUrl: outputFileURL, shouldDeleteOnDeinit: true, using: dependencies)
+        let dataSource = DataSourcePath(fileUrl: outputFileURL, sourceFilename: nil, shouldDeleteOnDeinit: true, using: dependencies)
         let attachment = SignalAttachment.attachment(dataSource: dataSource, type: .mpeg4Movie, using: dependencies)
         delegate?.photoCapture(self, didFinishProcessingAttachment: attachment)
     }

@@ -859,14 +859,13 @@ class ThreadSettingsViewModel: SessionTableViewModel, NavigatableStateHolder, Ob
                         dependencies[singleton: .storage]
                             .writePublisher { db in
                                 try selectedUserInfo.forEach { userInfo in
+                                    let sentTimestampMs: Int64 = dependencies[cache: .snodeAPI].currentOffsetTimestampMs()
                                     let thread: SessionThread = try SessionThread.upsert(
                                         db,
                                         id: userInfo.profileId,
                                         variant: .contact,
                                         values: SessionThread.TargetValues(
-                                            creationDateTimestamp: .useExistingOrSetTo(
-                                                dependencies[cache: .snodeAPI].currentOffsetTimestampMs() / 1000
-                                            ),
+                                            creationDateTimestamp: .useExistingOrSetTo(TimeInterval(sentTimestampMs) / 1000),
                                             shouldBeVisible: .useExisting
                                         ),
                                         calledFromConfig: nil,
@@ -881,18 +880,18 @@ class ThreadSettingsViewModel: SessionTableViewModel, NavigatableStateHolder, Ob
                                     )
                                     .upsert(db)
                                     
+                                    let destinationDisappearingMessagesConfiguration: DisappearingMessagesConfiguration? = try? DisappearingMessagesConfiguration
+                                        .filter(id: userId)
+                                        .filter(DisappearingMessagesConfiguration.Columns.isEnabled == true)
+                                        .fetchOne(db)
                                     let interaction: Interaction = try Interaction(
                                         threadId: thread.id,
                                         threadVariant: thread.variant,
-                                        authorId: userInfo.profileId,
+                                        authorId: threadViewModel.currentUserSessionId,
                                         variant: .standardOutgoing,
-                                        timestampMs: dependencies[cache: .snodeAPI].currentOffsetTimestampMs(),
-                                        expiresInSeconds: try? DisappearingMessagesConfiguration
-                                            .select(.durationSeconds)
-                                            .filter(id: userInfo.profileId)
-                                            .filter(DisappearingMessagesConfiguration.Columns.isEnabled == true)
-                                            .asRequest(of: TimeInterval.self)
-                                            .fetchOne(db),
+                                        timestampMs: sentTimestampMs,
+                                        expiresInSeconds: destinationDisappearingMessagesConfiguration?.durationSeconds,
+                                        expiresStartedAtMs: (destinationDisappearingMessagesConfiguration?.type == .disappearAfterSend ? Double(sentTimestampMs) : nil),
                                         linkPreviewUrl: communityUrl,
                                         using: dependencies
                                     )
@@ -912,7 +911,7 @@ class ThreadSettingsViewModel: SessionTableViewModel, NavigatableStateHolder, Ob
                                         job: DisappearingMessagesJob.updateNextRunIfNeeded(
                                             db,
                                             interaction: interaction,
-                                            startedAtMs: dependencies[cache: .snodeAPI].currentOffsetTimestampMs(),
+                                            startedAtMs: sentTimestampMs,
                                             using: dependencies
                                         ),
                                         canStartJob: true

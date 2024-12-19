@@ -195,7 +195,7 @@ class PhotoCollectionContents {
                         
                         guard
                             exportSession?.status == .completed,
-                            let dataSource = DataSourcePath(fileUrl: exportURL, shouldDeleteOnDeinit: true, using: dependencies)
+                            let dataSource = DataSourcePath(fileUrl: exportURL, sourceFilename: nil, shouldDeleteOnDeinit: true, using: dependencies)
                         else {
                             resolver(Result.failure(PhotoLibraryError.assertionError(description: "Failed to build data source for exported video URL")))
                             return

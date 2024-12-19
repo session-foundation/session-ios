@@ -101,7 +101,7 @@ public class DataSourceValue: DataSource {
     }
     
     public convenience init?(data: Data?, dataType: UTType, using dependencies: Dependencies) {
-        guard let fileExtension: String = dataType.sessionFileExtension else { return nil }
+        guard let fileExtension: String = dataType.sessionFileExtension(sourceFilename: nil) else { return nil }
         
         self.init(data: data, fileExtension: fileExtension, using: dependencies)
     }
@@ -216,16 +216,32 @@ public class DataSourcePath: DataSource {
 
     // MARK: - Initialization
     
-    public init(filePath: String, shouldDeleteOnDeinit: Bool, using dependencies: Dependencies) {
+    public init(
+        filePath: String,
+        sourceFilename: String?,
+        shouldDeleteOnDeinit: Bool,
+        using dependencies: Dependencies
+    ) {
         self.dependencies = dependencies
         self.filePath = filePath
+        self.sourceFilename = sourceFilename
         self.shouldDeleteOnDeinit = shouldDeleteOnDeinit
     }
     
-    public convenience init?(fileUrl: URL?, shouldDeleteOnDeinit: Bool, using dependencies: Dependencies) {
+    public convenience init?(
+        fileUrl: URL?,
+        sourceFilename: String?,
+        shouldDeleteOnDeinit: Bool,
+        using dependencies: Dependencies
+    ) {
         guard let fileUrl: URL = fileUrl, fileUrl.isFileURL else { return nil }
         
-        self.init(filePath: fileUrl.path, shouldDeleteOnDeinit: shouldDeleteOnDeinit, using: dependencies)
+        self.init(
+            filePath: fileUrl.path,
+            sourceFilename: (sourceFilename ?? fileUrl.lastPathComponent),
+            shouldDeleteOnDeinit: shouldDeleteOnDeinit,
+            using: dependencies
+        )
     }
     
     deinit {

@@ -258,15 +258,12 @@ final class ShareNavController: UINavigationController, ShareViewDelegate {
             //
             // NOTE: SharingThreadPickerViewController will try to unpack them
             //       and send them as normal text messages if possible.
-            case (_, true): return DataSourcePath(fileUrl: url, shouldDeleteOnDeinit: false, using: dependencies)
+            case (_, true): return DataSourcePath(fileUrl: url, sourceFilename: customFileName, shouldDeleteOnDeinit: false, using: dependencies)
             
             default:
-                guard let dataSource = DataSourcePath(fileUrl: url, shouldDeleteOnDeinit: false, using: dependencies) else {
+                guard let dataSource = DataSourcePath(fileUrl: url, sourceFilename: customFileName, shouldDeleteOnDeinit: false, using: dependencies) else {
                     return nil
                 }
-
-                // Fallback to the last part of the URL
-                dataSource.sourceFilename = (customFileName ?? url.lastPathComponent)
                 
                 return dataSource
         }
@@ -413,7 +410,7 @@ final class ShareNavController: UINavigationController, ShareViewDelegate {
                     switch value {
                         case let data as Data:
                             let customFileName = "Contact.vcf" // stringlint:ignore
-                            let customFileExtension: String? = srcType.sessionFileExtension
+                            let customFileExtension: String? = srcType.sessionFileExtension(sourceFilename: nil)
                             
                             guard let tempFilePath = try? dependencies[singleton: .fileManager].write(data: data, toTemporaryFileWithExtension: customFileExtension) else {
                                 resolver(
