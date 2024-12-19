@@ -33,6 +33,7 @@ public struct SessionThread: Codable, Identifiable, Equatable, FetchableRecord, 
         case onlyNotifyForMentions
         case markedAsUnread
         case pinnedPriority
+        case isDraft
     }
     
     public enum Variant: Int, Codable, Hashable, DatabaseValueConvertible, CaseIterable {
@@ -83,6 +84,9 @@ public struct SessionThread: Codable, Identifiable, Equatable, FetchableRecord, 
     /// A value indicating the priority of this conversation within the pinned conversations
     public let pinnedPriority: Int32?
     
+    /// A value indicating whether this conversation is a draft conversation (ie. hasn't sent a message yet and should auto-delete)
+    public let isDraft: Bool?
+    
     // MARK: - Relationships
     
     public var contact: QueryInterfaceRequest<Contact> {
@@ -123,6 +127,7 @@ public struct SessionThread: Codable, Identifiable, Equatable, FetchableRecord, 
         onlyNotifyForMentions: Bool = false,
         markedAsUnread: Bool? = false,
         pinnedPriority: Int32? = nil,
+        isDraft: Bool? = nil,
         using dependencies: Dependencies
     ) {
         self.id = id
@@ -134,6 +139,7 @@ public struct SessionThread: Codable, Identifiable, Equatable, FetchableRecord, 
         self.mutedUntilTimestamp = mutedUntilTimestamp
         self.onlyNotifyForMentions = onlyNotifyForMentions
         self.markedAsUnread = markedAsUnread
+        self.isDraft = isDraft
         self.pinnedPriority = ((pinnedPriority ?? 0) > 0 ? pinnedPriority :
             (isPinned ? 1 : 0)
         )
@@ -175,6 +181,7 @@ public extension SessionThread {
         let creationDateTimestamp: Value<TimeInterval>
         let shouldBeVisible: Value<Bool>
         let pinnedPriority: Value<Int32>
+        let isDraft: Value<Bool>
         let disappearingMessagesConfig: Value<DisappearingMessagesConfiguration>
         
         // MARK: - Convenience
@@ -189,11 +196,13 @@ public extension SessionThread {
             creationDateTimestamp: Value<TimeInterval> = .useExisting,
             shouldBeVisible: Value<Bool>,
             pinnedPriority: Value<Int32> = .useLibSession,
+            isDraft: Value<Bool> = .useExisting,
             disappearingMessagesConfig: Value<DisappearingMessagesConfiguration> = .useLibSession
         ) {
             self.creationDateTimestamp = creationDateTimestamp
             self.shouldBeVisible = shouldBeVisible
             self.pinnedPriority = pinnedPriority
+            self.isDraft = isDraft
             self.disappearingMessagesConfig = disappearingMessagesConfig
         }
     }
@@ -229,6 +238,7 @@ public extension SessionThread {
                     ),
                     shouldBeVisible: LibSession.shouldBeVisible(priority: targetPriority),
                     pinnedPriority: targetPriority,
+                    isDraft: (values.isDraft.valueOrNull == true),
                     using: dependencies
                 ).upserted(db)
         }
@@ -275,6 +285,7 @@ public extension SessionThread {
         var finalCreationDateTimestamp: TimeInterval = result.creationDateTimestamp
         var finalShouldBeVisible: Bool = result.shouldBeVisible
         var finalPinnedPriority: Int32? = result.pinnedPriority
+        var finalIsDraft: Bool? = result.isDraft
         
         /// The `shouldBeVisible` flag is based on `pinnedPriority` so we need to check these two together if they
         /// should both be sourced from `libSession`
@@ -315,6 +326,11 @@ public extension SessionThread {
             finalShouldBeVisible = value
         }
         
+        if case .setTo(let value) = values.isDraft, value != result.isDraft {
+            requiredChanges.append(SessionThread.Columns.isDraft.set(to: value))
+            finalIsDraft = value
+        }
+        
         /// If no changes were needed we can just return the existing/default thread
         guard !requiredChanges.isEmpty else { return result }
         
@@ -341,6 +357,7 @@ public extension SessionThread {
                     creationDateTimestamp: finalCreationDateTimestamp,
                     shouldBeVisible: finalShouldBeVisible,
                     pinnedPriority: finalPinnedPriority,
+                    isDraft: finalIsDraft,
                     using: dependencies
                 ).upserted(db)
             )

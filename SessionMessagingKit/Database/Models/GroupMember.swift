@@ -36,6 +36,10 @@ public struct GroupMember: Codable, Equatable, Hashable, FetchableRecord, Persis
         case pending
         case failed
         case notSentYet
+        case sending
+        case pendingRemoval
+        
+        case unknown = 100
     }
 
     public let groupId: String
@@ -152,15 +156,25 @@ extension GroupMember: ProfileAssociated {
         }
         
         /// We want to sort the member list so the most important info is at the top of the list, this means that we want to prioritise
-        /// • Failed invitations
-        /// • Pending invitations
-        /// • Failed promotions
-        /// • Pending promotions
-        /// • Admins
-        /// • Members
+        /// • Invite failed, sorted as NameSortingOrder
+        /// • Invite not sent, sorted as NameSortingOrder
+        /// • Sending invite, sorted as NameSortingOrder
+        /// • Invite sent, sorted as NameSortingOrder
+        /// • Invite status unknown, sorted as NameSortingOrder
+        /// • Pending removal, sorted as NameSortingOrder
+        /// • Admin promotion failed, sorted as NameSortingOrder
+        /// • Admin promotion not sent, sorted as NameSortingOrder
+        /// • Sending admin promotion, sorted as NameSortingOrder
+        /// • Admin promotion sent, sorted as NameSortingOrder
+        /// • Admin promotion status unknown, sorted as NameSortingOrder
+        /// • Admin, sorted as NameSortingOrder
+        /// • Member, sorted as NameSortingOrder
         ///
         /// And the current user should appear at the top of their respective group
         let userSessionId: SessionId = lhs.currentUserSessionId
+        let desiredStatusOrder: [RoleStatus] = [
+            .failed, .notSentYet, .sending, .pending, .unknown, .pendingRemoval
+        ]
         
         /// If the role and status match then we want to sort by current user, no-name members by id, then by name
         guard lhs.value.role != rhs.value.role || lhs.value.roleStatus != rhs.value.roleStatus else {
@@ -176,24 +190,26 @@ extension GroupMember: ProfileAssociated {
         
         switch (lhs.value.role, lhs.value.roleStatus, rhs.value.role, rhs.value.roleStatus) {
             /// Non-accepted standard before admin
-            case (.standard, .failed, .admin, _), (.standard, .notSentYet, .admin, _), (.standard, .pending, .admin, _):
+            case (.standard, .failed, .admin, _), (.standard, .notSentYet, .admin, _),
+                (.standard, .sending, .admin, _), (.standard, .pending, .admin, _),
+                (.standard, .unknown, .admin, _), (.standard, .pendingRemoval, .admin, _):
                 return true
-            
+
             /// Non-accepted admin before accepted standard
-            case (.standard, _, .admin, .failed), (.standard, _, .admin, .notSentYet), (.standard, _, .admin, .pending):
+            case (.admin, .failed, .standard, .accepted), (.admin, .notSentYet, .standard, .accepted),
+                (.admin, .sending, .standard, .accepted), (.admin, .pending, .standard, .accepted),
+                (.admin, .unknown, .standard, .accepted), (.admin, .pendingRemoval, .standard, .accepted):
                 return true
-            
-            /// Failed before sending, sending before pending
-            case (_, .failed, _, .notSentYet), (_, .failed, _, .pending), (_, .notSentYet, _, .pending): return true
-                
-            /// Other statuses before accepted
-            case (_, .failed, _, .accepted), (_, .notSentYet, _, .accepted), (_, .pending, _, .accepted): return true
             
             /// Accepted admin before accepted standard
             case (.admin, .accepted, .standard, .accepted): return true
                 
-            /// All other cases are in the wrong order
-            default: return false
+            /// Otherwise we should order based on the status position in `desiredStatusOrder`
+            default:
+                let lhsIndex = desiredStatusOrder.firstIndex(of: lhs.value.roleStatus)
+                let rhsIndex = desiredStatusOrder.firstIndex(of: rhs.value.roleStatus)
+                
+                return ((lhsIndex ?? desiredStatusOrder.endIndex) < rhsIndex ?? desiredStatusOrder.endIndex)
         }
     }
 }

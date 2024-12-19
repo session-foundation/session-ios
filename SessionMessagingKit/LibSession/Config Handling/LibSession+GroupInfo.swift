@@ -226,9 +226,14 @@ internal extension LibSessionCacheType {
         if attachDeleteBeforeTimestamp > 0 {
             let interactionInfo: [InteractionInfo] = (try? Interaction
                 .filter(Interaction.Columns.threadId == groupSessionId.hexString)
-                .filter(Interaction.Columns.timestampMs < (TimeInterval(deleteBeforeTimestamp) * 1000))
+                .filter(Interaction.Columns.timestampMs < (TimeInterval(attachDeleteBeforeTimestamp) * 1000))
                 .filter(Interaction.Columns.serverHash != nil)
-                .joining(required: Interaction.interactionAttachments)
+                .joining(
+                    required: Interaction.interactionAttachments.joining(
+                        required: InteractionAttachment.attachment
+                            .filter(Attachment.Columns.variant != Attachment.Variant.voiceMessage)
+                    )
+                )
                 .select(.id, .serverHash)
                 .asRequest(of: InteractionInfo.self)
                 .fetchAll(db))
@@ -241,11 +246,14 @@ internal extension LibSessionCacheType {
                 .asRequest(of: String.self)
                 .fetchSet(db)
             
-            let deletionCount: Int = try Interaction
-                .filter(Interaction.Columns.threadId == groupSessionId.hexString)
-                .filter(Interaction.Columns.timestampMs < (TimeInterval(attachDeleteBeforeTimestamp) * 1000))
-                .joining(required: Interaction.interactionAttachments)
-                .deleteAll(db)
+            try Interaction.markAsDeleted(
+                db,
+                threadId: groupSessionId.hexString,
+                threadVariant: .group,
+                interactionIds: Set(interactionIdsToRemove),
+                localOnly: false,
+                using: dependencies
+            )
             
             if !interactionInfo.isEmpty {
                 Log.info(.libSession, "Deleted \(interactionInfo.count) message(s) with attachments from \(groupSessionId.hexString) due to 'attach_delete_before' value.")

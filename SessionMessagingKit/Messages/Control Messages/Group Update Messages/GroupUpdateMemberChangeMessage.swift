@@ -25,6 +25,8 @@ public final class GroupUpdateMemberChangeMessage: ControlMessage {
     public var historyShared: Bool
     public var adminSignature: Authentication.Signature
     
+    public override var isSelfSendValid: Bool { true }
+    
     override public var processWithBlockedSender: Bool { true }
     
     // MARK: - Initialization

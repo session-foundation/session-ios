@@ -69,15 +69,21 @@ internal extension LibSession {
         // If we have no updated threads then no need to continue
         guard !updatedThreads.isEmpty else { return updated }
         
+        // Exclude any "draft" conversations from updating `libSession` (we don't want them to be
+        // synced until they turn into "real" conversations)
+        let targetThreads: [SessionThread] = updatedThreads.filter {
+            $0.isDraft != true
+        }
+        
         let userSessionId: SessionId = dependencies[cache: .general].sessionId
-        let groupedThreads: [SessionThread.Variant: [SessionThread]] = updatedThreads
+        let groupedThreads: [SessionThread.Variant: [SessionThread]] = targetThreads
             .grouped(by: \.variant)
         let urlInfo: [String: OpenGroupUrlInfo] = try OpenGroupUrlInfo
-            .fetchAll(db, ids: updatedThreads.map { $0.id })
+            .fetchAll(db, ids: targetThreads.map { $0.id })
             .reduce(into: [:]) { result, next in result[next.threadId] = next }
         
         // Update the unread state for the threads first (just in case that's what changed)
-        try LibSession.updateMarkedAsUnreadState(db, threads: updatedThreads, using: dependencies)
+        try LibSession.updateMarkedAsUnreadState(db, threads: targetThreads, using: dependencies)
         
         // Then update the `hidden` and `priority` values
         try groupedThreads.forEach { variant, threads in

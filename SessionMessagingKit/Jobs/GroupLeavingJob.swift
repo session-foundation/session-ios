@@ -65,9 +65,20 @@ public enum GroupLeavingJob: JobExecutor {
                     .distinct()
                     .fetchCount(db))
                     .defaulting(to: 0)
+                let finalBehaviour: GroupLeavingJob.Details.Behaviour = {
+                    guard
+                        threadVariant == .group,
+                        LibSession.wasKickedFromGroup(
+                            groupSessionId: SessionId(.group, hex: threadId),
+                            using: dependencies
+                        )
+                    else { return details.behaviour }
+                    
+                    return .delete
+                }()
                 
-                switch (threadVariant, details.behaviour, (isAdminUser && numAdminUsers == 1)) {
-                    case (.legacyGroup, _, _):
+                switch (threadVariant, finalBehaviour, isAdminUser, (isAdminUser && numAdminUsers == 1)) {
+                    case (.legacyGroup, _, _, _):
                         // Legacy group only supports the 'leave' behaviour so don't bother checking
                         return .leave(
                             try MessageSender.preparedSend(
@@ -81,7 +92,7 @@ public enum GroupLeavingJob: JobExecutor {
                             )
                         )
                     
-                    case (.group, .leave, false):
+                    case (.group, .leave, _, false):
                         return .leave(
                             try SnodeAPI
                                 .preparedBatch(
@@ -112,7 +123,7 @@ public enum GroupLeavingJob: JobExecutor {
                                 .map { _, _ in () }
                         )
                         
-                    case (.group, .delete, _), (.group, .leave, true):
+                    case (.group, .delete, true, _), (.group, .leave, true, true):
                         try LibSession.deleteGroupForEveryone(
                             db,
                             groupSessionId: SessionId(.group, hex: threadId),
@@ -120,6 +131,8 @@ public enum GroupLeavingJob: JobExecutor {
                         )
                         
                         return .delete
+                    
+                    case (.group, .delete, false, _): return .delete
                         
                     default: throw MessageSenderError.invalidClosedGroupUpdate
                 }

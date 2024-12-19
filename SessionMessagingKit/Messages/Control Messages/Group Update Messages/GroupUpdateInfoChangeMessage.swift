@@ -25,6 +25,8 @@ public final class GroupUpdateInfoChangeMessage: ControlMessage {
     public var updatedExpiration: UInt32?
     public var adminSignature: Authentication.Signature
     
+    public override var isSelfSendValid: Bool { true }
+    
     override public var processWithBlockedSender: Bool { true }
     
     // MARK: - Initialization

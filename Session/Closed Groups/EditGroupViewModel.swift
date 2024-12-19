@@ -317,8 +317,13 @@ class EditGroupViewModel: SessionTableViewModel, NavigatableStateHolder, Editabl
                             )),
                             trailingAccessory: {
                                 switch (memberInfo.value.role, memberInfo.value.roleStatus) {
-                                    case (.admin, _), (.moderator, _): return nil
-                                    case (.standard, .failed), (.standard, .notSentYet), (.standard, .pending):
+                                    case (.admin, _), (.moderator, _), (_, .pendingRemoval): return nil
+                                    case (.standard, .accepted), (.zombie, _):
+                                        return .radio(
+                                            isSelected: selectedIdsSubject.value.ids.contains(memberInfo.profileId)
+                                        )
+                                    
+                                    case (.standard, _):
                                         return .highlightingBackgroundLabelAndRadio(
                                             title: "resend".localized(),
                                             isSelected: selectedIdsSubject.value.ids.contains(memberInfo.profileId),
@@ -330,11 +335,6 @@ class EditGroupViewModel: SessionTableViewModel, NavigatableStateHolder, Editabl
                                                 identifier: "Select contact",
                                                 label: "Select contact"
                                             )
-                                        )
-                                        
-                                    case (.standard, .accepted), (.zombie, _):
-                                        return .radio(
-                                            isSelected: selectedIdsSubject.value.ids.contains(memberInfo.profileId)
                                         )
                                 }
                             }(),
@@ -351,18 +351,17 @@ class EditGroupViewModel: SessionTableViewModel, NavigatableStateHolder, Editabl
                                 let didTapResend: Bool = (targetView is SessionHighlightingBackgroundLabel)
                                 
                                 switch (memberInfo.value.role, memberInfo.value.roleStatus, didTapResend) {
-                                    case (.moderator, _, _): return
-                                    case (.admin, _, _):
+                                    case (_, .pendingRemoval, _): return
+                                    case (.moderator, _, _), (.admin, _, _):
                                         self?.showToast(
                                             text: "adminCannotBeRemoved".localized(),
                                             backgroundColor: .backgroundSecondary
                                         )
                                         
-                                    case (.standard, .failed, true), (.standard, .notSentYet, true), (.standard, .pending, true):
+                                    case (.standard, _, true):
                                         self?.resendInvitation(memberId: memberInfo.profileId)
 
-                                    case (.standard, .failed, _), (.standard, .notSentYet, _), (.standard, .pending, _),
-                                        (.standard, .accepted, _), (.zombie, _, _):
+                                    case (.standard, _, false), (.zombie, _, _):
                                         if !selectedIdsSubject.value.ids.contains(memberInfo.profileId) {
                                             selectedIdsSubject.send((
                                                 state.group.name,

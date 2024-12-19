@@ -18,11 +18,15 @@ enum _022_GroupsRebuildChanges: Migration {
         Identity.self, OpenGroup.self
     ]
     static var createdOrAlteredTables: [(FetchableRecord & TableRecord).Type] = [
-        ClosedGroup.self, OpenGroup.self, GroupMember.self
+        SessionThread.self, ClosedGroup.self, OpenGroup.self, GroupMember.self
     ]
     static let droppedTables: [(TableRecord & FetchableRecord).Type] = []
     
     static func migrate(_ db: Database, using dependencies: Dependencies) throws {
+        try db.alter(table: SessionThread.self) { t in
+            t.add(.isDraft, .boolean).defaults(to: false)
+        }
+        
         try db.alter(table: ClosedGroup.self) { t in
             t.add(.groupDescription, .text)
             t.add(.displayPictureUrl, .text)

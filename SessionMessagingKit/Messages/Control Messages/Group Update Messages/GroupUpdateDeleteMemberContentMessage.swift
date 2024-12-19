@@ -17,6 +17,8 @@ public final class GroupUpdateDeleteMemberContentMessage: ControlMessage {
     public var messageHashes: [String]
     public var adminSignature: Authentication.Signature?
     
+    public override var isSelfSendValid: Bool { true }
+    
     override public var processWithBlockedSender: Bool { true }
     
     // MARK: - Initialization

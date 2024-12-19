@@ -376,6 +376,7 @@ public class HomeViewModel: NavigatableStateHolder {
                                         using: dependencies
                                     )
                                 ),
+                                threadCanWrite: false,  // Irrelevant for the HomeViewModel
                                 using: dependencies
                             )
                         }

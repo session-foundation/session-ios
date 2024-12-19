@@ -75,7 +75,7 @@ final class ConversationVC: BaseVC, LibSessionRespondingViewController, Conversa
     }
     
     override var inputAccessoryView: UIView? {
-        return (viewModel.threadData.canWrite(using: viewModel.dependencies) && isShowingSearchUI ?
+        return (viewModel.threadData.threadCanWrite == true && isShowingSearchUI ?
             searchController.resultsBar :
             snInputView
         )
@@ -150,7 +150,7 @@ final class ConversationVC: BaseVC, LibSessionRespondingViewController, Conversa
         result.contentInset = UIEdgeInsets(
             top: 0,
             leading: 0,
-            bottom: (viewModel.threadData.canWrite(using: viewModel.dependencies) ?
+            bottom: (viewModel.threadData.threadCanWrite == true ?
                 Values.mediumSpacing :
                 (Values.mediumSpacing + (UIApplication.shared.keyWindow?.safeAreaInsets.bottom ?? 0))
             ),
@@ -323,7 +323,7 @@ final class ConversationVC: BaseVC, LibSessionRespondingViewController, Conversa
     
     lazy var messageRequestFooterView: MessageRequestFooterView = MessageRequestFooterView(
         threadVariant: self.viewModel.threadData.threadVariant,
-        canWrite: self.viewModel.threadData.canWrite(using: self.viewModel.dependencies),
+        canWrite: (self.viewModel.threadData.threadCanWrite == true),
         threadIsMessageRequest: (self.viewModel.threadData.threadIsMessageRequest == true),
         threadRequiresApproval: (self.viewModel.threadData.threadRequiresApproval == true),
         closedGroupAdminProfile: self.viewModel.threadData.closedGroupAdminProfile,
@@ -537,9 +537,9 @@ final class ConversationVC: BaseVC, LibSessionRespondingViewController, Conversa
         hasReloadedThreadDataAfterDisappearance = false
         viewIsDisappearing = false
         
-        // If the user just created this thread but didn't send a message then we want to delete the
-        // "shadow" thread since it's not actually in use (this is to prevent it from taking up database
-        // space or unintentionally getting synced via libSession in the future)
+        /// If the user just created this thread but didn't send a message or the conversation is marked as hidden then we want to delete the
+        /// "shadow" thread since it's not actually in use (this is to prevent it from taking up database space or unintentionally getting synced
+        /// via `libSession` in the future)
         let threadId: String = viewModel.threadData.threadId
         
         if
@@ -548,13 +548,7 @@ final class ConversationVC: BaseVC, LibSessionRespondingViewController, Conversa
                 self.navigationController?.viewControllers.contains(self) == false
             ) &&
             viewModel.threadData.threadIsNoteToSelf == false &&
-            viewModel.threadData.threadShouldBeVisible == false &&
-            !LibSession.conversationInConfig(
-                threadId: threadId,
-                threadVariant: viewModel.threadData.threadVariant,
-                visibleOnly: false,
-                using: viewModel.dependencies
-            )
+            viewModel.threadData.threadIsDraft == true
         {
             viewModel.dependencies[singleton: .storage].writeAsync { db in
                 _ = try SessionThread   // Intentionally use `deleteAll` here instead of `deleteOrLeave`
@@ -733,13 +727,13 @@ final class ConversationVC: BaseVC, LibSessionRespondingViewController, Conversa
         
         if
             initialLoad ||
-            viewModel.threadData.canWrite(using: viewModel.dependencies) != updatedThreadData.canWrite(using: viewModel.dependencies) ||
+            viewModel.threadData.threadCanWrite != updatedThreadData.threadCanWrite ||
             viewModel.threadData.threadVariant != updatedThreadData.threadVariant ||
             viewModel.threadData.threadIsMessageRequest != updatedThreadData.threadIsMessageRequest ||
             viewModel.threadData.threadRequiresApproval != updatedThreadData.threadRequiresApproval ||
             viewModel.threadData.closedGroupAdminProfile != updatedThreadData.closedGroupAdminProfile
         {
-            if updatedThreadData.canWrite(using: viewModel.dependencies) {
+            if updatedThreadData.threadCanWrite == true {
                 self.showInputAccessoryView()
             } else {
                 self.hideInputAccessoryView()
@@ -750,7 +744,7 @@ final class ConversationVC: BaseVC, LibSessionRespondingViewController, Conversa
             UIView.animate(withDuration: 0.3) { [weak self, dependencies = viewModel.dependencies] in
                 self?.messageRequestFooterView.update(
                     threadVariant: updatedThreadData.threadVariant,
-                    canWrite: updatedThreadData.canWrite(using: dependencies),
+                    canWrite: (updatedThreadData.threadCanWrite == true),
                     threadIsMessageRequest: (updatedThreadData.threadIsMessageRequest == true),
                     threadRequiresApproval: (updatedThreadData.threadRequiresApproval == true),
                     closedGroupAdminProfile: updatedThreadData.closedGroupAdminProfile
@@ -810,12 +804,11 @@ final class ConversationVC: BaseVC, LibSessionRespondingViewController, Conversa
         }
         
         // Now we have done all the needed diffs update the viewModel with the latest data
-        let oldCanWrite: Bool = viewModel.threadData.canWrite(using: viewModel.dependencies)
         self.viewModel.updateThreadData(updatedThreadData)
         
         /// **Note:** This needs to happen **after** we have update the viewModel's thread data (otherwise the `inputAccessoryView`
         /// won't be generated correctly)
-        if initialLoad || oldCanWrite != updatedThreadData.canWrite(using: viewModel.dependencies) {
+        if initialLoad || viewModel.threadData.threadCanWrite != updatedThreadData.threadCanWrite {
             if !self.isFirstResponder {
                 self.becomeFirstResponder()
             }

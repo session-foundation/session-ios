@@ -267,12 +267,13 @@ internal extension LibSession {
             case (.admin, .accepted): groups_members_set_promotion_accepted(conf, &cMemberId)
             case (.admin, .failed): groups_members_set_promotion_failed(conf, &cMemberId)
             case (.admin, .pending): groups_members_set_promotion_sent(conf, &cMemberId)
-            case (.admin, .notSentYet): groups_members_set_promoted(conf, &cMemberId)
+            case (.admin, .notSentYet), (.admin, .sending): groups_members_set_promoted(conf, &cMemberId)
             
             case (_, .accepted): groups_members_set_invite_accepted(conf, &cMemberId)
             case (_, .failed): groups_members_set_invite_failed(conf, &cMemberId)
             case (_, .pending): groups_members_set_invite_sent(conf, &cMemberId)
-            case (_, .notSentYet): break    // Default state (can't return to this after creation)
+            case (_, .notSentYet), (_, .sending): break     // Default state (can't return to this after creation)
+            case (_, .pendingRemoval), (_, .unknown): break // Unknown or permanent states
         }
         
         try LibSessionError.throwIfNeeded(conf)
@@ -420,7 +421,7 @@ internal extension LibSession {
         
         while !groups_members_iterator_done(membersIterator, &member) {
             try LibSession.checkLoopLimitReached(&infiniteLoopGuard, for: .groupMembers)
-            let status: GROUP_MEMBER_STATUS = group_member_status(&member);
+            let status: GROUP_MEMBER_STATUS = groups_members_get_status(conf, &member)
             
             // Ignore members pending removal
             guard !status.isRemoveStatus else { continue }
@@ -453,7 +454,7 @@ internal extension LibSession {
         
         while !groups_members_iterator_done(membersIterator, &member) {
             try LibSession.checkLoopLimitReached(&infiniteLoopGuard, for: .groupMembers)
-            let status: GROUP_MEMBER_STATUS = group_member_status(&member);
+            let status: GROUP_MEMBER_STATUS = groups_members_get_status(conf, &member)
             
             guard status.isRemoveStatus else {
                 groups_members_iterator_advance(membersIterator)
@@ -507,17 +508,6 @@ internal extension LibSession {
     }
 }
 
-fileprivate extension GroupMember.RoleStatus {
-    var libSessionValue: Int32 {
-        switch self {
-            case .accepted: return 0
-            case .pending: return Int32(INVITE_SENT.rawValue)
-            case .failed: return Int32(INVITE_FAILED.rawValue)
-            case .notSentYet: return Int32(INVITE_NOT_SENT.rawValue)
-        }
-    }
-}
-
 fileprivate extension GROUP_MEMBER_STATUS {
     func isAdmin(_ memberAdminFlag: Bool) -> Bool {
         switch self {
@@ -534,6 +524,9 @@ fileprivate extension GROUP_MEMBER_STATUS {
         switch self {
             case GROUP_MEMBER_STATUS_INVITE_NOT_SENT, GROUP_MEMBER_STATUS_PROMOTION_NOT_SENT:
                 return .notSentYet
+                
+            case GROUP_MEMBER_STATUS_INVITE_SENDING, GROUP_MEMBER_STATUS_PROMOTION_SENDING:
+                return .sending
             
             case GROUP_MEMBER_STATUS_INVITE_ACCEPTED, GROUP_MEMBER_STATUS_PROMOTION_ACCEPTED:
                 return .accepted
@@ -543,6 +536,13 @@ fileprivate extension GROUP_MEMBER_STATUS {
             
             case GROUP_MEMBER_STATUS_INVITE_SENT, GROUP_MEMBER_STATUS_PROMOTION_SENT:
                 return .pending
+                
+            case GROUP_MEMBER_STATUS_REMOVED, GROUP_MEMBER_STATUS_REMOVED_MEMBER_AND_MESSAGES,
+                GROUP_MEMBER_STATUS_REMOVED_UNKNOWN:
+                return .pendingRemoval
+                
+            case GROUP_MEMBER_STATUS_INVITE_UNKNOWN, GROUP_MEMBER_STATUS_PROMOTION_UNKNOWN:
+                return .unknown
             
             // Default to "accepted" as that's what the `libSession.groups.member.status()` function does
             default: return .accepted

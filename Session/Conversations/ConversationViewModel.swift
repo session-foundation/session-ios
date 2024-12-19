@@ -239,6 +239,7 @@ public class ConversationViewModel: OWSAudioPlayerDelegate, NavigatableStateHold
                     threadVariant == .group &&
                     LibSession.groupIsDestroyed(groupSessionId: SessionId(.group, hex: threadId), using: dependencies)
                 ),
+                threadCanWrite: true,   // Assume true
                 using: dependencies
             )
         )
@@ -326,6 +327,7 @@ public class ConversationViewModel: OWSAudioPlayerDelegate, NavigatableStateHold
                             currentUserBlinded25SessionIdForThisThread: self?.threadData.currentUserBlinded25SessionId,
                             wasKickedFromGroup: wasKickedFromGroup,
                             groupIsDestroyed: groupIsDestroyed,
+                            threadCanWrite: viewModel.determineInitialCanWriteFlag(using: dependencies),
                             using: dependencies
                         )
                     }
@@ -376,7 +378,7 @@ public class ConversationViewModel: OWSAudioPlayerDelegate, NavigatableStateHold
             LibSession.groupIsDestroyed(groupSessionId: SessionId(.group, hex: threadData.threadId), using: dependencies)
         )
         
-        switch (threadData.threadIsNoteToSelf, threadData.canWrite(using: dependencies), blocksCommunityMessageRequests, wasKickedFromGroup, groupIsDestroyed) {
+        switch (threadData.threadIsNoteToSelf, threadData.threadCanWrite == true, blocksCommunityMessageRequests, wasKickedFromGroup, groupIsDestroyed) {
             case (true, _, _, _, _): return "noteToSelfEmpty".localized()
             case (_, false, true, _, _):
                 return "messageRequestsTurnedOff"
@@ -519,6 +521,26 @@ public class ConversationViewModel: OWSAudioPlayerDelegate, NavigatableStateHold
                     dataQuery: MessageViewModel.TypingIndicatorInfo.baseQuery,
                     joinToPagedType: MessageViewModel.TypingIndicatorInfo.joinToViewModelQuerySQL,
                     associateData: MessageViewModel.TypingIndicatorInfo.createAssociateDataClosure()
+                ),
+                AssociatedRecord<MessageViewModel.QuoteAttachmentInfo, MessageViewModel>(
+                    trackedAgainst: Attachment.self,
+                    observedChanges: [
+                        PagedData.ObservedChanges(
+                            table: Attachment.self,
+                            columns: [.state]
+                        )
+                    ],
+                    dataQuery: MessageViewModel.QuoteAttachmentInfo.baseQuery(
+                        userSessionId: userSessionId,
+                        blinded15SessionId: blinded15SessionId,
+                        blinded25SessionId: blinded25SessionId
+                    ),
+                    joinToPagedType: MessageViewModel.QuoteAttachmentInfo.joinToViewModelQuerySQL(
+                        userSessionId: userSessionId,
+                        blinded15SessionId: blinded15SessionId,
+                        blinded25SessionId: blinded25SessionId
+                    ),
+                    associateData: MessageViewModel.QuoteAttachmentInfo.createAssociateDataClosure()
                 )
             ],
             onChangeUnsorted: { [weak self] updatedData, updatedPageInfo in

@@ -12,6 +12,7 @@ fileprivate typealias ViewModel = MessageViewModel
 fileprivate typealias AttachmentInteractionInfo = MessageViewModel.AttachmentInteractionInfo
 fileprivate typealias ReactionInfo = MessageViewModel.ReactionInfo
 fileprivate typealias TypingIndicatorInfo = MessageViewModel.TypingIndicatorInfo
+fileprivate typealias QuoteAttachmentInfo = MessageViewModel.QuoteAttachmentInfo
 
 public struct MessageViewModel: FetchableRecordWithRowId, Decodable, Equatable, Hashable, Identifiable, Differentiable, ColumnExpressible {
     public typealias Columns = CodingKeys
@@ -207,8 +208,9 @@ public struct MessageViewModel: FetchableRecordWithRowId, Decodable, Equatable, 
     // MARK: - Mutation
     
     public func with(
-        state: Interaction.State? = nil,     // Optimistic outgoing messages
+        state: Interaction.State? = nil,        // Optimistic outgoing messages
         mostRecentFailureText: String? = nil,   // Optimistic outgoing messages
+        quoteAttachment: [Attachment]? = nil,   // Pass an empty array to clear
         attachments: [Attachment]? = nil,
         reactionInfo: [ReactionInfo]? = nil
     ) -> MessageViewModel {
@@ -241,12 +243,75 @@ public struct MessageViewModel: FetchableRecordWithRowId, Decodable, Equatable, 
             isTypingIndicator: self.isTypingIndicator,
             profile: self.profile,
             quote: self.quote,
-            quoteAttachment: self.quoteAttachment,
+            quoteAttachment: (quoteAttachment ?? self.quoteAttachment.map { [$0] })?.first, // Only contains one
             linkPreview: self.linkPreview,
             linkPreviewAttachment: self.linkPreviewAttachment,
             currentUserSessionId: self.currentUserSessionId,
             attachments: (attachments ?? self.attachments),
             reactionInfo: (reactionInfo ?? self.reactionInfo),
+            cellType: self.cellType,
+            authorName: self.authorName,
+            senderName: self.senderName,
+            canHaveProfile: self.canHaveProfile,
+            shouldShowProfile: self.shouldShowProfile,
+            shouldShowDateHeader: self.shouldShowDateHeader,
+            containsOnlyEmoji: self.containsOnlyEmoji,
+            glyphCount: self.glyphCount,
+            previousVariant: self.previousVariant,
+            positionInCluster: self.positionInCluster,
+            isOnlyMessageInCluster: self.isOnlyMessageInCluster,
+            isLast: self.isLast,
+            isLastOutgoing: self.isLastOutgoing,
+            currentUserBlinded15SessionId: self.currentUserBlinded15SessionId,
+            currentUserBlinded25SessionId: self.currentUserBlinded25SessionId,
+            optimisticMessageId: self.optimisticMessageId
+        )
+    }
+    
+    public func removingQuoteAttachmentsIfNeeded(
+        validAttachments: [Attachment]
+    ) -> MessageViewModel {
+        guard
+            let quote: Quote = self.quote,
+            let quoteAttachment: Attachment = self.quoteAttachment,
+            !validAttachments.contains(quoteAttachment)
+        else { return self }
+        
+        return ViewModel(
+            threadId: self.threadId,
+            threadVariant: self.threadVariant,
+            threadIsTrusted: self.threadIsTrusted,
+            threadExpirationType: self.threadExpirationType,
+            threadExpirationTimer: self.threadExpirationTimer,
+            threadOpenGroupServer: self.threadOpenGroupServer,
+            threadOpenGroupPublicKey: self.threadOpenGroupPublicKey,
+            threadContactNameInternal: self.threadContactNameInternal,
+            rowId: self.rowId,
+            id: self.id,
+            serverHash: self.serverHash,
+            openGroupServerMessageId: self.openGroupServerMessageId,
+            variant: self.variant,
+            timestampMs: self.timestampMs,
+            receivedAtTimestampMs: self.receivedAtTimestampMs,
+            authorId: self.authorId,
+            authorNameInternal: self.authorNameInternal,
+            body: self.body,
+            rawBody: self.body,
+            expiresStartedAtMs: self.expiresStartedAtMs,
+            expiresInSeconds: self.expiresInSeconds,
+            state: self.state,
+            hasBeenReadByRecipient: self.hasBeenReadByRecipient,
+            mostRecentFailureText: self.mostRecentFailureText,
+            isSenderOpenGroupModerator: self.isSenderOpenGroupModerator,
+            isTypingIndicator: self.isTypingIndicator,
+            profile: self.profile,
+            quote: self.quote,
+            quoteAttachment: nil,
+            linkPreview: self.linkPreview,
+            linkPreviewAttachment: self.linkPreviewAttachment,
+            currentUserSessionId: self.currentUserSessionId,
+            attachments: self.attachments,
+            reactionInfo: self.reactionInfo,
             cellType: self.cellType,
             authorName: self.authorName,
             senderName: self.senderName,
@@ -607,6 +672,27 @@ public extension MessageViewModel {
         // MARK: - Identifiable
         
         public var id: String { threadId }
+    }
+}
+
+// MARK: - QuoteAttachmentInfo
+
+public extension MessageViewModel {
+    struct QuoteAttachmentInfo: FetchableRecordWithRowId, Decodable, Identifiable, Equatable, ColumnExpressible {
+        public typealias Columns = CodingKeys
+        public enum CodingKeys: String, CodingKey, ColumnExpression, CaseIterable {
+            case rowId
+            case attachment
+            case quote
+        }
+        
+        public let rowId: Int64
+        public let attachment: Attachment
+        public let quote: Quote
+        
+        // MARK: - Identifiable
+        
+        public var id: String { "\(quote.interactionId)-\(attachment.id)" }
     }
 }
 
@@ -1214,6 +1300,157 @@ public extension MessageViewModel.TypingIndicatorInfo {
             
             return pagedDataCache
                 .upserting(MessageViewModel(isTypingIndicator: true))
+        }
+    }
+}
+
+// MARK: --QuoteAttachmentInfo
+
+public extension MessageViewModel.QuoteAttachmentInfo {
+    static func baseQuery(
+        userSessionId: SessionId,
+        blinded15SessionId: SessionId?,
+        blinded25SessionId: SessionId?
+    ) -> ((SQL?) -> AdaptedFetchRequest<SQLRequest<MessageViewModel.QuoteAttachmentInfo>>) {
+        return { additionalFilters -> AdaptedFetchRequest<SQLRequest<QuoteAttachmentInfo>> in
+            let quote: TypedTableAlias<Quote> = TypedTableAlias()
+            let quoteInteraction: TypedTableAlias<Interaction> = TypedTableAlias(name: "quoteInteraction")
+//            let interaction: TypedTableAlias<Interaction> = TypedTableAlias()
+//            let quoteAttachment: TypedTableAlias<Attachment> = TypedTableAlias(name: ViewModel.CodingKeys.quoteAttachment.stringValue)
+            let attachment: TypedTableAlias<Attachment> = TypedTableAlias()
+            let interactionAttachment: TypedTableAlias<InteractionAttachment> = TypedTableAlias()
+            
+            let finalFilterSQL: SQL = {
+                guard let additionalFilters: SQL = additionalFilters else {
+                    return SQL(stringLiteral: "")
+                }
+                
+                return """
+                    WHERE \(additionalFilters)
+                """
+            }()
+            let numColumnsBeforeLinkedRecords: Int = 1
+            let request: SQLRequest<QuoteAttachmentInfo> = """
+                SELECT
+                    \(attachment[.rowId]) AS \(QuoteAttachmentInfo.Columns.rowId),
+                    \(attachment.allColumns),
+                    \(quote.allColumns)
+                FROM \(Attachment.self)
+                LEFT JOIN \(InteractionAttachment.self) ON (
+                    \(interactionAttachment[.attachmentId]) = \(attachment[.id]) AND
+                    \(interactionAttachment[.albumIndex]) = 0
+                )
+                LEFT JOIN \(quoteInteraction) ON \(quoteInteraction[.id]) = \(interactionAttachment[.interactionId])
+                JOIN \(Quote.self) ON (
+                    \(quote[.attachmentId]) = \(attachment[.id]) OR (
+                        \(quoteInteraction[.timestampMs]) = \(quote[.timestampMs]) AND (
+                            \(quoteInteraction[.authorId]) = \(quote[.authorId]) OR (
+                                -- A users outgoing message is stored in some cases using their standard id
+                                -- but the quote will use their blinded id so handle that case
+                                \(quoteInteraction[.authorId]) = \(userSessionId.hexString) AND
+                                (
+                                    \(quote[.authorId]) = \(blinded15SessionId?.hexString ?? "''") OR
+                                    \(quote[.authorId]) = \(blinded25SessionId?.hexString ?? "''")
+                                )
+                            )
+                        )
+                    )
+                )
+                \(finalFilterSQL)
+            """
+            
+            return request.adapted { db in
+                let adapters = try splittingRowAdapters(columnCounts: [
+                    numColumnsBeforeLinkedRecords,
+                    Attachment.numberOfSelectedColumns(db),
+                    Quote.numberOfSelectedColumns(db)
+                ])
+                
+                return ScopeAdapter.with(QuoteAttachmentInfo.self, [
+                    .attachment: adapters[1],
+                    .quote: adapters[2]
+                ])
+            }
+        }
+    }
+    
+    static func joinToViewModelQuerySQL(
+        userSessionId: SessionId,
+        blinded15SessionId: SessionId?,
+        blinded25SessionId: SessionId?
+    ) -> SQL {
+        let quote: TypedTableAlias<Quote> = TypedTableAlias()
+        let interaction: TypedTableAlias<Interaction> = TypedTableAlias()
+        let quoteInteraction: TypedTableAlias<Interaction> = TypedTableAlias(name: "quoteInteraction")
+        let quoteInteractionAttachment: TypedTableAlias<InteractionAttachment> = TypedTableAlias(
+            name: "quoteInteractionAttachment"
+        )
+        let attachment: TypedTableAlias<Attachment> = TypedTableAlias()
+        
+        return """
+            JOIN \(Quote.self) ON \(quote[.interactionId]) = \(interaction[.id])
+            JOIN \(quoteInteraction) ON (
+                \(quoteInteraction[.timestampMs]) = \(quote[.timestampMs]) AND (
+                    \(quoteInteraction[.authorId]) = \(quote[.authorId]) OR (
+                        -- A users outgoing message is stored in some cases using their standard id
+                        -- but the quote will use their blinded id so handle that case
+                        \(quoteInteraction[.authorId]) = \(userSessionId.hexString) AND
+                        (
+                            \(quote[.authorId]) = \(blinded15SessionId?.hexString ?? "''") OR
+                            \(quote[.authorId]) = \(blinded25SessionId?.hexString ?? "''")
+                        )
+                    )
+                )
+            )
+            JOIN \(quoteInteractionAttachment) ON (
+                \(quoteInteractionAttachment[.interactionId]) = \(quoteInteraction[.id]) AND
+                \(quoteInteractionAttachment[.albumIndex]) = 0
+            )
+            JOIN \(Attachment.self) ON (
+                \(attachment[.id]) = \(quoteInteractionAttachment[.attachmentId]) OR
+                \(attachment[.id]) = \(quote[.attachmentId])
+            )
+        """
+    }
+    
+    static func createAssociateDataClosure() -> (DataCache<MessageViewModel.QuoteAttachmentInfo>, DataCache<MessageViewModel>) -> DataCache<MessageViewModel> {
+        return { dataCache, pagedDataCache -> DataCache<MessageViewModel> in
+            var updatedPagedDataCache: DataCache<MessageViewModel> = pagedDataCache
+            
+            // Update changed records
+            dataCache
+                .values
+                .grouped(by: \.quote.interactionId)
+                .forEach { (interactionId: Int64, attachments: [MessageViewModel.QuoteAttachmentInfo]) in
+                    guard
+                        let interactionRowId: Int64 = updatedPagedDataCache.lookup[interactionId],
+                        let dataToUpdate: ViewModel = updatedPagedDataCache.data[interactionRowId]
+                    else { return }
+                    
+                    updatedPagedDataCache = updatedPagedDataCache.upserting(
+                        dataToUpdate.with(
+                            quoteAttachment: attachments.map { $0.attachment }
+                        )
+                    )
+                }
+            
+            // Remove records that no longer exist
+            pagedDataCache
+                .values
+                .filter { $0.quoteAttachment != nil }
+                .forEach { model in
+                    guard !dataCache.data.contains(where: { _, value in value.quote.interactionId == model.id }) else {
+                        return
+                    }
+                    
+                    updatedPagedDataCache = updatedPagedDataCache.upserting(
+                        model.with(
+                            quoteAttachment: []
+                        )
+                    )
+                }
+            
+            return updatedPagedDataCache
         }
     }
 }

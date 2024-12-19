@@ -601,6 +601,7 @@ extension ConversationVC:
                                 db,
                                 SessionThread.Columns.shouldBeVisible.set(to: true),
                                 SessionThread.Columns.pinnedPriority.set(to: LibSession.visiblePriority),
+                                SessionThread.Columns.isDraft.set(to: false),
                                 calledFromConfig: nil,
                                 using: dependencies
                             )
@@ -1335,7 +1336,7 @@ extension ConversationVC:
         openGroupServer: String?,
         openGroupPublicKey: String?
     ) {
-        guard viewModel.threadData.canWrite(using: viewModel.dependencies) else { return }
+        guard viewModel.threadData.threadCanWrite == true else { return }
         // FIXME: Add in support for starting a thread with a 'blinded25' id (disabled until we support this decoding)
         guard (try? SessionId.Prefix(from: sessionId)) != .blinded25 else { return }
         guard (try? SessionId.Prefix(from: sessionId)) == .blinded15 else {

@@ -35,12 +35,14 @@ public struct SessionThreadViewModel: FetchableRecordWithRowId, Decodable, Equat
         case threadMutedUntilTimestamp
         case threadOnlyNotifyForMentions
         case threadMessageDraft
+        case threadIsDraft
         
         case threadContactIsTyping
         case threadWasMarkedUnread
         case threadUnreadCount
         case threadUnreadMentionCount
         case threadHasUnreadMessagesOfAnyKind
+        case threadCanWrite
         
         // Thread display info
         
@@ -135,42 +137,14 @@ public struct SessionThreadViewModel: FetchableRecordWithRowId, Decodable, Equat
     public let threadMutedUntilTimestamp: TimeInterval?
     public let threadOnlyNotifyForMentions: Bool?
     public let threadMessageDraft: String?
+    public let threadIsDraft: Bool?
     
     public let threadContactIsTyping: Bool?
     public let threadWasMarkedUnread: Bool?
     public let threadUnreadCount: UInt?
     public let threadUnreadMentionCount: UInt?
     public let threadHasUnreadMessagesOfAnyKind: Bool?
-    
-    public func canWrite(using dependencies: Dependencies) -> Bool {
-        switch threadVariant {
-            case .contact:
-                guard threadIsMessageRequest == true else { return true }
-                
-                return (profile?.blocksCommunityMessageRequests != true)
-                
-            case .legacyGroup:
-                guard threadIsMessageRequest == false else { return true }
-                
-                return (
-                    currentUserIsClosedGroupMember == true &&
-                    interactionVariant?.isGroupLeavingStatus != true
-                )
-                
-            case .group:
-                guard groupIsDestroyed != true else { return false }
-                guard wasKickedFromGroup != true else { return false }
-                guard threadIsMessageRequest == false else { return true }
-                
-                return (
-                    currentUserIsClosedGroupMember == true &&
-                    interactionVariant?.isGroupLeavingStatus != true
-                )
-                
-            case .community:
-                return (openGroupPermissions?.contains(.write) ?? false)
-        }
-    }
+    public let threadCanWrite: Bool?
     
     // Thread display info
     
@@ -420,6 +394,45 @@ public struct SessionThreadViewModel: FetchableRecordWithRowId, Decodable, Equat
                 )
         }
     }
+    
+    // MARK: - Functions
+    
+    /// This function should only be called when initially creating/populating the `SessionThreadViewModel`, instead use
+    /// `threadCanWrite == true` to determine whether the user should be able to write to a thread, this function uses
+    /// external data to determine if the user can write so the result might differ from the original value when the
+    /// `SessionThreadViewModel` was created
+    public func determineInitialCanWriteFlag(using dependencies: Dependencies) -> Bool {
+        switch threadVariant {
+            case .contact:
+                guard threadIsMessageRequest == true else { return true }
+                
+                return (profile?.blocksCommunityMessageRequests != true)
+                
+            case .legacyGroup:
+                guard threadIsMessageRequest == false else { return true }
+                
+                return (
+                    currentUserIsClosedGroupMember == true &&
+                    interactionVariant?.isGroupLeavingStatus != true
+                )
+                
+            case .group:
+                guard groupIsDestroyed != true else { return false }
+                guard wasKickedFromGroup != true else { return false }
+                guard threadIsMessageRequest == false else { return true }
+                guard
+                    !LibSession.wasKickedFromGroup(
+                        groupSessionId: SessionId(.group, hex: threadId),
+                        using: dependencies
+                    )
+                else { return false }
+                
+                return interactionVariant?.isGroupLeavingStatus != true
+                
+            case .community:
+                return (openGroupPermissions?.contains(.write) ?? false)
+        }
+    }
 }
 
 // MARK: - Convenience Initialization
@@ -442,6 +455,7 @@ public extension SessionThreadViewModel {
         openGroupPermissions: OpenGroup.Permissions? = nil,
         unreadCount: UInt = 0,
         hasUnreadMessagesOfAnyKind: Bool = false,
+        threadCanWrite: Bool = true,
         disappearingMessagesConfiguration: DisappearingMessagesConfiguration? = nil,
         using dependencies: Dependencies
     ) {
@@ -461,12 +475,14 @@ public extension SessionThreadViewModel {
         self.threadMutedUntilTimestamp = nil
         self.threadOnlyNotifyForMentions = nil
         self.threadMessageDraft = nil
+        self.threadIsDraft = nil
         
         self.threadContactIsTyping = nil
         self.threadWasMarkedUnread = nil
         self.threadUnreadCount = unreadCount
         self.threadUnreadMentionCount = nil
         self.threadHasUnreadMessagesOfAnyKind = hasUnreadMessagesOfAnyKind
+        self.threadCanWrite = threadCanWrite
         
         // Thread display info
         
@@ -538,11 +554,13 @@ public extension SessionThreadViewModel {
             threadMutedUntilTimestamp: self.threadMutedUntilTimestamp,
             threadOnlyNotifyForMentions: self.threadOnlyNotifyForMentions,
             threadMessageDraft: self.threadMessageDraft,
+            threadIsDraft: self.threadIsDraft,
             threadContactIsTyping: self.threadContactIsTyping,
             threadWasMarkedUnread: self.threadWasMarkedUnread,
             threadUnreadCount: self.threadUnreadCount,
             threadUnreadMentionCount: self.threadUnreadMentionCount,
             threadHasUnreadMessagesOfAnyKind: self.threadHasUnreadMessagesOfAnyKind,
+            threadCanWrite: self.threadCanWrite,
             disappearingMessagesConfiguration: self.disappearingMessagesConfiguration,
             contactLastKnownClientVersion: self.contactLastKnownClientVersion,
             displayPictureFilename: self.displayPictureFilename,
@@ -590,6 +608,7 @@ public extension SessionThreadViewModel {
         currentUserBlinded25SessionIdForThisThread: String?,
         wasKickedFromGroup: Bool,
         groupIsDestroyed: Bool,
+        threadCanWrite: Bool,
         using dependencies: Dependencies
     ) -> SessionThreadViewModel {
         return SessionThreadViewModel(
@@ -608,11 +627,13 @@ public extension SessionThreadViewModel {
             threadMutedUntilTimestamp: self.threadMutedUntilTimestamp,
             threadOnlyNotifyForMentions: self.threadOnlyNotifyForMentions,
             threadMessageDraft: self.threadMessageDraft,
+            threadIsDraft: self.threadIsDraft,
             threadContactIsTyping: self.threadContactIsTyping,
             threadWasMarkedUnread: self.threadWasMarkedUnread,
             threadUnreadCount: self.threadUnreadCount,
             threadUnreadMentionCount: self.threadUnreadMentionCount,
             threadHasUnreadMessagesOfAnyKind: self.threadHasUnreadMessagesOfAnyKind,
+            threadCanWrite: threadCanWrite,
             disappearingMessagesConfiguration: self.disappearingMessagesConfiguration,
             contactLastKnownClientVersion: self.contactLastKnownClientVersion,
             displayPictureFilename: self.displayPictureFilename,
@@ -1052,7 +1073,7 @@ public extension SessionThreadViewModel {
         /// the `disappearingMessageSConfiguration` entry below otherwise the query will fail to parse and might throw
         ///
         /// Explicitly set default values for the fields ignored for search results
-        let numColumnsBeforeProfiles: Int = 17
+        let numColumnsBeforeProfiles: Int = 18
         let request: SQLRequest<ViewModel> = """
             SELECT
                 \(thread[.rowId]) AS \(ViewModel.Columns.rowId),
@@ -1091,6 +1112,7 @@ public extension SessionThreadViewModel {
                 \(thread[.mutedUntilTimestamp]) AS \(ViewModel.Columns.threadMutedUntilTimestamp),
                 \(thread[.onlyNotifyForMentions]) AS \(ViewModel.Columns.threadOnlyNotifyForMentions),
                 \(thread[.messageDraft]) AS \(ViewModel.Columns.threadMessageDraft),
+                \(thread[.isDraft]) AS \(ViewModel.Columns.threadIsDraft),
                 
                 \(thread[.markedAsUnread]) AS \(ViewModel.Columns.threadWasMarkedUnread),
                 \(aggregateInteraction[.threadUnreadCount]),

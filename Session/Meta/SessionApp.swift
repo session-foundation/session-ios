@@ -189,7 +189,10 @@ public class SessionApp: SessionAppType {
                 db,
                 id: threadId,
                 variant: variant,
-                values: .existingOrDefault,
+                values: SessionThread.TargetValues(
+                    shouldBeVisible: .useLibSession,
+                    isDraft: (threadExists ? .useExisting : .setTo(true))
+                ),
                 calledFromConfig: nil,
                 using: dependencies
             )

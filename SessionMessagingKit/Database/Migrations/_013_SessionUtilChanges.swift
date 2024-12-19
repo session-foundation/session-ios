@@ -244,13 +244,33 @@ enum _013_SessionUtilChanges: Migration {
         /// counts so don't do this when running tests (this logic is the same as in `MainAppContext.isRunningTests`
         if ProcessInfo.processInfo.environment["XCTestConfigurationFilePath"] == nil {
             if (try SessionThread.exists(db, id: userSessionId.hexString)) == false {
-                try SessionThread.upsert(
-                    db,
-                    id: userSessionId.hexString,
-                    variant: .contact,
-                    values: SessionThread.TargetValues(shouldBeVisible: .setTo(false)),
-                    calledFromConfig: nil,
-                    using: dependencies
+                try db.execute(
+                    sql: """
+                        INSERT INTO \(SessionThread.databaseTableName) (
+                            \(SessionThread.Columns.id.name),
+                            \(SessionThread.Columns.variant.name),
+                            \(SessionThread.Columns.creationDateTimestamp.name),
+                            \(SessionThread.Columns.shouldBeVisible.name),
+                            "isPinned",
+                            \(SessionThread.Columns.messageDraft.name),
+                            \(SessionThread.Columns.notificationSound.name),
+                            \(SessionThread.Columns.mutedUntilTimestamp.name),
+                            \(SessionThread.Columns.onlyNotifyForMentions.name),
+                            \(SessionThread.Columns.markedAsUnread.name),
+                            \(SessionThread.Columns.pinnedPriority.name)
+                        )
+                        VALUES (?, ?, ?, ?, ?, NULL, NULL, NULL, ?, ?, ?)
+                    """,
+                    arguments: [
+                        userSessionId.hexString,
+                        SessionThread.Variant.contact,
+                        (dependencies[cache: .snodeAPI].currentOffsetTimestampMs() / 1000),
+                        LibSession.shouldBeVisible(priority: LibSession.hiddenPriority),
+                        false,
+                        false,
+                        false,
+                        LibSession.hiddenPriority
+                    ]
                 )
             }
         }

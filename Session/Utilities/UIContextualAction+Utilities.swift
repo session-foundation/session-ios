@@ -359,15 +359,18 @@ public extension UIContextualAction {
                             tableView: tableView
                         ) { [weak viewController] _, _, completionHandler in
                             let threadIsBlocked: Bool = (threadViewModel.threadIsBlocked == true)
-                            let threadIsMessageRequest: Bool = (threadViewModel.threadIsMessageRequest == true)
+                            let threadIsContactMessageRequest: Bool = (
+                                threadViewModel.threadVariant == .contact &&
+                                threadViewModel.threadIsMessageRequest == true
+                            )
                             let contactChanges: [ConfigColumnAssignment] = [
                                 Contact.Columns.isBlocked.set(to: !threadIsBlocked),
                                 
                                 /// **Note:** We set `didApproveMe` to `true` so the current user will be able to send a
                                 /// message to the person who originally sent them the message request in the future if they
                                 /// unblock them
-                                (!threadIsMessageRequest ? nil : Contact.Columns.didApproveMe.set(to: true)),
-                                (!threadIsMessageRequest ? nil : Contact.Columns.isApproved.set(to: false))
+                                (!threadIsContactMessageRequest ? nil : Contact.Columns.didApproveMe.set(to: true)),
+                                (!threadIsContactMessageRequest ? nil : Contact.Columns.isApproved.set(to: false))
                             ].compactMap { $0 }
                             
                             let performBlock: (UIViewController?) -> () = { viewController in
@@ -413,7 +416,7 @@ public extension UIContextualAction {
                                             }
                                             
                                             // Blocked message requests should be deleted
-                                            if threadIsMessageRequest {
+                                            if threadViewModel.threadIsMessageRequest == true {
                                                 try SessionThread.deleteOrLeave(
                                                     db,
                                                     type: .deleteContactConversationAndMarkHidden,
@@ -429,7 +432,7 @@ public extension UIContextualAction {
                                 }
                             }
                                 
-                            switch threadIsMessageRequest {
+                            switch threadViewModel.threadIsMessageRequest == true {
                                 case false: performBlock(nil)
                                 case true:
                                     let nameToUse: String = {

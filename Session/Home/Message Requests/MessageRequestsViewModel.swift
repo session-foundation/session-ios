@@ -168,6 +168,7 @@ class MessageRequestsViewModel: SessionTableViewModel, NavigatableStateHolder, O
                                             using: dependencies
                                         )
                                     ),
+                                    threadCanWrite: false,  // Irrelevant for the MessageRequestsViewModel
                                     using: dependencies
                                 ),
                                 accessibility: Accessibility(

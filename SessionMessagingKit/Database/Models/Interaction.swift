@@ -1334,13 +1334,78 @@ public extension Interaction {
             .joining(required: Attachment.interaction.filter(interactionIds.contains(Interaction.Columns.id)))
             .fetchAll(db)
         
+        /// If attachments were removed then we also need to tetrieve any quotes of the interactions which had attachments and
+        /// remove their thumbnails
+        ///
+        /// **Note:** THis needs to happen before the attachments are deleted otherwise the joins in the query will fail
+        if !attachments.isEmpty {
+            let quote: TypedTableAlias<Quote> = TypedTableAlias()
+            let interaction: TypedTableAlias<Interaction> = TypedTableAlias()
+            let interactionAttachment: TypedTableAlias<InteractionAttachment> = TypedTableAlias()
+            var blinded15SessionIdHexString: String = ""
+            var blinded25SessionIdHexString: String = ""
+            
+            /// If it's a `community` conversation then we need to get the blinded ids
+            if threadVariant == .community {
+                blinded15SessionIdHexString = (SessionThread.getCurrentUserBlindedSessionId(
+                    db,
+                    threadId: threadId,
+                    threadVariant: threadVariant,
+                    blindingPrefix: .blinded15,
+                    using: dependencies
+                )?.hexString).defaulting(to: "")
+                blinded25SessionIdHexString = (SessionThread.getCurrentUserBlindedSessionId(
+                    db,
+                    threadId: threadId,
+                    threadVariant: threadVariant,
+                    blindingPrefix: .blinded25,
+                    using: dependencies
+                )?.hexString).defaulting(to: "")
+            }
+            
+            /// Construct a request which gets the `quote.attachmentId` for any `Quote` entries related
+            /// to the removed `interactionIds`
+            let request: SQLRequest<String> = """
+                SELECT \(quote[.attachmentId])
+                FROM \(Quote.self)
+                JOIN \(Interaction.self) ON (
+                    \(interaction[.timestampMs]) = \(quote[.timestampMs]) AND (
+                        \(interaction[.authorId]) = \(quote[.authorId]) OR (
+                            -- A users outgoing message is stored in some cases using their standard id
+                            -- but the quote will use their blinded id so handle that case
+                            \(interaction[.authorId]) = \(dependencies[cache: .general].sessionId.hexString) AND
+                            (
+                                \(quote[.authorId]) = \(blinded15SessionIdHexString) OR
+                                \(quote[.authorId]) = \(blinded25SessionIdHexString)
+                            )
+                        )
+                    )
+                )
+                JOIN \(InteractionAttachment.self) ON (
+                    \(interactionAttachment[.interactionId]) = \(interaction[.id]) AND
+                    \(interactionAttachment[.attachmentId]) IN \(attachments.map { $0.id })
+                )
+            
+                WHERE (
+                    \(quote[.attachmentId]) IS NOT NULL AND
+                    \(interaction[.id]) IN \(interactionIds)
+                )
+            """
+            
+            let quoteAttachmentIds: [String] = try request.fetchAll(db)
+            
+            _ = try Attachment
+                .filter(ids: quoteAttachmentIds)
+                .deleteAll(db)
+        }
+        
+        /// Delete any attachments from the database
+        try attachments.forEach { try $0.delete(db) }
+        
         /// Delete the reactions from the database
         _ = try Reaction
             .filter(interactionIds.contains(Reaction.Columns.interactionId))
             .deleteAll(db)
-        
-        /// Delete any attachments from the database
-        try attachments.forEach { try $0.delete(db) }
         
         /// Remove the `SnodeReceivedMessageInfo` records (otherwise we might try to poll for a hash which no longer exists, resulting
         /// in fetching the last 14 days of messages)
