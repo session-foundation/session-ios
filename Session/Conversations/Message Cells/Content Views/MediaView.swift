@@ -372,6 +372,8 @@ public class MediaView: UIView {
                     return
                 }
                 icon = asset
+                self.isAccessibilityElement = true
+                self.accessibilityIdentifier = "Media retry"
                 
             case .invalid:
                 guard let asset = UIImage(named: "media_invalid") else {
@@ -379,6 +381,8 @@ public class MediaView: UIView {
                     return
                 }
                 icon = asset
+                self.isAccessibilityElement = true
+                self.accessibilityIdentifier = "Media invalid"
                 
             case .missing: return
         }
