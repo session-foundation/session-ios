@@ -269,7 +269,7 @@ public class SignalAttachment: Equatable {
     // can be identified.
     public var mimeType: String {
         guard
-            let fileExtension: String = sourceFilename.map({ $0 as NSString })?.pathExtension,
+            let fileExtension: String = sourceFilename.map({ URL(fileURLWithPath: $0) })?.pathExtension,
             !fileExtension.isEmpty,
             let fileExtensionMimeType: String = UTType(sessionFileExtension: fileExtension)?.preferredMIMEType
         else { return (dataType.preferredMIMEType ?? UTType.mimeTypeDefault) }
@@ -306,9 +306,9 @@ public class SignalAttachment: Equatable {
     // can be identified.
     public var fileExtension: String? {
         guard
-            let fileExtension: String = sourceFilename.map({ $0 as NSString })?.pathExtension,
+            let fileExtension: String = sourceFilename.map({ URL(fileURLWithPath: $0) })?.pathExtension,
             !fileExtension.isEmpty
-        else { return dataType.sessionFileExtension }
+        else { return dataType.sessionFileExtension(sourceFilename: sourceFilename) }
         
         return fileExtension.filteredFilename
     }
@@ -803,7 +803,7 @@ public class SignalAttachment: Equatable {
                     let baseFilename = dataSource.sourceFilename
                     let mp4Filename = baseFilename?.filenameWithoutExtension.appendingFileExtension("mp4")
                     
-                    guard let dataSource = DataSourcePath(fileUrl: exportURL, shouldDeleteOnDeinit: true) else {
+                    guard let dataSource = DataSourcePath(fileUrl: exportURL, sourceFilename: baseFilename, shouldDeleteOnDeinit: true) else {
                         let attachment = SignalAttachment(dataSource: DataSourceValue.empty, dataType: type)
                         attachment.error = .couldNotConvertToMpeg4
                         resolver(Result.success(attachment))

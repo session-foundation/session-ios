@@ -39,6 +39,25 @@ extension MessageSender {
                 let adminsAsData: [Data] = admins.map { Data(hex: $0) }
                 let formationTimestamp: TimeInterval = (TimeInterval(SnodeAPI.currentOffsetTimestampMs()) / 1000)
                 
+                /// Update `libSession` first
+                ///
+                /// **Note:** This **MUST** happen before we call `SessionThread.upsert` as we won't add the group
+                /// if it already exists in `libSession` and upserting the thread results in an update to `libSession` to set
+                /// the `priority`
+                try LibSession.add(
+                    db,
+                    groupPublicKey: groupPublicKey,
+                    name: name,
+                    joinedAt: formationTimestamp,
+                    latestKeyPairPublicKey: Data(encryptionKeyPair.publicKey),
+                    latestKeyPairSecretKey: Data(encryptionKeyPair.secretKey),
+                    latestKeyPairReceivedTimestamp: formationTimestamp,
+                    disappearingConfig: DisappearingMessagesConfiguration.defaultWith(groupPublicKey),
+                    members: members,
+                    admins: admins,
+                    using: dependencies
+                )
+                
                 // Create the relevant objects in the database
                 let thread: SessionThread = try SessionThread.upsert(
                     db,
@@ -54,12 +73,11 @@ extension MessageSender {
                 ).insert(db)
                 
                 // Store the key pair
-                let latestKeyPairReceivedTimestamp: TimeInterval = (TimeInterval(SnodeAPI.currentOffsetTimestampMs()) / 1000)
                 try ClosedGroupKeyPair(
                     threadId: groupPublicKey,
                     publicKey: Data(encryptionKeyPair.publicKey),
                     secretKey: Data(encryptionKeyPair.secretKey),
-                    receivedTimestamp: latestKeyPairReceivedTimestamp
+                    receivedTimestamp: formationTimestamp
                 ).insert(db)
                 
                 // Create the member objects
@@ -80,21 +98,6 @@ extension MessageSender {
                         isHidden: false
                     ).save(db)
                 }
-                
-                // Update libSession
-                try LibSession.add(
-                    db,
-                    groupPublicKey: groupPublicKey,
-                    name: name,
-                    joinedAt: formationTimestamp,
-                    latestKeyPairPublicKey: Data(encryptionKeyPair.publicKey),
-                    latestKeyPairSecretKey: Data(encryptionKeyPair.secretKey),
-                    latestKeyPairReceivedTimestamp: latestKeyPairReceivedTimestamp,
-                    disappearingConfig: DisappearingMessagesConfiguration.defaultWith(groupPublicKey),
-                    members: members,
-                    admins: admins,
-                    using: dependencies
-                )
                 
                 let memberSendData: [MessageSender.PreparedSendData] = try members
                     .map { memberId -> MessageSender.PreparedSendData in
