@@ -169,21 +169,19 @@ extension MessageReceiver {
         /// **Note:** This **MUST** happen before we call `SessionThread.upsert` as we won't add the group
         /// if it already exists in `libSession` and upserting the thread results in an update to `libSession` to set
         /// the `priority`
-        if configTriggeringChange == nil {
-            try? LibSession.add(
-                db,
-                groupPublicKey: groupPublicKey,
-                name: name,
-                joinedAt: (TimeInterval(formationTimestampMs) / 1000),
-                latestKeyPairPublicKey: Data(encryptionKeyPair.publicKey),
-                latestKeyPairSecretKey: Data(encryptionKeyPair.secretKey),
-                latestKeyPairReceivedTimestamp: receivedTimestamp,
-                disappearingConfig: disappearingConfig,
-                members: members.asSet(),
-                admins: admins.asSet(),
-                using: dependencies
-            )
-        }
+        try? LibSession.add(
+            db,
+            groupPublicKey: groupPublicKey,
+            name: name,
+            joinedAt: (TimeInterval(formationTimestampMs) / 1000),
+            latestKeyPairPublicKey: Data(encryptionKeyPair.publicKey),
+            latestKeyPairSecretKey: Data(encryptionKeyPair.secretKey),
+            latestKeyPairReceivedTimestamp: receivedTimestamp,
+            disappearingConfig: disappearingConfig,
+            members: members.asSet(),
+            admins: admins.asSet(),
+            using: dependencies
+        )
         
         // Create the group
         let thread: SessionThread = try SessionThread.upsert(
