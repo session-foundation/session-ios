@@ -536,7 +536,7 @@ public extension Interaction {
                 ],
                 lastReadTimestampMs: timestampMs,
                 trySendReadReceipt: trySendReadReceipt,
-                calledFromConfigHandling: false,
+                useLastReadTimestampForDisappearingMessages: false,
                 using: dependencies
             )
             return
@@ -562,7 +562,7 @@ public extension Interaction {
                 interactionInfo: [interactionInfo],
                 lastReadTimestampMs: interactionInfo.timestampMs,
                 trySendReadReceipt: trySendReadReceipt,
-                calledFromConfigHandling: false,
+                useLastReadTimestampForDisappearingMessages: false,
                 using: dependencies
             )
             return
@@ -579,7 +579,7 @@ public extension Interaction {
             interactionInfo: interactionInfoToMarkAsRead,
             lastReadTimestampMs: interactionInfo.timestampMs,
             trySendReadReceipt: trySendReadReceipt,
-            calledFromConfigHandling: false,
+            useLastReadTimestampForDisappearingMessages: false,
             using: dependencies
         )
     }
@@ -651,13 +651,13 @@ public extension Interaction {
         interactionInfo: [Interaction.ReadInfo],
         lastReadTimestampMs: Int64,
         trySendReadReceipt: Bool,
-        calledFromConfigHandling: Bool,
+        useLastReadTimestampForDisappearingMessages: Bool,
         using dependencies: Dependencies
     ) throws {
         guard !interactionInfo.isEmpty else { return }
         
         // Update the last read timestamp if needed
-        if !calledFromConfigHandling {
+        if !useLastReadTimestampForDisappearingMessages {
             try LibSession.syncThreadLastReadIfNeeded(
                 db,
                 threadId: threadId,
@@ -687,7 +687,7 @@ public extension Interaction {
         }
         
         // Clear out any notifications for the interactions we mark as read
-        SessionEnvironment.shared?.notificationsManager.wrappedValue?.cancelNotifications(
+        SessionEnvironment.shared?.notificationsManager?.cancelNotifications(
             identifiers: interactionInfo
                 .map { interactionInfo in
                     Interaction.notificationIdentifier(

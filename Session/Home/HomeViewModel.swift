@@ -263,7 +263,7 @@ public class HomeViewModel: NavigatableStateHolder {
                 oldState.hasHiddenMessageRequests != updatedState.hasHiddenMessageRequests ||
                 oldState.unreadMessageRequestThreadCount != updatedState.unreadMessageRequestThreadCount
             ),
-            let currentPageInfo: PagedData.PageInfo = self.pagedDataObserver?.pageInfo.wrappedValue
+            let currentPageInfo: PagedData.PageInfo = self.pagedDataObserver?.pageInfo
         else { return }
         
         /// **MUST** have the same logic as in the 'PagedDataObserver.onChangeUnsorted' above

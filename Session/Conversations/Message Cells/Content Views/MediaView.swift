@@ -36,14 +36,14 @@ public class MediaView: UIView {
     //   necessary by the time they reach the front
     //   of the queue.
 
-    enum LoadState {
+    enum LoadState: ThreadSafeType {
         case unloaded
         case loading
         case loaded
         case failed
     }
 
-    private let loadState: Atomic<LoadState> = Atomic(.unloaded)
+    @ThreadSafe private var loadState: LoadState = .unloaded
 
     // MARK: - Initializers
 
@@ -75,7 +75,7 @@ public class MediaView: UIView {
     }
 
     deinit {
-        loadState.mutate { $0 = .unloaded }
+        loadState = .unloaded
     }
 
     // MARK: -
@@ -412,12 +412,12 @@ public class MediaView: UIView {
         // It's critical that we update loadState once
         // our load attempt is complete.
         let loadCompletion: (AnyObject?) -> Void = { [weak self] possibleMedia in
-            guard self?.loadState.wrappedValue == .loading else {
+            guard self?.loadState == .loading else {
                 Log.verbose("[MediaView] Skipping obsolete load.")
                 return
             }
             guard let media: AnyObject = possibleMedia else {
-                self?.loadState.mutate { $0 = .failed }
+                self?.loadState = .failed
                 // TODO:
                 //            [self showAttachmentErrorViewWithMediaView:mediaView];
                 return
@@ -426,10 +426,10 @@ public class MediaView: UIView {
             applyMediaBlock(media)
             
             self?.mediaCache?.setObject(media, forKey: cacheKey as NSString)
-            self?.loadState.mutate { $0 = .loaded }
+            self?.loadState = .loaded
         }
 
-        guard loadState.wrappedValue == .loading else {
+        guard loadState == .loading else {
             Log.error("[MediaView] Unexpected load state: \(loadState)")
             return
         }
@@ -451,7 +451,7 @@ public class MediaView: UIView {
         Log.verbose("[MediaView] media cache miss")
 
         MediaView.loadQueue.async { [weak self] in
-            guard self?.loadState.wrappedValue == .loading else {
+            guard self?.loadState == .loading else {
                 Log.verbose("[MediaView] Skipping obsolete load.")
                 return
             }
@@ -485,9 +485,9 @@ public class MediaView: UIView {
     private static let loadQueue = ReverseDispatchQueue(label: "org.signal.asyncMediaLoadQueue")
 
     public func loadMedia() {
-        switch loadState.wrappedValue {
+        switch loadState {
             case .unloaded:
-                loadState.mutate { $0 = .loading }
+                loadState = .loading
                 loadBlock?()
         
             case .loading, .loaded, .failed: break
@@ -495,7 +495,7 @@ public class MediaView: UIView {
     }
 
     public func unloadMedia() {
-        loadState.mutate { $0 = .unloaded }
+        loadState = .unloaded
         unloadBlock?()
     }
 }

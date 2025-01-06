@@ -629,7 +629,7 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
             /// the `HomeVC` won't have completed loading it's view which means the `SessionApp.homeViewController`
             /// won't have been set - we set the value directly here to resolve this edge case
             if let homeViewController: HomeVC = rootViewController as? HomeVC {
-                SessionApp.homeViewController.mutate { $0 = homeViewController }
+                SessionApp.setHomeViewController(homeViewController)
             }
             
             /// If we were previously presenting a viewController but are no longer preseting it then present it again
@@ -735,7 +735,7 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
         Singleton.appReadiness.runNowOrWhenAppDidBecomeReady {
             guard Identity.userCompletedRequiredOnboarding() else { return }
             
-            SessionApp.homeViewController.wrappedValue?.createNewConversation()
+            SessionApp.homeViewController?.createNewConversation()
             completionHandler(true)
         }
     }

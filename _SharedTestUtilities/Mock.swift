@@ -47,7 +47,7 @@ public class Mock<T> {
         functionConsumer.trackCalls = true
         functionConsumer.functionBuilders = []
         functionConsumer.functionHandlers = [:]
-        functionConsumer.calls.mutate { $0 = [:] }
+        functionConsumer.clearCalls()
     }
     
     internal func when<R>(_ callBlock: @escaping (inout T) throws -> R) -> MockFunctionBuilder<T, R> {
@@ -172,7 +172,7 @@ internal class FunctionConsumer: MockFunctionHandler {
     var trackCalls: Bool = true
     var functionBuilders: [() throws -> MockFunction?] = []
     var functionHandlers: [Key: [String: MockFunction]] = [:]
-    var calls: Atomic<[Key: [String]]> = Atomic([:])
+    @ThreadSafeObject var calls: [Key: [String]] = [:]
     
     func accept(_ functionName: String, parameterCount: Int, parameterSummary: String, actionArgs: [Any?]) -> Any? {
         let key: Key = Key(name: functionName, paramCount: parameterCount)
@@ -196,7 +196,7 @@ internal class FunctionConsumer: MockFunctionHandler {
         
         // Record the call so it can be validated later (assuming we are tracking calls)
         if trackCalls {
-            calls.mutate { $0[key] = ($0[key] ?? []).appending(parameterSummary) }
+            _calls.performUpdate { $0.setting(key, ($0[key] ?? []).appending(parameterSummary)) }
         }
         
         for action in expectation.actions {
@@ -219,6 +219,10 @@ internal class FunctionConsumer: MockFunctionHandler {
         }
         
         return expectation
+    }
+    
+    fileprivate func clearCalls() {
+        _calls.set(to: [:])
     }
 }
 

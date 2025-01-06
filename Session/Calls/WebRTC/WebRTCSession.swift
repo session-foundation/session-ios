@@ -158,10 +158,9 @@ public final class WebRTCSession : NSObject, RTCPeerConnectionDelegate {
         SNLog("[Calls] Sending offer message.")
         let uuid: String = self.uuid
         let mediaConstraints: RTCMediaConstraints = mediaConstraints(isRestartingICEConnection)
-        let dependencies: Dependencies = self.dependencies
         
         return Deferred {
-            Future<Void, Error> { [weak self] resolver in
+            Future<Void, Error> { [weak self, dependencies = self.dependencies] resolver in
                 self?.peerConnection?.offer(for: mediaConstraints) { sdp, error in
                     guard error == nil else { return }
                     
@@ -221,7 +220,6 @@ public final class WebRTCSession : NSObject, RTCPeerConnectionDelegate {
         SNLog("[Calls] Sending answer message.")
         let uuid: String = self.uuid
         let mediaConstraints: RTCMediaConstraints = mediaConstraints(false)
-        let dependencies: Dependencies = self.dependencies
         
         return dependencies.storage
             .readPublisher { db -> SessionThread in
@@ -231,7 +229,7 @@ public final class WebRTCSession : NSObject, RTCPeerConnectionDelegate {
                 
                 return thread
             }
-            .flatMap { [weak self] thread in
+            .flatMap { [weak self, dependencies = self.dependencies] thread in
                 Future<Void, Error> { resolver in
                     self?.peerConnection?.answer(for: mediaConstraints) { [weak self] sdp, error in
                         if let error = error {
@@ -303,13 +301,12 @@ public final class WebRTCSession : NSObject, RTCPeerConnectionDelegate {
         let candidates: [RTCIceCandidate] = self.queuedICECandidates
         let uuid: String = self.uuid
         let contactSessionId: String = self.contactSessionId
-        let dependencies: Dependencies = self.dependencies
         
         // Empty the queue
         self.queuedICECandidates.removeAll()
         
         dependencies.storage
-            .writePublisher { db in
+            .writePublisher { [dependencies = self.dependencies] db in
                 guard let thread: SessionThread = try SessionThread.fetchOne(db, id: contactSessionId) else {
                     throw WebRTCSessionError.noThread
                 }
@@ -341,7 +338,9 @@ public final class WebRTCSession : NSObject, RTCPeerConnectionDelegate {
                     )
             }
             .subscribe(on: DispatchQueue.global(qos: .userInitiated))
-            .flatMap { MessageSender.sendImmediate(data: $0, using: dependencies) }
+            .flatMap { [dependencies = self.dependencies] sendData in
+                MessageSender.sendImmediate(data: sendData, using: dependencies)
+            }
             .sinkUntilComplete()
     }
     

@@ -41,7 +41,7 @@ enum _014_GenerateInitialUserConfigDumps: Migration {
         
         try dependencies.caches[.libSession]
             .config(for: .userProfile, publicKey: userPublicKey)
-            .mutate { conf in
+            .perform { conf in
                 try LibSession.update(
                     profile: Profile.fetchOrCreateCurrentUser(db, using: dependencies),
                     in: conf
@@ -72,7 +72,7 @@ enum _014_GenerateInitialUserConfigDumps: Migration {
         
         try dependencies.caches[.libSession]
             .config(for: .contacts, publicKey: userPublicKey)
-            .mutate { conf in
+            .perform { conf in
                 // Exclude Note to Self, community, group and outgoing blinded message requests
                 let validContactIds: [String] = allThreads
                     .values
@@ -138,7 +138,7 @@ enum _014_GenerateInitialUserConfigDumps: Migration {
         
         try dependencies.caches[.libSession]
             .config(for: .convoInfoVolatile, publicKey: userPublicKey)
-            .mutate { conf in
+            .perform { conf in
                 let volatileThreadInfo: [LibSession.VolatileThreadInfo] = LibSession.VolatileThreadInfo
                     .fetchAll(db, ids: Array(allThreads.keys))
                 
@@ -163,7 +163,7 @@ enum _014_GenerateInitialUserConfigDumps: Migration {
         
         try dependencies.caches[.libSession]
             .config(for: .userGroups, publicKey: userPublicKey)
-            .mutate { conf in
+            .perform { conf in
                 let legacyGroupData: [LibSession.LegacyGroupInfo] = try LibSession.LegacyGroupInfo.fetchAll(db)
                 let communityData: [LibSession.OpenGroupUrlInfo] = try LibSession.OpenGroupUrlInfo
                     .fetchAll(db, ids: Array(allThreads.keys))

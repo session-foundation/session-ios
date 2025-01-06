@@ -62,19 +62,19 @@ public enum SNUserDefaults {
 }
 
 public extension UserDefaults {
-    private static let _applicationGroup: Atomic<String?> = Atomic(nil)
+    @ThreadSafeObject private static var cachedApplicationGroup: String = ""
     
     // stringlint:ignore_contents
     static let applicationGroup: String = {
-        guard let appGroup: String = _applicationGroup.wrappedValue else {
+        guard !cachedApplicationGroup.isEmpty else {
             let dynamicAppGroupsId: String = (Bundle.main.infoDictionary?["AppGroupsId"] as? String)
                 .defaulting(to: "group.com.loki-project.loki-messenger")
             
-            _applicationGroup.mutate { $0 = dynamicAppGroupsId }
+            _cachedApplicationGroup.set(to: dynamicAppGroupsId)
             return dynamicAppGroupsId
         }
         
-        return appGroup
+        return cachedApplicationGroup
     }()
     
     @objc static var sharedLokiProject: UserDefaults? {

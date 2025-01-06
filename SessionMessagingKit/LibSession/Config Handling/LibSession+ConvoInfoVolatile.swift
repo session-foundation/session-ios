@@ -98,7 +98,7 @@ internal extension LibSession {
                     interactionInfo: interactionInfoToMarkAsRead,
                     lastReadTimestampMs: lastReadTimestampMs,
                     trySendReadReceipt: false,  // Interactions already read, no need to send
-                    calledFromConfigHandling: true,
+                    useLastReadTimestampForDisappearingMessages: true,
                     using: dependencies
                 )
                 return nil

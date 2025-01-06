@@ -71,7 +71,6 @@ class MessageSendJobSpec: QuickSpec {
                             // False is the default and will mean we don't need libSession loaded
                             shouldBeVisible: .setTo(false)
                         ),
-                        calledFromConfig: nil,
                         using: dependencies
                     )
                 },

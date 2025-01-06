@@ -8,11 +8,11 @@ import SessionUtilitiesKit
 
 public extension Singleton {
     // FIXME: This will be reworked to be part of dependencies in the Groups Rebuild branch
-    fileprivate static var _callManager: Atomic<CallManagerProtocol> = Atomic(NoopSessionCallManager())
-    static var callManager: CallManagerProtocol { _callManager.wrappedValue }
+    @ThreadSafeObject fileprivate static var cachedCallManager: CallManagerProtocol = NoopSessionCallManager()
+    static var callManager: CallManagerProtocol { cachedCallManager }
     
     static func setCallManager(_ callManager: CallManagerProtocol) {
-        _callManager = Atomic(callManager)
+        _cachedCallManager.set(to: callManager)
     }
 }
 
