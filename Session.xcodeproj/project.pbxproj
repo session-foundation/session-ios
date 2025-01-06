@@ -156,7 +156,6 @@
 		7BC01A3E241F40AB00BC7C55 /* NotificationServiceExtension.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7BC01A3D241F40AB00BC7C55 /* NotificationServiceExtension.swift */; };
 		7BC01A42241F40AB00BC7C55 /* SessionNotificationServiceExtension.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = 7BC01A3B241F40AB00BC7C55 /* SessionNotificationServiceExtension.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
 		7BC707F227290ACB002817AD /* SessionCallManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7BC707F127290ACB002817AD /* SessionCallManager.swift */; };
-		7BD477A827EC39F5004E2822 /* Atomic.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7BD477A727EC39F5004E2822 /* Atomic.swift */; };
 		7BD687D12A5D0D1200D8E455 /* MessageInfoScreen.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7BD687D02A5D0D1200D8E455 /* MessageInfoScreen.swift */; };
 		7BD976972A776C76001B466F /* SessionCarouselView+SwiftUI.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7BE2701D2A64C11500CEB71A /* SessionCarouselView+SwiftUI.swift */; };
 		7BDCFC08242186E700641C39 /* NotificationServiceExtensionContext.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7BDCFC07242186E700641C39 /* NotificationServiceExtensionContext.swift */; };
@@ -817,6 +816,9 @@
 		FD96F3A729DBD43D00401309 /* MockJobRunner.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD96F3A629DBD43D00401309 /* MockJobRunner.swift */; };
 		FD97B2402A3FEB050027DD57 /* ARC4RandomNumberGenerator.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD97B23F2A3FEB050027DD57 /* ARC4RandomNumberGenerator.swift */; };
 		FD97B2422A3FEBF30027DD57 /* UnreadMarkerCell.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD97B2412A3FEBF30027DD57 /* UnreadMarkerCell.swift */; };
+		FD99D0872D0FA731005D2E15 /* ThreadSafe.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD99D0862D0FA72E005D2E15 /* ThreadSafe.swift */; };
+		FD99D0902D10E71B005D2E15 /* NSCache+Utilities.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD99D08F2D10E718005D2E15 /* NSCache+Utilities.swift */; };
+		FD99D0922D10F5EE005D2E15 /* ThreadSafeSpec.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD99D0912D10F5EB005D2E15 /* ThreadSafeSpec.swift */; };
 		FD9AECA52AAA9609009B3406 /* NotificationError.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD9AECA42AAA9609009B3406 /* NotificationError.swift */; };
 		FD9B30F3293EA0BF008DEE3E /* BatchResponseSpec.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD9B30F2293EA0BF008DEE3E /* BatchResponseSpec.swift */; };
 		FD9BDE002A5D22B7005F1EBC /* libSessionUtil.a in Frameworks */ = {isa = PBXBuildFile; fileRef = FD9BDDF82A5D2294005F1EBC /* libSessionUtil.a */; };
@@ -1358,7 +1360,6 @@
 		7BC01A3F241F40AB00BC7C55 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 		7BC707F127290ACB002817AD /* SessionCallManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SessionCallManager.swift; sourceTree = "<group>"; };
 		7BCD116B27016062006330F1 /* WebRTCSession+DataChannel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "WebRTCSession+DataChannel.swift"; sourceTree = "<group>"; };
-		7BD477A727EC39F5004E2822 /* Atomic.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = Atomic.swift; sourceTree = "<group>"; };
 		7BD687D02A5D0D1200D8E455 /* MessageInfoScreen.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MessageInfoScreen.swift; sourceTree = "<group>"; };
 		7BD687D22A5D283200D8E455 /* build_libSession_util.sh */ = {isa = PBXFileReference; lastKnownFileType = text.script.sh; path = build_libSession_util.sh; sourceTree = "<group>"; };
 		7BDCFC0424206E7300641C39 /* SessionNotificationServiceExtension.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = SessionNotificationServiceExtension.entitlements; sourceTree = "<group>"; };
@@ -1945,6 +1946,9 @@
 		FD96F3A629DBD43D00401309 /* MockJobRunner.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MockJobRunner.swift; sourceTree = "<group>"; };
 		FD97B23F2A3FEB050027DD57 /* ARC4RandomNumberGenerator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ARC4RandomNumberGenerator.swift; sourceTree = "<group>"; };
 		FD97B2412A3FEBF30027DD57 /* UnreadMarkerCell.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UnreadMarkerCell.swift; sourceTree = "<group>"; };
+		FD99D0862D0FA72E005D2E15 /* ThreadSafe.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ThreadSafe.swift; sourceTree = "<group>"; };
+		FD99D08F2D10E718005D2E15 /* NSCache+Utilities.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "NSCache+Utilities.swift"; sourceTree = "<group>"; };
+		FD99D0912D10F5EB005D2E15 /* ThreadSafeSpec.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ThreadSafeSpec.swift; sourceTree = "<group>"; };
 		FD9AECA42AAA9609009B3406 /* NotificationError.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NotificationError.swift; sourceTree = "<group>"; };
 		FD9B30F2293EA0BF008DEE3E /* BatchResponseSpec.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BatchResponseSpec.swift; sourceTree = "<group>"; };
 		FD9BDDF82A5D2294005F1EBC /* libSessionUtil.a */ = {isa = PBXFileReference; explicitFileType = archive.ar; includeInIndex = 0; path = libSessionUtil.a; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -1994,7 +1998,6 @@
 		FDC4381F27B36ADC00C60D73 /* SOGSEndpoint.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SOGSEndpoint.swift; sourceTree = "<group>"; };
 		FDC4382E27B383AF00C60D73 /* LegacyPushServerResponse.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LegacyPushServerResponse.swift; sourceTree = "<group>"; };
 		FDC4383727B3863200C60D73 /* AppVersionResponse.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppVersionResponse.swift; sourceTree = "<group>"; };
-		FDC4383D27B4708600C60D73 /* Atomic.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Atomic.swift; sourceTree = "<group>"; };
 		FDC4385C27B4C18900C60D73 /* Room.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Room.swift; sourceTree = "<group>"; };
 		FDC4385E27B4C4A200C60D73 /* PinnedMessage.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PinnedMessage.swift; sourceTree = "<group>"; };
 		FDC4386227B4D94E00C60D73 /* SOGSMessage.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SOGSMessage.swift; sourceTree = "<group>"; };
@@ -2704,11 +2707,9 @@
 			children = (
 				947AD68F2C8968FF000B2730 /* Constants.swift */,
 				FD428B182B4B576F006D0888 /* AppContext.swift */,
-				7BD477A727EC39F5004E2822 /* Atomic.swift */,
 				FDC438CC27BC641200C60D73 /* Set+Utilities.swift */,
 				7BAF54D527ACD0E2003D12F8 /* ReusableView.swift */,
 				C3C2A5D12553860800C340D1 /* Array+Utilities.swift */,
-				FDC4383D27B4708600C60D73 /* Atomic.swift */,
 				C33FDAA8255A57FF00E217F9 /* BuildConfiguration.swift */,
 				B8F5F58225EC94A6003BF8D4 /* Collection+Utilities.swift */,
 				FD23CE2F2A67B8820000B97C /* Caches.swift */,
@@ -2720,6 +2721,7 @@
 				B8BC00BF257D90E30032E807 /* General.swift */,
 				C3C2A5CE2553860700C340D1 /* Logging.swift */,
 				C33FDAFD255A580600E217F9 /* LRUCache.swift */,
+				FD99D08F2D10E718005D2E15 /* NSCache+Utilities.swift */,
 				C33FDA7A255A57FB00E217F9 /* NSRegularExpression+SSK.swift */,
 				C352A3762557859C00338F3E /* NSTimer+Proxying.h */,
 				C352A36C2557858D00338F3E /* NSTimer+Proxying.m */,
@@ -3648,6 +3650,7 @@
 				FDF222082818D2B0000A4995 /* NSAttributedString+Utilities.swift */,
 				FDC0F0032BFECE12002CBFB9 /* TimeUnit.swift */,
 				FD8ECF912938552800C0D1BB /* Threading.swift */,
+				FD99D0862D0FA72E005D2E15 /* ThreadSafe.swift */,
 				FD8ECF93293856AF00C0D1BB /* Randomness.swift */,
 				FD1936402ACA7BD8004BCF0F /* Result+Utilities.swift */,
 				FD29598C2A43BC0B00888A17 /* Version.swift */,
@@ -4566,6 +4569,7 @@
 				FDFBB7532A2023EB00CA7350 /* BencodeDecoderSpec.swift */,
 				FD6A391C2C2A99DF00762359 /* BencodeEncoderSpec.swift */,
 				FD6A391E2C2A99EF00762359 /* BencodeResponseSpec.swift */,
+				FD99D0912D10F5EB005D2E15 /* ThreadSafeSpec.swift */,
 				FD29598F2A43BE5F00888A17 /* VersionSpec.swift */,
 			);
 			path = Utilities;
@@ -5811,6 +5815,7 @@
 				FD6A38F72C2A6C0100762359 /* CryptoError.swift in Sources */,
 				FDE658A329418E2F00A33BC1 /* KeyPair.swift in Sources */,
 				FD5931AB2A8DCB0A0040147D /* ScopeAdapter+Utilities.swift in Sources */,
+				FD99D0872D0FA731005D2E15 /* ThreadSafe.swift in Sources */,
 				FD37E9FF28A5F2CD003AE748 /* Configuration.swift in Sources */,
 				FDB7400B28EB99A70094D718 /* TimeInterval+Utilities.swift in Sources */,
 				FD09797D27FBDB2000936362 /* Notification+Utilities.swift in Sources */,
@@ -5839,7 +5844,6 @@
 				C32C5DDB256DD9FF003C73A2 /* ContentProxy.swift in Sources */,
 				C3A71F892558BA9F0043A11F /* Mnemonic.swift in Sources */,
 				B8F5F58325EC94A6003BF8D4 /* Collection+Utilities.swift in Sources */,
-				7BD477A827EC39F5004E2822 /* Atomic.swift in Sources */,
 				FD7F748A2BB298A8006DDFD8 /* JSONDecoder+Utilities.swift in Sources */,
 				B8BC00C0257D90E30032E807 /* General.swift in Sources */,
 				FD7F74782BB27742006DDFD8 /* BatchRequest.swift in Sources */,
@@ -5874,6 +5878,7 @@
 				FD7115FC28C8155800B47552 /* Publisher+Utilities.swift in Sources */,
 				FD6A39042C2A8C0300762359 /* CGFloat+Utilities.swift in Sources */,
 				C32C5A48256DB8F0003C73A2 /* BuildConfiguration.swift in Sources */,
+				FD99D0902D10E71B005D2E15 /* NSCache+Utilities.swift in Sources */,
 				FDF84881294059F5007DCAE5 /* ResponseInfo.swift in Sources */,
 				FD17D7BF27F51F8200122BE0 /* ColumnExpressible.swift in Sources */,
 				FD6A39282C2AB2AA00762359 /* CGSize+Utilities.swift in Sources */,
@@ -6386,6 +6391,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				FD2AAAF228ED57B500A49611 /* SynchronousStorage.swift in Sources */,
+				FD99D0922D10F5EE005D2E15 /* ThreadSafeSpec.swift in Sources */,
 				FD078E4927E02576000769AF /* CommonMockedExtensions.swift in Sources */,
 				FD83B9BF27CF2294005E1583 /* TestConstants.swift in Sources */,
 				FDFBB7542A2023EB00CA7350 /* BencodeDecoderSpec.swift in Sources */,
@@ -7677,7 +7683,7 @@
 				CLANG_WARN__ARC_BRIDGE_CAST_NONARC = YES;
 				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
 				CODE_SIGN_IDENTITY = "iPhone Developer";
-				CURRENT_PROJECT_VERSION = 517;
+				CURRENT_PROJECT_VERSION = 519;
 				ENABLE_BITCODE = NO;
 				ENABLE_STRICT_OBJC_MSGSEND = YES;
 				ENABLE_TESTABILITY = YES;
@@ -7714,7 +7720,7 @@
 				GCC_WARN_UNUSED_VARIABLE = YES;
 				HEADER_SEARCH_PATHS = "";
 				IPHONEOS_DEPLOYMENT_TARGET = 13.0;
-				MARKETING_VERSION = 2.8.4;
+				MARKETING_VERSION = 2.8.5;
 				ONLY_ACTIVE_ARCH = YES;
 				OTHER_CFLAGS = (
 					"-fobjc-arc-exceptions",
@@ -7756,7 +7762,7 @@
 				CLANG_WARN__ARC_BRIDGE_CAST_NONARC = YES;
 				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
 				CODE_SIGN_IDENTITY = "iPhone Distribution";
-				CURRENT_PROJECT_VERSION = 517;
+				CURRENT_PROJECT_VERSION = 519;
 				ENABLE_BITCODE = NO;
 				ENABLE_STRICT_OBJC_MSGSEND = YES;
 				GCC_NO_COMMON_BLOCKS = YES;
@@ -7788,7 +7794,7 @@
 				GCC_WARN_UNUSED_VARIABLE = YES;
 				HEADER_SEARCH_PATHS = "";
 				IPHONEOS_DEPLOYMENT_TARGET = 13.0;
-				MARKETING_VERSION = 2.8.4;
+				MARKETING_VERSION = 2.8.5;
 				ONLY_ACTIVE_ARCH = NO;
 				OTHER_CFLAGS = (
 					"-DNS_BLOCK_ASSERTIONS=1",

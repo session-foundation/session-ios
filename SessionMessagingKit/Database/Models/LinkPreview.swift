@@ -211,13 +211,13 @@ public extension LinkPreview {
     
     // MARK: - Text Parsing
 
-    private static var previewUrlCache: Atomic<NSCache<NSString, NSString>> = Atomic(NSCache())
+    @ThreadSafeObject private static var previewUrlCache: NSCache<NSString, NSString> = NSCache()
 
     static func previewUrl(for body: String?, selectedRange: NSRange? = nil) -> String? {
         guard Storage.shared[.areLinkPreviewsEnabled] else { return nil }
         guard let body: String = body else { return nil }
 
-        if let cachedUrl = previewUrlCache.wrappedValue.object(forKey: body as NSString) as String? {
+        if let cachedUrl = previewUrlCache.object(forKey: body as NSString) as String? {
             guard cachedUrl.count > 0 else {
                 return nil
             }
@@ -229,7 +229,7 @@ public extension LinkPreview {
         
         guard let urlMatch: URLMatchResult = previewUrlMatches.first else {
             // Use empty string to indicate "no preview URL" in the cache.
-            previewUrlCache.mutate { $0.setObject("", forKey: body as NSString) }
+            _previewUrlCache.performUpdate { $0.settingObject("", forKey: body as NSString) }
             return nil
         }
 
@@ -245,7 +245,9 @@ public extension LinkPreview {
             }
         }
 
-        previewUrlCache.mutate { $0.setObject(urlMatch.urlString as NSString, forKey: body as NSString) }
+        _previewUrlCache.performUpdate {
+            $0.settingObject(urlMatch.urlString as NSString, forKey: body as NSString)
+        }
         
         return urlMatch.urlString
     }

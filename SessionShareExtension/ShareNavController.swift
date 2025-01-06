@@ -14,7 +14,7 @@ final class ShareNavController: UINavigationController, ShareViewDelegate {
     
     /// The `ShareNavController` is initialized from a storyboard so we need to manually initialize this
     private let dependencies: Dependencies = Dependencies()
-    private let versionMigrationsComplete: Atomic<Bool> = Atomic(false)
+    @ThreadSafe private var versionMigrationsComplete: Bool = false
     
     // MARK: - Error
     
@@ -60,9 +60,7 @@ final class ShareNavController: UINavigationController, ShareViewDelegate {
                 ))
                 // stringlint:ignore_stop
                 
-                SessionEnvironment.shared?.notificationsManager.mutate {
-                    $0 = NoopNotificationsManager()
-                }
+                SessionEnvironment.shared?.setNotificationsManager(to: NoopNotificationsManager())
                 
                 // Setup LibSession
                 LibSession.addLogger()
@@ -99,7 +97,7 @@ final class ShareNavController: UINavigationController, ShareViewDelegate {
         /// results in the `AppSetup` not actually running (and the UI not actually being loaded correctly) - in order to avoid this
         /// we call `checkIsAppReady` explicitly here assuming that either the `AppSetup` _hasn't_ complete or won't ever
         /// get run
-        checkIsAppReady(migrationsCompleted: versionMigrationsComplete.wrappedValue)
+        checkIsAppReady(migrationsCompleted: versionMigrationsComplete)
     }
     
     override func traitCollectionDidChange(_ previousTraitCollection: UITraitCollection?) {
@@ -120,7 +118,7 @@ final class ShareNavController: UINavigationController, ShareViewDelegate {
             }
         }
 
-        versionMigrationsComplete.mutate { $0 = true }
+        versionMigrationsComplete = true
         checkIsAppReady(migrationsCompleted: true)
     }
 

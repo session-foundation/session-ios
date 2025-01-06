@@ -54,7 +54,6 @@ enum MockDataGenerator {
             id: "MockDatabaseThread",
             variant: .contact,
             values: SessionThread.TargetValues(shouldBeVisible: .setTo(false)),
-            calledFromConfig: nil,
             using: dependencies
         )
         
@@ -85,7 +84,6 @@ enum MockDataGenerator {
                     id: randomSessionId,
                     variant: .contact,
                     values: SessionThread.TargetValues(shouldBeVisible: .setTo(true)),
-                    calledFromConfig: nil,
                     using: dependencies
                 )
                 
@@ -198,7 +196,6 @@ enum MockDataGenerator {
                     id: randomGroupPublicKey,
                     variant: .legacyGroup,
                     values: SessionThread.TargetValues(shouldBeVisible: .setTo(true)),
-                    calledFromConfig: nil,
                     using: dependencies
                 )
                 _ = try! ClosedGroup(
@@ -329,7 +326,6 @@ enum MockDataGenerator {
                     id: randomGroupPublicKey,
                     variant: .community,
                     values: SessionThread.TargetValues(shouldBeVisible: .setTo(true)),
-                    calledFromConfig: nil,
                     using: dependencies
                 )
                 _ = try! OpenGroup(

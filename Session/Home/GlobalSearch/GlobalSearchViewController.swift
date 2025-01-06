@@ -106,7 +106,7 @@ class GlobalSearchViewController: BaseVC, LibSessionRespondingViewController, UI
         )
     }()
     
-    private var readConnection: Atomic<Database?> = Atomic(nil)
+    @ThreadSafeObject private var readConnection: Database? = nil
     private lazy var searchResultSet: SearchResultData = defaultSearchResults
     private var termForCurrentSearchResultSet: String = ""
     private var lastSearchText: String?
@@ -255,10 +255,10 @@ class GlobalSearchViewController: BaseVC, LibSessionRespondingViewController, UI
         lastSearchText = searchText
 
         DispatchQueue.global(qos: .default).async { [weak self] in
-            self?.readConnection.wrappedValue?.interrupt()
+            self?.readConnection?.interrupt()
             
             let result: Result<[SectionModel], Error>? = Storage.shared.read { db -> Result<[SectionModel], Error> in
-                self?.readConnection.mutate { $0 = db }
+                self?._readConnection.set(to: db)
                 
                 do {
                     let userPublicKey: String = getUserHexEncodedPublicKey(db)
@@ -290,6 +290,7 @@ class GlobalSearchViewController: BaseVC, LibSessionRespondingViewController, UI
                     return .failure(error)
                 }
             }
+            self?._readConnection.set(to: nil)
             
             DispatchQueue.main.async {
                 switch result {
@@ -399,7 +400,6 @@ extension GlobalSearchViewController {
                     id: threadId,
                     variant: threadVariant,
                     values: .existingOrDefault,
-                    calledFromConfig: nil,
                     using: dependencies
                 )
             }

@@ -12,10 +12,10 @@ public class SessionEnvironment {
     public var isRequestingPermission: Bool
     
     // Note: This property is configured after Environment is created.
-    public let notificationsManager: Atomic<NotificationsProtocol?> = Atomic(nil)
+    @ThreadSafeObject public var notificationsManager: NotificationsProtocol? = nil
     
     public var isComplete: Bool {
-        (notificationsManager.wrappedValue != nil)
+        (notificationsManager != nil)
     }
     
     // MARK: - Initialization
@@ -36,6 +36,10 @@ public class SessionEnvironment {
     }
     
     // MARK: - Functions
+    
+    public func setNotificationsManager(to manager: NotificationsProtocol?) {
+        _notificationsManager.set(to: manager)
+    }
     
     public static func clearSharedForTests() {
         shared = nil

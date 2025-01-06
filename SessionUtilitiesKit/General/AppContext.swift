@@ -6,11 +6,11 @@ import UIKit
 
 public extension Singleton {
     // FIXME: This will be reworked to be part of dependencies in the Groups Rebuild branch
-    fileprivate static var _appContext: Atomic<AppContext?> = Atomic(nil)
-    static var appContext: AppContext { _appContext.wrappedValue! }
-    static var hasAppContext: Bool { _appContext.wrappedValue != nil }
+    @ThreadSafeObject fileprivate static var cachedAppContext: AppContext? = nil
+    static var appContext: AppContext { cachedAppContext! }
+    static var hasAppContext: Bool { _cachedAppContext.wrappedValue != nil }
     
-    static func setup(appContext: AppContext) { _appContext.mutate { $0 = appContext } }
+    static func setup(appContext: AppContext) { _cachedAppContext.set(to: appContext) }
 }
 
 // MARK: - AppContext
@@ -65,7 +65,7 @@ public extension AppContext {
             .appendingPathComponent(dirName)
             .path
         _temporaryDirectory = dirPath
-        FileSystem.temporaryDirectory.mutate { $0 = dirPath }
+        FileSystem.setTemporaryDirectory(dirPath)
         try? FileSystem.ensureDirectoryExists(at: dirPath, fileProtectionType: .complete)
         
         return dirPath

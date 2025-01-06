@@ -12,7 +12,7 @@ extension MessageSender {
         [MessageSender.PreparedSendData],
         Network.PreparedRequest<PushNotificationAPI.LegacyPushServerResponse>?
     )
-    public static var distributingKeyPairs: Atomic<[String: [ClosedGroupKeyPair]]> = Atomic([:])
+    @ThreadSafeObject public static var distributingKeyPairs: [String: [ClosedGroupKeyPair]] = [:]
     
     public static func createClosedGroup(
         name: String,
@@ -64,7 +64,6 @@ extension MessageSender {
                     id: groupPublicKey,
                     variant: .legacyGroup,
                     values: SessionThread.TargetValues(shouldBeVisible: .setTo(true)),
-                    calledFromConfig: nil,
                     using: dependencies
                 )
                 try ClosedGroup(
@@ -218,9 +217,11 @@ extension MessageSender {
                 ).build()
                 let plaintext = try proto.serializedData()
                 
-                distributingKeyPairs.mutate {
-                    $0[closedGroup.id] = ($0[closedGroup.id] ?? [])
-                        .appending(newKeyPair)
+                _distributingKeyPairs.performUpdate {
+                    $0.setting(
+                        closedGroup.id,
+                        ($0[closedGroup.id] ?? []).appending(newKeyPair)
+                    )
                 }
                 
                 let sendData: MessageSender.PreparedSendData = try MessageSender
@@ -283,11 +284,15 @@ extension MessageSender {
                         )
                     }
                     
-                    distributingKeyPairs.mutate {
+                    _distributingKeyPairs.performUpdate {
                         if let index = ($0[closedGroup.id] ?? []).firstIndex(of: newKeyPair) {
-                            $0[closedGroup.id] = ($0[closedGroup.id] ?? [])
-                                .removing(index: index)
+                            return $0.setting(
+                                closedGroup.id,
+                                ($0[closedGroup.id] ?? []).removing(index: index)
+                            )
                         }
+                        
+                        return $0
                     }
                 }
             )
@@ -486,7 +491,6 @@ extension MessageSender {
                 id: member,
                 variant: .contact,
                 values: .existingOrDefault,
-                calledFromConfig: nil,
                 using: dependencies
             )
             
@@ -680,7 +684,7 @@ extension MessageSender {
         }
         
         // Get the latest encryption key pair
-        var maybeKeyPair: ClosedGroupKeyPair? = distributingKeyPairs.wrappedValue[groupPublicKey]?.last
+        var maybeKeyPair: ClosedGroupKeyPair? = distributingKeyPairs[groupPublicKey]?.last
         
         if maybeKeyPair == nil {
             maybeKeyPair = try? closedGroup.fetchLatestKeyPair(db)
@@ -700,7 +704,6 @@ extension MessageSender {
                 id: publicKey,
                 variant: .contact,
                 values: .existingOrDefault,
-                calledFromConfig: nil,
                 using: dependencies
             )
             let ciphertext = try dependencies.crypto.tryGenerate(

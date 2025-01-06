@@ -80,6 +80,6 @@ public enum SwarmDrainBehaviour {
 
 // MARK: - Convenience
 
-public extension Atomic where Value == SwarmDrainBehaviour {
-    static var alwaysRandom: Atomic<SwarmDrainBehaviour> { Atomic(.alwaysRandom) }
+public extension ThreadSafeObject where Value == SwarmDrainBehaviour {
+    static var alwaysRandom: ThreadSafeObject<SwarmDrainBehaviour> { ThreadSafeObject(.alwaysRandom) }
 }
