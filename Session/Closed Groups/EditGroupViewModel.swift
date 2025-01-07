@@ -610,41 +610,71 @@ class EditGroupViewModel: SessionTableViewModel, NavigatableStateHolder, Editabl
         currentGroupName: String,
         memberInfo: [(id: String, profile: Profile?)]
     ) {
-        /// Show a toast that we have sent the invitations
-        self.showToast(
-            text: "groupInviteSending"
-                .putNumber(memberInfo.count)
-                .localized(),
-            backgroundColor: .backgroundSecondary
-        )
-        
-        /// Actually trigger the sending
-        MessageSender
-            .addGroupMembers(
-                groupSessionId: threadId,
-                members: memberInfo,
-                allowAccessToHistoricMessages: dependencies[feature: .updatedGroupsAllowHistoricAccessOnInvite],
-                using: dependencies
-            )
-            .sinkUntilComplete(
-                receiveCompletion: { [weak self] result in
-                    switch result {
-                        case .finished: break
-                        case .failure:
-                            self?.showToast(
-                                text: GroupInviteMemberJob.failureMessage(
-                                    groupName: currentGroupName,
-                                    memberIds: memberInfo.map { $0.id },
-                                    profileInfo: memberInfo
-                                        .reduce(into: [:]) { result, next in
-                                            result[next.id] = next.profile
-                                        }
-                                ),
-                                backgroundColor: .backgroundSecondary
-                            )
+        let viewController = ModalActivityIndicatorViewController(canCancel: false) { [weak self, dependencies, threadId] modalActivityIndicator in
+            MessageSender
+                .addGroupMembers(
+                    groupSessionId: threadId,
+                    members: memberInfo,
+                    allowAccessToHistoricMessages: dependencies[feature: .updatedGroupsAllowHistoricAccessOnInvite],
+                    using: dependencies
+                )
+                .sinkUntilComplete(
+                    receiveCompletion: { [weak self] result in
+                        modalActivityIndicator.dismiss {
+                            switch result {
+                                case .failure:
+                                    self?.transitionToScreen(
+                                        ConfirmationModal(
+                                            info: ConfirmationModal.Info(
+                                                title: "Invitation Failed",//.localized(),
+                                                body: .text("An error occurred and the invitations were not successfully sent, would you like to try again?"),//.localized()),
+                                                confirmTitle: "retry".localized(),
+                                                cancelTitle: "dismiss".localized(),
+                                                cancelStyle: .alert_text,
+                                                dismissOnConfirm: false,
+                                                onConfirm: { modal in
+                                                    modal.dismiss(animated: true) {
+                                                        self?.addMembers(
+                                                            currentGroupName: currentGroupName,
+                                                            memberInfo: memberInfo
+                                                        )
+                                                    }
+                                                },
+                                                onCancel: { modal in
+                                                    /// Flag the members as failed
+                                                    let memberIds: [String] = memberInfo.map(\.id)
+                                                    dependencies[singleton: .storage].writeAsync { db in
+                                                        try? GroupMember
+                                                            .filter(GroupMember.Columns.groupId == threadId)
+                                                            .filter(memberIds.contains(GroupMember.Columns.profileId))
+                                                            .updateAllAndConfig(
+                                                                db,
+                                                                GroupMember.Columns.roleStatus.set(to: GroupMember.RoleStatus.failed),
+                                                                calledFromConfig: nil,
+                                                                using: dependencies
+                                                            )
+                                                    }
+                                                    modal.dismiss(animated: true)
+                                                }
+                                            )
+                                        ),
+                                        transitionType: .present
+                                    )
+                                    
+                                case .finished:
+                                    /// Show a toast that we have sent the invitations
+                                    self?.showToast(
+                                        text: "groupInviteSending"
+                                            .putNumber(memberInfo.count)
+                                            .localized(),
+                                        backgroundColor: .backgroundSecondary
+                                    )
+                            }
+                        }
                     }
-                }
-            )
+                )
+        }
+        self.transitionToScreen(viewController, transitionType: .present)
     }
     
     private func resendInvitation(memberId: String) {

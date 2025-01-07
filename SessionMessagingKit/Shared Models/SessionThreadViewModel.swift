@@ -828,7 +828,15 @@ public extension SessionThreadViewModel {
                         WHERE (
                             \(groupMember[.groupId]) = \(closedGroup[.threadId]) AND
                             \(SQL("\(groupMember[.role]) = \(GroupMember.Role.admin)")) AND
-                            \(SQL("\(groupMember[.profileId]) = \(userSessionId.hexString)"))
+                            \(SQL("\(groupMember[.profileId]) = \(userSessionId.hexString)")) AND (
+                                (
+                                    -- Legacy groups don't have a 'roleStatus' so just let those through
+                                    -- based solely on the 'role'
+                                    \(groupMember[.groupId]) > \(SessionId.Prefix.standard.rawValue) AND
+                                    \(groupMember[.groupId]) < \(SessionId.Prefix.standard.endOfRangeString)
+                                ) OR
+                                \(SQL("\(groupMember[.roleStatus]) = \(GroupMember.RoleStatus.accepted)"))
+                            )
                         )
                     ) AS \(ViewModel.Columns.currentUserIsClosedGroupAdmin),
 
@@ -1140,7 +1148,15 @@ public extension SessionThreadViewModel {
                     WHERE (
                         \(groupMember[.groupId]) = \(closedGroup[.threadId]) AND
                         \(SQL("\(groupMember[.role]) = \(GroupMember.Role.admin)")) AND
-                        \(SQL("\(groupMember[.profileId]) = \(userSessionId.hexString)"))
+                        \(SQL("\(groupMember[.profileId]) = \(userSessionId.hexString)")) AND (
+                            (
+                                -- Legacy groups don't have a 'roleStatus' so just let those through
+                                -- based solely on the 'role'
+                                \(groupMember[.groupId]) > \(SessionId.Prefix.standard.rawValue) AND
+                                \(groupMember[.groupId]) < \(SessionId.Prefix.standard.endOfRangeString)
+                            ) OR
+                            \(SQL("\(groupMember[.roleStatus]) = \(GroupMember.RoleStatus.accepted)"))
+                        )
                     )
                 ) AS \(ViewModel.Columns.currentUserIsClosedGroupAdmin),
                 
@@ -1262,7 +1278,15 @@ public extension SessionThreadViewModel {
                     WHERE (
                         \(groupMember[.groupId]) = \(closedGroup[.threadId]) AND
                         \(SQL("\(groupMember[.role]) = \(GroupMember.Role.admin)")) AND
-                        \(SQL("\(groupMember[.profileId]) = \(userSessionId.hexString)"))
+                        \(SQL("\(groupMember[.profileId]) = \(userSessionId.hexString)")) AND (
+                            (
+                                -- Legacy groups don't have a 'roleStatus' so just let those through
+                                -- based solely on the 'role'
+                                \(groupMember[.groupId]) > \(SessionId.Prefix.standard.rawValue) AND
+                                \(groupMember[.groupId]) < \(SessionId.Prefix.standard.endOfRangeString)
+                            ) OR
+                            \(SQL("\(groupMember[.roleStatus]) = \(GroupMember.RoleStatus.accepted)"))
+                        )
                     )
                 ) AS \(ViewModel.Columns.currentUserIsClosedGroupAdmin),
         

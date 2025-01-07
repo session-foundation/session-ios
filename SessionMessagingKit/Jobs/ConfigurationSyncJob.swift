@@ -82,31 +82,35 @@ public enum ConfigurationSyncJob: JobExecutor {
         
         let jobStartTimestamp: TimeInterval = dependencies.dateNow.timeIntervalSince1970
         let messageSendTimestamp: Int64 = dependencies[cache: .snodeAPI].currentOffsetTimestampMs()
+        let additionalSequenceRequests: AdditionalSequenceRequests? = (job.transientData as? AdditionalSequenceRequests)
         Log.info(.cat, "For \(swarmPublicKey) started with changes: \(pendingChanges.pushData.count), old hashes: \(pendingChanges.obsoleteHashes.count)")
         
         // TODO: Seems like the conversation list will randomly not get the last message (Lokinet updates???).
         dependencies[singleton: .storage]
             .readPublisher { db -> Network.PreparedRequest<Network.BatchResponse> in
                 try SnodeAPI.preparedSequence(
-                    requests: try pendingChanges.pushData
-                        .map { pushData -> ErasedPreparedRequest in
-                            try SnodeAPI
-                                .preparedSendMessage(
-                                    message: SnodeMessage(
-                                        recipient: swarmPublicKey,
-                                        data: pushData.data.base64EncodedString(),
-                                        ttl: pushData.variant.ttl,
-                                        timestampMs: UInt64(messageSendTimestamp)
-                                    ),
-                                    in: pushData.variant.namespace,
-                                    authMethod: try Authentication.with(
-                                        db,
-                                        swarmPublicKey: swarmPublicKey,
+                    requests: []
+                        .appending(contentsOf: additionalSequenceRequests?.beforeSequenceRequests)
+                        .appending(
+                            contentsOf: try pendingChanges.pushData.map { pushData -> ErasedPreparedRequest in
+                                try SnodeAPI
+                                    .preparedSendMessage(
+                                        message: SnodeMessage(
+                                            recipient: swarmPublicKey,
+                                            data: pushData.data.base64EncodedString(),
+                                            ttl: pushData.variant.ttl,
+                                            timestampMs: UInt64(messageSendTimestamp)
+                                        ),
+                                        in: pushData.variant.namespace,
+                                        authMethod: try Authentication.with(
+                                            db,
+                                            swarmPublicKey: swarmPublicKey,
+                                            using: dependencies
+                                        ),
                                         using: dependencies
-                                    ),
-                                    using: dependencies
-                                )
-                        }
+                                    )
+                            }
+                        )
                         .appending(try {
                             guard !pendingChanges.obsoleteHashes.isEmpty else { return nil }
                             
@@ -120,8 +124,9 @@ public enum ConfigurationSyncJob: JobExecutor {
                                 ),
                                 using: dependencies
                             )
-                        }()),
-                    requireAllBatchResponses: false,
+                        }())
+                        .appending(contentsOf: additionalSequenceRequests?.afterSequenceRequests),
+                    requireAllBatchResponses: (additionalSequenceRequests?.requireAllBatchResponses == true),
                     swarmPublicKey: swarmPublicKey,
                     snodeRetrievalRetryCount: 0,    // This job has it's own retry mechanism
                     requestAndPathBuildTimeout: Network.defaultTimeout,
@@ -134,8 +139,12 @@ public enum ConfigurationSyncJob: JobExecutor {
             .map { (_: ResponseInfoType, response: Network.BatchResponse) -> [ConfigDump] in
                 /// The number of responses returned might not match the number of changes sent but they will be returned
                 /// in the same order, this means we can just `zip` the two arrays as it will take the smaller of the two and
-                /// correctly align the response to the change
-                zip(response, pendingChanges.pushData)
+                /// correctly align the response to the change (we need to manually remove any `beforeSequenceRequests`
+                /// results through)
+                let responseWithoutBeforeRequests = Array(response
+                    .suffix(from: (job.transientData as? AdditionalSequenceRequests)?.beforeSequenceRequests.count ?? 0))
+                
+                return zip(responseWithoutBeforeRequests, pendingChanges.pushData)
                     .compactMap { (subResponse: Any, pushData: LibSession.PendingChanges.PushData) in
                         /// If the request wasn't successful then just ignore it (the next time we sync this config we will try
                         /// to send the changes again)
@@ -233,6 +242,12 @@ extension ConfigurationSyncJob {
         
         public let wasManualTrigger: Bool
     }
+    
+    public struct AdditionalSequenceRequests {
+        public let beforeSequenceRequests: [any ErasedPreparedRequest]
+        public let afterSequenceRequests: [any ErasedPreparedRequest]
+        public let requireAllBatchResponses: Bool
+    }
 }
 
 // MARK: - Convenience
@@ -286,6 +301,9 @@ public extension ConfigurationSyncJob {
     /// resolve until after the current job has completed
     static func run(
         swarmPublicKey: String,
+        beforeSequenceRequests: [any ErasedPreparedRequest] = [],
+        afterSequenceRequests: [any ErasedPreparedRequest] = [],
+        requireAllBatchResponses: Bool = false,
         using dependencies: Dependencies
     ) -> AnyPublisher<Void, Error> {
         return Deferred {
@@ -294,7 +312,12 @@ public extension ConfigurationSyncJob {
                     let job: Job = Job(
                         variant: .configurationSync,
                         threadId: swarmPublicKey,
-                        details: OptionalDetails(wasManualTrigger: true)
+                        details: OptionalDetails(wasManualTrigger: true),
+                        transientData: AdditionalSequenceRequests(
+                            beforeSequenceRequests: beforeSequenceRequests,
+                            afterSequenceRequests: afterSequenceRequests,
+                            requireAllBatchResponses: requireAllBatchResponses
+                        )
                     )
                 else { return resolver(Result.failure(NetworkError.parsingFailed)) }
                 

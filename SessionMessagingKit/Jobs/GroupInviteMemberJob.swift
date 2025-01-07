@@ -49,8 +49,19 @@ public enum GroupInviteMemberJob: JobExecutor {
         
         /// Perform the actual message sending
         dependencies[singleton: .storage]
-            .readPublisher { db -> Network.PreparedRequest<Void> in
-                try MessageSender.preparedSend(
+            .writePublisher { db -> Network.PreparedRequest<Void> in
+                _ = try? GroupMember
+                    .filter(GroupMember.Columns.groupId == threadId)
+                    .filter(GroupMember.Columns.profileId == details.memberSessionIdHexString)
+                    .filter(GroupMember.Columns.role == GroupMember.Role.standard)
+                    .updateAllAndConfig(
+                        db,
+                        GroupMember.Columns.roleStatus.set(to: GroupMember.RoleStatus.sending),
+                        calledFromConfig: nil,
+                        using: dependencies
+                    )
+                
+                return try MessageSender.preparedSend(
                     db,
                     message: try GroupUpdateInviteMessage(
                         inviteeSessionIdHexString: details.memberSessionIdHexString,

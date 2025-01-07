@@ -649,7 +649,7 @@ extension ConversationVC:
                             interactionId: interactionId,
                             authorId: quoteModel.authorId,
                             timestampMs: quoteModel.timestampMs,
-                            body: quoteModel.body,
+                            body: nil,
                             attachmentId: try quoteThumbnailAttachment?.inserted(db).id
                         ).insert(db)
                     }

@@ -295,6 +295,18 @@ extension MessageReceiver {
             groupSessionId: groupSessionId,
             using: dependencies
         )
+        
+        // Update the current member record to be an approved admin
+        let userSessionId: SessionId = dependencies[cache: .general].sessionId
+        try GroupMember
+            .filter(GroupMember.Columns.groupId == groupSessionId.hexString)
+            .filter(GroupMember.Columns.profileId == userSessionId.hexString)
+            .updateAllAndConfig(
+                db,
+                GroupMember.Columns.roleStatus.set(to: GroupMember.RoleStatus.accepted),
+                calledFromConfig: nil,
+                using: dependencies
+            )
     }
     
     private static func handleGroupInfoChanged(
@@ -350,47 +362,24 @@ extension MessageReceiver {
                 ).inserted(db)
                 
             case .disappearingMessages:
-                /// **Note:** We only create this in order to get the 'messageInfoString' it **should not** be saved as that would
+                /// **Note:** We only create this to insert the control message, it **should not** be saved as that would
                 /// override the correct settings applied by the group config messages
                 let userSessionId: SessionId = dependencies[cache: .general].sessionId
-                let relevantConfig: DisappearingMessagesConfiguration = DisappearingMessagesConfiguration(
+                let config: DisappearingMessagesConfiguration = DisappearingMessagesConfiguration(
                     threadId: groupSessionId.hexString,
                     isEnabled: ((message.updatedExpiration ?? 0) > 0),
                     durationSeconds: TimeInterval((message.updatedExpiration ?? 0)),
                     type: .disappearAfterSend
                 )
-                let localConfig: DisappearingMessagesConfiguration = try DisappearingMessagesConfiguration
-                    .filter(id: groupSessionId.hexString)
-                    .fetchOne(db)
-                    .defaulting(to: DisappearingMessagesConfiguration.defaultWith(groupSessionId.hexString))
-                
-                _ = try Interaction(
-                    serverHash: message.serverHash,
-                    threadId: groupSessionId.hexString,
+                _ = try config.insertControlMessage(
+                    db,
                     threadVariant: .group,
                     authorId: sender,
-                    variant: .infoDisappearingMessagesUpdate,
-                    body: relevantConfig.messageInfoString(
-                        threadVariant: .group,
-                        senderName: (sender != userSessionId.hexString ?
-                            Profile.displayName(db, id: sender, using: dependencies) :
-                            nil
-                        ),
-                        using: dependencies
-                    ),
                     timestampMs: Int64(sentTimestampMs),
-                    wasRead: dependencies.mutate(cache: .libSession) { cache in
-                        cache.timestampAlreadyRead(
-                            threadId: groupSessionId.hexString,
-                            threadVariant: .group,
-                            timestampMs: Int64(sentTimestampMs),
-                            userSessionId: userSessionId,
-                            openGroup: nil
-                        )
-                    },
-                    expiresInSeconds: (relevantConfig.isEnabled ? nil : localConfig.durationSeconds),
+                    serverHash: message.serverHash,
+                    serverExpirationTimestamp: nil,
                     using: dependencies
-                ).inserted(db)
+                )
         }
     }
     

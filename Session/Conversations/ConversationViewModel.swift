@@ -541,6 +541,27 @@ public class ConversationViewModel: OWSAudioPlayerDelegate, NavigatableStateHold
                         blinded25SessionId: blinded25SessionId
                     ),
                     associateData: MessageViewModel.QuoteAttachmentInfo.createAssociateDataClosure()
+                ),
+                AssociatedRecord<MessageViewModel.QuotedInfo, MessageViewModel>(
+                    trackedAgainst: Quote.self,
+                    observedChanges: [
+                        PagedData.ObservedChanges(
+                            table: Interaction.self,
+                            columns: [.variant]
+                        )
+                    ],
+                    dataQuery: MessageViewModel.QuotedInfo.baseQuery(
+                        userSessionId: userSessionId,
+                        blinded15SessionId: blinded15SessionId,
+                        blinded25SessionId: blinded25SessionId
+                    ),
+                    joinToPagedType: MessageViewModel.QuotedInfo.joinToViewModelQuerySQL(
+                        userSessionId: userSessionId,
+                        blinded15SessionId: blinded15SessionId,
+                        blinded25SessionId: blinded25SessionId
+                    ),
+                    retrieveRowIdsForReferencedRowIds: MessageViewModel.QuotedInfo.createReferencedRowIdsRetriever(),
+                    associateData: MessageViewModel.QuotedInfo.createAssociateDataClosure()
                 )
             ],
             onChangeUnsorted: { [weak self] updatedData, updatedPageInfo in

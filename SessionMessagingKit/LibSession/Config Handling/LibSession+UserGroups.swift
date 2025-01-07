@@ -238,10 +238,11 @@ internal extension LibSessionCacheType {
         try legacyGroups.forEach { group in
             guard
                 let name: String = group.name,
-                let lastKeyPair: ClosedGroupKeyPair = group.lastKeyPair,
-                let members: [GroupMember] = group.groupMembers,
-                let updatedAdmins: Set<GroupMember> = group.groupAdmins?.asSet()
+                let lastKeyPair: ClosedGroupKeyPair = group.lastKeyPair
             else { return }
+            
+            let members: [GroupMember] = (group.groupMembers ?? [])
+            let updatedAdmins: Set<GroupMember> = (group.groupAdmins ?? []).asSet()
             
             // There were some bugs (somewhere) where the `joinedAt` valid could be in seconds, milliseconds
             // or even microseconds so we need to try to detect this and convert it to proper seconds (if we don't
@@ -270,7 +271,8 @@ internal extension LibSessionCacheType {
                     ),
                     members: members
                         .asSet()
-                        .inserting(contentsOf: updatedAdmins)  // Admins should also have 'standard' member entries
+                        // In legacy groups admins should also have 'standard' member entries
+                        .inserting(contentsOf: updatedAdmins)
                         .map { $0.profileId },
                     admins: updatedAdmins.map { $0.profileId },
                     expirationTimer: UInt32(group.disappearingConfig?.durationSeconds ?? 0),

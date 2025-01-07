@@ -987,18 +987,69 @@ class ThreadSettingsViewModel: SessionTableViewModel, NavigatableStateHolder, Ob
             _ memberInfo: [(id: String, profile: Profile?)],
             isResend: Bool
         ) {
-            MessageSender.promoteGroupMembers(
-                groupSessionId: SessionId(.group, hex: threadId),
-                members: memberInfo,
-                sendAdminChangedMessage: !isResend,
-                using: dependencies
-            )
-            viewModel?.showToast(
-                text: "adminSendingPromotion"
-                    .putNumber(memberInfo.count)
-                    .localized(),
-                backgroundColor: .backgroundSecondary
-            )
+            let viewController = ModalActivityIndicatorViewController(canCancel: false) { [dependencies, threadId] modalActivityIndicator in
+                MessageSender
+                    .promoteGroupMembers(
+                        groupSessionId: SessionId(.group, hex: threadId),
+                        members: memberInfo,
+                        sendAdminChangedMessage: !isResend,
+                        using: dependencies
+                    )
+                    .sinkUntilComplete(
+                        receiveCompletion: { result in
+                            modalActivityIndicator.dismiss {
+                                switch result {
+                                    case .failure:
+                                        viewModel?.transitionToScreen(
+                                            ConfirmationModal(
+                                                // FIXME: Localise these
+                                                info: ConfirmationModal.Info(
+                                                    title: "Promotion Failed",
+                                                    body: .text("An error occurred and the promotions were not successfully sent, would you like to try again?"),
+                                                    confirmTitle: "retry".localized(),
+                                                    cancelTitle: "dismiss".localized(),
+                                                    cancelStyle: .alert_text,
+                                                    dismissOnConfirm: false,
+                                                    onConfirm: { modal in
+                                                        modal.dismiss(animated: true) {
+                                                            send(viewModel, memberInfo, isResend: isResend)
+                                                        }
+                                                    },
+                                                    onCancel: { modal in
+                                                        /// Flag the members as failed
+                                                        let memberIds: [String] = memberInfo.map(\.id)
+                                                        dependencies[singleton: .storage].writeAsync { db in
+                                                            try? GroupMember
+                                                                .filter(GroupMember.Columns.groupId == threadId)
+                                                                .filter(memberIds.contains(GroupMember.Columns.profileId))
+                                                                .updateAllAndConfig(
+                                                                    db,
+                                                                    GroupMember.Columns.roleStatus.set(to: GroupMember.RoleStatus.failed),
+                                                                    calledFromConfig: nil,
+                                                                    using: dependencies
+                                                                )
+                                                        }
+                                                        modal.dismiss(animated: true)
+                                                    }
+                                                )
+                                            ),
+                                            transitionType: .present
+                                        )
+                                        
+                                    case .finished:
+                                        /// Show a toast that we have sent the promotions
+                                        viewModel?.showToast(
+                                            text: "adminSendingPromotion"
+                                                .putNumber(memberInfo.count)
+                                                .localized(),
+                                            backgroundColor: .backgroundSecondary
+                                        )
+                                }
+                            }
+                        }
+                    )
+            }
+            viewModel?.transitionToScreen(viewController, transitionType: .present)
         }
         
         /// Show the selection list

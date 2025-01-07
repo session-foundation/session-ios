@@ -138,7 +138,18 @@ private class ConfigStore {
 
 public extension LibSession {
     class Cache: LibSessionCacheType {
+        private struct ConfigSyncKey: Hashable {
+            let sessionId: SessionId
+            let variant: ConfigDump.Variant?
+            
+            init(sessionId: SessionId, variant: ConfigDump.Variant? = nil) {
+                self.sessionId = sessionId
+                self.variant = variant
+            }
+        }
+        
         private var configStore: ConfigStore = ConfigStore()
+        private var configsBlockedFromEnquingSyncs: [ConfigSyncKey: Int] = [:]
         
         public let dependencies: Dependencies
         public let userSessionId: SessionId
@@ -437,6 +448,21 @@ public extension LibSession {
         
         // MARK: - Pushes
         
+        public func withoutConfigSync(
+            for variant: ConfigDump.Variant?,
+            sessionId: SessionId,
+            change: () throws -> ()
+        ) throws {
+            let key: ConfigSyncKey = ConfigSyncKey(sessionId: sessionId, variant: variant)
+            configsBlockedFromEnquingSyncs[key] = ((configsBlockedFromEnquingSyncs[key] ?? 0) + 1)
+            try change()
+            configsBlockedFromEnquingSyncs[key] = ((configsBlockedFromEnquingSyncs[key] ?? 1) - 1)
+            
+            if configsBlockedFromEnquingSyncs[key] == 0 {
+                configsBlockedFromEnquingSyncs.removeValue(forKey: key)
+            }
+        }
+        
         public func performAndPushChange(
             _ db: Database,
             for variant: ConfigDump.Variant,
@@ -481,8 +507,12 @@ public extension LibSession {
                 throw error
             }
             
-            // Make sure we need a push before scheduling one
-            guard config.needsPush else { return }
+            // Make sure we need a push and enquing config syncs aren't blocked before scheduling one
+            guard
+                config.needsPush &&
+                configsBlockedFromEnquingSyncs[ConfigSyncKey(sessionId: sessionId, variant: variant)] == nil &&
+                configsBlockedFromEnquingSyncs[ConfigSyncKey(sessionId: sessionId)] == nil
+            else { return }
             
             db.afterNextTransactionNestedOnce(dedupeId: LibSession.syncDedupeId(sessionId.hexString), using: dependencies) { [dependencies] db in
                 ConfigurationSyncJob.enqueue(db, swarmPublicKey: sessionId.hexString, using: dependencies)
@@ -827,6 +857,11 @@ public protocol LibSessionCacheType: LibSessionImmutableCacheType, MutableCacheT
     
     // MARK: - Pushes
     
+    func withoutConfigSync(
+        for variant: ConfigDump.Variant?,
+        sessionId: SessionId,
+        change: () throws -> ()
+    ) throws
     func performAndPushChange(
         _ db: Database,
         for variant: ConfigDump.Variant,
@@ -876,6 +911,12 @@ public protocol LibSessionCacheType: LibSessionImmutableCacheType, MutableCacheT
     func isAdmin(groupSessionId: SessionId) -> Bool
 }
 
+public extension LibSessionCacheType {
+    func withoutConfigSync(sessionId: SessionId, change: () throws -> ()) throws {
+        try withoutConfigSync(for: nil, sessionId: sessionId, change: change)
+    }
+}
+
 private final class NoopLibSessionCache: LibSessionCacheType {
     let dependencies: Dependencies
     let userSessionId: SessionId = .invalid
@@ -910,6 +951,11 @@ private final class NoopLibSessionCache: LibSessionCacheType {
     
     // MARK: - Pushes
     
+    func withoutConfigSync(
+        for variant: ConfigDump.Variant?,
+        sessionId: SessionId,
+        change: () throws -> ()
+    ) throws {}
     func performAndPushChange(
         _ db: Database,
         for variant: ConfigDump.Variant,

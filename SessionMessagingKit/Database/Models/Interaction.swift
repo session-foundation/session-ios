@@ -1337,7 +1337,7 @@ public extension Interaction {
         /// If attachments were removed then we also need to tetrieve any quotes of the interactions which had attachments and
         /// remove their thumbnails
         ///
-        /// **Note:** THis needs to happen before the attachments are deleted otherwise the joins in the query will fail
+        /// **Note:** This needs to happen before the attachments are deleted otherwise the joins in the query will fail
         if !attachments.isEmpty {
             let quote: TypedTableAlias<Quote> = TypedTableAlias()
             let interaction: TypedTableAlias<Interaction> = TypedTableAlias()

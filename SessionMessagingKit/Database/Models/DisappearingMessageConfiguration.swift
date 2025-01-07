@@ -319,6 +319,13 @@ public extension DisappearingMessagesConfiguration {
             expiresStartedAtMs: (self.type == .disappearAfterSend) ? Double(timestampMs) : nil,
             using: dependencies
         )
+        let interactionExpirationInfo: Message.MessageExpirationInfo? = {
+            // In group and legacy group conversations we don't want this control message to expire
+            switch threadVariant {
+                case .legacyGroup, .group: return nil
+                default: return messageExpirationInfo
+            }
+        }()
         let interaction = try Interaction(
             serverHash: serverHash,
             threadId: threadId,
@@ -335,8 +342,8 @@ public extension DisappearingMessagesConfiguration {
             ),
             timestampMs: timestampMs,
             wasRead: wasRead,
-            expiresInSeconds: (threadVariant == .legacyGroup ? nil : messageExpirationInfo.expiresInSeconds), // Do not expire this control message in legacy groups
-            expiresStartedAtMs: (threadVariant == .legacyGroup ? nil : messageExpirationInfo.expiresStartedAtMs),
+            expiresInSeconds: interactionExpirationInfo?.expiresInSeconds,
+            expiresStartedAtMs: interactionExpirationInfo?.expiresStartedAtMs,
             using: dependencies
         ).inserted(db)
         
