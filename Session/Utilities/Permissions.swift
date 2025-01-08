@@ -8,7 +8,7 @@ import SessionUIKit
 import SessionUtilitiesKit
 import SessionMessagingKit
 
-public enum Permissions {
+extension Permissions {
     @discardableResult public static func requestCameraPermissionIfNeeded(
         presentingViewController: UIViewController? = nil,
         onAuthorized: (() -> Void)? = nil

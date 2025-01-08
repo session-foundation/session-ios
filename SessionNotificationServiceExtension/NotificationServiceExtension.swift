@@ -154,8 +154,7 @@ public final class NotificationServiceExtension: UNNotificationServiceExtension 
                             throw NotificationError.ignorableMessage
                         }
                         
-                        let hasMicrophonePermission: Bool = (AVAudioSession.sharedInstance().recordPermission == .granted)
-                        switch ((db[.areCallsEnabled] && hasMicrophonePermission), isCallOngoing) {
+                        switch ((db[.areCallsEnabled] && Permissions.hasMicrophonePermission), isCallOngoing) {
                             case (false, _):
                                 if
                                     let sender: String = callMessage.sender,

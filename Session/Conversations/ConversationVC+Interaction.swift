@@ -121,7 +121,7 @@ extension ConversationVC:
         let threadId: String = self.viewModel.threadData.threadId
         
         guard
-            AVAudioSession.sharedInstance().recordPermission == .granted,
+            Permissions.hasMicrophonePermission,
             self.viewModel.threadData.threadVariant == .contact,
             Singleton.callManager.currentCall == nil,
             let call: SessionCall = Storage.shared.read({ [dependencies = viewModel.dependencies] db in
@@ -2487,7 +2487,7 @@ extension ConversationVC:
         
         // Keep screen on
         UIApplication.shared.isIdleTimerDisabled = false
-        guard AVAudioSession.sharedInstance().recordPermission == .granted else { return }
+        guard Permissions.hasMicrophonePermission else { return }
         
         // Cancel any current audio playback
         self.viewModel.stopAudio()
