@@ -327,15 +327,20 @@ public extension ConfigurationSyncJob {
                     success: { _, _ in resolver(Result.success(())) },
                     failure: { _, error, _ in resolver(Result.failure(error)) },
                     deferred: { job in
-                        dependencies[singleton: .jobRunner].afterJob(job) { result in
-                            switch result {
-                                /// If it gets deferred a second time then we should probably just fail - no use waiting on something
-                                /// that may never run (also means we can avoid another potential defer loop)
-                                case .notFound, .deferred: resolver(Result.failure(NetworkError.unknown))
-                                case .failed(let error, _): resolver(Result.failure(error))
-                                case .succeeded: resolver(Result.success(()))
-                            }
-                        }
+                        dependencies[singleton: .jobRunner]
+                            .afterJob(job)
+                            .first()
+                            .sinkUntilComplete(
+                                receiveValue: { result in
+                                    switch result {
+                                        /// If it gets deferred a second time then we should probably just fail - no use waiting on something
+                                        /// that may never run (also means we can avoid another potential defer loop)
+                                        case .notFound, .deferred: resolver(Result.failure(NetworkError.unknown))
+                                        case .failed(let error, _): resolver(Result.failure(error))
+                                        case .succeeded: resolver(Result.success(()))
+                                    }
+                                }
+                            )
                     },
                     using: dependencies
                 )
