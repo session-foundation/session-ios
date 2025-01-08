@@ -373,6 +373,7 @@ public enum MessageReceiver {
                     threadId: threadId,
                     threadVariant: threadVariant,
                     message: message,
+                    serverExpirationTimestamp: serverExpirationTimestamp,
                     using: dependencies
                 )
                 

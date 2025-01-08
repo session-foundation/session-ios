@@ -452,6 +452,10 @@ internal extension LibSessionCacheType {
                         (group.authData != nil || group.groupIdentityPrivateKey != nil) &&
                         (existingGroups[group.groupSessionId] == nil || group.wasKickedFromGroup == true)
                     {
+                        /// **Note:** In `MessageReceiver+Groups` we don't apply the disappearing message config settings to the
+                        /// invitation control message because we wouldn't have them at that point - technically we might have them here
+                        /// since the user was already part of the group, but they _may_ be stale so it'd be better to just behave consistently
+                        /// and not disappear like the original one
                         _ = try Interaction(
                             threadId: group.groupSessionId,
                             threadVariant: .group,

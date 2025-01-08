@@ -12,6 +12,7 @@ extension MessageReceiver {
         threadId: String,
         threadVariant: SessionThread.Variant,
         message: Message,
+        serverExpirationTimestamp: TimeInterval?,
         using dependencies: Dependencies
     ) throws {
         switch (message, try? SessionId(from: threadId)) {
@@ -34,6 +35,7 @@ extension MessageReceiver {
                     db,
                     groupSessionId: sessionId,
                     message: message,
+                    serverExpirationTimestamp: serverExpirationTimestamp,
                     using: dependencies
                 )
                 
@@ -42,6 +44,7 @@ extension MessageReceiver {
                     db,
                     groupSessionId: sessionId,
                     message: message,
+                    serverExpirationTimestamp: serverExpirationTimestamp,
                     using: dependencies
                 )
                 
@@ -58,6 +61,7 @@ extension MessageReceiver {
                     db,
                     groupSessionId: sessionId,
                     message: message,
+                    serverExpirationTimestamp: serverExpirationTimestamp,
                     using: dependencies
                 )
                 
@@ -315,6 +319,7 @@ extension MessageReceiver {
         _ db: Database,
         groupSessionId: SessionId,
         message: GroupUpdateInfoChangeMessage,
+        serverExpirationTimestamp: TimeInterval?,
         using dependencies: Dependencies
     ) throws {
         guard
@@ -333,6 +338,15 @@ extension MessageReceiver {
         
         // Add a record of the specific change to the conversation (the actual change is handled via
         // config messages so these are only for record purposes)
+        let messageExpirationInfo: Message.MessageExpirationInfo = Message.getMessageExpirationInfo(
+            threadVariant: .group,
+            wasRead: false, // Only relevant for `DaR` messages which aren't supported in groups
+            serverExpirationTimestamp: serverExpirationTimestamp,
+            expiresInSeconds: message.expiresInSeconds,
+            expiresStartedAtMs: message.expiresStartedAtMs,
+            using: dependencies
+        )
+        
         switch message.changeType {
             case .name:
                 _ = try Interaction(
@@ -346,6 +360,8 @@ extension MessageReceiver {
                         .defaulting(to: ClosedGroup.MessageInfo.updatedNameFallback)
                         .infoString(using: dependencies),
                     timestampMs: Int64(sentTimestampMs),
+                    expiresInSeconds: messageExpirationInfo.expiresInSeconds,
+                    expiresStartedAtMs: messageExpirationInfo.expiresStartedAtMs,
                     using: dependencies
                 ).inserted(db)
                 
@@ -360,6 +376,8 @@ extension MessageReceiver {
                         .updatedDisplayPicture
                         .infoString(using: dependencies),
                     timestampMs: Int64(sentTimestampMs),
+                    expiresInSeconds: messageExpirationInfo.expiresInSeconds,
+                    expiresStartedAtMs: messageExpirationInfo.expiresStartedAtMs,
                     using: dependencies
                 ).inserted(db)
                 
@@ -379,7 +397,7 @@ extension MessageReceiver {
                     authorId: sender,
                     timestampMs: Int64(sentTimestampMs),
                     serverHash: message.serverHash,
-                    serverExpirationTimestamp: nil,
+                    serverExpirationTimestamp: serverExpirationTimestamp,
                     using: dependencies
                 )
         }
@@ -389,6 +407,7 @@ extension MessageReceiver {
         _ db: Database,
         groupSessionId: SessionId,
         message: GroupUpdateMemberChangeMessage,
+        serverExpirationTimestamp: TimeInterval?,
         using dependencies: Dependencies
     ) throws {
         guard
@@ -456,6 +475,15 @@ extension MessageReceiver {
         switch messageInfo.infoString(using: dependencies) {
             case .none: Log.warn(.messageReceiver, "Failed to encode member change info string.")
             case .some(let messageBody):
+                let messageExpirationInfo: Message.MessageExpirationInfo = Message.getMessageExpirationInfo(
+                    threadVariant: .group,
+                    wasRead: false, // Only relevant for `DaR` messages which aren't supported in groups
+                    serverExpirationTimestamp: serverExpirationTimestamp,
+                    expiresInSeconds: message.expiresInSeconds,
+                    expiresStartedAtMs: message.expiresStartedAtMs,
+                    using: dependencies
+                )
+                
                 _ = try Interaction(
                     threadId: groupSessionId.hexString,
                     threadVariant: .group,
@@ -463,6 +491,8 @@ extension MessageReceiver {
                     variant: .infoGroupMembersUpdated,
                     body: messageBody,
                     timestampMs: Int64(sentTimestampMs),
+                    expiresInSeconds: messageExpirationInfo.expiresInSeconds,
+                    expiresStartedAtMs: messageExpirationInfo.expiresStartedAtMs,
                     using: dependencies
                 ).inserted(db)
         }
@@ -502,6 +532,7 @@ extension MessageReceiver {
         _ db: Database,
         groupSessionId: SessionId,
         message: GroupUpdateMemberLeftNotificationMessage,
+        serverExpirationTimestamp: TimeInterval?,
         using dependencies: Dependencies
     ) throws {
         guard
@@ -511,6 +542,15 @@ extension MessageReceiver {
         
         // Add a record of the specific change to the conversation (the actual change is handled via
         // config messages so these are only for record purposes)
+        let messageExpirationInfo: Message.MessageExpirationInfo = Message.getMessageExpirationInfo(
+            threadVariant: .group,
+            wasRead: false, // Only relevant for `DaR` messages which aren't supported in groups
+            serverExpirationTimestamp: serverExpirationTimestamp,
+            expiresInSeconds: message.expiresInSeconds,
+            expiresStartedAtMs: message.expiresStartedAtMs,
+            using: dependencies
+        )
+        
         _ = try Interaction(
             threadId: groupSessionId.hexString,
             threadVariant: .group,
@@ -526,6 +566,8 @@ extension MessageReceiver {
                 )
                 .infoString(using: dependencies),
             timestampMs: Int64(sentTimestampMs),
+            expiresInSeconds: messageExpirationInfo.expiresInSeconds,
+            expiresStartedAtMs: messageExpirationInfo.expiresStartedAtMs,
             using: dependencies
         ).inserted(db)
     }
@@ -898,6 +940,9 @@ extension MessageReceiver {
             .filter(Interaction.Columns.variant == Interaction.Variant.infoGroupInfoInvited)
             .deleteAll(db)
         
+        /// Unline most control messages we don't bother setting expiration values for this message, this is because we won't actually
+        /// have the current disappearing messages config as we won't have polled the group yet (and the settings are stored in the
+        /// `GroupInfo` config)
         let interaction: Interaction = try Interaction(
             threadId: groupSessionId.hexString,
             threadVariant: .group,

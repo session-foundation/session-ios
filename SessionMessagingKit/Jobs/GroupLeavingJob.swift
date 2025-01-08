@@ -99,10 +99,14 @@ public enum GroupLeavingJob: JobExecutor {
                         )
                     
                     case (.group, .leave, _, false):
+                        let disappearingConfig: DisappearingMessagesConfiguration? = try? DisappearingMessagesConfiguration.fetchOne(db, id: threadId)
+                        
                         return .leave(
                             try SnodeAPI
                                 .preparedBatch(
                                     requests: [
+                                        /// Don't expire the `GroupUpdateMemberLeftMessage` as that's not a UI-based
+                                        /// message (it's an instruction for admin devices)
                                         try MessageSender.preparedSend(
                                             db,
                                             message: GroupUpdateMemberLeftMessage(),
@@ -114,7 +118,8 @@ public enum GroupLeavingJob: JobExecutor {
                                         ),
                                         try MessageSender.preparedSend(
                                             db,
-                                            message: GroupUpdateMemberLeftNotificationMessage(),
+                                            message: GroupUpdateMemberLeftNotificationMessage()
+                                                .with(disappearingConfig),
                                             to: destination,
                                             namespace: destination.defaultNamespace,
                                             interactionId: nil,

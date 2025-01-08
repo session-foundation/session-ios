@@ -299,6 +299,8 @@ extension MessageSender {
                 
                 // Add a record of the name change to the conversation
                 if name != closedGroup.name {
+                    let disappearingConfig: DisappearingMessagesConfiguration? = try? DisappearingMessagesConfiguration.fetchOne(db, id: sessionId.hexString)
+                    
                     _ = try Interaction(
                         threadId: groupSessionId,
                         threadVariant: .group,
@@ -308,6 +310,10 @@ extension MessageSender {
                             .updatedName(name)
                             .infoString(using: dependencies),
                         timestampMs: changeTimestampMs,
+                        expiresInSeconds: disappearingConfig?.expiresInSeconds(),
+                        expiresStartedAtMs: disappearingConfig?.initialExpiresStartedAtMs(
+                            sentTimestampMs: Double(changeTimestampMs)
+                        ),
                         using: dependencies
                     ).inserted(db)
                     
@@ -324,7 +330,7 @@ extension MessageSender {
                                 using: dependencies
                             ),
                             using: dependencies
-                        ),
+                        ).with(disappearingConfig),
                         interactionId: nil,
                         threadId: sessionId.hexString,
                         threadVariant: .group,
@@ -379,6 +385,8 @@ extension MessageSender {
                     default: throw MessageSenderError.invalidClosedGroupUpdate
                 }
                 
+                let disappearingConfig: DisappearingMessagesConfiguration? = try? DisappearingMessagesConfiguration.fetchOne(db, id: sessionId.hexString)
+                
                 // Add a record of the change to the conversation
                 _ = try Interaction(
                     threadId: groupSessionId,
@@ -389,6 +397,10 @@ extension MessageSender {
                         .updatedDisplayPicture
                         .infoString(using: dependencies),
                     timestampMs: changeTimestampMs,
+                    expiresInSeconds: disappearingConfig?.expiresInSeconds(),
+                    expiresStartedAtMs: disappearingConfig?.initialExpiresStartedAtMs(
+                        sentTimestampMs: Double(changeTimestampMs)
+                    ),
                     using: dependencies
                 ).inserted(db)
                 
@@ -404,7 +416,7 @@ extension MessageSender {
                             using: dependencies
                         ),
                         using: dependencies
-                    ),
+                    ).with(disappearingConfig),
                     interactionId: nil,
                     threadId: sessionId.hexString,
                     threadVariant: .group,
@@ -567,7 +579,7 @@ extension MessageSender {
                             ed25519SecretKey: Array(groupIdentityPrivateKey)
                         ),
                         using: dependencies
-                    ),
+                    ).with(try? DisappearingMessagesConfiguration.fetchOne(db, id: sessionId.hexString)),
                     to: .closedGroup(groupPublicKey: sessionId.hexString),
                     namespace: .groupMessages,
                     interactionId: nil,
@@ -594,6 +606,8 @@ extension MessageSender {
                     let userSessionId: SessionId = dependencies[cache: .general].sessionId
                     
                     dependencies[singleton: .storage].writeAsync { db in
+                        let disappearingConfig: DisappearingMessagesConfiguration? = try? DisappearingMessagesConfiguration.fetchOne(db, id: sessionId.hexString)
+                        
                         /// Add a record of the change to the conversation
                         _ = try? Interaction(
                             threadId: groupSessionId,
@@ -613,6 +627,10 @@ extension MessageSender {
                                 )
                                 .infoString(using: dependencies),
                             timestampMs: changeTimestampMs,
+                            expiresInSeconds: disappearingConfig?.expiresInSeconds(),
+                            expiresStartedAtMs: disappearingConfig?.initialExpiresStartedAtMs(
+                                sentTimestampMs: Double(changeTimestampMs)
+                            ),
                             using: dependencies
                         ).inserted(db)
                         
@@ -798,6 +816,7 @@ extension MessageSender {
                         .fetchAll(db))
                         .defaulting(to: [])
                         .reduce(into: [:]) { result, next in result[next.id] = next }
+                    let disappearingConfig: DisappearingMessagesConfiguration? = try? DisappearingMessagesConfiguration.fetchOne(db, id: sessionId.hexString)
                     
                     /// Add a record of the change to the conversation
                     _ = try Interaction(
@@ -817,6 +836,10 @@ extension MessageSender {
                             )
                             .infoString(using: dependencies),
                         timestampMs: targetChangeTimestampMs,
+                        expiresInSeconds: disappearingConfig?.expiresInSeconds(),
+                        expiresStartedAtMs: disappearingConfig?.initialExpiresStartedAtMs(
+                            sentTimestampMs: Double(targetChangeTimestampMs)
+                        ),
                         using: dependencies
                     ).inserted(db)
                     
@@ -833,7 +856,7 @@ extension MessageSender {
                                 ed25519SecretKey: Array(groupIdentityPrivateKey)
                             ),
                             using: dependencies
-                        ),
+                        ).with(disappearingConfig),
                         interactionId: nil,
                         threadId: sessionId.hexString,
                         threadVariant: .group,
@@ -918,6 +941,8 @@ extension MessageSender {
                 var memberChangeRequest: Network.PreparedRequest<Void>?
                 
                 if sendAdminChangedMessage && !membersReceivingPromotions.isEmpty {
+                    let disappearingConfig: DisappearingMessagesConfiguration? = try? DisappearingMessagesConfiguration.fetchOne(db, id: groupSessionId.hexString)
+                    
                     memberChangeRequest = try MessageSender.preparedSend(
                         db,
                         message: GroupUpdateMemberChangeMessage(
@@ -931,7 +956,7 @@ extension MessageSender {
                                 using: dependencies
                             ),
                             using: dependencies
-                        ),
+                        ).with(disappearingConfig),
                         to: .closedGroup(groupPublicKey: groupSessionId.hexString),
                         namespace: .groupMessages,
                         interactionId: nil,
@@ -959,6 +984,8 @@ extension MessageSender {
                     
                     dependencies[singleton: .storage].writeAsync { db in
                         if sendAdminChangedMessage && !membersReceivingPromotions.isEmpty {
+                            let disappearingConfig: DisappearingMessagesConfiguration? = try? DisappearingMessagesConfiguration.fetchOne(db, id: groupSessionId.hexString)
+                            
                             _ = try Interaction(
                                 threadId: groupSessionId.hexString,
                                 threadVariant: .group,
@@ -976,6 +1003,10 @@ extension MessageSender {
                                     )
                                     .infoString(using: dependencies),
                                 timestampMs: changeTimestampMs,
+                                expiresInSeconds: disappearingConfig?.expiresInSeconds(),
+                                expiresStartedAtMs: disappearingConfig?.initialExpiresStartedAtMs(
+                                    sentTimestampMs: Double(changeTimestampMs)
+                                ),
                                 using: dependencies
                             ).inserted(db)
                         }
