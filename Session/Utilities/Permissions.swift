@@ -57,40 +57,54 @@ extension Permissions {
         presentingViewController: UIViewController? = nil,
         onNotGranted: (() -> Void)? = nil
     ) {
-        switch AVAudioSession.sharedInstance().recordPermission {
-            case .granted: break
-            case .denied:
-                guard
-                    Singleton.hasAppContext,
-                    let presentingViewController: UIViewController = (presentingViewController ?? Singleton.appContext.frontmostViewController)
-                else { return }
-                onNotGranted?()
-                
-                let confirmationModal: ConfirmationModal = ConfirmationModal(
-                    info: ConfirmationModal.Info(
-                        title: "permissionsRequired".localized(),
-                        body: .text(
-                            "permissionsMicrophoneAccessRequiredIos"
-                                .put(key: "app_name", value: Constants.app_name)
-                                .localized()
-                        ),
-                        confirmTitle: "sessionSettings".localized(),
-                        dismissOnConfirm: false,
-                        onConfirm: { [weak presentingViewController] _ in
-                            presentingViewController?.dismiss(animated: true, completion: {
-                                UIApplication.shared.open(URL(string: UIApplication.openSettingsURLString)!)
-                            })
-                        },
-                        afterClosed: { onNotGranted?() }
-                    )
+        let handlePermissionDenied: () -> Void = {
+            guard
+                Singleton.hasAppContext,
+                let presentingViewController: UIViewController = (presentingViewController ?? Singleton.appContext.frontmostViewController)
+            else { return }
+            onNotGranted?()
+            
+            let confirmationModal: ConfirmationModal = ConfirmationModal(
+                info: ConfirmationModal.Info(
+                    title: "permissionsRequired".localized(),
+                    body: .text(
+                        "permissionsMicrophoneAccessRequiredIos"
+                            .put(key: "app_name", value: Constants.app_name)
+                            .localized()
+                    ),
+                    confirmTitle: "sessionSettings".localized(),
+                    dismissOnConfirm: false,
+                    onConfirm: { [weak presentingViewController] _ in
+                        presentingViewController?.dismiss(animated: true, completion: {
+                            UIApplication.shared.open(URL(string: UIApplication.openSettingsURLString)!)
+                        })
+                    },
+                    afterClosed: { onNotGranted?() }
                 )
-                presentingViewController.present(confirmationModal, animated: true, completion: nil)
-                
-            case .undetermined:
-                onNotGranted?()
-                AVAudioSession.sharedInstance().requestRecordPermission { _ in }
-                
-            default: break
+            )
+            presentingViewController.present(confirmationModal, animated: true, completion: nil)
+        }
+        
+        if #available(iOS 17.0, *) {
+            switch AVAudioApplication.shared.recordPermission {
+                case .granted: break
+                case .denied: handlePermissionDenied()
+                case .undetermined:
+                    onNotGranted?()
+                    AVAudioSession.sharedInstance().requestRecordPermission { _ in }
+                    
+                default: break
+            }
+        } else {
+            switch AVAudioSession.sharedInstance().recordPermission {
+                case .granted: break
+                case .denied: handlePermissionDenied()
+                case .undetermined:
+                    onNotGranted?()
+                    AVAudioSession.sharedInstance().requestRecordPermission { _ in }
+                    
+                default: break
+            }
         }
     }
 

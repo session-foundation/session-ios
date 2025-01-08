@@ -323,7 +323,7 @@ extension ConversationVC:
         
         Permissions.requestMicrophonePermissionIfNeeded()
         
-        if AVAudioSession.sharedInstance().recordPermission != .granted {
+        if !Permissions.hasMicrophonePermission {
             SNLog("Proceeding without microphone access. Any recorded video will be silent.")
         }
         
