@@ -20,8 +20,8 @@ public class TypingIndicators {
     // MARK: - Variables
     
     private let dependencies: Dependencies
-    private var outgoing: Atomic<[String: Indicator]> = Atomic([:])
-    private var incoming: Atomic<[String: Indicator]> = Atomic([:])
+    @ThreadSafeObject private var outgoing: [String: Indicator] = [:]
+    @ThreadSafeObject private var incoming: [String: Indicator] = [:]
     
     // MARK: - Initialization
     
@@ -43,7 +43,7 @@ public class TypingIndicators {
             case .outgoing:
                 // If we already have an existing typing indicator for this thread then just
                 // refresh it's timeout (no need to do anything else)
-                if let existingIndicator: Indicator = outgoing.wrappedValue[threadId] {
+                if let existingIndicator: Indicator = outgoing[threadId] {
                     existingIndicator.refreshTimeout(using: dependencies)
                     return false
                 }
@@ -59,13 +59,13 @@ public class TypingIndicators {
                 )
                 newIndicator?.refreshTimeout(using: dependencies)
                 
-                outgoing.mutate { $0[threadId] = newIndicator }
+                _outgoing.performUpdate { $0.setting(threadId, newIndicator) }
                 return true
                 
             case .incoming:
                 // If we already have an existing typing indicator for this thread then just
                 // refresh it's timeout (no need to do anything else)
-                if let existingIndicator: Indicator = incoming.wrappedValue[threadId] {
+                if let existingIndicator: Indicator = incoming[threadId] {
                     existingIndicator.refreshTimeout(using: dependencies)
                     return false
                 }
@@ -81,30 +81,30 @@ public class TypingIndicators {
                 )
                 newIndicator?.refreshTimeout(using: dependencies)
                 
-                incoming.mutate { $0[threadId] = newIndicator }
+                _incoming.performUpdate { $0.setting(threadId, newIndicator) }
                 return true
         }
     }
     
     public func start(_ db: Database, threadId: String, direction: Direction) {
         switch direction {
-            case .outgoing: outgoing.wrappedValue[threadId]?.start(db, using: dependencies)
-            case .incoming: incoming.wrappedValue[threadId]?.start(db, using: dependencies)
+            case .outgoing: outgoing[threadId]?.start(db, using: dependencies)
+            case .incoming: incoming[threadId]?.start(db, using: dependencies)
         }
     }
     
     public func didStopTyping(_ db: Database, threadId: String, direction: Direction) {
         switch direction {
             case .outgoing:
-                if let indicator: Indicator = outgoing.wrappedValue[threadId] {
+                if let indicator: Indicator = outgoing[threadId] {
                     indicator.stop(db, using: dependencies)
-                    outgoing.mutate { $0[threadId] = nil }
+                    _outgoing.performUpdate { $0.removingValue(forKey: threadId) }
                 }
                 
             case .incoming:
-                if let indicator: Indicator = incoming.wrappedValue[threadId] {
+                if let indicator: Indicator = incoming[threadId] {
                     indicator.stop(db, using: dependencies)
-                    incoming.mutate { $0[threadId] = nil }
+                    _incoming.performUpdate { $0.removingValue(forKey: threadId) }
                 }
         }
     }

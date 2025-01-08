@@ -314,7 +314,7 @@ fileprivate func generateCallInfo<M, T, R>(
                 return
             }
             
-            allFunctionsCalled = Array(validInstance.functionConsumer.calls.wrappedValue.keys)
+            allFunctionsCalled = Array(validInstance.functionConsumer.calls.keys)
             
             // Only check for the specific function calls if there was at least a single
             // call (if there weren't any this will likely throw errors when attempting
@@ -328,8 +328,7 @@ fileprivate func generateCallInfo<M, T, R>(
                     name: (maybeTargetFunction?.name ?? ""),
                     paramCount: (maybeTargetFunction?.parameterCount ?? 0)
                 )
-                allCallDetails = validInstance.functionConsumer.calls
-                    .wrappedValue[key]
+                allCallDetails = validInstance.functionConsumer.calls[key]
                     .defaulting(to: [])
                 validInstance.functionConsumer.trackCalls = true
             }

@@ -66,7 +66,6 @@ internal extension LibSessionCacheType {
                 )
             }(),
             sentTimestamp: TimeInterval(Double(serverTimestampMs) / 1000),
-            calledFromConfig: config.viaCache(self),
             using: dependencies
         )
         
@@ -95,7 +94,6 @@ internal extension LibSessionCacheType {
                     .updateAllAndConfig(
                         db,
                         threadChanges,
-                        calledFromConfig: config.viaCache(self),
                         using: dependencies
                     )
             }
@@ -109,7 +107,6 @@ internal extension LibSessionCacheType {
                     type: .hideContactConversation,
                     threadId: userSessionId.hexString,
                     threadVariant: .contact,
-                    calledFromConfig: config.viaCache(self),
                     using: dependencies
                 )
             }
@@ -122,7 +119,6 @@ internal extension LibSessionCacheType {
                         shouldBeVisible: .setTo(LibSession.shouldBeVisible(priority: targetPriority)),
                         pinnedPriority: .setTo(targetPriority)
                     ),
-                    calledFromConfig: config.viaCache(self),
                     using: dependencies
                 )
             }
@@ -175,7 +171,6 @@ internal extension LibSessionCacheType {
                     Contact.Columns.isTrusted.set(to: true),    // Always trust the current user
                     Contact.Columns.isApproved.set(to: true),
                     Contact.Columns.didApproveMe.set(to: true),
-                    calledFromConfig: config.viaCache(self),
                     using: dependencies
                 )
         }

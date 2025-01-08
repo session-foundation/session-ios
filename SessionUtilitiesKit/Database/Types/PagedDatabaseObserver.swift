@@ -30,7 +30,7 @@ public class PagedDatabaseObserver<ObservedTable, T>: TransactionObserver where 
     private let dependencies: Dependencies
     private let pagedTableName: String
     private let idColumnName: String
-    public var pageInfo: Atomic<PagedData.PageInfo>
+    @ThreadSafe public var pageInfo: PagedData.PageInfo
     
     private let observedTableChangeTypes: [String: PagedData.ObservedChanges]
     private let allObservedTableNames: Set<String>
@@ -45,9 +45,9 @@ public class PagedDatabaseObserver<ObservedTable, T>: TransactionObserver where 
     private let dataQuery: ([Int64]) -> any FetchRequest<T>
     private let associatedRecords: [ErasedAssociatedRecord]
     
-    private var dataCache: Atomic<DataCache<T>> = Atomic(DataCache())
-    private var isLoadingMoreData: Atomic<Bool> = Atomic(false)
-    private let changesInCommit: Atomic<Set<PagedData.TrackedChange>> = Atomic([])
+    @ThreadSafe private var dataCache: DataCache<T> = DataCache()
+    @ThreadSafe private var isLoadingMoreData: Bool = false
+    @ThreadSafeObject private var changesInCommit: Set<PagedData.TrackedChange> = []
     private let onChangeUnsorted: (([T], PagedData.PageInfo) -> ())
     
     // MARK: - Initialization
@@ -72,7 +72,7 @@ public class PagedDatabaseObserver<ObservedTable, T>: TransactionObserver where 
         self.dependencies = dependencies
         self.pagedTableName = pagedTable.databaseTableName
         self.idColumnName = idColumn.name
-        self.pageInfo = Atomic(PagedData.PageInfo(pageSize: pageSize))
+        self.pageInfo = PagedData.PageInfo(pageSize: pageSize)
         self.joinSQL = joinSQL
         self.filterSQL = filterSQL
         self.groupSQL = groupSQL
@@ -161,7 +161,7 @@ public class PagedDatabaseObserver<ObservedTable, T>: TransactionObserver where 
         
         // The 'event' object only exists during this method so we need to copy the info
         // from it, otherwise it will cease to exist after this metod call finishes
-        changesInCommit.mutate { $0.insert(trackedChange) }
+        _changesInCommit.performUpdate { $0.inserting(trackedChange) }
     }
     
     /// We will process all updates which come through this method even if 'onChange' is null because if the UI stops observing and then starts
@@ -172,16 +172,16 @@ public class PagedDatabaseObserver<ObservedTable, T>: TransactionObserver where 
     /// so was resulting in hanging when there was a lot of activity happening)
     public func databaseDidCommit(_ db: Database) {
         // If there were no pending changes in the commit then do nothing
-        guard !self.changesInCommit.wrappedValue.isEmpty else { return }
+        guard !self.changesInCommit.isEmpty else { return }
         
         // Since we can't be sure the behaviours of 'databaseDidChange' and 'databaseDidCommit' won't change in
-        // the future we extract and clear the values in 'changesInCommit' since it's 'Atomic<T>' so will different
+        // the future we extract and clear the values in 'changesInCommit' since it's '@ThreadSafe' so will different
         // threads modifying the data resulting in us missing a change
         var committedChanges: Set<PagedData.TrackedChange> = []
         
-        self.changesInCommit.mutate { cachedChanges in
+        self._changesInCommit.performUpdate { cachedChanges in
             committedChanges = cachedChanges
-            cachedChanges.removeAll()
+            return []
         }
         
         commitProcessingQueue.async { [weak self] in
@@ -194,8 +194,8 @@ public class PagedDatabaseObserver<ObservedTable, T>: TransactionObserver where 
         typealias UpdatedData = (cache: DataCache<T>, pageInfo: PagedData.PageInfo, hasChanges: Bool, associatedData: AssociatedDataInfo)
         
         // Store the instance variables locally to avoid unwrapping
-        let dataCache: DataCache<T> = self.dataCache.wrappedValue
-        let pageInfo: PagedData.PageInfo = self.pageInfo.wrappedValue
+        let dataCache: DataCache<T> = self.dataCache
+        let pageInfo: PagedData.PageInfo = self.pageInfo
         let pagedTableName: String = self.pagedTableName
         let joinSQL: SQL? = self.joinSQL
         let orderSQL: SQL = self.orderSQL
@@ -472,8 +472,8 @@ public class PagedDatabaseObserver<ObservedTable, T>: TransactionObserver where 
         }
 
         // Update the cache, pageInfo and the change callback
-        self.dataCache.mutate { $0 = finalUpdatedDataCache }
-        self.pageInfo.mutate { $0 = updatedData.pageInfo }
+        self.dataCache = finalUpdatedDataCache
+        self.pageInfo = updatedData.pageInfo
 
         // Trigger the unsorted change callback (the actual UI update triggering should eventually be run on
         // the main thread via the `PagedData.processAndTriggerUpdates` function)
@@ -486,12 +486,12 @@ public class PagedDatabaseObserver<ObservedTable, T>: TransactionObserver where 
     
     fileprivate func load(_ target: PagedData.PageInfo.InternalTarget) {
         // Only allow a single page load at a time
-        guard !self.isLoadingMoreData.wrappedValue else { return }
+        guard !self.isLoadingMoreData else { return }
 
         // Prevent more fetching until we have completed adding the page
-        self.isLoadingMoreData.mutate { $0 = true }
+        self.isLoadingMoreData = true
         
-        let currentPageInfo: PagedData.PageInfo = self.pageInfo.wrappedValue
+        let currentPageInfo: PagedData.PageInfo = self.pageInfo
         
         if case .initialPageAround(_) = target, currentPageInfo.currentCount > 0 {
             SNLog("Unable to load initialPageAround if there is already data")
@@ -664,9 +664,9 @@ public class PagedDatabaseObserver<ObservedTable, T>: TransactionObserver where 
                         // If the targetId is further than 1 pageSize away then discard the current
                         // cached data and trigger a fresh `initialPageAround`
                         let callback: () -> () = {
-                            self?.dataCache.mutate { $0 = DataCache() }
+                            self?.dataCache = DataCache()
                             self?.associatedRecords.forEach { $0.clearCache(db) }
-                            self?.pageInfo.mutate { $0 = PagedData.PageInfo(pageSize: currentPageInfo.pageSize) }
+                            self?.pageInfo = PagedData.PageInfo(pageSize: currentPageInfo.pageSize)
                             self?.load(.initialPageAround(id: targetId))
                         }
                         
@@ -760,9 +760,9 @@ public class PagedDatabaseObserver<ObservedTable, T>: TransactionObserver where 
             // It's possible to get updated page info without having updated data, in that case
             // we do want to update the cache but probably don't need to trigger the change callback
             if let updatedPageInfo: PagedData.PageInfo = loadedPage?.pageInfo {
-                self.pageInfo.mutate { $0 = updatedPageInfo }
+                self.pageInfo = updatedPageInfo
             }
-            self.isLoadingMoreData.mutate { $0 = false }
+            self.isLoadingMoreData = false
             loadedPage?.failureCallback?()
             return
         }
@@ -775,13 +775,13 @@ public class PagedDatabaseObserver<ObservedTable, T>: TransactionObserver where 
         }
         
         // Update the cache and pageInfo
-        self.dataCache.mutate { $0 = $0.upserting(items: associatedLoadedData.values) }
-        self.pageInfo.mutate { $0 = updatedPageInfo }
+        self.dataCache = self.dataCache.upserting(items: associatedLoadedData.values)
+        self.pageInfo = updatedPageInfo
         
         // Trigger the unsorted change callback (the actual UI update triggering should eventually be run on
         // the main thread via the `PagedData.processAndTriggerUpdates` function)
-        self.onChangeUnsorted(self.dataCache.wrappedValue.values, updatedPageInfo)
-        self.isLoadingMoreData.mutate { $0 = false }
+        self.onChangeUnsorted(self.dataCache.values, updatedPageInfo)
+        self.isLoadingMoreData = false
     }
     
     public func reload() {
@@ -831,7 +831,7 @@ public protocol ErasedAssociatedRecord {
 
 // MARK: - DataCache
 
-public struct DataCache<T: FetchableRecordWithRowId & Identifiable> {
+public struct DataCache<T: FetchableRecordWithRowId & Identifiable>: ThreadSafeType {
     /// This is a map of `[RowId: Value]`
     public let data: [Int64: T]
     
@@ -903,7 +903,7 @@ public enum PagedData {
     
     // MARK: - PageInfo
     
-    public struct PageInfo {
+    public struct PageInfo: ThreadSafeType {
         /// This type is identical to the 'Target' type but has it's 'SQLExpressible' requirement removed
         fileprivate enum InternalTarget {
             case initialPageAround(id: SQLExpression)
@@ -1273,7 +1273,7 @@ public class AssociatedRecord<T, PagedType>: ErasedAssociatedRecord where T: Fet
     public let observedChanges: [PagedData.ObservedChanges]
     public let joinToPagedType: SQL
     
-    fileprivate let dataCache: Atomic<DataCache<T>> = Atomic(DataCache())
+    @ThreadSafe fileprivate var dataCache: DataCache<T> = DataCache()
     fileprivate let dataQuery: (SQL?) -> any FetchRequest<T>
     fileprivate let retrieveRowIdsForReferencedRowIds: (([Int64], DataCache<T>) -> [Int64])?
     fileprivate let associateData: (DataCache<T>, DataCache<PagedType>) -> DataCache<PagedType>
@@ -1321,15 +1321,15 @@ public class AssociatedRecord<T, PagedType>: ErasedAssociatedRecord where T: Fet
         guard !relevantChanges.isEmpty else { return false }
         
         // First remove any items which have been deleted
-        let oldCount: Int = self.dataCache.wrappedValue.count
+        let oldCount: Int = self.dataCache.count
         let deletionChanges: [Int64] = relevantChanges
             .filter { $0.kind == .delete && $0.tableName == databaseTableName }
             .map { $0.rowId }
         
-        dataCache.mutate { $0 = $0.deleting(rowIds: deletionChanges) }
+        dataCache = dataCache.deleting(rowIds: deletionChanges)
         
         // Get an updated count to avoid locking the dataCache unnecessarily
-        let countAfterDeletions: Int = self.dataCache.wrappedValue.count
+        let countAfterDeletions: Int = self.dataCache.count
         
         // If there are no inserted/updated rows then trigger the update callback and stop here, we
         // need to also check if the updated row is one that is referenced by this associated data as
@@ -1419,7 +1419,7 @@ public class AssociatedRecord<T, PagedType>: ErasedAssociatedRecord where T: Fet
             guard !updatedItems.isEmpty else { return hasOtherChanges }
             
             // Process the upserted data (assume at least one value changed)
-            dataCache.mutate { $0 = $0.upserting(items: updatedItems) }
+            dataCache = dataCache.upserting(items: updatedItems)
             
             return true
         }
@@ -1430,7 +1430,7 @@ public class AssociatedRecord<T, PagedType>: ErasedAssociatedRecord where T: Fet
     }
     
     public func clearCache(_ db: Database) {
-        dataCache.mutate { $0 = DataCache() }
+        dataCache = DataCache()
     }
     
     public func updateAssociatedData<O>(to unassociatedCache: DataCache<O>) -> DataCache<O> {
@@ -1438,7 +1438,7 @@ public class AssociatedRecord<T, PagedType>: ErasedAssociatedRecord where T: Fet
             return unassociatedCache
         }
         
-        return (associateData(dataCache.wrappedValue, typedCache) as? DataCache<O>)
+        return (associateData(dataCache, typedCache) as? DataCache<O>)
             .defaulting(to: unassociatedCache)
     }
 }

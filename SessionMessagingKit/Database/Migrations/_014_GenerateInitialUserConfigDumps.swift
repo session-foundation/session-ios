@@ -51,7 +51,9 @@ enum _014_GenerateInitialUserConfigDumps: Migration {
         
         try LibSession.updateNoteToSelf(
             priority: {
-                guard allThreads[userSessionId.hexString]?.shouldBeVisible == true else { return LibSession.hiddenPriority }
+                guard allThreads[userSessionId.hexString]?.shouldBeVisible == true else {
+                    return LibSession.hiddenPriority
+                }
                 
                 return Int32(allThreads[userSessionId.hexString]?.pinnedPriority ?? 0)
             }(),

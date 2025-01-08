@@ -97,8 +97,10 @@ public extension DisappearingMessagesJob {
             return nil
         }
         
-        /// The `expiresStartedAtMs` timestamp is now based on the `dependencies[cache: .snodeAPI].currentOffsetTimestampMs()
-        /// value so we need to make sure offset the `nextRunTimestamp` accordingly to ensure it runs at the correct local time
+        /// The `expiresStartedAtMs` timestamp is now based on the
+        /// `dependencies[cache: .snodeAPI].currentOffsetTimestampMs()`
+        /// value so we need to make sure offset the `nextRunTimestamp` accordingly to
+        /// ensure it runs at the correct local time
         let clockOffsetMs: Int64 = dependencies[cache: .snodeAPI].clockOffsetMs
         
         Log.info(.cat, "Scheduled future message expiration")

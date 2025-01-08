@@ -157,7 +157,6 @@ public final class WebRTCSession : NSObject, RTCPeerConnectionDelegate {
         Log.info(.calls, "Sending offer message.")
         let uuid: String = self.uuid
         let mediaConstraints: RTCMediaConstraints = mediaConstraints(isRestartingICEConnection)
-        let dependencies: Dependencies = self.dependencies
         
         return Deferred { [weak self, dependencies] in
             Future<Void, Error> { resolver in
@@ -221,7 +220,6 @@ public final class WebRTCSession : NSObject, RTCPeerConnectionDelegate {
         Log.info(.calls, "Sending answer message.")
         let uuid: String = self.uuid
         let mediaConstraints: RTCMediaConstraints = mediaConstraints(false)
-        let dependencies: Dependencies = self.dependencies
         
         return dependencies[singleton: .storage]
             .readPublisher { db -> SessionThread in
@@ -304,7 +302,6 @@ public final class WebRTCSession : NSObject, RTCPeerConnectionDelegate {
         let candidates: [RTCIceCandidate] = self.queuedICECandidates
         let uuid: String = self.uuid
         let contactSessionId: String = self.contactSessionId
-        let dependencies: Dependencies = self.dependencies
         
         // Empty the queue
         self.queuedICECandidates.removeAll()

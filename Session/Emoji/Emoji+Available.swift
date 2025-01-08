@@ -6,7 +6,7 @@ import UIKit
 import SessionUtilitiesKit
 
 extension Emoji {
-    private static let availableCache: Atomic<[Emoji:Bool]> = Atomic([:])
+    @ThreadSafeObject private static var availableCache: [Emoji: Bool] = [:]
     private static let iosVersionKey = "iosVersion"
     private static let cacheUrl = URL(fileURLWithPath: SessionFileManager.nonInjectedAppSharedDataDirectoryPath)
         .appendingPathComponent("Library")
@@ -72,7 +72,7 @@ extension Emoji {
 
         Log.info("[Emoji] Warmed emoji availability cache with \(availableCache.lazy.filter { $0.value }.count) available emoji for iOS \(iosVersion)")
 
-        Self.availableCache.mutate{ $0 = availableCache }
+        Self._availableCache.performUpdate { _ in availableCache }
     }
 
     private static func isEmojiAvailable(_ emoji: Emoji) -> Bool {
@@ -82,9 +82,9 @@ extension Emoji {
     /// Indicates whether the given emoji is available on this iOS
     /// version. We cache the availability in memory.
     var available: Bool {
-        guard let available = Self.availableCache.wrappedValue[self] else {
+        guard let available = Self.availableCache[self] else {
             let available = Self.isEmojiAvailable(self)
-            Self.availableCache.mutate{ $0[self] = available }
+            Self._availableCache.performUpdate { $0.setting(self, available) }
             return available
         }
         return available

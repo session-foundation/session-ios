@@ -63,7 +63,7 @@ public protocol PollerType: AnyObject {
         pollerName: String,
         pollerQueue: DispatchQueue,
         pollerDestination: PollerDestination,
-        pollerDrainBehaviour: SwarmDrainBehaviour,
+        pollerDrainBehaviour: ThreadSafeObject<SwarmDrainBehaviour>,
         namespaces: [SnodeAPI.Namespace],
         failureCount: Int,
         shouldStoreMessages: Bool,

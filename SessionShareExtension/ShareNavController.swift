@@ -15,7 +15,6 @@ final class ShareNavController: UINavigationController, ShareViewDelegate {
     
     /// The `ShareNavController` is initialized from a storyboard so we need to manually initialize this
     private let dependencies: Dependencies = Dependencies.createEmpty()
-    private let versionMigrationsComplete: Atomic<Bool> = Atomic(false)
     
     // MARK: - Error
     
@@ -124,7 +123,6 @@ final class ShareNavController: UINavigationController, ShareViewDelegate {
             }
         }
 
-        versionMigrationsComplete.mutate { $0 = true }
         checkIsAppReady(migrationsCompleted: true)
     }
 

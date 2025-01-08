@@ -266,7 +266,7 @@ public class HomeViewModel: NavigatableStateHolder {
                 oldState.hasHiddenMessageRequests != updatedState.hasHiddenMessageRequests ||
                 oldState.unreadMessageRequestThreadCount != updatedState.unreadMessageRequestThreadCount
             ),
-            let currentPageInfo: PagedData.PageInfo = self.pagedDataObserver?.pageInfo.wrappedValue
+            let currentPageInfo: PagedData.PageInfo = self.pagedDataObserver?.pageInfo
         else { return }
         
         /// **MUST** have the same logic as in the 'PagedDataObserver.onChangeUnsorted' above
@@ -355,7 +355,7 @@ public class HomeViewModel: NavigatableStateHolder {
                             return lhs.lastInteractionDate > rhs.lastInteractionDate
                         }
                         .map { viewModel -> SessionThreadViewModel in
-                            viewModel.populatingCurrentUserBlindedIds(
+                            viewModel.populatingPostQueryData(
                                 currentUserBlinded15SessionIdForThisThread: groupedOldData[viewModel.threadId]?
                                     .first?
                                     .currentUserBlinded15SessionId,

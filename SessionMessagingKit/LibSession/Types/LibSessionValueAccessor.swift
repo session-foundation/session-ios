@@ -67,7 +67,6 @@ extension LibSession.ValueAccessor: LibSessionValueAccessor {
     }
 }
 
-
 public protocol LibSessionValueAccessor {
     func pinnedPriority(
         _ db: Database,

@@ -54,7 +54,7 @@ public class ThreadPickerViewModel {
                         )
                     )
                     
-                    return threadViewModel.populatingCurrentUserBlindedIds(
+                    return threadViewModel.populatingPostQueryData(
                         db,
                         currentUserBlinded15SessionIdForThisThread: nil,
                         currentUserBlinded25SessionIdForThisThread: nil,

@@ -70,6 +70,13 @@ public extension Dictionary {
         return updatedDictionary
     }
     
+    func removingValues(forKeys keys: [Key]) -> [Key: Value] {
+        var updatedDictionary: [Key: Value] = self
+        keys.forEach { updatedDictionary.removeValue(forKey: $0) }
+        
+        return updatedDictionary
+    }
+    
     func nullIfEmpty() -> [Key: Value]? {
         guard !isEmpty else { return nil }
         
@@ -105,3 +112,9 @@ extension Dictionary where Value == Array<() -> Void> {
         self[key] = (self[key] ?? []).appending(value)
     }
 }
+
+// MARK: - DictionaryType
+
+/// Custom protocol that only `Dictionary` conforms to to allow us to check if a generic type is a `Dictionary`
+public protocol DictionaryType {}
+extension Dictionary: DictionaryType {}

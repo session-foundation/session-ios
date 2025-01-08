@@ -45,7 +45,20 @@ extension UserDefaults: UserDefaultsType {}
 // MARK: - Convenience
 
 public extension UserDefaults {
-    static let applicationGroup: String = "group.com.loki-project.loki-messenger"
+    @ThreadSafeObject private static var cachedApplicationGroup: String = ""
+    
+    // stringlint:ignore_contents
+    static let applicationGroup: String = {
+        guard !cachedApplicationGroup.isEmpty else {
+            let dynamicAppGroupsId: String = (Bundle.main.infoDictionary?["AppGroupsId"] as? String)
+                .defaulting(to: "group.com.loki-project.loki-messenger")
+            
+            _cachedApplicationGroup.set(to: dynamicAppGroupsId)
+            return dynamicAppGroupsId
+        }
+        
+        return cachedApplicationGroup
+    }()
     
     var allKeys: [String] { Array(self.dictionaryRepresentation().keys) }
     

@@ -148,7 +148,6 @@ public extension UIContextualAction {
                                                 type: .deleteContactConversationAndMarkHidden,
                                                 threadId: threadViewModel.threadId,
                                                 threadVariant: threadViewModel.threadVariant,
-                                                calledFromConfig: nil,
                                                 using: dependencies
                                             )
                                         }
@@ -199,7 +198,6 @@ public extension UIContextualAction {
                                                         type: .hideContactConversation,
                                                         threadId: threadViewModel.threadId,
                                                         threadVariant: threadViewModel.threadVariant,
-                                                        calledFromConfig: nil,
                                                         using: dependencies
                                                     )
                                                 }
@@ -423,7 +421,6 @@ public extension UIContextualAction {
                                                     type: .deleteContactConversationAndMarkHidden,
                                                     threadId: threadViewModel.threadId,
                                                     threadVariant: threadViewModel.threadVariant,
-                                                    calledFromConfig: nil,
                                                     using: dependencies
                                                 )
                                             }
@@ -540,7 +537,6 @@ public extension UIContextualAction {
                                                     type: deletionType,
                                                     threadId: threadViewModel.threadId,
                                                     threadVariant: threadViewModel.threadVariant,
-                                                    calledFromConfig: nil,
                                                     using: dependencies
                                                 )
                                             } catch {
@@ -663,7 +659,6 @@ public extension UIContextualAction {
                                                 type: deletionType,
                                                 threadId: threadViewModel.threadId,
                                                 threadVariant: threadViewModel.threadVariant,
-                                                calledFromConfig: nil,
                                                 using: dependencies
                                             )
                                         }

@@ -33,6 +33,11 @@ public extension KeychainStorage.DataKey { static let dbCipherKeySpec: Self = "G
 // MARK: - Storage
 
 open class Storage {
+    public struct CurrentlyRunningMigration: ThreadSafeType {
+        public let identifier: TargetMigrations.Identifier
+        public let migration: Migration.Type
+    }
+    
     public static let queuePrefix: String = "SessionDatabase"
     public static let dbFileName: String = "Session.sqlite"
     private static let SQLCipherKeySpecLength: Int = 48
@@ -49,15 +54,25 @@ open class Storage {
     private static var databasePathWal: String { "\(Storage.sharedDatabaseDirectoryPath)/\(Storage.dbFileName)-wal" }
     
     private let dependencies: Dependencies
-    private var startupError: Error?
     fileprivate var dbWriter: DatabaseWriter?
     internal var testDbWriter: DatabaseWriter? { dbWriter }
-    private var unprocessedMigrationRequirements: Atomic<[MigrationRequirement]> = Atomic(MigrationRequirement.allCases)
-    private var migrationProgressUpdater: Atomic<((String, CGFloat) -> ())>?
-    private var migrationRequirementProcesser: Atomic<(Database, MigrationRequirement) -> ()>?
+    
+    // MARK: - Migration Variables
+    
+    @ThreadSafeObject private var unprocessedMigrationRequirements: [MigrationRequirement] = MigrationRequirement.allCases
+    @ThreadSafeObject private var migrationProgressUpdater: ((String, CGFloat) -> ())?
+    @ThreadSafeObject private var migrationRequirementProcesser: ((Database, MigrationRequirement) -> ())?
+    @ThreadSafe private var internalCurrentlyRunningMigration: CurrentlyRunningMigration? = nil
+    @ThreadSafe private var migrationsCompleted: Bool = false
+    
+    public var hasCompletedMigrations: Bool { migrationsCompleted }
+    public var currentlyRunningMigration: CurrentlyRunningMigration? {
+        internalCurrentlyRunningMigration
+    }
     
     // MARK: - Database State Variables
     
+    private var startupError: Error?
     public private(set) var isValid: Bool = false
     public private(set) var isSuspended: Bool = false
     public var isDatabasePasswordAccessible: Bool { ((try? getDatabaseCipherKeySpec()) != nil) }
@@ -68,12 +83,6 @@ open class Storage {
     /// This property gets set the first time we successfully write to the database
     public private(set) var hasSuccessfullyWritten: Bool = false
     
-    private let migrationsCompleted: Atomic<Bool> = Atomic(false)
-    internal let internalCurrentlyRunningMigration: Atomic<(identifier: TargetMigrations.Identifier, migration: Migration.Type)?> = Atomic(nil)
-    public var hasCompletedMigrations: Bool { migrationsCompleted.wrappedValue }
-    public var currentlyRunningMigration: (identifier: TargetMigrations.Identifier, migration: Migration.Type)? {
-        internalCurrentlyRunningMigration.wrappedValue
-    }
     
     // MARK: - Initialization
     
@@ -286,7 +295,7 @@ open class Storage {
         let needsConfigSync: Bool = unperformedMigrations
             .contains(where: { _, _, migration in migration.needsConfigSync })
         
-        self.migrationProgressUpdater = Atomic({ targetKey, progress in
+        self._migrationProgressUpdater.set(to: { targetKey, progress in
             guard let migrationIndex: Int = unperformedMigrations.firstIndex(where: { key, _, _ in key == targetKey }) else {
                 return
             }
@@ -301,7 +310,7 @@ open class Storage {
                 onProgressUpdate?(totalProgress, totalMinExpectedDuration)
             }
         })
-        self.migrationRequirementProcesser = Atomic(onMigrationRequirement)
+        self._migrationRequirementProcesser.set(to: onMigrationRequirement)
         
         // Store the logic to run when the migration completes
         let migrationCompleted: (Result<Void, Error>) -> () = { [weak self, migrator, dbWriter] result in
@@ -313,13 +322,13 @@ open class Storage {
             
             // Process any unprocessed requirements which need to be processed before completion
             // then clear out the state
-            let requirementProcessor: ((Database, MigrationRequirement) -> ())? = self?.migrationRequirementProcesser?.wrappedValue
-            let remainingMigrationRequirements: [MigrationRequirement] = (self?.unprocessedMigrationRequirements.wrappedValue
+            let requirementProcessor: ((Database, MigrationRequirement) -> ())? = self?.migrationRequirementProcesser
+            let remainingMigrationRequirements: [MigrationRequirement] = (self?.unprocessedMigrationRequirements
                 .filter { $0.shouldProcessAtCompletionIfNotRequired })
                 .defaulting(to: [])
-            self?.migrationsCompleted.mutate { $0 = true }
-            self?.migrationProgressUpdater = nil
-            self?.migrationRequirementProcesser = nil
+            self?.migrationsCompleted = true
+            self?._migrationProgressUpdater.set(to: nil)
+            self?._migrationRequirementProcesser.set(to: nil)
             
             // Process any remaining migration requirements
             if !remainingMigrationRequirements.isEmpty && requirementProcessor != nil {
@@ -330,7 +339,7 @@ open class Storage {
             
             // Reset in case there is a requirement on a migration which runs when returning from
             // the background
-            self?.unprocessedMigrationRequirements.mutate { $0 = MigrationRequirement.allCases }
+            self?._unprocessedMigrationRequirements.set(to: MigrationRequirement.allCases)
             
             // Don't log anything in the case of a 'success' or if the database is suspended (the
             // latter will happen if the user happens to return to the background too quickly on
@@ -363,7 +372,7 @@ open class Storage {
         
         // If we have an unperformed migration then trigger the progress updater immediately
         if let firstMigrationKey: String = unperformedMigrations.first?.key {
-            self.migrationProgressUpdater?.wrappedValue(firstMigrationKey, 0)
+            self.migrationProgressUpdater?(firstMigrationKey, 0)
         }
         
         // Note: The non-async migration should only be used for unit tests
@@ -385,27 +394,35 @@ open class Storage {
         }
     }
     
-    public func willStartMigration(_ db: Database, _ migration: Migration.Type) {
-        guard let largestMigrationRequirement: MigrationRequirement = migration.requirements.max() else { return }
+    public func willStartMigration(
+        _ db: Database,
+        _ migration: Migration.Type,
+        _ identifier: TargetMigrations.Identifier
+    ) {
+        internalCurrentlyRunningMigration = CurrentlyRunningMigration(
+            identifier: identifier,
+            migration: migration
+        )
         
-        // Get all requirements that are earlier than the largest requirement on the migration and find
-        // any that haven't yet been run
-        let unprocessedRequirements: [MigrationRequirement] = MigrationRequirement.allCases
-            .filter { $0 <= largestMigrationRequirement }
-            .asSet()
-            .intersection(unprocessedMigrationRequirements.wrappedValue.asSet())
+        // Get all requirements for the migration that haven't been run yet and sort them
+        let unprocessedRequirements: [MigrationRequirement] = migration.requirements.asSet()
+            .intersection(unprocessedMigrationRequirements.asSet())
             .sorted()
         
         // No need to do anything if there are no unprocessed requirements
         guard !unprocessedRequirements.isEmpty else { return }
         
         // Process all of the requirements for this migration
-        unprocessedRequirements.forEach { migrationRequirementProcesser?.wrappedValue(db, $0) }
+        unprocessedRequirements.forEach { migrationRequirementProcesser?(db, $0) }
         
         // Remove any processed requirements from the list (don't want to process them multiple times)
-        unprocessedMigrationRequirements.mutate {
-            $0 = Array($0.asSet().subtracting(unprocessedRequirements.asSet()))
+        _unprocessedMigrationRequirements.performUpdate {
+            Array($0.asSet().subtracting(migration.requirements.asSet()))
         }
+    }
+    
+    public func didCompleteMigration() {
+        internalCurrentlyRunningMigration = nil
     }
     
     public static func update(
@@ -417,8 +434,7 @@ open class Storage {
         // In test builds ignore any migration progress updates (we run in a custom database writer anyway)
         guard !SNUtilitiesKit.isRunningTests else { return }
         
-        dependencies[singleton: .storage].migrationProgressUpdater?
-            .wrappedValue(target.key(with: migration), progress)
+        dependencies[singleton: .storage].migrationProgressUpdater?(target.key(with: migration), progress)
     }
     
     // MARK: - Security
@@ -532,7 +548,7 @@ open class Storage {
     
     public func resetAllStorage() {
         isValid = false
-        migrationsCompleted.mutate { $0 = false }
+        migrationsCompleted = false
         dbWriter = nil
         
         deleteDatabaseFiles()

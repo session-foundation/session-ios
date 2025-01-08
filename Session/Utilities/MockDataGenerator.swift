@@ -57,7 +57,6 @@ enum MockDataGenerator {
                 creationDateTimestamp: .setTo(timestampNow),
                 shouldBeVisible: .setTo(false)
             ),
-            calledFromConfig: nil,
             using: dependencies
         )
         
@@ -91,7 +90,6 @@ enum MockDataGenerator {
                         creationDateTimestamp: .setTo(TimeInterval(floor(timestampNow - Double(index * 5)))),
                         shouldBeVisible: .setTo(true)
                     ),
-                    calledFromConfig: nil,
                     using: dependencies
                 )
                 
@@ -210,7 +208,6 @@ enum MockDataGenerator {
                         creationDateTimestamp: .setTo(TimeInterval(floor(timestampNow - Double(index * 5)))),
                         shouldBeVisible: .setTo(true)
                     ),
-                    calledFromConfig: nil,
                     using: dependencies
                 )
                 _ = try! ClosedGroup(
@@ -350,7 +347,6 @@ enum MockDataGenerator {
                         creationDateTimestamp: .setTo(TimeInterval(floor(timestampNow - Double(index * 5)))),
                         shouldBeVisible: .setTo(true)
                     ),
-                    calledFromConfig: nil,
                     using: dependencies
                 )
                 _ = try! OpenGroup(

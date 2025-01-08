@@ -206,6 +206,8 @@ fileprivate class IP2Country: IP2CountryCacheType {
             path.forEach { snode in
                 self.cacheCountry(for: snode.ip, inCache: &countryNamesCache)
             }
+            
+            return result
         }
         
         self._cacheLoaded.send(true)

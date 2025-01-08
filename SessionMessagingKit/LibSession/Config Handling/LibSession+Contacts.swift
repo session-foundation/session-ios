@@ -103,7 +103,6 @@ internal extension LibSessionCacheType {
                                     Profile.Columns.lastProfilePictureUpdate.set(to: data.profile.lastProfilePictureUpdate)
                                 )
                             ].compactMap { $0 },
-                            calledFromConfig: config.viaCache(self),
                             using: dependencies
                         )
                 }
@@ -132,7 +131,6 @@ internal extension LibSessionCacheType {
                                     Contact.Columns.didApproveMe.set(to: true)
                                 )
                             ].compactMap { $0 },
-                            calledFromConfig: config.viaCache(self),
                             using: dependencies
                         )
                 }
@@ -157,7 +155,6 @@ internal extension LibSessionCacheType {
                             type: .deleteContactConversationAndMarkHidden,
                             threadId: sessionId,
                             threadVariant: .contact,
-                            calledFromConfig: config.viaCache(self),
                             using: dependencies
                         )
                     
@@ -184,7 +181,6 @@ internal extension LibSessionCacheType {
                                     .useExisting
                                 )
                             ),
-                            calledFromConfig: config.viaCache(self),
                             using: dependencies
                         )
                     
@@ -249,20 +245,17 @@ internal extension LibSessionCacheType {
                 .updateAllAndConfig(
                     db,
                     Profile.Columns.nickname.set(to: nil),
-                    calledFromConfig: config.viaCache(self),
                     using: dependencies
                 )
             
             // Delete the one-to-one conversations associated to the contact
-            try SessionThread
-                .deleteOrLeave(
-                    db,
-                    type: .deleteContactConversationAndContact,
-                    threadIds: combinedIds,
-                    threadVariant: .contact,
-                    calledFromConfig: config.viaCache(self),
-                    using: dependencies
-                )
+            try SessionThread.deleteOrLeave(
+                db,
+                type: .deleteContactConversationAndContact,
+                threadIds: combinedIds,
+                threadVariant: .contact,
+                using: dependencies
+            )
             
             try LibSession.remove(
                 db,

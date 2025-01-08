@@ -45,7 +45,6 @@ extension MessageReceiver {
                     )
                 }(),
                 sentTimestamp: messageSentTimestamp,
-                calledFromConfig: nil,
                 using: dependencies
             )
         }
@@ -87,7 +86,6 @@ extension MessageReceiver {
                 creationDateTimestamp: .setTo(earliestCreationTimestamp),
                 shouldBeVisible: .useExisting
             ),
-            calledFromConfig: nil,
             using: dependencies
         )
         
@@ -128,7 +126,6 @@ extension MessageReceiver {
                     type: .deleteContactConversationAndContact, // Blinded contact isn't synced anyway
                     threadId: blindedIdLookup.blindedId,
                     threadVariant: .contact,
-                    calledFromConfig: nil,
                     using: dependencies
                 )
         }
@@ -206,7 +203,6 @@ extension MessageReceiver {
                 .updateAllAndConfig(
                     db,
                     Contact.Columns.isApproved.set(to: true),
-                    calledFromConfig: nil,
                     using: dependencies
                 )
         }
@@ -223,7 +219,6 @@ extension MessageReceiver {
                 .updateAllAndConfig(
                     db,
                     Contact.Columns.didApproveMe.set(to: true),
-                    calledFromConfig: nil,
                     using: dependencies
                 )
         }

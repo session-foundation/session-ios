@@ -157,11 +157,11 @@ public final class OpenGroupManager {
         roomToken: String,
         server: String,
         publicKey: String,
-        calledFromConfig configTriggeringChange: LibSession.Config?
+        forceVisible: Bool
     ) -> Bool {
         // If we are currently polling for this server and already have a TSGroupThread for this room the do nothing
         if hasExistingOpenGroup(db, roomToken: roomToken, server: server, publicKey: publicKey) {
-            Log.info(.openGroup, "Ignoring join open group attempt (already joined), user initiated: \(configTriggeringChange == nil)")
+            Log.info(.openGroup, "Ignoring join open group attempt (already joined)")
             return false
         }
         
@@ -182,14 +182,10 @@ public final class OpenGroupManager {
             id: threadId,
             variant: .community,
             values: SessionThread.TargetValues(
-                /// If we didn't add this open group via config handling then flag it to be visible (if it did come via config handling then
-                /// we want to wait until it actually has messages before making it visible)
-                ///
-                /// **Note:** We **MUST** provide a `nil` value if this method was called from the config handling as updating
-                /// the `shouldVeVisible` state can trigger a config update which could result in an infinite loop in the future
-                shouldBeVisible: (configTriggeringChange != nil ? .useExisting : .setTo(true))
+                /// When adding an open group via config handling then we want to force it to be visible (if it did come via config
+                /// handling then we want to wait until it actually has messages before making it visible)
+                shouldBeVisible: (forceVisible ? .setTo(true) :  .useExisting)
             ),
-            calledFromConfig: configTriggeringChange,
             using: dependencies
         )
         
@@ -207,7 +203,6 @@ public final class OpenGroupManager {
                 db,
                 OpenGroup.Columns.isActive.set(to: true),
                 OpenGroup.Columns.sequenceNumber.set(to: 0),
-                calledFromConfig: configTriggeringChange,
                 using: dependencies
             )
         
@@ -219,8 +214,7 @@ public final class OpenGroupManager {
         successfullyAddedGroup: Bool,
         roomToken: String,
         server: String,
-        publicKey: String,
-        calledFromConfig configTriggeringChange: LibSession.Config?
+        publicKey: String
     ) -> AnyPublisher<Void, Error> {
         guard successfullyAddedGroup else {
             return Just(())
@@ -249,15 +243,13 @@ public final class OpenGroupManager {
             .flatMap { [dependencies] request in request.send(using: dependencies) }
             .flatMapStorageWritePublisher(using: dependencies) { [dependencies] (db: Database, response: (info: ResponseInfoType, value: OpenGroupAPI.CapabilitiesAndRoomResponse)) -> Void in
                 // Add the new open group to libSession
-                if configTriggeringChange?.variant != .userGroups {
-                    try LibSession.add(
-                        db,
-                        server: server,
-                        rootToken: roomToken,
-                        publicKey: publicKey,
-                        using: dependencies
-                    )
-                }
+                try LibSession.add(
+                    db,
+                    server: server,
+                    rootToken: roomToken,
+                    publicKey: publicKey,
+                    using: dependencies
+                )
                 
                 // Store the capabilities first
                 OpenGroupManager.handleCapabilities(
@@ -298,7 +290,7 @@ public final class OpenGroupManager {
     public func delete(
         _ db: Database,
         openGroupId: String,
-        calledFromConfig configTriggeringChange: LibSession.Config?
+        skipLibSessionUpdate: Bool
     ) throws {
         let server: String? = try? OpenGroup
             .select(.server)
@@ -352,12 +344,11 @@ public final class OpenGroupManager {
                 .updateAllAndConfig(
                     db,
                     OpenGroup.Columns.isActive.set(to: false),
-                    calledFromConfig: configTriggeringChange,
                     using: dependencies
                 )
         }
         
-        if configTriggeringChange?.variant != .userGroups, let server: String = server, let roomToken: String = roomToken {
+        if !skipLibSessionUpdate, let server: String = server, let roomToken: String = roomToken {
             try LibSession.remove(db, server: server, roomToken: roomToken, using: dependencies)
         }
     }
@@ -435,7 +426,7 @@ public final class OpenGroupManager {
         
         try OpenGroup
             .filter(id: openGroup.id)
-            .updateAllAndConfig(db, changes, calledFromConfig: nil, using: dependencies)
+            .updateAllAndConfig(db, changes, using: dependencies)
         
         // Update the admin/moderator group members
         if let roomDetails: OpenGroupAPI.Room = pollInfo.details {

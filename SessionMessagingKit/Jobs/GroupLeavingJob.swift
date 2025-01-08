@@ -207,7 +207,6 @@ public enum GroupLeavingJob: JobExecutor {
                                     db,
                                     threadIds: [threadId],
                                     dataToRemove: .allData,
-                                    calledFromConfig: nil,
                                     using: dependencies
                                 )
                             }

@@ -640,7 +640,7 @@ class OpenGroupManagerSpec: QuickSpec {
                                 roomToken: "testRoom",
                                 server: "http://127.0.0.1",
                                 publicKey: TestConstants.serverPublicKey,
-                                calledFromConfig: .userGroups(userGroupsConf)  // Don't trigger LibSession logic
+                                forceVisible: false
                             )
                         }
                         .flatMap { successfullyAddedGroup in
@@ -649,8 +649,7 @@ class OpenGroupManagerSpec: QuickSpec {
                                 successfullyAddedGroup: successfullyAddedGroup,
                                 roomToken: "testRoom",
                                 server: "http://127.0.0.1",
-                                publicKey: TestConstants.serverPublicKey,
-                                calledFromConfig: .userGroups(userGroupsConf)  // Don't trigger LibSession logic
+                                publicKey: TestConstants.serverPublicKey
                             )
                         }
                         .sinkAndStore(in: &disposables)
@@ -676,7 +675,7 @@ class OpenGroupManagerSpec: QuickSpec {
                                 roomToken: "testRoom",
                                 server: "http://127.0.0.1",
                                 publicKey: TestConstants.serverPublicKey,
-                                calledFromConfig: .userGroups(userGroupsConf)  // Don't trigger LibSession logic
+                                forceVisible: false
                             )
                         }
                         .flatMap { successfullyAddedGroup in
@@ -685,8 +684,7 @@ class OpenGroupManagerSpec: QuickSpec {
                                 successfullyAddedGroup: successfullyAddedGroup,
                                 roomToken: "testRoom",
                                 server: "http://127.0.0.1",
-                                publicKey: TestConstants.serverPublicKey,
-                                calledFromConfig: .userGroups(userGroupsConf)  // Don't trigger LibSession logic
+                                publicKey: TestConstants.serverPublicKey
                             )
                         }
                         .sinkAndStore(in: &disposables)
@@ -723,7 +721,7 @@ class OpenGroupManagerSpec: QuickSpec {
                                     publicKey: TestConstants.serverPublicKey
                                         .replacingOccurrences(of: "c3", with: "00")
                                         .replacingOccurrences(of: "b3", with: "00"),
-                                    calledFromConfig: .userGroups(userGroupsConf)  // Don't trigger LibSession logic
+                                    forceVisible: false
                                 )
                             }
                             .flatMap { successfullyAddedGroup in
@@ -734,8 +732,7 @@ class OpenGroupManagerSpec: QuickSpec {
                                     server: "http://127.0.0.1",
                                     publicKey: TestConstants.serverPublicKey
                                         .replacingOccurrences(of: "c3", with: "00")
-                                        .replacingOccurrences(of: "b3", with: "00"),
-                                    calledFromConfig: .userGroups(userGroupsConf)  // Don't trigger LibSession logic
+                                        .replacingOccurrences(of: "b3", with: "00")
                                 )
                             }
                             .sinkAndStore(in: &disposables)
@@ -784,7 +781,7 @@ class OpenGroupManagerSpec: QuickSpec {
                                     roomToken: "testRoom",
                                     server: "http://127.0.0.1",
                                     publicKey: TestConstants.serverPublicKey,
-                                    calledFromConfig: .userGroups(userGroupsConf)  // Don't trigger LibSession logic
+                                    forceVisible: false
                                 )
                             }
                             .flatMap { successfullyAddedGroup in
@@ -793,8 +790,7 @@ class OpenGroupManagerSpec: QuickSpec {
                                     successfullyAddedGroup: successfullyAddedGroup,
                                     roomToken: "testRoom",
                                     server: "http://127.0.0.1",
-                                    publicKey: TestConstants.serverPublicKey,
-                                    calledFromConfig: .userGroups(userGroupsConf)  // Don't trigger LibSession logic
+                                    publicKey: TestConstants.serverPublicKey
                                 )
                             }
                             .mapError { result -> Error in error.setting(to: result) }
@@ -830,7 +826,7 @@ class OpenGroupManagerSpec: QuickSpec {
                         try openGroupManager.delete(
                             db,
                             openGroupId: OpenGroup.idFor(roomToken: "testRoom", server: "http://127.0.0.1"),
-                            calledFromConfig: .userGroups(userGroupsConf)  // Don't trigger LibSession logic
+                            skipLibSessionUpdate: true
                         )
                     }
                     
@@ -844,7 +840,7 @@ class OpenGroupManagerSpec: QuickSpec {
                         try openGroupManager.delete(
                             db,
                             openGroupId: OpenGroup.idFor(roomToken: "testRoom", server: "http://127.0.0.1"),
-                            calledFromConfig: .userGroups(userGroupsConf)  // Don't trigger LibSession logic
+                            skipLibSessionUpdate: true
                         )
                     }
                     
@@ -860,7 +856,7 @@ class OpenGroupManagerSpec: QuickSpec {
                             try openGroupManager.delete(
                                 db,
                                 openGroupId: OpenGroup.idFor(roomToken: "testRoom", server: "http://127.0.0.1"),
-                                calledFromConfig: .userGroups(userGroupsConf)  // Don't trigger LibSession logic
+                                skipLibSessionUpdate: true
                             )
                         }
                         
@@ -874,7 +870,7 @@ class OpenGroupManagerSpec: QuickSpec {
                             try openGroupManager.delete(
                                 db,
                                 openGroupId: OpenGroup.idFor(roomToken: "testRoom", server: "http://127.0.0.1"),
-                                calledFromConfig: .userGroups(userGroupsConf)  // Don't trigger LibSession logic
+                                skipLibSessionUpdate: true
                             )
                         }
                         
@@ -912,7 +908,7 @@ class OpenGroupManagerSpec: QuickSpec {
                             try openGroupManager.delete(
                                 db,
                                 openGroupId: OpenGroup.idFor(roomToken: "testRoom", server: "http://127.0.0.1"),
-                                calledFromConfig: .userGroups(userGroupsConf)  // Don't trigger LibSession logic
+                                skipLibSessionUpdate: true
                             )
                         }
                         
@@ -963,7 +959,7 @@ class OpenGroupManagerSpec: QuickSpec {
                             try openGroupManager.delete(
                                 db,
                                 openGroupId: OpenGroup.idFor(roomToken: "testRoom", server: OpenGroupAPI.defaultServer),
-                                calledFromConfig: .userGroups(userGroupsConf)  // Don't trigger LibSession logic
+                                skipLibSessionUpdate: true
                             )
                         }
                         
@@ -977,7 +973,7 @@ class OpenGroupManagerSpec: QuickSpec {
                             try openGroupManager.delete(
                                 db,
                                 openGroupId: OpenGroup.idFor(roomToken: "testRoom", server: OpenGroupAPI.defaultServer),
-                                calledFromConfig: .userGroups(userGroupsConf)  // Don't trigger LibSession logic
+                                skipLibSessionUpdate: true
                             )
                         }
                         

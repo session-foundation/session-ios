@@ -59,7 +59,6 @@ internal extension LibSessionCacheType {
                         .updateAllAndConfig(
                             db,
                             SessionThread.Columns.markedAsUnread.set(to: markedAsUnread),
-                            calledFromConfig: config.viaCache(self),
                             using: dependencies
                         )
                 }
@@ -94,7 +93,6 @@ internal extension LibSessionCacheType {
                     .updateAllAndConfig(
                         db,
                         Interaction.Columns.wasRead.set(to: true),
-                        calledFromConfig: config.viaCache(self),
                         using: dependencies
                     )
                 try Interaction.scheduleReadJobs(
@@ -104,7 +102,7 @@ internal extension LibSessionCacheType {
                     interactionInfo: interactionInfoToMarkAsRead,
                     lastReadTimestampMs: lastReadTimestampMs,
                     trySendReadReceipt: false,  // Interactions already read, no need to send
-                    calledFromConfig: config.viaCache(self),
+                    useLastReadTimestampForDisappearingMessages: true,
                     using: dependencies
                 )
                 return nil

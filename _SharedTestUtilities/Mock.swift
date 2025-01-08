@@ -88,7 +88,7 @@ public class Mock<T>: DependenciesSettable {
         functionConsumer.trackCalls = true
         functionConsumer.functionBuilders = []
         functionConsumer.functionHandlers = [:]
-        functionConsumer.calls.mutate { $0 = [:] }
+        functionConsumer.clearCalls()
     }
     
     internal func when<R>(_ callBlock: @escaping (inout T) throws -> R) -> MockFunctionBuilder<T, R> {
@@ -556,7 +556,7 @@ internal class FunctionConsumer: MockFunctionHandler {
     var trackCalls: Bool = true
     var functionBuilders: [() throws -> MockFunction?] = []
     var functionHandlers: [Key: [String: MockFunction]] = [:]
-    var calls: Atomic<[Key: [CallDetails]]> = Atomic([:])
+    @ThreadSafeObject var calls: [Key: [CallDetails]] = [:]
     
     private func getExpectation(
         _ functionName: String,
@@ -597,13 +597,13 @@ internal class FunctionConsumer: MockFunctionHandler {
         
         // Record the call so it can be validated later (assuming we are tracking calls)
         if trackCalls {
-            calls.mutate {
-                $0[key] = ($0[key] ?? []).appending(
+            _calls.performUpdate {
+                $0.setting(key, ($0[key] ?? []).appending(
                     CallDetails(
                         parameterSummary: parameterSummary,
                         allParameterSummaryCombinations: allParameterSummaryCombinations
                     )
-                )
+                ))
             }
         }
         
@@ -749,6 +749,10 @@ internal class FunctionConsumer: MockFunctionHandler {
         }
         
         return expectation
+    }
+    
+    fileprivate func clearCalls() {
+        _calls.set(to: [:])
     }
 }
 

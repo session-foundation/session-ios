@@ -57,8 +57,11 @@ public final class CurrentUserPoller: SwarmPoller {
         if !dependencies[defaults: .appGroup, key: .isMainAppActive] {
             // Do nothing when an error gets throws right after returning from the background (happens frequently)
         }
-        else if case .limitedReuse(_, .some(let targetSnode), _, _, _) = pollerDrainBehaviour.wrappedValue {
-            pollerDrainBehaviour.mutate { $0 = $0.clearTargetSnode() }
+        else if
+            let drainBehaviour: ThreadSafeObject<SwarmDrainBehaviour> = drainBehaviour[publicKey],
+            case .limitedReuse(_, .some(let targetSnode), _, _, _) = drainBehaviour.wrappedValue
+        {
+            drainBehaviour.set(to: drainBehaviour.wrappedValue.clearTargetSnode())
             return .continuePollingInfo("Switching from \(targetSnode) to next snode.")
         }
         else {

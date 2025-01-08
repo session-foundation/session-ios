@@ -347,7 +347,6 @@ extension Onboarding {
                             id: userSessionId.hexString,
                             variant: .contact,
                             values: SessionThread.TargetValues(shouldBeVisible: .setTo(false)),
-                            calledFromConfig: nil,
                             using: dependencies
                         )
                         

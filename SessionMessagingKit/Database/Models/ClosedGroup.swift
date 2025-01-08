@@ -185,7 +185,6 @@ public extension ClosedGroup {
     static func approveGroupIfNeeded(
         _ db: Database,
         group: ClosedGroup,
-        calledFromConfig configTriggeringChange: LibSession.Config?,
         using dependencies: Dependencies
     ) throws {
         guard let userED25519KeyPair: KeyPair = Identity.fetchUserEd25519KeyPair(db) else {
@@ -200,7 +199,6 @@ public extension ClosedGroup {
                     db,
                     ClosedGroup.Columns.invited.set(to: false),
                     ClosedGroup.Columns.shouldPoll.set(to: true),
-                    calledFromConfig: configTriggeringChange,
                     using: dependencies
                 )
         }
@@ -226,14 +224,12 @@ public extension ClosedGroup {
         }
         
         /// Update the `USER_GROUPS` config
-        if configTriggeringChange?.variant != .userGroups {
-            try? LibSession.update(
-                db,
-                groupSessionId: group.id,
-                invited: false,
-                using: dependencies
-            )
-        }
+        try? LibSession.update(
+            db,
+            groupSessionId: group.id,
+            invited: false,
+            using: dependencies
+        )
         
         /// Start the poller
         dependencies.mutate(cache: .groupPollers) { $0.getOrCreatePoller(for: group.id).startIfNeeded() }
@@ -257,7 +253,6 @@ public extension ClosedGroup {
         _ db: Database,
         threadIds: [String],
         dataToRemove: [RemovableGroupData],
-        calledFromConfig configTriggeringChange: LibSession.Config?,
         using dependencies: Dependencies
     ) throws {
         guard !threadIds.isEmpty && !dataToRemove.isEmpty else { return }
@@ -272,8 +267,8 @@ public extension ClosedGroup {
         let threadVariants: [ThreadIdVariant] = try {
             guard
                 dataToRemove.contains(.pushNotifications) ||
-                (dataToRemove.contains(.userGroup) && configTriggeringChange != nil) ||
-                (dataToRemove.contains(.libSessionState) && configTriggeringChange != nil)
+                dataToRemove.contains(.userGroup) ||
+                dataToRemove.contains(.libSessionState)
             else { return [] }
             
             return try SessionThread
@@ -412,7 +407,7 @@ public extension ClosedGroup {
         }
         
         // Ignore if called from the config handling
-        if dataToRemove.contains(.userGroup) && configTriggeringChange?.variant != .userGroups {
+        if dataToRemove.contains(.userGroup) {
             try LibSession.remove(
                 db,
                 legacyGroupIds: threadVariants

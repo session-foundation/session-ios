@@ -198,14 +198,12 @@ public final class CommunityPoller: CommunityPollerType & PollerType {
                             try dependencies[singleton: .openGroupManager].delete(
                                 db,
                                 openGroupId: id,
-                                /// **Note:** We pass `calledFromConfig` as `userGroups`
+                                /// **Note:** We pass `skipLibSessionUpdate` as `true`
                                 /// here because we want to avoid syncing this deletion as the room might
                                 /// not be in an invalid state on other devices - one of the other devices
                                 /// will eventually trigger a new config update which will re-add this room
                                 /// and hopefully at that time it'll work again
-                                calledFromConfig: dependencies.mutate(cache: .libSession) { cache in
-                                    cache.config(for: .userGroups, sessionId: userSessionId)
-                                }
+                                skipLibSessionUpdate: true
                             )
                         }
 
@@ -526,11 +524,12 @@ public final class CommunityPoller: CommunityPollerType & PollerType {
 // MARK: - Convenience
 
 fileprivate extension Error {
+    // stringlint:ignore_contents
     var isMissingBlindedAuthError: Bool {
         guard
             let networkError: NetworkError = self as? NetworkError,
             case .badRequest(let dataString, _) = networkError,
-            dataString.contains("Invalid authentication: this server requires the use of blinded ids") // stringlint:ignore
+            dataString.contains("Invalid authentication: this server requires the use of blinded ids")
         else { return false }
         
         return true

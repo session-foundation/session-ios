@@ -545,7 +545,6 @@ class ThreadSettingsViewModel: SessionTableViewModel, NavigatableStateHolder, Ob
                                     type: .leaveGroupAsync,
                                     threadId: threadViewModel.threadId,
                                     threadVariant: threadViewModel.threadVariant,
-                                    calledFromConfig: nil,
                                     using: dependencies
                                 )
                             }

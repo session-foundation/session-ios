@@ -10,10 +10,10 @@ public class Dependencies {
     
     /// The `isRTLRetriever` is handled differently from normal dependencies because it's not really treated as such (it's more of
     /// a convenience thing than anything) as such it's held outside of the `DependencyStorage`
-    private static var _isRTLRetriever: Atomic<(Bool, () -> Bool)> = Atomic((false, { false }))
-    private static var _lastCreatedInstance: Atomic<Dependencies?> = Atomic(nil)
+    @ThreadSafeObject private static var cachedIsRTLRetriever: (requiresMainThread: Bool, retriever: () -> Bool) = (false, { false })
+    @ThreadSafeObject private static var cachedLastCreatedInstance: Dependencies? = nil
     private let featureChangeSubject: PassthroughSubject<(String, String?, Any?), Never> = PassthroughSubject()
-    private var storage: Atomic<DependencyStorage> = Atomic(DependencyStorage())
+    @ThreadSafeObject private var storage: DependencyStorage = DependencyStorage()
     
     // MARK: - Subscript Access
     
@@ -26,16 +26,14 @@ public class Dependencies {
     
     /// We should avoid using this value wherever possible because it's not properly injected (which means unit tests won't work correctly
     /// for anything accessed via this value)
-    public static var unsafeNonInjected: Dependencies { _lastCreatedInstance.wrappedValue ?? Dependencies() }
+    public static var unsafeNonInjected: Dependencies { cachedLastCreatedInstance ?? Dependencies() }
     
     public static var isRTL: Bool {
-        let (requiresMainThread, retriever): (Bool, () -> Bool) = _isRTLRetriever.wrappedValue
-        
         /// Determining `isRTL` might require running on the main thread (it may need to accesses UIKit), if it requires the main thread but
         /// we are on a different thread then just default to `false` to prevent the background thread from potentially lagging and/or crashing
-        guard !requiresMainThread || Thread.isMainThread else { return false }
+        guard !cachedIsRTLRetriever.requiresMainThread || Thread.isMainThread else { return false }
         
-        return retriever()
+        return cachedIsRTLRetriever.retriever()
     }
     
     public var dateNow: Date { Date() }
@@ -45,7 +43,7 @@ public class Dependencies {
     // MARK: - Initialization
     
     private init() {
-        Dependencies._lastCreatedInstance.mutate { $0 = self }
+        Dependencies._cachedLastCreatedInstance.set(to: self)
     }
     internal init(forTesting: Bool) {}
     public static func createEmpty() -> Dependencies { return Dependencies() }
@@ -60,35 +58,35 @@ public class Dependencies {
     
     @discardableResult public func mutate<M, I, R>(
         cache: CacheConfig<M, I>,
-        _ mutation: (inout M) -> R
+        _ mutation: (M) -> R
     ) -> R {
-        return getOrCreate(cache).mutate { erasedValue in
+        return getOrCreate(cache).performMap { erasedValue in
             guard var value: M = (erasedValue as? M) else {
                 /// This code path should never happen (and is essentially invalid if it does) but in order to avoid neeing to return
                 /// a nullable type or force-casting this is how we need to do things)
                 Log.critical("Failed to convert erased cache value for '\(cache.identifier)' to expected type: \(M.self)")
                 var fallbackValue: M = cache.createInstance(self)
-                return mutation(&fallbackValue)
+                return mutation(fallbackValue)
             }
             
-            return mutation(&value)
+            return mutation(value)
         }
     }
     
     @discardableResult public func mutate<M, I, R>(
         cache: CacheConfig<M, I>,
-        _ mutation: (inout M) throws -> R
+        _ mutation: (M) throws -> R
     ) throws -> R {
-        return try getOrCreate(cache).mutate { erasedValue in
+        return try getOrCreate(cache).performMap { erasedValue in
             guard var value: M = (erasedValue as? M) else {
                 /// This code path should never happen (and is essentially invalid if it does) but in order to avoid neeing to return
                 /// a nullable type or force-casting this is how we need to do things)
                 Log.critical("Failed to convert erased cache value for '\(cache.identifier)' to expected type: \(M.self)")
                 var fallbackValue: M = cache.createInstance(self)
-                return try mutation(&fallbackValue)
+                return try mutation(fallbackValue)
             }
             
-            return try mutation(&value)
+            return try mutation(value)
         }
     }
     
@@ -120,7 +118,7 @@ public class Dependencies {
     
     public func set<M, I>(cache: CacheConfig<M, I>, to instance: M) {
         threadSafeChange(for: cache.identifier, of: .cache) {
-            let value: Atomic<MutableCacheType> = Atomic(cache.mutableInstance(instance))
+            let value: ThreadSafeObject<MutableCacheType> = ThreadSafeObject(cache.mutableInstance(instance))
             setValue(value, typedStorage: .cache(value), key: cache.identifier)
         }
     }
@@ -132,13 +130,13 @@ public class Dependencies {
     }
     
     public static func setIsRTLRetriever(requiresMainThread: Bool, isRTLRetriever: @escaping () -> Bool) {
-        _isRTLRetriever.mutate { $0 = (requiresMainThread, isRTLRetriever) }
+        _cachedIsRTLRetriever.set(to: (requiresMainThread, isRTLRetriever))
     }
 }
 
 // MARK: - Cache Management
 
-private extension Atomic<MutableCacheType> {
+private extension ThreadSafeObject<MutableCacheType> {
     func immutable<M, I>(cache: CacheConfig<M, I>, using dependencies: Dependencies) -> I {
         return cache.immutableInstance(
             (self.wrappedValue as? M) ??
@@ -280,7 +278,7 @@ public enum DependenciesError: Error {
 // MARK: - Storage Management
 
 private extension Dependencies {
-    struct DependencyStorage {
+    class DependencyStorage {
         var initializationLocks: [Key: NSLock] = [:]
         var instances: [Key: Value] = [:]
         
@@ -308,7 +306,7 @@ private extension Dependencies {
         
         enum Value {
             case singleton(Any)
-            case cache(Atomic<MutableCacheType>)
+            case cache(ThreadSafeObject<MutableCacheType>)
             case userDefaults(UserDefaultsType)
             case feature(any FeatureType)
             
@@ -339,10 +337,10 @@ private extension Dependencies {
         )
     }
     
-    private func getOrCreate<M, I>(_ cache: CacheConfig<M, I>) -> Atomic<MutableCacheType> {
+    private func getOrCreate<M, I>(_ cache: CacheConfig<M, I>) -> ThreadSafeObject<MutableCacheType> {
         return getOrCreateInstance(
             identifier: cache.identifier,
-            constructor: .cache { Atomic(cache.mutableInstance(cache.createInstance(self))) }
+            constructor: .cache { ThreadSafeObject(cache.mutableInstance(cache.createInstance(self))) }
         )
     }
     
@@ -388,7 +386,7 @@ private extension Dependencies {
     
     /// Convenience method to retrieve the existing dependency instance from memory in a thread-safe way
     private func getValue<T>(_ key: String, of variant: DependencyStorage.Key.Variant) -> T? {
-        guard let typedValue: DependencyStorage.Value = storage.wrappedValue.instances[variant.key(key)] else { return nil }
+        guard let typedValue: DependencyStorage.Value = storage.instances[variant.key(key)] else { return nil }
         guard let result: T = typedValue.value(as: T.self) else {
             /// If there is a value stored for the key, but it's not the right type then something has gone wrong, and we should log
             Log.critical("Failed to convert stored dependency '\(variant.key(key))' to expected type: \(T.self)")
@@ -400,29 +398,34 @@ private extension Dependencies {
     
     /// Convenience method to store a dependency instance in memory in a thread-safe way
     @discardableResult private func setValue<T>(_ value: T, typedStorage: DependencyStorage.Value, key: String) -> T {
-        storage.mutate { $0.instances[typedStorage.distinctKey(for: key)] = typedStorage }
-        return value
+        return _storage.performUpdateAndMap { storage in
+            storage.instances[typedStorage.distinctKey(for: key)] = typedStorage
+            return (storage, value)
+        }
     }
     
     /// Convenience method to remove a dependency instance from memory in a thread-safe way
     private func removeValue(_ key: String, of variant: DependencyStorage.Key.Variant) {
-        storage.mutate { $0.instances.removeValue(forKey: variant.key(key)) }
+        _storage.performUpdate { storage in
+            storage.instances.removeValue(forKey: variant.key(key))
+            return storage
+        }
     }
     
     /// This function creates an `NSLock` for the given identifier which allows us to block instance creation on a per-identifier basis
     /// and avoid situations where multithreading could result in multiple instances of the same dependency being created concurrently
     ///
-    /// **Note:** This `NSLock` is an additional mechanism on top of the `Atomic<T>` because the interface is a little simpler
-    /// and we don't need to wrap every instance within `Atomic<T>` this way
+    /// **Note:** This `NSLock` is an additional mechanism on top of the `ThreadSafeObject<T>` because the interface is a little
+    /// simpler and we don't need to wrap every instance within `ThreadSafeObject<T>` this way
     @discardableResult private func threadSafeChange<T>(for identifier: String, of variant: DependencyStorage.Key.Variant, change: () -> T) -> T {
-        let lock: NSLock = storage.mutate { storage in
+        let lock: NSLock = _storage.performUpdateAndMap { storage in
             if let existing = storage.initializationLocks[variant.key(identifier)] {
-                return existing
+                return (storage, existing)
             }
             
             let lock: NSLock = NSLock()
             storage.initializationLocks[variant.key(identifier)] = lock
-            return lock
+            return (storage, lock)
         }
         lock.lock()
         defer { lock.unlock() }
@@ -446,7 +449,7 @@ private extension Dependencies.DependencyStorage {
             }
         }
         
-        static func cache(_ constructor: @escaping () -> T) -> Constructor<T> where T: Atomic<MutableCacheType> {
+        static func cache(_ constructor: @escaping () -> T) -> Constructor<T> where T: ThreadSafeObject<MutableCacheType> {
             return Constructor(variant: .cache) {
                 let instance: T = constructor()
                 

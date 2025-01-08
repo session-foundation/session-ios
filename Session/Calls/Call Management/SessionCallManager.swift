@@ -106,6 +106,14 @@ public final class SessionCallManager: NSObject, CallManagerProtocol {
     }
     
     public func reportIncomingCall(_ call: CurrentCallProtocol, callerName: String, completion: @escaping (Error?) -> Void) {
+        // If CallKit isn't supported then we don't have anything to report the call to
+        guard Preferences.isCallKitSupported else {
+            UserDefaults.sharedLokiProject?[.isCallOngoing] = true
+            UserDefaults.sharedLokiProject?[.lastCallPreOffer] = Date()
+            completion(nil)
+            return
+        }
+        
         // Construct a CXCallUpdate describing the incoming call, including the caller.
         let update = CXCallUpdate()
         update.localizedCallerName = callerName

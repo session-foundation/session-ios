@@ -13,8 +13,8 @@ public extension Preferences {
         
         // Don't store too many sounds in memory (Most users will only use 1 or 2 sounds anyway)
         private static let maxCachedSounds: Int = 4
-        private static var cachedSystemSounds: Atomic<[String: (url: URL?, soundId: SystemSoundID)]> = Atomic([:])
-        private static var cachedSystemSoundOrder: Atomic<[String]> = Atomic([])
+        @ThreadSafeObject private static var cachedSystemSounds: [String: (url: URL?, soundId: SystemSoundID)] = [:]
+        @ThreadSafeObject private static var cachedSystemSoundOrder: [String] = []
         
         // Values
         
@@ -163,7 +163,7 @@ public extension Preferences {
         public static func systemSoundId(for sound: Sound, quiet: Bool) -> SystemSoundID {
             let cacheKey: String = "\(sound.rawValue):\(quiet ? 1 : 0)"
             
-            if let cachedSound: SystemSoundID = cachedSystemSounds.wrappedValue[cacheKey]?.soundId {
+            if let cachedSound: SystemSoundID = cachedSystemSounds[cacheKey]?.soundId {
                 return cachedSound
             }
             
@@ -172,17 +172,21 @@ public extension Preferences {
                 soundId: SystemSoundID()
             )
             
-            cachedSystemSounds.mutate { cache in
-                cachedSystemSoundOrder.mutate { order in
+            _cachedSystemSounds.performUpdate { cache in
+                var updatedCache: [String: (url: URL?, soundId: SystemSoundID)] = cache
+                
+                _cachedSystemSoundOrder.performUpdate { order in
+                    var updatedOrder: [String] = order
+                    
                     if order.count > Sound.maxCachedSounds {
-                        cache.removeValue(forKey: order[0])
-                        order.remove(at: 0)
+                        updatedCache.removeValue(forKey: order[0])
+                        updatedOrder.remove(at: 0)
                     }
                     
-                    order.append(cacheKey)
+                    return updatedOrder.appending(cacheKey)
                 }
                 
-                cache[cacheKey] = systemSound
+                return updatedCache.setting(cacheKey, systemSound)
             }
             
             return systemSound.soundId

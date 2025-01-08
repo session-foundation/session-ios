@@ -122,7 +122,7 @@ extension MessageReceiver {
             admins: adminsAsData.map { $0.toHexString() },
             expirationTimer: expirationTimer,
             formationTimestampMs: sentTimestampMs,
-            calledFromConfig: nil,
+            forceApprove: false,
             using: dependencies
         )
     }
@@ -136,7 +136,7 @@ extension MessageReceiver {
         admins: [String],
         expirationTimer: UInt32,
         formationTimestampMs: UInt64,
-        calledFromConfig configTriggeringChange: LibSession.Config?,
+        forceApprove: Bool,
         using dependencies: Dependencies
     ) throws {
         // With new closed groups we only want to create them if the admin creating the closed group is an
@@ -152,10 +152,9 @@ extension MessageReceiver {
             }
         }
         
-        // If the group came from the updated config handling then it doesn't matter if we
-        // have an approved admin - we should add it regardless (as it's been synced from
-        // antoher device)
-        guard hasApprovedAdmin || configTriggeringChange != nil else { return }
+        // If we want to force approve the group (eg. if it came from config handling) then it
+        // doesn't matter if we have an approved admin - we should add it regardless
+        guard hasApprovedAdmin || forceApprove else { return }
         
         // Create the disappearing config
         let disappearingConfig: DisappearingMessagesConfiguration = DisappearingMessagesConfiguration
@@ -171,21 +170,19 @@ extension MessageReceiver {
         /// **Note:** This **MUST** happen before we call `SessionThread.upsert` as we won't add the group
         /// if it already exists in `libSession` and upserting the thread results in an update to `libSession` to set
         /// the `priority`
-        if configTriggeringChange == nil {
-            try? LibSession.add(
-                db,
-                legacyGroupSessionId: legacyGroupSessionId,
-                name: name,
-                joinedAt: (TimeInterval(formationTimestampMs) / 1000),
-                latestKeyPairPublicKey: Data(encryptionKeyPair.publicKey),
-                latestKeyPairSecretKey: Data(encryptionKeyPair.secretKey),
-                latestKeyPairReceivedTimestamp: receivedTimestamp,
-                disappearingConfig: disappearingConfig,
-                members: members.asSet(),
-                admins: admins.asSet(),
-                using: dependencies
-            )
-        }
+        try? LibSession.add(
+            db,
+            groupPublicKey: groupPublicKey,
+            name: name,
+            joinedAt: (TimeInterval(formationTimestampMs) / 1000),
+            latestKeyPairPublicKey: Data(encryptionKeyPair.publicKey),
+            latestKeyPairSecretKey: Data(encryptionKeyPair.secretKey),
+            latestKeyPairReceivedTimestamp: receivedTimestamp,
+            disappearingConfig: disappearingConfig,
+            members: members.asSet(),
+            admins: admins.asSet(),
+            using: dependencies
+        )
         
         // Create the group
         let thread: SessionThread = try SessionThread.upsert(
@@ -196,7 +193,6 @@ extension MessageReceiver {
                 creationDateTimestamp: .setTo((TimeInterval(formationTimestampMs) / 1000)),
                 shouldBeVisible: .setTo(true)
             ),
-            calledFromConfig: configTriggeringChange,
             using: dependencies
         )
         let closedGroup: ClosedGroup = try ClosedGroup(
@@ -580,7 +576,6 @@ extension MessageReceiver {
                         db,
                         threadIds: [threadId],
                         dataToRemove: .allData,
-                        calledFromConfig: nil,
                         using: dependencies
                     )
                 }
@@ -654,7 +649,6 @@ extension MessageReceiver {
                         db,
                         threadIds: [threadId],
                         dataToRemove: (sender == userSessionId.hexString ? .allData : .noData),
-                        calledFromConfig: nil,
                         using: dependencies
                     )
                 }

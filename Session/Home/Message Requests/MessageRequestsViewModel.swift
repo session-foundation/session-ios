@@ -145,7 +145,7 @@ class MessageRequestsViewModel: SessionTableViewModel, NavigatableStateHolder, O
                         .sorted { lhs, rhs -> Bool in lhs.lastInteractionDate > rhs.lastInteractionDate }
                         .map { [dependencies] viewModel -> SessionCell.Info<SessionThreadViewModel> in
                             SessionCell.Info(
-                                id: viewModel.populatingCurrentUserBlindedIds(
+                                id: viewModel.populatingPostQueryData(
                                     currentUserBlinded15SessionIdForThisThread: groupedOldData[viewModel.threadId]?
                                         .first?
                                         .id
@@ -228,7 +228,6 @@ class MessageRequestsViewModel: SessionTableViewModel, NavigatableStateHolder, O
                                             .filter { _, variant in variant == .contact }
                                             .map { id, _ in id },
                                         threadVariant: .contact,
-                                        calledFromConfig: nil,
                                         using: dependencies
                                     )
                                     
@@ -240,7 +239,6 @@ class MessageRequestsViewModel: SessionTableViewModel, NavigatableStateHolder, O
                                             .filter { _, variant in variant == .legacyGroup || variant == .group }
                                             .map { id, _ in id },
                                         threadVariant: .group,
-                                        calledFromConfig: nil,
                                         using: dependencies
                                     )
                                 }

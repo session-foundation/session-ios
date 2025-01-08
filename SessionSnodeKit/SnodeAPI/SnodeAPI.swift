@@ -718,7 +718,7 @@ public extension Publisher where Output == Set<LibSession.Snode> {
     func tryFlatMapWithRandomSnode<T, P>(
         maxPublishers: Subscribers.Demand = .unlimited,
         retry retries: Int = 0,
-        drainBehaviour: Atomic<SwarmDrainBehaviour> = .alwaysRandom,
+        drainBehaviour: ThreadSafeObject<SwarmDrainBehaviour> = .alwaysRandom,
         using dependencies: Dependencies,
         _ transform: @escaping (LibSession.Snode) throws -> P
     ) -> AnyPublisher<T, Error> where T == P.Output, P: Publisher, P.Failure == Error {

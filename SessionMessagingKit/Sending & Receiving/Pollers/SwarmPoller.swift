@@ -24,7 +24,7 @@ public class SwarmPoller: SwarmPollerType & PollerType {
     public let pollerQueue: DispatchQueue
     public let pollerName: String
     public let pollerDestination: PollerDestination
-    public let pollerDrainBehaviour: Atomic<SwarmDrainBehaviour>
+    @ThreadSafeObject public var pollerDrainBehaviour: SwarmDrainBehaviour
     public let logStartAndStopCalls: Bool
     public var receivedPollResponse: AnyPublisher<PollResponse, Never> {
         receivedPollResponseSubject.eraseToAnyPublisher()
@@ -47,7 +47,7 @@ public class SwarmPoller: SwarmPollerType & PollerType {
         pollerName: String,
         pollerQueue: DispatchQueue,
         pollerDestination: PollerDestination,
-        pollerDrainBehaviour: SwarmDrainBehaviour,
+        pollerDrainBehaviour: ThreadSafeObject<SwarmDrainBehaviour>,
         namespaces: [SnodeAPI.Namespace],
         failureCount: Int = 0,
         shouldStoreMessages: Bool,
@@ -59,7 +59,7 @@ public class SwarmPoller: SwarmPollerType & PollerType {
         self.pollerName = pollerName
         self.pollerQueue = pollerQueue
         self.pollerDestination = pollerDestination
-        self.pollerDrainBehaviour = Atomic(pollerDrainBehaviour)
+        self._pollerDrainBehaviour = pollerDrainBehaviour
         self.namespaces = namespaces
         self.failureCount = failureCount
         self.customAuthMethod = customAuthMethod
@@ -88,12 +88,14 @@ public class SwarmPoller: SwarmPollerType & PollerType {
     /// for cases where we need explicit/custom behaviours to occur (eg. Onboarding)
     public func poll(forceSynchronousProcessing: Bool) -> AnyPublisher<PollResult, Error> {
         let pollerQueue: DispatchQueue = self.pollerQueue
-        let configHashes: [String] = dependencies.mutate(cache: .libSession) { $0.configHashes(for: pollerDestination.target) }
+        let configHashes: [String] = dependencies.mutate(cache: .libSession) { cache in
+            cache.configHashes(for: pollerDestination.target)
+        }
         
         /// Fetch the messages
         return dependencies[singleton: .network]
             .getSwarm(for: pollerDestination.target)
-            .tryFlatMapWithRandomSnode(drainBehaviour: pollerDrainBehaviour, using: dependencies) { [pollerDestination, customAuthMethod, namespaces, dependencies] snode -> AnyPublisher<Network.PreparedRequest<SnodeAPI.PollResponse>, Error> in
+            .tryFlatMapWithRandomSnode(drainBehaviour: _pollerDrainBehaviour, using: dependencies) { [pollerDestination, customAuthMethod, namespaces, dependencies] snode -> AnyPublisher<Network.PreparedRequest<SnodeAPI.PollResponse>, Error> in
                 dependencies[singleton: .storage].readPublisher { db -> Network.PreparedRequest<SnodeAPI.PollResponse> in
                     let authMethod: AuthenticationMethod = try (customAuthMethod ?? Authentication.with(
                         db,

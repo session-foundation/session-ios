@@ -34,7 +34,7 @@ public enum KeychainStorageError: Error {
 
 // MARK: - KeychainStorageType
 
-public protocol KeychainStorageType {
+public protocol KeychainStorageType: AnyObject {
     func string(forKey key: KeychainStorage.StringKey) throws -> String
     func set(string: String, forKey key: KeychainStorage.StringKey) throws
     func remove(key: KeychainStorage.StringKey) throws

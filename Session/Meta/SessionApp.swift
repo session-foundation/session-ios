@@ -193,7 +193,6 @@ public class SessionApp: SessionAppType {
                     shouldBeVisible: .useLibSession,
                     isDraft: (threadExists ? .useExisting : .setTo(true))
                 ),
-                calledFromConfig: nil,
                 using: dependencies
             )
         }

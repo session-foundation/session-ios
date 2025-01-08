@@ -19,7 +19,7 @@ public final class NotificationServiceExtension: UNNotificationServiceExtension 
     private var didPerformSetup = false
     private var contentHandler: ((UNNotificationContent) -> Void)?
     private var request: UNNotificationRequest?
-    private var hasCompleted: Atomic<Bool> = Atomic(false)
+    @ThreadSafe private var hasCompleted: Bool = false
 
     // stringlint:ignore_start
     public static let isFromRemoteKey = "remote"
@@ -41,7 +41,7 @@ public final class NotificationServiceExtension: UNNotificationServiceExtension 
         self.dependencies = Dependencies.createEmpty()
         
         // It's technically possible for 'completeSilently' to be called twice due to the NSE timeout so
-        self.hasCompleted.mutate { $0 = false }
+        self.hasCompleted = false
         
         // Abort if the main app is running
         guard !dependencies[defaults: .appGroup, key: .isMainAppActive] else {
@@ -187,7 +187,6 @@ public final class NotificationServiceExtension: UNNotificationServiceExtension 
                                             ),
                                             shouldBeVisible: .useExisting
                                         ),
-                                        calledFromConfig: nil,
                                         using: dependencies
                                     )
 
@@ -413,13 +412,7 @@ public final class NotificationServiceExtension: UNNotificationServiceExtension 
     
     private func completeSilenty(handledNotification: Bool, isMainAppAndActive: Bool = false, noContent: Bool = false) {
         // Ensure we only run this once
-        guard
-            hasCompleted.mutate({ hasCompleted in
-                let wasCompleted: Bool = hasCompleted
-                hasCompleted = true
-                return wasCompleted
-            }) == false
-        else { return }
+        guard _hasCompleted.performUpdateAndMap({ (true, $0) }) == false else { return }
         
         let silentContent: UNMutableNotificationContent = UNMutableNotificationContent()
         
@@ -537,6 +530,6 @@ public final class NotificationServiceExtension: UNNotificationServiceExtension 
         let userInfo: [String: Any] = [ NotificationServiceExtension.isFromRemoteKey: true ]
         content.userInfo = userInfo
         contentHandler!(content)
-        hasCompleted.mutate { $0 = true }
+        hasCompleted = true
     }
 }

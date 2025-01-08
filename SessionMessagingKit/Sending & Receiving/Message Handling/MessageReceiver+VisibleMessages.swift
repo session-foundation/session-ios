@@ -76,7 +76,6 @@ extension MessageReceiver {
                 creationDateTimestamp: .useExistingOrSetTo(messageSentTimestamp),
                 shouldBeVisible: .useExisting
             ),
-            calledFromConfig: nil,
             using: dependencies
         )
         let maybeOpenGroup: OpenGroup? = {

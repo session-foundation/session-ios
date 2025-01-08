@@ -6,11 +6,19 @@ import Foundation
 import CryptoKit
 import Compression
 
+// MARK: - Log.Category
+
+private extension Log.Category {
+    static let cat: Log.Category = .create("DirectoryArchiver", defaultLevel: .info)
+}
+
+// MARK: - ArchiveError
+
 public enum ArchiveError: Error, CustomStringConvertible {
     case invalidSourcePath
     case archiveFailed
     case unarchiveFailed
-    case decryptionFailed
+    case decryptionFailed(Error)
     case incompatibleVersion
     case unableToFindDatabaseKey
     case importedFileCountMismatch
@@ -21,7 +29,7 @@ public enum ArchiveError: Error, CustomStringConvertible {
             case .invalidSourcePath: "Invalid source path provided."
             case .archiveFailed: "Failed to archive."
             case .unarchiveFailed: "Failed to unarchive."
-            case .decryptionFailed: "Decryption failed."
+            case .decryptionFailed(let error): "Decryption failed due to error: \(error)."
             case .incompatibleVersion: "This exported bundle is not compatible with this version of Session."
             case .unableToFindDatabaseKey: "Unable to find database key."
             case .importedFileCountMismatch: "The number of files imported doesn't match the number of files written to disk."
@@ -29,6 +37,8 @@ public enum ArchiveError: Error, CustomStringConvertible {
         }
     }
 }
+
+// MARK: - DirectoryArchiver
 
 public class DirectoryArchiver {
     /// This value is here in case we need to change the structure of the exported data in the future, this would allow us to have
@@ -165,9 +175,13 @@ public class DirectoryArchiver {
         defer { inputStream.close() }
         
         // First we need to check the version included in the export is compatible with the current one
+        Log.info(.cat, "Retrieving archive version data")
         let (versionData, _, _): ([UInt8], Int, UInt8) = try read(from: inputStream, password: password)
         
-        guard !versionData.isEmpty else { throw ArchiveError.incompatibleVersion }
+        guard !versionData.isEmpty else {
+            Log.error(.cat, "Missing archive version data")
+            throw ArchiveError.incompatibleVersion
+        }
         
         var version: UInt32 = 0
         _ = withUnsafeMutableBytes(of: &version) { versionBuffer in
@@ -175,12 +189,17 @@ public class DirectoryArchiver {
         }
         
         // Retrieve and process the general metadata
+        Log.info(.cat, "Retrieving archive metadata")
         var metadataOffset = 0
         let (metadataBytes, _, _): ([UInt8], Int, UInt64) = try read(from: inputStream, password: password)
         
-        guard !metadataBytes.isEmpty else { throw ArchiveError.unarchiveFailed }
+        guard !metadataBytes.isEmpty else {
+            Log.error(.cat, "Failed to extract metadata")
+            throw ArchiveError.unarchiveFailed
+        }
         
         // Extract path length and path
+        Log.info(.cat, "Starting to extract files")
         let expectedFileCountRange: Range<Int> = metadataOffset..<(metadataOffset + MemoryLayout<UInt32>.size)
         var expectedFileCount: UInt32 = 0
         _ = withUnsafeMutableBytes(of: &expectedFileCount) { expectedFileCountBuffer in
@@ -212,7 +231,10 @@ public class DirectoryArchiver {
             )
             
             // Stop here if we have finished reading
-            guard blockSizeBytesRead > 0 else { continue }
+            guard blockSizeBytesRead > 0 else {
+                Log.info(.cat, "Finished reading file (block size was 0)")
+                continue
+            }
             
             // Process the metadata
             var offset = 0
@@ -260,6 +282,7 @@ public class DirectoryArchiver {
             
             // Read and decrypt file content
             guard let outputStream: OutputStream = OutputStream(toFileAtPath: fullPath, append: false) else {
+                Log.error(.cat, "Failed to create output stream")
                 throw ArchiveError.unarchiveFailed
             }
             outputStream.open()
@@ -277,7 +300,7 @@ public class DirectoryArchiver {
                 remainingFileSize -= chunk.count
                 
                 // Update the progress
-                fileAmountProcessed += UInt64(chunkSizeBytesRead + chunk.count)
+                fileAmountProcessed += UInt64(chunkSizeBytesRead) + UInt64(encryptedSize)
                 progressChanged?(
                     (filePaths.count + additionalFilePaths.count),
                     Int(expectedFileCount + expectedAdditionalFileCount),
@@ -318,12 +341,24 @@ public class DirectoryArchiver {
             .defaulting(to: [])
         
         guard tempFileUrls.count == (filePaths.count + additionalFilePaths.count) else {
+            Log.error(.cat, "The number of files decrypted (\(tempFileUrls.count)) didn't match the expected number of files (\(filePaths.count + additionalFilePaths.count))")
             throw ArchiveError.importedFileCountMismatch
         }
         guard
             filePaths.count == expectedFileCount &&
             additionalFilePaths.count == expectedAdditionalFileCount
-        else { throw ArchiveError.importedFileCountMetadataMismatch }
+        else {
+            switch ((filePaths.count == expectedFileCount), additionalFilePaths.count == expectedAdditionalFileCount) {
+                case (false, true):
+                    Log.error(.cat, "The number of main files decrypted (\(filePaths.count)) didn't match the expected number of main files (\(expectedFileCount))")
+                    
+                case (true, false):
+                    Log.error(.cat, "The number of additional files decrypted (\(additionalFilePaths.count)) didn't match the expected number of additional files (\(expectedAdditionalFileCount))")
+                    
+                default: break
+            }
+            throw ArchiveError.importedFileCountMetadataMismatch
+        }
         
         return (filePaths, additionalFilePaths)
     }
@@ -370,19 +405,25 @@ public class DirectoryArchiver {
         )
         
         // Extract nonce, ciphertext, and tag
-        let nonce: AES.GCM.Nonce = try AES.GCM.Nonce(data: Data(buffer.prefix(12)))
-        let ciphertext: Data = Data(buffer[12..<(buffer.count-16)])
-        let tag: Data = Data(buffer.suffix(16))
-        
-        // Decrypt with AES-GCM
-        let sealedBox: AES.GCM.SealedBox = try AES.GCM.SealedBox(
-            nonce: nonce,
-            ciphertext: ciphertext,
-            tag: tag
-        )
-        
-        let decryptedData: Data = try AES.GCM.open(sealedBox, using: symmetricKey)
-        return [UInt8](decryptedData)
+        do {
+            let nonce: AES.GCM.Nonce = try AES.GCM.Nonce(data: Data(buffer.prefix(12)))
+            let ciphertext: Data = Data(buffer[12..<(buffer.count-16)])
+            let tag: Data = Data(buffer.suffix(16))
+            
+            // Decrypt with AES-GCM
+            let sealedBox: AES.GCM.SealedBox = try AES.GCM.SealedBox(
+                nonce: nonce,
+                ciphertext: ciphertext,
+                tag: tag
+            )
+            
+            let decryptedData: Data = try AES.GCM.open(sealedBox, using: symmetricKey)
+            return [UInt8](decryptedData)
+        }
+        catch {
+            Log.error(.cat, "\(ArchiveError.decryptionFailed(error))")
+            throw ArchiveError.decryptionFailed(error)
+        }
     }
     
     private static func write<T>(
@@ -418,7 +459,9 @@ public class DirectoryArchiver {
         switch bytesRead {
             case 0: return ([], bytesRead, 0)           // We have finished reading
             case blockSizeBytes.count: break            // We have started the next block
-            default: throw ArchiveError.unarchiveFailed // Invalid
+            default:
+                Log.error(.cat, "Read block size was invalid")
+                throw ArchiveError.unarchiveFailed // Invalid
         }
         
         var blockSize: T = 0
@@ -428,6 +471,7 @@ public class DirectoryArchiver {
         
         var encryptedResult: [UInt8] = [UInt8](repeating: 0, count: Int(blockSize))
         guard inputStream.read(&encryptedResult, maxLength: encryptedResult.count) == encryptedResult.count else {
+            Log.error(.cat, "The size read from the input stream didn't match the encrypted result block size")
             throw ArchiveError.unarchiveFailed
         }
         

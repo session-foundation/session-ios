@@ -16,7 +16,7 @@ fileprivate typealias ViewModel = SessionThreadViewModel
 ///
 /// **Note:** When updating the UI make sure to check the actual queries being run as some fields will have incorrect default values
 /// in order to optimise their queries to only include the required data
-public struct SessionThreadViewModel: FetchableRecordWithRowId, Decodable, Equatable, Hashable, Identifiable, Differentiable, ColumnExpressible {
+public struct SessionThreadViewModel: FetchableRecordWithRowId, Decodable, Equatable, Hashable, Identifiable, Differentiable, ColumnExpressible, ThreadSafeType {
     public typealias Columns = CodingKeys
     public enum CodingKeys: String, CodingKey, ColumnExpression, CaseIterable {
         case rowId
@@ -609,7 +609,7 @@ public extension SessionThreadViewModel {
         )
     }
     
-    func populatingCurrentUserBlindedIds(
+    func populatingPostQueryData(
         _ db: Database? = nil,
         currentUserBlinded15SessionIdForThisThread: String?,
         currentUserBlinded25SessionIdForThisThread: String?,

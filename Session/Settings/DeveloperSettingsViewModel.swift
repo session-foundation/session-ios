@@ -1208,7 +1208,7 @@ class DeveloperSettingsViewModel: SessionTableViewModel, NavigatableStateHolder,
                     )
                     
                     guard testStorage.isValid else {
-                        throw ArchiveError.decryptionFailed
+                        throw ArchiveError.decryptionFailed(ArchiveError.unarchiveFailed)
                     }
                     
                     /// Now that we have confirmed access to the replacement database we need to

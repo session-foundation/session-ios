@@ -212,7 +212,7 @@ final class JoinOpenGroupVC: BaseVC, UIPageViewControllerDataSource, UIPageViewC
                         roomToken: roomToken,
                         server: server,
                         publicKey: publicKey,
-                        calledFromConfig: nil
+                        forceVisible: false
                     )
                 }
                 .flatMap { successfullyAddedGroup in
@@ -221,8 +221,7 @@ final class JoinOpenGroupVC: BaseVC, UIPageViewControllerDataSource, UIPageViewC
                         successfullyAddedGroup: successfullyAddedGroup,
                         roomToken: roomToken,
                         server: server,
-                        publicKey: publicKey,
-                        calledFromConfig: nil
+                        publicKey: publicKey
                     )
                 }
                 .subscribe(on: DispatchQueue.global(qos: .userInitiated))
@@ -238,7 +237,7 @@ final class JoinOpenGroupVC: BaseVC, UIPageViewControllerDataSource, UIPageViewC
                                     try dependencies[singleton: .openGroupManager].delete(
                                         db,
                                         openGroupId: OpenGroup.idFor(roomToken: roomToken, server: server),
-                                        calledFromConfig: nil
+                                        skipLibSessionUpdate: false
                                     )
                                 }
                                 

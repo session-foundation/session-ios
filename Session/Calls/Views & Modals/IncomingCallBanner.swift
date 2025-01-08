@@ -119,8 +119,8 @@ final class IncomingCallBanner: UIView, UIGestureRecognizerDelegate {
     
     private func setUpViewHierarchy() {
         self.clipsToBounds = true
-        self.layer.cornerRadius = Values.largeSpacing
-        self.set(.height, to: 100)
+        self.layer.cornerRadius = 16
+        self.set(.height, to: 80)
         
         addSubview(backgroundView)
         backgroundView.pin(to: self)
@@ -244,6 +244,7 @@ final class IncomingCallBanner: UIView, UIGestureRecognizerDelegate {
         let topMargin = window.safeAreaInsets.top - Values.smallSpacing
         self.set(.width, to: .width, of: window, withOffset: -Values.smallSpacing)
         self.pin(.top, to: .top, of: window, withInset: topMargin)
+        self.center(.horizontal, in: window)
         
         UIView.animate(withDuration: 0.5, delay: 0, options: [], animations: {
             self.alpha = 1.0

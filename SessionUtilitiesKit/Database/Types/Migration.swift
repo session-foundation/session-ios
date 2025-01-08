@@ -42,9 +42,8 @@ public extension Migration {
     ) -> ((_ db: Database) throws -> ()) {
         return { (db: Database) in
             Log.info(.migration, "Starting \(targetIdentifier.key(with: self))")
-            storage?.willStartMigration(db, self)
-            storage?.internalCurrentlyRunningMigration.mutate { $0 = (targetIdentifier, self) }
-            defer { storage?.internalCurrentlyRunningMigration.mutate { $0 = nil } }
+            storage?.willStartMigration(db, self, targetIdentifier)
+            defer { storage?.didCompleteMigration() }
             
             try migrate(db, using: dependencies)
             Log.info(.migration, "Completed \(targetIdentifier.key(with: self))")

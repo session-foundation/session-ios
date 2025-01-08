@@ -215,7 +215,6 @@ public extension SessionThread {
         id: ID,
         variant: Variant,
         values: TargetValues,
-        calledFromConfig configTriggeringChange: LibSession.Config?,
         using dependencies: Dependencies
     ) throws -> SessionThread {
         var result: SessionThread
@@ -224,9 +223,8 @@ public extension SessionThread {
         switch try? fetchOne(db, id: id) {
             case .some(let existingThread): result = existingThread
             case .none:
-                let targetPriority: Int32 = configTriggeringChange
-                    .using(dependencies)
-                    .pinnedPriority(db, threadId: id, threadVariant: variant)
+                let targetPriority: Int32 = dependencies
+                    .mutate(cache: .libSession) { $0.pinnedPriority(db, threadId: id, threadVariant: variant) }
                     .defaulting(to: LibSession.defaultNewThreadPriority)
                 
                 result = try SessionThread(
@@ -267,9 +265,9 @@ public extension SessionThread {
                     )
             
             case (_, .useLibSession):                           // Create and save the config from libSession
-                let disappearingConfig: DisappearingMessagesConfiguration? = configTriggeringChange
-                    .using(dependencies)
-                    .disappearingMessagesConfig(threadId: id, threadVariant: variant)
+                let disappearingConfig: DisappearingMessagesConfiguration? = dependencies.mutate(cache: .libSession) { cache in
+                    cache.disappearingMessagesConfig(threadId: id, threadVariant: variant)
+                }
                 
                 try disappearingConfig?
                     .upserted(db)
@@ -291,9 +289,8 @@ public extension SessionThread {
         /// should both be sourced from `libSession`
         switch (values.pinnedPriority, values.shouldBeVisible) {
             case (.useLibSession, .useLibSession):
-                let targetPriority: Int32 = configTriggeringChange
-                    .using(dependencies)
-                    .pinnedPriority(db, threadId: id, threadVariant: variant)
+                let targetPriority: Int32 = dependencies
+                    .mutate(cache: .libSession) { $0.pinnedPriority(db, threadId: id, threadVariant: variant) }
                     .defaulting(to: LibSession.defaultNewThreadPriority)
                 let libSessionShouldBeVisible: Bool = LibSession.shouldBeVisible(priority: targetPriority)
                 
@@ -340,7 +337,6 @@ public extension SessionThread {
             .updateAllAndConfig(
                 db,
                 requiredChanges,
-                calledFromConfig: configTriggeringChange,
                 using: dependencies
             )
         
@@ -463,7 +459,6 @@ public extension SessionThread {
         type: SessionThread.DeletionType,
         threadId: String,
         threadVariant: Variant,
-        calledFromConfig configTriggeringChange: LibSession.Config?,
         using dependencies: Dependencies
     ) throws {
         try deleteOrLeave(
@@ -471,7 +466,6 @@ public extension SessionThread {
             type: type,
             threadIds: [threadId],
             threadVariant: threadVariant,
-            calledFromConfig: configTriggeringChange,
             using: dependencies
         )
     }
@@ -481,7 +475,6 @@ public extension SessionThread {
         type: SessionThread.DeletionType,
         threadIds: [String],
         threadVariant: Variant,
-        calledFromConfig configTriggeringChange: LibSession.Config?,
         using dependencies: Dependencies
     ) throws {
         let userSessionId: SessionId = dependencies[cache: .general].sessionId
@@ -495,7 +488,6 @@ public extension SessionThread {
                         db,
                         SessionThread.Columns.pinnedPriority.set(to: LibSession.hiddenPriority),
                         SessionThread.Columns.shouldBeVisible.set(to: false),
-                        calledFromConfig: configTriggeringChange,
                         using: dependencies
                     )
                 
@@ -512,7 +504,6 @@ public extension SessionThread {
                         db,
                         SessionThread.Columns.pinnedPriority.set(to: LibSession.hiddenPriority),
                         SessionThread.Columns.shouldBeVisible.set(to: false),
-                        calledFromConfig: configTriggeringChange,
                         using: dependencies
                     )
             
@@ -535,21 +526,16 @@ public extension SessionThread {
                             db,
                             SessionThread.Columns.pinnedPriority.set(to: LibSession.hiddenPriority),
                             SessionThread.Columns.shouldBeVisible.set(to: false),
-                            calledFromConfig: configTriggeringChange,
                             using: dependencies
                         )
                 }
                 
-                if configTriggeringChange == nil {
-                    // Update any other threads to be hidden
-                    try LibSession.hide(db, contactIds: Array(remainingThreadIds), using: dependencies)
-                }
+                // Update any other threads to be hidden
+                try LibSession.hide(db, contactIds: Array(remainingThreadIds), using: dependencies)
                 
             case .deleteContactConversationAndContact:
-                // If this wasn't called from config handling then we need to hide the conversation
-                if configTriggeringChange == nil {
-                    try LibSession.remove(db, contactIds: Array(remainingThreadIds), using: dependencies)
-                }
+                // Remove the contact from the config
+                try LibSession.remove(db, contactIds: Array(remainingThreadIds), using: dependencies)
                 
                 _ = try SessionThread
                     .filter(ids: remainingThreadIds)
@@ -565,7 +551,6 @@ public extension SessionThread {
                     db,
                     threadIds: threadIds,
                     dataToRemove: .allData,
-                    calledFromConfig: configTriggeringChange,
                     using: dependencies
                 )
             
@@ -574,7 +559,7 @@ public extension SessionThread {
                     try dependencies[singleton: .openGroupManager].delete(
                         db,
                         openGroupId: threadId,
-                        calledFromConfig: configTriggeringChange
+                        skipLibSessionUpdate: false
                     )
                 }
         }

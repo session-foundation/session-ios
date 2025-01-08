@@ -165,8 +165,7 @@ extension MessageReceiver {
         authData: Data?,
         joinedAt: TimeInterval,
         invited: Bool,
-        wasKickedFromGroup: Bool,
-        calledFromConfig configTriggeringChange: LibSession.Config?,
+        forceMarkAsInvited: Bool,
         using dependencies: Dependencies
     ) throws {
         // Create the group
@@ -178,7 +177,6 @@ extension MessageReceiver {
                 creationDateTimestamp: .useExistingOrSetTo(joinedAt),
                 shouldBeVisible: .setTo(true)
             ),
-            calledFromConfig: configTriggeringChange,
             using: dependencies
         )
         let closedGroup: ClosedGroup = try ClosedGroup(
@@ -191,31 +189,27 @@ extension MessageReceiver {
             invited: invited
         ).upserted(db)
         
-        if configTriggeringChange?.variant != .userGroups {
-            // If we had previously been kicked from a group then we need to update the flag in UserGroups
-            // so that we don't consider ourselves as kicked anymore
-            if wasKickedFromGroup {
-                dependencies.mutate(cache: .libSession) { cache in
-                    try? cache.markAsInvited(
-                        db,
-                        groupSessionIds: [groupSessionId],
-                        using: dependencies
-                    )
-                }
+        if forceMarkAsInvited {
+            dependencies.mutate(cache: .libSession) { cache in
+                try? cache.markAsInvited(
+                    db,
+                    groupSessionIds: [groupSessionId],
+                    using: dependencies
+                )
             }
-            
-            // Update libSession
-            try? LibSession.add(
-                db,
-                groupSessionId: groupSessionId,
-                groupIdentityPrivateKey: groupIdentityPrivateKey,
-                name: name,
-                authData: authData,
-                joinedAt: joinedAt,
-                invited: invited,
-                using: dependencies
-            )
         }
+            
+        // Update libSession
+        try? LibSession.add(
+            db,
+            groupSessionId: groupSessionId,
+            groupIdentityPrivateKey: groupIdentityPrivateKey,
+            name: name,
+            authData: authData,
+            joinedAt: joinedAt,
+            invited: invited,
+            using: dependencies
+        )
         
         /// If the group wasn't already approved, is not in the invite state and the user hasn't been kicked from it then handle the approval process
         guard !invited else { return }
@@ -223,7 +217,6 @@ extension MessageReceiver {
         try ClosedGroup.approveGroupIfNeeded(
             db,
             group: closedGroup,
-            calledFromConfig: configTriggeringChange,
             using: dependencies
         )
     }
@@ -879,6 +872,9 @@ extension MessageReceiver {
             return ((try? Contact.fetchOne(db, id: sender))?.isApproved == true)
         }()
         let threadAlreadyExisted: Bool = ((try? SessionThread.exists(db, id: groupSessionId.hexString)) ?? false)
+        
+        /// If we had previously been kicked from a group then we need to update the flag in `UserGroups` so that we don't consider
+        /// ourselves as kicked anymore
         let wasKickedFromGroup: Bool = LibSession.wasKickedFromGroup(
             groupSessionId: groupSessionId,
             using: dependencies
@@ -891,8 +887,7 @@ extension MessageReceiver {
             authData: memberAuthData,
             joinedAt: TimeInterval(Double(sentTimestampMs) / 1000),
             invited: !inviteSenderIsApproved,
-            wasKickedFromGroup: wasKickedFromGroup,
-            calledFromConfig: nil,
+            forceMarkAsInvited: wasKickedFromGroup,
             using: dependencies
         )
         
