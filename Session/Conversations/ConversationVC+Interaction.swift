@@ -896,16 +896,7 @@ extension ConversationVC:
             contextMenuWindow == nil,
             let actions: [ContextMenuVC.Action] = ContextMenuVC.actions(
                 for: cellViewModel,
-                recentEmojis: (self.viewModel.threadData.recentReactionEmoji ?? []).compactMap { EmojiWithSkinTones(rawValue: $0) },
-                currentUserSessionId: self.viewModel.threadData.currentUserSessionId,
-                currentUserBlinded15SessionId: self.viewModel.threadData.currentUserBlinded15SessionId,
-                currentUserBlinded25SessionId: self.viewModel.threadData.currentUserBlinded25SessionId,
-                currentUserIsOpenGroupModerator: viewModel.dependencies[singleton: .openGroupManager].isUserModeratorOrAdmin(
-                    publicKey: self.viewModel.threadData.currentUserSessionId,
-                    for: self.viewModel.threadData.openGroupRoomToken,
-                    on: self.viewModel.threadData.openGroupServer
-                ),
-                currentThreadIsMessageRequest: (self.viewModel.threadData.threadIsMessageRequest == true),
+                in: self.viewModel.threadData,
                 forMessageInfoScreen: false,
                 delegate: self,
                 using: viewModel.dependencies
@@ -1873,16 +1864,7 @@ extension ConversationVC:
     func info(_ cellViewModel: MessageViewModel) {
         let actions: [ContextMenuVC.Action] = ContextMenuVC.actions(
             for: cellViewModel,
-            recentEmojis: [],
-            currentUserSessionId: self.viewModel.threadData.currentUserSessionId,
-            currentUserBlinded15SessionId: self.viewModel.threadData.currentUserBlinded15SessionId,
-            currentUserBlinded25SessionId: self.viewModel.threadData.currentUserBlinded25SessionId,
-            currentUserIsOpenGroupModerator: viewModel.dependencies[singleton: .openGroupManager].isUserModeratorOrAdmin(
-                publicKey: self.viewModel.threadData.currentUserSessionId,
-                for: self.viewModel.threadData.openGroupRoomToken,
-                on: self.viewModel.threadData.openGroupServer
-            ),
-            currentThreadIsMessageRequest: (self.viewModel.threadData.threadIsMessageRequest == true),
+            in: self.viewModel.threadData,
             forMessageInfoScreen: true,
             delegate: self,
             using: viewModel.dependencies

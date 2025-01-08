@@ -38,6 +38,32 @@ public class ThreadPickerViewModel {
             return try SessionThreadViewModel
                 .shareQuery(userSessionId: userSessionId)
                 .fetchAll(db)
+                .map { threadViewModel in
+                    let wasKickedFromGroup: Bool = (
+                        threadViewModel.threadVariant == .group &&
+                        LibSession.wasKickedFromGroup(
+                            groupSessionId: SessionId(.group, hex: threadViewModel.threadId),
+                            using: dependencies
+                        )
+                    )
+                    let groupIsDestroyed: Bool = (
+                        threadViewModel.threadVariant == .group &&
+                        LibSession.groupIsDestroyed(
+                            groupSessionId: SessionId(.group, hex: threadViewModel.threadId),
+                            using: dependencies
+                        )
+                    )
+                    
+                    return threadViewModel.populatingCurrentUserBlindedIds(
+                        db,
+                        currentUserBlinded15SessionIdForThisThread: nil,
+                        currentUserBlinded25SessionIdForThisThread: nil,
+                        wasKickedFromGroup: wasKickedFromGroup,
+                        groupIsDestroyed: groupIsDestroyed,
+                        threadCanWrite: threadViewModel.determineInitialCanWriteFlag(using: dependencies),
+                        using: dependencies
+                    )
+                }
         }
         .map { [dependencies] threads -> [SessionThreadViewModel] in
             threads.filter { $0.threadCanWrite == true }   // Exclude unwritable threads

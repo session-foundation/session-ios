@@ -145,8 +145,10 @@ public class NotificationActionHandler {
                     body: replyText,
                     timestampMs: sentTimestampMs,
                     hasMention: Interaction.isUserMentioned(db, threadId: threadId, body: replyText, using: dependencies),
-                    expiresInSeconds: destinationDisappearingMessagesConfiguration?.durationSeconds,
-                    expiresStartedAtMs: (destinationDisappearingMessagesConfiguration?.type == .disappearAfterSend ? Double(sentTimestampMs) : nil),
+                    expiresInSeconds: destinationDisappearingMessagesConfiguration?.expiresInSeconds(),
+                    expiresStartedAtMs: destinationDisappearingMessagesConfiguration?.initialExpiresStartedAtMs(
+                        sentTimestampMs: Double(sentTimestampMs)
+                    ),
                     using: dependencies
                 ).inserted(db)
                 

@@ -233,24 +233,33 @@ public enum ProcessPendingGroupMemberRemovalsJob: JobExecutor {
                                         /// If we want to remove the messages sent by the removed members then do so and remove
                                         /// them from the swarm as well
                                         if !memberIdsToRemoveContent.isEmpty {
-                                            let messageHashesToRemove: Set<String> = try Interaction
+                                            let interactionIdsToRemove: Set<Int64> = try Interaction
+                                                .select(.id)
                                                 .filter(Interaction.Columns.threadId == groupSessionId.hexString)
                                                 .filter(memberIdsToRemoveContent.contains(Interaction.Columns.authorId))
-                                                .filter(Interaction.Columns.serverHash != nil)
-                                                .select(.serverHash)
-                                                .asRequest(of: String.self)
+                                                .asRequest(of: Int64.self)
                                                 .fetchSet(db)
                                             
-                                            /// Delete the messages from my device
-                                            try Interaction
-                                                .filter(Interaction.Columns.threadId == groupSessionId.hexString)
-                                                .filter(memberIdsToRemoveContent.contains(Interaction.Columns.authorId))
-                                                .deleteAll(db)
+                                            /// Retrieve the hashes which should be deleted first (these will be removed from the local
+                                            /// device in the `markAsDeleted` function) then call `markAsDeleted` to remove
+                                            /// message content
+                                            let hashes: Set<String> = try Interaction.serverHashesForDeletion(
+                                                db,
+                                                interactionIds: interactionIdsToRemove
+                                            )
+                                            try Interaction.markAsDeleted(
+                                                db,
+                                                threadId: groupSessionId.hexString,
+                                                threadVariant: .group,
+                                                interactionIds: interactionIdsToRemove,
+                                                localOnly: false,
+                                                using: dependencies
+                                            )
                                             
                                             /// Delete the messages from the swarm so users won't download them again
                                             try? SnodeAPI
                                                 .preparedDeleteMessages(
-                                                    serverHashes: Array(messageHashesToRemove),
+                                                    serverHashes: Array(hashes),
                                                     requireSuccessfulDeletion: false,
                                                     authMethod: Authentication.groupAdmin(
                                                         groupSessionId: groupSessionId,

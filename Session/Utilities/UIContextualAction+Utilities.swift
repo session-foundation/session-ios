@@ -1,6 +1,7 @@
 // Copyright © 2023 Rangeproof Pty Ltd. All rights reserved.
 
 import UIKit
+import Lucide
 import GRDB
 import SessionMessagingKit
 import SessionUIKit
@@ -124,7 +125,7 @@ public extension UIContextualAction {
                     case .clear:
                         return UIContextualAction(
                             title: "clear".localized(),
-                            icon: UIImage(named: "ic_bin"),
+                            icon: Lucide.image(icon: .trash2, size: 24, color: .white),
                             themeTintColor: .white,
                             themeBackgroundColor: themeBackgroundColor,
                             side: side,
@@ -579,7 +580,7 @@ public extension UIContextualAction {
                     case .delete:
                         return UIContextualAction(
                             title: "delete".localized(),
-                            icon: UIImage(named: "ic_bin"),
+                            icon: Lucide.image(icon: .trash2, size: 24, color: .white),
                             themeTintColor: .white,
                             themeBackgroundColor: themeBackgroundColor,
                             accessibility: Accessibility(identifier: "Delete button"),
@@ -589,6 +590,14 @@ public extension UIContextualAction {
                             tableView: tableView
                         ) { [weak viewController] _, _, completionHandler in
                             let isMessageRequest: Bool = (threadViewModel.threadIsMessageRequest == true)
+                            let groupDestroyedOrKicked: Bool = {
+                                guard threadViewModel.threadVariant == .group else { return false }
+                                
+                                return (
+                                    threadViewModel.wasKickedFromGroup == true ||
+                                    threadViewModel.groupIsDestroyed == true
+                                )
+                            }()
                             let confirmationModalTitle: String = {
                                 switch (threadViewModel.threadVariant, isMessageRequest) {
                                     case (_, true): return "delete".localized()
@@ -638,13 +647,13 @@ public extension UIContextualAction {
                                     dismissOnConfirm: true,
                                     onConfirm: { _ in
                                         let deletionType: SessionThread.DeletionType = {
-                                            switch (threadViewModel.threadVariant, isMessageRequest) {
-                                                case (.community, _): return .deleteCommunityAndContent
-                                                case (.group, true): return .deleteGroupAndContent
-                                                case (.group, _), (.legacyGroup, _):
+                                            switch (threadViewModel.threadVariant, isMessageRequest, groupDestroyedOrKicked) {
+                                                case (.community, _, _): return .deleteCommunityAndContent
+                                                case (.group, true, _), (.group, _, true): return .deleteGroupAndContent
+                                                case (.group, _, _), (.legacyGroup, _, _):
                                                     return .leaveGroupAsync
                                                 
-                                                case (.contact, _): return .deleteContactConversationAndMarkHidden
+                                                case (.contact, _, _): return .deleteContactConversationAndMarkHidden
                                             }
                                         }()
                                         

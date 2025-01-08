@@ -446,7 +446,7 @@ extension MessageSender {
                 
                 /// Perform the config changes without triggering a config sync (we will do so manually after the process completes)
                 try dependencies.mutate(cache: .libSession) { cache in
-                    try cache.withoutConfigSync(sessionId: sessionId) {
+                    try cache.withCustomBehaviour(.skipAutomaticConfigSync, for: sessionId) {
                         /// Add the members to the `GROUP_MEMBERS` config
                         try LibSession.addMembers(
                             db,
@@ -858,7 +858,7 @@ extension MessageSender {
             .writePublisher { db -> (Set<String>, [MemberData], Network.PreparedRequest<Void>?, Int64) in
                 /// Perform the config changes without triggering a config sync (we will do so manually after the process completes)
                 try dependencies.mutate(cache: .libSession) { cache in
-                    try cache.withoutConfigSync(sessionId: groupSessionId) {
+                    try cache.withCustomBehaviour(.skipAutomaticConfigSync, for: groupSessionId) {
                         try members.forEach { memberId, profile in
                             try LibSession.updateMemberStatus(
                                 db,
@@ -885,6 +885,18 @@ extension MessageSender {
                 let membersReceivingPromotions: [MemberData] = members
                     .filter { id, _ in memberIdsRequiringPromotions.contains(id) }
                 
+                // Update failed admins to be sending
+                try GroupMember
+                    .filter(GroupMember.Columns.groupId == groupSessionId.hexString)
+                    .filter(memberIds.contains(GroupMember.Columns.profileId))
+                    .filter(GroupMember.Columns.role == GroupMember.Role.admin)
+                    .updateAllAndConfig(
+                        db,
+                        GroupMember.Columns.roleStatus.set(to: GroupMember.RoleStatus.notSentYet),
+                        calledFromConfig: nil,
+                        using: dependencies
+                    )
+                
                 // Update standard members to be admins
                 try GroupMember
                     .filter(GroupMember.Columns.groupId == groupSessionId.hexString)
@@ -893,18 +905,6 @@ extension MessageSender {
                     .updateAllAndConfig(
                         db,
                         GroupMember.Columns.role.set(to: GroupMember.Role.admin),
-                        GroupMember.Columns.roleStatus.set(to: GroupMember.RoleStatus.notSentYet),
-                        calledFromConfig: nil,
-                        using: dependencies
-                    )
-                
-                // Update failed admins to be sending
-                try GroupMember
-                    .filter(GroupMember.Columns.groupId == groupSessionId.hexString)
-                    .filter(memberIds.contains(GroupMember.Columns.profileId))
-                    .filter(GroupMember.Columns.role == GroupMember.Role.admin)
-                    .updateAllAndConfig(
-                        db,
                         GroupMember.Columns.roleStatus.set(to: GroupMember.RoleStatus.notSentYet),
                         calledFromConfig: nil,
                         using: dependencies

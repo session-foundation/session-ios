@@ -2,6 +2,7 @@
 
 import Foundation
 import Combine
+import Lucide
 import GRDB
 import YYImage
 import DifferenceKit
@@ -723,7 +724,7 @@ class ThreadSettingsViewModel: SessionTableViewModel, NavigatableStateHolder, Ob
                         SessionCell.Info(
                             id: .debugDeleteBeforeNow,
                             leadingAccessory: .icon(
-                                UIImage(named: "ic_bin")?
+                                Lucide.image(icon: .trash2, size: 24)?
                                     .withRenderingMode(.alwaysTemplate),
                                 customTint: .danger
                             ),
@@ -746,7 +747,7 @@ class ThreadSettingsViewModel: SessionTableViewModel, NavigatableStateHolder, Ob
                         SessionCell.Info(
                             id: .debugDeleteAttachmentsBeforeNow,
                             leadingAccessory: .icon(
-                                UIImage(named: "ic_bin")?
+                                Lucide.image(icon: .trash2, size: 24)?
                                     .withRenderingMode(.alwaysTemplate),
                                 customTint: .danger
                             ),
@@ -890,8 +891,10 @@ class ThreadSettingsViewModel: SessionTableViewModel, NavigatableStateHolder, Ob
                                         authorId: threadViewModel.currentUserSessionId,
                                         variant: .standardOutgoing,
                                         timestampMs: sentTimestampMs,
-                                        expiresInSeconds: destinationDisappearingMessagesConfiguration?.durationSeconds,
-                                        expiresStartedAtMs: (destinationDisappearingMessagesConfiguration?.type == .disappearAfterSend ? Double(sentTimestampMs) : nil),
+                                        expiresInSeconds: destinationDisappearingMessagesConfiguration?.expiresInSeconds(),
+                                        expiresStartedAtMs: destinationDisappearingMessagesConfiguration?.initialExpiresStartedAtMs(
+                                            sentTimestampMs: Double(sentTimestampMs)
+                                        ),
                                         linkPreviewUrl: communityUrl,
                                         using: dependencies
                                     )

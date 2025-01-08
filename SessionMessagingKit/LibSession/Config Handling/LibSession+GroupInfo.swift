@@ -322,7 +322,13 @@ internal extension LibSession {
         // Loop through each of the groups and update their settings
         try targetGroups.forEach { group in
             try dependencies.mutate(cache: .libSession) { cache in
-                try cache.performAndPushChange(db, for: .groupInfo, sessionId: SessionId(.group, hex: group.threadId)) { config in
+                let groupSessionId: SessionId = SessionId(.group, hex: group.threadId)
+                
+                /// Don't update the group info if the current user isn't an admin (doing so would throw which would revert this database
+                /// transaction)
+                guard cache.isAdmin(groupSessionId: groupSessionId) else { return }
+                
+                try cache.performAndPushChange(db, for: .groupInfo, sessionId: groupSessionId) { config in
                     guard case .groupInfo(let conf) = config else { throw LibSessionError.invalidConfigObject }
                     guard
                         var cGroupName: [CChar] = group.name.cString(using: .utf8),

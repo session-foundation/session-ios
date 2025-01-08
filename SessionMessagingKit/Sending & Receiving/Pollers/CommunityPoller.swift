@@ -274,6 +274,11 @@ public final class CommunityPoller: CommunityPollerType & PollerType {
                     using: dependencies
                 )
             }
+            .handleEvents(
+                receiveOutput: { [weak self] _ in
+                    self?.pollCount += 1
+                }
+            )
             .eraseToAnyPublisher()
     }
     

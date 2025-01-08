@@ -105,8 +105,11 @@ public enum LibSessionError: Error, CustomStringConvertible {
         conf?.pointee.last_error = nil
     }
     
-    public func logging(_ logMessage: String) -> LibSessionError {
-        Log.error(.libSession, "\(logMessage): \(self)")
+    public func logging(_ logMessage: String? = nil, as level: Log.Level = .error) -> LibSessionError {
+        switch logMessage {
+            case .some(let msg): Log.custom(level, [.libSession], "\(msg): \(self)")
+            case .none: Log.custom(level, [.libSession], "\(self)")
+        }
         return self
     }
     

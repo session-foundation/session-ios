@@ -13,6 +13,7 @@ extension MessageReceiver {
         message: UnsendRequest,
         using dependencies: Dependencies
     ) throws {
+        let userSessionId: SessionId = dependencies[cache: .general].sessionId
         let senderIsLegacyGroupAdmin: Bool = {
             switch (message.sender, threadVariant) {
                 case (.some(let sender), .legacyGroup):
@@ -29,37 +30,22 @@ extension MessageReceiver {
         guard
             senderIsLegacyGroupAdmin ||
             message.sender == message.author ||
-            dependencies[cache: .general].sessionId.hexString == message.sender
+            userSessionId.hexString == message.sender
         else { return }
-        guard let author: String = message.author, let timestampMs: UInt64 = message.timestamp else { return }
-        
-        let maybeInteraction: Interaction? = try Interaction
-            .filter(Interaction.Columns.timestampMs == Int64(timestampMs))
-            .filter(Interaction.Columns.authorId == author)
-            .fetchOne(db)
-        
         guard
-            let interactionId: Int64 = maybeInteraction?.id,
-            let interaction: Interaction = maybeInteraction
+            let author: String = message.author,
+            let timestampMs: UInt64 = message.timestamp,
+            let interactionId: Int64 = try Interaction
+                .select(.id)
+                .filter(Interaction.Columns.timestampMs == Int64(timestampMs))
+                .filter(Interaction.Columns.authorId == author)
+                .asRequest(of: Int64.self)
+                .fetchOne(db)
         else { return }
         
-        // Mark incoming messages as read and remove any of their notifications
-        if interaction.variant == .standardIncoming {
-            try Interaction.markAsRead(
-                db,
-                interactionId: interactionId,
-                threadId: interaction.threadId,
-                threadVariant: threadVariant,
-                includingOlder: false,
-                trySendReadReceipt: false,
-                using: dependencies
-            )
-            
-            UNUserNotificationCenter.current().removeDeliveredNotifications(withIdentifiers: interaction.notificationIdentifiers)
-            UNUserNotificationCenter.current().removePendingNotificationRequests(withIdentifiers: interaction.notificationIdentifiers)
-        }
-        
-        /// Retrieve the hashes which should be deleted first (these will be removed by marking the message as deleted)
+        /// Retrieve the hashes which should be deleted first (these will be removed from the local
+        /// device in the `markAsDeleted` function) then call `markAsDeleted` to remove
+        /// message content
         let hashes: Set<String> = try Interaction.serverHashesForDeletion(
             db,
             interactionIds: [interactionId]
@@ -72,6 +58,11 @@ extension MessageReceiver {
             localOnly: false,
             using: dependencies
         )
+        
+        /// If it's the `Note to Self` conversation then we want to just delete the interaction
+        if userSessionId.hexString == threadId {
+            try Interaction.deleteOne(db, id: interactionId)
+        }
         
         /// Can't delete from the legacy group swarm so only bother for contact conversations
         switch threadVariant {

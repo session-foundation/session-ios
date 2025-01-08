@@ -369,16 +369,8 @@ public class ConversationViewModel: OWSAudioPlayerDelegate, NavigatableStateHold
     
     public func emptyStateText(for threadData: SessionThreadViewModel) -> String {
         let blocksCommunityMessageRequests: Bool = (threadData.profile?.blocksCommunityMessageRequests == true)
-        let wasKickedFromGroup: Bool = (
-            threadData.threadVariant == .group &&
-            LibSession.wasKickedFromGroup(groupSessionId: SessionId(.group, hex: threadData.threadId), using: dependencies)
-        )
-        let groupIsDestroyed: Bool = (
-            threadData.threadVariant == .group &&
-            LibSession.groupIsDestroyed(groupSessionId: SessionId(.group, hex: threadData.threadId), using: dependencies)
-        )
         
-        switch (threadData.threadIsNoteToSelf, threadData.threadCanWrite == true, blocksCommunityMessageRequests, wasKickedFromGroup, groupIsDestroyed) {
+        switch (threadData.threadIsNoteToSelf, threadData.threadCanWrite == true, blocksCommunityMessageRequests, threadData.wasKickedFromGroup, threadData.groupIsDestroyed) {
             case (true, _, _, _, _): return "noteToSelfEmpty".localized()
             case (_, false, true, _, _):
                 return "messageRequestsTurnedOff"
@@ -716,8 +708,10 @@ public class ConversationViewModel: OWSAudioPlayerDelegate, NavigatableStateHold
                 ].compactMap { $0 },
                 body: text
             ),
-            expiresInSeconds: threadData.disappearingMessagesConfiguration?.durationSeconds,
-            expiresStartedAtMs: (threadData.disappearingMessagesConfiguration?.type == .disappearAfterSend ? Double(sentTimestampMs) : nil),
+            expiresInSeconds: threadData.disappearingMessagesConfiguration?.expiresInSeconds(),
+            expiresStartedAtMs: threadData.disappearingMessagesConfiguration?.initialExpiresStartedAtMs(
+                sentTimestampMs: Double(sentTimestampMs)
+            ),
             linkPreviewUrl: linkPreviewDraft?.urlString,
             using: dependencies
         )

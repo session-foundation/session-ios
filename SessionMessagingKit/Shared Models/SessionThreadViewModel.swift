@@ -420,8 +420,15 @@ public struct SessionThreadViewModel: FetchableRecordWithRowId, Decodable, Equat
                 guard groupIsDestroyed != true else { return false }
                 guard wasKickedFromGroup != true else { return false }
                 guard threadIsMessageRequest == false else { return true }
+                
+                // Double check LibSession directly just in case we the view model hasn't been
+                // updated since they were changed
                 guard
                     !LibSession.wasKickedFromGroup(
+                        groupSessionId: SessionId(.group, hex: threadId),
+                        using: dependencies
+                    ) &&
+                    !LibSession.groupIsDestroyed(
                         groupSessionId: SessionId(.group, hex: threadId),
                         using: dependencies
                     )

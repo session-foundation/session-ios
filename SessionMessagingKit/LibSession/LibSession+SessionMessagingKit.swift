@@ -133,23 +133,64 @@ private class ConfigStore {
         store.removeAll()
     }
 }
+
+// MARK: - BehaviourStore
+
+private class BehaviourStore {
+    private struct Key: Hashable {
+        let sessionId: SessionId
+        let variant: ConfigDump.Variant?
+        let behaviour: LibSession.CacheBehaviour
+        
+        init(sessionId: SessionId, variant: ConfigDump.Variant?, behaviour: LibSession.CacheBehaviour) {
+            self.sessionId = sessionId
+            self.variant = variant
+            self.behaviour = behaviour
+        }
+    }
+    
+    private var store: [Key: Int] = [:]
+    
+    public func add(_ behaviour: LibSession.CacheBehaviour, sessionId: SessionId, variant: ConfigDump.Variant?) {
+        let key: Key = Key(sessionId: sessionId, variant: variant, behaviour: behaviour)
+        store[key] = ((store[key] ?? 0) + 1)
+    }
+    
+    public func remove(_ behaviour: LibSession.CacheBehaviour, sessionId: SessionId, variant: ConfigDump.Variant?) {
+        let key: Key = Key(sessionId: sessionId, variant: variant, behaviour: behaviour)
+        store[key] = ((store[key] ?? 1) - 1)
+        
+        if (store[key] ?? 0) <= 0 {
+            store.removeValue(forKey: key)
+        }
+    }
+    
+    public func hasBehaviour(
+        _ behaviour: LibSession.CacheBehaviour,
+        for sessionId: SessionId,
+        _ variant: ConfigDump.Variant? = nil
+    ) -> Bool {
+        let variantSpecificKey: Key = Key(sessionId: sessionId, variant: variant, behaviour: behaviour)
+        let noVariantKey: Key = Key(sessionId: sessionId, variant: nil, behaviour: behaviour)
+        
+        return (
+            store[variantSpecificKey] != nil ||
+            store[noVariantKey] != nil
+        )
+    }
+}
                                                                      
 // MARK: - SessionUtil Cache
 
 public extension LibSession {
+    enum CacheBehaviour {
+        case skipAutomaticConfigSync
+        case skipGroupAdminCheck
+    }
+    
     class Cache: LibSessionCacheType {
-        private struct ConfigSyncKey: Hashable {
-            let sessionId: SessionId
-            let variant: ConfigDump.Variant?
-            
-            init(sessionId: SessionId, variant: ConfigDump.Variant? = nil) {
-                self.sessionId = sessionId
-                self.variant = variant
-            }
-        }
-        
         private var configStore: ConfigStore = ConfigStore()
-        private var configsBlockedFromEnquingSyncs: [ConfigSyncKey: Int] = [:]
+        private var behaviourStore: BehaviourStore = BehaviourStore()
         
         public let dependencies: Dependencies
         public let userSessionId: SessionId
@@ -448,19 +489,15 @@ public extension LibSession {
         
         // MARK: - Pushes
         
-        public func withoutConfigSync(
-            for variant: ConfigDump.Variant?,
-            sessionId: SessionId,
+        public func withCustomBehaviour(
+            _ behaviour: CacheBehaviour,
+            for sessionId: SessionId,
+            variant: ConfigDump.Variant?,
             change: () throws -> ()
         ) throws {
-            let key: ConfigSyncKey = ConfigSyncKey(sessionId: sessionId, variant: variant)
-            configsBlockedFromEnquingSyncs[key] = ((configsBlockedFromEnquingSyncs[key] ?? 0) + 1)
+            behaviourStore.add(behaviour, sessionId: sessionId, variant: variant)
             try change()
-            configsBlockedFromEnquingSyncs[key] = ((configsBlockedFromEnquingSyncs[key] ?? 1) - 1)
-            
-            if configsBlockedFromEnquingSyncs[key] == 0 {
-                configsBlockedFromEnquingSyncs.removeValue(forKey: key)
-            }
+            behaviourStore.remove(behaviour, sessionId: sessionId, variant: variant)
         }
         
         public func performAndPushChange(
@@ -474,9 +511,10 @@ public extension LibSession {
             // are a group admin first
             switch variant {
                 case .groupInfo, .groupMembers, .groupKeys:
-                    guard isAdmin(groupSessionId: sessionId) else {
-                        throw LibSessionError.attemptedToModifyGroupWithoutAdminKey
-                    }
+                    guard
+                        behaviourStore.hasBehaviour(.skipGroupAdminCheck, for: sessionId, variant) ||
+                        isAdmin(groupSessionId: sessionId)
+                    else { throw LibSessionError.attemptedToModifyGroupWithoutAdminKey.logging(as: .critical) }
 
                     
                 default: break
@@ -510,8 +548,7 @@ public extension LibSession {
             // Make sure we need a push and enquing config syncs aren't blocked before scheduling one
             guard
                 config.needsPush &&
-                configsBlockedFromEnquingSyncs[ConfigSyncKey(sessionId: sessionId, variant: variant)] == nil &&
-                configsBlockedFromEnquingSyncs[ConfigSyncKey(sessionId: sessionId)] == nil
+                !behaviourStore.hasBehaviour(.skipAutomaticConfigSync, for: sessionId, variant)
             else { return }
             
             db.afterNextTransactionNestedOnce(dedupeId: LibSession.syncDedupeId(sessionId.hexString), using: dependencies) { [dependencies] db in
@@ -857,9 +894,10 @@ public protocol LibSessionCacheType: LibSessionImmutableCacheType, MutableCacheT
     
     // MARK: - Pushes
     
-    func withoutConfigSync(
-        for variant: ConfigDump.Variant?,
-        sessionId: SessionId,
+    func withCustomBehaviour(
+        _ behaviour: LibSession.CacheBehaviour,
+        for sessionId: SessionId,
+        variant: ConfigDump.Variant?,
         change: () throws -> ()
     ) throws
     func performAndPushChange(
@@ -912,8 +950,8 @@ public protocol LibSessionCacheType: LibSessionImmutableCacheType, MutableCacheT
 }
 
 public extension LibSessionCacheType {
-    func withoutConfigSync(sessionId: SessionId, change: () throws -> ()) throws {
-        try withoutConfigSync(for: nil, sessionId: sessionId, change: change)
+    func withCustomBehaviour(_ behaviour: LibSession.CacheBehaviour, for sessionId: SessionId, change: () throws -> ()) throws {
+        try withCustomBehaviour(behaviour, for: sessionId, variant: nil, change: change)
     }
 }
 
@@ -951,9 +989,10 @@ private final class NoopLibSessionCache: LibSessionCacheType {
     
     // MARK: - Pushes
     
-    func withoutConfigSync(
-        for variant: ConfigDump.Variant?,
-        sessionId: SessionId,
+    func withCustomBehaviour(
+        _ behaviour: LibSession.CacheBehaviour,
+        for sessionId: SessionId,
+        variant: ConfigDump.Variant?,
         change: () throws -> ()
     ) throws {}
     func performAndPushChange(

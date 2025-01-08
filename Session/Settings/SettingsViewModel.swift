@@ -2,6 +2,7 @@
 
 import Foundation
 import Combine
+import Lucide
 import GRDB
 import DifferenceKit
 import SessionUIKit
@@ -420,7 +421,7 @@ class SettingsViewModel: SessionTableViewModel, NavigationItemSource, Navigatabl
                 SessionCell.Info(
                     id: .clearData,
                     leadingAccessory: .icon(
-                        UIImage(named: "icon_bin")?
+                        Lucide.image(icon: .trash2, size: 24)?
                             .withRenderingMode(.alwaysTemplate)
                     ),
                     title: "sessionClearData".localized(),

@@ -274,7 +274,6 @@ public struct MessageViewModel: FetchableRecordWithRowId, Decodable, Equatable, 
         validAttachments: [Attachment]
     ) -> MessageViewModel {
         guard
-            let quote: Quote = self.quote,
             let quoteAttachment: Attachment = self.quoteAttachment,
             !validAttachments.contains(quoteAttachment)
         else { return self }
@@ -344,7 +343,7 @@ public struct MessageViewModel: FetchableRecordWithRowId, Decodable, Equatable, 
     ) -> MessageViewModel {
         let cellType: CellType = {
             guard self.isTypingIndicator != true else { return .typingIndicator }
-            guard self.variant != .standardIncomingDeleted else { return .textOnlyMessage }
+            guard !self.variant.isDeletedMessage else { return .textOnlyMessage }
             guard let attachment: Attachment = self.attachments?.first else { return .textOnlyMessage }
 
             // The only case which currently supports multiple attachments is a 'mediaMessage'
@@ -519,9 +518,7 @@ public struct MessageViewModel: FetchableRecordWithRowId, Decodable, Equatable, 
                 guard isGroupThread else { return nil }
                 
                 // Only show for incoming messages
-                guard self.variant == .standardIncoming || self.variant == .standardIncomingDeleted else {
-                    return nil
-                }
+                guard self.variant.isIncoming else { return nil }
                     
                 // Only if there is a date header or the senders are different
                 guard shouldShowDateBeforeThisModel || self.authorId != prevModel?.authorId else {
@@ -533,19 +530,19 @@ public struct MessageViewModel: FetchableRecordWithRowId, Decodable, Equatable, 
             canHaveProfile: (
                 // Only group threads and incoming messages
                 isGroupThread &&
-                (self.variant == .standardIncoming || self.variant == .standardIncomingDeleted)
+                self.variant.isIncoming
             ),
             shouldShowProfile: (
                 // Only group threads
                 isGroupThread &&
                 
                 // Only incoming messages
-                (self.variant == .standardIncoming || self.variant == .standardIncomingDeleted) &&
+                self.variant.isIncoming &&
                 
                 // Show if the next message has a different sender, isn't a standard message or has a "date break"
                 (
                     self.authorId != nextModel?.authorId ||
-                    (nextModel?.variant != .standardIncoming && nextModel?.variant != .standardIncomingDeleted) ||
+                    nextModel?.variant.isIncoming != true ||
                     shouldShowDateBeforeNextModel
                 ) &&
                 

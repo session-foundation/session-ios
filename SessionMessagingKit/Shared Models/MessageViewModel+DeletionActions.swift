@@ -404,7 +404,9 @@ public extension MessageViewModel.DeletionBehaviours {
                             .map { _, _ in () }
                         )
                     )
-                    .appending(
+                    .appending(threadData.threadIsNoteToSelf ?
+                        /// If it's the `Note to Self`conversation then we want to just delete the interaction
+                        .deleteFromDatabase(cellViewModels.map { $0.id }) :
                         .markAsDeleted(
                             ids: targetViewModels.map { $0.id },
                             localOnly: false,

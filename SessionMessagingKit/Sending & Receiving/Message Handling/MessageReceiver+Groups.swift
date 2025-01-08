@@ -296,13 +296,15 @@ extension MessageReceiver {
             using: dependencies
         )
         
-        // Update the current member record to be an approved admin
+        // Update the current member record to be an approved admin (also set their role to admin
+        // just in case - shouldn't be needed but since they are an admin now it doesn't hurt)
         let userSessionId: SessionId = dependencies[cache: .general].sessionId
         try GroupMember
             .filter(GroupMember.Columns.groupId == groupSessionId.hexString)
             .filter(GroupMember.Columns.profileId == userSessionId.hexString)
             .updateAllAndConfig(
                 db,
+                GroupMember.Columns.role.set(to: GroupMember.Role.admin),
                 GroupMember.Columns.roleStatus.set(to: GroupMember.RoleStatus.accepted),
                 calledFromConfig: nil,
                 using: dependencies
@@ -670,7 +672,9 @@ extension MessageReceiver {
             case (.none, .none, _): throw MessageReceiverError.invalidMessage
         }
         
-        /// Trigger the content deletion
+        /// Retrieve the hashes which should be deleted first (these will be removed from the local
+        /// device in the `markAsDeleted` function) then call `markAsDeleted` to remove
+        /// message content
         let hashes: Set<String> = try Interaction.serverHashesForDeletion(
             db,
             interactionIds: Set(interactionIdsToRemove),

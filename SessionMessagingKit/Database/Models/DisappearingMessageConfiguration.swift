@@ -224,6 +224,19 @@ public extension DisappearingMessagesConfiguration {
         
         return !(self.durationSeconds > 0 && self.type == .unknown)
     }
+    
+    func expiresInSeconds() -> Double? {
+        guard isEnabled && durationSeconds > 0 else { return nil }
+        
+        return durationSeconds
+    }
+    
+    func initialExpiresStartedAtMs(sentTimestampMs: Double) -> Double? {
+        /// Only set the initial value if the `type` is `disappearAfterSend`
+        guard isEnabled && durationSeconds > 0 && type == .disappearAfterSend else { return nil }
+        
+        return sentTimestampMs
+    }
 }
 
 // MARK: - Control Message
@@ -316,7 +329,7 @@ public extension DisappearingMessagesConfiguration {
             wasRead: wasRead,
             serverExpirationTimestamp: serverExpirationTimestamp,
             expiresInSeconds: self.durationSeconds,
-            expiresStartedAtMs: (self.type == .disappearAfterSend) ? Double(timestampMs) : nil,
+            expiresStartedAtMs: (self.type == .disappearAfterSend ? Double(timestampMs) : nil),
             using: dependencies
         )
         let interactionExpirationInfo: Message.MessageExpirationInfo? = {

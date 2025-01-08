@@ -485,8 +485,8 @@ public extension Interaction {
         
         if let config = try? DisappearingMessagesConfiguration.fetchOne(db, id: self.threadId) {
             return self.with(
-                expiresInSeconds: config.durationSeconds,
-                expiresStartedAtMs: (config.type == .disappearAfterSend ? Double(self.timestampMs) : nil)
+                expiresInSeconds: config.expiresInSeconds(),
+                expiresStartedAtMs: config.initialExpiresStartedAtMs(sentTimestampMs: Double(self.timestampMs))
             )
         }
         
@@ -1440,7 +1440,8 @@ public extension Interaction {
                     Interaction.Columns.body.set(to: nil),
                     Interaction.Columns.wasRead.set(to: true),
                     Interaction.Columns.hasMention.set(to: false),
-                    Interaction.Columns.linkPreviewUrl.set(to: nil)
+                    Interaction.Columns.linkPreviewUrl.set(to: nil),
+                    Interaction.Columns.state.set(to: Interaction.State.deleted)
                 )
         }
         

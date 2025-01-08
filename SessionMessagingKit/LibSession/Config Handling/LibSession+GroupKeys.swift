@@ -125,14 +125,17 @@ internal extension LibSession {
         using dependencies: Dependencies
     ) throws {
         try dependencies.mutate(cache: .libSession) { cache in
-            try cache.performAndPushChange(db, for: .groupKeys, sessionId: groupSessionId) { config in
-                guard case .groupKeys(let conf, let infoConf, let membersConf) = config else {
-                    throw LibSessionError.invalidConfigObject
+            /// Disable the admin check because we are about to convert the user to being an admin and it's guaranteed to fail
+            try cache.withCustomBehaviour(.skipGroupAdminCheck, for: groupSessionId) {
+                try cache.performAndPushChange(db, for: .groupKeys, sessionId: groupSessionId) { config in
+                    guard case .groupKeys(let conf, let infoConf, let membersConf) = config else {
+                        throw LibSessionError.invalidConfigObject
+                    }
+                    
+                    var identitySeed: [UInt8] = Array(groupIdentitySeed)
+                    groups_keys_load_admin_key(conf, &identitySeed, infoConf, membersConf)
+                    try LibSessionError.throwIfNeeded(conf)
                 }
-                
-                var identitySeed: [UInt8] = Array(groupIdentitySeed)
-                groups_keys_load_admin_key(conf, &identitySeed, infoConf, membersConf)
-                try LibSessionError.throwIfNeeded(conf)
             }
         }
     }

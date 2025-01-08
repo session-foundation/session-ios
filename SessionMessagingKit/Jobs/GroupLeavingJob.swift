@@ -68,9 +68,15 @@ public enum GroupLeavingJob: JobExecutor {
                 let finalBehaviour: GroupLeavingJob.Details.Behaviour = {
                     guard
                         threadVariant == .group,
-                        LibSession.wasKickedFromGroup(
-                            groupSessionId: SessionId(.group, hex: threadId),
-                            using: dependencies
+                        (
+                            LibSession.wasKickedFromGroup(
+                                groupSessionId: SessionId(.group, hex: threadId),
+                                using: dependencies
+                            ) ||
+                            LibSession.groupIsDestroyed(
+                                groupSessionId: SessionId(.group, hex: threadId),
+                                using: dependencies
+                            )
                         )
                     else { return details.behaviour }
                     
@@ -170,20 +176,12 @@ public enum GroupLeavingJob: JobExecutor {
                 receiveCompletion: { result in
                     switch result {
                         case .failure(let error):
-                            // Update the interaction to indicate we failed to leave the group
+                            // Update the interaction to indicate we failed to leave the group (it shouldn't
+                            // be possible to fail to delete a group so we don't have copy for that case(
                             dependencies[singleton: .storage].writeAsync { db in
-                                let updatedBody: String = {
-                                    switch details.behaviour {
-                                        case .leave:
-                                            return "groupLeaveErrorFailed"
-                                                .put(key: "group_name", value: ((try? ClosedGroup.fetchOne(db, id: threadId))?.name ?? ""))
-                                                .localized()
-                                        case .delete:
-                                            return "groupLeaveErrorFailed"
-                                                .put(key: "group_name", value: ((try? ClosedGroup.fetchOne(db, id: threadId))?.name ?? ""))
-                                                .localized()
-                                    }
-                                }()
+                                let updatedBody: String = "groupLeaveErrorFailed"
+                                    .put(key: "group_name", value: ((try? ClosedGroup.fetchOne(db, id: threadId))?.name ?? ""))
+                                    .localized()
                                 
                                 try Interaction
                                     .filter(id: interactionId)

@@ -1,6 +1,7 @@
 // Copyright © 2022 Rangeproof Pty Ltd. All rights reserved.
 
 import UIKit
+import Lucide
 import SessionUIKit
 import SignalUtilitiesKit
 import SessionMessagingKit
@@ -33,7 +34,7 @@ final class DeletedMessageView: UIView {
         imageContainerView.set(.width, to: DeletedMessageView.iconImageViewSize)
         imageContainerView.set(.height, to: DeletedMessageView.iconImageViewSize)
         
-        let imageView = UIImageView(image: UIImage(named: "ic_trash")?.withRenderingMode(.alwaysTemplate))
+        let imageView = UIImageView(image: Lucide.image(icon: .trash2, size: DeletedMessageView.iconSize)?.withRenderingMode(.alwaysTemplate))
         imageView.themeTintColor = textColor
         imageView.contentMode = .scaleAspectFit
         imageView.set(.width, to: DeletedMessageView.iconSize)
@@ -43,6 +44,7 @@ final class DeletedMessageView: UIView {
         
         // Body label
         let titleLabel = UILabel()
+        titleLabel.setContentHuggingPriority(.required, for: .vertical)
         titleLabel.font = .systemFont(ofSize: Values.smallFontSize)
         titleLabel.text = {
             switch variant {
@@ -54,6 +56,7 @@ final class DeletedMessageView: UIView {
         }()
         titleLabel.themeTextColor = textColor
         titleLabel.lineBreakMode = .byTruncatingTail
+        titleLabel.numberOfLines = 2
         
         // Stack view
         let stackView = UIStackView(arrangedSubviews: [ imageContainerView, titleLabel ])
@@ -64,6 +67,7 @@ final class DeletedMessageView: UIView {
         addSubview(stackView)
         
         stackView.pin(to: self, withInset: Values.smallSpacing)
-        stackView.set(.height, to: .height, of: imageView)
+        stackView.set(.height, to: .height, of: titleLabel)
+        titleLabel.set(.height, greaterThanOrEqualTo: .height, of: imageView)
     }
 }

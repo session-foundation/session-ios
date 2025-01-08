@@ -1,6 +1,7 @@
 // Copyright © 2022 Rangeproof Pty Ltd. All rights reserved.
 
 import UIKit
+import Lucide
 import SessionMessagingKit
 import SessionUtilitiesKit
 import SessionUIKit
@@ -94,7 +95,7 @@ extension ContextMenuVC {
 
         static func delete(_ cellViewModel: MessageViewModel, _ delegate: ContextMenuActionDelegate?) -> Action {
             return Action(
-                icon: UIImage(named: "ic_trash"),
+                icon: Lucide.image(icon: .trash2, size: 24),
                 title: "delete".localized(),
                 expirationInfo: ExpirationInfo(
                     expiresStartedAtMs: cellViewModel.expiresStartedAtMs,
@@ -164,12 +165,7 @@ extension ContextMenuVC {
 
     static func actions(
         for cellViewModel: MessageViewModel,
-        recentEmojis: [EmojiWithSkinTones],
-        currentUserSessionId: String,
-        currentUserBlinded15SessionId: String?,
-        currentUserBlinded25SessionId: String?,
-        currentUserIsOpenGroupModerator: Bool,
-        currentThreadIsMessageRequest: Bool,
+        in threadViewModel: SessionThreadViewModel,
         forMessageInfoScreen: Bool,
         delegate: ContextMenuActionDelegate?,
         using dependencies: Dependencies
@@ -224,19 +220,19 @@ extension ContextMenuVC {
             cellViewModel.variant == .standardIncoming &&
             cellViewModel.threadVariant != .community
         )
-        let canDelete: Bool = (
-            cellViewModel.threadVariant != .community ||
-            currentUserIsOpenGroupModerator ||
-            cellViewModel.authorId == currentUserSessionId ||
-            cellViewModel.authorId == currentUserBlinded15SessionId ||
-            cellViewModel.authorId == currentUserBlinded25SessionId ||
-            cellViewModel.state == .failed
-        )
+        let canDelete: Bool = (MessageViewModel.DeletionBehaviours.deletionActions(
+            for: [cellViewModel],
+            with: threadViewModel,
+            using: dependencies
+        ) != nil)
         let canBan: Bool = (
             cellViewModel.threadVariant == .community &&
-            currentUserIsOpenGroupModerator
+            dependencies[singleton: .openGroupManager].isUserModeratorOrAdmin(
+                publicKey: threadViewModel.currentUserSessionId,
+                for: threadViewModel.openGroupRoomToken,
+                on: threadViewModel.openGroupServer
+            )
         )
-        
         let shouldShowEmojiActions: Bool = {
             if cellViewModel.threadVariant == .community {
                 return dependencies[singleton: .openGroupManager].doesOpenGroupSupport(
@@ -244,9 +240,15 @@ extension ContextMenuVC {
                     on: cellViewModel.threadOpenGroupServer
                 )
             }
-            return !currentThreadIsMessageRequest && !forMessageInfoScreen
+            return (threadViewModel.threadIsMessageRequest != true && !forMessageInfoScreen)
         }()
         
+        let recentEmojis: [EmojiWithSkinTones] = {
+            guard shouldShowEmojiActions else { return [] }
+            
+            return (threadViewModel.recentReactionEmoji ?? [])
+                .compactMap { EmojiWithSkinTones(rawValue: $0) }
+        }()
         let generatedActions: [Action] = [
             (canRetry ? Action.retry(cellViewModel, delegate) : nil),
             (viewModelCanReply(cellViewModel) ? Action.reply(cellViewModel, delegate) : nil),

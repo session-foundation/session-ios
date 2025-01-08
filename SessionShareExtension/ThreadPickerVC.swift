@@ -11,12 +11,13 @@ import SessionMessagingKit
 import SessionSnodeKit
 import SessionUtilitiesKit
 
-final class ThreadPickerVC: UIViewController, UITableViewDataSource, UITableViewDelegate, AttachmentApprovalViewControllerDelegate {
+final class ThreadPickerVC: UIViewController, UITableViewDataSource, UITableViewDelegate, AttachmentApprovalViewControllerDelegate, ThemedNavigation {
     private let viewModel: ThreadPickerViewModel
     private var dataChangeObservable: DatabaseCancellable? {
         didSet { oldValue?.cancel() }   // Cancel the old observable if there was one
     }
     private var hasLoadedInitialData: Bool = false
+    public var navigationBackground: ThemeValue? { .backgroundPrimary }
     
     var shareNavController: ShareNavController?
     
@@ -79,6 +80,7 @@ final class ThreadPickerVC: UIViewController, UITableViewDataSource, UITableView
         super.viewDidLoad()
         
         navigationItem.titleView = titleLabel
+        ThemeManager.applyNavigationStylingIfNeeded(to: self)
         
         view.themeBackgroundColor = .backgroundPrimary
         view.addSubview(tableView)
@@ -300,8 +302,10 @@ final class ThreadPickerVC: UIViewController, UITableViewDataSource, UITableView
                         body: body,
                         timestampMs: sentTimestampMs,
                         hasMention: Interaction.isUserMentioned(db, threadId: threadId, body: body, using: dependencies),
-                        expiresInSeconds: destinationDisappearingMessagesConfiguration?.durationSeconds,
-                        expiresStartedAtMs: (destinationDisappearingMessagesConfiguration?.type == .disappearAfterSend ? Double(sentTimestampMs) : nil),
+                        expiresInSeconds: destinationDisappearingMessagesConfiguration?.expiresInSeconds(),
+                        expiresStartedAtMs: destinationDisappearingMessagesConfiguration?.initialExpiresStartedAtMs(
+                            sentTimestampMs: Double(sentTimestampMs)
+                        ),
                         linkPreviewUrl: (isSharingUrl ? attachments.first?.linkPreviewDraft?.urlString : nil),
                         using: dependencies
                     ).inserted(db)

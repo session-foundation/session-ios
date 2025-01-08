@@ -187,8 +187,8 @@ extension ContextMenuVC {
             else {
                 if didTouchDownInside {
                     themeBackgroundColor = .clear
-                    iconImageView.themeTintColor = .contextMenu_text
-                    titleLabel.themeTextColor = .contextMenu_text
+                    iconImageView.themeTintColor = action.themeColor
+                    titleLabel.themeTextColor = action.themeColor
                 }
                 return
             }
@@ -201,8 +201,8 @@ extension ContextMenuVC {
         override func touchesEnded(_ touches: Set<UITouch>, with event: UIEvent?) {
             if didTouchDownInside {
                 themeBackgroundColor = .clear
-                iconImageView.themeTintColor = .contextMenu_text
-                titleLabel.themeTextColor = .contextMenu_text
+                iconImageView.themeTintColor = action.themeColor
+                titleLabel.themeTextColor = action.themeColor
             }
             
             didTouchDownInside = false
@@ -211,8 +211,8 @@ extension ContextMenuVC {
         override func touchesCancelled(_ touches: Set<UITouch>, with event: UIEvent?) {
             if didTouchDownInside {
                 themeBackgroundColor = .clear
-                iconImageView.themeTintColor = .contextMenu_text
-                titleLabel.themeTextColor = .contextMenu_text
+                iconImageView.themeTintColor = action.themeColor
+                titleLabel.themeTextColor = action.themeColor
             }
             
             didTouchDownInside = false
