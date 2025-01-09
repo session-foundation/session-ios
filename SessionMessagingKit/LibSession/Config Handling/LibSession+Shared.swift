@@ -374,7 +374,7 @@ internal extension LibSession {
 
 // MARK: - State Access
 
-extension LibSession.Config: LibSessionValueAccessor {
+extension LibSession.Config {
     public func pinnedPriority(
         _ db: Database,
         threadId: String,

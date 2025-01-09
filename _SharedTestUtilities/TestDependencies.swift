@@ -82,16 +82,16 @@ public class TestDependencies: Dependencies {
     
     // MARK: - Timing and Async Handling
 
-    private var _dateNow: Atomic<Date?> = Atomic(nil)
+    @ThreadSafeObject private var cachedDateNow: Date? = nil
     override public var dateNow: Date {
-        get { (_dateNow.wrappedValue ?? Date()) }
-        set { _dateNow.mutate { $0 = newValue } }
+        get { (cachedDateNow ?? Date()) }
+        set { _cachedDateNow.set(to: newValue) }
     }
 
-    private var _fixedTime: Atomic<Int?> = Atomic(nil)
+    @ThreadSafe private var cachedFixedTime: Int? = nil
     override public var fixedTime: Int {
-        get { (_fixedTime.wrappedValue ?? 0) }
-        set { _fixedTime.mutate { $0 = newValue } }
+        get { (cachedFixedTime ?? 0) }
+        set { cachedFixedTime = newValue }
     }
     
     public var _forceSynchronous: Bool = false
@@ -118,30 +118,30 @@ public class TestDependencies: Dependencies {
     
     @discardableResult override public func mutate<M, I, R>(
         cache: CacheConfig<M, I>,
-        _ mutation: (inout M) -> R
+        _ mutation: (M) -> R
     ) -> R {
-        var value: M = ((cacheInstances[cache.identifier] as? M) ?? cache.createInstance(self))
+        let value: M = ((cacheInstances[cache.identifier] as? M) ?? cache.createInstance(self))
         let mutableInstance: MutableCacheType = cache.mutableInstance(value)
         cacheInstances[cache.identifier] = mutableInstance
-        return mutation(&value)
+        return mutation(value)
     }
     
     @discardableResult override public func mutate<M, I, R>(
         cache: CacheConfig<M, I>,
-        _ mutation: (inout M) throws -> R
+        _ mutation: (M) throws -> R
     ) throws -> R {
-        var value: M = ((cacheInstances[cache.identifier] as? M) ?? cache.createInstance(self))
+        let value: M = ((cacheInstances[cache.identifier] as? M) ?? cache.createInstance(self))
         let mutableInstance: MutableCacheType = cache.mutableInstance(value)
         cacheInstances[cache.identifier] = mutableInstance
-        return try mutation(&value)
+        return try mutation(value)
     }
     
     public func stepForwardInTime() {
-        let targetTime: Int = ((_fixedTime.wrappedValue ?? 0) + 1)
-        _fixedTime.mutate { $0 = targetTime }
+        let targetTime: Int = ((cachedFixedTime ?? 0) + 1)
+        cachedFixedTime = targetTime
         
-        if let currentDate: Date = _dateNow.wrappedValue {
-            _dateNow.mutate { $0 = Date(timeIntervalSince1970: currentDate.timeIntervalSince1970 + 1) }
+        if let currentDate: Date = cachedDateNow {
+            _cachedDateNow.set(to: Date(timeIntervalSince1970: currentDate.timeIntervalSince1970 + 1))
         }
         
         // Run and clear any executions which should run at the target time

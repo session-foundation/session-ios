@@ -3,7 +3,7 @@
 import Foundation
 import SessionUtilitiesKit
 
-public class UnrevokeSubaccountResponse: SnodeRecursiveResponse<SnodeSwarmItem> {}
+public final class UnrevokeSubaccountResponse: SnodeRecursiveResponse<SnodeSwarmItem> {}
 
 // MARK: - ValidatableResponse
 

@@ -123,7 +123,7 @@ private class ConfigStore {
         /// Finally we free any remaining configs
         store.forEach { _, config in
             switch config {
-                case .groupKeys, .viaCache: break    // Shouldn't happen
+                case .groupKeys: break    // Shouldn't happen
                 case .userProfile(let conf), .contacts(let conf),
                     .convoInfoVolatile(let conf), .userGroups(let conf),
                     .groupInfo(let conf), .groupMembers(let conf):
@@ -457,7 +457,7 @@ public extension LibSession {
                 default:
                     configs.forEach { config in
                         switch config {
-                            case .groupKeys, .viaCache: break    // Should be handled above
+                            case .groupKeys: break    // Should be handled above
                             case .userProfile(let conf), .contacts(let conf),
                                 .convoInfoVolatile(let conf), .userGroups(let conf),
                                 .groupInfo(let conf), .groupMembers(let conf):
@@ -493,7 +493,7 @@ public extension LibSession {
             _ behaviour: CacheBehaviour,
             for sessionId: SessionId,
             variant: ConfigDump.Variant?,
-            change: () throws -> ()
+            change: @escaping () throws -> ()
         ) throws {
             behaviourStore.add(behaviour, sessionId: sessionId, variant: variant)
             try change()
@@ -640,7 +640,6 @@ public extension LibSession {
                     .groupInfo(let conf), .groupMembers(let conf):
                     return config_needs_dump(conf)
                 case .groupKeys(let conf, _, _): return groups_keys_needs_dump(conf)
-                case .viaCache(_, let config): return configNeedsDump(config)
             }
         }
         
@@ -866,7 +865,7 @@ public protocol LibSessionImmutableCacheType: ImmutableCacheType {
 
 /// The majority `libSession` functions can only be accessed via the mutable cache because `libSession` isn't thread safe so if we try
 /// to read/write values while another thread is touching the same data then the app can crash due to bad memory issues
-public protocol LibSessionCacheType: LibSessionImmutableCacheType, MutableCacheType, LibSessionValueAccessor {
+public protocol LibSessionCacheType: LibSessionImmutableCacheType, MutableCacheType {
     var dependencies: Dependencies { get }
     var userSessionId: SessionId { get }
     var isEmpty: Bool { get }
@@ -898,7 +897,7 @@ public protocol LibSessionCacheType: LibSessionImmutableCacheType, MutableCacheT
         _ behaviour: LibSession.CacheBehaviour,
         for sessionId: SessionId,
         variant: ConfigDump.Variant?,
-        change: () throws -> ()
+        change: @escaping () throws -> ()
     ) throws
     func performAndPushChange(
         _ db: Database,
@@ -950,7 +949,7 @@ public protocol LibSessionCacheType: LibSessionImmutableCacheType, MutableCacheT
 }
 
 public extension LibSessionCacheType {
-    func withCustomBehaviour(_ behaviour: LibSession.CacheBehaviour, for sessionId: SessionId, change: () throws -> ()) throws {
+    func withCustomBehaviour(_ behaviour: LibSession.CacheBehaviour, for sessionId: SessionId, change: @escaping () throws -> ()) throws {
         try withCustomBehaviour(behaviour, for: sessionId, variant: nil, change: change)
     }
 }
@@ -993,7 +992,7 @@ private final class NoopLibSessionCache: LibSessionCacheType {
         _ behaviour: LibSession.CacheBehaviour,
         for sessionId: SessionId,
         variant: ConfigDump.Variant?,
-        change: () throws -> ()
+        change: @escaping () throws -> ()
     ) throws {}
     func performAndPushChange(
         _ db: Database,

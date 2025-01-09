@@ -283,7 +283,6 @@ final class ThreadPickerVC: UIViewController, UITableViewDataSource, UITableView
                                 SessionThread.Columns.shouldBeVisible.set(to: true),
                                 SessionThread.Columns.pinnedPriority.set(to: LibSession.visiblePriority),
                                 SessionThread.Columns.isDraft.set(to: false),
-                                calledFromConfig: nil,
                                 using: dependencies
                             )
                     }

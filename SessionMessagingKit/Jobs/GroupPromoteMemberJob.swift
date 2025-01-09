@@ -69,7 +69,6 @@ public enum GroupPromoteMemberJob: JobExecutor {
                     .updateAllAndConfig(
                         db,
                         GroupMember.Columns.roleStatus.set(to: GroupMember.RoleStatus.sending),
-                        calledFromConfig: nil,
                         using: dependencies
                     )
                 
@@ -101,7 +100,6 @@ public enum GroupPromoteMemberJob: JobExecutor {
                                     .updateAllAndConfig(
                                         db,
                                         GroupMember.Columns.roleStatus.set(to: GroupMember.RoleStatus.pending),
-                                        calledFromConfig: nil,
                                         using: dependencies
                                     )
                             }
@@ -124,7 +122,6 @@ public enum GroupPromoteMemberJob: JobExecutor {
                                     .updateAllAndConfig(
                                         db,
                                         GroupMember.Columns.roleStatus.set(to: GroupMember.RoleStatus.failed),
-                                        calledFromConfig: nil,
                                         using: dependencies
                                     )
                             }

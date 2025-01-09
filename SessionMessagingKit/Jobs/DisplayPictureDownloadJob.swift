@@ -135,7 +135,6 @@ public enum DisplayPictureDownloadJob: JobExecutor {
                                         Profile.Columns.profileEncryptionKey.set(to: encryptionKey),
                                         Profile.Columns.profilePictureFileName.set(to: fileName),
                                         Profile.Columns.lastProfilePictureUpdate.set(to: details.timestamp),
-                                        calledFromConfig: nil,
                                         using: dependencies
                                     )
                                 
@@ -148,7 +147,6 @@ public enum DisplayPictureDownloadJob: JobExecutor {
                                         ClosedGroup.Columns.displayPictureEncryptionKey.set(to: encryptionKey),
                                         ClosedGroup.Columns.displayPictureFilename.set(to: fileName),
                                         ClosedGroup.Columns.lastDisplayPictureUpdate.set(to: details.timestamp),
-                                        calledFromConfig: nil,
                                         using: dependencies
                                     )
                                 
@@ -159,7 +157,6 @@ public enum DisplayPictureDownloadJob: JobExecutor {
                                         db,
                                         OpenGroup.Columns.displayPictureFilename.set(to: fileName),
                                         OpenGroup.Columns.lastDisplayPictureUpdate.set(to: details.timestamp),
-                                        calledFromConfig: nil,
                                         using: dependencies
                                     )
                         }

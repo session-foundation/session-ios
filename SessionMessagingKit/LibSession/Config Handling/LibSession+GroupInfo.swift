@@ -66,7 +66,6 @@ internal extension LibSessionCacheType {
                     .poller, .pushNotifications, .messages, .members,
                     .encryptionKeys, .authDetails, .libSessionState
                 ],
-                calledFromConfig: config.viaCache(self),
                 using: dependencies
             )
             return
@@ -128,7 +127,6 @@ internal extension LibSessionCacheType {
                 .updateAllAndConfig(
                     db,
                     groupChanges,
-                    calledFromConfig: config.viaCache(self),
                     using: dependencies
                 )
         }
@@ -187,7 +185,6 @@ internal extension LibSessionCacheType {
             let interactionInfo: [InteractionInfo] = (try? Interaction
                 .filter(Interaction.Columns.threadId == groupSessionId.hexString)
                 .filter(Interaction.Columns.timestampMs < (TimeInterval(deleteBeforeTimestamp) * 1000))
-                .filter(Interaction.Columns.serverHash != nil)
                 .select(.id, .serverHash)
                 .asRequest(of: InteractionInfo.self)
                 .fetchAll(db))
@@ -227,7 +224,6 @@ internal extension LibSessionCacheType {
             let interactionInfo: [InteractionInfo] = (try? Interaction
                 .filter(Interaction.Columns.threadId == groupSessionId.hexString)
                 .filter(Interaction.Columns.timestampMs < (TimeInterval(attachDeleteBeforeTimestamp) * 1000))
-                .filter(Interaction.Columns.serverHash != nil)
                 .joining(
                     required: Interaction.interactionAttachments.joining(
                         required: InteractionAttachment.attachment

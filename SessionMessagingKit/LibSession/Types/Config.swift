@@ -27,7 +27,7 @@ public extension LibSession {
     
     // MARK: - Config
     
-    indirect enum Config {
+    enum Config {
         case userProfile(UnsafeMutablePointer<config_object>)
         case contacts(UnsafeMutablePointer<config_object>)
         case convoInfoVolatile(UnsafeMutablePointer<config_object>)
@@ -41,8 +41,6 @@ public extension LibSession {
             members: UnsafeMutablePointer<config_object>
         )
         
-        case viaCache(LibSessionCacheType, Config)
-        
         // MARK: - Variables
         
         var variant: ConfigDump.Variant {
@@ -55,8 +53,6 @@ public extension LibSession {
                 case .groupInfo: return .groupInfo
                 case .groupMembers: return .groupMembers
                 case .groupKeys: return .groupKeys
-                    
-                case .viaCache(_, let config): return config.variant
             }
         }
         
@@ -72,8 +68,6 @@ public extension LibSession {
                     var pushResultLen: Int = 0
                     
                     return groups_keys_pending_config(conf, &pushResult, &pushResultLen)
-                
-                case .viaCache(_, let config): return config.needsPush
             }
         }
         
@@ -90,8 +84,6 @@ public extension LibSession {
                     guard conf.pointee.last_error != nil else { return nil }
                     
                     return String(cString: conf.pointee.last_error)
-                    
-                case .viaCache(_, let config): return config.lastErrorString
             }
         }
         
@@ -136,8 +128,6 @@ public extension LibSession {
                         seqNo: 0,
                         variant: variant
                     )
-                    
-                case .viaCache(_, let config): return config.push(variant: variant)
             }
         }
         
@@ -154,7 +144,6 @@ public extension LibSession {
                     return config_confirm_pushed(conf, seqNo, cHash)
                     
                 case .groupKeys: return // No need to do anything here
-                case .viaCache(_, let config): return config.confirmPushed(seqNo: seqNo, hash: hash)
             }
         }
         
@@ -168,7 +157,6 @@ public extension LibSession {
                     .groupInfo(let conf), .groupMembers(let conf):
                     config_dump(conf, &dumpResult, &dumpResultLen)
                 case .groupKeys(let conf, _, _): groups_keys_dump(conf, &dumpResult, &dumpResultLen)
-                case .viaCache(_, let config): return try config.dump()
             }
             
             // If we got an error then throw it
@@ -213,8 +201,6 @@ public extension LibSession {
                     hashList.deallocate()
                     
                     return result
-                    
-                case .viaCache(_, let config): return config.currentHashes()
             }
         }
         
@@ -236,8 +222,6 @@ public extension LibSession {
                     hashList.deallocate()
                     
                     return result
-                    
-                case .viaCache(_, let config): return config.obsoleteHashes()
             }
         }
         
@@ -336,8 +320,6 @@ public extension LibSession {
                     }
                     
                     return successfulMergeTimestamps.last
-                    
-                case .viaCache(_, let config): return try config.merge(messages)
             }
         }
         
@@ -360,18 +342,8 @@ public extension LibSession {
                     return funcMap[variant]
                         .map { "\($0.size(conf)) \($0.info)" }
                         .defaulting(to: "Invalid")
-                    
-                case .viaCache(_, let config): return config.count(for: variant)
             }
         }
-    }
-}
-
-// MARK: - Cache Convenience
-
-public extension Optional<LibSession.Config> {
-    func viaCache(_ cache: LibSessionCacheType) -> LibSession.Config? {
-        return self.map { .viaCache(cache, $0) }
     }
 }
 
@@ -426,9 +398,6 @@ public extension LibSessionError {
                 .groupInfo(let conf), .groupMembers(let conf):
                 self = LibSessionError(conf, fallbackError: fallbackError, logMessage: logMessage)
             case .groupKeys(let conf, _, _): self = LibSessionError(conf, fallbackError: fallbackError, logMessage: logMessage)
-                
-            case .viaCache(_, let config):
-                self = LibSessionError(config, fallbackError: fallbackError, logMessage: logMessage)
         }
     }
     
@@ -440,7 +409,6 @@ public extension LibSessionError {
                 .groupInfo(let conf), .groupMembers(let conf):
                 try LibSessionError.throwIfNeeded(conf)
             case .groupKeys(let conf, _, _): try LibSessionError.throwIfNeeded(conf)
-            case .viaCache(_, let config): try LibSessionError.throwIfNeeded(config)
         }
     }
 }

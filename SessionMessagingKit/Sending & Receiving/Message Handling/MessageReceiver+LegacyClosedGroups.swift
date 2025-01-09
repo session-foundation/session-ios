@@ -172,7 +172,7 @@ extension MessageReceiver {
         /// the `priority`
         try? LibSession.add(
             db,
-            groupPublicKey: groupPublicKey,
+            legacyGroupSessionId: legacyGroupSessionId,
             name: name,
             joinedAt: (TimeInterval(formationTimestampMs) / 1000),
             latestKeyPairPublicKey: Data(encryptionKeyPair.publicKey),

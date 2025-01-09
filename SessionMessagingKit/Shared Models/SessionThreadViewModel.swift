@@ -327,7 +327,6 @@ public struct SessionThreadViewModel: FetchableRecordWithRowId, Decodable, Equat
                     .updateAllAndConfig(
                         db,
                         SessionThread.Columns.markedAsUnread.set(to: false),
-                        calledFromConfig: nil,
                         using: dependencies
                     )
             }
@@ -389,7 +388,6 @@ public struct SessionThreadViewModel: FetchableRecordWithRowId, Decodable, Equat
                 .updateAllAndConfig(
                     db,
                     SessionThread.Columns.markedAsUnread.set(to: true),
-                    calledFromConfig: nil,
                     using: dependencies
                 )
         }

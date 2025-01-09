@@ -727,36 +727,37 @@ public extension Publisher where Output == Set<LibSession.Snode> {
             .flatMap(maxPublishers: maxPublishers) { swarm -> AnyPublisher<T, Error> in
                 // If we don't want to reuse a specific snode multiple times then just grab a
                 // random one from the swarm every time
-                var remainingSnodes: Set<LibSession.Snode> = {
-                    switch drainBehaviour.wrappedValue {
-                        case .alwaysRandom: return swarm
+                var remainingSnodes: Set<LibSession.Snode> = drainBehaviour.performUpdateAndMap { behaviour in
+                    switch behaviour {
+                        case .alwaysRandom: return (behaviour, swarm)
                         case .limitedReuse(_, let targetSnode, _, let usedSnodes, let swarmHash):
                             // If we've used all of the snodes or the swarm has changed then reset the used list
                             guard swarmHash == swarm.hashValue && (targetSnode != nil || usedSnodes != swarm) else {
-                                drainBehaviour.mutate { $0 = $0.reset() }
-                                return swarm
+                                return (behaviour.reset(), swarm)
                             }
                             
-                            return swarm.subtracting(usedSnodes)
+                            return (behaviour, swarm.subtracting(usedSnodes))
                     }
-                }()
+                }
                 var lastError: Error?
                 
                 return Just(())
                     .setFailureType(to: Error.self)
                     .tryFlatMap(maxPublishers: maxPublishers) { _ -> AnyPublisher<T, Error> in
-                        let snode: LibSession.Snode = try {
-                            switch drainBehaviour.wrappedValue {
-                                case .limitedReuse(_, .some(let targetSnode), _, _, _): return targetSnode
+                        let snode: LibSession.Snode = try drainBehaviour.performUpdateAndMap { behaviour in
+                            switch behaviour {
+                                case .limitedReuse(_, .some(let targetSnode), _, _, _):
+                                    return (behaviour.use(snode: targetSnode, from: swarm), targetSnode)
                                 default: break
                             }
                             
                             // Select the next snode
-                            return try dependencies.popRandomElement(&remainingSnodes) ?? {
+                            let result: LibSession.Snode = try dependencies.popRandomElement(&remainingSnodes) ?? {
                                 throw SnodeAPIError.ranOutOfRandomSnodes(lastError)
                             }()
-                        }()
-                        drainBehaviour.mutate { $0 = $0.use(snode: snode, from: swarm) }
+                            
+                            return (behaviour.use(snode: result, from: swarm), result)
+                        }
                         
                         return try transform(snode)
                             .eraseToAnyPublisher()

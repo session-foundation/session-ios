@@ -15,7 +15,7 @@ public class NotificationPresenter: NSObject, UNUserNotificationCenterDelegate, 
     
     private let dependencies: Dependencies
     private let notificationCenter: UNUserNotificationCenter = UNUserNotificationCenter.current()
-    private var notifications: Atomic<[String: UNNotificationRequest]> = Atomic([:])
+    @ThreadSafeObject private var notifications: [String: UNNotificationRequest] = [:]
     @ThreadSafeObject private var mostRecentNotifications: TruncatedList<UInt64> = TruncatedList<UInt64>(maxLength: NotificationPresenter.audioNotificationsThrottleCount)
     
     // MARK: - Initialization
@@ -403,8 +403,10 @@ public class NotificationPresenter: NSObject, UNUserNotificationCenterDelegate, 
     // MARK: - Clearing
     
     public func cancelNotifications(identifiers: [String]) {
-        notifications.mutate { notifications in
-            identifiers.forEach { notifications.removeValue(forKey: $0) }
+        _notifications.performUpdate { notifications in
+            var updatedNotifications: [String: UNNotificationRequest] = notifications
+            identifiers.forEach { updatedNotifications.removeValue(forKey: $0) }
+            return updatedNotifications
         }
         notificationCenter.removeDeliveredNotifications(withIdentifiers: identifiers)
         notificationCenter.removePendingNotificationRequests(withIdentifiers: identifiers)
@@ -446,7 +448,7 @@ private extension NotificationPresenter {
         }
         
         let notificationIdentifier: String = (replacingIdentifier ?? UUID().uuidString)
-        let isReplacingNotification: Bool = (notifications.wrappedValue[notificationIdentifier] != nil)
+        let isReplacingNotification: Bool = (notifications[notificationIdentifier] != nil)
         let shouldPresentNotification: Bool = shouldPresentNotification(
             category: category,
             applicationState: applicationState,
@@ -467,7 +469,7 @@ private extension NotificationPresenter {
                     repeats: false
                 )
                 
-                let numberExistingNotifications: Int? = notifications.wrappedValue[notificationIdentifier]?
+                let numberExistingNotifications: Int? = notifications[notificationIdentifier]?
                     .content
                     .userInfo[AppNotificationUserInfoKey.threadNotificationCounter]
                     .asType(Int.self)
@@ -504,7 +506,7 @@ private extension NotificationPresenter {
         if isReplacingNotification { cancelNotifications(identifiers: [notificationIdentifier]) }
         
         notificationCenter.add(request)
-        notifications.mutate { $0[notificationIdentifier] = request }
+        _notifications.performUpdate { $0.setting(notificationIdentifier, request) }
     }
     
     private func requestSound(

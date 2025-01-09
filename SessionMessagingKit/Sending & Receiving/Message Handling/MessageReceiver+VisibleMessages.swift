@@ -45,7 +45,6 @@ extension MessageReceiver {
                 }(),
                 blocksCommunityMessageRequests: profile.blocksCommunityMessageRequests,
                 sentTimestamp: messageSentTimestamp,
-                calledFromConfig: nil,
                 using: dependencies
             )
         }
@@ -117,7 +116,7 @@ extension MessageReceiver {
                     
                 case .group:
                     SNLog("Ignoring message with invalid sender.")
-                    throw NetworkError.parsingFailed
+                    throw MessageReceiverError.invalidSender
             }
         }()
         

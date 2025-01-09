@@ -139,7 +139,6 @@ public extension BlindedIdLookup {
                     .updateAllAndConfig(
                         db,
                         Contact.Columns.isApproved.set(to: true),
-                        calledFromConfig: nil,
                         using: dependencies
                     )
             }

@@ -106,7 +106,6 @@ extension MessageReceiver {
             .updateAllAndConfig(
                 db,
                 Contact.Columns.lastKnownClientVersion.set(to: version),
-                calledFromConfig: nil,
                 using: dependencies
             )
     }

@@ -3,7 +3,7 @@
 import Foundation
 import SessionUtilitiesKit
 
-public class DeleteMessagesResponse: SnodeRecursiveResponse<DeleteMessagesResponse.SwarmItem> {}
+public final class DeleteMessagesResponse: SnodeRecursiveResponse<DeleteMessagesResponse.SwarmItem> {}
 
 // MARK: - SwarmItem
 

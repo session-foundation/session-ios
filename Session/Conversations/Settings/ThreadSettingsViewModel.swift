@@ -868,7 +868,6 @@ class ThreadSettingsViewModel: SessionTableViewModel, NavigatableStateHolder, Ob
                                             creationDateTimestamp: .useExistingOrSetTo(TimeInterval(sentTimestampMs) / 1000),
                                             shouldBeVisible: .useExisting
                                         ),
-                                        calledFromConfig: nil,
                                         using: dependencies
                                     )
                                     
@@ -958,7 +957,6 @@ class ThreadSettingsViewModel: SessionTableViewModel, NavigatableStateHolder, Ob
                                     ),
                                     shouldBeVisible: .useExisting
                                 ),
-                                calledFromConfig: nil,
                                 using: dependencies
                             )
                         }
@@ -1027,7 +1025,6 @@ class ThreadSettingsViewModel: SessionTableViewModel, NavigatableStateHolder, Ob
                                                                 .updateAllAndConfig(
                                                                     db,
                                                                     GroupMember.Columns.roleStatus.set(to: GroupMember.RoleStatus.failed),
-                                                                    calledFromConfig: nil,
                                                                     using: dependencies
                                                                 )
                                                         }
@@ -1171,7 +1168,6 @@ class ThreadSettingsViewModel: SessionTableViewModel, NavigatableStateHolder, Ob
                                 .updateAllAndConfig(
                                     db,
                                     Profile.Columns.nickname.set(to: finalNickname),
-                                    calledFromConfig: nil,
                                     using: dependencies
                                 )
                         }
@@ -1185,7 +1181,6 @@ class ThreadSettingsViewModel: SessionTableViewModel, NavigatableStateHolder, Ob
                                 .updateAllAndConfig(
                                     db,
                                     Profile.Columns.nickname.set(to: nil),
-                                    calledFromConfig: nil,
                                     using: dependencies
                                 )
                         }
@@ -1504,7 +1499,6 @@ class ThreadSettingsViewModel: SessionTableViewModel, NavigatableStateHolder, Ob
                 .updateAllAndConfig(
                     db,
                     Contact.Columns.isBlocked.set(to: isBlocked),
-                    calledFromConfig: nil,
                     using: dependencies
                 )
         }

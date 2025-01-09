@@ -78,7 +78,6 @@ public extension Profile {
                         displayNameUpdate: displayNameUpdate,
                         displayPictureUpdate: displayPictureUpdate,
                         sentTimestamp: dependencies.dateNow.timeIntervalSince1970,
-                        calledFromConfig: nil,
                         using: dependencies
                     )
                     
@@ -102,7 +101,6 @@ public extension Profile {
                                     fileName: fileName
                                 ),
                                 sentTimestamp: dependencies.dateNow.timeIntervalSince1970,
-                                calledFromConfig: nil,
                                 using: dependencies
                             )
                             

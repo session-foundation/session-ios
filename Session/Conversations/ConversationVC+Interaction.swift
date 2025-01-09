@@ -64,7 +64,6 @@ extension ConversationVC:
                                         ),
                                         shouldBeVisible: .useExisting
                                     ),
-                                    calledFromConfig: nil,
                                     using: dependencies
                                 )
                             }
@@ -602,7 +601,6 @@ extension ConversationVC:
                                 SessionThread.Columns.shouldBeVisible.set(to: true),
                                 SessionThread.Columns.pinnedPriority.set(to: LibSession.visiblePriority),
                                 SessionThread.Columns.isDraft.set(to: false),
-                                calledFromConfig: nil,
                                 using: dependencies
                             )
                     }
@@ -1592,7 +1590,6 @@ extension ConversationVC:
                         .updateAllAndConfig(
                             db,
                             SessionThread.Columns.shouldBeVisible.set(to: true),
-                            calledFromConfig: nil,
                             using: dependencies
                         )
                 }
@@ -2556,7 +2553,6 @@ extension ConversationVC {
                                 Contact.Columns.isApproved.set(to: true),
                                 Contact.Columns.didApproveMe
                                     .set(to: contact.didApproveMe || !isNewThread),
-                                calledFromConfig: nil,
                                 using: dependencies
                             )
                     }
@@ -2620,7 +2616,6 @@ extension ConversationVC {
                         try ClosedGroup.approveGroupIfNeeded(
                             db,
                             group: group,
-                            calledFromConfig: nil,
                             using: dependencies
                         )
                     }

@@ -138,7 +138,6 @@ extension MessageReceiver {
                 }(),
                 blocksCommunityMessageRequests: profile.blocksCommunityMessageRequests,
                 sentTimestamp: TimeInterval(Double(sentTimestampMs) / 1000),
-                calledFromConfig: nil,
                 using: dependencies
             )
         }
@@ -256,7 +255,6 @@ extension MessageReceiver {
                 }(),
                 blocksCommunityMessageRequests: profile.blocksCommunityMessageRequests,
                 sentTimestamp: TimeInterval(Double(sentTimestampMs) / 1000),
-                calledFromConfig: nil,
                 using: dependencies
             )
         }
@@ -303,7 +301,6 @@ extension MessageReceiver {
                 db,
                 GroupMember.Columns.role.set(to: GroupMember.Role.admin),
                 GroupMember.Columns.roleStatus.set(to: GroupMember.RoleStatus.accepted),
-                calledFromConfig: nil,
                 using: dependencies
             )
     }
@@ -597,7 +594,6 @@ extension MessageReceiver {
                 }(),
                 blocksCommunityMessageRequests: profile.blocksCommunityMessageRequests,
                 sentTimestamp: TimeInterval(Double(sentTimestampMs) / 1000),
-                calledFromConfig: nil,
                 using: dependencies
             )
         }
@@ -843,7 +839,6 @@ extension MessageReceiver {
                     .encryptionKeys, .authDetails, .libSessionState
                 ]
             }(),
-            calledFromConfig: nil,
             using: dependencies
         )
     }
@@ -1013,7 +1008,6 @@ extension MessageReceiver {
                             ),
                             shouldBeVisible: .useExisting
                         ),
-                        calledFromConfig: nil,
                         using: dependencies
                     ),
                     applicationState: (isMainAppActive ? .active : .background)
@@ -1071,7 +1065,6 @@ extension MessageReceiver {
                     .updateAllAndConfig(
                         db,
                         GroupMember.Columns.roleStatus.set(to: GroupMember.RoleStatus.accepted),
-                        calledFromConfig: nil,
                         using: dependencies
                     )
                 

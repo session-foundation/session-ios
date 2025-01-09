@@ -112,7 +112,6 @@ class LibSessionGroupMembersSpec: QuickSpec {
                                 creationDateTimestamp: .setTo(1234567890),
                                 shouldBeVisible: .setTo(true)
                             ),
-                            calledFromConfig: nil,
                             using: dependencies
                         )
                         try createGroupOutput.group.insert(db)

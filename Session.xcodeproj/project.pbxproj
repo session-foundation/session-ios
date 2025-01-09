@@ -827,7 +827,6 @@
 		FD96F3A529DBC3DC00401309 /* MessageSendJobSpec.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD96F3A429DBC3DC00401309 /* MessageSendJobSpec.swift */; };
 		FD97B2402A3FEB050027DD57 /* ARC4RandomNumberGenerator.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD97B23F2A3FEB050027DD57 /* ARC4RandomNumberGenerator.swift */; };
 		FD97B2422A3FEBF30027DD57 /* UnreadMarkerCell.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD97B2412A3FEBF30027DD57 /* UnreadMarkerCell.swift */; };
-		FD99D0832D0A882C005D2E15 /* LibSessionValueAccessor.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD99D0822D0A882B005D2E15 /* LibSessionValueAccessor.swift */; };
 		FD99D0872D0FA731005D2E15 /* ThreadSafe.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD99D0862D0FA72E005D2E15 /* ThreadSafe.swift */; };
 		FD99D0902D10E71B005D2E15 /* NSCache+Utilities.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD99D08F2D10E718005D2E15 /* NSCache+Utilities.swift */; };
 		FD99D0922D10F5EE005D2E15 /* ThreadSafeSpec.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD99D0912D10F5EB005D2E15 /* ThreadSafeSpec.swift */; };
@@ -955,7 +954,6 @@
 		FDE754BA2C9B97B8002A2623 /* UIDevice+Utilities.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDE754B92C9B97B8002A2623 /* UIDevice+Utilities.swift */; };
 		FDE754BE2C9BA16C002A2623 /* UIButtonConfiguration+Utilities.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDE754BD2C9BA16C002A2623 /* UIButtonConfiguration+Utilities.swift */; };
 		FDE754C02C9BAEF6002A2623 /* Array+Utilities.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDE754BF2C9BAEF6002A2623 /* Array+Utilities.swift */; };
-		FDE754C22C9BAF0C002A2623 /* Atomic.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDE754C12C9BAF0B002A2623 /* Atomic.swift */; };
 		FDE754CC2C9BAF37002A2623 /* MediaUtils.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDE754C72C9BAF36002A2623 /* MediaUtils.swift */; };
 		FDE754CD2C9BAF37002A2623 /* UTType+Utilities.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDE754C82C9BAF36002A2623 /* UTType+Utilities.swift */; };
 		FDE754CE2C9BAF37002A2623 /* ImageFormat.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDE754C92C9BAF36002A2623 /* ImageFormat.swift */; };
@@ -1414,7 +1412,6 @@
 		7BC01A3D241F40AB00BC7C55 /* NotificationServiceExtension.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NotificationServiceExtension.swift; sourceTree = "<group>"; };
 		7BC01A3F241F40AB00BC7C55 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 		7BC707F127290ACB002817AD /* SessionCallManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SessionCallManager.swift; sourceTree = "<group>"; };
-		7BCD116B27016062006330F1 /* WebRTCSession+DataChannel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "WebRTCSession+DataChannel.swift"; sourceTree = "<group>"; };
 		7BD687D02A5D0D1200D8E455 /* MessageInfoScreen.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MessageInfoScreen.swift; sourceTree = "<group>"; };
 		7BD687D22A5D283200D8E455 /* build_libSession_util.sh */ = {isa = PBXFileReference; lastKnownFileType = text.script.sh; path = build_libSession_util.sh; sourceTree = "<group>"; };
 		7BDCFC0424206E7300641C39 /* SessionNotificationServiceExtension.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = SessionNotificationServiceExtension.entitlements; sourceTree = "<group>"; };
@@ -2010,7 +2007,6 @@
 		FD96F3A429DBC3DC00401309 /* MessageSendJobSpec.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MessageSendJobSpec.swift; sourceTree = "<group>"; };
 		FD97B23F2A3FEB050027DD57 /* ARC4RandomNumberGenerator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ARC4RandomNumberGenerator.swift; sourceTree = "<group>"; };
 		FD97B2412A3FEBF30027DD57 /* UnreadMarkerCell.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UnreadMarkerCell.swift; sourceTree = "<group>"; };
-		FD99D0822D0A882B005D2E15 /* LibSessionValueAccessor.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LibSessionValueAccessor.swift; sourceTree = "<group>"; };
 		FD99D0862D0FA72E005D2E15 /* ThreadSafe.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ThreadSafe.swift; sourceTree = "<group>"; };
 		FD99D08F2D10E718005D2E15 /* NSCache+Utilities.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "NSCache+Utilities.swift"; sourceTree = "<group>"; };
 		FD99D0912D10F5EB005D2E15 /* ThreadSafeSpec.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ThreadSafeSpec.swift; sourceTree = "<group>"; };
@@ -2134,7 +2130,6 @@
 		FDE754BB2C9B9A8E002A2623 /* Session+SNUIKit.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Session+SNUIKit.swift"; sourceTree = "<group>"; };
 		FDE754BD2C9BA16C002A2623 /* UIButtonConfiguration+Utilities.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "UIButtonConfiguration+Utilities.swift"; sourceTree = "<group>"; };
 		FDE754BF2C9BAEF6002A2623 /* Array+Utilities.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = "Array+Utilities.swift"; sourceTree = "<group>"; };
-		FDE754C12C9BAF0B002A2623 /* Atomic.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = Atomic.swift; sourceTree = "<group>"; };
 		FDE754C72C9BAF36002A2623 /* MediaUtils.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = MediaUtils.swift; sourceTree = "<group>"; };
 		FDE754C82C9BAF36002A2623 /* UTType+Utilities.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = "UTType+Utilities.swift"; sourceTree = "<group>"; };
 		FDE754C92C9BAF36002A2623 /* ImageFormat.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = ImageFormat.swift; sourceTree = "<group>"; };
@@ -2797,15 +2792,10 @@
 			children = (
 				FD428B182B4B576F006D0888 /* AppContext.swift */,
 				FDE754BF2C9BAEF6002A2623 /* Array+Utilities.swift */,
-				FDE754C12C9BAF0B002A2623 /* Atomic.swift */,
 				FD47E0AA2AA68EEA00A55E41 /* Authentication.swift */,
 				947AD68F2C8968FF000B2730 /* Constants.swift */,
 				FDC438CC27BC641200C60D73 /* Set+Utilities.swift */,
 				7BAF54D527ACD0E2003D12F8 /* ReusableView.swift */,
-				FDC438CC27BC641200C60D73 /* Set+Utilities.swift */,
-				7BAF54D527ACD0E2003D12F8 /* ReusableView.swift */,
-				C3C2A5D12553860800C340D1 /* Array+Utilities.swift */,
-				C33FDAA8255A57FF00E217F9 /* BuildConfiguration.swift */,
 				B8F5F58225EC94A6003BF8D4 /* Collection+Utilities.swift */,
 				FDFD645A27F26D4600808CA1 /* Data+Utilities.swift */,
 				C3C2A5D52553860A00C340D1 /* Dictionary+Utilities.swift */,
@@ -3744,10 +3734,7 @@
 				FDE755172C9BC169002A2623 /* UIBezierPath+Utilities.swift */,
 				FDE755142C9BC169002A2623 /* UIImage+Utilities.swift */,
 				FDE755162C9BC169002A2623 /* UINavigationController+Utilities.swift */,
-				FD8ECF912938552800C0D1BB /* Threading.swift */,
 				FD99D0862D0FA72E005D2E15 /* ThreadSafe.swift */,
-				FD8ECF93293856AF00C0D1BB /* Randomness.swift */,
-				FD1936402ACA7BD8004BCF0F /* Result+Utilities.swift */,
 				FD29598C2A43BC0B00888A17 /* Version.swift */,
 			);
 			path = Utilities;
@@ -4428,7 +4415,6 @@
 		FDC1BD642CFD6C44002CDC71 /* Types */ = {
 			isa = PBXGroup;
 			children = (
-				FD99D0822D0A882B005D2E15 /* LibSessionValueAccessor.swift */,
 				FDC1BD652CFD6C4E002CDC71 /* Config.swift */,
 			);
 			path = Types;
@@ -4751,11 +4737,7 @@
 				FD01503D2CA2433D005B08A1 /* BencodeDecoderSpec.swift */,
 				FD01503E2CA2433D005B08A1 /* BencodeEncoderSpec.swift */,
 				FD01503F2CA2433D005B08A1 /* VersionSpec.swift */,
-				FDFBB7532A2023EB00CA7350 /* BencodeDecoderSpec.swift */,
-				FD6A391C2C2A99DF00762359 /* BencodeEncoderSpec.swift */,
-				FD6A391E2C2A99EF00762359 /* BencodeResponseSpec.swift */,
 				FD99D0912D10F5EB005D2E15 /* ThreadSafeSpec.swift */,
-				FD29598F2A43BE5F00888A17 /* VersionSpec.swift */,
 			);
 			path = Utilities;
 			sourceTree = "<group>";
@@ -6035,16 +6017,10 @@
 				FD10AF122AF85D11007709E5 /* Feature+ServiceNetwork.swift in Sources */,
 				B8F5F58325EC94A6003BF8D4 /* Collection+Utilities.swift in Sources */,
 				FDE754D02C9BAF37002A2623 /* Data+Image.swift in Sources */,
-				FD7F748A2BB298A8006DDFD8 /* JSONDecoder+Utilities.swift in Sources */,
-				B8BC00C0257D90E30032E807 /* General.swift in Sources */,
-				FD7F74782BB27742006DDFD8 /* BatchRequest.swift in Sources */,
-				FDF8488629405A61007DCAE5 /* Request.swift in Sources */,
-				FD23CE302A67B8820000B97C /* Caches.swift in Sources */,
 				FD17D7A127F40D2500122BE0 /* Storage.swift in Sources */,
 				FDE754DB2C9BAF8A002A2623 /* Crypto.swift in Sources */,
 				FD1A94FB2900D1C2000D73D3 /* PersistableRecord+Utilities.swift in Sources */,
 				FD5D201E27B0D87C00FEA984 /* SessionId.swift in Sources */,
-				FDE754C22C9BAF0C002A2623 /* Atomic.swift in Sources */,
 				FDC1BD6A2CFE7B6B002CDC71 /* DirectoryArchiver.swift in Sources */,
 				FDF22211281B5E0B000A4995 /* TableRecord+Utilities.swift in Sources */,
 				FD8FD7642C37C24A001E38C7 /* EquatableIgnoring.swift in Sources */,
@@ -6058,16 +6034,7 @@
 				FD17D7CD27F546FF00122BE0 /* Setting.swift in Sources */,
 				FDE754D42C9BAF6B002A2623 /* UICollectionView+ReusableView.swift in Sources */,
 				FDE754C02C9BAEF6002A2623 /* Array+Utilities.swift in Sources */,
-				FD7F746C2BB2764F006DDFD8 /* RequestTarget.swift in Sources */,
-				FD6A38F32C2A6BBB00762359 /* Crypto+SessionUtilitiesKit.swift in Sources */,
-				FD7F745D2BAAA38B006DDFD8 /* LibSessionError.swift in Sources */,
-				FD7115FC28C8155800B47552 /* Publisher+Utilities.swift in Sources */,
-				FD6A39042C2A8C0300762359 /* CGFloat+Utilities.swift in Sources */,
-				C32C5A48256DB8F0003C73A2 /* BuildConfiguration.swift in Sources */,
 				FD99D0902D10E71B005D2E15 /* NSCache+Utilities.swift in Sources */,
-				FDF84881294059F5007DCAE5 /* ResponseInfo.swift in Sources */,
-				FD17D7BF27F51F8200122BE0 /* ColumnExpressible.swift in Sources */,
-				FD6A39282C2AB2AA00762359 /* CGSize+Utilities.swift in Sources */,
 				FD17D7E527F6A09900122BE0 /* Identity.swift in Sources */,
 				FD9004142818AD0B00ABAAF6 /* _002_SetupStandardJobs.swift in Sources */,
 				FDAA16762AC28A3B00DDBF77 /* UserDefaultsType.swift in Sources */,
@@ -6315,7 +6282,6 @@
 				FD3559462CC1FF200088F2A9 /* _020_AddMissingWhisperFlag.swift in Sources */,
 				FD5C72F9284F0E880029977D /* MessageReceiver+TypingIndicators.swift in Sources */,
 				FD5C7303284F0FA50029977D /* MessageReceiver+Calls.swift in Sources */,
-				FD99D0832D0A882C005D2E15 /* LibSessionValueAccessor.swift in Sources */,
 				FD83B9C927D0487A005E1583 /* SendDirectMessageResponse.swift in Sources */,
 				FDC438AA27BB12BB00C60D73 /* UserModeratorRequest.swift in Sources */,
 				FD245C54285065E000B966DD /* ThumbnailService.swift in Sources */,
@@ -6604,7 +6570,6 @@
 				FD65318D2AA025C500DFEEAA /* TestDependencies.swift in Sources */,
 				FD49E2492B05C1D500FFBBB5 /* MockKeychain.swift in Sources */,
 				FD99D0922D10F5EE005D2E15 /* ThreadSafeSpec.swift in Sources */,
-				FD078E4927E02576000769AF /* CommonMockedExtensions.swift in Sources */,
 				FD83B9BF27CF2294005E1583 /* TestConstants.swift in Sources */,
 				FD9DD2732A72516D00ECB68E /* TestExtensions.swift in Sources */,
 				FD3FAB6E2AF1B28C00DC5421 /* MockFileManager.swift in Sources */,

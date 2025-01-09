@@ -74,7 +74,7 @@ public final class CommunityPoller: CommunityPollerType & PollerType {
         pollerName: String,
         pollerQueue: DispatchQueue,
         pollerDestination: PollerDestination,
-        pollerDrainBehaviour: SwarmDrainBehaviour = .alwaysRandom,
+        pollerDrainBehaviour: ThreadSafeObject<SwarmDrainBehaviour> = .alwaysRandom,
         namespaces: [SnodeAPI.Namespace] = [],
         failureCount: Int,
         shouldStoreMessages: Bool,

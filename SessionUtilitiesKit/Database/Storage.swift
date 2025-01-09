@@ -317,7 +317,7 @@ open class Storage {
             // Make sure to transition the progress updater to 100% for the final migration (just
             // in case the migration itself didn't update to 100% itself)
             if let lastMigrationKey: String = unperformedMigrations.last?.key {
-                self?.migrationProgressUpdater?.wrappedValue(lastMigrationKey, 1)
+                self?.migrationProgressUpdater?(lastMigrationKey, 1)
             }
             
             // Process any unprocessed requirements which need to be processed before completion
@@ -404,20 +404,26 @@ open class Storage {
             migration: migration
         )
         
-        // Get all requirements for the migration that haven't been run yet and sort them
-        let unprocessedRequirements: [MigrationRequirement] = migration.requirements.asSet()
+        guard let largestMigrationRequirement: MigrationRequirement = migration.requirements.max() else { return }
+                
+        // Get all requirements that are earlier than the largest requirement on the migration and find
+        // any that haven't yet been run (we need to run them in order as later requirements might be
+        // dependant on earlier ones and earlier requirements might not be included in the migration)
+        let requirementsToProcess: [MigrationRequirement] = MigrationRequirement.allCases
+            .filter { $0 <= largestMigrationRequirement }
+            .asSet()
             .intersection(unprocessedMigrationRequirements.asSet())
             .sorted()
         
         // No need to do anything if there are no unprocessed requirements
-        guard !unprocessedRequirements.isEmpty else { return }
+        guard !requirementsToProcess.isEmpty else { return }
         
         // Process all of the requirements for this migration
-        unprocessedRequirements.forEach { migrationRequirementProcesser?(db, $0) }
+        requirementsToProcess.forEach { migrationRequirementProcesser?(db, $0) }
         
         // Remove any processed requirements from the list (don't want to process them multiple times)
         _unprocessedMigrationRequirements.performUpdate {
-            Array($0.asSet().subtracting(migration.requirements.asSet()))
+            Array($0.asSet().subtracting(requirementsToProcess.asSet()))
         }
     }
     

@@ -173,7 +173,7 @@ internal extension LibSessionCacheType {
             )
             
             if successfullyAddedGroup {
-                db.afterNextTransactionNested(using: dependencies) { _ in
+                db.afterNextTransactionNested(using: dependencies) { [dependencies] _ in
                     dependencies[singleton: .openGroupManager].performInitialRequestsAfterAdd(
                         queue: DispatchQueue.global(qos: .userInitiated),
                         successfullyAddedGroup: successfullyAddedGroup,

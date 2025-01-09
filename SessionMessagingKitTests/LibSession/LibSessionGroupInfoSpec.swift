@@ -98,6 +98,7 @@ class LibSessionGroupInfoSpec: QuickSpec {
                     .thenReturn(LibSession.defaultNewThreadPriority)
                 cache.when { $0.disappearingMessagesConfig(threadId: .any, threadVariant: .any) }
                     .thenReturn(nil)
+                cache.when { $0.isAdmin(groupSessionId: .any) }.thenReturn(true)
             }
         )
         
@@ -119,7 +120,6 @@ class LibSessionGroupInfoSpec: QuickSpec {
                                 creationDateTimestamp: .setTo(1234567890),
                                 shouldBeVisible: .setTo(true)
                             ),
-                            calledFromConfig: nil,
                             using: dependencies
                         )
                         try createGroupOutput.group.insert(db)
@@ -375,7 +375,6 @@ class LibSessionGroupInfoSpec: QuickSpec {
                                     creationDateTimestamp: .setTo(1234567890),
                                     shouldBeVisible: .setTo(true)
                                 ),
-                                calledFromConfig: nil,
                                 using: dependencies
                             )
                             _ = try Interaction(
@@ -432,7 +431,6 @@ class LibSessionGroupInfoSpec: QuickSpec {
                                     creationDateTimestamp: .setTo(1234567890),
                                     shouldBeVisible: .setTo(true)
                                 ),
-                                calledFromConfig: nil,
                                 using: dependencies
                             )
                             _ = try Interaction(
@@ -517,7 +515,6 @@ class LibSessionGroupInfoSpec: QuickSpec {
                                     creationDateTimestamp: .setTo(1234567890),
                                     shouldBeVisible: .setTo(true)
                                 ),
-                                calledFromConfig: nil,
                                 using: dependencies
                             )
                             let interaction: Interaction = try Interaction(
@@ -587,7 +584,6 @@ class LibSessionGroupInfoSpec: QuickSpec {
                                     creationDateTimestamp: .setTo(1234567890),
                                     shouldBeVisible: .setTo(true)
                                 ),
-                                calledFromConfig: nil,
                                 using: dependencies
                             )
                             let interaction: Interaction = try Interaction(
@@ -669,7 +665,6 @@ class LibSessionGroupInfoSpec: QuickSpec {
                                     creationDateTimestamp: .setTo(1234567890),
                                     shouldBeVisible: .setTo(true)
                                 ),
-                                calledFromConfig: nil,
                                 using: dependencies
                             )
                             let interaction1: Interaction = try Interaction(
@@ -773,7 +768,6 @@ class LibSessionGroupInfoSpec: QuickSpec {
                                     creationDateTimestamp: .setTo(1234567890),
                                     shouldBeVisible: .setTo(true)
                                 ),
-                                calledFromConfig: nil,
                                 using: dependencies
                             )
                             let interaction1: Interaction = try Interaction(
@@ -867,7 +861,6 @@ class LibSessionGroupInfoSpec: QuickSpec {
                                 creationDateTimestamp: .setTo(1234567890),
                                 shouldBeVisible: .setTo(true)
                             ),
-                            calledFromConfig: nil,
                             using: dependencies
                         )
                         _ = try Interaction(
@@ -937,7 +930,6 @@ class LibSessionGroupInfoSpec: QuickSpec {
                                 creationDateTimestamp: .setTo(1234567890),
                                 shouldBeVisible: .setTo(true)
                             ),
-                            calledFromConfig: nil,
                             using: dependencies
                         )
                         _ = try Interaction(

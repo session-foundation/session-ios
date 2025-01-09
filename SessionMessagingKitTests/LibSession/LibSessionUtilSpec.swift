@@ -24,19 +24,9 @@ class LibSessionUtilSpec: QuickSpec {
     static let edPK: [UInt8] = keyPair.publicKey
     static let edSK: [UInt8] = keyPair.secretKey
     
-    // Since we can't test the group without encryption keys and the C API doesn't have
-    // a way to manually provide encryption keys we needed to create a dump with valid
-    // key data and load that in so we can test the other cases, this dump contains a
-    // single admin member and a single encryption key
-    static let groupKeysDump: Data = Data(hex:
-        "64363a6163746976656c65343a6b6579736c65373a70656e64696e6764313a633136373a" +
-        "64313a2332343ae3abc434666653cb7e913a3101b83704e86a7395ac21a026313a476930" +
-        "65313a4b34383a150c55d933f0c44d1e2527590ae8efbb482f17e04e2a6a3a23f7e900ad" +
-        "2f69f9442fcd4e2fc623e63d7ccaf9a79ffcac313a6b6c65313a7e36343a64d960c70ff1" +
-        "2967b677a8a2ce6e624e1da4c8e372c56d8c8e212ea6b420359e4b244efcb3f5cac8a86d" +
-        "4bfe9dcb6fe9bbdfc98180851decf965dc6a6d2dce0865313a67693065313a6b33323a3e" +
-        "c807213e56d2e3ddcf5096ae414db1689d2f436a6e6ec8e9178b4205e65f926565"
-    )
+    /// Since we can't test the group without encryption keys and the C API doesn't have a way to manually provide
+    /// encryption keys we needed to create a dump with valid key data and load that in so we can test the other cases
+    static let groupKeysDump: Data = Data(hex: try! generateKeysDump())
     
     override class func spec() {
         // MARK: - libSession
@@ -631,7 +621,6 @@ fileprivate extension LibSessionUtilSpec {
                 
                 // We don't need to push since we haven't changed anything, so this call is mainly just for
                 // testing:
-                let PROTOBUF_OVERHEAD: Int = 176  // To be removed once we no longer protobuf wrap this
                 let pushData1: UnsafeMutablePointer<config_push_data> = config_push(conf)
                 expect(pushData1.pointee).toNot(beNil())
                 expect(pushData1.pointee.seqno).to(equal(0))
@@ -2512,9 +2501,42 @@ fileprivate extension LibSessionUtilSpec {
         return groups_keys_init(&keysConf, &userEdSK, &edPK, &edSK, infoConf, membersConf, cachedKeysDump?.data, (cachedKeysDump?.length ?? 0), &error)
     }
     
-    /// This function can be used to regenerate the hard-coded `keysDump` value if needed due to `libSession` changes
-    /// resulting in the dump changing
-    static func generateKeysDump(for keysConf: UnsafeMutablePointer<config_group_keys>?) throws -> String {
+    static func generateKeysDump() throws -> String {
+        var error: [CChar] = [CChar](repeating: 0, count: 256)
+        var userEdSK: [UInt8] = LibSessionUtilSpec.userEdSK
+        var edPK: [UInt8] = LibSessionUtilSpec.edPK
+        var edSK: [UInt8] = LibSessionUtilSpec.edSK
+        var infoConf: UnsafeMutablePointer<config_object>?
+        var membersConf: UnsafeMutablePointer<config_object>?
+        var keysConf: UnsafeMutablePointer<config_group_keys>?
+        
+        guard
+            groups_info_init(&infoConf, &edPK, &edSK, nil, 0, &error) == 0,
+            error[0] == 0,
+            groups_members_init(&membersConf, &edPK, &edSK, nil, 0, &error) == 0,
+            error[0] == 0,
+            groups_keys_init(&keysConf, &userEdSK, &edPK, &edSK, infoConf, membersConf, nil, 0, &error) == 0,
+            error[0] == 0
+        else { throw LibSessionError(error) }
+        
+        // Add the user as a group admin
+        var member: config_group_member = config_group_member()
+        member.set(\.session_id, to: SessionId(.standard, publicKey: identity.x25519KeyPair.publicKey).hexString)
+        member.set(\.name, to: "Test")
+        member.set(\.admin, to: true)
+        member.set(\.invited, to: 0)
+        
+        groups_members_set(membersConf, &member)
+        try LibSessionError.throwIfNeeded(membersConf)
+        
+        // Perform the initial rekey
+        var pushResult: UnsafePointer<UInt8>? = nil
+        var pushResultLen: Int = 0
+        guard groups_keys_rekey(keysConf, infoConf, membersConf, &pushResult, &pushResultLen) else {
+            throw LibSessionError.failedToRekeyGroup
+        }
+        
+        // Now we can finally get the dump
         var dumpResult: UnsafeMutablePointer<UInt8>? = nil
         var dumpResultLen: Int = 0
         groups_keys_dump(keysConf, &dumpResult, &dumpResultLen)

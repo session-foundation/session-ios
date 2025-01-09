@@ -907,7 +907,6 @@ class DisplayPictureDownloadJobSpec: QuickSpec {
                                     creationDateTimestamp: .setTo(1234567890),
                                     shouldBeVisible: .setTo(true)
                                 ),
-                                calledFromConfig: nil,
                                 using: dependencies
                             ).upsert(db)
                             try group.insert(db)
@@ -1124,7 +1123,6 @@ class DisplayPictureDownloadJobSpec: QuickSpec {
                                     creationDateTimestamp: .setTo(1234567890),
                                     shouldBeVisible: .setTo(true)
                                 ),
-                                calledFromConfig: nil,
                                 using: dependencies
                             ).upsert(db)
                             try community.insert(db)

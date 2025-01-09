@@ -8,7 +8,7 @@ public class Cache {}
 
 // MARK: - Cache Types
 
-public protocol MutableCacheType {}
+public protocol MutableCacheType: AnyObject {}  // Needs to be a class to be mutable
 public protocol ImmutableCacheType {}
 
 // MARK: - CacheInfo

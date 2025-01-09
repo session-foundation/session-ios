@@ -51,6 +51,10 @@ class MockLibSessionCache: Mock<LibSessionCacheType>, LibSessionCacheType {
     
     // MARK: - Pushes
     
+    func withCustomBehaviour(_ behaviour: LibSession.CacheBehaviour, for sessionId: SessionId, variant: ConfigDump.Variant?, change: @escaping () throws -> ()) throws {
+        try mockThrowingNoReturn(args: [behaviour, sessionId, variant], untrackedArgs: [change])
+    }
+    
     func performAndPushChange(
         _ db: Database,
         for variant: ConfigDump.Variant,

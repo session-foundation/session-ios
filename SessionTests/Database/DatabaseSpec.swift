@@ -64,44 +64,64 @@ class DatabaseSpec: QuickSpec {
         
         // MARK: - a Database
         describe("a Database") {
-            // MARK: -- triggers the migration requirements in the expected order
-            it("triggers the migration requirements in the expected order") {
-                var migrationRequirementsSet: [MigrationRequirement] = []
+            // MARK: -- triggers the migration requirements in the order defined by the enum
+            it("triggers the migration requirements in the order defined by the enum") {
+                var migrationRequirementsTriggered: [MigrationRequirement] = []
                 mockStorage.perform(
                     migrationTargets: [
-                        TestMigratableTarget.self
+                        TestAllMigrationRequirementsReversedMigratableTarget.self
                     ],
                     async: false,
                     onProgressUpdate: nil,
                     onMigrationRequirement: { [dependencies = dependencies!] db, requirement in
-                        migrationRequirementsSet.append(requirement)
+                        migrationRequirementsTriggered.append(requirement)
                         
                         MigrationTest.handleRequirements(db, requirement: requirement, using: dependencies)
                     },
                     onComplete: { _, _ in }
                 )
                 
-                expect(migrationRequirementsSet).to(equal([.sessionIdCached, .libSessionStateLoaded]))
+                expect(migrationRequirementsTriggered).to(equal([.sessionIdCached, .libSessionStateLoaded]))
             }
             
             // MARK: -- triggers all prior migration requirements if only a latter one is called
             it("triggers all prior migration requirements if only a latter one is called") {
-                var migrationRequirementsSet: [MigrationRequirement] = []
+                var migrationRequirementsTriggered: [MigrationRequirement] = []
                 mockStorage.perform(
                     migrationTargets: [
-                        SNMessagingKit.self
+                        TestRequiresLibSessionStateMigratableTarget.self
                     ],
                     async: false,
                     onProgressUpdate: nil,
                     onMigrationRequirement: { [dependencies = dependencies!] db, requirement in
-                        migrationRequirementsSet.append(requirement)
+                        migrationRequirementsTriggered.append(requirement)
                         
                         MigrationTest.handleRequirements(db, requirement: requirement, using: dependencies)
                     },
                     onComplete: { _, _ in }
                 )
                 
-                expect(migrationRequirementsSet).to(equal([.sessionIdCached, .libSessionStateLoaded]))
+                expect(migrationRequirementsTriggered).to(equal([.sessionIdCached, .libSessionStateLoaded]))
+            }
+            
+            // MARK: -- triggers migration requirements which were not explicitly included
+            it("triggers migration requirements which were not explicitly included") {
+                var migrationRequirementsTriggered: [MigrationRequirement] = []
+                mockStorage.perform(
+                    migrationTargets: [
+                        TestRequiresSessionIdCachedMigratableTarget.self
+                    ],
+                    async: false,
+                    onProgressUpdate: nil,
+                    onMigrationRequirement: { [dependencies = dependencies!] db, requirement in
+                        migrationRequirementsTriggered.append(requirement)
+                        
+                        MigrationTest.handleRequirements(db, requirement: requirement, using: dependencies)
+                    },
+                    onComplete: { _, _ in }
+                )
+                
+                expect(migrationRequirementsTriggered).to(equal([.sessionIdCached, .libSessionStateLoaded]))
             }
             
             // MARK: -- can be created from an empty state
@@ -446,7 +466,20 @@ private class MigrationTest {
     }
 }
 
-enum TestMigratableTarget: MigratableTarget { // Just to make the external API nice
+enum TestAllMigrationRequirementsReversedMigratableTarget: MigratableTarget { // Just to make the external API nice
+    public static func migrations() -> TargetMigrations {
+        return TargetMigrations(
+            identifier: .session,
+            migrations: [
+                [
+                    TestRequiresAllMigrationRequirementsReversedMigration.self
+                ]
+            ]
+        )
+    }
+}
+
+enum TestRequiresLibSessionStateMigratableTarget: MigratableTarget { // Just to make the external API nice
     public static func migrations() -> TargetMigrations {
         return TargetMigrations(
             identifier: .session,
@@ -459,12 +492,51 @@ enum TestMigratableTarget: MigratableTarget { // Just to make the external API n
     }
 }
 
+enum TestRequiresSessionIdCachedMigratableTarget: MigratableTarget { // Just to make the external API nice
+    public static func migrations() -> TargetMigrations {
+        return TargetMigrations(
+            identifier: .session,
+            migrations: [
+                [
+                    TestRequiresSessionIdCachedMigration.self
+                ]
+            ]
+        )
+    }
+}
+
+enum TestRequiresAllMigrationRequirementsReversedMigration: Migration {
+    static let target: TargetMigrations.Identifier = .session
+    static let identifier: String = "test" // stringlint:ignore
+    static let needsConfigSync: Bool = false
+    static let minExpectedRunDuration: TimeInterval = 0.1
+    static var requirements: [MigrationRequirement] = MigrationRequirement.allCases.reversed()
+    static let fetchedTables: [(TableRecord & FetchableRecord).Type] = []
+    static let createdOrAlteredTables: [(TableRecord & FetchableRecord).Type] = []
+    static let droppedTables: [(TableRecord & FetchableRecord).Type] = []
+    
+    static func migrate(_ db: Database, using dependencies: Dependencies) throws {}
+}
+
 enum TestRequiresLibSessionStateMigration: Migration {
     static let target: TargetMigrations.Identifier = .session
     static let identifier: String = "test" // stringlint:ignore
     static let needsConfigSync: Bool = false
     static let minExpectedRunDuration: TimeInterval = 0.1
     static var requirements: [MigrationRequirement] = [.libSessionStateLoaded]
+    static let fetchedTables: [(TableRecord & FetchableRecord).Type] = []
+    static let createdOrAlteredTables: [(TableRecord & FetchableRecord).Type] = []
+    static let droppedTables: [(TableRecord & FetchableRecord).Type] = []
+    
+    static func migrate(_ db: Database, using dependencies: Dependencies) throws {}
+}
+
+enum TestRequiresSessionIdCachedMigration: Migration {
+    static let target: TargetMigrations.Identifier = .session
+    static let identifier: String = "test" // stringlint:ignore
+    static let needsConfigSync: Bool = false
+    static let minExpectedRunDuration: TimeInterval = 0.1
+    static var requirements: [MigrationRequirement] = [.sessionIdCached]
     static let fetchedTables: [(TableRecord & FetchableRecord).Type] = []
     static let createdOrAlteredTables: [(TableRecord & FetchableRecord).Type] = []
     static let droppedTables: [(TableRecord & FetchableRecord).Type] = []

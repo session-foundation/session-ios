@@ -78,6 +78,12 @@ public class SwarmPoller: SwarmPollerType & PollerType {
     public func handlePollError(_ error: Error, _ lastError: Error?) -> PollerErrorResponse {
         preconditionFailure("abstract class - override in subclass")
     }
+    
+    // MARK: - Internal Functions
+    
+    internal func setDrainBehaviour(_ behaviour: SwarmDrainBehaviour) {
+        _pollerDrainBehaviour.set(to: behaviour)
+    }
 
     // MARK: - Private API
     

@@ -249,7 +249,6 @@ public extension UIContextualAction {
                                             db,
                                             SessionThread.Columns.pinnedPriority
                                                 .set(to: (threadViewModel.threadPinnedPriority == 0 ? 1 : 0)),
-                                            calledFromConfig: nil,
                                             using: dependencies
                                         )
                                 }
@@ -394,7 +393,6 @@ public extension UIContextualAction {
                                                         .updateAllAndConfig(
                                                             db,
                                                             contactChanges,
-                                                            calledFromConfig: nil,
                                                             using: dependencies
                                                         )
                                                     
@@ -407,7 +405,6 @@ public extension UIContextualAction {
                                                         .updateAllAndConfig(
                                                             db,
                                                             contactChanges,
-                                                            calledFromConfig: nil,
                                                             using: dependencies
                                                         )
                                                     

@@ -1,6 +1,7 @@
 // Copyright © 2022 Rangeproof Pty Ltd. All rights reserved.
 
 import Foundation
+import Combine
 import GRDB
 
 @testable import SessionUtilitiesKit
@@ -59,9 +60,8 @@ class MockJobRunner: Mock<JobRunnerType>, JobRunnerType {
         mockNoReturn(args: [jobs])
     }
     
-    func afterJob(_ job: Job?, state: JobRunner.JobState, callback: @escaping (JobRunner.JobResult) -> ()) {
-        mockNoReturn(args: [job, state], untrackedArgs: [callback])
-        callback(.succeeded)
+    func afterJob(_ job: Job?, state: JobRunner.JobState) -> AnyPublisher<JobRunner.JobResult, Never> {
+        mock(args: [job, state])
     }
     
     func manuallyTriggerResult(_ job: Job?, result: JobRunner.JobResult) {

@@ -496,7 +496,7 @@ public final class JobRunner: JobRunnerType {
     public func deferCount(for jobId: Int64?, of variant: Job.Variant) -> Int {
         guard let jobId: Int64 = jobId else { return 0 }
         
-        return (queues.wrappedValue[variant]?.deferLoopTracker.wrappedValue[jobId]?.count ?? 0)
+        return (queues[variant]?.deferLoopTracker[jobId]?.count ?? 0)
     }
     
     public func appDidFinishLaunching() {
@@ -642,7 +642,7 @@ public final class JobRunner: JobRunnerType {
     
     public func startNonBlockingQueues() {
         queues.map { _, queue in queue }.asSet().forEach { queue in
-            queue.start(using: dependencies)
+            queue.start()
         }
     }
     
@@ -848,7 +848,7 @@ public final class JobRunner: JobRunnerType {
     }
     
     public func manuallyTriggerResult(_ job: Job?, result: JobRunner.JobResult) {
-        guard let job: Job = job, let queue: JobQueue = queues.wrappedValue[job.variant] else { return }
+        guard let job: Job = job, let queue: JobQueue = queues[job.variant] else { return }
         
         switch result {
             case .notFound: return
@@ -1054,7 +1054,7 @@ public final class JobQueue: Hashable {
     @ThreadSafeObject private var nextTrigger: Trigger? = nil
     @ThreadSafeObject fileprivate var currentlyRunningJobIds: Set<Int64> = []
     @ThreadSafeObject private var currentlyRunningJobInfo: [Int64: JobRunner.JobInfo] = [:]
-    @ThreadSafeObject private var deferLoopTracker: [Int64: (count: Int, times: [TimeInterval])] = [:]
+    @ThreadSafeObject fileprivate var deferLoopTracker: [Int64: (count: Int, times: [TimeInterval])] = [:]
     private let maxDeferralsPerSecond: Int
     private let jobCompletedSubject: PassthroughSubject<(Int64?, JobRunner.JobResult), Never> = PassthroughSubject()
     

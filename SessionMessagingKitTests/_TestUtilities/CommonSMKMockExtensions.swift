@@ -21,6 +21,10 @@ extension ConfigDump.Variant: Mocked {
     static var mock: ConfigDump.Variant = .userProfile
 }
 
+extension LibSession.CacheBehaviour: Mocked {
+    static var mock: LibSession.CacheBehaviour = .skipAutomaticConfigSync
+}
+
 extension SessionThread: Mocked {
     static var mock: SessionThread = SessionThread(
         id: .mock,

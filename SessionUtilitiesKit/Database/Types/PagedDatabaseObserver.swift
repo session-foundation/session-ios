@@ -1339,7 +1339,7 @@ public class AssociatedRecord<T, PagedType>: ErasedAssociatedRecord where T: Fet
             .map { $0.rowId }
         let referencedRowIdsToQuery: [Int64]? = retrieveRowIdsForReferencedRowIds?(
             pagedChangesRowIds,
-            dataCache.wrappedValue
+            dataCache
         )
         // Note: We need to include the 'paged' row ids in here as well because a newly inserted record
         // could contain a new reference type and we would need to add that to the associated data cache

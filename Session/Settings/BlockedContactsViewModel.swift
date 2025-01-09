@@ -214,7 +214,6 @@ public class BlockedContactsViewModel: SessionTableViewModel, NavigatableStateHo
                         .updateAllAndConfig(
                             db,
                             Contact.Columns.isBlocked.set(to: false),
-                            calledFromConfig: nil,
                             using: dependencies
                         )
                 }

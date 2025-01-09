@@ -107,7 +107,6 @@ internal extension LibSessionCacheType {
                             GroupMember.Columns.roleStatus.set(to: GroupMember.RoleStatus.accepted)
                         ),
                     ].compactMap { $0 },
-                    calledFromConfig: config.viaCache(self),
                     using: dependencies
                 )
             try LibSession.updateMemberStatus(
@@ -146,7 +145,6 @@ internal extension LibSessionCacheType {
                     )
                 }(),
                 sentTimestamp: TimeInterval(Double(serverTimestampMs) * 1000),
-                calledFromConfig: config.viaCache(self),
                 using: dependencies
             )
         }

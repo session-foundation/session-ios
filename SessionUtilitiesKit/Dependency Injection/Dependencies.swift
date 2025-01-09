@@ -61,11 +61,11 @@ public class Dependencies {
         _ mutation: (M) -> R
     ) -> R {
         return getOrCreate(cache).performMap { erasedValue in
-            guard var value: M = (erasedValue as? M) else {
+            guard let value: M = (erasedValue as? M) else {
                 /// This code path should never happen (and is essentially invalid if it does) but in order to avoid neeing to return
                 /// a nullable type or force-casting this is how we need to do things)
                 Log.critical("Failed to convert erased cache value for '\(cache.identifier)' to expected type: \(M.self)")
-                var fallbackValue: M = cache.createInstance(self)
+                let fallbackValue: M = cache.createInstance(self)
                 return mutation(fallbackValue)
             }
             
@@ -78,11 +78,11 @@ public class Dependencies {
         _ mutation: (M) throws -> R
     ) throws -> R {
         return try getOrCreate(cache).performMap { erasedValue in
-            guard var value: M = (erasedValue as? M) else {
+            guard let value: M = (erasedValue as? M) else {
                 /// This code path should never happen (and is essentially invalid if it does) but in order to avoid neeing to return
                 /// a nullable type or force-casting this is how we need to do things)
                 Log.critical("Failed to convert erased cache value for '\(cache.identifier)' to expected type: \(M.self)")
-                var fallbackValue: M = cache.createInstance(self)
+                let fallbackValue: M = cache.createInstance(self)
                 return try mutation(fallbackValue)
             }
             

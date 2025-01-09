@@ -9,6 +9,7 @@ public enum MessageReceiverError: LocalizedError {
     case duplicateMessageNewSnode
     case duplicateControlMessage
     case invalidMessage
+    case invalidSender
     case unknownMessage
     case unknownEnvelopeType
     case noUserX25519KeyPair
@@ -57,6 +58,7 @@ public enum MessageReceiverError: LocalizedError {
             case .duplicateMessageNewSnode: return "Duplicate message from different service node."
             case .duplicateControlMessage: return "Duplicate control message."
             case .invalidMessage: return "Invalid message."
+            case .invalidSender: return "Invalid sender."
             case .unknownMessage: return "Unknown message type."
             case .unknownEnvelopeType: return "Unknown envelope type."
             case .noUserX25519KeyPair: return "Couldn't find user X25519 key pair."

@@ -23,7 +23,8 @@ class JobRunnerSpec: QuickSpec {
             nextRunTimestamp: 0,
             threadId: nil,
             interactionId: nil,
-            details: nil
+            details: nil,
+            transientData: nil
         )
         @TestState var job2: Job! = Job(
             id: 101,
@@ -36,7 +37,8 @@ class JobRunnerSpec: QuickSpec {
             nextRunTimestamp: 0,
             threadId: nil,
             interactionId: nil,
-            details: nil
+            details: nil,
+            transientData: nil
         )
         @TestState var dependencies: TestDependencies! = TestDependencies { dependencies in
             dependencies.dateNow = Date(timeIntervalSince1970: 0)
@@ -87,7 +89,8 @@ class JobRunnerSpec: QuickSpec {
                         threadId: nil,
                         interactionId: nil,
                         details: try? JSONEncoder(using: dependencies)
-                            .encode(TestDetails(completeTime: 1))
+                            .encode(TestDetails(completeTime: 1)),
+                        transientData: nil
                     )
                     jobRunner.appDidFinishLaunching()
                     jobRunner.appDidBecomeActive()
@@ -178,7 +181,8 @@ class JobRunnerSpec: QuickSpec {
                             threadId: nil,
                             interactionId: nil,
                             details: try? JSONEncoder(using: dependencies)
-                                .encode(TestDetails(completeTime: 1))
+                                .encode(TestDetails(completeTime: 1)),
+                            transientData: nil
                         )
                         
                         mockStorage.write { db in
@@ -232,7 +236,8 @@ class JobRunnerSpec: QuickSpec {
                             threadId: nil,
                             interactionId: nil,
                             details: try? JSONEncoder(using: dependencies)
-                                .encode(TestDetails(completeTime: 1))
+                                .encode(TestDetails(completeTime: 1)),
+                            transientData: nil
                         )
                         job2 = Job(
                             id: 101,
@@ -245,7 +250,8 @@ class JobRunnerSpec: QuickSpec {
                             nextRunTimestamp: 0,
                             threadId: nil,
                             interactionId: nil,
-                            details: nil
+                            details: nil,
+                            transientData: nil
                         )
                         jobRunner.appDidFinishLaunching()
                         jobRunner.appDidBecomeActive()
@@ -302,7 +308,8 @@ class JobRunnerSpec: QuickSpec {
                             threadId: nil,
                             interactionId: nil,
                             details: try? JSONEncoder(using: dependencies)
-                                .encode(TestDetails(completeTime: 1))
+                                .encode(TestDetails(completeTime: 1)),
+                            transientData: nil
                         )
                         job2 = Job(
                             id: 101,
@@ -316,7 +323,8 @@ class JobRunnerSpec: QuickSpec {
                             threadId: nil,
                             interactionId: nil,
                             details: try? JSONEncoder(using: dependencies)
-                                .encode(TestDetails(completeTime: 1))
+                                .encode(TestDetails(completeTime: 1)),
+                            transientData: nil
                         )
                         jobRunner.appDidFinishLaunching()
                         jobRunner.appDidBecomeActive()
@@ -364,7 +372,8 @@ class JobRunnerSpec: QuickSpec {
                             threadId: nil,
                             interactionId: nil,
                             details: try? JSONEncoder(using: dependencies)
-                                .encode(TestDetails(completeTime: 1))
+                                .encode(TestDetails(completeTime: 1)),
+                            transientData: nil
                         )
                         job2 = Job(
                             id: 101,
@@ -378,7 +387,8 @@ class JobRunnerSpec: QuickSpec {
                             threadId: nil,
                             interactionId: nil,
                             details: try? JSONEncoder(using: dependencies)
-                                .encode(TestDetails(completeTime: 1))
+                                .encode(TestDetails(completeTime: 1)),
+                            transientData: nil
                         )
                         jobRunner.appDidFinishLaunching()
                         jobRunner.appDidBecomeActive()
@@ -489,7 +499,8 @@ class JobRunnerSpec: QuickSpec {
                             threadId: nil,
                             interactionId: nil,
                             details: try! JSONEncoder(using: dependencies)
-                                .encode(TestDetails(completeTime: 1))
+                                .encode(TestDetails(completeTime: 1)),
+                            transientData: nil
                         )
                         
                         mockStorage.write { db in
@@ -556,7 +567,8 @@ class JobRunnerSpec: QuickSpec {
                             threadId: nil,
                             interactionId: nil,
                             details: try? JSONEncoder(using: dependencies)
-                                .encode(TestDetails(completeTime: 1))
+                                .encode(TestDetails(completeTime: 1)),
+                            transientData: nil
                         )
                         job2 = Job(
                             id: 101,
@@ -570,7 +582,8 @@ class JobRunnerSpec: QuickSpec {
                             threadId: nil,
                             interactionId: nil,
                             details: try? JSONEncoder(using: dependencies)
-                                .encode(TestDetails(completeTime: 2))
+                                .encode(TestDetails(completeTime: 2)),
+                            transientData: nil
                         )
                         jobRunner.appDidFinishLaunching()
                         jobRunner.appDidBecomeActive()
@@ -629,7 +642,8 @@ class JobRunnerSpec: QuickSpec {
                             threadId: nil,
                             interactionId: nil,
                             details: try! JSONEncoder(using: dependencies)
-                                .encode(TestDetails(completeTime: 1))
+                                .encode(TestDetails(completeTime: 1)),
+                            transientData: nil
                         )
                         
                         mockStorage.write { db in
@@ -719,7 +733,8 @@ class JobRunnerSpec: QuickSpec {
                             interactionId: nil,
                             details: try? JSONEncoder()
                                 .with(outputFormatting: .sortedKeys)
-                                .encode(TestDetails(completeTime: 1))
+                                .encode(TestDetails(completeTime: 1)),
+                            transientData: nil
                         )
                         
                         mockStorage.write { db in
@@ -764,7 +779,8 @@ class JobRunnerSpec: QuickSpec {
                             threadId: nil,
                             interactionId: nil,
                             details: try? JSONEncoder(using: dependencies)
-                                .encode(TestDetails(completeTime: 1))
+                                .encode(TestDetails(completeTime: 1)),
+                            transientData: nil
                         )
                         
                         mockStorage.write { db in
@@ -806,7 +822,8 @@ class JobRunnerSpec: QuickSpec {
                             threadId: nil,
                             interactionId: nil,
                             details: try? JSONEncoder(using: dependencies)
-                                .encode(TestDetails(completeTime: 2))
+                                .encode(TestDetails(completeTime: 2)),
+                            transientData: nil
                         )
                         job2 = Job(
                             id: 101,
@@ -820,7 +837,8 @@ class JobRunnerSpec: QuickSpec {
                             threadId: nil,
                             interactionId: nil,
                             details: try? JSONEncoder(using: dependencies)
-                                .encode(TestDetails(completeTime: 1))
+                                .encode(TestDetails(completeTime: 1)),
+                            transientData: nil
                         )
                         
                         mockStorage.write { db in
@@ -884,7 +902,8 @@ class JobRunnerSpec: QuickSpec {
                             threadId: nil,
                             interactionId: nil,
                             details: try? JSONEncoder(using: dependencies)
-                                .encode(TestDetails(completeTime: 1))
+                                .encode(TestDetails(completeTime: 1)),
+                            transientData: nil
                         )
                         job2 = Job(
                             id: 101,
@@ -898,7 +917,8 @@ class JobRunnerSpec: QuickSpec {
                             threadId: nil,
                             interactionId: nil,
                             details: try? JSONEncoder(using: dependencies)
-                                .encode(TestDetails(completeTime: 1))
+                                .encode(TestDetails(completeTime: 1)),
+                            transientData: nil
                         )
                         jobRunner.appDidFinishLaunching()
                         
@@ -941,7 +961,8 @@ class JobRunnerSpec: QuickSpec {
                             threadId: nil,
                             interactionId: nil,
                             details: try! JSONEncoder(using: dependencies)
-                                .encode(TestDetails(completeTime: 1))
+                                .encode(TestDetails(completeTime: 1)),
+                            transientData: nil
                         )
                         
                         mockStorage.write { db in
@@ -993,7 +1014,8 @@ class JobRunnerSpec: QuickSpec {
                             threadId: nil,
                             interactionId: nil,
                             details: try! JSONEncoder(using: dependencies)
-                                .encode(TestDetails(completeTime: 1))
+                                .encode(TestDetails(completeTime: 1)),
+                            transientData: nil
                         )
                         
                         mockStorage.write { db in
@@ -1036,7 +1058,8 @@ class JobRunnerSpec: QuickSpec {
                             interactionId: nil,
                             details: try? JSONEncoder()
                                 .with(outputFormatting: .sortedKeys)
-                                .encode(TestDetails(completeTime: 1))
+                                .encode(TestDetails(completeTime: 1)),
+                            transientData: nil
                         )
                         
                         mockStorage.write { db in
@@ -1065,7 +1088,8 @@ class JobRunnerSpec: QuickSpec {
                             threadId: nil,
                             interactionId: nil,
                             details: try? JSONEncoder(using: dependencies)
-                                .encode(TestDetails(completeTime: 1))
+                                .encode(TestDetails(completeTime: 1)),
+                            transientData: nil
                         )
                         
                         mockStorage.write { db in
@@ -1093,7 +1117,8 @@ class JobRunnerSpec: QuickSpec {
                             threadId: nil,
                             interactionId: nil,
                             details: try? JSONEncoder(using: dependencies)
-                                .encode(TestDetails(completeTime: 1))
+                                .encode(TestDetails(completeTime: 1)),
+                            transientData: nil
                         )
                         
                         mockStorage.write { db in
@@ -1121,7 +1146,8 @@ class JobRunnerSpec: QuickSpec {
                             threadId: nil,
                             interactionId: nil,
                             details: try? JSONEncoder(using: dependencies)
-                                .encode(TestDetails(completeTime: 1))
+                                .encode(TestDetails(completeTime: 1)),
+                            transientData: nil
                         )
                         jobRunner.appDidFinishLaunching()
                         
@@ -1150,7 +1176,8 @@ class JobRunnerSpec: QuickSpec {
                             threadId: nil,
                             interactionId: nil,
                             details: try? JSONEncoder(using: dependencies)
-                                .encode(TestDetails(completeTime: 1))
+                                .encode(TestDetails(completeTime: 1)),
+                            transientData: nil
                         )
                         jobRunner.appDidFinishLaunching()
                         
@@ -1179,7 +1206,8 @@ class JobRunnerSpec: QuickSpec {
                             threadId: nil,
                             interactionId: nil,
                             details: try? JSONEncoder(using: dependencies)
-                                .encode(TestDetails(completeTime: 1))
+                                .encode(TestDetails(completeTime: 1)),
+                            transientData: nil
                         )
                         jobRunner.appDidFinishLaunching()
                         jobRunner.appDidBecomeActive()
@@ -1209,7 +1237,8 @@ class JobRunnerSpec: QuickSpec {
                             threadId: nil,
                             interactionId: nil,
                             details: try? JSONEncoder(using: dependencies)
-                                .encode(TestDetails(completeTime: 1))
+                                .encode(TestDetails(completeTime: 1)),
+                            transientData: nil
                         )
                         jobRunner.appDidFinishLaunching()
                         jobRunner.appDidBecomeActive()
@@ -1263,7 +1292,8 @@ class JobRunnerSpec: QuickSpec {
                             threadId: nil,
                             interactionId: nil,
                             details: try? JSONEncoder(using: dependencies)
-                                .encode(TestDetails(completeTime: 1))
+                                .encode(TestDetails(completeTime: 1)),
+                            transientData: nil
                         )
                         job2 = Job(
                             id: 101,
@@ -1277,7 +1307,8 @@ class JobRunnerSpec: QuickSpec {
                             threadId: nil,
                             interactionId: nil,
                             details: try? JSONEncoder(using: dependencies)
-                                .encode(TestDetails(completeTime: 1))
+                                .encode(TestDetails(completeTime: 1)),
+                            transientData: nil
                         )
                         
                         var result1: Job?

@@ -379,7 +379,6 @@ extension Onboarding {
                             displayNameUpdate: .currentUserUpdate(displayName),
                             displayPictureUpdate: .none,
                             sentTimestamp: dependencies.dateNow.timeIntervalSince1970,
-                            calledFromConfig: nil,
                             using: dependencies
                         )
                     }
@@ -399,7 +398,6 @@ extension Onboarding {
                                 db,
                                 SessionThread.Columns.shouldBeVisible.set(to: false),
                                 SessionThread.Columns.pinnedPriority.set(to: LibSession.hiddenPriority),
-                                calledFromConfig: nil,
                                 using: dependencies
                             )
                     }
