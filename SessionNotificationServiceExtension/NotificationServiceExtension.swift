@@ -156,6 +156,7 @@ public final class NotificationServiceExtension: UNNotificationServiceExtension 
                         
                         switch ((db[.areCallsEnabled] && Permissions.hasMicrophonePermission), isCallOngoing) {
                             case (false, _):
+                            Log.info("Microphone permission is \(AVAudioSession.sharedInstance().recordPermission)")
                                 if
                                     let sender: String = callMessage.sender,
                                     let interaction: Interaction = try MessageReceiver.insertCallInfoMessage(
