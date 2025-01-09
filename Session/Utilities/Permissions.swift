@@ -91,7 +91,7 @@ extension Permissions {
                 case .denied: handlePermissionDenied()
                 case .undetermined:
                     onNotGranted?()
-                    AVAudioSession.sharedInstance().requestRecordPermission { _ in }
+                    AVAudioApplication.requestRecordPermission { _ in }
                     
                 default: break
             }
