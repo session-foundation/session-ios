@@ -55,6 +55,7 @@ public enum Theme: String, CaseIterable, Codable {
     public func color(for value: ThemeValue) -> UIColor? {
         switch value {
             case .value(let value, let alpha): return color(for: value)?.withAlphaComponent(alpha)
+            case .explicitPrimary(let primaryColor): return primaryColor.color
             
             case .highlighted(let value, let alwaysDarken):
                 switch (self.interfaceStyle, alwaysDarken) {
@@ -78,6 +79,7 @@ public enum Theme: String, CaseIterable, Codable {
     public func colorSwiftUI(for themeValue: ThemeValue) -> Color? {
         switch themeValue {
             case .value(let value, let alpha): return colorSwiftUI(for: value)?.opacity(alpha)
+            case .explicitPrimary(let primaryColor): return primaryColor.colorSwiftUI
             
             case .highlighted(let value, let alwaysDarken):
                 switch (self.interfaceStyle, alwaysDarken) {
@@ -107,6 +109,7 @@ public protocol ThemedNavigation {
 
 public indirect enum ThemeValue: Hashable, Equatable {
     case value(ThemeValue, alpha: CGFloat)
+    case explicitPrimary(Theme.PrimaryColor)
     
     // The 'highlighted' state of a color will automatically lighten/darken a ThemeValue
     // by a fixed amount depending on wither the theme is dark/light mode

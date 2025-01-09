@@ -374,7 +374,6 @@ extension MessageReceiver {
             case .disappearingMessages:
                 /// **Note:** We only create this to insert the control message, it **should not** be saved as that would
                 /// override the correct settings applied by the group config messages
-                let userSessionId: SessionId = dependencies[cache: .general].sessionId
                 let config: DisappearingMessagesConfiguration = DisappearingMessagesConfiguration(
                     threadId: groupSessionId.hexString,
                     isEnabled: ((message.updatedExpiration ?? 0) > 0),

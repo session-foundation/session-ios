@@ -413,7 +413,7 @@ public extension Message {
             // succeed early
             guard rawMessage.namespace.shouldDedupeMessages else {
                 // If we want to track the last hash then upsert the raw message info (don't
-                // want to fail if it already exsits because we don't want to dedupe messages
+                // want to fail if it already exists because we don't want to dedupe messages
                 // in this namespace)
                 if rawMessage.namespace.shouldFetchSinceLastHash {
                     try rawMessage.info.upserted(db)

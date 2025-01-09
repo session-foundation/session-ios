@@ -70,7 +70,7 @@ final class NewClosedGroupVC: BaseVC, UITableViewDataSource, UITableViewDelegate
                 message: "groupInviteVersion".localizedFormatted(baseFont: .systemFont(ofSize: Values.verySmallFontSize)),
                 icon: .none,
                 tintColor: .black,
-                backgroundColor: .warning,
+                backgroundColor: .explicitPrimary(.orange),
                 accessibility: Accessibility(label: "Version warning banner")
             )
         )

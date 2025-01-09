@@ -17,7 +17,7 @@ class EditGroupViewModel: SessionTableViewModel, NavigatableStateHolder, Editabl
         message: "groupInviteVersion".localizedFormatted(baseFont: .systemFont(ofSize: Values.verySmallFontSize)),
         icon: .none,
         tintColor: .black,
-        backgroundColor: .warning,
+        backgroundColor: .explicitPrimary(.orange),
         accessibility: Accessibility(identifier: "Version warning banner")
     )
     

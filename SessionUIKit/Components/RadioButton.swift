@@ -38,6 +38,7 @@ public class RadioButton: UIView {
     
     public private(set) var isEnabled: Bool = true
     public private(set) var isSelected: Bool = false
+    private let titleTextColor: ThemeValue
     private let onSelected: ((RadioButton) -> ())?
     
     // MARK: - UI
@@ -50,12 +51,12 @@ public class RadioButton: UIView {
         return result
     }()
     
-    private let titleLabel: UILabel = {
+    private lazy var titleLabel: UILabel = {
         let result: UILabel = UILabel()
         result.translatesAutoresizingMaskIntoConstraints = false
         result.isUserInteractionEnabled = false
         result.font = .systemFont(ofSize: Values.smallFontSize)
-        result.themeTextColor = .textPrimary
+        result.themeTextColor = titleTextColor
         result.numberOfLines = 0
         
         return result
@@ -82,7 +83,12 @@ public class RadioButton: UIView {
     
     // MARK: - Initialization
     
-    public init(size: Size, onSelected: ((RadioButton) -> ())? = nil) {
+    public init(
+        size: Size,
+        titleTextColor: ThemeValue = .textPrimary,
+        onSelected: ((RadioButton) -> ())? = nil
+    ) {
+        self.titleTextColor = titleTextColor
         self.onSelected = onSelected
         
         super.init(frame: .zero)
@@ -146,12 +152,12 @@ public class RadioButton: UIView {
         
         switch (self.isEnabled, self.isSelected) {
             case (true, true):
-                titleLabel.themeTextColor = .textPrimary
+                titleLabel.themeTextColor = titleTextColor
                 selectionBorderView.themeBorderColor = .radioButton_selectedBorder
                 selectionView.themeBackgroundColor = .radioButton_selectedBackground
             
             case (true, false):
-                titleLabel.themeTextColor = .textPrimary
+                titleLabel.themeTextColor = titleTextColor
                 selectionBorderView.themeBorderColor = .radioButton_unselectedBorder
                 selectionView.themeBackgroundColor = .radioButton_unselectedBackground
             

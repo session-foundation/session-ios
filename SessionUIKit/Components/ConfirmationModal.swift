@@ -355,7 +355,7 @@ public class ConfirmationModal: Modal, UITextFieldDelegate, UITextViewDelegate {
                 
                 // Add the options
                 options.enumerated().forEach { index, optionInfo in
-                    let radioButton: RadioButton = RadioButton(size: .medium) { [weak self] button in
+                    let radioButton: RadioButton = RadioButton(size: .medium, titleTextColor: .alert_text) { [weak self] button in
                         guard button.isEnabled && !button.isSelected else { return }
                         
                         // If an option is selected then update the modal to show that one as selected

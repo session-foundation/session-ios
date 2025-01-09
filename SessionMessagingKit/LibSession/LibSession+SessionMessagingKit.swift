@@ -564,12 +564,17 @@ public extension LibSession {
             
             // Get a list of the different config variants for the provided publicKey
             let userSessionId: SessionId = dependencies[cache: .general].sessionId
+            let targetSessionId: SessionId = try SessionId(from: swarmPubkey)
             let targetVariants: [(sessionId: SessionId, variant: ConfigDump.Variant)] = {
-                switch (swarmPubkey, try? SessionId(from: swarmPubkey)) {
+                switch (swarmPubkey, targetSessionId) {
                     case (userSessionId.hexString, _):
                         return ConfigDump.Variant.userVariants.map { (userSessionId, $0) }
                         
-                    case (_, .some(let sessionId)) where sessionId.prefix == .group:
+                    case (_, let sessionId) where sessionId.prefix == .group:
+                        // Only admins can push changes or delete obsolete configs so do
+                        // nothing if the current user isn't an admin
+                        guard isAdmin(groupSessionId: targetSessionId) else { return [] }
+                        
                         return ConfigDump.Variant.groupVariants.map { (sessionId, $0) }
                         
                     default: return []
