@@ -270,12 +270,15 @@ extension MessageReceiver {
         state: CallMessage.MessageInfo.State? = nil,
         using dependencies: Dependencies
     ) throws -> Interaction? {
-        guard
-            (try? Interaction
+        guard (
+            try? Interaction
                 .filter(Interaction.Columns.variant == Interaction.Variant.infoCall)
                 .filter(Interaction.Columns.messageUuid == message.uuid)
-                .isEmpty(db))
-                .defaulting(to: false),
+                .isEmpty(db)
+        ).defaulting(to: false)
+        else { throw MessageReceiverError.duplicatedCall }
+        
+        guard
             let sender: String = message.sender,
             let thread: SessionThread = try SessionThread.fetchOne(db, id: sender),
             !thread.isMessageRequest(db)
