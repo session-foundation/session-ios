@@ -277,6 +277,9 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
         
         Log.info("[AppDelegate] Setting 'isMainAppActive' to false.")
         UserDefaults.sharedLokiProject?[.isMainAppActive] = false
+        
+        Log.info("[AppDelegate] Setting 'lastSeenHasMicrophonePermission'.")
+        UserDefaults.sharedLokiProject?[.lastSeenHasMicrophonePermission] = (Permissions.microphone == .granted)
 
         Log.flush()
     }

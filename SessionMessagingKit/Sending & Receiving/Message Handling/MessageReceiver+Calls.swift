@@ -81,7 +81,7 @@ extension MessageReceiver {
             return
         }
         
-        guard db[.areCallsEnabled] && Permissions.hasMicrophonePermission else {
+        guard db[.areCallsEnabled] && Permissions.microphone == .granted else {
             let state: CallMessage.MessageInfo.State = (db[.areCallsEnabled] ? .permissionDeniedMicrophone : .permissionDenied)
             
             SNLog("[MessageReceiver+Calls] Microphone permission is \(AVAudioSession.sharedInstance().recordPermission)")

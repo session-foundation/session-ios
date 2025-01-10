@@ -169,7 +169,7 @@ final class CallMessageCell: MessageCell {
                 !Storage.shared[.areCallsEnabled]
             ) || (
                 messageInfo.state == .permissionDeniedMicrophone &&
-                !Permissions.hasMicrophonePermission
+                Permissions.microphone != .granted
             )
         )
         infoImageViewWidthConstraint.constant = (shouldShowInfoIcon ? CallMessageCell.iconSize : 0)
@@ -230,7 +230,7 @@ final class CallMessageCell: MessageCell {
                 !Storage.shared[.areCallsEnabled]
             ) || (
                 messageInfo.state == .permissionDeniedMicrophone &&
-                !Permissions.hasMicrophonePermission
+                Permissions.microphone != .granted
             )
         else { return }
         

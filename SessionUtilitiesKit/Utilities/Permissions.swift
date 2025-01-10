@@ -3,11 +3,37 @@
 import AVFAudio
 
 public enum Permissions {
-    public static var hasMicrophonePermission: Bool {
+    
+    public enum MicrophonePermisson {
+        case denied
+        case granted
+        case undetermined
+        case unknown
+    }
+    
+    public static var microphone: MicrophonePermisson {
         if #available(iOSApplicationExtension 17.0, *) {
-            AVAudioApplication.shared.recordPermission == .granted
+            switch AVAudioApplication.shared.recordPermission {
+                case .undetermined:
+                    return .undetermined
+                case .denied:
+                    return .denied
+                case .granted:
+                    return .granted
+                @unknown default:
+                    return .unknown
+            }
         } else {
-            AVAudioSession.sharedInstance().recordPermission == .granted
+            switch AVAudioSession.sharedInstance().recordPermission {
+                case .undetermined:
+                    return .undetermined
+                case .denied:
+                    return .denied
+                case .granted:
+                    return .granted
+                @unknown default:
+                    return .unknown
+            }
         }
     }
 }

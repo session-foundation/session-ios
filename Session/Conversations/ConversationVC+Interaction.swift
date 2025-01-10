@@ -121,7 +121,7 @@ extension ConversationVC:
         let threadId: String = self.viewModel.threadData.threadId
         
         guard
-            Permissions.hasMicrophonePermission,
+            Permissions.microphone == .granted,
             self.viewModel.threadData.threadVariant == .contact,
             Singleton.callManager.currentCall == nil,
             let call: SessionCall = Storage.shared.read({ [dependencies = viewModel.dependencies] db in
@@ -323,7 +323,7 @@ extension ConversationVC:
         
         Permissions.requestMicrophonePermissionIfNeeded()
         
-        if !Permissions.hasMicrophonePermission {
+        if Permissions.microphone != .granted {
             SNLog("Proceeding without microphone access. Any recorded video will be silent.")
         }
         
@@ -2487,7 +2487,7 @@ extension ConversationVC:
         
         // Keep screen on
         UIApplication.shared.isIdleTimerDisabled = false
-        guard Permissions.hasMicrophonePermission else { return }
+        guard Permissions.microphone == .granted else { return }
         
         // Cancel any current audio playback
         self.viewModel.stopAudio()

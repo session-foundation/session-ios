@@ -91,8 +91,9 @@ extension Permissions {
                 case .denied: handlePermissionDenied()
                 case .undetermined:
                     onNotGranted?()
-                    AVAudioApplication.requestRecordPermission { _ in }
-                    
+                    AVAudioApplication.requestRecordPermission { granted in
+                        UserDefaults.sharedLokiProject?[.lastSeenHasMicrophonePermission] = granted
+                    }
                 default: break
             }
         } else {
@@ -101,8 +102,9 @@ extension Permissions {
                 case .denied: handlePermissionDenied()
                 case .undetermined:
                     onNotGranted?()
-                    AVAudioSession.sharedInstance().requestRecordPermission { _ in }
-                    
+                    AVAudioSession.sharedInstance().requestRecordPermission { granted in
+                        UserDefaults.sharedLokiProject?[.lastSeenHasMicrophonePermission] = granted
+                    }
                 default: break
             }
         }
