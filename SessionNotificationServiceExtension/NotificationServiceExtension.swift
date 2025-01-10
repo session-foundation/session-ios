@@ -297,45 +297,8 @@ public final class NotificationServiceExtension: UNNotificationServiceExtension 
         Log.info("Performing setup.")
 
         dependencies.warmCache(cache: .appVersion)
-        
-        // FIXME: Remove these once the database instance is fully managed via `Dependencies`
-        if AppSetup.hasRun {
-            dependencies[singleton: .storage].resumeDatabaseAccess()
-            dependencies[singleton: .storage].reconfigureDatabase()
-            
-            /// If we had already done a setup then `libSession` won't have been re-setup so
-            /// we need to do so now (this ensures it has the correct user keys as well)
-            dependencies.remove(cache: .libSession)
-            
-            dependencies[singleton: .storage].read { [dependencies] db in
-                guard let userKeyPair: KeyPair = Identity.fetchUserKeyPair(db) else {
-                    dependencies.mutate(cache: .general) { $0.setCachedSessionId(sessionId: .invalid) }
-                    dependencies.set(
-                        cache: .libSession,
-                        to: LibSession.Cache(
-                            userSessionId: .invalid,
-                            using: dependencies
-                        )
-                    )
-                    return
-                }
-                
-                dependencies.mutate(cache: .general) {
-                    $0.setCachedSessionId(sessionId: SessionId(.standard, publicKey: userKeyPair.publicKey))
-                }
-                dependencies.set(
-                    cache: .libSession,
-                    to: LibSession.Cache(
-                        userSessionId: SessionId(.standard, publicKey: userKeyPair.publicKey),
-                        using: dependencies
-                    )
-                )
-                dependencies.mutate(cache: .libSession) { $0.loadState(db) }
-            }
-        }
 
         AppSetup.setupEnvironment(
-            retrySetupIfDatabaseInvalid: true,
             appSpecificBlock: { [dependencies] in
                 // stringlint:ignore_start
                 Log.setup(with: Logger(

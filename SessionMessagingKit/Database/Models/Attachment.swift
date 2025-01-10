@@ -1108,7 +1108,7 @@ extension Attachment {
     public func preparedUpload(
         _ db: Database,
         threadId: String,
-        logCategory cat: Log.Category,
+        logCategory cat: Log.Category?,
         using dependencies: Dependencies
     ) throws -> Network.PreparedRequest<String> {
         typealias UploadInfo = (
@@ -1177,7 +1177,7 @@ extension Attachment {
             
             // Get the raw attachment data
             guard let rawData: Data = try? readDataFromFile(using: dependencies) else {
-                Log.error(cat, "Couldn't read attachment from disk.")
+                Log.error([cat].compactMap { $0 }, "Couldn't read attachment from disk.")
                 throw AttachmentError.noAttachment
             }
             
@@ -1193,7 +1193,7 @@ extension Attachment {
                         .encryptAttachment(plaintext: rawData, using: dependencies)
                     )
                 else {
-                    Log.error(cat, "Couldn't encrypt attachment.")
+                    Log.error([cat].compactMap { $0 }, "Couldn't encrypt attachment.")
                     throw AttachmentError.encryptionFailed
                 }
                 
@@ -1203,7 +1203,7 @@ extension Attachment {
             }
                 
             // Ensure the file size is smaller than our upload limit
-            Log.info(cat, "File size: \(finalData.count) bytes.")
+            Log.info([cat].compactMap { $0 }, "File size: \(finalData.count) bytes.")
             guard finalData.count <= Network.maxFileSize else { throw NetworkError.maxFileSizeExceeded }
             
             // Generate the request

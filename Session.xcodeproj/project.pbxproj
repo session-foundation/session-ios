@@ -704,6 +704,7 @@
 		FD5D201E27B0D87C00FEA984 /* SessionId.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD5D201D27B0D87C00FEA984 /* SessionId.swift */; };
 		FD5E93D12C100FD70038C25A /* FileUploadResponse.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDC4387127B5BB3B00C60D73 /* FileUploadResponse.swift */; };
 		FD5E93D22C12B0580038C25A /* AppVersionResponse.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDC4383727B3863200C60D73 /* AppVersionResponse.swift */; };
+		FD61FCF92D308CC9005752DE /* GroupMemberSpec.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD61FCF82D308CC5005752DE /* GroupMemberSpec.swift */; };
 		FD65318A2AA025C500DFEEAA /* TestDependencies.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD6531892AA025C500DFEEAA /* TestDependencies.swift */; };
 		FD65318B2AA025C500DFEEAA /* TestDependencies.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD6531892AA025C500DFEEAA /* TestDependencies.swift */; };
 		FD65318C2AA025C500DFEEAA /* TestDependencies.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD6531892AA025C500DFEEAA /* TestDependencies.swift */; };
@@ -1913,6 +1914,7 @@
 		FD5C7308285007920029977D /* BlindedIdLookup.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BlindedIdLookup.swift; sourceTree = "<group>"; };
 		FD5CE3442A3C5D96001A6DE3 /* DecryptExportedKey.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DecryptExportedKey.swift; sourceTree = "<group>"; };
 		FD5D201D27B0D87C00FEA984 /* SessionId.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SessionId.swift; sourceTree = "<group>"; };
+		FD61FCF82D308CC5005752DE /* GroupMemberSpec.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GroupMemberSpec.swift; sourceTree = "<group>"; };
 		FD6531892AA025C500DFEEAA /* TestDependencies.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TestDependencies.swift; sourceTree = "<group>"; };
 		FD66CB272BF3449B00268FAB /* SessionSnodeKit.xctestplan */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = SessionSnodeKit.xctestplan; sourceTree = "<group>"; };
 		FD66CB2B2BF344C600268FAB /* SessionMessageKit.xctestplan */ = {isa = PBXFileReference; lastKnownFileType = text; path = SessionMessageKit.xctestplan; sourceTree = "<group>"; };
@@ -4058,6 +4060,22 @@
 			path = "Shared Models";
 			sourceTree = "<group>";
 		};
+		FD61FCF62D308CAE005752DE /* Database */ = {
+			isa = PBXGroup;
+			children = (
+				FD61FCF72D308CC0005752DE /* Models */,
+			);
+			path = Database;
+			sourceTree = "<group>";
+		};
+		FD61FCF72D308CC0005752DE /* Models */ = {
+			isa = PBXGroup;
+			children = (
+				FD61FCF82D308CC5005752DE /* GroupMemberSpec.swift */,
+			);
+			path = Models;
+			sourceTree = "<group>";
+		};
 		FD7115F528C8150600B47552 /* Combine */ = {
 			isa = PBXGroup;
 			children = (
@@ -4500,6 +4518,7 @@
 				FDC4389B27BA01E300C60D73 /* _TestUtilities */,
 				FD3C906527E416A200CD579F /* Contacts */,
 				FD72BDA22BE368FA00CF6CF6 /* Crypto */,
+				FD61FCF62D308CAE005752DE /* Database */,
 				FD96F3A229DBC3BA00401309 /* Jobs */,
 				FDC4389827BA001800C60D73 /* Open Groups */,
 				FDE754A72C9B964D002A2623 /* Sending & Receiving */,
@@ -6671,6 +6690,7 @@
 				FD23EA6228ED0B260058676E /* CombineExtensions.swift in Sources */,
 				FD83B9C527CF3E2A005E1583 /* OpenGroupSpec.swift in Sources */,
 				FD23CE342A67C4D90000B97C /* MockNetwork.swift in Sources */,
+				FD61FCF92D308CC9005752DE /* GroupMemberSpec.swift in Sources */,
 				FDC2908B27D707F3005DAE71 /* SendMessageRequestSpec.swift in Sources */,
 				FDC290A827D9B46D005DAE71 /* NimbleExtensions.swift in Sources */,
 				FD7692F72A53A2ED000E4B70 /* SessionThreadViewModelSpec.swift in Sources */,
@@ -7892,7 +7912,7 @@
 				CLANG_WARN__ARC_BRIDGE_CAST_NONARC = YES;
 				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
 				CODE_SIGN_IDENTITY = "iPhone Developer";
-				CURRENT_PROJECT_VERSION = 520;
+				CURRENT_PROJECT_VERSION = 525;
 				ENABLE_BITCODE = NO;
 				ENABLE_STRICT_OBJC_MSGSEND = YES;
 				ENABLE_TESTABILITY = YES;
@@ -7968,7 +7988,7 @@
 				CLANG_WARN__ARC_BRIDGE_CAST_NONARC = YES;
 				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
 				CODE_SIGN_IDENTITY = "iPhone Distribution";
-				CURRENT_PROJECT_VERSION = 520;
+				CURRENT_PROJECT_VERSION = 525;
 				ENABLE_BITCODE = NO;
 				ENABLE_MODULE_VERIFIER = YES;
 				ENABLE_STRICT_OBJC_MSGSEND = YES;

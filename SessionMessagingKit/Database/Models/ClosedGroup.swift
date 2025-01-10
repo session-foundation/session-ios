@@ -191,7 +191,31 @@ public extension ClosedGroup {
             throw MessageReceiverError.noUserED25519KeyPair
         }
         
-        /// Update the database state
+        /// Update the `USER_GROUPS` config
+        try? LibSession.update(
+            db,
+            groupSessionId: group.id,
+            invited: false,
+            using: dependencies
+        )
+        
+        /// If we don't have auth data for the group then no need to make any other changes (this can happen if we
+        /// have synced an updated group that the user was kicked from or was already destroyed)
+        guard group.authData != nil || group.groupIdentityPrivateKey != nil else {
+            /// Update the database state before we finish up
+            if group.invited == true {
+                try ClosedGroup
+                    .filter(id: group.id)
+                    .updateAllAndConfig(
+                        db,
+                        ClosedGroup.Columns.invited.set(to: false),
+                        using: dependencies
+                    )
+            }
+            return
+        }
+        
+        /// Update the database state if needed
         if group.invited == true || group.shouldPoll != true {
             try ClosedGroup
                 .filter(id: group.id)
@@ -203,33 +227,22 @@ public extension ClosedGroup {
                 )
         }
         
-        /// Wait until after the transaction completes before creating the group state if needed (this is needed as it's possible that
-        /// we are already mutating the `libSessionCache` when this function gets called)
-        db.afterNextTransaction { db in
-            dependencies.mutate(cache: .libSession) { cache in
-                let groupSessionId: SessionId = .init(.group, hex: group.id)
-                
-                guard
-                    !cache.hasConfig(for: .groupKeys, sessionId: groupSessionId) ||
-                    !cache.hasConfig(for: .groupInfo, sessionId: groupSessionId) ||
-                    !cache.hasConfig(for: .groupMembers, sessionId: groupSessionId)
-                else { return }
-                
-                _ = try? cache.createAndLoadGroupState(
-                    groupSessionId: groupSessionId,
-                    userED25519KeyPair: userED25519KeyPair,
-                    groupIdentityPrivateKey: group.groupIdentityPrivateKey
-                )
-            }
+        /// Load the group state into the `LibSession.Cache` if needed
+        dependencies.mutate(cache: .libSession) { cache in
+            let groupSessionId: SessionId = .init(.group, hex: group.id)
+            
+            guard
+                !cache.hasConfig(for: .groupKeys, sessionId: groupSessionId) ||
+                !cache.hasConfig(for: .groupInfo, sessionId: groupSessionId) ||
+                !cache.hasConfig(for: .groupMembers, sessionId: groupSessionId)
+            else { return }
+            
+            _ = try? cache.createAndLoadGroupState(
+                groupSessionId: groupSessionId,
+                userED25519KeyPair: userED25519KeyPair,
+                groupIdentityPrivateKey: group.groupIdentityPrivateKey
+            )
         }
-        
-        /// Update the `USER_GROUPS` config
-        try? LibSession.update(
-            db,
-            groupSessionId: group.id,
-            invited: false,
-            using: dependencies
-        )
         
         /// Start the poller
         dependencies.mutate(cache: .groupPollers) { $0.getOrCreatePoller(for: group.id).startIfNeeded() }

@@ -47,103 +47,11 @@ internal extension LibSessionCacheType {
         guard configNeedsDump(config) else { return }
         guard case .userGroups(let conf) = config else { throw LibSessionError.invalidConfigObject }
         
-        var infiniteLoopGuard: Int = 0
-        var communities: [PrioritisedData<LibSession.OpenGroupUrlInfo>] = []
-        var legacyGroups: [LibSession.LegacyGroupInfo] = []
-        var groups: [LibSession.GroupInfo] = []
-        var community: ugroups_community_info = ugroups_community_info()
-        var legacyGroup: ugroups_legacy_group_info = ugroups_legacy_group_info()
-        var group: ugroups_group_info = ugroups_group_info()
-        let groupsIterator: OpaquePointer = user_groups_iterator_new(conf)
-        
-        while !user_groups_iterator_done(groupsIterator) {
-            try LibSession.checkLoopLimitReached(&infiniteLoopGuard, for: .userGroups)
-            
-            if user_groups_it_is_community(groupsIterator, &community) {
-                let server: String = community.get(\.base_url)
-                let roomToken: String = community.get(\.room)
-                
-                communities.append(
-                    PrioritisedData(
-                        data: LibSession.OpenGroupUrlInfo(
-                            threadId: OpenGroup.idFor(roomToken: roomToken, server: server),
-                            server: server,
-                            roomToken: roomToken,
-                            publicKey: community.getHex(\.pubkey)
-                        ),
-                        priority: community.priority
-                    )
-                )
-            }
-            else if user_groups_it_is_legacy_group(groupsIterator, &legacyGroup) {
-                let groupId: String = legacyGroup.get(\.session_id)
-                let members: [String: Bool] = LibSession.memberInfo(in: &legacyGroup)
-                
-                legacyGroups.append(
-                    LibSession.LegacyGroupInfo(
-                        id: groupId,
-                        name: legacyGroup.get(\.name),
-                        lastKeyPair: ClosedGroupKeyPair(
-                            threadId: groupId,
-                            publicKey: legacyGroup.get(\.enc_pubkey),
-                            secretKey: legacyGroup.get(\.enc_seckey),
-                            receivedTimestamp: (dependencies[cache: .snodeAPI].currentOffsetTimestampMs() / 1000)
-                        ),
-                        disappearingConfig: DisappearingMessagesConfiguration
-                            .defaultWith(groupId)
-                            .with(
-                                isEnabled: (legacyGroup.disappearing_timer > 0),
-                                durationSeconds: TimeInterval(legacyGroup.disappearing_timer),
-                                type: .disappearAfterSend
-                            ),
-                        groupMembers: members
-                            .filter { _, isAdmin in !isAdmin }
-                            .map { memberId, _ in
-                                GroupMember(
-                                    groupId: groupId,
-                                    profileId: memberId,
-                                    role: .standard,
-                                    roleStatus: .accepted,  // Legacy group members don't have role statuses
-                                    isHidden: false
-                                )
-                            },
-                        groupAdmins: members
-                            .filter { _, isAdmin in isAdmin }
-                            .map { memberId, _ in
-                                GroupMember(
-                                    groupId: groupId,
-                                    profileId: memberId,
-                                    role: .admin,
-                                    roleStatus: .accepted,  // Legacy group members don't have role statuses
-                                    isHidden: false
-                                )
-                            },
-                        priority: legacyGroup.priority,
-                        joinedAt: TimeInterval(legacyGroup.joined_at)
-                    )
-                )
-            }
-            else if user_groups_it_is_group(groupsIterator, &group) {
-                groups.append(
-                    LibSession.GroupInfo(
-                        groupSessionId: group.get(\.id),
-                        groupIdentityPrivateKey: (!group.have_secretkey ? nil : group.get(\.secretkey, nullIfEmpty: true)),
-                        name: group.get(\.name),
-                        authData: (!group.have_auth_data ? nil : group.get(\.auth_data, nullIfEmpty: true)),
-                        priority: group.priority,
-                        joinedAt: TimeInterval(group.joined_at),
-                        invited: group.invited,
-                        wasKickedFromGroup: ugroups_group_is_kicked(&group)
-                    )
-                )
-            }
-            else {
-                Log.warn(.libSession, "Ignoring unknown conversation type when iterating through volatile conversation info update")
-            }
-            
-            user_groups_iterator_advance(groupsIterator)
-        }
-        user_groups_iterator_free(groupsIterator) // Need to free the iterator
+        // Extract all of the user group info
+        let extractedUserGroups: LibSession.ExtractedUserGroups = try LibSession.extractUserGroups(
+            from: conf,
+            using: dependencies
+        )
         
         // Extract all community/legacyGroup/group thread priorities
         let existingThreadInfo: [String: LibSession.PriorityVisibilityInfo] = (try? SessionThread
@@ -163,7 +71,7 @@ internal extension LibSessionCacheType {
         // MARK: -- Handle Community Changes
         
         // Add any new communities (via the OpenGroupManager)
-        communities.forEach { community in
+        extractedUserGroups.communities.forEach { community in
             let successfullyAddedGroup: Bool = dependencies[singleton: .openGroupManager].add(
                 db,
                 roomToken: community.data.roomToken,
@@ -203,7 +111,7 @@ internal extension LibSessionCacheType {
         let communityIdsToRemove: Set<String> = Set(existingThreadInfo
             .filter { $0.value.variant == .community }
             .keys)
-            .subtracting(communities.map { $0.data.threadId })
+            .subtracting(extractedUserGroups.communities.map { $0.data.threadId })
         
         if !communityIdsToRemove.isEmpty {
             LibSession.kickFromConversationUIIfNeeded(removedThreadIds: Array(communityIdsToRemove), using: dependencies)
@@ -232,7 +140,7 @@ internal extension LibSessionCacheType {
             .defaulting(to: [])
             .grouped(by: \.groupId)
         
-        try legacyGroups.forEach { group in
+        try extractedUserGroups.legacyGroups.forEach { group in
             guard
                 let name: String = group.name,
                 let lastKeyPair: ClosedGroupKeyPair = group.lastKeyPair
@@ -398,7 +306,7 @@ internal extension LibSessionCacheType {
         
         // Remove any legacy groups which are no longer in the config
         let legacyGroupIdsToRemove: Set<String> = existingLegacyGroupIds
-            .subtracting(legacyGroups.map { $0.id })
+            .subtracting(extractedUserGroups.legacyGroups.map { $0.id })
         
         if !legacyGroupIdsToRemove.isEmpty {
             LibSession.kickFromConversationUIIfNeeded(removedThreadIds: Array(legacyGroupIdsToRemove), using: dependencies)
@@ -423,7 +331,7 @@ internal extension LibSessionCacheType {
             .defaulting(to: [])
             .reduce(into: [:]) { result, next in result[next.id] = next }
         
-        try groups.forEach { group in
+        try extractedUserGroups.groups.forEach { group in
             switch (existingGroups[group.groupSessionId], existingGroupSessionIds.contains(group.groupSessionId)) {
                 case (.none, _), (_, false):
                     // Add a new group if it doesn't already exist
@@ -438,46 +346,6 @@ internal extension LibSessionCacheType {
                         forceMarkAsInvited: false,
                         using: dependencies
                     )
-                    
-                    /// If the thread didn't already exist, or the user had previously been kicked but has since been re-added to the group, then insert
-                    /// a fallback 'invited' info message
-                    if
-                        (group.authData != nil || group.groupIdentityPrivateKey != nil) &&
-                        (existingGroups[group.groupSessionId] == nil || group.wasKickedFromGroup == true)
-                    {
-                        /// **Note:** In `MessageReceiver+Groups` we don't apply the disappearing message config settings to the
-                        /// invitation control message because we wouldn't have them at that point - technically we might have them here
-                        /// since the user was already part of the group, but they _may_ be stale so it'd be better to just behave consistently
-                        /// and not disappear like the original one
-                        _ = try Interaction(
-                            threadId: group.groupSessionId,
-                            threadVariant: .group,
-                            authorId: group.groupSessionId,
-                            variant: .infoGroupInfoInvited,
-                            body: {
-                                switch group.groupIdentityPrivateKey {
-                                    case .none:
-                                        return ClosedGroup.MessageInfo
-                                            .invitedFallback(group.name)
-                                            .infoString(using: dependencies)
-                                    
-                                    case .some:
-                                        return ClosedGroup.MessageInfo
-                                            .invitedAdminFallback(group.name)
-                                            .infoString(using: dependencies)
-                                }
-                            }(),
-                            timestampMs: Int64(group.joinedAt * 1000),
-                            wasRead: timestampAlreadyRead(
-                                threadId: group.groupSessionId,
-                                threadVariant: .group,
-                                timestampMs: Int64(group.joinedAt * 1000),
-                                userSessionId: userSessionId,
-                                openGroup: nil
-                            ),
-                            using: dependencies
-                        ).inserted(db)
-                    }
                     
                 case (.some(let existingGroup), _):
                     /// Otherwise update the existing group
@@ -539,7 +407,7 @@ internal extension LibSessionCacheType {
         
         // Remove any groups which are no longer in the config
         let groupSessionIdsToRemove: Set<String> = existingGroupSessionIds
-            .subtracting(groups.map { $0.groupSessionId })
+            .subtracting(extractedUserGroups.groups.map { $0.groupSessionId })
         
         if !groupSessionIdsToRemove.isEmpty {
             LibSession.kickFromConversationUIIfNeeded(removedThreadIds: Array(groupSessionIdsToRemove), using: dependencies)
@@ -1249,12 +1117,128 @@ public extension LibSession {
     }
 }
 
+// MARK: - Convenience
+
+public extension LibSession {
+    typealias ExtractedUserGroups = (
+        communities: [PrioritisedData<LibSession.OpenGroupUrlInfo>],
+        legacyGroups: [LibSession.LegacyGroupInfo],
+        groups: [LibSession.GroupInfo]
+    )
+    
+    static func extractUserGroups(
+        from conf: UnsafeMutablePointer<config_object>?,
+        using dependencies: Dependencies
+    ) throws -> ExtractedUserGroups {
+        var infiniteLoopGuard: Int = 0
+        var communities: [PrioritisedData<LibSession.OpenGroupUrlInfo>] = []
+        var legacyGroups: [LibSession.LegacyGroupInfo] = []
+        var groups: [LibSession.GroupInfo] = []
+        var community: ugroups_community_info = ugroups_community_info()
+        var legacyGroup: ugroups_legacy_group_info = ugroups_legacy_group_info()
+        var group: ugroups_group_info = ugroups_group_info()
+        let groupsIterator: OpaquePointer = user_groups_iterator_new(conf)
+        
+        while !user_groups_iterator_done(groupsIterator) {
+            try LibSession.checkLoopLimitReached(&infiniteLoopGuard, for: .userGroups)
+            
+            if user_groups_it_is_community(groupsIterator, &community) {
+                let server: String = community.get(\.base_url)
+                let roomToken: String = community.get(\.room)
+                
+                communities.append(
+                    PrioritisedData(
+                        data: LibSession.OpenGroupUrlInfo(
+                            threadId: OpenGroup.idFor(roomToken: roomToken, server: server),
+                            server: server,
+                            roomToken: roomToken,
+                            publicKey: community.getHex(\.pubkey)
+                        ),
+                        priority: community.priority
+                    )
+                )
+            }
+            else if user_groups_it_is_legacy_group(groupsIterator, &legacyGroup) {
+                let groupId: String = legacyGroup.get(\.session_id)
+                let members: [String: Bool] = LibSession.memberInfo(in: &legacyGroup)
+                
+                legacyGroups.append(
+                    LibSession.LegacyGroupInfo(
+                        id: groupId,
+                        name: legacyGroup.get(\.name),
+                        lastKeyPair: ClosedGroupKeyPair(
+                            threadId: groupId,
+                            publicKey: legacyGroup.get(\.enc_pubkey),
+                            secretKey: legacyGroup.get(\.enc_seckey),
+                            receivedTimestamp: (dependencies[cache: .snodeAPI].currentOffsetTimestampMs() / 1000)
+                        ),
+                        disappearingConfig: DisappearingMessagesConfiguration
+                            .defaultWith(groupId)
+                            .with(
+                                isEnabled: (legacyGroup.disappearing_timer > 0),
+                                durationSeconds: TimeInterval(legacyGroup.disappearing_timer),
+                                type: .disappearAfterSend
+                            ),
+                        groupMembers: members
+                            .filter { _, isAdmin in !isAdmin }
+                            .map { memberId, _ in
+                                GroupMember(
+                                    groupId: groupId,
+                                    profileId: memberId,
+                                    role: .standard,
+                                    roleStatus: .accepted,  // Legacy group members don't have role statuses
+                                    isHidden: false
+                                )
+                            },
+                        groupAdmins: members
+                            .filter { _, isAdmin in isAdmin }
+                            .map { memberId, _ in
+                                GroupMember(
+                                    groupId: groupId,
+                                    profileId: memberId,
+                                    role: .admin,
+                                    roleStatus: .accepted,  // Legacy group members don't have role statuses
+                                    isHidden: false
+                                )
+                            },
+                        priority: legacyGroup.priority,
+                        joinedAt: TimeInterval(legacyGroup.joined_at)
+                    )
+                )
+            }
+            else if user_groups_it_is_group(groupsIterator, &group) {
+                groups.append(
+                    LibSession.GroupInfo(
+                        groupSessionId: group.get(\.id),
+                        groupIdentityPrivateKey: (!group.have_secretkey ? nil : group.get(\.secretkey, nullIfEmpty: true)),
+                        name: group.get(\.name),
+                        authData: (!group.have_auth_data ? nil : group.get(\.auth_data, nullIfEmpty: true)),
+                        priority: group.priority,
+                        joinedAt: TimeInterval(group.joined_at),
+                        invited: group.invited,
+                        wasKickedFromGroup: ugroups_group_is_kicked(&group),
+                        wasGroupDestroyed: ugroups_group_is_destroyed(&group)
+                    )
+                )
+            }
+            else {
+                Log.warn(.libSession, "Ignoring unknown conversation type when iterating through volatile conversation info update")
+            }
+            
+            user_groups_iterator_advance(groupsIterator)
+        }
+        user_groups_iterator_free(groupsIterator) // Need to free the iterator
+        
+        return (communities, legacyGroups, groups)
+    }
+}
+
 // MARK: - LegacyGroupInfo
 
-extension LibSession {
+public extension LibSession {
     struct LegacyGroupInfo: Decodable, FetchableRecord, ColumnExpressible {
-        typealias Columns = CodingKeys
-        enum CodingKeys: String, CodingKey, ColumnExpression, CaseIterable {
+        public typealias Columns = CodingKeys
+        public enum CodingKeys: String, CodingKey, ColumnExpression, CaseIterable {
             case threadId
             case name
             case lastKeyPair
@@ -1379,7 +1363,7 @@ extension LibSession {
 
 // MARK: - GroupInfo
 
-extension LibSession {
+public extension LibSession {
     struct GroupInfo {
         let groupSessionId: String
         let groupIdentityPrivateKey: Data?
@@ -1389,6 +1373,7 @@ extension LibSession {
         let joinedAt: TimeInterval
         let invited: Bool
         let wasKickedFromGroup: Bool
+        let wasGroupDestroyed: Bool
     }
     
     struct GroupUpdateInfo {
@@ -1400,6 +1385,7 @@ extension LibSession {
         let joinedAt: TimeInterval?
         let invited: Bool?
         let wasKickedFromGroup: Bool?
+        let wasGroupDestroyed: Bool?
         
         init(
             groupSessionId: String,
@@ -1409,7 +1395,8 @@ extension LibSession {
             priority: Int32? = nil,
             joinedAt: TimeInterval? = nil,
             invited: Bool? = nil,
-            wasKickedFromGroup: Bool? = nil
+            wasKickedFromGroup: Bool? = nil,
+            wasGroupDestroyed: Bool? = nil
         ) {
             self.groupSessionId = groupSessionId
             self.groupIdentityPrivateKey = groupIdentityPrivateKey
@@ -1419,6 +1406,7 @@ extension LibSession {
             self.joinedAt = joinedAt
             self.invited = invited
             self.wasKickedFromGroup = wasKickedFromGroup
+            self.wasGroupDestroyed = wasGroupDestroyed
         }
     }
 }
@@ -1440,17 +1428,9 @@ extension LibSession {
     }
 }
 
-// MARK: - GroupThreadData
-
-fileprivate struct GroupThreadData {
-    let communities: [PrioritisedData<LibSession.OpenGroupUrlInfo>]
-    let legacyGroups: [PrioritisedData<LibSession.LegacyGroupInfo>]
-    let groups: [PrioritisedData<LibSession.GroupInfo>]
-}
-
 // MARK: - PrioritisedData
 
-fileprivate struct PrioritisedData<T> {
+public struct PrioritisedData<T> {
     let data: T
     let priority: Int32
 }

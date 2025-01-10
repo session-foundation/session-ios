@@ -512,32 +512,16 @@ public class ConversationViewModel: OWSAudioPlayerDelegate, NavigatableStateHold
                     joinToPagedType: MessageViewModel.TypingIndicatorInfo.joinToViewModelQuerySQL,
                     associateData: MessageViewModel.TypingIndicatorInfo.createAssociateDataClosure()
                 ),
-                AssociatedRecord<MessageViewModel.QuoteAttachmentInfo, MessageViewModel>(
-                    trackedAgainst: Attachment.self,
-                    observedChanges: [
-                        PagedData.ObservedChanges(
-                            table: Attachment.self,
-                            columns: [.state]
-                        )
-                    ],
-                    dataQuery: MessageViewModel.QuoteAttachmentInfo.baseQuery(
-                        userSessionId: userSessionId,
-                        blinded15SessionId: blinded15SessionId,
-                        blinded25SessionId: blinded25SessionId
-                    ),
-                    joinToPagedType: MessageViewModel.QuoteAttachmentInfo.joinToViewModelQuerySQL(
-                        userSessionId: userSessionId,
-                        blinded15SessionId: blinded15SessionId,
-                        blinded25SessionId: blinded25SessionId
-                    ),
-                    associateData: MessageViewModel.QuoteAttachmentInfo.createAssociateDataClosure()
-                ),
                 AssociatedRecord<MessageViewModel.QuotedInfo, MessageViewModel>(
                     trackedAgainst: Quote.self,
                     observedChanges: [
                         PagedData.ObservedChanges(
                             table: Interaction.self,
                             columns: [.variant]
+                        ),
+                        PagedData.ObservedChanges(
+                            table: Attachment.self,
+                            columns: [.state]
                         )
                     ],
                     dataQuery: MessageViewModel.QuotedInfo.baseQuery(

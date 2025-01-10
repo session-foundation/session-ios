@@ -8,44 +8,13 @@ import SessionMessagingKit
 import SessionUtilitiesKit
 
 public enum AppSetup {
-    @ThreadSafe private static var cachedHasRun: Bool = false
-    public static var hasRun: Bool { cachedHasRun }
-    
     public static func setupEnvironment(
         additionalMigrationTargets: [MigratableTarget.Type] = [],
-        retrySetupIfDatabaseInvalid: Bool = false,
         appSpecificBlock: (() -> ())? = nil,
         migrationProgressChanged: ((CGFloat, TimeInterval) -> ())? = nil,
         migrationsCompletion: @escaping (Result<Void, Error>, Bool) -> (),
         using dependencies: Dependencies
     ) {
-        // If we've already run the app setup then only continue under certain circumstances
-        guard !AppSetup.cachedHasRun else {
-            let storageIsValid: Bool = dependencies[singleton: .storage].isValid
-            
-            switch (retrySetupIfDatabaseInvalid, storageIsValid) {
-                case (true, false):
-                    dependencies[singleton: .storage].reconfigureDatabase()
-                    AppSetup.cachedHasRun = false
-                    AppSetup.setupEnvironment(
-                        retrySetupIfDatabaseInvalid: false, // Don't want to get stuck in a loop
-                        appSpecificBlock: appSpecificBlock,
-                        migrationProgressChanged: migrationProgressChanged,
-                        migrationsCompletion: migrationsCompletion,
-                        using: dependencies
-                    )
-                    
-                default:
-                    migrationsCompletion(
-                        (storageIsValid ? .success(()) : .failure(StorageError.startupFailed)),
-                        false
-                    )
-            }
-            return
-        }
-        
-        AppSetup.cachedHasRun = true
-        
         var backgroundTask: SessionBackgroundTask? = SessionBackgroundTask(label: #function, using: dependencies)
         
         DispatchQueue.global(qos: .userInitiated).async {

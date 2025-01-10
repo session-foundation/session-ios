@@ -50,16 +50,47 @@ enum _022_GroupsRebuildChanges: Migration {
                 .defaults(to: GroupMember.RoleStatus.accepted)
         }
         
+        let userSessionId: SessionId = dependencies[cache: .general].sessionId
+        
         // Update existing groups where the current user is a member to have `shouldPoll` as `true`
         try ClosedGroup
             .joining(
                 required: ClosedGroup.members
-                    .filter(GroupMember.Columns.profileId == dependencies[cache: .general].sessionId.hexString)
+                    .filter(GroupMember.Columns.profileId == userSessionId.hexString)
             )
             .updateAll(
                 db,
                 ClosedGroup.Columns.shouldPoll.set(to: true)
             )
+        
+        // If a user had upgraded a different device their config could already contain V2 groups
+        // so we should check and, if so, create those
+        try dependencies.mutate(cache: .libSession) { cache in
+            guard case .userGroups(let conf) = cache.config(for: .userGroups, sessionId: userSessionId) else {
+                return
+            }
+            
+            // Extract all of the user group info
+            let extractedUserGroups: LibSession.ExtractedUserGroups = try LibSession.extractUserGroups(
+                from: conf,
+                using: dependencies
+            )
+            
+            try extractedUserGroups.groups.forEach { group in
+                // Add a new group if it doesn't already exist
+                try MessageReceiver.handleNewGroup(
+                    db,
+                    groupSessionId: group.groupSessionId,
+                    groupIdentityPrivateKey: group.groupIdentityPrivateKey,
+                    name: group.name,
+                    authData: group.authData,
+                    joinedAt: group.joinedAt,
+                    invited: group.invited,
+                    forceMarkAsInvited: false,
+                    using: dependencies
+                )
+            }
+        }
         
         // Move the `imageData` out of the `OpenGroup` table and on to disk to be consistent with
         // the other display picture logic

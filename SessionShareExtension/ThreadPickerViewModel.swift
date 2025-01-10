@@ -69,7 +69,7 @@ public class ThreadPickerViewModel {
             threads.filter { $0.threadCanWrite == true }   // Exclude unwritable threads
         }
         .removeDuplicates()
-        .handleEvents(didFail: { SNLog("[ThreadPickerViewModel] Observation failed with error: \($0)") })
+        .handleEvents(didFail: { Log.error("Observation failed with error: \($0)") })
     
     // MARK: - Functions
     

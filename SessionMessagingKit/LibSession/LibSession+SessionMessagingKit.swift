@@ -840,8 +840,19 @@ public extension LibSession {
                         threadVariant: threadVariant
                     )
                     
-                case .community, .group, .legacyGroup:
+                case .community, .legacyGroup:
                     return configStore[userSessionId, .userGroups]?.disappearingMessagesConfig(
+                        threadId: threadId,
+                        threadVariant: threadVariant
+                    )
+                    
+                case .group:
+                    guard
+                        let groupSessionId: SessionId = try? SessionId(from: threadId),
+                        groupSessionId.prefix == .group
+                    else { return nil }
+                    
+                    return configStore[groupSessionId, .groupInfo]?.disappearingMessagesConfig(
                         threadId: threadId,
                         threadVariant: threadVariant
                     )

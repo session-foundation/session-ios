@@ -90,7 +90,7 @@ public extension ProfilePictureView {
                         imageData: (
                             profile.map { DisplayPictureManager.displayPicture(owner: .user($0), using: dependencies) } ??
                             PlaceholderIcon.generate(
-                                seed: publicKey,
+                                seed: (profile?.id ?? publicKey),
                                 text: (profile?.displayName(for: threadVariant))
                                     .defaulting(to: publicKey),
                                 size: (additionalProfile != nil ?
@@ -142,10 +142,7 @@ public extension ProfilePictureView {
                                 seed: publicKey,
                                 text: (profile?.displayName(for: threadVariant))
                                     .defaulting(to: publicKey),
-                                size: (additionalProfile != nil ?
-                                    size.multiImageSize :
-                                    size.viewSize
-                                )
+                                size: size.viewSize
                             ).pngData()
                         ),
                         icon: profileIcon

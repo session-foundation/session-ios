@@ -1300,13 +1300,17 @@ extension ConversationVC:
                 cancelTitle: "urlCopy".localized(),
                 cancelStyle: .alert_text,
                 hasCloseButton: true,
-                onConfirm:  { [weak self] _ in
+                onConfirm:  { [weak self] modal in
                     UIApplication.shared.open(url, options: [:], completionHandler: nil)
                     self?.showInputAccessoryView()
+                    
+                    modal.dismiss(animated: true)
                 },
-                onCancel: { [weak self] _ in
+                onCancel: { [weak self] modal in
                     UIPasteboard.general.string = url.absoluteString
                     self?.showInputAccessoryView()
+                    
+                    modal.dismiss(animated: true)
                 }
             )
         )

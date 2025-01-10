@@ -543,22 +543,28 @@ public enum MessageReceiver {
         openGroupMessageServerId: Int64,
         openGroupReactions: [Reaction]
     ) throws {
-        guard let interactionId: Int64 = try? Interaction
-            .select(.id)
-            .filter(Interaction.Columns.threadId == threadId)
-            .filter(Interaction.Columns.openGroupServerMessageId == openGroupMessageServerId)
-            .asRequest(of: Int64.self)
-            .fetchOne(db)
-        else {
-            throw MessageReceiverError.invalidMessage
+        struct Info: Decodable, FetchableRecord {
+            let id: Int64
+            let variant: Interaction.Variant
         }
         
+        guard let interactionInfo: Info = try? Interaction
+            .select(.id, .variant)
+            .filter(Interaction.Columns.threadId == threadId)
+            .filter(Interaction.Columns.openGroupServerMessageId == openGroupMessageServerId)
+            .asRequest(of: Info.self)
+            .fetchOne(db)
+        else { throw MessageReceiverError.invalidMessage }
+        
+        // If the user locally deleted the message then we don't want to process reactions for it
+        guard !interactionInfo.variant.isDeletedMessage else { return }
+        
         _ = try Reaction
-            .filter(Reaction.Columns.interactionId == interactionId)
+            .filter(Reaction.Columns.interactionId == interactionInfo.id)
             .deleteAll(db)
         
         for reaction in openGroupReactions {
-            try reaction.with(interactionId: interactionId).insert(db)
+            try reaction.with(interactionId: interactionInfo.id).insert(db)
         }
     }
     

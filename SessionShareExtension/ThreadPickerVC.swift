@@ -335,16 +335,29 @@ final class ThreadPickerVC: UIViewController, UITableViewDataSource, UITableView
                         ).insert(db)
                     }
                     
-                    // Prepare any attachments
-                    let preparedAttachments: [Attachment] = Attachment.prepare(attachments: finalAttachments, using: dependencies)
-                    try Attachment.process(db, attachments: preparedAttachments, for: interactionId)
-                    
-                    return (
-                        interaction,
-                        try preparedAttachments.map {
-                            try $0.preparedUpload(db, threadId: threadId, logCategory: .messageSender, using: dependencies)
-                        }
+                    // Process any attachments
+                    try Attachment.process(
+                        db,
+                        attachments: Attachment.prepare(attachments: finalAttachments, using: dependencies),
+                        for: interactionId
                     )
+                    
+                    // Using the same logic as the `MessageSendJob` retrieve 
+                    let attachmentState: MessageSendJob.AttachmentState = try MessageSendJob
+                        .fetchAttachmentState(db, interactionId: interactionId)
+                    let preparedUploads: [Network.PreparedRequest<String>] = try Attachment
+                        .filter(ids: attachmentState.allAttachmentIds)
+                        .fetchAll(db)
+                        .map { attachment in
+                            try attachment.preparedUpload(
+                                db,
+                                threadId: threadId,
+                                logCategory: nil,
+                                using: dependencies
+                            )
+                        }
+                    
+                    return (interaction, preparedUploads)
                 }
                 .flatMap { (interaction: Interaction, preparedUploads: [Network.PreparedRequest<String>]) -> AnyPublisher<(interaction: Interaction, fileIds: [String]), Error> in
                     guard !preparedUploads.isEmpty else {

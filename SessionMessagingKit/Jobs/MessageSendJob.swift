@@ -57,64 +57,24 @@ public enum MessageSendJob: JobExecutor {
             else { return failure(job, JobRunnerError.missingRequiredDetails, true) }
             
             // Retrieve the current attachment state
-            typealias AttachmentState = (error: Error?, pendingUploadAttachmentIds: [String], preparedFileIds: [String])
-
             let attachmentState: AttachmentState = dependencies[singleton: .storage]
-                .read { db in
-                    // If the original interaction no longer exists then don't bother sending the message (ie. the
-                    // message was deleted before it even got sent)
-                    guard try Interaction.exists(db, id: interactionId) else {
-                        Log.warn(.cat, "Failing \(messageType) (\(job.id ?? -1)) due to missing interaction")
-                        return (StorageError.objectNotFound, [], [])
-                    }
-
-                    // Get the current state of the attachments
-                    let allAttachmentStateInfo: [Attachment.StateInfo] = try Attachment
-                        .stateInfo(interactionId: interactionId)
-                        .fetchAll(db)
-                    let maybeFileIds: [String?] = allAttachmentStateInfo
-                        .sorted { lhs, rhs in lhs.albumIndex < rhs.albumIndex }
-                        .map { Attachment.fileId(for: $0.downloadUrl) }
-                    let fileIds: [String] = maybeFileIds.compactMap { $0 }
-
-                    // If there were failed attachments then this job should fail (can't send a
-                    // message which has associated attachments if the attachments fail to upload)
-                    guard !allAttachmentStateInfo.contains(where: { $0.state == .failedDownload }) else {
-                        Log.info(.cat, "Failing \(messageType) (\(job.id ?? -1)) due to failed attachment upload")
-                        return (AttachmentError.notUploaded, [], fileIds)
-                    }
-
-                    /// Find all attachmentIds for attachments which need to be uploaded
-                    ///
-                    /// **Note:** If there are any 'downloaded' attachments then they also need to be uploaded (as a
-                    /// 'downloaded' attachment will be on the current users device but not on the message recipients
-                    /// device - both `LinkPreview` and `Quote` can have this case)
-                    let pendingUploadAttachmentIds: [String] = allAttachmentStateInfo
-                        .filter { attachment -> Bool in
-                            // Non-media quotes won't have thumbnails so so don't try to upload them
-                            guard attachment.downloadUrl != Attachment.nonMediaQuoteFileId else { return false }
-
-                            switch attachment.state {
-                                case .uploading, .pendingDownload, .downloading, .failedUpload, .downloaded:
-                                    return true
-                                    
-                                // If we've somehow got an attachment that is in an 'uploaded' state but doesn't
-                                // have a 'downloadUrl' then it's invalid and needs to be re-uploaded
-                                case .uploaded: return (attachment.downloadUrl == nil)
-
-                                default: return false
-                            }
-                        }
-                        .map { $0.attachmentId }
-                    
-                    return (nil, pendingUploadAttachmentIds, fileIds)
-                }
-                .defaulting(to: (MessageSenderError.invalidMessage, [], []))
+                .read { db in try MessageSendJob.fetchAttachmentState(db, interactionId: interactionId) }
+                .defaulting(to: AttachmentState(error: MessageSenderError.invalidMessage))
 
             /// If we got an error when trying to retrieve the attachment state then this job is actually invalid so it
             /// should permanently fail
             guard attachmentState.error == nil else {
-                Log.error(.cat, "Failed \(messageType) (\(job.id ?? -1)) due to invalid attachment state")
+                switch (attachmentState.error ?? NetworkError.unknown) {
+                    case StorageError.objectNotFound:
+                        Log.warn(.cat, "Failing \(messageType) (\(job.id ?? -1)) due to missing interaction")
+                        
+                    case AttachmentError.notUploaded:
+                        Log.info(.cat, "Failing \(messageType) (\(job.id ?? -1)) due to failed attachment upload")
+                        
+                    default:
+                        Log.error(.cat, "Failed \(messageType) (\(job.id ?? -1)) due to invalid attachment state")
+                }
+                
                 return failure(job, (attachmentState.error ?? MessageSenderError.invalidMessage), true)
             }
 
@@ -273,6 +233,88 @@ public enum MessageSendJob: JobExecutor {
                     }
                 }
             )
+    }
+}
+
+// MARK: - Convenience
+
+public extension MessageSendJob {
+    struct AttachmentState {
+        public let error: Error?
+        public let pendingUploadAttachmentIds: [String]
+        public let preparedFileIds: [String]
+        public let allAttachmentIds: [String]
+        
+        init(
+            error: Error? = nil,
+            pendingUploadAttachmentIds: [String] = [],
+            preparedFileIds: [String] = [],
+            allAttachmentIds: [String] = []
+        ) {
+            self.error = error
+            self.pendingUploadAttachmentIds = pendingUploadAttachmentIds
+            self.preparedFileIds = preparedFileIds
+            self.allAttachmentIds = allAttachmentIds
+        }
+    }
+    
+    static func fetchAttachmentState(
+        _ db: Database,
+        interactionId: Int64
+    ) throws -> AttachmentState {
+        // If the original interaction no longer exists then don't bother sending the message (ie. the
+        // message was deleted before it even got sent)
+        guard try Interaction.exists(db, id: interactionId) else {
+            return AttachmentState(error: StorageError.objectNotFound)
+        }
+
+        // Get the current state of the attachments
+        let allAttachmentStateInfo: [Attachment.StateInfo] = try Attachment
+            .stateInfo(interactionId: interactionId)
+            .fetchAll(db)
+        let maybeFileIds: [String?] = allAttachmentStateInfo
+            .sorted { lhs, rhs in lhs.albumIndex < rhs.albumIndex }
+            .map { Attachment.fileId(for: $0.downloadUrl) }
+        let fileIds: [String] = maybeFileIds.compactMap { $0 }
+
+        // If there were failed attachments then this job should fail (can't send a
+        // message which has associated attachments if the attachments fail to upload)
+        guard !allAttachmentStateInfo.contains(where: { $0.state == .failedDownload }) else {
+            return AttachmentState(
+                error: AttachmentError.notUploaded,
+                preparedFileIds: fileIds,
+                allAttachmentIds: allAttachmentStateInfo.map(\.attachmentId)
+            )
+        }
+
+        /// Find all attachmentIds for attachments which need to be uploaded
+        ///
+        /// **Note:** If there are any 'downloaded' attachments then they also need to be uploaded (as a
+        /// 'downloaded' attachment will be on the current users device but not on the message recipients
+        /// device - both `LinkPreview` and `Quote` can have this case)
+        let pendingUploadAttachmentIds: [String] = allAttachmentStateInfo
+            .filter { attachment -> Bool in
+                // Non-media quotes won't have thumbnails so so don't try to upload them
+                guard attachment.downloadUrl != Attachment.nonMediaQuoteFileId else { return false }
+
+                switch attachment.state {
+                    case .uploading, .pendingDownload, .downloading, .failedUpload, .downloaded:
+                        return true
+                        
+                    // If we've somehow got an attachment that is in an 'uploaded' state but doesn't
+                    // have a 'downloadUrl' then it's invalid and needs to be re-uploaded
+                    case .uploaded: return (attachment.downloadUrl == nil)
+
+                    default: return false
+                }
+            }
+            .map { $0.attachmentId }
+        
+        return AttachmentState(
+            pendingUploadAttachmentIds: pendingUploadAttachmentIds,
+            preparedFileIds: fileIds,
+            allAttachmentIds: allAttachmentStateInfo.map(\.attachmentId)
+        )
     }
 }
 

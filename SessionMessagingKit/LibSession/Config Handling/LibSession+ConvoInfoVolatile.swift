@@ -475,7 +475,7 @@ public extension LibSessionCacheType {
 // MARK: - VolatileThreadInfo
 
 public extension LibSession {
-    internal struct OpenGroupUrlInfo: FetchableRecord, Codable, Hashable {
+    struct OpenGroupUrlInfo: FetchableRecord, Codable, Hashable {
         let threadId: String
         let server: String
         let roomToken: String

@@ -31,7 +31,7 @@ public struct GroupMember: Codable, Equatable, Hashable, FetchableRecord, Persis
         public static func < (lhs: Role, rhs: Role) -> Bool { lhs.rawValue < rhs.rawValue }
     }
     
-    public enum RoleStatus: Int, Codable, DatabaseValueConvertible {
+    public enum RoleStatus: Int, Codable, CaseIterable, DatabaseValueConvertible {
         case accepted
         case pending
         case failed
@@ -184,6 +184,9 @@ extension GroupMember: ProfileAssociated {
         /// If the role and status match then we want to sort by current user, no-name members by id, then by name
         guard lhs.value.role != rhs.value.role || lhs.value.roleStatus != rhs.value.roleStatus else {
             switch (lhs.profileId, rhs.profileId, lhs.profile?.name, rhs.profile?.name) {
+                case (userSessionId.hexString, userSessionId.hexString, _, _):
+                    /// This case shouldn't be possible and is more to make the unit tests a bit nicer to read
+                    return (lhsDisplayName.lowercased() < rhsDisplayName.lowercased())
                 case (userSessionId.hexString, _, _, _): return true
                 case (_, userSessionId.hexString, _, _): return false
                 case (_, _, .none, .some): return true
