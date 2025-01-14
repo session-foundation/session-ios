@@ -18,7 +18,7 @@ import Foundation
 /// as `ThreadSafeType` (reference types or structs which have `mutating` functions **should not** use this mechanism
 /// as it cannot ensure thread safety for those types)
 @propertyWrapper
-public struct ThreadSafe<Value: ThreadSafeType> {
+public class ThreadSafe<Value: ThreadSafeType> {
     private var value: Value
     private let lock: ReadWriteLock = ReadWriteLock()
 
@@ -49,17 +49,17 @@ public struct ThreadSafe<Value: ThreadSafeType> {
     
     // MARK: - Functions
 
-    public mutating func performUpdateAndMap<T>(_ closure: (Value) -> (Value, T)) -> T {
+    public func performUpdateAndMap<T>(_ closure: (Value) -> (Value, T)) -> T {
         return try! performInternal { closure($0) }
     }
     
-    public mutating func performUpdateAndMap<T>(_ closure: (Value) throws -> (Value, T)) throws -> T {
+    public func performUpdateAndMap<T>(_ closure: (Value) throws -> (Value, T)) throws -> T {
         return try performInternal { try closure($0) }
     }
     
     // MARK: - Internal Functions
     
-    @discardableResult private mutating func performInternal<T>(_ mutation: (Value) throws -> (Value, T)) throws -> T {
+    @discardableResult private func performInternal<T>(_ mutation: (Value) throws -> (Value, T)) throws -> T {
         lock.writeLock()
         defer { lock.unlock() }
         
