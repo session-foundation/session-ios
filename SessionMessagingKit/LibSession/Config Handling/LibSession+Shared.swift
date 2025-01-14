@@ -506,11 +506,8 @@ extension LibSession.Config {
         }
     }
     
-    public func isAdmin(groupSessionId: SessionId) -> Bool {
-        guard
-            groupSessionId.prefix == .group,
-            case .groupKeys(let conf, _, _) = self
-        else { return false }
+    public func isAdmin() -> Bool {
+        guard case .groupKeys(let conf, _, _) = self else { return false }
         
         return groups_keys_is_admin(conf)
     }

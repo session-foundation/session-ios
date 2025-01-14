@@ -378,7 +378,7 @@ open class Storage {
         // Note: The non-async migration should only be used for unit tests
         guard async else { return migrationCompleted(Result(catching: { try migrator.migrate(dbWriter) })) }
         
-        migrator.asyncMigrate(dbWriter) { result in
+        migrator.asyncMigrate(dbWriter) { [dependencies] result in
             let finalResult: Result<Void, Error> = {
                 switch result {
                     case .failure(let error): return .failure(error)

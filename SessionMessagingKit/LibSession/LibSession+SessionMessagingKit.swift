@@ -864,7 +864,7 @@ public extension LibSession {
                 return false
             }
             
-            return config.isAdmin(groupSessionId: groupSessionId)
+            return config.isAdmin()
         }
     }
 }
