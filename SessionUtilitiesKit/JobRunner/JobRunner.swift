@@ -691,7 +691,9 @@ public final class JobRunner: JobRunnerType {
         
         // Don't add to the queue if the JobRunner isn't ready (it's been saved to the db so it'll be loaded
         // once the queue actually get started later)
-        guard canAddToQueue(updatedJob) || jobQueue?.isRunningInBackgroundTask == true else { return updatedJob }
+        guard canAddToQueue(updatedJob) || jobQueue?.isRunningInBackgroundTask == true else {
+            return updatedJob
+        }
         
         // The queue is ready or running in a background task so we can add the job
         jobQueue?.add(db, job: updatedJob, canStartJob: canStartJob, using: dependencies)
@@ -1292,10 +1294,14 @@ public final class JobQueue: Hashable {
         guard canStart?(self) == true || isRunningInBackgroundTask else { return }
         guard forceWhenAlreadyRunning || !isRunning || isRunningInBackgroundTask else { return }
         
-        // The JobRunner runs synchronously we need to ensure this doesn't start
-        // on the main thread (if it is on the main thread then swap to a different thread)
+        // The JobRunner runs synchronously so we need to ensure this doesn't start on the main
+        // thread and do so by creating a number of background queues to run the jobs on, if this
+        // function was called on the wrong queue then we need to dispatch to the correct one
         guard DispatchQueue.with(key: queueKey, matches: queueContext, using: dependencies) else {
-            internalQueue.async(using: dependencies) { [weak self] in
+            // Note: We need to dispatch this after a small 0.01 delay to prevent any potential
+            // re-entrancy issues since the `start` function can be called within an existing
+            // database transaction (eg. via `db.afterNextTransactionNestedOnce`)
+            internalQueue.asyncAfter(deadline: .now() + 0.01, using: dependencies) { [weak self] in
                 self?.start(forceWhenAlreadyRunning: forceWhenAlreadyRunning, using: dependencies)
             }
             return

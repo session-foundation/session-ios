@@ -574,9 +574,12 @@ private extension LibSession {
                 return Log.error("[LibSession] CallbackWrapper called with null context.")
             }
             
-            // Dispatch async so we don't block libSession's internals with Swift logic (which can block other requests)
+            /// Dispatch async so we don't block libSession's internals with Swift logic (which can block other requests), we
+            /// add the `0.01` delay to ensure the closure isn't executed immediately
             let wrapper: CallbackWrapper<Output> = Unmanaged<CallbackWrapper<Output>>.fromOpaque(ctx).takeRetainedValue()
-            DispatchQueue.global(qos: .default).async { [wrapper] in wrapper.resultPublisher.send(output) }
+            DispatchQueue.global(qos: .default).asyncAfter(deadline: .now() + 0.01) { [wrapper] in
+                wrapper.resultPublisher.send(output)
+            }
         }
         
         public func unsafePointer() -> UnsafeMutableRawPointer { Unmanaged.passRetained(self).toOpaque() }

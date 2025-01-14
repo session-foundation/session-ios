@@ -564,7 +564,7 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
         /// There is a warning which can happen on launch because the Database read can be blocked by another database operation
         /// which could result in this blocking the main thread, as a result we want to check the identity exists on a background thread
         /// and then return to the main thread only when required
-        DispatchQueue.global(qos: .default).async { [weak self] in
+        DispatchQueue.global(qos: .default).asyncAfter(deadline: .now() + 0.01) { [weak self] in
             guard Identity.userExists() else { return }
             
             self?.enableBackgroundRefreshIfNecessary()
@@ -679,7 +679,7 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
                     
                     /// We want to start observing the changes for the 'HomeVC' and want to wait until we actually get data back before we
                     /// continue as we don't want to show a blank home screen
-                    DispatchQueue.global(qos: .userInitiated).async {
+                    DispatchQueue.global(qos: .userInitiated).asyncAfter(deadline: .now() + 0.01) {
                         viewController.startObservingChanges() {
                             populateHomeScreenTimer.invalidate()
                             
@@ -719,7 +719,7 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
             /// On application startup the `Storage.read` can be slightly slow while GRDB spins up it's database
             /// read pools (up to a few seconds), since this read is blocking we want to dispatch it to run async to ensure
             /// we don't block user interaction while it's running
-            DispatchQueue.global(qos: .default).async {
+            DispatchQueue.global(qos: .default).asyncAfter(deadline: .now() + 0.01) {
                 let unreadCount: Int = Storage.shared
                     .read { db in try Interaction.fetchUnreadCount(db) }
                     .defaulting(to: 0)
@@ -814,7 +814,10 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
         
         /// Start the pollers on a background thread so that any database queries they need to run don't
         /// block the main thread
-        DispatchQueue.global(qos: .background).async { [weak self] in
+        ///
+        /// **Note:** We add a delay of `0.01` to prevent potential database re-entrancy if this is triggered
+        /// within the completion block of a database transaction, this gives it the time to complete the transaction
+        DispatchQueue.global(qos: .background).asyncAfter(deadline: .now() + 0.01) { [weak self] in
             self?.poller.start()
             
             guard shouldStartGroupPollers else { return }
