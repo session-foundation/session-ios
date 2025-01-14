@@ -28,7 +28,7 @@ struct StartConversationScreen: View {
                             .putNumber(1)
                             .localized()
                         NewConversationCell(
-                            image: "Message",
+                            image: "Message", // stringlint:ignore
                             title: title
                         ) {
                             let viewController: SessionHostingViewController = SessionHostingViewController(
@@ -89,7 +89,9 @@ struct StartConversationScreen: View {
                             image: "icon_invite", // stringlint:ignore
                             title: "sessionInviteAFriend".localized()
                         ) {
-                            let viewController: SessionHostingViewController = SessionHostingViewController(rootView: InviteAFriendScreen())
+                            let viewController: SessionHostingViewController = SessionHostingViewController(
+                                rootView: InviteAFriendScreen(accountId: dependencies[cache: .general].sessionId.hexString)
+                            )
                             viewController.setNavBarTitle("sessionInviteAFriend".localized())
                             viewController.setUpDismissingButton(on: .right)
                             self.host.controller?.navigationController?.pushViewController(viewController, animated: true)
@@ -112,7 +114,7 @@ struct StartConversationScreen: View {
                         .foregroundColor(themeColor: .textSecondary)
                     
                     QRCodeView(
-                        string: getUserHexEncodedPublicKey(),
+                        string: dependencies[cache: .general].sessionId.hexString,
                         hasBackground: false,
                         logo: "SessionWhite40", // stringlint:ignore
                         themeStyle: ThemeManager.currentTheme.interfaceStyle
@@ -162,5 +164,5 @@ fileprivate struct NewConversationCell: View {
 }
 
 #Preview {
-    StartConversationScreen(using: Dependencies())
+    StartConversationScreen(using: Dependencies.createEmpty())
 }
