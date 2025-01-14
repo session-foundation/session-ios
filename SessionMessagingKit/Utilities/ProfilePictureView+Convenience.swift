@@ -47,9 +47,8 @@ public extension ProfilePictureView {
         // either Community conversations or updated groups)
         if let displayPictureFilename: String = displayPictureFilename {
             return (Info(
-                imageData: DisplayPictureManager.displayPicture(
-                    owner: .file(displayPictureFilename),
-                    using: dependencies
+                imageData: dependencies[singleton: .displayPictureManager].displayPicture(
+                    owner: .file(displayPictureFilename)
                 ),
                 icon: profileIcon
             ), nil)
@@ -88,7 +87,7 @@ public extension ProfilePictureView {
                 return (
                     Info(
                         imageData: (
-                            profile.map { DisplayPictureManager.displayPicture(owner: .user($0), using: dependencies) } ??
+                            profile.map { dependencies[singleton: .displayPictureManager].displayPicture(owner: .user($0)) } ??
                             PlaceholderIcon.generate(
                                 seed: (profile?.id ?? publicKey),
                                 text: (profile?.displayName(for: threadVariant))
@@ -105,7 +104,7 @@ public extension ProfilePictureView {
                         .map { otherProfile in
                             Info(
                                 imageData: (
-                                    DisplayPictureManager.displayPicture(owner: .user(otherProfile), using: dependencies) ??
+                                    dependencies[singleton: .displayPictureManager].displayPicture(owner: .user(otherProfile)) ??
                                     PlaceholderIcon.generate(
                                         seed: otherProfile.id,
                                         text: otherProfile.displayName(for: threadVariant),
@@ -137,7 +136,7 @@ public extension ProfilePictureView {
                 return (
                     Info(
                         imageData: (
-                            profile.map { DisplayPictureManager.displayPicture(owner: .user($0), using: dependencies) } ??
+                            profile.map { dependencies[singleton: .displayPictureManager].displayPicture(owner: .user($0)) } ??
                             PlaceholderIcon.generate(
                                 seed: publicKey,
                                 text: (profile?.displayName(for: threadVariant))

@@ -24,6 +24,7 @@ class DisplayPictureDownloadJobSpec: QuickSpec {
         }
         @TestState(cache: .libSession, in: dependencies) var mockLibSessionCache: MockLibSessionCache! = MockLibSessionCache(
             initialSetup: { cache in
+                cache.when { $0.config(for: .any, sessionId: .any) }.thenReturn(nil)
                 cache
                     .when { try $0.performAndPushChange(.any, for: .any, sessionId: .any, change: { _ in }) }
                     .thenReturn(())

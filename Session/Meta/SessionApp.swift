@@ -143,7 +143,7 @@ public class SessionApp: SessionAppType {
             $0.suspendNetworkAccess()
         }
         dependencies[singleton: .storage].resetAllStorage()
-        DisplayPictureManager.resetStorage(using: dependencies)
+        dependencies[singleton: .displayPictureManager].resetStorage()
         Attachment.resetAttachmentStorage(using: dependencies)
         dependencies[singleton: .notificationsManager].clearAllNotifications()
         try? dependencies[singleton: .keychain].removeAll()

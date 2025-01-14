@@ -6,6 +6,15 @@ import GRDB
 import SessionSnodeKit
 import SessionUtilitiesKit
 
+// MARK: - Singleton
+
+public extension Singleton {
+    static let displayPictureManager: SingletonConfig<DisplayPictureManager> = Dependencies.create(
+        identifier: "displayPictureManager",
+        createInstance: { dependencies in DisplayPictureManager(using: dependencies) }
+    )
+}
+
 // MARK: - Log.Category
 
 public extension Log.Category {
@@ -13,7 +22,10 @@ public extension Log.Category {
 }
 
 // MARK: - DisplayPictureManager
-public struct DisplayPictureManager {
+
+public class DisplayPictureManager {
+    public typealias UploadResult = (downloadUrl: String, fileName: String, encryptionKey: Data)
+    
     public enum Update {
         case none
         
@@ -35,8 +47,19 @@ public struct DisplayPictureManager {
     internal static let nonceLength: Int = 12
     internal static let tagLength: Int = 16
     
-    private static var scheduleDownloadsPublisher: AnyPublisher<Void, Never>?
-    private static let scheduleDownloadsTrigger: PassthroughSubject<(), Never> = PassthroughSubject()
+    private let dependencies: Dependencies
+    private let scheduleDownloads: PassthroughSubject<(), Never> = PassthroughSubject()
+    private var scheduleDownloadsCancellable: AnyCancellable?
+    
+    // MARK: - Initalization
+    
+    init(using dependencies: Dependencies) {
+        self.dependencies = dependencies
+        
+        setupThrottledDownloading()
+    }
+    
+    // MARK: - General
     
     public static func isTooLong(profileUrl: String) -> Bool {
         /// String.utf8CString will include the null terminator (Int8)0 as the end of string buffer.
@@ -46,7 +69,7 @@ public struct DisplayPictureManager {
         return (profileUrl.utf8CString.count > LibSession.sizeMaxProfileUrlBytes)
     }
     
-    public static func sharedDataDisplayPictureDirPath(using dependencies: Dependencies) -> String {
+    public func sharedDataDisplayPictureDirPath() -> String {
         let path: String = URL(fileURLWithPath: dependencies[singleton: .fileManager].appSharedDataDirectoryPath)
             .appendingPathComponent("ProfileAvatars")   // stringlint:ignore
             .path
@@ -57,11 +80,7 @@ public struct DisplayPictureManager {
     
     // MARK: - Loading
     
-    public static func displayPicture(
-        _ db: Database,
-        id: OwnerId,
-        using dependencies: Dependencies
-    ) -> Data? {
+    public func displayPicture(_ db: Database, id: OwnerId) -> Data? {
         let maybeOwner: Owner? = {
             switch id {
                 case .user(let id): return try? Profile.fetchOne(db, id: id).map { Owner.user($0) }
@@ -72,41 +91,34 @@ public struct DisplayPictureManager {
         
         guard let owner: Owner = maybeOwner else { return nil }
         
-        return displayPicture(owner: owner, using: dependencies)
+        return displayPicture(owner: owner)
     }
     
-    @discardableResult public static func displayPicture(
-        owner: Owner,
-        using dependencies: Dependencies
-    ) -> Data? {
+    @discardableResult public func displayPicture(owner: Owner) -> Data? {
         switch (owner.fileName, owner.canDownloadImage) {
             case (.some(let fileName), _):
-                return loadDisplayPicture(for: fileName, owner: owner, using: dependencies)
+                return loadDisplayPicture(for: fileName, owner: owner)
                 
             case (_, true):
-                scheduleDownload(for: owner, currentFileInvalid: false, using: dependencies)
+                scheduleDownload(for: owner, currentFileInvalid: false)
                 return nil
                 
             default: return nil
         }
     }
     
-    private static func loadDisplayPicture(
-        for fileName: String,
-        owner: Owner,
-        using dependencies: Dependencies
-    ) -> Data? {
+    private func loadDisplayPicture(for fileName: String, owner: Owner) -> Data? {
         if let cachedImageData: Data = dependencies[cache: .displayPicture].imageData[fileName] {
             return cachedImageData
         }
         
         guard
             !fileName.isEmpty,
-            let data: Data = loadDisplayPictureFromDisk(for: fileName, using: dependencies),
+            let data: Data = loadDisplayPictureFromDisk(for: fileName),
             data.isValidImage
         else {
             // If we can't load the avatar or it's an invalid/corrupted image then clear it out and re-download
-            scheduleDownload(for: owner, currentFileInvalid: true, using: dependencies)
+            scheduleDownload(for: owner, currentFileInvalid: true)
             return nil
         }
         
@@ -114,23 +126,22 @@ public struct DisplayPictureManager {
         return data
     }
     
-    public static func loadDisplayPictureFromDisk(for fileName: String, using dependencies: Dependencies) -> Data? {
-        guard let filePath: String = try? DisplayPictureManager.filepath(for: fileName, using: dependencies) else {
-            return nil
-        }
+    public func loadDisplayPictureFromDisk(for fileName: String) -> Data? {
+        guard let filePath: String = try? filepath(for: fileName) else { return nil }
 
         return try? Data(contentsOf: URL(fileURLWithPath: filePath))
     }
     
     // MARK: - File Paths
     
-    public static func profileAvatarFilepath(
+    public func profileAvatarFilepath(
         _ db: Database? = nil,
-        id: String,
-        using dependencies: Dependencies
+        id: String
     ) -> String? {
         guard let db: Database = db else {
-            return dependencies[singleton: .storage].read { db in profileAvatarFilepath(db, id: id, using: dependencies) }
+            return dependencies[singleton: .storage].read { [weak self] db in
+                self?.profileAvatarFilepath(db, id: id)
+            }
         }
         
         let maybeFileName: String? = try? Profile
@@ -139,10 +150,10 @@ public struct DisplayPictureManager {
             .asRequest(of: String.self)
             .fetchOne(db)
         
-        return maybeFileName.map { try? DisplayPictureManager.filepath(for: $0, using: dependencies) }
+        return maybeFileName.map { try? filepath(for: $0) }
     }
     
-    public static func generateFilename(for url: String, using dependencies: Dependencies) -> String {
+    public func generateFilename(for url: String) -> String {
         return (dependencies[singleton: .crypto]
             .generate(.hash(message: url.bytes))?
             .toHexString())
@@ -150,7 +161,7 @@ public struct DisplayPictureManager {
             .appendingFileExtension("jpg")  // stringlint:ignore
     }
     
-    public static func generateFilename(using dependencies: Dependencies) -> String {
+    public func generateFilename() -> String {
         return dependencies[singleton: .crypto]
             .generate(.uuid())
             .defaulting(to: UUID())
@@ -158,91 +169,76 @@ public struct DisplayPictureManager {
             .appendingFileExtension("jpg")  // stringlint:ignore
     }
     
-    public static func filepath(for filename: String, using dependencies: Dependencies) throws -> String {
+    public func filepath(for filename: String) throws -> String {
         guard !filename.isEmpty else { throw DisplayPictureError.invalidCall }
         
-        return URL(fileURLWithPath: sharedDataDisplayPictureDirPath(using: dependencies))
+        return URL(fileURLWithPath: sharedDataDisplayPictureDirPath())
             .appendingPathComponent(filename)
             .path
     }
     
-    public static func resetStorage(using dependencies: Dependencies) {
+    public func resetStorage() {
         try? dependencies[singleton: .fileManager].removeItem(
-            atPath: DisplayPictureManager.sharedDataDisplayPictureDirPath(using: dependencies)
+            atPath: sharedDataDisplayPictureDirPath()
         )
     }
     
     // MARK: - Downloading
     
-    private static func scheduleDownload(
-        for owner: Owner,
-        currentFileInvalid invalid: Bool,
-        using dependencies: Dependencies
-    ) {
+    /// Profile picture downloads can be triggered very frequently when processing messages so we want to throttle the updates to
+    /// 250ms (it's for starting avatar downloads so that should definitely be fast enough)
+    private func setupThrottledDownloading() {
+        scheduleDownloadsCancellable = scheduleDownloads
+            .throttle(for: .milliseconds(250), scheduler: DispatchQueue.global(qos: .userInitiated), latest: true)
+            .sink(
+                receiveValue: { [dependencies] _ in
+                    let pendingInfo: Set<DownloadInfo> = dependencies.mutate(cache: .displayPicture) { cache in
+                        let result: Set<DownloadInfo> = cache.downloadsToSchedule
+                        cache.downloadsToSchedule.removeAll()
+                        return result
+                    }
+                    
+                    dependencies[singleton: .storage].writeAsync { db in
+                        pendingInfo.forEach { info in
+                            // If the current file is invalid then clear out the 'profilePictureFileName'
+                            // and try to re-download the file
+                            if info.currentFileInvalid {
+                                info.owner.clearCurrentFile(db)
+                            }
+                            
+                            dependencies[singleton: .jobRunner].add(
+                                db,
+                                job: Job(
+                                    variant: .displayPictureDownload,
+                                    shouldBeUnique: true,
+                                    details: DisplayPictureDownloadJob.Details(owner: info.owner)
+                                ),
+                                canStartJob: true
+                            )
+                        }
+                    }
+                }
+            )
+    }
+    
+    private func scheduleDownload(for owner: Owner, currentFileInvalid invalid: Bool) {
         dependencies.mutate(cache: .displayPicture) { cache in
             cache.downloadsToSchedule.insert(DownloadInfo(owner: owner, currentFileInvalid: invalid))
         }
-        
-        /// This method can be triggered very frequently when processing messages so we want to throttle the updates to 250ms (it's for starting
-        /// avatar downloads so that should definitely be fast enough)
-        if scheduleDownloadsPublisher == nil {
-            scheduleDownloadsPublisher = scheduleDownloadsTrigger
-                .throttle(for: .milliseconds(250), scheduler: DispatchQueue.global(qos: .userInitiated), latest: true)
-                .handleEvents(
-                    receiveOutput: { [dependencies] _ in
-                        let pendingInfo: Set<DownloadInfo> = dependencies.mutate(cache: .displayPicture) { cache in
-                            let result: Set<DownloadInfo> = cache.downloadsToSchedule
-                            cache.downloadsToSchedule.removeAll()
-                            return result
-                        }
-                        
-                        dependencies[singleton: .storage].writeAsync { db in
-                            pendingInfo.forEach { info in
-                                // If the current file is invalid then clear out the 'profilePictureFileName'
-                                // and try to re-download the file
-                                if info.currentFileInvalid {
-                                    info.owner.clearCurrentFile(db)
-                                }
-                                
-                                dependencies[singleton: .jobRunner].add(
-                                    db,
-                                    job: Job(
-                                        variant: .displayPictureDownload,
-                                        shouldBeUnique: true,
-                                        details: DisplayPictureDownloadJob.Details(owner: info.owner)
-                                    ),
-                                    canStartJob: true
-                                )
-                            }
-                        }
-                    }
-                )
-                .map { _ in () }
-                .eraseToAnyPublisher()
-            
-            scheduleDownloadsPublisher?.sinkUntilComplete()
-        }
-        
-        scheduleDownloadsTrigger.send(())
+        scheduleDownloads.send(())
     }
     
     // MARK: - Uploading
     
-    public static func prepareAndUploadDisplayPicture(
-        queue: DispatchQueue,
-        imageData: Data,
-        success: @escaping ((downloadUrl: String, fileName: String, encryptionKey: Data)) -> (),
-        failure: ((DisplayPictureError) -> ())? = nil,
-        using dependencies: Dependencies
-    ) {
-        queue.async(using: dependencies) {
-            // If the profile avatar was updated or removed then encrypt with a new profile key
-            // to ensure that other users know that our profile picture was updated
-            let newEncryptionKey: Data
-            let finalImageData: Data
-            let fileExtension: String
-            
-            do {
+    public func prepareAndUploadDisplayPicture(imageData: Data) -> AnyPublisher<UploadResult, DisplayPictureError> {
+        return Just(())
+            .setFailureType(to: DisplayPictureError.self)
+            .tryMap { [weak self, dependencies] _ -> (Network.PreparedRequest<FileUploadResponse>, String, Data, Data) in
+                // If the profile avatar was updated or removed then encrypt with a new profile key
+                // to ensure that other users know that our profile picture was updated
+                let newEncryptionKey: Data
+                let finalImageData: Data
+                let fileExtension: String
                 let guessedFormat: ImageFormat = imageData.guessedImageFormat
                 
                 finalImageData = try {
@@ -301,80 +297,83 @@ public struct DisplayPictureManager {
                         default: return "jpg"       // stringlint:ignore
                     }
                 }()
+                
+                // If we have a new avatar image, we must first:
+                //
+                // * Write it to disk.
+                // * Encrypt it
+                // * Upload it to asset service
+                // * Send asset service info to Signal Service
+                Log.verbose(.displayPictureManager, "Updating local profile on service with new avatar.")
+                
+                let fileName: String = dependencies[singleton: .crypto].generate(.uuid())
+                    .defaulting(to: UUID())
+                    .uuidString
+                    .appendingFileExtension(fileExtension)
+                
+                guard let filePath: String = try? self?.filepath(for: fileName) else {
+                    throw DisplayPictureError.invalidFilename
+                }
+                
+                // Write the avatar to disk
+                do { try finalImageData.write(to: URL(fileURLWithPath: filePath), options: [.atomic]) }
+                catch {
+                    Log.error(.displayPictureManager, "Updating service with profile failed.")
+                    throw DisplayPictureError.writeFailed
+                }
+                
+                // Encrypt the avatar for upload
+                guard
+                    let encryptedData: Data = dependencies[singleton: .crypto].generate(
+                        .encryptedDataDisplayPicture(data: finalImageData, key: newEncryptionKey, using: dependencies)
+                    )
+                else {
+                    Log.error(.displayPictureManager, "Updating service with profile failed.")
+                    throw DisplayPictureError.encryptionFailed
+                }
+                
+                // Upload the avatar to the FileServer
+                guard
+                    let preparedUpload: Network.PreparedRequest<FileUploadResponse> = try? Network.preparedUpload(
+                        data: encryptedData,
+                        requestAndPathBuildTimeout: Network.fileUploadTimeout,
+                        using: dependencies
+                    )
+                else {
+                    Log.error(.displayPictureManager, "Updating service with profile failed.")
+                    throw DisplayPictureError.uploadFailed
+                }
+                
+                return (preparedUpload, fileName, newEncryptionKey, finalImageData)
             }
-            catch let error as DisplayPictureError { return (failure?(error) ?? {}()) }
-            catch { return (failure?(DisplayPictureError.invalidCall) ?? {}()) }
-
-            // If we have a new avatar image, we must first:
-            //
-            // * Write it to disk.
-            // * Encrypt it
-            // * Upload it to asset service
-            // * Send asset service info to Signal Service
-            Log.verbose(.displayPictureManager, "Updating local profile on service with new avatar.")
-            
-            let fileName: String = dependencies[singleton: .crypto].generate(.uuid())
-                .defaulting(to: UUID())
-                .uuidString
-                .appendingFileExtension(fileExtension)
-            
-            guard let filePath: String = try? DisplayPictureManager.filepath(for: fileName, using: dependencies) else {
-                failure?(.invalidFilename)
-                return
-            }
-            
-            // Write the avatar to disk
-            do { try finalImageData.write(to: URL(fileURLWithPath: filePath), options: [.atomic]) }
-            catch {
-                Log.error(.displayPictureManager, "Updating service with profile failed.")
-                failure?(.writeFailed)
-                return
-            }
-            
-            // Encrypt the avatar for upload
-            guard
-                let encryptedData: Data = dependencies[singleton: .crypto].generate(
-                    .encryptedDataDisplayPicture(data: finalImageData, key: newEncryptionKey, using: dependencies)
-                )
-            else {
-                Log.error(.displayPictureManager, "Updating service with profile failed.")
-                failure?(.encryptionFailed)
-                return
-            }
-            
-            // Upload the avatar to the FileServer
-            guard let preparedUpload: Network.PreparedRequest<FileUploadResponse> = try? Network.preparedUpload(data: encryptedData, using: dependencies) else {
-                Log.error(.displayPictureManager, "Updating service with profile failed.")
-                failure?(.uploadFailed)
-                return
-            }
-            
-            preparedUpload
-                .send(using: dependencies)
-                .subscribe(on: DispatchQueue.global(qos: .userInitiated), using: dependencies)
-                .receive(on: queue, using: dependencies)
-                .sinkUntilComplete(
-                    receiveCompletion: { result in
-                        switch result {
-                            case .finished: break
-                            case .failure(let error):
-                                Log.error(.displayPictureManager, "Updating service with profile failed with error: \(error).")
-                                
-                                let isMaxFileSizeExceeded: Bool = ((error as? NetworkError) == .maxFileSizeExceeded)
-                                failure?(isMaxFileSizeExceeded ? .uploadMaxFileSizeExceeded : .uploadFailed)
-                        }
-                    },
-                    receiveValue: { _, fileUploadResponse in
-                        let downloadUrl: String = Network.FileServer.downloadUrlString(for: fileUploadResponse.id)
-                        
-                        // Update the cached avatar image value
-                        dependencies.mutate(cache: .displayPicture) { $0.imageData[fileName] = finalImageData }
-                        
-                        Log.verbose(.displayPictureManager, "Successfully uploaded avatar image.")
-                        success((downloadUrl, fileName, newEncryptionKey))
+            .flatMap { [dependencies] preparedUpload, fileName, newEncryptionKey, finalImageData -> AnyPublisher<(FileUploadResponse, String, Data, Data), Error> in
+                preparedUpload.send(using: dependencies)
+                    .map { _, response -> (FileUploadResponse, String, Data, Data) in
+                        (response, fileName, newEncryptionKey, finalImageData)
                     }
-                )
-        }
+                    .eraseToAnyPublisher()
+            }
+            .mapError { error in
+                Log.error(.displayPictureManager, "Updating service with profile failed with error: \(error).")
+                
+                switch error {
+                    case NetworkError.maxFileSizeExceeded: return DisplayPictureError.uploadMaxFileSizeExceeded
+                    case let displayPictureError as DisplayPictureError: return displayPictureError
+                    default: return DisplayPictureError.uploadFailed
+                }
+            }
+            .map { [dependencies] fileUploadResponse, fileName, newEncryptionKey, finalImageData -> UploadResult in
+                let downloadUrl: String = Network.FileServer.downloadUrlString(for: fileUploadResponse.id)
+                
+                // Update the cached avatar image value
+                dependencies.mutate(cache: .displayPicture) {
+                    $0.imageData[fileName] = finalImageData
+                }
+                
+                Log.verbose(.displayPictureManager, "Successfully uploaded avatar image.")
+                return (downloadUrl, fileName, newEncryptionKey)
+            }
+            .eraseToAnyPublisher()
     }
 }
 

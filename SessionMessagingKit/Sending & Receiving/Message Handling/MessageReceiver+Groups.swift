@@ -303,6 +303,19 @@ extension MessageReceiver {
                 GroupMember.Columns.roleStatus.set(to: GroupMember.RoleStatus.accepted),
                 using: dependencies
             )
+        
+        // Finally we want to invalidate the `lastHash` data for all messages in the group because
+        // admins get historic message access by default (if we don't do this then restoring a device
+        // would get all of the old messages and result in a conversation history that differs from
+        // devices that had the group before they were promoted
+        try SnodeReceivedMessageInfo
+            .filter(SnodeReceivedMessageInfo.Columns.swarmPublicKey == groupSessionId.hexString)
+            .filter(SnodeReceivedMessageInfo.Columns.namespace == SnodeAPI.Namespace.groupMessages.rawValue)
+            .updateAllAndConfig(
+                db,
+                SnodeReceivedMessageInfo.Columns.wasDeletedOrInvalid.set(to: true),
+                using: dependencies
+            )
     }
     
     private static func handleGroupInfoChanged(
@@ -745,9 +758,9 @@ extension MessageReceiver {
                     switch result {
                         case .failure: break
                         case .finished:
-                            /// Since the server deletion was successful we should also remove the `SnodeReceivedMessageInfo`
-                            /// entries for the hashes (otherwise we might try to poll for a hash which no longer exists, resulting in fetching
-                            /// the last 14 days of messages)
+                            /// Since the server deletion was successful we should also flag the `SnodeReceivedMessageInfo`
+                            /// entries for the hashes as invalid (otherwise we might try to poll for a hash which no longer exists,
+                            /// resulting in fetching the last 14 days of messages)
                             dependencies[singleton: .storage].writeAsync { db in
                                 try SnodeReceivedMessageInfo.handlePotentialDeletedOrInvalidHash(
                                     db,

@@ -117,7 +117,6 @@ public final class SnodeAPI {
                     
                     result[next.0] = (next.1, messageResponse)
                 }
-
         }
     }
     

@@ -356,8 +356,8 @@ extension OpenGroupSuggestionGrid {
         
         fileprivate func update(with room: OpenGroupAPI.Room, openGroup: OpenGroup, using dependencies: Dependencies) {
             label.text = room.name
-            imageView.image = DisplayPictureManager
-                .displayPicture(owner: .community(openGroup), using: dependencies)
+            imageView.image = dependencies[singleton: .displayPictureManager]
+                .displayPicture(owner: .community(openGroup))
                 .map { UIImage(data: $0) }
             imageView.isHidden = (imageView.image == nil)
         }

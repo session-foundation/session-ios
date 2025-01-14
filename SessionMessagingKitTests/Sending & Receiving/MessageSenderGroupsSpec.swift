@@ -648,7 +648,11 @@ class MessageSenderGroupsSpec: QuickSpec {
                             .sinkAndStore(in: &disposables)
                         
                         let expectedRequest: Network.PreparedRequest<FileUploadResponse> = try Network
-                            .preparedUpload(data: TestConstants.validImageData, using: dependencies)
+                            .preparedUpload(
+                                data: TestConstants.validImageData,
+                                requestAndPathBuildTimeout: Network.fileUploadTimeout,
+                                using: dependencies
+                            )
                         
                         expect(mockNetwork)
                             .to(call(.exactly(times: 1), matchingParameters: .all) { network in

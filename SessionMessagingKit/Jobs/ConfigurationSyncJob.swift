@@ -85,7 +85,6 @@ public enum ConfigurationSyncJob: JobExecutor {
         let additionalSequenceRequests: AdditionalSequenceRequests? = (job.transientData as? AdditionalSequenceRequests)
         Log.info(.cat, "For \(swarmPublicKey) started with changes: \(pendingChanges.pushData.count), old hashes: \(pendingChanges.obsoleteHashes.count)")
         
-        // TODO: Seems like the conversation list will randomly not get the last message (Lokinet updates???).
         dependencies[singleton: .storage]
             .readPublisher { db -> Network.PreparedRequest<Network.BatchResponse> in
                 try SnodeAPI.preparedSequence(

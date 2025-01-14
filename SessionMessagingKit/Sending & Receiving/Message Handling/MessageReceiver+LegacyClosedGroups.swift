@@ -599,8 +599,6 @@ extension MessageReceiver {
             case .memberLeft = messageKind
         else { return }
         
-        // TODO: [GROUPS REBUILD] If the current user is an admin then we need to actually remove the member from the group.
-        
         try processIfValid(
             db,
             threadId: threadId,

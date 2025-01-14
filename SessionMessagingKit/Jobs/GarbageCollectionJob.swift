@@ -349,7 +349,7 @@ public enum GarbageCollectionJob: JobExecutor {
                     // Delete any expired SnodeReceivedMessageInfo values associated to a specific node
                     try SnodeReceivedMessageInfo
                         .select(Column.rowID)
-                        .filter(SnodeReceivedMessageInfo.Columns.expirationDateMs <= timestampNow)
+                        .filter(SnodeReceivedMessageInfo.Columns.expirationDateMs <= (timestampNow * 1000))
                         .deleteAll(db)
                 }
             },
@@ -467,7 +467,7 @@ public enum GarbageCollectionJob: JobExecutor {
                     // Orphaned display picture files (actual deletion)
                     if finalTypesToCollect.contains(.orphanedDisplayPictures) {
                         let allDisplayPictureFilenames: Set<String> = (try? dependencies[singleton: .fileManager]
-                            .contentsOfDirectory(atPath: DisplayPictureManager.sharedDataDisplayPictureDirPath(using: dependencies)))
+                            .contentsOfDirectory(atPath: dependencies[singleton: .displayPictureManager].sharedDataDisplayPictureDirPath()))
                             .defaulting(to: [])
                             .asSet()
                         let orphanedFiles: Set<String> = allDisplayPictureFilenames
@@ -478,7 +478,7 @@ public enum GarbageCollectionJob: JobExecutor {
                             // each one and store the error to be used to determine success/failure of the job
                             do {
                                 try dependencies[singleton: .fileManager].removeItem(
-                                    atPath: DisplayPictureManager.filepath(for: filename, using: dependencies)
+                                    atPath: dependencies[singleton: .displayPictureManager].filepath(for: filename)
                                 )
                             }
                             catch { deletionErrors.append(error) }

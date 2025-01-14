@@ -344,7 +344,9 @@ internal extension LibSession {
                             oldAvatarKey != (updatedProfile.profileEncryptionKey ?? Data(repeating: 0, count: DisplayPictureManager.aes256KeyByteLength))
                         )
                     {
-                        DisplayPictureManager.displayPicture(owner: .user(updatedProfile), using: dependencies)
+                        dependencies[singleton: .displayPictureManager].displayPicture(
+                            owner: .user(updatedProfile)
+                        )
                     }
                     
                     // Store the updated contact (needs to happen before variables go out of scope)

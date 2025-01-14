@@ -369,7 +369,7 @@ final class ShareNavController: UINavigationController, ShareViewDelegate {
     }
     
     private func loadItemProvider(itemProvider: NSItemProvider) -> AnyPublisher<LoadedItem, Error> {
-        Log.info("attachment: \(itemProvider)")
+        Log.info("utiTypes for attachment: \(itemProvider.registeredTypeIdentifiers)")
 
         // We need to be very careful about which UTI type we use.
         //
@@ -403,7 +403,7 @@ final class ShareNavController: UINavigationController, ShareViewDelegate {
                         return
                     }
                     
-                    Log.info("value type: \(type(of: value))")
+                    Log.debug("value type: \(type(of: value))")
                     
                     switch value {
                         case let data as Data:
@@ -595,10 +595,10 @@ final class ShareNavController: UINavigationController, ShareViewDelegate {
 
         let attachment = SignalAttachment.attachment(dataSource: dataSource, type: specificType, imageQuality: .medium, using: dependencies)
         if loadedItem.isConvertibleToContactShare {
-            Log.info("isConvertibleToContactShare")
+            Log.debug("isConvertibleToContactShare")
             attachment.isConvertibleToContactShare = true
         } else if loadedItem.isConvertibleToTextMessage {
-            Log.info("isConvertibleToTextMessage")
+            Log.debug("isConvertibleToTextMessage")
             attachment.isConvertibleToTextMessage = true
         }
         return Just(attachment)
@@ -704,8 +704,6 @@ private extension NSItemProvider {
     }
 
     var type: UTType? {
-        Log.info("utiTypeForItem: \(registeredTypeIdentifiers)")
-        
         switch (matches(type: .url), matches(type: .contact)) {
             case (true, _): return .url
             case (_, true): return .contact

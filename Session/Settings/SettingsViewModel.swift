@@ -510,7 +510,7 @@ class SettingsViewModel: SessionTableViewModel, NavigationItemSource, Navigatabl
     
     private func updateProfilePicture(currentFileName: String?) {
         let existingImageData: Data? = dependencies[singleton: .storage].read { [userSessionId, dependencies] db in
-            DisplayPictureManager.displayPicture(db, id: .user(userSessionId.hexString), using: dependencies)
+            dependencies[singleton: .displayPictureManager].displayPicture(db, id: .user(userSessionId.hexString))
         }
         self.transitionToScreen(
             ConfirmationModal(
@@ -583,50 +583,46 @@ class SettingsViewModel: SessionTableViewModel, NavigationItemSource, Navigatabl
         onComplete: @escaping () -> ()
     ) {
         let viewController = ModalActivityIndicatorViewController(canCancel: false) { [weak self, dependencies] modalActivityIndicator in
-            Profile.updateLocal(
-                queue: .global(qos: .default),
-                displayNameUpdate: displayNameUpdate,
-                displayPictureUpdate: displayPictureUpdate,
-                success: { db in
-                    // Wait for the database transaction to complete before updating the UI
-                    db.afterNextTransactionNested(using: dependencies) { _ in
-                        DispatchQueue.main.async {
-                            modalActivityIndicator.dismiss(completion: {
-                                onComplete()
-                            })
-                        }
-                    }
-                },
-                failure: { [weak self] error in
-                    DispatchQueue.main.async {
+            Profile
+                .updateLocal(
+                    displayNameUpdate: displayNameUpdate,
+                    displayPictureUpdate: displayPictureUpdate,
+                    using: dependencies
+                )
+                .subscribe(on: DispatchQueue.global(qos: .default), using: dependencies)
+                .receive(on: DispatchQueue.main, using: dependencies)
+                .sinkUntilComplete(
+                    receiveCompletion: { result in
                         modalActivityIndicator.dismiss {
-                            let message: String = {
-                                switch (displayPictureUpdate, error) {
-                                    case (.currentUserRemove, _): return "profileDisplayPictureRemoveError".localized()
-                                    case (_, .uploadMaxFileSizeExceeded):
-                                        return "profileDisplayPictureSizeError".localized()
+                            switch result {
+                                case .finished: onComplete()
+                                case .failure(let error):
+                                    let message: String = {
+                                        switch (displayPictureUpdate, error) {
+                                            case (.currentUserRemove, _): return "profileDisplayPictureRemoveError".localized()
+                                            case (_, .uploadMaxFileSizeExceeded):
+                                                return "profileDisplayPictureSizeError".localized()
+                                            
+                                            default: return "errorConnection".localized()
+                                        }
+                                    }()
                                     
-                                    default: return "errorConnection".localized()
-                                }
-                            }()
-                            
-                            self?.transitionToScreen(
-                                ConfirmationModal(
-                                    info: ConfirmationModal.Info(
-                                        title: "profileErrorUpdate".localized(),
-                                        body: .text(message),
-                                        cancelTitle: "okay".localized(),
-                                        cancelStyle: .alert_text,
-                                        dismissType: .single
+                                    self?.transitionToScreen(
+                                        ConfirmationModal(
+                                            info: ConfirmationModal.Info(
+                                                title: "profileErrorUpdate".localized(),
+                                                body: .text(message),
+                                                cancelTitle: "okay".localized(),
+                                                cancelStyle: .alert_text,
+                                                dismissType: .single
+                                            )
+                                        ),
+                                        transitionType: .present
                                     )
-                                ),
-                                transitionType: .present
-                            )
+                            }
                         }
                     }
-                },
-                using: dependencies
-            )
+                )
         }
         
         self.transitionToScreen(viewController, transitionType: .present)

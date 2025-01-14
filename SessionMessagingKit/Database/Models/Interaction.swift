@@ -1407,8 +1407,8 @@ public extension Interaction {
             .filter(interactionIds.contains(Reaction.Columns.interactionId))
             .deleteAll(db)
         
-        /// Remove the `SnodeReceivedMessageInfo` records (otherwise we might try to poll for a hash which no longer exists, resulting
-        /// in fetching the last 14 days of messages)
+        /// Flag the `SnodeReceivedMessageInfo` records as invalid (otherwise we might try to poll for a hash which no longer
+        /// exists, resulting in fetching the last 14 days of messages)
         let serverHashes: Set<String> = interactionInfo.compactMap(\.serverHash).asSet()
         
         if !serverHashes.isEmpty {

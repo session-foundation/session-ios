@@ -32,6 +32,7 @@ class MessageSendJobSpec: QuickSpec {
         }
         @TestState(cache: .libSession, in: dependencies) var mockLibSessionCache: MockLibSessionCache! = MockLibSessionCache(
             initialSetup: { cache in
+                cache.when { $0.config(for: .any, sessionId: .any) }.thenReturn(nil)
                 cache
                     .when { $0.pinnedPriority(.any, threadId: .any, threadVariant: .any) }
                     .thenReturn(LibSession.defaultNewThreadPriority)

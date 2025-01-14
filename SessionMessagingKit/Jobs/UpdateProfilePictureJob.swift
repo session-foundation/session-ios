@@ -52,24 +52,26 @@ public enum UpdateProfilePictureJob: JobExecutor {
         // Note: The user defaults flag is updated in DisplayPictureManager
         let profile: Profile = Profile.fetchOrCreateCurrentUser(using: dependencies)
         let displayPictureUpdate: DisplayPictureManager.Update = profile.profilePictureFileName
-            .map { DisplayPictureManager.loadDisplayPictureFromDisk(for: $0, using: dependencies) }
+            .map { dependencies[singleton: .displayPictureManager].loadDisplayPictureFromDisk(for: $0) }
             .map { .currentUserUploadImageData($0) }
             .defaulting(to: .none)
         
-        Profile.updateLocal(
-            queue: queue,
-            displayPictureUpdate: displayPictureUpdate,
-            success: { db in
-                // Need to call the 'success' closure asynchronously on the queue to prevent a reentrancy
-                // issue as it will write to the database and this closure is already called within
-                // another database write
-                queue.async {
-                    Log.info(.cat, "Profile successfully updated")
-                    success(job, false)
+        Profile
+            .updateLocal(
+                displayPictureUpdate: displayPictureUpdate,
+                using: dependencies
+            )
+            .subscribe(on: queue, using: dependencies)
+            .receive(on: queue, using: dependencies)
+            .sinkUntilComplete(
+                receiveCompletion: { result in
+                    switch result {
+                        case .failure(let error): failure(job, error, false)
+                        case .finished:
+                            Log.info(.cat, "Profile successfully updated")
+                            success(job, false)
+                    }
                 }
-            },
-            failure: { error in failure(job, error, false) },
-            using: dependencies
-        )
+            )
     }
 }

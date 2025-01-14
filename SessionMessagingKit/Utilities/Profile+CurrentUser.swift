@@ -1,6 +1,7 @@
 // Copyright © 2023 Rangeproof Pty Ltd. All rights reserved.
 
 import UIKit.UIImage
+import Combine
 import GRDB
 import SessionUtilitiesKit
 
@@ -28,13 +29,10 @@ public extension Profile {
     }
     
     static func updateLocal(
-        queue: DispatchQueue,
         displayNameUpdate: DisplayNameUpdate = .none,
         displayPictureUpdate: DisplayPictureManager.Update = .none,
-        success: ((Database) throws -> ())? = nil,
-        failure: ((DisplayPictureError) -> ())? = nil,
         using dependencies: Dependencies
-    ) {
+    ) -> AnyPublisher<Void, DisplayPictureError> {
         let userSessionId: SessionId = dependencies[cache: .general].sessionId
         let isRemovingAvatar: Bool = {
             switch displayPictureUpdate {
@@ -45,73 +43,76 @@ public extension Profile {
         
         switch displayPictureUpdate {
             case .contactRemove, .contactUpdateTo, .groupRemove, .groupUpdateTo, .groupUploadImageData:
-                failure?(DisplayPictureError.invalidCall)
+                return Fail(error: DisplayPictureError.invalidCall)
+                    .eraseToAnyPublisher()
             
             case .none, .currentUserRemove, .currentUserUpdateTo:
-                dependencies[singleton: .storage].writeAsync { db in
-                    if isRemovingAvatar {
-                        let existingProfileUrl: String? = try Profile
-                            .filter(id: userSessionId.hexString)
-                            .select(.profilePictureUrl)
-                            .asRequest(of: String.self)
-                            .fetchOne(db)
-                        let existingProfileFileName: String? = try Profile
-                            .filter(id: userSessionId.hexString)
-                            .select(.profilePictureFileName)
-                            .asRequest(of: String.self)
-                            .fetchOne(db)
-                        
-                        // Remove any cached avatar image value
-                        if let fileName: String = existingProfileFileName {
-                            dependencies.mutate(cache: .displayPicture) { $0.imageData[fileName] = nil }
+                return dependencies[singleton: .storage]
+                    .writePublisher { db in
+                        if isRemovingAvatar {
+                            let existingProfileUrl: String? = try Profile
+                                .filter(id: userSessionId.hexString)
+                                .select(.profilePictureUrl)
+                                .asRequest(of: String.self)
+                                .fetchOne(db)
+                            let existingProfileFileName: String? = try Profile
+                                .filter(id: userSessionId.hexString)
+                                .select(.profilePictureFileName)
+                                .asRequest(of: String.self)
+                                .fetchOne(db)
+                            
+                            // Remove any cached avatar image value
+                            if let fileName: String = existingProfileFileName {
+                                dependencies.mutate(cache: .displayPicture) { $0.imageData[fileName] = nil }
+                            }
+                            
+                            switch existingProfileUrl {
+                                case .some: Log.verbose(.profile, "Updating local profile on service with cleared avatar.")
+                                case .none: Log.verbose(.profile, "Updating local profile on service with no avatar.")
+                            }
                         }
                         
-                        switch existingProfileUrl {
-                            case .some: Log.verbose(.profile, "Updating local profile on service with cleared avatar.")
-                            case .none: Log.verbose(.profile, "Updating local profile on service with no avatar.")
-                        }
+                        try Profile.updateIfNeeded(
+                            db,
+                            publicKey: userSessionId.hexString,
+                            displayNameUpdate: displayNameUpdate,
+                            displayPictureUpdate: displayPictureUpdate,
+                            sentTimestamp: dependencies.dateNow.timeIntervalSince1970,
+                            using: dependencies
+                        )
+                        Log.info(.profile, "Successfully updated user profile.")
                     }
-                    
-                    try Profile.updateIfNeeded(
-                        db,
-                        publicKey: userSessionId.hexString,
-                        displayNameUpdate: displayNameUpdate,
-                        displayPictureUpdate: displayPictureUpdate,
-                        sentTimestamp: dependencies.dateNow.timeIntervalSince1970,
-                        using: dependencies
-                    )
-                    
-                    Log.info(.profile, "Successfully updated user profile.")
-                    try success?(db)
-                }
+                    .mapError { _ in DisplayPictureError.databaseChangesFailed }
+                    .eraseToAnyPublisher()
                 
             case .currentUserUploadImageData(let data):
-                DisplayPictureManager.prepareAndUploadDisplayPicture(
-                    queue: queue,
-                    imageData: data,
-                    success: { downloadUrl, fileName, newProfileKey in
-                        dependencies[singleton: .storage].writeAsync { db in
-                            try Profile.updateIfNeeded(
-                                db,
-                                publicKey: userSessionId.hexString,
-                                displayNameUpdate: displayNameUpdate,
-                                displayPictureUpdate: .currentUserUpdateTo(
-                                    url: downloadUrl,
-                                    key: newProfileKey,
-                                    fileName: fileName
-                                ),
-                                sentTimestamp: dependencies.dateNow.timeIntervalSince1970,
-                                using: dependencies
-                            )
-                            
-                            dependencies[defaults: .standard, key: .lastProfilePictureUpload] = dependencies.dateNow
-                            Log.info(.profile, "Successfully updated user profile.")
-                            try success?(db)
+                return dependencies[singleton: .displayPictureManager]
+                    .prepareAndUploadDisplayPicture(imageData: data)
+                    .mapError { $0 as Error }
+                    .flatMapStorageWritePublisher(using: dependencies, updates: { db, result in
+                        try Profile.updateIfNeeded(
+                            db,
+                            publicKey: userSessionId.hexString,
+                            displayNameUpdate: displayNameUpdate,
+                            displayPictureUpdate: .currentUserUpdateTo(
+                                url: result.downloadUrl,
+                                key: result.encryptionKey,
+                                fileName: result.fileName
+                            ),
+                            sentTimestamp: dependencies.dateNow.timeIntervalSince1970,
+                            using: dependencies
+                        )
+                        
+                        dependencies[defaults: .standard, key: .lastProfilePictureUpload] = dependencies.dateNow
+                        Log.info(.profile, "Successfully updated user profile.")
+                    })
+                    .mapError { error in
+                        switch error {
+                            case let displayPictureError as DisplayPictureError: return displayPictureError
+                            default: return DisplayPictureError.databaseChangesFailed
                         }
-                    },
-                    failure: failure,
-                    using: dependencies
-                )
+                    }
+                    .eraseToAnyPublisher()
         }
     }    
     
@@ -193,9 +194,10 @@ public extension Profile {
                 }
                 
                 // If we have already downloaded the image then no need to download it again
-                let maybeFilePath: String? = try? DisplayPictureManager.filepath(
-                    for: fileName.defaulting(to: DisplayPictureManager.generateFilename(for: url, using: dependencies)),
-                    using: dependencies
+                let maybeFilePath: String? = try? dependencies[singleton: .displayPictureManager].filepath(
+                    for: fileName.defaulting(
+                        to: dependencies[singleton: .displayPictureManager].generateFilename(for: url)
+                    )
                 )
                 
                 if avatarNeedsDownload, let filePath: String = maybeFilePath, !dependencies[singleton: .fileManager].fileExists(atPath: filePath) {

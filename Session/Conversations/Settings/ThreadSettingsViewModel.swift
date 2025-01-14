@@ -796,7 +796,7 @@ class ThreadSettingsViewModel: SessionTableViewModel, NavigatableStateHolder, Ob
             case .contact:
                 guard
                     let profile: Profile = threadViewModel.profile,
-                    let imageData: Data = DisplayPictureManager.displayPicture(owner: .user(profile), using: dependencies)
+                    let imageData: Data = dependencies[singleton: .displayPictureManager].displayPicture(owner: .user(profile))
                 else { return }
                 
                 displayPictureData = imageData
@@ -805,7 +805,7 @@ class ThreadSettingsViewModel: SessionTableViewModel, NavigatableStateHolder, Ob
                 guard
                     threadViewModel.displayPictureFilename != nil,
                     let imageData: Data = dependencies[singleton: .storage].read({ [dependencies] db in
-                        DisplayPictureManager.displayPicture(db, id: ownerId, using: dependencies)
+                        dependencies[singleton: .displayPictureManager].displayPicture(db, id: ownerId)
                     })
                 else { return }
                 
@@ -1329,7 +1329,7 @@ class ThreadSettingsViewModel: SessionTableViewModel, NavigatableStateHolder, Ob
         guard dependencies[feature: .updatedGroupsAllowDisplayPicture] else { return }
         
         let existingImageData: Data? = dependencies[singleton: .storage].read { [threadId, dependencies] db in
-            DisplayPictureManager.displayPicture(db, id: .group(threadId), using: dependencies)
+            dependencies[singleton: .displayPictureManager].displayPicture(db, id: .group(threadId))
         }
         self.transitionToScreen(
             ConfirmationModal(
@@ -1444,42 +1444,48 @@ class ThreadSettingsViewModel: SessionTableViewModel, NavigatableStateHolder, Ob
                 
                 case .groupRemove, .groupUpdateTo: performChanges(viewController, displayPictureUpdate)
                 case .groupUploadImageData(let data):
-                    DisplayPictureManager.prepareAndUploadDisplayPicture(
-                        queue: DispatchQueue.global(qos: .background),
-                        imageData: data,
-                        success: { url, fileName, key in
-                            performChanges(viewController, .groupUpdateTo(url: url, key: key, fileName: fileName))
-                        },
-                        failure: { error in
-                            DispatchQueue.main.async {
-                                viewController.dismiss {
-                                    let message: String = {
-                                        switch (displayPictureUpdate, error) {
-                                            case (.groupRemove, _): return "profileDisplayPictureRemoveError".localized()
-                                            case (_, .uploadMaxFileSizeExceeded):
-                                                return "profileDisplayPictureSizeError".localized()
+                    dependencies[singleton: .displayPictureManager]
+                        .prepareAndUploadDisplayPicture(imageData: data)
+                        .subscribe(on: DispatchQueue.global(qos: .background), using: dependencies)
+                        .receive(on: DispatchQueue.main, using: dependencies)
+                        .sinkUntilComplete(
+                            receiveCompletion: { result in
+                                switch result {
+                                    case .finished: break
+                                    case .failure(let error):
+                                        viewController.dismiss {
+                                            let message: String = {
+                                                switch (displayPictureUpdate, error) {
+                                                    case (.groupRemove, _): return "profileDisplayPictureRemoveError".localized()
+                                                    case (_, .uploadMaxFileSizeExceeded):
+                                                        return "profileDisplayPictureSizeError".localized()
+                                                    
+                                                    default: return "errorConnection".localized()
+                                                }
+                                            }()
                                             
-                                            default: return "errorConnection".localized()
-                                        }
-                                    }()
-                                    
-                                    self?.transitionToScreen(
-                                        ConfirmationModal(
-                                            info: ConfirmationModal.Info(
-                                                title: "deleteAfterLegacyGroupsGroupUpdateErrorTitle".localized(),
-                                                body: .text(message),
-                                                cancelTitle: "okay".localized(),
-                                                cancelStyle: .alert_text,
-                                                dismissType: .single
+                                            self?.transitionToScreen(
+                                                ConfirmationModal(
+                                                    info: ConfirmationModal.Info(
+                                                        title: "deleteAfterLegacyGroupsGroupUpdateErrorTitle".localized(),
+                                                        body: .text(message),
+                                                        cancelTitle: "okay".localized(),
+                                                        cancelStyle: .alert_text,
+                                                        dismissType: .single
+                                                    )
+                                                ),
+                                                transitionType: .present
                                             )
-                                        ),
-                                        transitionType: .present
-                                    )
+                                        }
                                 }
+                            },
+                            receiveValue: { url, fileName, key in
+                                performChanges(
+                                    viewController,
+                                    .groupUpdateTo(url: url, key: key, fileName: fileName)
+                                )
                             }
-                        },
-                        using: dependencies
-                    )
+                        )
             }
         }
         self.transitionToScreen(viewController, transitionType: .present)

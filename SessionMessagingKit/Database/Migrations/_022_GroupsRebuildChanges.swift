@@ -101,9 +101,9 @@ enum _022_GroupsRebuildChanges: Migration {
             .fetchAll(db)
         
         existingImageInfo.forEach { imageInfo in
-            let fileName: String = DisplayPictureManager.generateFilename(using: dependencies)
+            let fileName: String = dependencies[singleton: .displayPictureManager].generateFilename()
             
-            guard let filePath: String = try? DisplayPictureManager.filepath(for: fileName, using: dependencies) else {
+            guard let filePath: String = try? dependencies[singleton: .displayPictureManager].filepath(for: fileName) else {
                 Log.error("[GroupsRebuildChanges] Failed to generate community file path for current file name")
                 return
             }

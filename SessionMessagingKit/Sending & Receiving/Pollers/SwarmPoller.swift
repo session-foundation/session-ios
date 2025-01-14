@@ -101,26 +101,32 @@ public class SwarmPoller: SwarmPollerType & PollerType {
         /// Fetch the messages
         return dependencies[singleton: .network]
             .getSwarm(for: pollerDestination.target)
-            .tryFlatMapWithRandomSnode(drainBehaviour: _pollerDrainBehaviour, using: dependencies) { [pollerDestination, customAuthMethod, namespaces, dependencies] snode -> AnyPublisher<Network.PreparedRequest<SnodeAPI.PollResponse>, Error> in
-                dependencies[singleton: .storage].readPublisher { db -> Network.PreparedRequest<SnodeAPI.PollResponse> in
+            .tryFlatMapWithRandomSnode(drainBehaviour: _pollerDrainBehaviour, using: dependencies) { [pollerDestination, customAuthMethod, namespaces, dependencies] snode -> AnyPublisher<(LibSession.Snode, Network.PreparedRequest<SnodeAPI.PollResponse>), Error> in
+                dependencies[singleton: .storage].readPublisher { db -> (LibSession.Snode, Network.PreparedRequest<SnodeAPI.PollResponse>) in
                     let authMethod: AuthenticationMethod = try (customAuthMethod ?? Authentication.with(
                         db,
                         swarmPublicKey: pollerDestination.target,
                         using: dependencies
                     ))
                     
-                    return try SnodeAPI.preparedPoll(
-                        db,
-                        namespaces: namespaces,
-                        refreshingConfigHashes: configHashes,
-                        from: snode,
-                        authMethod: authMethod,
-                        using: dependencies
+                    return (
+                        snode,
+                        try SnodeAPI.preparedPoll(
+                            db,
+                            namespaces: namespaces,
+                            refreshingConfigHashes: configHashes,
+                            from: snode,
+                            authMethod: authMethod,
+                            using: dependencies
+                        )
                     )
                 }
             }
-            .flatMap { [dependencies] request in request.send(using: dependencies) }
-            .flatMap { [pollerDestination, shouldStoreMessages, dependencies] (_: ResponseInfoType, namespacedResults: SnodeAPI.PollResponse) -> AnyPublisher<(configMessageJobs: [Job], standardMessageJobs: [Job], pollResult: PollResult), Error> in
+            .flatMap { [dependencies] snode, request in
+                request.send(using: dependencies)
+                    .map { _, response in (snode, response) }
+            }
+            .flatMap { [pollerDestination, shouldStoreMessages, dependencies] (snode: LibSession.Snode, namespacedResults: SnodeAPI.PollResponse) -> AnyPublisher<(configMessageJobs: [Job], standardMessageJobs: [Job], pollResult: PollResult), Error> in
                 // Get all of the messages and sort them by their required 'processingOrder'
                 let sortedMessages: [(namespace: SnodeAPI.Namespace, messages: [SnodeReceivedMessage])] = namespacedResults
                     .compactMap { namespace, result in (result.data?.messages).map { (namespace, $0) } }
@@ -146,6 +152,29 @@ public class SwarmPoller: SwarmPollerType & PollerType {
                 var hadValidHashUpdate: Bool = false
                 
                 return dependencies[singleton: .storage].writePublisher { db -> (configMessageJobs: [Job], standardMessageJobs: [Job], pollResult: PollResult) in
+                    // If the poll was successful we need to retrieve the `lastHash` values
+                    // direct from the database again to ensure they still line up (if they
+                    // have been reset in the database then we want to ignore the poll as it
+                    // would invalidate whatever change modified the `lastHash` values potentially
+                    // resulting in us not polling again from scratch even if we want to)
+                    let lastHashesAfterFetch: Set<String> = try Set(namespacedResults
+                        .compactMap { namespace, _ in
+                            try SnodeReceivedMessageInfo
+                                .fetchLastNotExpired(
+                                    db,
+                                    for: snode,
+                                    namespace: namespace,
+                                    swarmPublicKey: pollerDestination.target,
+                                    using: dependencies
+                                )?
+                                .hash
+                        })
+                    
+                    guard lastHashes.isEmpty || Set(lastHashes) == lastHashesAfterFetch else {
+                        return ([], [], ([], 0, 0, false))
+                    }
+                    
+                    // Since the hashes are still accurate we can now process the messages
                     let allProcessedMessages: [ProcessedMessage] = sortedMessages
                         .compactMap { namespace, messages -> [ProcessedMessage]? in
                             let processedMessages: [ProcessedMessage] = messages
@@ -319,15 +348,15 @@ public class SwarmPoller: SwarmPollerType & PollerType {
                             return updatedJob
                         }
                     
-                    // Clean up message hashes and add some logs about the poll results
-                    if sortedMessages.isEmpty && !hadValidHashUpdate {
-                        // Update the cached validity of the messages
-                        try SnodeReceivedMessageInfo.handlePotentialDeletedOrInvalidHash(
-                            db,
-                            potentiallyInvalidHashes: lastHashes,
-                            otherKnownValidHashes: otherKnownHashes
-                        )
-                    }
+                    // Update the cached validity of the messages
+                    try SnodeReceivedMessageInfo.handlePotentialDeletedOrInvalidHash(
+                        db,
+                        potentiallyInvalidHashes: (sortedMessages.isEmpty && !hadValidHashUpdate ?
+                            lastHashes :
+                            []
+                        ),
+                        otherKnownValidHashes: otherKnownHashes
+                    )
                     
                     return (configMessageJobs, standardMessageJobs, (processedMessages, rawMessageCount, messageCount, hadValidHashUpdate))
                 }

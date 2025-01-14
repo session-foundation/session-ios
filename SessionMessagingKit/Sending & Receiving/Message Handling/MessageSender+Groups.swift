@@ -23,30 +23,22 @@ extension MessageSender {
         members: [(String, Profile?)],
         using dependencies: Dependencies
     ) -> AnyPublisher<SessionThread, Error> {
-        typealias ImageUploadResponse = (downloadUrl: String, fileName: String, encryptionKey: Data)
-        
         return Just(())
             .setFailureType(to: Error.self)
-            .flatMap { _ -> AnyPublisher<ImageUploadResponse?, Error> in
+            .flatMap { _ -> AnyPublisher<DisplayPictureManager.UploadResult?, Error> in
                 guard let displayPictureData: Data = displayPictureData else {
                     return Just(nil)
                         .setFailureType(to: Error.self)
                         .eraseToAnyPublisher()
                 }
                 
-                return Deferred {
-                    Future<ImageUploadResponse?, Error> { resolver in
-                        DisplayPictureManager.prepareAndUploadDisplayPicture(
-                            queue: DispatchQueue.global(qos: .userInitiated),
-                            imageData: displayPictureData,
-                            success: { resolver(Result.success($0)) },
-                            failure: { resolver(Result.failure($0)) },
-                            using: dependencies
-                        )
-                    }
-                }.eraseToAnyPublisher()
+                return dependencies[singleton: .displayPictureManager]
+                    .prepareAndUploadDisplayPicture(imageData: displayPictureData)
+                    .mapError { error -> Error in error }
+                    .map { Optional($0) }
+                    .eraseToAnyPublisher()
             }
-            .flatMap { (displayPictureInfo: ImageUploadResponse?) -> AnyPublisher<PreparedGroupData, Error> in
+            .flatMap { (displayPictureInfo: DisplayPictureManager.UploadResult?) -> AnyPublisher<PreparedGroupData, Error> in
                 dependencies[singleton: .storage].writePublisher { db -> PreparedGroupData in
                     // Create and cache the libSession entries
                     let createdInfo: LibSession.CreatedGroupInfo = try LibSession.createGroup(
@@ -504,20 +496,20 @@ extension MessageSender {
                                 using: dependencies
                             )
                         }
+                        
+                        /// Since we have added them to `GROUP_MEMBERS` we may as well insert them into the database (even if the request
+                        /// fails the local state will have already been updated anyway)
+                        members.forEach { id, _ in
+                            /// Add the member to the database
+                            try? GroupMember(
+                                groupId: sessionId.hexString,
+                                profileId: id,
+                                role: .standard,
+                                roleStatus: .notSentYet,
+                                isHidden: false
+                            ).upsert(db)
+                        }
                     }
-                }
-                
-                /// Since we have added them to `GROUP_MEMBERS` we may as well insert them into the database (even if the request
-                /// fails the local state will have already been updated anyway)
-                members.forEach { id, _ in
-                    /// Add the member to the database
-                    try? GroupMember(
-                        groupId: sessionId.hexString,
-                        profileId: id,
-                        role: .standard,
-                        roleStatus: .notSentYet,
-                        isHidden: false
-                    ).upsert(db)
                 }
                 
                 /// Generate the data needed to send the new members invitations to the group
@@ -650,97 +642,131 @@ extension MessageSender {
             .eraseToAnyPublisher()
     }
     
-    public static func resendInvitation(
+    public static func resendInvitations(
         groupSessionId: String,
-        memberId: String,
+        memberIds: [String],
         using dependencies: Dependencies
-    ) {
-        guard let sessionId: SessionId = try? SessionId(from: groupSessionId), sessionId.prefix == .group else { return }
+    ) -> AnyPublisher<Void, Error> {
+        guard let sessionId: SessionId = try? SessionId(from: groupSessionId), sessionId.prefix == .group else {
+            return Fail(error: MessageSenderError.invalidClosedGroupUpdate).eraseToAnyPublisher()
+        }
         
-        dependencies[singleton: .storage].writeAsync { [dependencies] db in
-            guard
-                let groupIdentityPrivateKey: Data = try? ClosedGroup
-                    .filter(id: groupSessionId)
-                    .select(.groupIdentityPrivateKey)
-                    .asRequest(of: Data.self)
-                    .fetchOne(db)
-            else { throw MessageSenderError.invalidClosedGroupUpdate }
-            
-            let memberInfo: (token: [UInt8], details: GroupInviteMemberJob.Details) = try dependencies.mutate(cache: .libSession) { cache in
-                return (
-                    try dependencies[singleton: .crypto].tryGenerate(
-                        .tokenSubaccount(
-                            config: cache.config(for: .groupKeys, sessionId: sessionId),
-                            groupSessionId: sessionId,
-                            memberId: memberId
-                        )
-                    ),
-                    try GroupInviteMemberJob.Details(
-                        memberSessionIdHexString: memberId,
-                        authInfo: try dependencies[singleton: .crypto].tryGenerate(
-                            .memberAuthData(
-                                config: cache.config(for: .groupKeys, sessionId: sessionId),
-                                groupSessionId: sessionId,
-                                memberId: memberId
+        return dependencies[singleton: .storage]
+            .writePublisher { db -> ([GroupInviteMemberJob.Details], Network.PreparedRequest<Void>) in
+                guard
+                    let groupIdentityPrivateKey: Data = try? ClosedGroup
+                        .filter(id: groupSessionId)
+                        .select(.groupIdentityPrivateKey)
+                        .asRequest(of: Data.self)
+                        .fetchOne(db)
+                else { throw MessageSenderError.invalidClosedGroupUpdate }
+                
+                /// Perform the config changes without triggering a config sync (we will do so manually after the process completes)
+                try dependencies.mutate(cache: .libSession) { cache in
+                    try cache.withCustomBehaviour(.skipAutomaticConfigSync, for: sessionId) {
+                        try memberIds.forEach { memberId in
+                            try LibSession.updateMemberStatus(
+                                db,
+                                groupSessionId: SessionId(.group, hex: groupSessionId),
+                                memberId: memberId,
+                                role: .standard,
+                                status: .notSentYet,
+                                profile: nil,
+                                using: dependencies
                             )
-                        )
-                    )
-                )
-            }
-            
-            /// Unrevoke the member just in case they had previously gotten their access to the group revoked and the
-            /// unrevoke request when initially added them failed (fire-and-forget this request, we don't want it to be blocking)
-            try SnodeAPI
-                .preparedUnrevokeSubaccounts(
-                    subaccountsToUnrevoke: [memberInfo.token],
-                    authMethod: Authentication.groupAdmin(
-                        groupSessionId: sessionId,
-                        ed25519SecretKey: Array(groupIdentityPrivateKey)
-                    ),
-                    using: dependencies
-                )
-                .send(using: dependencies)
-                .subscribe(on: DispatchQueue.global(qos: .background), using: dependencies)
-                .sinkUntilComplete()
-            
-            try LibSession.updateMemberStatus(
-                db,
-                groupSessionId: SessionId(.group, hex: groupSessionId),
-                memberId: memberId,
-                role: .standard,
-                status: .notSentYet,
-                profile: nil,
-                using: dependencies
-            )
-            
-            /// If the current `GroupMember` isn't already in the `notSentYet` state then update them to be in it
-            let existingMember: GroupMember? = try GroupMember
-                .filter(GroupMember.Columns.groupId == groupSessionId)
-                .filter(GroupMember.Columns.profileId == memberId)
-                .fetchOne(db)
-            
-            if existingMember?.roleStatus != .notSentYet {
-                try GroupMember
-                    .filter(GroupMember.Columns.groupId == groupSessionId)
-                    .filter(GroupMember.Columns.profileId == memberId)
-                    .updateAllAndConfig(
-                        db,
-                        GroupMember.Columns.roleStatus.set(to: GroupMember.RoleStatus.notSentYet),
+                            
+                            /// If the current `GroupMember` isn't already in the `notSentYet` state then update them to be in it
+                            let memberStatus: GroupMember.RoleStatus? = try GroupMember
+                                .select(.roleStatus)
+                                .filter(GroupMember.Columns.groupId == groupSessionId)
+                                .filter(GroupMember.Columns.profileId == memberId)
+                                .asRequest(of: GroupMember.RoleStatus.self)
+                                .fetchOne(db)
+                            
+                            if memberStatus != .notSentYet {
+                                try GroupMember
+                                    .filter(GroupMember.Columns.groupId == groupSessionId)
+                                    .filter(GroupMember.Columns.profileId == memberId)
+                                    .updateAllAndConfig(
+                                        db,
+                                        GroupMember.Columns.roleStatus.set(to: GroupMember.RoleStatus.notSentYet),
+                                        using: dependencies
+                                    )
+                            }
+                        }
+                    }
+                }
+                
+                let memberInfo: [(token: [UInt8], details: GroupInviteMemberJob.Details)] = try memberIds
+                    .map { memberId in
+                        try dependencies.mutate(cache: .libSession) { cache in
+                            return (
+                                try dependencies[singleton: .crypto].tryGenerate(
+                                    .tokenSubaccount(
+                                        config: cache.config(for: .groupKeys, sessionId: sessionId),
+                                        groupSessionId: sessionId,
+                                        memberId: memberId
+                                    )
+                                ),
+                                try GroupInviteMemberJob.Details(
+                                    memberSessionIdHexString: memberId,
+                                    authInfo: try dependencies[singleton: .crypto].tryGenerate(
+                                        .memberAuthData(
+                                            config: cache.config(for: .groupKeys, sessionId: sessionId),
+                                            groupSessionId: sessionId,
+                                            memberId: memberId
+                                        )
+                                    )
+                                )
+                            )
+                        }
+                    }
+                
+                /// Unrevoke the member just in case they had previously gotten their access to the group revoked and the
+                /// unrevoke request when initially added them failed (fire-and-forget this request, we don't want it to be blocking)
+                let unrevokeRequest: Network.PreparedRequest<Void> = try SnodeAPI
+                    .preparedUnrevokeSubaccounts(
+                        subaccountsToUnrevoke: memberInfo.map { token, _ in token },
+                        authMethod: Authentication.groupAdmin(
+                            groupSessionId: sessionId,
+                            ed25519SecretKey: Array(groupIdentityPrivateKey)
+                        ),
                         using: dependencies
                     )
+                
+                return (memberInfo.map { _, jobDetails in jobDetails }, unrevokeRequest)
             }
-            
-            /// Schedule a job to send an invitation to the newly added member
-            dependencies[singleton: .jobRunner].add(
-                db,
-                job: Job(
-                    variant: .groupInviteMember,
-                    threadId: groupSessionId,
-                    details: memberInfo.details
-                ),
-                canStartJob: true
+            .flatMap { memberJobData, unrevokeRequest -> AnyPublisher<[GroupInviteMemberJob.Details], Error> in
+                ConfigurationSyncJob
+                    .run(
+                        swarmPublicKey: sessionId.hexString,
+                        beforeSequenceRequests: [unrevokeRequest],
+                        requireAllBatchResponses: true,
+                        using: dependencies
+                    )
+                    .map { _ in memberJobData }
+                    .eraseToAnyPublisher()
+            }
+            .handleEvents(
+                receiveOutput: { memberJobData in
+                    /// Schedule a job to send an invitation to the member
+                    dependencies[singleton: .storage].writeAsync { db in
+                        memberJobData.forEach { details in
+                            dependencies[singleton: .jobRunner].add(
+                                db,
+                                job: Job(
+                                    variant: .groupInviteMember,
+                                    threadId: sessionId.hexString,
+                                    details: details
+                                ),
+                                canStartJob: true
+                            )
+                        }
+                    }
+                }
             )
-        }
+            .map { _ in () }
+            .eraseToAnyPublisher()
     }
     
     public static func removeGroupMembers(

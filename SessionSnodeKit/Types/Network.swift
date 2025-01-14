@@ -107,6 +107,7 @@ public extension Network {
     
     static func preparedUpload(
         data: Data,
+        requestAndPathBuildTimeout: TimeInterval? = nil,
         using dependencies: Dependencies
     ) throws -> PreparedRequest<FileUploadResponse> {
         return try PreparedRequest(
@@ -121,6 +122,7 @@ public extension Network {
             ),
             responseType: FileUploadResponse.self,
             requestTimeout: Network.fileUploadTimeout,
+            requestAndPathBuildTimeout: requestAndPathBuildTimeout,
             using: dependencies
         )
     }

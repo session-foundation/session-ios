@@ -59,13 +59,12 @@ public enum DisplayPictureDownloadJob: JobExecutor {
             }()
         else { return failure(job, JobRunnerError.missingRequiredDetails, true) }
             
-        let fileName: String = DisplayPictureManager.generateFilename(
+        let fileName: String = dependencies[singleton: .displayPictureManager].generateFilename(
             for: (preparedDownload.destination.url?.absoluteString)
-                .defaulting(to: preparedDownload.destination.urlPathAndParamsString),
-            using: dependencies
+                .defaulting(to: preparedDownload.destination.urlPathAndParamsString)
         )
         
-        guard let filePath: String = try? DisplayPictureManager.filepath(for: fileName, using: dependencies) else {
+        guard let filePath: String = try? dependencies[singleton: .displayPictureManager].filepath(for: fileName) else {
             Log.error(.cat, "Failed to generate display picture file path for \(details.target)")
             failure(job, DisplayPictureError.invalidFilename, true)
             return

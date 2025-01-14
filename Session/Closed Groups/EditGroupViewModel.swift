@@ -359,7 +359,7 @@ class EditGroupViewModel: SessionTableViewModel, NavigatableStateHolder, Editabl
                                         )
                                         
                                     case (.standard, _, true):
-                                        self?.resendInvitation(memberId: memberInfo.profileId)
+                                        self?.resendInvitations(memberIds: [memberInfo.profileId])
 
                                     case (.standard, _, false), (.zombie, _, _):
                                         if !selectedIdsSubject.value.ids.contains(memberInfo.profileId) {
@@ -676,13 +676,66 @@ class EditGroupViewModel: SessionTableViewModel, NavigatableStateHolder, Editabl
         self.transitionToScreen(viewController, transitionType: .present)
     }
     
-    private func resendInvitation(memberId: String) {
-        MessageSender.resendInvitation(
-            groupSessionId: threadId,
-            memberId: memberId,
-            using: dependencies
-        )
-        self.showToast(text: "groupInviteSending".putNumber(1).localized())
+    private func resendInvitations(memberIds: [String]) {
+        let viewController = ModalActivityIndicatorViewController(canCancel: false) { [weak self, dependencies, threadId] modalActivityIndicator in
+            MessageSender
+                .resendInvitations(
+                    groupSessionId: threadId,
+                    memberIds: memberIds,
+                    using: dependencies
+                )
+                .sinkUntilComplete(
+                    receiveCompletion: { [weak self] result in
+                        modalActivityIndicator.dismiss {
+                            switch result {
+                                case .failure:
+                                    self?.transitionToScreen(
+                                        ConfirmationModal(
+                                            info: ConfirmationModal.Info(
+                                                title: "Invitation Failed",//.localized(),
+                                                body: .text("An error occurred and the invitations were not successfully sent, would you like to try again?"),//.localized()),
+                                                confirmTitle: "retry".localized(),
+                                                cancelTitle: "dismiss".localized(),
+                                                cancelStyle: .alert_text,
+                                                dismissOnConfirm: false,
+                                                onConfirm: { modal in
+                                                    modal.dismiss(animated: true) {
+                                                        self?.resendInvitations(memberIds: memberIds)
+                                                    }
+                                                },
+                                                onCancel: { modal in
+                                                    /// Flag the members as failed
+                                                    dependencies[singleton: .storage].writeAsync { db in
+                                                        try? GroupMember
+                                                            .filter(GroupMember.Columns.groupId == threadId)
+                                                            .filter(memberIds.contains(GroupMember.Columns.profileId))
+                                                            .updateAllAndConfig(
+                                                                db,
+                                                                GroupMember.Columns.roleStatus.set(to: GroupMember.RoleStatus.failed),
+                                                                using: dependencies
+                                                            )
+                                                    }
+                                                    modal.dismiss(animated: true)
+                                                }
+                                            )
+                                        ),
+                                        transitionType: .present
+                                    )
+                                    
+                                case .finished:
+                                    /// Show a toast that we have sent the invitations
+                                    self?.showToast(
+                                        text: "groupInviteSending"
+                                            .putNumber(memberIds.count)
+                                            .localized(),
+                                        backgroundColor: .backgroundSecondary
+                                    )
+                            }
+                        }
+                    }
+                )
+        }
+        self.transitionToScreen(viewController, transitionType: .present)
     }
     
     private func removeMembers(currentGroupName: String, memberIds: Set<String>) {

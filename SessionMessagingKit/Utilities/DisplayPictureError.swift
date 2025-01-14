@@ -7,6 +7,7 @@ import Foundation
 public enum DisplayPictureError: LocalizedError {
     case imageTooLarge
     case writeFailed
+    case databaseChangesFailed
     case encryptionFailed
     case uploadFailed
     case uploadMaxFileSizeExceeded
@@ -17,6 +18,7 @@ public enum DisplayPictureError: LocalizedError {
         switch self {
             case .imageTooLarge: return "Display picture too large."
             case .writeFailed: return "Display picture write failed."
+            case .databaseChangesFailed: return "Failed to save display picture to database."
             case .encryptionFailed: return "Display picture encryption failed."
             case .uploadFailed: return "Display picture upload failed."
             case .uploadMaxFileSizeExceeded: return "Maximum file size exceeded."

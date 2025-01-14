@@ -13,7 +13,8 @@ extension Timer {
         
         // If we are forcing synchrnonous execution (ie. running unit tests) then ceil the
         // timeInterval for execution and append it to the execution set so the test can
-        // trigger the logic in a synchronous way)
+        // trigger the logic in a synchronous way - the `dependencies.async` function stores
+        // the closure and executes it when the `dependencies.stepForwardInTime` is triggered)
         guard !dependencies.forceSynchronous else {
             dependencies.async(at: dependencies.dateNow.timeIntervalSince1970 + timeInterval) {
                 block(timer)

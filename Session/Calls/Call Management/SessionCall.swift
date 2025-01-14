@@ -159,7 +159,7 @@ public final class SessionCall: CurrentCallProtocol, WebRTCSessionDelegate {
         self.webRTCSession = WebRTCSession.current ?? WebRTCSession(for: sessionId, with: uuid, using: dependencies)
         self.isOutgoing = outgoing
         
-        let avatarData: Data? = DisplayPictureManager.displayPicture(db, id: .user(sessionId), using: dependencies)
+        let avatarData: Data? = dependencies[singleton: .displayPictureManager].displayPicture(db, id: .user(sessionId))
         self.contactName = Profile.displayName(db, id: sessionId, threadVariant: .contact, using: dependencies)
         self.profilePicture = avatarData
             .map { UIImage(data: $0) }

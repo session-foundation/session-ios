@@ -236,8 +236,13 @@ public enum PushNotificationAPI {
                         SubscribeRequest.Subscription(
                             namespaces: {
                                 switch sessionId.prefix {
-                                    // TODO: Confirm no config subscriptions for groups
-                                    case .group: return [.groupMessages, .revokedRetrievableGroupMessages]
+                                    case .group: return [
+                                        .groupMessages,
+                                        .configGroupKeys,
+                                        .configGroupInfo,
+                                        .configGroupMembers,
+                                        .revokedRetrievableGroupMessages
+                                    ]
                                     default: return [.default, .configConvoInfoVolatile]
                                 }
                             }(),
