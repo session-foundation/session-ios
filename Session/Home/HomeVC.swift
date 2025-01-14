@@ -46,7 +46,7 @@ final class HomeVC: BaseVC, LibSessionRespondingViewController, UITableViewDataS
     
     // MARK: - UI
     
-    private var tableViewTopConstraint: NSLayoutConstraint!
+    private var tableViewTopConstraint: NSLayoutConstraint?
     
     private lazy var seedReminderView: SeedReminderView = {
         let result = SeedReminderView()
@@ -451,7 +451,7 @@ final class HomeVC: BaseVC, LibSessionRespondingViewController, UITableViewDataS
         
         // Update the 'view seed' UI
         if updatedState.showViewedSeedBanner != self.viewModel.state.showViewedSeedBanner {
-            tableViewTopConstraint.isActive = false
+            tableViewTopConstraint?.isActive = false
             seedReminderView.isHidden = !updatedState.showViewedSeedBanner
 
             if updatedState.showViewedSeedBanner {
