@@ -273,7 +273,7 @@ public enum ProcessPendingGroupMemberRemovalsJob: JobExecutor {
                                         }
                                     },
                                     completion: { db, result in
-                                        queue.async(using: dependencies) {
+                                        queue.asyncAfter(deadline: .now() + 0.01, using: dependencies) {
                                             switch result {
                                                 case .success: success(job, false)
                                                 case .failure(let error): failure(job, error, false)

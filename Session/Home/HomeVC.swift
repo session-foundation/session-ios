@@ -46,8 +46,8 @@ public final class HomeVC: BaseVC, LibSessionRespondingViewController, UITableVi
     
     // MARK: - UI
     
-    private var tableViewTopConstraint: NSLayoutConstraint!
-    private var loadingConversationsLabelTopConstraint: NSLayoutConstraint!
+    private var tableViewTopConstraint: NSLayoutConstraint?
+    private var loadingConversationsLabelTopConstraint: NSLayoutConstraint?
     private var navBarProfileView: ProfilePictureView?
     
     private lazy var seedReminderView: SeedReminderView = {
@@ -452,8 +452,8 @@ public final class HomeVC: BaseVC, LibSessionRespondingViewController, UITableVi
         
         // Update the 'view seed' UI
         if updatedState.showViewedSeedBanner != self.viewModel.state.showViewedSeedBanner {
-            tableViewTopConstraint.isActive = false
-            loadingConversationsLabelTopConstraint.isActive = false
+            tableViewTopConstraint?.isActive = false
+            loadingConversationsLabelTopConstraint?.isActive = false
             seedReminderView.isHidden = !updatedState.showViewedSeedBanner
 
             if updatedState.showViewedSeedBanner {

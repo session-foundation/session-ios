@@ -775,9 +775,10 @@ public final class MessageSender {
         
         guard !rowIds.isEmpty else { return error }
         
-        // Need to dispatch to a different thread as this function is most commonly called within a read
-        // thread and we want to write to the db and don't want to run into a re-entrancy error
-        DispatchQueue.global(qos: .background).async(using: dependencies) {
+        // Note: We need to dispatch this after a small 0.01 delay to prevent any potential
+        // re-entrancy issues since the 'asyncMigrate' returns a result containing a DB instance
+        // within a transaction
+        DispatchQueue.global(qos: .background).asyncAfter(deadline: .now() + 0.01, using: dependencies) {
             dependencies[singleton: .storage].write { db in
                 switch destination {
                     case .syncMessage:

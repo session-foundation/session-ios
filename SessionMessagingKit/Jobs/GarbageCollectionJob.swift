@@ -354,8 +354,11 @@ public enum GarbageCollectionJob: JobExecutor {
                 }
             },
             completion: { _, _ in
-                // Dispatch async so we can swap from the write queue to a read one (we are done writing)
-                queue.async {
+                // Dispatch async so we can swap from the write queue to a read one (we are done
+                // writing), this has to be done after a slight delay to ensure the transaction
+                // provided by the completion block completes first (ie. so we don't hit
+                // re-entrancy issues)
+                queue.asyncAfter(deadline: .now() + 0.01) {
                     // Retrieve a list of all valid attachmnet and avatar file paths
                     struct FileInfo {
                         let attachmentLocalRelativePaths: Set<String>

@@ -164,19 +164,21 @@ public class PagedDatabaseObserver<ObservedTable, T>: TransactionObserver where 
         _changesInCommit.performUpdate { $0.inserting(trackedChange) }
     }
     
-    /// We will process all updates which come through this method even if 'onChange' is null because if the UI stops observing and then starts
-    /// again later we don't want to have missed any changes which happened while the UI wasn't subscribed (and doing a full re-query seems painful...)
+    /// We will process all updates which come through this method even if 'onChange' is null because if the UI stops observing and
+    /// then starts again later we don't want to have missed any changes which happened while the UI wasn't subscribed (and doing
+    /// a full re-query seems painful...)
     ///
-    /// **Note:** This function is generally called within the DBWrite thread but we don't actually need write access to process the commit, in order
-    /// to avoid blocking the DBWrite thread we dispatch to a serial `commitProcessingQueue` to process the incoming changes (in the past not doing
-    /// so was resulting in hanging when there was a lot of activity happening)
+    /// **Note:** This function is generally called within the DBWrite thread but we don't actually need write access to process the
+    /// commit, in order to avoid blocking the DBWrite thread we dispatch to a serial `commitProcessingQueue` to process the
+    /// incoming changes (in the past not doing so was resulting in hanging when there was a lot of activity happening)
     public func databaseDidCommit(_ db: Database) {
         // If there were no pending changes in the commit then do nothing
         guard !self.changesInCommit.isEmpty else { return }
         
-        // Since we can't be sure the behaviours of 'databaseDidChange' and 'databaseDidCommit' won't change in
-        // the future we extract and clear the values in 'changesInCommit' since it's '@ThreadSafe' so will different
-        // threads modifying the data resulting in us missing a change
+        // Since we can't be sure the behaviours of 'databaseDidChange' and 'databaseDidCommit'
+        // won't change in the future we extract and clear the values in 'changesInCommit' since
+        // it's '@ThreadSafe' so will different threads modifying the data resulting in us
+        // missing a change
         var committedChanges: Set<PagedData.TrackedChange> = []
         
         self._changesInCommit.performUpdate { cachedChanges in
@@ -184,7 +186,12 @@ public class PagedDatabaseObserver<ObservedTable, T>: TransactionObserver where 
             return []
         }
         
-        commitProcessingQueue.async { [weak self] in
+        // This looks odd but if we just use `commitProcessingQueue.async` then the code can
+        // get executed immediately wihch can result in a new transaction being started whilst
+        // we are still within the transaction wrapping `databaseDidCommit` (which we don't
+        // want), by adding this tiny 0.01 delay we should be giving it enough time to finish
+        // processing the current transaction
+        commitProcessingQueue.asyncAfter(deadline: .now() + 0.01) { [weak self] in
             self?.processDatabaseCommit(committedChanges: committedChanges)
         }
     }

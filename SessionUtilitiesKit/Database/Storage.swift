@@ -386,9 +386,10 @@ open class Storage {
                 }
             }()
             
-            // Note: We need to dispatch this to the next run toop to prevent any potential re-entrancy
-            // issues since the 'asyncMigrate' returns a result containing a DB instance
-            DispatchQueue.global(qos: .userInitiated).async {
+            // Note: We need to dispatch this after a small 0.01 delay to prevent any potential
+            // re-entrancy issues since the 'asyncMigrate' returns a result containing a DB instance
+            // within a transaction
+            DispatchQueue.global(qos: .userInitiated).asyncAfter(deadline: .now() + 0.01, using: dependencies) {
                 migrationCompleted(finalResult)
             }
         }
@@ -592,8 +593,8 @@ open class Storage {
         case valid(DatabaseWriter)
         case invalid(Error)
         
-        init(_ storage: Storage) {
-            switch (storage.isSuspended, storage.isValid, storage.dbWriter) {
+        init(_ storage: Storage?) {
+            switch (storage?.isSuspended, storage?.isValid, storage?.dbWriter) {
                 case (true, _, _): self = .invalid(StorageError.databaseSuspended)
                 case (false, true, .some(let dbWriter)): self = .valid(dbWriter)
                 default: self = .invalid(StorageError.databaseInvalid)
@@ -697,7 +698,7 @@ open class Storage {
     ) -> AnyPublisher<T, Error> {
         switch StorageState(self) {
             case .invalid(let error): return StorageState.logIfNeeded(error, isWrite: true)
-            case .valid(let dbWriter):
+            case .valid:
                 /// **Note:** GRDB does have a `writePublisher` method but it appears to asynchronously trigger
                 /// both the `output` and `complete` closures at the same time which causes a lot of unexpected
                 /// behaviours (this behaviour is apparently expected but still causes a number of odd behaviours in our code
@@ -707,11 +708,19 @@ open class Storage {
                 /// which behaves in a much more expected way than the GRDB `writePublisher` does
                 let info: CallInfo = CallInfo(fileName, functionName, lineNumber, true, self)
                 return Deferred {
-                    Future { resolver in
-                        do { resolver(Result.success(try dbWriter.write(Storage.perform(info: info, updates: updates)))) }
-                        catch {
-                            StorageState.logIfNeeded(error, isWrite: true)
-                            resolver(Result.failure(error))
+                    Future { [weak self] resolver in
+                        /// The `StorageState` may have changed between the creation of the publisher and it actually
+                        /// being executed so we need to check again
+                        switch StorageState(self) {
+                            case .invalid(let error): return StorageState.logIfNeeded(error, isWrite: true)
+                            case .valid(let dbWriter):
+                                do {
+                                    resolver(Result.success(try dbWriter.write(Storage.perform(info: info, updates: updates))))
+                                }
+                                catch {
+                                    StorageState.logIfNeeded(error, isWrite: true)
+                                    resolver(Result.failure(error))
+                                }
                         }
                     }
                 }.eraseToAnyPublisher()
@@ -741,7 +750,7 @@ open class Storage {
     ) -> AnyPublisher<T, Error> {
         switch StorageState(self) {
             case .invalid(let error): return StorageState.logIfNeeded(error, isWrite: false)
-            case .valid(let dbWriter):
+            case .valid:
                 /// **Note:** GRDB does have a `readPublisher` method but it appears to asynchronously trigger
                 /// both the `output` and `complete` closures at the same time which causes a lot of unexpected
                 /// behaviours (this behaviour is apparently expected but still causes a number of odd behaviours in our code
@@ -751,11 +760,19 @@ open class Storage {
                 /// which behaves in a much more expected way than the GRDB `readPublisher` does
                 let info: CallInfo = CallInfo(fileName, functionName, lineNumber, false, self)
                 return Deferred {
-                    Future { resolver in
-                        do { resolver(Result.success(try dbWriter.read(Storage.perform(info: info, updates: value)))) }
-                        catch {
-                            StorageState.logIfNeeded(error, isWrite: false)
-                            resolver(Result.failure(error))
+                    Future { [weak self] resolver in
+                        /// The `StorageState` may have changed between the creation of the publisher and it actually
+                        /// being executed so we need to check again
+                        switch StorageState(self) {
+                            case .invalid(let error): return StorageState.logIfNeeded(error, isWrite: false)
+                            case .valid(let dbWriter):
+                                do {
+                                    resolver(Result.success(try dbWriter.read(Storage.perform(info: info, updates: value))))
+                                }
+                                catch {
+                                    StorageState.logIfNeeded(error, isWrite: false)
+                                    resolver(Result.failure(error))
+                                }
                         }
                     }
                 }.eraseToAnyPublisher()
