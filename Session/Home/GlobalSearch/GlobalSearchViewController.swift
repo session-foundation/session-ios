@@ -257,7 +257,7 @@ class GlobalSearchViewController: BaseVC, LibSessionRespondingViewController, UI
 
         lastSearchText = searchText
 
-        DispatchQueue.global(qos: .default).async { [weak self, dependencies] in
+        DispatchQueue.global(qos: .default).asyncAfter(deadline: .now() + 0.01) { [weak self, dependencies] in
             self?.readConnection?.interrupt()
             
             let result: Result<[SectionModel], Error>? = dependencies[singleton: .storage].read { db -> Result<[SectionModel], Error> in

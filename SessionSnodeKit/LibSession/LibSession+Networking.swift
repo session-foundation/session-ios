@@ -774,7 +774,7 @@ public extension LibSession {
                     /// **Note:** We do it this way because `DispatchQueue.async` can be optimised out if the code is already running in a
                     /// queue with the same `qos`, this approach ensures the code will run in a subsequent run loop regardless
                     let concurrentQueue = DispatchQueue(label: "Network.callback.registration", attributes: .concurrent)
-                    concurrentQueue.async(flags: .barrier) { [weak self] in
+                    concurrentQueue.asyncAfter(deadline: .now() + 0.01, flags: .barrier) { [weak self] in
                         guard
                             let network: UnsafeMutablePointer<network_object> = self?.network,
                             let dependenciesPtr: UnsafeMutableRawPointer = self?.dependenciesPtr
@@ -789,7 +789,7 @@ public extension LibSession {
                             
                             // Dispatch async so we don't hold up the libSession thread that triggered the update
                             // or have a reentrancy issue with the mutable cache
-                            DispatchQueue.global(qos: .default).async {
+                            DispatchQueue.global(qos: .default).asyncAfter(deadline: .now() + 0.01) {
                                 dependencies.mutate(cache: .libSessionNetwork) { $0.setNetworkStatus(status: status) }
                             }
                         }, dependenciesPtr)
@@ -829,7 +829,7 @@ public extension LibSession {
                             // or have a reentrancy issue with the mutable cache
                             let dependencies: Dependencies = Unmanaged<Dependencies>.fromOpaque(ctx).takeUnretainedValue()
                             
-                            DispatchQueue.global(qos: .default).async {
+                            DispatchQueue.global(qos: .default).asyncAfter(deadline: .now() + 0.01) {
                                 dependencies.mutate(cache: .libSessionNetwork) { $0.setPaths(paths: paths) }
                             }
                         }, dependenciesPtr)

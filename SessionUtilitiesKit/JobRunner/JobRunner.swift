@@ -1416,7 +1416,7 @@ public final class JobQueue: Hashable {
         
         // Ensure this is running on the correct queue
         guard DispatchQueue.with(key: queueKey, matches: queueContext, using: dependencies) else {
-            internalQueue.async(using: dependencies) { [weak self] in
+            internalQueue.asyncAfter(deadline: .now() + 0.01, using: dependencies) { [weak self] in
                 self?.runNextJob()
             }
             return
@@ -1552,7 +1552,7 @@ public final class JobQueue: Hashable {
         // If this queue executes concurrently and there are still jobs remaining then immediately attempt
         // to start the next job
         if executionType == .concurrent && numJobsRemaining > 0 {
-            internalQueue.async(using: dependencies) { [weak self] in
+            internalQueue.asyncAfter(deadline: .now() + 0.01, using: dependencies) { [weak self] in
                 self?.runNextJob()
             }
         }
@@ -1600,7 +1600,7 @@ public final class JobQueue: Hashable {
             // Trigger the 'start' function to load in any pending jobs that aren't already in the
             // queue (for concurrent queues we want to force them to load in pending jobs and add
             // them to the queue regardless of whether the queue is already running)
-            internalQueue.async(using: dependencies) { [weak self] in
+            internalQueue.asyncAfter(deadline: .now() + 0.01, using: dependencies) { [weak self] in
                 self?.start(forceWhenAlreadyRunning: (self?.executionType == .concurrent))
             }
             return
@@ -1692,7 +1692,7 @@ public final class JobQueue: Hashable {
         
         // Perform job cleanup and start the next job
         performCleanUp(for: job, result: .succeeded)
-        internalQueue.async(using: dependencies) { [weak self] in
+        internalQueue.asyncAfter(deadline: .now() + 0.01, using: dependencies) { [weak self] in
             self?.runNextJob()
         }
     }
@@ -1708,7 +1708,7 @@ public final class JobQueue: Hashable {
             Log.info(.jobRunner, "\(queueContext) \(job) canceled")
             performCleanUp(for: job, result: .failed(error, permanentFailure))
             
-            internalQueue.async(using: dependencies) { [weak self] in
+            internalQueue.asyncAfter(deadline: .now() + 0.01, using: dependencies) { [weak self] in
                 self?.runNextJob()
             }
             return
@@ -1734,7 +1734,7 @@ public final class JobQueue: Hashable {
                 _pendingJobsQueue.performUpdate { $0.inserting(job, at: 0) }
             }
             
-            internalQueue.async(using: dependencies) { [weak self] in
+            internalQueue.asyncAfter(deadline: .now() + 0.01, using: dependencies) { [weak self] in
                 self?.runNextJob()
             }
             return
@@ -1806,7 +1806,7 @@ public final class JobQueue: Hashable {
         
         Log.error(.jobRunner, "\(queueContext) \(job) \(failureText)")
         performCleanUp(for: job, result: .failed(error, permanentFailure))
-        internalQueue.async(using: dependencies) { [weak self] in
+        internalQueue.asyncAfter(deadline: .now() + 0.01, using: dependencies) { [weak self] in
             self?.runNextJob()
         }
     }
@@ -1859,7 +1859,7 @@ public final class JobQueue: Hashable {
         }
         
         performCleanUp(for: job, result: .deferred)
-        internalQueue.async(using: dependencies) { [weak self] in
+        internalQueue.asyncAfter(deadline: .now() + 0.01, using: dependencies) { [weak self] in
             self?.runNextJob()
         }
     }

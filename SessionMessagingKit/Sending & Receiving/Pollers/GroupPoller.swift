@@ -102,7 +102,9 @@ public extension GroupPoller {
                             .asRequest(of: String.self)
                             .fetchSet(db)
                     }?
-                    .forEach { [weak self] swarmPublicKey in self?.getOrCreatePoller(for: swarmPublicKey).startIfNeeded() }
+                    .forEach { [weak self] swarmPublicKey in
+                        self?.getOrCreatePoller(for: swarmPublicKey).startIfNeeded()
+                    }
             }
         }
         
