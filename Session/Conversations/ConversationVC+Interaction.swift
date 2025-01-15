@@ -807,6 +807,8 @@ extension ConversationVC:
             }
             return
         }
+        self.isKeyboardVisible = self.snInputView.isKeyboardVisible
+        self.inputAccessoryView?.resignFirstResponder()
         self.inputAccessoryView?.isHidden = true
         self.inputAccessoryView?.alpha = 0
     }
@@ -821,6 +823,9 @@ extension ConversationVC:
         UIView.animate(withDuration: 0.25, animations: {
             self.inputAccessoryView?.isHidden = false
             self.inputAccessoryView?.alpha = 1
+            if self.isKeyboardVisible {
+                self.inputAccessoryView?.becomeFirstResponder()
+            }
         })
     }
 

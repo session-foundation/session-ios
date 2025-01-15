@@ -22,6 +22,7 @@ final class ConversationVC: BaseVC, LibSessionRespondingViewController, Conversa
     private var isAutoLoadingNextPage: Bool = false
     private var isLoadingMore: Bool = false
     var isReplacingThread: Bool = false
+    var isKeyboardVisible: Bool = false
     
     /// This flag indicates whether the thread data has been reloaded after a disappearance (it defaults to true as it will
     /// never have disappeared before - this is only needed for value observers since they run asynchronously)

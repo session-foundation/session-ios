@@ -141,6 +141,10 @@ final class InputView: UIView, InputViewButtonDelegate, InputTextViewDelegate, M
     }()
 
     private lazy var additionalContentContainer = UIView()
+    
+    public var isKeyboardVisible: Bool {
+        inputTextView.isFirstResponder
+    }
 
     // MARK: - Initialization
     
@@ -445,6 +449,10 @@ final class InputView: UIView, InputViewButtonDelegate, InputTextViewDelegate, M
 
     override func resignFirstResponder() -> Bool {
         inputTextView.resignFirstResponder()
+    }
+    
+    override func becomeFirstResponder() -> Bool {
+        inputTextView.becomeFirstResponder()
     }
 
     func handleLongPress(_ gestureRecognizer: UITapGestureRecognizer) {
