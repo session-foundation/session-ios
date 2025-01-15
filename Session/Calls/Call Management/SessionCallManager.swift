@@ -246,6 +246,7 @@ public final class SessionCallManager: NSObject, CallManagerProtocol {
                 {
                     let callVC = CallVC(for: call)
                     callVC.conversationVC = conversationVC
+                    conversationVC.resignFirstResponder()
                     conversationVC.hideInputAccessoryView()
                     presentingVC.present(callVC, animated: true, completion: nil)
                 }

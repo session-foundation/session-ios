@@ -22,7 +22,9 @@ extension WebRTCSession {
             else {
                 guard sdp.type == .offer else { return }
                 
-                self?.sendAnswer(to: sessionId).sinkUntilComplete()
+                self?.sendAnswer(to: sessionId)
+                    .retry(5)
+                    .sinkUntilComplete()
             }
         })
     }

@@ -277,6 +277,9 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
         
         Log.info("[AppDelegate] Setting 'isMainAppActive' to false.")
         UserDefaults.sharedLokiProject?[.isMainAppActive] = false
+        
+        Log.info("[AppDelegate] Setting 'lastSeenHasMicrophonePermission'.")
+        UserDefaults.sharedLokiProject?[.lastSeenHasMicrophonePermission] = (Permissions.microphone == .granted)
 
         Log.flush()
     }
@@ -901,8 +904,8 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
             conversationVC.viewModel.threadData.threadId == call.sessionId
         {
             callVC.conversationVC = conversationVC
-            conversationVC.inputAccessoryView?.isHidden = true
-            conversationVC.inputAccessoryView?.alpha = 0
+            conversationVC.resignFirstResponder()
+            conversationVC.hideInputAccessoryView()
         }
         
         presentingVC.present(callVC, animated: true, completion: nil)

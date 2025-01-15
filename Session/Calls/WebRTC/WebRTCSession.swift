@@ -375,6 +375,7 @@ public final class WebRTCSession : NSObject, RTCPeerConnectionDelegate {
         MessageSender
             .sendImmediate(data: preparedSendData, using: dependencies)
             .subscribe(on: DispatchQueue.global(qos: .userInitiated))
+            .retry(5)
             .sinkUntilComplete()
     }
     

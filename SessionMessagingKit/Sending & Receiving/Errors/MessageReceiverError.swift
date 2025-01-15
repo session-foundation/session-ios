@@ -23,6 +23,7 @@ public enum MessageReceiverError: LocalizedError {
     case invalidConfigMessageHandling
     case requiredThreadNotInConfig
     case outdatedMessage
+    case duplicatedCall
 
     public var isRetryable: Bool {
         switch self {
@@ -72,6 +73,7 @@ public enum MessageReceiverError: LocalizedError {
             case .invalidConfigMessageHandling: return "Invalid handling of a config message."
             case .requiredThreadNotInConfig: return "Required thread not in config."
             case .outdatedMessage: return "Message was sent before a config change which would have removed the message."
+            case .duplicatedCall: return "Duplicate call."
         }
     }
 }

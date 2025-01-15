@@ -256,10 +256,25 @@ public final class SessionCall: CurrentCallProtocol, WebRTCSessionDelegate {
                 interactionId: interaction?.id,
                 in: thread
             )
+            .retry(5)
             // Start the timeout timer for the call
             .handleEvents(receiveOutput: { [weak self] _ in self?.setupTimeoutTimer() })
-            .flatMap { _ in webRTCSession.sendOffer(to: thread) }
-            .sinkUntilComplete()
+            .flatMap { _ in
+                webRTCSession
+                    .sendOffer(to: thread)
+                    .retry(5)
+            }
+            .sinkUntilComplete(
+                receiveCompletion: { [weak self] result in
+                    switch result {
+                        case .finished:
+                            SNLog("[Calls] Offer message sent")
+                        case .failure(let error):
+                            SNLog("[Calls] Error initializing call after 5 retries: \(error), ending call...")
+                            self?.handleCallInitializationFailed()
+                    }
+                }
+            )
     }
     
     func answerSessionCall() {
@@ -290,6 +305,11 @@ public final class SessionCall: CurrentCallProtocol, WebRTCSessionDelegate {
         }
         
         hasEnded = true
+    }
+    
+    func handleCallInitializationFailed() {
+        self.endSessionCall()
+        Singleton.callManager.reportCurrentCallEnded(reason: nil)
     }
     
     // MARK: - Call Message Handling

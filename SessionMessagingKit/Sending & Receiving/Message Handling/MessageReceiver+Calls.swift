@@ -81,9 +81,10 @@ extension MessageReceiver {
             return
         }
         
-        let hasMicrophonePermission: Bool = (AVAudioSession.sharedInstance().recordPermission == .granted)
-        guard db[.areCallsEnabled] && hasMicrophonePermission else {
+        guard db[.areCallsEnabled] && Permissions.microphone == .granted else {
             let state: CallMessage.MessageInfo.State = (db[.areCallsEnabled] ? .permissionDeniedMicrophone : .permissionDenied)
+            
+            SNLog("[MessageReceiver+Calls] Microphone permission is \(AVAudioSession.sharedInstance().recordPermission)")
             
             if let interaction: Interaction = try MessageReceiver.insertCallInfoMessage(db, for: message, state: state, using: dependencies) {
                 let thread: SessionThread = try SessionThread.upsert(
@@ -271,12 +272,15 @@ extension MessageReceiver {
         state: CallMessage.MessageInfo.State? = nil,
         using dependencies: Dependencies
     ) throws -> Interaction? {
-        guard
-            (try? Interaction
+        guard (
+            try? Interaction
                 .filter(Interaction.Columns.variant == Interaction.Variant.infoCall)
                 .filter(Interaction.Columns.messageUuid == message.uuid)
-                .isEmpty(db))
-                .defaulting(to: false),
+                .isEmpty(db)
+        ).defaulting(to: false)
+        else { throw MessageReceiverError.duplicatedCall }
+        
+        guard
             let sender: String = message.sender,
             let thread: SessionThread = try SessionThread.fetchOne(db, id: sender),
             !thread.isMessageRequest(db)

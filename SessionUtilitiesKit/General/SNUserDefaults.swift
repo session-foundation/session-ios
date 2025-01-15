@@ -34,6 +34,7 @@ public enum SNUserDefaults {
         case wasUnlinked
         case isMainAppActive
         case isCallOngoing
+        case lastSeenHasMicrophonePermission
     }
 
     public enum Date: Swift.String {
