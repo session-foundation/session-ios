@@ -531,6 +531,8 @@ final class ConversationVC: BaseVC, LibSessionRespondingViewController, Conversa
         stopObservingChanges()
         viewModel.updateDraft(to: snInputView.text)
         inputAccessoryView?.resignFirstResponder()
+        
+        NotificationCenter.default.removeObserver(self)
     }
 
     override func viewDidDisappear(_ animated: Bool) {
