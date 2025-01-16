@@ -1398,7 +1398,7 @@ final class ConversationVC: BaseVC, LibSessionRespondingViewController, Conversa
                 return screen.coordinateSpace
             } else {
                 var result: UIView? = self.view.superview
-                while result?.frame != UIScreen.main.bounds {
+                while result != nil && result?.frame != UIScreen.main.bounds {
                     result = result?.superview
                 }
                 return result
