@@ -438,7 +438,7 @@ public enum PushNotificationAPI {
         guard
             let notificationData: Data = notification.data,
             notification.info.dataLength == notificationData.count
-        else { return (nil, notification.info, .failure) }
+        else { return (nil, notification.info, .failureNoContent) }
         
         // Success, we have the notification content
         return (notificationData, notification.info, .success)
