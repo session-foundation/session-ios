@@ -428,7 +428,10 @@ public enum PushNotificationAPI {
             ),
             let notification: BencodeResponse<NotificationMetadata> = try? BencodeDecoder(using: dependencies)
                 .decode(BencodeResponse<NotificationMetadata>.self, from: decryptedData)
-        else { return (nil, .invalid, .failure) }
+        else {
+            SNLog("Failed to decrypt or decode notification")
+            return (nil, .invalid, .failure)
+        }
         
         // If the metadata says that the message was too large then we should show the generic
         // notification (this is a valid case)
@@ -438,7 +441,10 @@ public enum PushNotificationAPI {
         guard
             let notificationData: Data = notification.data,
             notification.info.dataLength == notificationData.count
-        else { return (nil, notification.info, .failureNoContent) }
+        else {
+            SNLog("Get notification data failed")
+            return (nil, notification.info, .failureNoContent)
+        }
         
         // Success, we have the notification content
         return (notificationData, notification.info, .success)
