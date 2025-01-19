@@ -807,7 +807,7 @@ extension ConversationVC:
             }
             return
         }
-        self.isKeyboardVisible = self.snInputView.isKeyboardVisible
+        self.isKeyboardVisible = self.snInputView.isInputFirstResponder
         self.inputAccessoryView?.resignFirstResponder()
         self.inputAccessoryView?.isHidden = true
         self.inputAccessoryView?.alpha = 0

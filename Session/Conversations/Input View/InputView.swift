@@ -142,7 +142,7 @@ final class InputView: UIView, InputViewButtonDelegate, InputTextViewDelegate, M
 
     private lazy var additionalContentContainer = UIView()
     
-    public var isKeyboardVisible: Bool {
+    public var isInputFirstResponder: Bool {
         inputTextView.isFirstResponder
     }
 
