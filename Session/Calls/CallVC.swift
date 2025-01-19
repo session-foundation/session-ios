@@ -322,6 +322,15 @@ final class CallVC: UIViewController, VideoPreviewDelegate {
         return result
     }()
     
+    private lazy var callDetailedInfoLabel: UILabel = {
+        let result: UILabel = UILabel()
+        result.font = .boldSystemFont(ofSize: Values.smallFontSize)
+        result.themeTextColor = .textPrimary
+        result.textAlignment = .center
+        
+        return result
+    }()
+    
     private lazy var callDurationLabel: UILabel = {
         let result = UILabel()
         result.font = .boldSystemFont(ofSize: Values.veryLargeFontSize)
