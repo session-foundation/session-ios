@@ -1424,9 +1424,12 @@ public extension Interaction {
         try interactionInfo.grouped(by: { $0.variant }).forEach { variant, info in
             let targetVariant: Interaction.Variant = {
                 switch (variant, localOnly) {
-                    case (.standardOutgoing, true), (.standardOutgoingDeletedLocally, _): return .standardOutgoingDeletedLocally
-                    case (.standardOutgoing, false), (.standardOutgoingDeleted, _): return .standardOutgoingDeleted
-                    case (_, true), (.standardIncomingDeletedLocally, _): return .standardIncomingDeletedLocally
+                    case (.standardOutgoing, true), (.standardOutgoingDeletedLocally, true):
+                        return .standardOutgoingDeletedLocally
+                    case (.standardOutgoing, false), (.standardOutgoingDeletedLocally, false), (.standardOutgoingDeleted, _):
+                        return .standardOutgoingDeleted
+                    case (.standardIncoming, true), (.standardIncomingDeletedLocally, true):
+                        return .standardIncomingDeletedLocally
                     default: return .standardIncomingDeleted
                 }
             }()
@@ -1435,7 +1438,6 @@ public extension Interaction {
                 .filter(ids: info.map { $0.id })
                 .updateAll(
                     db,
-                    Interaction.Columns.serverHash.set(to: nil),
                     Interaction.Columns.variant.set(to: targetVariant),
                     Interaction.Columns.body.set(to: nil),
                     Interaction.Columns.wasRead.set(to: true),

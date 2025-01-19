@@ -671,14 +671,14 @@ public extension LibSession {
             
             try groupedMessages
                 .sorted { lhs, rhs in lhs.key.namespace.processingOrder < rhs.key.namespace.processingOrder }
-                .forEach { variant, message in
+                .forEach { variant, messages in
                     let sessionId: SessionId = SessionId(hex: swarmPublicKey, dumpVariant: variant)
                     let config: Config? = configStore[sessionId, variant]
                     
                     do {
                         // Merge the messages (if it doesn't merge anything then don't bother trying
                         // to handle the result)
-                        guard let latestServerTimestampMs: Int64 = try config?.merge(message) else { return }
+                        guard let latestServerTimestampMs: Int64 = try config?.merge(messages) else { return }
                         
                         // Apply the updated states to the database
                         switch variant {
