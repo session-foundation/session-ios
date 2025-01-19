@@ -441,6 +441,7 @@ public enum PushNotificationAPI {
         }
         
         // Only show notifcations for messages from default namespace
+        // TODO: Add group messages namespace
         guard notification.info.namespace == .default else {
             SNLog("Ignoring notification due to namespace being \(notification.info.namespace) instead of default")
             return (nil, notification.info, .failureNoContent)
