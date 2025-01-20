@@ -9,6 +9,7 @@ extension WebRTCSession {
     
     public func handleICECandidates(_ candidate: [RTCIceCandidate]) {
         SNLog("[Calls] Received ICE candidate message.")
+        self.delegate?.iceCandidateDidReceive()
         candidate.forEach { peerConnection?.add($0, completionHandler: { _ in  }) }
     }
     
