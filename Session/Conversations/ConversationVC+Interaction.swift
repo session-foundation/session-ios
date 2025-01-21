@@ -2036,6 +2036,7 @@ extension ConversationVC:
                 confirmStyle: .danger,
                 cancelTitle: "cancel".localized(),
                 cancelStyle: .alert_text,
+                dismissOnConfirm: false,
                 onConfirm: { [weak self, dependencies = viewModel.dependencies] modal in
                     /// Determine the selected action index
                     let selectedIndex: Int = {
@@ -2061,24 +2062,29 @@ extension ConversationVC:
                         .publisherForAction(at: selectedIndex, using: dependencies)
                         .sinkUntilComplete(
                             receiveCompletion: { result in
-                                DispatchQueue.main.async {
-                                    self?.viewModel.showToast(
-                                        text: {
-                                            switch result {
-                                                case .finished:
-                                                    return "deleteMessageDeleted"
-                                                        .putNumber(messagesToDelete.count)
-                                                        .localized()
-                                                    
-                                                case .failure:
-                                                    return "deleteMessageFailed"
-                                                        .putNumber(messagesToDelete.count)
-                                                        .localized()
-                                            }
-                                        }(),
-                                        backgroundColor: .backgroundSecondary,
-                                        inset: (self?.inputAccessoryView?.frame.height ?? Values.mediumSpacing) + Values.smallSpacing
-                                    )
+                                switch result {
+                                    case .finished:
+                                        DispatchQueue.main.async {
+                                            self?.viewModel.showToast(
+                                                text: "deleteMessageDeleted"
+                                                    .putNumber(messagesToDelete.count)
+                                                    .localized(),
+                                                backgroundColor: .backgroundSecondary,
+                                                inset: (self?.inputAccessoryView?.frame.height ?? Values.mediumSpacing) + Values.smallSpacing
+                                            )
+                                            
+                                            modal.dismiss(animated: true)
+                                        }
+                                    case .failure:
+                                        DispatchQueue.main.async {
+                                            self?.viewModel.showToast(
+                                                text: "deleteMessageFailed"
+                                                    .putNumber(messagesToDelete.count)
+                                                    .localized(),
+                                                backgroundColor: .backgroundSecondary,
+                                                inset: (self?.inputAccessoryView?.frame.height ?? Values.mediumSpacing) + Values.smallSpacing
+                                            )
+                                        }
                                 }
                             }
                         )
