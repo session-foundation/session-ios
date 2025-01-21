@@ -309,11 +309,13 @@ public class ConfirmationModal: Modal, UITextFieldDelegate, UITextViewDelegate {
                 textField.placeholder = inputInfo.placeholder
                 textField.text = (inputInfo.initialValue ?? "")
                 textField.clearButtonMode = (inputInfo.clearButton ? .always : .never)
+                textField.isAccessibilityElement = true
                 textField.accessibilityIdentifier = inputInfo.accessibility?.identifier
-                textField.accessibilityLabel = inputInfo.accessibility?.label
+                textField.accessibilityLabel = inputInfo.accessibility?.label ?? textField.text
                 textFieldContainer.isHidden = false
                 internalOnTextChanged = { [weak confirmButton, weak cancelButton] text, _ in
                     onTextChanged(text)
+                    self.textField.accessibilityLabel = text
                     confirmButton?.isEnabled = info.confirmEnabled.isValid(with: info)
                     cancelButton?.isEnabled = info.cancelEnabled.isValid(with: info)
                 }
