@@ -2073,7 +2073,7 @@ extension ConversationVC:
                                                 inset: (self?.inputAccessoryView?.frame.height ?? Values.mediumSpacing) + Values.smallSpacing
                                             )
                                             
-                                            modal.dismiss(animated: true)
+                                            modal.close()
                                         }
                                     case .failure:
                                         DispatchQueue.main.async {
