@@ -87,6 +87,7 @@ public final class SessionCall: CurrentCallProtocol, WebRTCSessionDelegate {
         didSet {
             stateDidChange?()
             hasConnectedDidChange?()
+            updateCallDetailedStatus?("Call Connected")
         }
     }
 
@@ -94,6 +95,7 @@ public final class SessionCall: CurrentCallProtocol, WebRTCSessionDelegate {
         didSet {
             stateDidChange?()
             hasEndedDidChange?()
+            updateCallDetailedStatus?("")
         }
     }
 
@@ -113,6 +115,7 @@ public final class SessionCall: CurrentCallProtocol, WebRTCSessionDelegate {
     var remoteVideoStateDidChange: ((Bool) -> Void)?
     var hasStartedReconnecting: (() -> Void)?
     var hasReconnected: (() -> Void)?
+    var updateCallDetailedStatus: ((String) -> Void)?
     
     // MARK: - Derived Properties
     
@@ -249,6 +252,8 @@ public final class SessionCall: CurrentCallProtocol, WebRTCSessionDelegate {
         
         self.callInteractionId = interaction?.id
         
+        self.updateCallDetailedStatus?("Creating Call")
+        
         try? webRTCSession
             .sendPreOffer(
                 db,
@@ -256,10 +261,27 @@ public final class SessionCall: CurrentCallProtocol, WebRTCSessionDelegate {
                 interactionId: interaction?.id,
                 in: thread
             )
+            .retry(5)
             // Start the timeout timer for the call
             .handleEvents(receiveOutput: { [weak self] _ in self?.setupTimeoutTimer() })
-            .flatMap { _ in webRTCSession.sendOffer(to: thread) }
-            .sinkUntilComplete()
+            .flatMap { [weak self] _ in
+                self?.updateCallDetailedStatus?("Sending Call Offer")
+                return webRTCSession
+                    .sendOffer(to: thread)
+                    .retry(5)
+            }
+            .sinkUntilComplete(
+                receiveCompletion: { [weak self] result in
+                    switch result {
+                        case .finished:
+                            SNLog("[Calls] Offer message sent")
+                            self?.updateCallDetailedStatus?("Sending Connection Candidates")
+                        case .failure(let error):
+                            SNLog("[Calls] Error initializing call after 5 retries: \(error), ending call...")
+                            self?.handleCallInitializationFailed()
+                    }
+                }
+            )
     }
     
     func answerSessionCall() {
@@ -269,6 +291,7 @@ public final class SessionCall: CurrentCallProtocol, WebRTCSessionDelegate {
         
         if let sdp = remoteSDP {
             SNLog("[Calls] Got remote sdp already")
+            self.updateCallDetailedStatus?("Answering Call")
             webRTCSession.handleRemoteSDP(sdp, from: sessionId) // This sends an answer message internally
         }
     }
@@ -290,6 +313,11 @@ public final class SessionCall: CurrentCallProtocol, WebRTCSessionDelegate {
         }
         
         hasEnded = true
+    }
+    
+    func handleCallInitializationFailed() {
+        self.endSessionCall()
+        Singleton.callManager.reportCurrentCallEnded(reason: nil)
     }
     
     // MARK: - Call Message Handling
@@ -400,6 +428,18 @@ public final class SessionCall: CurrentCallProtocol, WebRTCSessionDelegate {
     
     public func isRemoteVideoDidChange(isEnabled: Bool) {
         isRemoteVideoEnabled = isEnabled
+    }
+    
+    public func iceCandidateDidSend() {
+        DispatchQueue.main.async {
+            self.updateCallDetailedStatus?("Awaiting Recipient Answer...")
+        }
+    }
+    
+    public func iceCandidateDidReceive() {
+        DispatchQueue.main.async {
+            self.updateCallDetailedStatus?("Handling Connection Candidates")
+        }
     }
     
     public func didReceiveHangUpSignal() {

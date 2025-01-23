@@ -9,6 +9,7 @@ extension WebRTCSession {
     
     public func handleICECandidates(_ candidate: [RTCIceCandidate]) {
         SNLog("[Calls] Received ICE candidate message.")
+        self.delegate?.iceCandidateDidReceive()
         candidate.forEach { peerConnection?.add($0, completionHandler: { _ in  }) }
     }
     
@@ -22,7 +23,9 @@ extension WebRTCSession {
             else {
                 guard sdp.type == .offer else { return }
                 
-                self?.sendAnswer(to: sessionId).sinkUntilComplete()
+                self?.sendAnswer(to: sessionId)
+                    .retry(5)
+                    .sinkUntilComplete()
             }
         })
     }

@@ -121,7 +121,7 @@ extension ConversationVC:
         let threadId: String = self.viewModel.threadData.threadId
         
         guard
-            AVAudioSession.sharedInstance().recordPermission == .granted,
+            Permissions.microphone == .granted,
             self.viewModel.threadData.threadVariant == .contact,
             Singleton.callManager.currentCall == nil,
             let call: SessionCall = Storage.shared.read({ [dependencies = viewModel.dependencies] db in
@@ -323,7 +323,7 @@ extension ConversationVC:
         
         Permissions.requestMicrophonePermissionIfNeeded()
         
-        if AVAudioSession.sharedInstance().recordPermission != .granted {
+        if Permissions.microphone != .granted {
             SNLog("Proceeding without microphone access. Any recorded video will be silent.")
         }
         
@@ -807,6 +807,8 @@ extension ConversationVC:
             }
             return
         }
+        self.isKeyboardVisible = self.snInputView.isInputFirstResponder
+        self.inputAccessoryView?.resignFirstResponder()
         self.inputAccessoryView?.isHidden = true
         self.inputAccessoryView?.alpha = 0
     }
@@ -821,6 +823,9 @@ extension ConversationVC:
         UIView.animate(withDuration: 0.25, animations: {
             self.inputAccessoryView?.isHidden = false
             self.inputAccessoryView?.alpha = 1
+            if self.isKeyboardVisible {
+                self.inputAccessoryView?.becomeFirstResponder()
+            }
         })
     }
 
@@ -2487,7 +2492,7 @@ extension ConversationVC:
         
         // Keep screen on
         UIApplication.shared.isIdleTimerDisabled = false
-        guard AVAudioSession.sharedInstance().recordPermission == .granted else { return }
+        guard Permissions.microphone == .granted else { return }
         
         // Cancel any current audio playback
         self.viewModel.stopAudio()

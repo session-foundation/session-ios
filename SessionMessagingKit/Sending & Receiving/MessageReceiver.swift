@@ -403,6 +403,13 @@ public enum MessageReceiver {
                 }
                 
                 fallthrough
+            
+            case is CallMessage:
+                if threadId == getUserHexEncodedPublicKey(db, using: dependencies) {
+                    break
+                } else {
+                    fallthrough
+                }
                 
             default:
                 // Only update the `shouldBeVisible` flag if the thread is currently not visible
