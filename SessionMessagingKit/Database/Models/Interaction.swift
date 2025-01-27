@@ -812,6 +812,19 @@ public extension Interaction {
         }
     }
     
+    struct ThreadInfo: FetchableRecord, Codable {
+        public let id: Int64
+        public let threadId: String
+        
+        public init(
+            id: Int64,
+            threadId: String
+        ) {
+            self.id = id
+            self.threadId = threadId
+        }
+    }
+    
     static func idsForTermWithin(threadId: String, pattern: FTS5Pattern) -> SQLRequest<TimestampInfo> {
         let interaction: TypedTableAlias<Interaction> = TypedTableAlias()
         let interactionFullTextSearch: TypedTableAlias<FullTextSearch> = TypedTableAlias(name: Interaction.fullTextSearchTableName)

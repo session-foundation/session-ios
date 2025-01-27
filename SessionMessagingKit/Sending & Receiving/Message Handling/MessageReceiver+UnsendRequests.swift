@@ -35,11 +35,11 @@ extension MessageReceiver {
         guard
             let author: String = message.author,
             let timestampMs: UInt64 = message.timestamp,
-            let interactionId: Int64 = try Interaction
-                .select(.id)
+            let interactionInfo: Interaction.ThreadInfo = try Interaction
+                .select(.id, .threadId)
                 .filter(Interaction.Columns.timestampMs == Int64(timestampMs))
                 .filter(Interaction.Columns.authorId == author)
-                .asRequest(of: Int64.self)
+                .asRequest(of: Interaction.ThreadInfo.self)
                 .fetchOne(db)
         else { return }
         
@@ -48,20 +48,20 @@ extension MessageReceiver {
         /// message content
         let hashes: Set<String> = try Interaction.serverHashesForDeletion(
             db,
-            interactionIds: [interactionId]
+            interactionIds: [interactionInfo.id]
         )
         try Interaction.markAsDeleted(
             db,
             threadId: threadId,
             threadVariant: threadVariant,
-            interactionIds: [interactionId],
+            interactionIds: [interactionInfo.id],
             localOnly: false,
             using: dependencies
         )
         
         /// If it's the `Note to Self` conversation then we want to just delete the interaction
-        if userSessionId.hexString == threadId {
-            try Interaction.deleteOne(db, id: interactionId)
+        if userSessionId.hexString == interactionInfo.threadId {
+            try Interaction.deleteOne(db, id: interactionInfo.id)
         }
         
         /// Can't delete from the legacy group swarm so only bother for contact conversations
