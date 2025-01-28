@@ -208,6 +208,7 @@ public final class SessionCall: CurrentCallProtocol, WebRTCSessionDelegate {
         }
         
         SNLog("[Calls] Did receive remote sdp.")
+        self.updateCallDetailedStatus?(self.mode == .offer ? "Received Answer" : "Received Call Offer")
         remoteSDP = sdp
         if hasStartedConnecting {
             webRTCSession.handleRemoteSDP(sdp, from: sessionId) // This sends an answer message internally
@@ -291,7 +292,7 @@ public final class SessionCall: CurrentCallProtocol, WebRTCSessionDelegate {
         
         if let sdp = remoteSDP {
             SNLog("[Calls] Got remote sdp already")
-            self.updateCallDetailedStatus?("Answering Call")
+            self.updateCallDetailedStatus?("Sending Call Answer")
             webRTCSession.handleRemoteSDP(sdp, from: sessionId) // This sends an answer message internally
         }
     }
@@ -432,7 +433,7 @@ public final class SessionCall: CurrentCallProtocol, WebRTCSessionDelegate {
     
     public func iceCandidateDidSend() {
         DispatchQueue.main.async {
-            self.updateCallDetailedStatus?("Awaiting Recipient Answer...")
+            self.updateCallDetailedStatus?(self.mode == .offer ? "Awaiting Recipient Answer..." : "Awaiting Connection")
         }
     }
     
