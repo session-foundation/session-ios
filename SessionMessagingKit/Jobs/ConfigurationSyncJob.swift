@@ -33,11 +33,16 @@ public enum ConfigurationSyncJob: JobExecutor {
             return success(job, true)
         }
         
-        // It's possible for multiple ConfigSyncJob's with the same target (user/group) to try to run at the
-        // same time since as soon as one is started we will enqueue a second one, rather than adding dependencies
-        // between the jobs we just continue to defer the subsequent job while the first one is running in
-        // order to prevent multiple configurationSync jobs with the same target from running at the same time
+        /// It's possible for multiple ConfigSyncJob's with the same target (user/group) to try to run at the same time since as soon as
+        /// one is started we will enqueue a second one, rather than adding dependencies between the jobs we just continue to defer
+        /// the subsequent job while the first one is running in order to prevent multiple configurationSync jobs with the same target
+        /// from running at the same time
+        ///
+        /// **Note:** The one exception to this rule is when the job has `AdditionalSequenceRequests` because if we don't
+        /// run it immediately then the `AdditionalSequenceRequests` may not get run at all
         guard
+            (job.transientData as? AdditionalSequenceRequests)?.beforeSequenceRequests.isEmpty == false ||
+            (job.transientData as? AdditionalSequenceRequests)?.afterSequenceRequests.isEmpty == false ||
             dependencies[singleton: .jobRunner]
                 .jobInfoFor(state: .running, variant: .configurationSync)
                 .filter({ key, info in
@@ -73,9 +78,14 @@ public enum ConfigurationSyncJob: JobExecutor {
             return failure(job, StorageError.generic, false)
         }
         
-        // If there are no pending changes then the job can just complete (next time something
-        // is updated we want to try and run immediately so don't scuedule another run in this case)
-        guard !pendingChanges.pushData.isEmpty || !pendingChanges.obsoleteHashes.isEmpty else {
+        /// If there is no `pushData`, `obsoleteHashes` or additional sequence requests then the job can just complete (next time
+        /// something is updated we want to try and run immediately so don't scuedule another run in this case)
+        guard
+            !pendingChanges.pushData.isEmpty ||
+            !pendingChanges.obsoleteHashes.isEmpty ||
+            (job.transientData as? AdditionalSequenceRequests)?.beforeSequenceRequests.isEmpty == false ||
+            (job.transientData as? AdditionalSequenceRequests)?.afterSequenceRequests.isEmpty == false
+        else {
             Log.info(.cat, "For \(swarmPublicKey) completed with no pending changes")
             return success(job, true)
         }

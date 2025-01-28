@@ -451,13 +451,11 @@ final class VisibleMessageCell: MessageCell, TappableLabelDelegate {
         lastSearchText: String?,
         using dependencies: Dependencies
     ) {
-        let isOutgoing: Bool = (
-            cellViewModel.variant == .standardOutgoing ||
-            cellViewModel.variant == .standardOutgoingDeleted ||
-            cellViewModel.variant == .standardOutgoingDeletedLocally
+        let bodyLabelTextColor: ThemeValue = (cellViewModel.variant.isOutgoing ?
+            .messageBubble_outgoingText :
+            .messageBubble_incomingText
         )
-        let bodyLabelTextColor: ThemeValue = (isOutgoing ? .messageBubble_outgoingText : .messageBubble_incomingText)
-        snContentView.alignment = (isOutgoing ? .trailing : .leading)
+        snContentView.alignment = (cellViewModel.variant.isOutgoing ? .trailing : .leading)
         
         for subview in snContentView.arrangedSubviews {
             snContentView.removeArrangedSubview(subview)
@@ -474,9 +472,11 @@ final class VisibleMessageCell: MessageCell, TappableLabelDelegate {
         
         // Handle the deleted state first (it's much simpler than the others)
         guard !cellViewModel.variant.isDeletedMessage else {
+            let inset: CGFloat = 12
             let deletedMessageView: DeletedMessageView = DeletedMessageView(
                 textColor: bodyLabelTextColor,
-                variant: cellViewModel.variant
+                variant: cellViewModel.variant,
+                maxWidth: (VisibleMessageCell.getMaxWidth(for: cellViewModel) - 2 * inset)
             )
             bubbleView.addSubview(deletedMessageView)
             deletedMessageView.pin(to: bubbleView)
@@ -510,7 +510,7 @@ final class VisibleMessageCell: MessageCell, TappableLabelDelegate {
                                     imageAttachment: cellViewModel.linkPreviewAttachment,
                                     using: dependencies
                                 ),
-                                isOutgoing: isOutgoing,
+                                isOutgoing: cellViewModel.variant.isOutgoing,
                                 delegate: self,
                                 cellViewModel: cellViewModel,
                                 bodyLabelTextColor: bodyLabelTextColor,
@@ -528,7 +528,7 @@ final class VisibleMessageCell: MessageCell, TappableLabelDelegate {
                                 name: (linkPreview.title ?? ""),
                                 url: linkPreview.url,
                                 textColor: bodyLabelTextColor,
-                                isOutgoing: isOutgoing
+                                isOutgoing: cellViewModel.variant.isOutgoing
                             )
                             openGroupInvitationView.isAccessibilityElement = true
                             openGroupInvitationView.accessibilityIdentifier = "Community invitation"
@@ -555,7 +555,7 @@ final class VisibleMessageCell: MessageCell, TappableLabelDelegate {
                             currentUserSessionId: cellViewModel.currentUserSessionId,
                             currentUserBlinded15SessionId: cellViewModel.currentUserBlinded15SessionId,
                             currentUserBlinded25SessionId: cellViewModel.currentUserBlinded25SessionId,
-                            direction: (isOutgoing ? .outgoing : .incoming),
+                            direction: (cellViewModel.variant.isOutgoing ? .outgoing : .incoming),
                             attachment: cellViewModel.quoteAttachment,
                             using: dependencies
                         )
@@ -610,7 +610,7 @@ final class VisibleMessageCell: MessageCell, TappableLabelDelegate {
                     items: (cellViewModel.attachments?
                         .filter { $0.isVisualMedia })
                         .defaulting(to: []),
-                    isOutgoing: isOutgoing,
+                    isOutgoing: cellViewModel.variant.isOutgoing,
                     maxMessageWidth: maxMessageWidth,
                     using: dependencies
                 )

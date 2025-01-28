@@ -18,6 +18,7 @@ extension MessageReceiver {
         guard proto.hasExpirationType || proto.hasExpirationTimer else { return }
         guard
             threadVariant != .community,
+            threadVariant != .group,    // Handled via the GROUP_INFO config instead
             let sender: String = message.sender,
             let timestampMs: UInt64 = message.sentTimestampMs
         else { return }

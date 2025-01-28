@@ -402,39 +402,26 @@ public struct MessageViewModel: FetchableRecordWithRowId, Decodable, Equatable, 
             )
         }()
         let (positionInCluster, isOnlyMessageInCluster): (Position, Bool) = {
-            let isSenderVariantConsistent: Bool = (
-                (
-                    (
-                        self.variant == .standardOutgoing ||
-                        self.variant == .standardOutgoingDeleted ||
-                        self.variant == .standardOutgoingDeletedLocally
-                    ) && (
-                        prevModel?.variant != .standardOutgoing ||
-                        prevModel?.variant != .standardOutgoingDeleted ||
-                        prevModel?.variant != .standardOutgoingDeletedLocally
-                    )
-                ) || (
-                    (
-                        self.variant == .standardIncoming ||
-                        self.variant == .standardIncomingDeleted ||
-                        self.variant == .standardIncomingDeletedLocally
-                    ) && (
-                        prevModel?.variant != .standardIncoming &&
-                        prevModel?.variant != .standardIncomingDeleted &&
-                        prevModel?.variant != .standardIncomingDeletedLocally
-                    )
-                )
-            )
             let isFirstInCluster: Bool = (
                 prevModel == nil ||
-                shouldShowDateBeforeThisModel ||
-                isSenderVariantConsistent ||
+                shouldShowDateBeforeThisModel || (
+                    self.variant.isOutgoing &&
+                    prevModel?.variant.isOutgoing != true
+                ) || (
+                    self.variant.isIncoming &&
+                    prevModel?.variant.isIncoming != true
+                ) ||
                 self.authorId != prevModel?.authorId
             )
             let isLastInCluster: Bool = (
                 nextModel == nil ||
-                shouldShowDateBeforeNextModel ||
-                isSenderVariantConsistent ||
+                shouldShowDateBeforeNextModel || (
+                    self.variant.isOutgoing &&
+                    prevModel?.variant.isOutgoing != true
+                ) || (
+                    self.variant.isIncoming &&
+                    prevModel?.variant.isIncoming != true
+                ) ||
                 self.authorId != nextModel?.authorId
             )
 

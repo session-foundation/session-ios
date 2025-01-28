@@ -821,7 +821,12 @@ extension ConversationVC:
         // stringlint:ignore_start
         if lastCharacter == "@" && isCharacterBeforeLastWhiteSpaceOrStartOfLine {
             currentMentionStartIndex = lastCharacterIndex
-            snInputView.showMentionsUI(for: self.viewModel.mentions())
+            snInputView.showMentionsUI(
+                for: self.viewModel.mentions(),
+                currentUserSessionId: self.viewModel.threadData.currentUserSessionId,
+                currentUserBlinded15SessionId: self.viewModel.threadData.currentUserBlinded15SessionId,
+                currentUserBlinded25SessionId: self.viewModel.threadData.currentUserBlinded25SessionId
+            )
         }
         else if lastCharacter.isWhitespace || lastCharacter == "@" { // the lastCharacter == "@" is to check for @@
             currentMentionStartIndex = nil
@@ -830,7 +835,12 @@ extension ConversationVC:
         else {
             if let currentMentionStartIndex = currentMentionStartIndex {
                 let query = String(newText[newText.index(after: currentMentionStartIndex)...]) // + 1 to get rid of the @
-                snInputView.showMentionsUI(for: self.viewModel.mentions(for: query))
+                snInputView.showMentionsUI(
+                    for: self.viewModel.mentions(for: query),
+                    currentUserSessionId: self.viewModel.threadData.currentUserSessionId,
+                    currentUserBlinded15SessionId: self.viewModel.threadData.currentUserBlinded15SessionId,
+                    currentUserBlinded25SessionId: self.viewModel.threadData.currentUserBlinded25SessionId
+                )
             }
         }
         // stringlint:ignore_stop

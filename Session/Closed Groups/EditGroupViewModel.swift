@@ -626,10 +626,14 @@ class EditGroupViewModel: SessionTableViewModel, NavigatableStateHolder, Editabl
                                     self?.transitionToScreen(
                                         ConfirmationModal(
                                             info: ConfirmationModal.Info(
-                                                title: "Invitation Failed",//.localized(),
-                                                body: .text("An error occurred and the invitations were not successfully sent, would you like to try again?"),//.localized()),
-                                                confirmTitle: "retry".localized(),
-                                                cancelTitle: "dismiss".localized(),
+                                                title: "inviteFailed"
+                                                    .putNumber(memberInfo.count)
+                                                    .localized(),
+                                                body: .text("inviteFailedDescription"
+                                                    .putNumber(memberInfo.count)
+                                                    .localized()),
+                                                confirmTitle: "yes".localized(),
+                                                cancelTitle: "cancel".localized(),
                                                 cancelStyle: .alert_text,
                                                 dismissOnConfirm: false,
                                                 onConfirm: { modal in
@@ -692,10 +696,14 @@ class EditGroupViewModel: SessionTableViewModel, NavigatableStateHolder, Editabl
                                     self?.transitionToScreen(
                                         ConfirmationModal(
                                             info: ConfirmationModal.Info(
-                                                title: "Invitation Failed",//.localized(),
-                                                body: .text("An error occurred and the invitations were not successfully sent, would you like to try again?"),//.localized()),
-                                                confirmTitle: "retry".localized(),
-                                                cancelTitle: "dismiss".localized(),
+                                                title: "inviteFailed"
+                                                    .putNumber(memberIds.count)
+                                                    .localized(),
+                                                body: .text("inviteFailedDescription"
+                                                    .putNumber(memberIds.count)
+                                                    .localized()),
+                                                confirmTitle: "yes".localized(),
+                                                cancelTitle: "cancel".localized(),
                                                 cancelStyle: .alert_text,
                                                 dismissOnConfirm: false,
                                                 onConfirm: { modal in

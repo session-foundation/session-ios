@@ -418,8 +418,10 @@ public final class FullConversationCell: UITableViewCell, SwipeActionOptimisticC
     public func update(with cellViewModel: SessionThreadViewModel, using dependencies: Dependencies) {
         let unreadCount: UInt = (cellViewModel.threadUnreadCount ?? 0)
         let threadIsUnread: Bool = (
-            unreadCount > 0 ||
-            cellViewModel.threadWasMarkedUnread == true
+            unreadCount > 0 || (
+                cellViewModel.threadId != cellViewModel.currentUserSessionId &&
+                cellViewModel.threadWasMarkedUnread == true
+            )
         )
         let themeBackgroundColor: ThemeValue = (threadIsUnread ?
             .conversationButton_unreadBackground :

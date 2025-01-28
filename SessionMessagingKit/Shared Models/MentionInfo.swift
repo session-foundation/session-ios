@@ -27,10 +27,10 @@ public extension MentionInfo {
         threadId: String,
         threadVariant: SessionThread.Variant,
         targetPrefixes: [SessionId.Prefix],
+        currentUserBlinded15SessionId: String?,
+        currentUserBlinded25SessionId: String?,
         pattern: FTS5Pattern?
     ) -> AdaptedFetchRequest<SQLRequest<MentionInfo>>? {
-        guard threadVariant != .contact || userPublicKey != threadId else { return nil }
-        
         let profile: TypedTableAlias<Profile> = TypedTableAlias()
         let interaction: TypedTableAlias<Interaction> = TypedTableAlias()
         let openGroup: TypedTableAlias<OpenGroup> = TypedTableAlias()
@@ -40,6 +40,11 @@ public extension MentionInfo {
             .map { SQL("\(profile[.id]) LIKE '\(SQL(stringLiteral: "\($0.rawValue)%"))'") }
             .joined(operator: .or)
         let profileFullTextSearch: SQL = SQL(stringLiteral: Profile.fullTextSearchTableName)
+        let currentUserIds: Set<String> = [
+            userPublicKey,
+            currentUserBlinded15SessionId,
+            currentUserBlinded25SessionId
+        ].compactMap { $0 }.asSet()
         
         /// The query needs to differ depending on the thread variant because the behaviour should be different:
         ///
@@ -55,10 +60,8 @@ public extension MentionInfo {
                     FROM \(profileFullTextSearch)
                     JOIN \(Profile.self) ON (
                         \(Profile.self).rowid = \(profileFullTextSearch).rowid AND
-                        \(SQL("\(profile[.id]) != \(userPublicKey)")) AND (
-                            \(SQL("\(threadVariant) != \(SessionThread.Variant.community)")) OR
-                            \(prefixesLiteral)
-                        )
+                        \(SQL("\(threadVariant) != \(SessionThread.Variant.community)")) OR
+                        \(prefixesLiteral)
                     )
                 """
             }()
@@ -66,10 +69,8 @@ public extension MentionInfo {
                 guard let pattern: FTS5Pattern = pattern, pattern.rawPattern != "\"\"*" else {
                     return """
                         WHERE (
-                            \(SQL("\(profile[.id]) != \(userPublicKey)")) AND (
-                                \(SQL("\(threadVariant) != \(SessionThread.Variant.community)")) OR
-                                \(prefixesLiteral)
-                            )
+                            \(SQL("\(threadVariant) != \(SessionThread.Variant.community)")) OR
+                            \(prefixesLiteral)
                         )
                     """
                 }
@@ -87,7 +88,11 @@ public extension MentionInfo {
                             \(SQL("\(threadVariant) AS \(MentionInfo.Columns.threadVariant)"))
                     
                         \(targetJoin)
-                        \(targetWhere) AND \(SQL("\(profile[.id]) = \(threadId)"))
+                        \(targetWhere) AND (
+                            \(SQL("\(profile[.id]) = \(threadId)")) OR
+                            \(SQL("\(profile[.id]) IN \(currentUserIds)"))
+                        )
+                        ORDER BY \(SQL("\(profile[.id]) IN \(currentUserIds)")) DESC
                     """)
                     
                 case .legacyGroup, .group:
@@ -104,7 +109,9 @@ public extension MentionInfo {
                         )
                         \(targetWhere)
                         GROUP BY \(profile[.id])
-                        ORDER BY IFNULL(\(profile[.nickname]), \(profile[.name])) ASC
+                        ORDER BY
+                            \(SQL("\(profile[.id]) IN \(currentUserIds)")) DESC,
+                            IFNULL(\(profile[.nickname]), \(profile[.name])) ASC
                     """)
                     
                 case .community:
@@ -124,7 +131,9 @@ public extension MentionInfo {
                         JOIN \(OpenGroup.self) ON \(SQL("\(openGroup[.threadId]) = \(threadId)"))
                         \(targetWhere)
                         GROUP BY \(profile[.id])
-                        ORDER BY \(interaction[.timestampMs].desc)
+                        ORDER BY
+                            \(SQL("\(profile[.id]) IN \(currentUserIds)")) DESC,
+                            \(interaction[.timestampMs].desc)
                         LIMIT 20
                     """)
             }

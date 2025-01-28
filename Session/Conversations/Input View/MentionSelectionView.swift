@@ -8,6 +8,9 @@ import SignalUtilitiesKit
 
 final class MentionSelectionView: UIView, UITableViewDataSource, UITableViewDelegate {
     private let dependencies: Dependencies
+    var currentUserSessionId: String?
+    var currentUserBlinded15SessionId: String?
+    var currentUserBlinded25SessionId: String?
     var candidates: [MentionInfo] = [] {
         didSet {
             tableView.isScrollEnabled = (candidates.count > 4)
@@ -92,6 +95,9 @@ final class MentionSelectionView: UIView, UITableViewDataSource, UITableViewDele
                 for: candidates[indexPath.row].openGroupRoomToken,
                 on: candidates[indexPath.row].openGroupServer
             ),
+            currentUserSessionId: currentUserSessionId,
+            currentUserBlinded15SessionId: currentUserBlinded15SessionId,
+            currentUserBlinded25SessionId: currentUserBlinded25SessionId,
             isLast: (indexPath.row == (candidates.count - 1)),
             using: dependencies
         )
@@ -187,10 +193,21 @@ private extension MentionSelectionView {
             with profile: Profile,
             threadVariant: SessionThread.Variant,
             isUserModeratorOrAdmin: Bool,
+            currentUserSessionId: String?,
+            currentUserBlinded15SessionId: String?,
+            currentUserBlinded25SessionId: String?,
             isLast: Bool,
             using dependencies: Dependencies
         ) {
-            displayNameLabel.text = profile.displayName(for: threadVariant)
+            let currentUserSessionIds: Set<String> = [
+                currentUserSessionId,
+                currentUserBlinded15SessionId,
+                currentUserBlinded25SessionId
+            ].compactMap { $0 }.asSet()
+            displayNameLabel.text = (currentUserSessionIds.contains(profile.id) ?
+                "you".localized() :
+                profile.displayName(for: threadVariant)
+            )
             profilePictureView.update(
                 publicKey: profile.id,
                 threadVariant: .contact,    // Always show the display picture in 'contact' mode

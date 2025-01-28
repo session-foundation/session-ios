@@ -518,7 +518,15 @@ final class InputView: UIView, InputViewButtonDelegate, InputTextViewDelegate, M
         )
     }
 
-    func showMentionsUI(for candidates: [MentionInfo]) {
+    func showMentionsUI(
+        for candidates: [MentionInfo],
+        currentUserSessionId: String,
+        currentUserBlinded15SessionId: String?,
+        currentUserBlinded25SessionId: String?
+    ) {
+        mentionsView.currentUserSessionId = currentUserSessionId
+        mentionsView.currentUserBlinded15SessionId = currentUserBlinded15SessionId
+        mentionsView.currentUserBlinded25SessionId = currentUserBlinded25SessionId
         mentionsView.candidates = candidates
         
         let mentionCellHeight = (ProfilePictureView.Size.message.viewSize + 2 * Values.smallSpacing)

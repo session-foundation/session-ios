@@ -780,10 +780,14 @@ public final class HomeVC: BaseVC, LibSessionRespondingViewController, UITableVi
         
         switch section.model {
             case .threads:
-                // Cannot properly sync outgoing blinded message requests so don't provide the option
+                // Cannot properly sync outgoing blinded message requests so don't provide the option,
+                // the 'Note to Self' conversation also doesn't support 'mark as unread' so don't
+                // provide it there either
                 guard
-                    threadViewModel.threadVariant != .contact ||
-                    (try? SessionId(from: section.elements[indexPath.row].threadId))?.prefix == .standard
+                    threadViewModel.threadId != threadViewModel.currentUserSessionId && (
+                        threadViewModel.threadVariant != .contact ||
+                        (try? SessionId(from: section.elements[indexPath.row].threadId))?.prefix == .standard
+                    )
                 else { return nil }
                 
                 return UIContextualAction.configuration(

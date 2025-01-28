@@ -850,7 +850,7 @@ public class ConversationViewModel: OWSAudioPlayerDelegate, NavigatableStateHold
         let threadData: SessionThreadViewModel = self.internalThreadData
         
         return dependencies[singleton: .storage]
-            .read { [dependencies] db -> [MentionInfo] in
+            .read { [weak self, dependencies] db -> [MentionInfo] in
                 let userSessionId: SessionId = dependencies[cache: .general].sessionId
                 let pattern: FTS5Pattern? = try? SessionThreadViewModel.pattern(db, searchTerm: query, forTable: Profile.self)
                 let capabilities: Set<Capability.Variant> = (threadData.threadVariant != .community ?
@@ -873,6 +873,8 @@ public class ConversationViewModel: OWSAudioPlayerDelegate, NavigatableStateHold
                         threadId: threadData.threadId,
                         threadVariant: threadData.threadVariant,
                         targetPrefixes: targetPrefixes,
+                        currentUserBlinded15SessionId: self?.threadData.currentUserBlinded15SessionId,
+                        currentUserBlinded25SessionId: self?.threadData.currentUserBlinded25SessionId,
                         pattern: pattern
                     )?
                     .fetchAll(db))

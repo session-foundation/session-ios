@@ -13,11 +13,11 @@ final class DeletedMessageView: UIView {
     
     // MARK: - Lifecycle
     
-    init(textColor: ThemeValue, variant: Interaction.Variant) {
+    init(textColor: ThemeValue, variant: Interaction.Variant, maxWidth: CGFloat) {
         super.init(frame: CGRect.zero)
         accessibilityIdentifier = "Deleted message"
         isAccessibilityElement = true
-        setUpViewHierarchy(textColor: textColor, variant: variant)
+        setUpViewHierarchy(textColor: textColor, variant: variant, maxWidth: maxWidth)
     }
     
     override init(frame: CGRect) {
@@ -28,7 +28,7 @@ final class DeletedMessageView: UIView {
         preconditionFailure("Use init(textColor:) instead.")
     }
     
-    private func setUpViewHierarchy(textColor: ThemeValue, variant: Interaction.Variant) {
+    private func setUpViewHierarchy(textColor: ThemeValue, variant: Interaction.Variant, maxWidth: CGFloat) {
         // Image view
         let imageContainerView: UIView = UIView()
         imageContainerView.set(.width, to: DeletedMessageView.iconImageViewSize)
@@ -45,6 +45,7 @@ final class DeletedMessageView: UIView {
         // Body label
         let titleLabel = UILabel()
         titleLabel.setContentHuggingPriority(.required, for: .vertical)
+        titleLabel.preferredMaxLayoutWidth = maxWidth - 6   // `6` for the `stackView.layoutMargins`
         titleLabel.font = .systemFont(ofSize: Values.smallFontSize)
         titleLabel.text = {
             switch variant {
@@ -66,8 +67,8 @@ final class DeletedMessageView: UIView {
         stackView.layoutMargins = UIEdgeInsets(top: 0, leading: 0, bottom: 0, trailing: 6)
         addSubview(stackView)
         
+        let calculatedSize: CGSize = stackView.systemLayoutSizeFitting(CGSize(width: maxWidth, height: 999))
         stackView.pin(to: self, withInset: Values.smallSpacing)
-        stackView.set(.height, to: .height, of: titleLabel)
-        titleLabel.set(.height, greaterThanOrEqualTo: .height, of: imageView)
+        stackView.set(.height, to: calculatedSize.height)
     }
 }

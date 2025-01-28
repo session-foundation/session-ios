@@ -1002,12 +1002,15 @@ class ThreadSettingsViewModel: SessionTableViewModel, NavigatableStateHolder, Ob
                                     case .failure:
                                         viewModel?.transitionToScreen(
                                             ConfirmationModal(
-                                                // FIXME: Localise these
                                                 info: ConfirmationModal.Info(
-                                                    title: "Promotion Failed",
-                                                    body: .text("An error occurred and the promotions were not successfully sent, would you like to try again?"),
-                                                    confirmTitle: "retry".localized(),
-                                                    cancelTitle: "dismiss".localized(),
+                                                    title: "promotionFailed"
+                                                        .putNumber(memberInfo.count)
+                                                        .localized(),
+                                                    body: .text("promotionFailedDescription"
+                                                        .putNumber(memberInfo.count)
+                                                        .localized()),
+                                                    confirmTitle: "yes".localized(),
+                                                    cancelTitle: "cancel".localized(),
                                                     cancelStyle: .alert_text,
                                                     dismissOnConfirm: false,
                                                     onConfirm: { modal in
