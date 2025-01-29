@@ -38,7 +38,7 @@ extension MessageReceiver {
     // MARK: - Specific Handling
     
     private static func handleNewCallMessage(_ db: Database, message: CallMessage, using dependencies: Dependencies) throws {
-        SNLog("[Calls] Received pre-offer message.")
+        SNLog("[Calls] Received pre-offer message with uuid: \(message.uuid).")
         
         // Determine whether the app is active based on the prefs rather than the UIApplication state to avoid
         // requiring main-thread execution
@@ -59,6 +59,7 @@ extension MessageReceiver {
         else { return }
         guard let timestamp = message.sentTimestamp, TimestampUtils.isWithinOneMinute(timestampMs: timestamp) else {
             // Add missed call message for call offer messages from more than one minute
+            SNLog("[Calls] Got an expired call offer message with uuid: \(message.uuid). Sent at \(message.sentTimestamp), now is \(Date().timeIntervalSince1970 * 1000)")
             if let interaction: Interaction = try MessageReceiver.insertCallInfoMessage(db, for: message, state: .missed, using: dependencies) {
                 let thread: SessionThread = try SessionThread.upsert(
                     db,

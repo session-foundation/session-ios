@@ -23,4 +23,5 @@ internal struct NoopSessionCallManager: CallManagerProtocol {
     func currentWebRTCSessionMatches(callId: String) -> Bool { return false }
     
     func dismissAllCallUI() {}
+    func cleanUpPreviousCall() {}
 }

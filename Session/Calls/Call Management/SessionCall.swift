@@ -305,15 +305,16 @@ public final class SessionCall: CurrentCallProtocol, WebRTCSessionDelegate {
     func endSessionCall() {
         guard !hasEnded else { return }
         
-        let sessionId: String = self.sessionId
-        
         webRTCSession.hangUp()
-        
-        Storage.shared.writeAsync { [weak self] db in
-            try self?.webRTCSession.endCall(db, with: sessionId)
-        }
-        
-        hasEnded = true
+        webRTCSession.endCall(
+            with: self.sessionId
+        )
+        .sinkUntilComplete(
+            receiveCompletion: { [weak self] _ in
+                self?.hasEnded = true
+                Singleton.callManager.cleanUpPreviousCall()
+            }
+        )
     }
     
     func handleCallInitializationFailed() {

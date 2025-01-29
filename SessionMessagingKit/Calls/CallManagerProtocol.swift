@@ -38,4 +38,5 @@ public protocol CallManagerProtocol {
     func currentWebRTCSessionMatches(callId: String) -> Bool
     
     func dismissAllCallUI()
+    func cleanUpPreviousCall()
 }

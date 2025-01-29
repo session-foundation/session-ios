@@ -143,20 +143,8 @@ public final class SessionCallManager: NSObject, CallManagerProtocol {
             return
         }
         
-        func handleCallEnded() {
-            SNLog("[Calls] Call ended.")
-            WebRTCSession.current = nil
-            UserDefaults.sharedLokiProject?[.isCallOngoing] = false
-            UserDefaults.sharedLokiProject?[.lastCallPreOffer] = nil
-            
-            if Singleton.hasAppContext && Singleton.appContext.isNotInForeground {
-                (UIApplication.shared.delegate as? AppDelegate)?.stopPollers()
-                Log.flush()
-            }
-        }
-        
         guard let call = currentCall else {
-            handleCallEnded()
+            self.cleanUpPreviousCall()
             suspendDatabaseIfCallEndedInBackground()
             return
         }
@@ -175,9 +163,7 @@ public final class SessionCallManager: NSObject, CallManagerProtocol {
             call.updateCallMessage(mode: .local, using: dependencies)
         }
         
-        (call as? SessionCall)?.webRTCSession.dropConnection()
-        self.currentCall = nil
-        handleCallEnded()
+        self.cleanUpPreviousCall()
     }
     
     public func currentWebRTCSessionMatches(callId: String) -> Bool {
@@ -300,5 +286,20 @@ public final class SessionCallManager: NSObject, CallManagerProtocol {
         IncomingCallBanner.current?.dismiss()
         (Singleton.appContext.frontmostViewController as? CallVC)?.handleEndCallMessage()
         MiniCallView.current?.dismiss()
+    }
+    
+    public func cleanUpPreviousCall() {
+        SNLog("[Calls] Clean up calls")
+        
+        WebRTCSession.current?.dropConnection()
+        WebRTCSession.current = nil
+        currentCall = nil
+        UserDefaults.sharedLokiProject?[.isCallOngoing] = false
+        UserDefaults.sharedLokiProject?[.lastCallPreOffer] = nil
+        
+        if Singleton.hasAppContext && Singleton.appContext.isNotInForeground {
+            (UIApplication.shared.delegate as? AppDelegate)?.stopPollers()
+            Log.flush()
+        }
     }
 }

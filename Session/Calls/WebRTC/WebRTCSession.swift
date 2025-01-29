@@ -358,39 +358,50 @@ public final class WebRTCSession : NSObject, RTCPeerConnectionDelegate {
             )
     }
     
-    public func endCall(
-        _ db: Database,
-        with sessionId: String
-    ) throws {
-        guard let thread: SessionThread = try SessionThread.fetchOne(db, id: sessionId) else { return }
-        
-        SNLog("[Calls] Sending end call message.")
-        
-        let preparedSendData: MessageSender.PreparedSendData = try MessageSender
-            .preparedSendData(
-                db,
-                message: CallMessage(
-                    uuid: self.uuid,
-                    kind: .endCall,
-                    sdps: []
-                )
-                .with(try? thread.disappearingMessagesConfiguration
-                    .fetchOne(db)?
-                    .forcedWithDisappearAfterReadIfNeeded()
-                ),
-                to: try Message.Destination.from(db, threadId: thread.id, threadVariant: thread.variant),
-                namespace: try Message.Destination
-                    .from(db, threadId: thread.id, threadVariant: thread.variant)
-                    .defaultNamespace,
-                interactionId: nil,
-                using: dependencies
-            )
-        
-        MessageSender
-            .sendImmediate(data: preparedSendData, using: dependencies)
+    public func endCall(with sessionId: String) -> AnyPublisher<Void, Error> {
+        return dependencies.storage
+            .writePublisher { [dependencies = self.dependencies] db in
+                guard let thread: SessionThread = try SessionThread.fetchOne(db, id: sessionId) else {
+                    throw WebRTCSessionError.noThread
+                }
+                
+                SNLog("[Calls] Sending end call message.")
+                
+                return try MessageSender
+                    .preparedSendData(
+                        db,
+                        message: CallMessage(
+                            uuid: self.uuid,
+                            kind: .endCall,
+                            sdps: []
+                        )
+                        .with(try? thread.disappearingMessagesConfiguration
+                            .fetchOne(db)?
+                            .forcedWithDisappearAfterReadIfNeeded()
+                        ),
+                        to: try Message.Destination.from(db, threadId: thread.id, threadVariant: thread.variant),
+                        namespace: try Message.Destination
+                            .from(db, threadId: thread.id, threadVariant: thread.variant)
+                            .defaultNamespace,
+                        interactionId: nil,
+                        using: dependencies
+                    )
+            }
             .subscribe(on: DispatchQueue.global(qos: .userInitiated))
-            .retry(5)
-            .sinkUntilComplete()
+            .flatMap { [dependencies = self.dependencies] sendData in
+                MessageSender
+                    .sendImmediate(data: sendData, using: dependencies)
+                    .retry(5)
+            }
+            .handleEvents(receiveCompletion: { result in
+                switch result {
+                    case .finished:
+                        SNLog("[Calls] End call message sent")
+                    case .failure(let error):
+                        SNLog("[Calls] Error sending End call message due to error: \(error)")
+                }
+            })
+            .eraseToAnyPublisher()
     }
     
     public func dropConnection() {
