@@ -112,9 +112,9 @@ public final class GroupUpdateDeleteMemberContentMessage: ControlMessage {
         return GroupUpdateDeleteMemberContentMessage(
             memberSessionIds: groupDeleteMemberContentMessage.memberSessionIds,
             messageHashes: groupDeleteMemberContentMessage.messageHashes,
-            adminSignature: groupDeleteMemberContentMessage.adminSignature.map {
-                Authentication.Signature.standard(signature: Array($0))
-            }
+            adminSignature: groupDeleteMemberContentMessage.adminSignature
+                .map { Authentication.Signature.standard(signature: Array($0)) }
+                .nullIfEmpty    // Need this in case an empty array is sent instead of null
         )
     }
 

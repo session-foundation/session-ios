@@ -19,6 +19,8 @@ public extension Singleton {
 // MARK: - SessionApp
 
 public class SessionApp: SessionAppType {
+    public static let maxMessageCharacterCount: Int = 2000
+    
     private let dependencies: Dependencies
     private var homeViewController: HomeVC?
     
@@ -192,7 +194,7 @@ public class SessionApp: SessionAppType {
                 variant: variant,
                 values: SessionThread.TargetValues(
                     shouldBeVisible: .useLibSession,
-                    isDraft: (threadExists ? .useExisting : .setTo(true))
+                    isDraft: .useExistingOrSetTo(true)
                 ),
                 using: dependencies
             )

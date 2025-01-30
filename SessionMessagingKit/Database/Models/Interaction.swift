@@ -504,7 +504,7 @@ public extension Interaction {
         let wasRead: Bool
     }
     
-    static func fetchUnreadCount(
+    static func fetchAppBadgeUnreadCount(
         _ db: Database,
         using dependencies: Dependencies
     ) throws -> Int {
@@ -1174,7 +1174,7 @@ public extension Interaction.Variant {
         }
     }
     
-    /// This flag controls whether the `wasRead` flag is automatically set to true based on the message variant (as a result it they will
+    /// This flag controls whether the `wasRead` flag is automatically set to true based on the message variant (as a result they will
     /// or won't affect the unread count)
     fileprivate var canBeUnread: Bool {
         switch self {
@@ -1182,7 +1182,8 @@ public extension Interaction.Variant {
             case .infoCall: return true
 
             case .infoDisappearingMessagesUpdate, .infoScreenshotNotification,
-                .infoMediaSavedNotification, .infoGroupInfoInvited:
+                .infoMediaSavedNotification, .infoGroupInfoInvited, .infoGroupInfoUpdated,
+                .infoGroupMembersUpdated:
                 /// These won't be counted as unread messages but need to be able to be in an unread state so that they can disappear
                 /// after being read (if we don't do this their expiration timer will start immediately when received)
                 return true
@@ -1193,7 +1194,7 @@ public extension Interaction.Variant {
             
             case .infoLegacyGroupCreated, .infoLegacyGroupUpdated, .infoLegacyGroupCurrentUserLeft,
                 .infoGroupCurrentUserLeaving, .infoGroupCurrentUserErrorLeaving,
-                .infoMessageRequestAccepted, .infoGroupInfoUpdated, .infoGroupMembersUpdated:
+                .infoMessageRequestAccepted:
                 return false
         }
     }

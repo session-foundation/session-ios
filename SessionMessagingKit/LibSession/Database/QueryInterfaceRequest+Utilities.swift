@@ -109,17 +109,6 @@ public extension QueryInterfaceRequest where RowDecoder: FetchableRecord & Table
         // Then check if any of the changes could affect the config
         guard LibSession.assignmentsRequireConfigUpdate(assignments) else { return updatedData }
         
-        defer {
-            // If we changed a column that requires a config update then we may as well automatically
-            // enqueue a new config sync job once the transaction completes (but only enqueue it once
-            // per transaction - doing it more than once is pointless)
-            let userSessionId: SessionId = dependencies[cache: .general].sessionId
-            
-            db.afterNextTransactionNestedOnce(dedupeId: LibSession.syncDedupeId(userSessionId.hexString), using: dependencies) { db in
-                ConfigurationSyncJob.enqueue(db, swarmPublicKey: userSessionId.hexString, using: dependencies)
-            }
-        }
-        
         // Update the config dump state where needed
         switch self {
             case is QueryInterfaceRequest<Contact>:

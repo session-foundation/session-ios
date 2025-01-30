@@ -341,7 +341,22 @@ class ThreadDisappearingMessagesSettingsViewModel: SessionTableViewModel, Naviga
         let updatedConfig: DisappearingMessagesConfiguration = self.configSubject.value
 
         guard self.originalConfig != updatedConfig else { return }
+        
+        // Custom handle updated groups first (all logic is consolidated in the MessageSender extension
+        switch threadVariant {
+            case .group:
+                MessageSender
+                    .updateGroup(
+                        groupSessionId: threadId,
+                        disapperingMessagesConfig: updatedConfig,
+                        using: dependencies
+                    )
+                    .sinkUntilComplete()
+            
+            default: break
+        }
 
+        // Otherwise handle other conversation variants
         dependencies[singleton: .storage].writeAsync { [threadId, threadVariant, dependencies] db in
             // Update the local state
             try updatedConfig.upserted(db)
@@ -377,51 +392,21 @@ class ThreadDisappearingMessagesSettingsViewModel: SessionTableViewModel, Naviga
                         using: dependencies
                     )
                     
-                case .group:
-                    try LibSession.update(
-                        db,
-                        groupSessionId: SessionId(.group, hex: threadId),
-                        disappearingConfig: updatedConfig,
-                        using: dependencies
-                    )
-                    
+                case .group: break // Handled above
                 default: break
             }
             
             // Send a control message that the disappearing messages setting changed
-            switch threadVariant {
-                case .group:
-                    try MessageSender.send(
-                        db,
-                        message: GroupUpdateInfoChangeMessage(
-                            changeType: .disappearingMessages,
-                            updatedExpiration: UInt32(updatedConfig.isEnabled ? updatedConfig.durationSeconds : 0),
-                            sentTimestampMs: UInt64(currentOffsetTimestampMs),
-                            authMethod: try Authentication.with(
-                                db,
-                                swarmPublicKey: threadId,
-                                using: dependencies
-                            ),
-                            using: dependencies
-                        ),
-                        interactionId: nil,
-                        threadId: threadId,
-                        threadVariant: .group,
-                        using: dependencies
-                    )
-                    
-                default:
-                    try MessageSender.send(
-                        db,
-                        message: ExpirationTimerUpdate()
-                            .with(sentTimestampMs: UInt64(currentOffsetTimestampMs))
-                            .with(updatedConfig),
-                        interactionId: interactionId,
-                        threadId: threadId,
-                        threadVariant: threadVariant,
-                        using: dependencies
-                    )
-            }
+            try MessageSender.send(
+                db,
+                message: ExpirationTimerUpdate()
+                    .with(sentTimestampMs: UInt64(currentOffsetTimestampMs))
+                    .with(updatedConfig),
+                interactionId: interactionId,
+                threadId: threadId,
+                threadVariant: threadVariant,
+                using: dependencies
+            )
         }
     }
 }

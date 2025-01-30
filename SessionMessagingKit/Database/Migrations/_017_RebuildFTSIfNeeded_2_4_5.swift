@@ -10,7 +10,6 @@ import SessionUtilitiesKit
 enum _017_RebuildFTSIfNeeded_2_4_5: Migration {
     static let target: TargetMigrations.Identifier = .messagingKit
     static let identifier: String = "RebuildFTSIfNeeded_2_4_5"
-    static let needsConfigSync: Bool = false
     static let minExpectedRunDuration: TimeInterval = 0.01
     static let fetchedTables: [(TableRecord & FetchableRecord).Type] = []
     static let createdOrAlteredTables: [(TableRecord & FetchableRecord).Type] = []

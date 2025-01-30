@@ -9,7 +9,6 @@ import SessionUtilitiesKit
 enum _011_AddPendingReadReceipts: Migration {
     static let target: TargetMigrations.Identifier = .messagingKit
     static let identifier: String = "AddPendingReadReceipts"
-    static let needsConfigSync: Bool = false
     static let minExpectedRunDuration: TimeInterval = 0.01
     static let fetchedTables: [(TableRecord & FetchableRecord).Type] = []
     static let createdOrAlteredTables: [(TableRecord & FetchableRecord).Type] = [PendingReadReceipt.self]

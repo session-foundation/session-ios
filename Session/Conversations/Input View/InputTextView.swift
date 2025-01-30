@@ -97,6 +97,40 @@ public final class InputTextView: UITextView, UITextViewDelegate {
         handleTextChanged()
     }
     
+    public func textView(_ textView: UITextView, shouldChangeTextIn range: NSRange, replacementText text: String) -> Bool {
+        let currentText: String = (textView.text ?? "")
+        guard let textRange: Range<String.Index> = Range(range, in: currentText) else { return true }
+        
+        /// Use utf16 view for proper length calculation
+        let currentLength: Int = currentText.count
+        let rangeLength: Int = currentText[textRange].count
+        let newLength: Int = ((currentLength - rangeLength) + text.count)
+        
+        /// If the updated length is within the limit then just let the OS handle it (no need to do anything custom
+        guard newLength > SessionApp.maxMessageCharacterCount else { return true }
+        
+        /// Ensure there is actually space remaining (if not then just don't allow editing)
+        let remainingSpace: Int = SessionApp.maxMessageCharacterCount - (currentLength - rangeLength)
+        guard remainingSpace > 0 else { return false }
+        
+        /// Truncate text based on character count (use `textStorage.replaceCharacters` for built in `undo` support)
+        let truncatedText: String = String(text.prefix(remainingSpace))
+        let offset: Int = range.location + truncatedText.count
+        textView.textStorage.replaceCharacters(in: range, with: truncatedText)
+        
+        /// Position cursor after inserted text
+        ///
+        /// **Note:** We need to dispatch to the next run loop because it seems that iOS might revert the `selectedTextRange`
+        /// after returning `false` from this function, by dispatching we then override this reverted position with a desired final position
+        if let newPosition: UITextPosition = textView.position(from: textView.beginningOfDocument, offset: offset) {
+            DispatchQueue.main.async {
+                textView.selectedTextRange = textView.textRange(from: newPosition, to: newPosition)
+            }
+        }
+        
+        return false
+    }
+    
     private func handleTextChanged() {
         defer { snDelegate?.inputTextViewDidChangeContent(self) }
         

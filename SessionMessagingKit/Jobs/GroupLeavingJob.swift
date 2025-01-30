@@ -135,11 +135,14 @@ public enum GroupLeavingJob: JobExecutor {
                         )
                         
                     case (.group, .delete, true, _), (.group, .leave, true, true):
-                        try LibSession.deleteGroupForEveryone(
-                            db,
-                            groupSessionId: SessionId(.group, hex: threadId),
-                            using: dependencies
-                        )
+                        let groupSessionId: SessionId = SessionId(.group, hex: threadId)
+                        
+                        /// Skip the automatic config sync because we want to perform it synchronously as part of this job
+                        try dependencies.mutate(cache: .libSession) { cache in
+                            try cache.withCustomBehaviour(.skipAutomaticConfigSync, for: groupSessionId) {
+                                try cache.deleteGroupForEveryone(db, groupSessionId: groupSessionId)
+                            }
+                        }
                         
                         return .delete
                     

@@ -8,7 +8,6 @@ import SessionUtilitiesKit
 enum _015_BlockCommunityMessageRequests: Migration {
     static let target: TargetMigrations.Identifier = .messagingKit
     static let identifier: String = "BlockCommunityMessageRequests"
-    static let needsConfigSync: Bool = false
     static let minExpectedRunDuration: TimeInterval = 0.01
     static var requirements: [MigrationRequirement] = [.sessionIdCached, .libSessionStateLoaded]
     static let fetchedTables: [(TableRecord & FetchableRecord).Type] = [

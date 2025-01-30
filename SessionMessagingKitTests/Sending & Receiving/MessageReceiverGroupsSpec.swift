@@ -183,6 +183,7 @@ class MessageReceiverGroupsSpec: QuickSpec {
             initialSetup: { cache in
                 let userSessionId: SessionId = SessionId(.standard, hex: TestConstants.publicKey)
                 
+                cache.when { $0.isEmpty }.thenReturn(false)
                 cache.when { $0.setConfig(for: .any, sessionId: .any, to: .any) }.thenReturn(())
                 cache.when { $0.removeConfigs(for: .any) }.thenReturn(())
                 cache.when { $0.hasConfig(for: .any, sessionId: .any) }.thenReturn(true)
@@ -201,7 +202,17 @@ class MessageReceiverGroupsSpec: QuickSpec {
                 cache
                     .when { $0.config(for: .groupKeys, sessionId: groupId) }
                     .thenReturn(groupKeysConfig)
+                cache
+                    .when { try $0.pendingChanges(.any, swarmPubkey: .any) }
+                    .thenReturn(LibSession.PendingChanges())
                 cache.when { $0.configNeedsDump(.any) }.thenReturn(false)
+                cache
+                    .when { try $0.withCustomBehaviour(.any, for: .any, variant: .any, change: { }) }
+                    .then { args, untrackedArgs in
+                        let callback: (() throws -> Void)? = (untrackedArgs[test: 0] as? () throws -> Void)
+                        try? callback?()
+                    }
+                    .thenReturn(())
                 cache
                     .when { try $0.performAndPushChange(.any, for: .any, sessionId: .any, change: { _ in }) }
                     .then { args, untrackedArgs in
@@ -2441,7 +2452,6 @@ class MessageReceiverGroupsSpec: QuickSpec {
                         
                         let interactions: [Interaction]? = mockStorage.read { db in try Interaction.fetchAll(db) }
                         expect(interactions?.count).to(equal(4))    // Message isn't deleted, just content
-                        expect(interactions?.map { $0.serverHash }).toNot(contain("TestMessageHash3"))
                         expect(interactions?.map { $0.body }).toNot(contain("Test3"))
                     }
                     
@@ -2470,7 +2480,6 @@ class MessageReceiverGroupsSpec: QuickSpec {
                         
                         let interactions: [Interaction]? = mockStorage.read { db in try Interaction.fetchAll(db) }
                         expect(interactions?.count).to(equal(4))    // Message isn't deleted, just content
-                        expect(interactions?.map { $0.serverHash }).toNot(contain("TestMessageHash3"))
                         expect(interactions?.map { $0.body }).toNot(contain("Test3"))
                     }
                     
@@ -2498,7 +2507,7 @@ class MessageReceiverGroupsSpec: QuickSpec {
                         let interactions: [Interaction]? = mockStorage.read { db in try Interaction.fetchAll(db) }
                         expect(interactions?.count).to(equal(4))
                         expect(interactions?.map { $0.serverHash }).to(equal([
-                            "TestMessageHash1", "TestMessageHash2", nil, "TestMessageHash4"
+                            "TestMessageHash1", "TestMessageHash2", "TestMessageHash3", "TestMessageHash4"
                         ]))
                         expect(interactions?.map { $0.body }).to(equal([
                             "Test1",
@@ -2544,7 +2553,7 @@ class MessageReceiverGroupsSpec: QuickSpec {
                         let interactions: [Interaction]? = mockStorage.read { db in try Interaction.fetchAll(db) }
                         expect(interactions?.count).to(equal(4))
                         expect(interactions?.map { $0.serverHash }).to(equal([
-                            "TestMessageHash1", "TestMessageHash2", nil, "TestMessageHash4"
+                            "TestMessageHash1", "TestMessageHash2", "TestMessageHash3", "TestMessageHash4"
                         ]))
                         expect(interactions?.map { $0.body }).to(equal([
                             "Test1",
@@ -2592,7 +2601,6 @@ class MessageReceiverGroupsSpec: QuickSpec {
                         
                         let interactions: [Interaction]? = mockStorage.read { db in try Interaction.fetchAll(db) }
                         expect(interactions?.count).to(equal(4))
-                        expect(interactions?.map { $0.serverHash }).toNot(contain("TestMessageHash3"))
                         expect(interactions?.map { $0.body }).toNot(contain("Test3"))
                     }
                     
@@ -2621,7 +2629,6 @@ class MessageReceiverGroupsSpec: QuickSpec {
                         
                         let interactions: [Interaction]? = mockStorage.read { db in try Interaction.fetchAll(db) }
                         expect(interactions?.count).to(equal(4))
-                        expect(interactions?.map { $0.serverHash }).toNot(contain("TestMessageHash3"))
                         expect(interactions?.map { $0.body }).toNot(contain("Test3"))
                     }
                     
@@ -2648,7 +2655,6 @@ class MessageReceiverGroupsSpec: QuickSpec {
                         
                         let interactions: [Interaction]? = mockStorage.read { db in try Interaction.fetchAll(db) }
                         expect(interactions?.count).to(equal(4))
-                        expect(interactions?.map { $0.serverHash }).toNot(contain("TestMessageHash3"))
                         expect(interactions?.map { $0.body }).toNot(contain("Test3"))
                     }
                     
@@ -2677,7 +2683,6 @@ class MessageReceiverGroupsSpec: QuickSpec {
                         
                         let interactions: [Interaction]? = mockStorage.read { db in try Interaction.fetchAll(db) }
                         expect(interactions?.count).to(equal(4))
-                        expect(interactions?.map { $0.serverHash }).toNot(contain("TestMessageHash3"))
                         expect(interactions?.map { $0.body }).toNot(contain("Test3"))
                     }
                     
@@ -2708,7 +2713,13 @@ class MessageReceiverGroupsSpec: QuickSpec {
                         let interactions: [Interaction]? = mockStorage.read { db in try Interaction.fetchAll(db) }
                         expect(interactions?.count).to(equal(4))
                         expect(interactions?.map { $0.serverHash }).to(equal([
-                            nil, "TestMessageHash2", nil, "TestMessageHash4"
+                            "TestMessageHash1", "TestMessageHash2", "TestMessageHash3", "TestMessageHash4"
+                        ]))
+                        expect(interactions?.map { $0.body }).to(equal([
+                            nil,
+                            "Test2",
+                            nil,
+                            "Test4"
                         ]))
                         expect(interactions?.map { $0.authorId }).to(equal([
                             "051111111111111111111111111111111111111111111111111111111111111111",

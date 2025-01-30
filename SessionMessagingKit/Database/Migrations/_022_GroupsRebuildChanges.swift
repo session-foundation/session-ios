@@ -11,7 +11,6 @@ import SessionUtilitiesKit
 enum _022_GroupsRebuildChanges: Migration {
     static let target: TargetMigrations.Identifier = .messagingKit
     static let identifier: String = "GroupsRebuildChanges"
-    static let needsConfigSync: Bool = false
     static let minExpectedRunDuration: TimeInterval = 0.1
     static var requirements: [MigrationRequirement] = [.sessionIdCached, .libSessionStateLoaded]
     static var fetchedTables: [(FetchableRecord & TableRecord).Type] = [

@@ -68,7 +68,7 @@ final class ShareNavController: UINavigationController, ShareViewDelegate {
                 )
                 SNMessagingKit.configure(using: dependencies)
             },
-            migrationsCompletion: { [weak self, dependencies] result, needsConfigSync in
+            migrationsCompletion: { [weak self, dependencies] result in
                 switch result {
                     case .failure: Log.error("Failed to complete migrations")
                     case .success:
@@ -83,9 +83,7 @@ final class ShareNavController: UINavigationController, ShareViewDelegate {
                                 }
                             )
                             
-                            // performUpdateCheck must be invoked after Environment has been initialized because
-                            // upgrade process may depend on Environment.
-                            self?.versionMigrationsDidComplete(needsConfigSync: needsConfigSync)
+                            self?.versionMigrationsDidComplete()
                         }
                 }
             },
@@ -109,17 +107,16 @@ final class ShareNavController: UINavigationController, ShareViewDelegate {
         ThemeManager.traitCollectionDidChange(previousTraitCollection)
     }
 
-    func versionMigrationsDidComplete(needsConfigSync: Bool) {
+    func versionMigrationsDidComplete() {
         Log.assertOnMainThread()
 
-        // If we need a config sync then trigger it now
-        if needsConfigSync {
-            dependencies[singleton: .storage].write { [dependencies] db in
-                ConfigurationSyncJob.enqueue(
-                    db,
-                    swarmPublicKey: dependencies[cache: .general].sessionId.hexString,
-                    using: dependencies
-                )
+        /// Now that the migrations are completed schedule config syncs for **all** configs that have pending changes to
+        /// ensure that any pending local state gets pushed and any jobs waiting for a successful config sync are run
+        ///
+        /// **Note:** We only want to do this if the app is active and ready for app extensions to run
+        if dependencies[singleton: .appContext].isAppForegroundAndActive && dependencies[singleton: .storage, key: .isReadyForAppExtensions] {
+            dependencies[singleton: .storage].writeAsync { [dependencies] db in
+                dependencies.mutate(cache: .libSession) { $0.syncAllPendingChanges(db) }
             }
         }
 

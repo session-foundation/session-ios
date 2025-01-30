@@ -10,7 +10,6 @@ import SessionUtilitiesKit
 enum _004_FlagMessageHashAsDeletedOrInvalid: Migration {
     static let target: TargetMigrations.Identifier = .snodeKit
     static let identifier: String = "FlagMessageHashAsDeletedOrInvalid"
-    static let needsConfigSync: Bool = false
     static let minExpectedRunDuration: TimeInterval = 0.2
     static let fetchedTables: [(TableRecord & FetchableRecord).Type] = []
     static let createdOrAlteredTables: [(TableRecord & FetchableRecord).Type] = [

@@ -81,7 +81,7 @@ private class ConfigStore {
     
     private var store: [Key: LibSession.Config] = [:]
     public var isEmpty: Bool { store.isEmpty }
-    public var needsSync: Bool { store.contains { _, config in config.needsPush } }
+    public var swarmPublicKeys: Set<String> { Set(store.keys.map { $0.sessionId.hexString }) }
     
     subscript (sessionId: SessionId, variant: ConfigDump.Variant) -> LibSession.Config? {
         get { return (store[Key(sessionId: sessionId, variant: variant)] ?? nil) }
@@ -195,10 +195,6 @@ public extension LibSession {
         public let dependencies: Dependencies
         public let userSessionId: SessionId
         public var isEmpty: Bool { configStore.isEmpty }
-        
-        /// Returns `true` if there is a config which needs to be pushed, but returns `false` if the configs are all up to date or haven't been
-        /// loaded yet (eg. fresh install)
-        public var needsSync: Bool { configStore.needsSync }
         
         // MARK: - Initialization
         
@@ -489,6 +485,12 @@ public extension LibSession {
         
         // MARK: - Pushes
         
+        public func syncAllPendingChanges(_ db: Database) {
+            configStore.swarmPublicKeys.forEach { swarmPublicKey in
+                ConfigurationSyncJob.enqueue(db, swarmPublicKey: swarmPublicKey, using: dependencies)
+            }
+        }
+        
         public func withCustomBehaviour(
             _ behaviour: CacheBehaviour,
             for sessionId: SessionId,
@@ -766,6 +768,12 @@ public extension LibSession {
             
             // Now that the local state has been updated, schedule a config sync if needed (this will
             // push any pending updates and properly update the state)
+            guard
+                let sessionId: SessionId = try? SessionId(from: swarmPublicKey),
+                configStore[sessionId].contains(where: { $0.needsPush }) &&
+                !behaviourStore.hasBehaviour(.skipAutomaticConfigSync, for: sessionId)
+            else { return }
+            
             db.afterNextTransactionNestedOnce(dedupeId: LibSession.syncDedupeId(swarmPublicKey), using: dependencies) { [dependencies] db in
                 ConfigurationSyncJob.enqueue(db, swarmPublicKey: swarmPublicKey, using: dependencies)
             }
@@ -885,7 +893,6 @@ public protocol LibSessionCacheType: LibSessionImmutableCacheType, MutableCacheT
     var dependencies: Dependencies { get }
     var userSessionId: SessionId { get }
     var isEmpty: Bool { get }
-    var needsSync: Bool { get }
     
     // MARK: - State Management
     
@@ -909,6 +916,7 @@ public protocol LibSessionCacheType: LibSessionImmutableCacheType, MutableCacheT
     
     // MARK: - Pushes
     
+    func syncAllPendingChanges(_ db: Database)
     func withCustomBehaviour(
         _ behaviour: LibSession.CacheBehaviour,
         for sessionId: SessionId,
@@ -974,7 +982,6 @@ private final class NoopLibSessionCache: LibSessionCacheType {
     let dependencies: Dependencies
     let userSessionId: SessionId = .invalid
     let isEmpty: Bool = true
-    let needsSync: Bool = false
     
     init(using dependencies: Dependencies) {
         self.dependencies = dependencies
@@ -1004,6 +1011,7 @@ private final class NoopLibSessionCache: LibSessionCacheType {
     
     // MARK: - Pushes
     
+    func syncAllPendingChanges(_ db: Database) {}
     func withCustomBehaviour(
         _ behaviour: LibSession.CacheBehaviour,
         for sessionId: SessionId,

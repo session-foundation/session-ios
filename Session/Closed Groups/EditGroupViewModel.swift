@@ -608,13 +608,15 @@ class EditGroupViewModel: SessionTableViewModel, NavigatableStateHolder, Editabl
     
     private func addMembers(
         currentGroupName: String,
-        memberInfo: [(id: String, profile: Profile?)]
+        memberInfo: [(id: String, profile: Profile?)],
+        isRetry: Bool = false
     ) {
         let viewController = ModalActivityIndicatorViewController(canCancel: false) { [weak self, dependencies, threadId] modalActivityIndicator in
             MessageSender
                 .addGroupMembers(
                     groupSessionId: threadId,
                     members: memberInfo,
+                    isRetry: isRetry,
                     allowAccessToHistoricMessages: dependencies[feature: .updatedGroupsAllowHistoricAccessOnInvite],
                     using: dependencies
                 )
@@ -640,7 +642,8 @@ class EditGroupViewModel: SessionTableViewModel, NavigatableStateHolder, Editabl
                                                     modal.dismiss(animated: true) {
                                                         self?.addMembers(
                                                             currentGroupName: currentGroupName,
-                                                            memberInfo: memberInfo
+                                                            memberInfo: memberInfo,
+                                                            isRetry: true
                                                         )
                                                     }
                                                 },

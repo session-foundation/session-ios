@@ -409,6 +409,25 @@ private struct MemberData {
 // MARK: - Convenience
 
 internal extension LibSession {
+    static func isSupplementalMember(
+        groupSessionId: SessionId,
+        memberId: String,
+        using dependencies: Dependencies
+    ) -> Bool {
+        return dependencies.mutate(cache: .libSession) { cache in
+            var member: config_group_member = config_group_member()
+            
+            guard
+                let cMemberId: [CChar] = memberId.cString(using: .utf8),
+                let config: Config = cache.config(for: .groupMembers, sessionId: groupSessionId),
+                case .groupMembers(let conf) = config,
+                groups_members_get(conf, &member, cMemberId)
+            else { return false }
+            
+            return member.supplement
+        }
+    }
+    
     static func extractMembers(
         from conf: UnsafeMutablePointer<config_object>?,
         groupSessionId: SessionId

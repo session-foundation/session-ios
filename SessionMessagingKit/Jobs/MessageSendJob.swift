@@ -42,6 +42,32 @@ public enum MessageSendJob: JobExecutor {
             }
         }()
         
+        /// If this should be sent after the next config sync but the config has pending changes then defer the job
+        switch job.behaviour {
+            case .runOnceAfterConfigSyncIgnoringPermanentFailure:
+                guard
+                    let sessionId: SessionId = try? SessionId(from: job.threadId),
+                    let variant: ConfigDump.Variant = details.requiredConfigSyncVariant
+                else { return failure(job, JobRunnerError.missingRequiredDetails, true) }
+                
+                let needsPush: Bool? = dependencies.mutate(cache: .libSession) { cache in
+                    cache.config(for: variant, sessionId: sessionId)?.needsPush
+                }
+                
+                /// If the config needs to be pushed then defer this job to be run at a later date
+                guard needsPush == false else {
+                    Log.info(.cat, "Deferring \(messageType) (\(job.id ?? -1)) due to pending config sync")
+                    
+                    if needsPush == nil {
+                        Log.warn(.cat, "Config for \(messageType) (\(job.id ?? -1)) wasn't found, if this continues the message will be deferred indefinitely")
+                    }
+                    
+                    return deferred(job)
+                }
+                
+            default: break
+        }
+        
         /// Ensure any associated attachments have already been uploaded before sending the message
         ///
         /// **Note:** Reactions reference their original message so we need to ignore this logic for reaction messages to ensure we don't
@@ -327,21 +353,25 @@ extension MessageSendJob {
             case message
             @available(*, deprecated, message: "replaced by 'Message.Destination.syncMessage'") case isSyncMessage
             case variant
+            case requiredConfigSyncVariant
         }
         
         public let destination: Message.Destination
         public let message: Message
         public let variant: Message.Variant?
+        public let requiredConfigSyncVariant: ConfigDump.Variant?
         
         // MARK: - Initialization
         
         public init(
             destination: Message.Destination,
-            message: Message
+            message: Message,
+            requiredConfigSyncVariant: ConfigDump.Variant? = nil
         ) {
             self.destination = destination
             self.message = message
             self.variant = Message.Variant(from: message)
+            self.requiredConfigSyncVariant = requiredConfigSyncVariant
         }
         
         // MARK: - Codable
@@ -356,7 +386,8 @@ extension MessageSendJob {
             
             self = Details(
                 destination: try container.decode(Message.Destination.self, forKey: .destination),
-                message: try variant.decode(from: container, forKey: .message)
+                message: try variant.decode(from: container, forKey: .message),
+                requiredConfigSyncVariant: try container.decodeIfPresent(ConfigDump.Variant.self, forKey: .requiredConfigSyncVariant)
             )
         }
         
@@ -371,6 +402,7 @@ extension MessageSendJob {
             try container.encode(destination, forKey: .destination)
             try container.encode(message, forKey: .message)
             try container.encode(variant, forKey: .variant)
+            try container.encodeIfPresent(requiredConfigSyncVariant, forKey: .requiredConfigSyncVariant)
         }
     }
 }

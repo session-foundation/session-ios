@@ -78,7 +78,7 @@ class DatabaseSpec: QuickSpec {
                         
                         MigrationTest.handleRequirements(db, requirement: requirement, using: dependencies)
                     },
-                    onComplete: { _, _ in }
+                    onComplete: { _ in }
                 )
                 
                 expect(migrationRequirementsTriggered).to(equal([.sessionIdCached, .libSessionStateLoaded]))
@@ -98,7 +98,7 @@ class DatabaseSpec: QuickSpec {
                         
                         MigrationTest.handleRequirements(db, requirement: requirement, using: dependencies)
                     },
-                    onComplete: { _, _ in }
+                    onComplete: { _ in }
                 )
                 
                 expect(migrationRequirementsTriggered).to(equal([.sessionIdCached, .libSessionStateLoaded]))
@@ -118,7 +118,7 @@ class DatabaseSpec: QuickSpec {
                         
                         MigrationTest.handleRequirements(db, requirement: requirement, using: dependencies)
                     },
-                    onComplete: { _, _ in }
+                    onComplete: { _ in }
                 )
                 
                 expect(migrationRequirementsTriggered).to(equal([.sessionIdCached, .libSessionStateLoaded]))
@@ -138,7 +138,7 @@ class DatabaseSpec: QuickSpec {
                     onMigrationRequirement: { [dependencies = dependencies!] db, requirement in
                         MigrationTest.handleRequirements(db, requirement: requirement, using: dependencies)
                     },
-                    onComplete: { result, _ in initialResult = result }
+                    onComplete: { result in initialResult = result }
                 )
                 
                 expect(initialResult).to(beSuccess())
@@ -153,7 +153,7 @@ class DatabaseSpec: QuickSpec {
                     onMigrationRequirement: { [dependencies = dependencies!] db, requirement in
                         MigrationTest.handleRequirements(db, requirement: requirement, using: dependencies)
                     },
-                    onComplete: { result, _ in initialResult = result }
+                    onComplete: { result in initialResult = result }
                 )
                 expect(initialResult).to(beSuccess())
                 
@@ -179,7 +179,7 @@ class DatabaseSpec: QuickSpec {
                     onMigrationRequirement: { [dependencies = dependencies!] db, requirement in
                         MigrationTest.handleRequirements(db, requirement: requirement, using: dependencies)
                     },
-                    onComplete: { result, _ in initialResult = result }
+                    onComplete: { result in initialResult = result }
                 )
                 expect(initialResult).to(beSuccess())
                 
@@ -206,7 +206,7 @@ class DatabaseSpec: QuickSpec {
                         onMigrationRequirement: { [dependencies = dependencies!] db, requirement in
                             MigrationTest.handleRequirements(db, requirement: requirement, using: dependencies)
                         },
-                        onComplete: { result, _ in initialResult = result }
+                        onComplete: { result in initialResult = result }
                     )
                     expect(initialResult).to(beSuccess())
                     
@@ -222,7 +222,7 @@ class DatabaseSpec: QuickSpec {
                         onMigrationRequirement: { [dependencies = dependencies!] db, requirement in
                             MigrationTest.handleRequirements(db, requirement: requirement, using: dependencies)
                         },
-                        onComplete: { result, _ in finalResult = result }
+                        onComplete: { result in finalResult = result }
                     )
                     expect(finalResult).to(beSuccess())
                     
@@ -508,7 +508,6 @@ enum TestRequiresSessionIdCachedMigratableTarget: MigratableTarget { // Just to 
 enum TestRequiresAllMigrationRequirementsReversedMigration: Migration {
     static let target: TargetMigrations.Identifier = .session
     static let identifier: String = "test" // stringlint:ignore
-    static let needsConfigSync: Bool = false
     static let minExpectedRunDuration: TimeInterval = 0.1
     static var requirements: [MigrationRequirement] = MigrationRequirement.allCases.reversed()
     static let fetchedTables: [(TableRecord & FetchableRecord).Type] = []
@@ -521,7 +520,6 @@ enum TestRequiresAllMigrationRequirementsReversedMigration: Migration {
 enum TestRequiresLibSessionStateMigration: Migration {
     static let target: TargetMigrations.Identifier = .session
     static let identifier: String = "test" // stringlint:ignore
-    static let needsConfigSync: Bool = false
     static let minExpectedRunDuration: TimeInterval = 0.1
     static var requirements: [MigrationRequirement] = [.libSessionStateLoaded]
     static let fetchedTables: [(TableRecord & FetchableRecord).Type] = []
@@ -534,7 +532,6 @@ enum TestRequiresLibSessionStateMigration: Migration {
 enum TestRequiresSessionIdCachedMigration: Migration {
     static let target: TargetMigrations.Identifier = .session
     static let identifier: String = "test" // stringlint:ignore
-    static let needsConfigSync: Bool = false
     static let minExpectedRunDuration: TimeInterval = 0.1
     static var requirements: [MigrationRequirement] = [.sessionIdCached]
     static let fetchedTables: [(TableRecord & FetchableRecord).Type] = []

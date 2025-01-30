@@ -139,7 +139,7 @@ public final class MessageSender {
         handleMessageWillSend(db, message: message, destination: destination, interactionId: interactionId)
         
         // Convert and prepare the data for sending
-        let threadId: String = Message.threadId(forMessage: message, destination: destination)
+        let threadId: String = Message.threadId(forMessage: message, destination: destination, using: dependencies)
         let plaintext: Data = try {
             switch namespace {
                 case .revokedRetrievableGroupMessages:
@@ -698,7 +698,7 @@ public final class MessageSender {
         }
         
         // Extract the threadId from the message
-        let threadId: String = Message.threadId(forMessage: message, destination: destination)
+        let threadId: String = Message.threadId(forMessage: message, destination: destination, using: dependencies)
         
         // Prevent ControlMessages from being handled multiple times if not supported
         try? ControlMessageProcessRecord(

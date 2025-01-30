@@ -9,7 +9,6 @@ import SessionUtilitiesKit
 enum _014_GenerateInitialUserConfigDumps: Migration {
     static let target: TargetMigrations.Identifier = .messagingKit
     static let identifier: String = "GenerateInitialUserConfigDumps"
-    static let needsConfigSync: Bool = true
     static let minExpectedRunDuration: TimeInterval = 4.0
     static var requirements: [MigrationRequirement] = [.sessionIdCached]
     static let fetchedTables: [(TableRecord & FetchableRecord).Type] = [
@@ -189,14 +188,7 @@ enum _014_GenerateInitialUserConfigDumps: Migration {
         
         // This needs to happen after we have stored the cache in dependencies
         try LibSession.updatingThreads(db, Array(allThreads.values), using: dependencies)
-        
-        // MARK: - Syncing
-        
-        // Enqueue a config sync job to ensure the generated configs get synced
-        db.afterNextTransactionNestedOnce(dedupeId: LibSession.syncDedupeId(userSessionId.hexString), using: dependencies) { db in
-            ConfigurationSyncJob.enqueue(db, swarmPublicKey: userSessionId.hexString, using: dependencies)
-        }
-        
+
         Storage.update(progress: 1, for: self, in: target, using: dependencies)
     }
     

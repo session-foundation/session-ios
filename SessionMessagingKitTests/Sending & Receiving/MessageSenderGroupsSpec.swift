@@ -954,6 +954,7 @@ class MessageSenderGroupsSpec: QuickSpec {
                             members: [
                                 ("051111111111111111111111111111111111111111111111111111111111111112", nil)
                             ],
+                            isRetry: false,
                             allowAccessToHistoricMessages: false,
                             using: dependencies
                         ).sinkUntilComplete()
@@ -970,6 +971,7 @@ class MessageSenderGroupsSpec: QuickSpec {
                             members: [
                                 ("051111111111111111111111111111111111111111111111111111111111111112", nil)
                             ],
+                            isRetry: false,
                             allowAccessToHistoricMessages: false,
                             using: dependencies
                         ).sinkUntilComplete()
@@ -989,6 +991,7 @@ class MessageSenderGroupsSpec: QuickSpec {
                             members: [
                                 ("051111111111111111111111111111111111111111111111111111111111111112", nil)
                             ],
+                            isRetry: false,
                             allowAccessToHistoricMessages: false,
                             using: dependencies
                         ).sinkUntilComplete()
@@ -1026,6 +1029,7 @@ class MessageSenderGroupsSpec: QuickSpec {
                                 members: [
                                     ("051111111111111111111111111111111111111111111111111111111111111112", nil)
                                 ],
+                                isRetry: false,
                                 allowAccessToHistoricMessages: true,
                                 using: dependencies
                             ).sinkUntilComplete()
@@ -1079,30 +1083,7 @@ class MessageSenderGroupsSpec: QuickSpec {
                                             ed25519SecretKey: Array(groupSecretKey)
                                         ),
                                         using: dependencies
-                                    ))
-                                    .appending(mockStorage.read { db in
-                                        try MessageSender.preparedSend(
-                                            db,
-                                            message: try! GroupUpdateMemberChangeMessage(
-                                                changeType: .added,
-                                                memberSessionIds: [
-                                                    "051111111111111111111111111111111111111111111111111111111111111112"
-                                                ],
-                                                historyShared: true,
-                                                sentTimestampMs: 1234567890000,
-                                                authMethod: Authentication.groupAdmin(
-                                                    groupSessionId: groupId,
-                                                    ed25519SecretKey: Array(groupSecretKey)
-                                                ),
-                                                using: dependencies
-                                            ),
-                                            to: .closedGroup(groupPublicKey: groupId.hexString),
-                                            namespace: .groupMessages,
-                                            interactionId: nil,
-                                            fileIds: [],
-                                            using: dependencies
-                                        )
-                                    }),
+                                    )),
                                 requireAllBatchResponses: true,
                                 swarmPublicKey: groupId.hexString,
                                 snodeRetrievalRetryCount: 0,    // This job has it's own retry mechanism
@@ -1115,6 +1096,7 @@ class MessageSenderGroupsSpec: QuickSpec {
                                 members: [
                                     ("051111111111111111111111111111111111111111111111111111111111111112", nil)
                                 ],
+                                isRetry: false,
                                 allowAccessToHistoricMessages: true,
                                 using: dependencies
                             ).sinkUntilComplete()
@@ -1147,6 +1129,7 @@ class MessageSenderGroupsSpec: QuickSpec {
                                 members: [
                                     ("051111111111111111111111111111111111111111111111111111111111111112", nil)
                                 ],
+                                isRetry: false,
                                 allowAccessToHistoricMessages: true,
                                 using: dependencies
                             ).sinkUntilComplete()
@@ -1179,6 +1162,7 @@ class MessageSenderGroupsSpec: QuickSpec {
                                 members: [
                                     ("051111111111111111111111111111111111111111111111111111111111111112", nil)
                                 ],
+                                isRetry: false,
                                 allowAccessToHistoricMessages: true,
                                 using: dependencies
                             ).sinkUntilComplete()
@@ -1195,6 +1179,50 @@ class MessageSenderGroupsSpec: QuickSpec {
                                     )
                                     .infoString(using: dependencies)
                             ))
+                        }
+                        
+                        // MARK: ---- schedules the member change info message sending
+                        it("schedules the member change info message sending") {
+                            MessageSender.addGroupMembers(
+                                groupSessionId: groupId.hexString,
+                                members: [
+                                    ("051111111111111111111111111111111111111111111111111111111111111112", nil)
+                                ],
+                                isRetry: false,
+                                allowAccessToHistoricMessages: true,
+                                using: dependencies
+                            ).sinkUntilComplete()
+                            
+                            expect(mockJobRunner)
+                                .to(call(.exactly(times: 1), matchingParameters: .all) { jobRunner in
+                                    jobRunner.add(
+                                        .any,
+                                        job: Job(
+                                            variant: .messageSend,
+                                            behaviour: .runOnceAfterConfigSyncIgnoringPermanentFailure,
+                                            threadId: groupId.hexString,
+                                            details: MessageSendJob.Details(
+                                                destination: .closedGroup(groupPublicKey: groupId.hexString),
+                                                message: try GroupUpdateMemberChangeMessage(
+                                                    changeType: .added,
+                                                    memberSessionIds: [
+                                                        "051111111111111111111111111111111111111111111111111111111111111112"
+                                                    ],
+                                                    historyShared: true,
+                                                    sentTimestampMs: UInt64(1234567890000),
+                                                    authMethod: Authentication.groupAdmin(
+                                                        groupSessionId: SessionId(.group, hex: groupId.hexString),
+                                                        ed25519SecretKey: [1, 2, 3]
+                                                    ),
+                                                    using: dependencies
+                                                ),
+                                                requiredConfigSyncVariant: .groupMembers
+                                            )
+                                        ),
+                                        dependantJob: nil,
+                                        canStartJob: false
+                                    )
+                                })
                         }
                     }
                     
@@ -1218,6 +1246,7 @@ class MessageSenderGroupsSpec: QuickSpec {
                                 members: [
                                     ("051111111111111111111111111111111111111111111111111111111111111112", nil)
                                 ],
+                                isRetry: false,
                                 allowAccessToHistoricMessages: false,
                                 using: dependencies
                             ).sinkUntilComplete()
@@ -1240,8 +1269,8 @@ class MessageSenderGroupsSpec: QuickSpec {
                         }
                     }
                     
-                    // MARK: ---- includes the unrevoke subaccounts and member change message sending as part of the config sync sequence
-                    it("includes the unrevoke subaccounts and member change message sending as part of the config sync sequence") {
+                    // MARK: ---- includes the unrevoke subaccounts as part of the config sync sequence
+                    it("includes the unrevoke subaccounts as part of the config sync sequence") {
                         let expectedRequest: Network.PreparedRequest<Network.BatchResponse> = try SnodeAPI.preparedSequence(
                             requests: []
                                 .appending(try SnodeAPI
@@ -1262,30 +1291,7 @@ class MessageSenderGroupsSpec: QuickSpec {
                                         ed25519SecretKey: Array(groupSecretKey)
                                     ),
                                     using: dependencies
-                                ))
-                                .appending(mockStorage.read { db in
-                                    try MessageSender.preparedSend(
-                                        db,
-                                        message: try! GroupUpdateMemberChangeMessage(
-                                            changeType: .added,
-                                            memberSessionIds: [
-                                                "051111111111111111111111111111111111111111111111111111111111111112"
-                                            ],
-                                            historyShared: true,
-                                            sentTimestampMs: 1234567890000,
-                                            authMethod: Authentication.groupAdmin(
-                                                groupSessionId: groupId,
-                                                ed25519SecretKey: Array(groupSecretKey)
-                                            ),
-                                            using: dependencies
-                                        ),
-                                        to: .closedGroup(groupPublicKey: groupId.hexString),
-                                        namespace: .groupMessages,
-                                        interactionId: nil,
-                                        fileIds: [],
-                                        using: dependencies
-                                    )
-                                }),
+                                )),
                             requireAllBatchResponses: true,
                             swarmPublicKey: groupId.hexString,
                             snodeRetrievalRetryCount: 0,    // This job has it's own retry mechanism
@@ -1298,6 +1304,7 @@ class MessageSenderGroupsSpec: QuickSpec {
                             members: [
                                 ("051111111111111111111111111111111111111111111111111111111111111112", nil)
                             ],
+                            isRetry: false,
                             allowAccessToHistoricMessages: false,
                             using: dependencies
                         ).sinkUntilComplete()
@@ -1320,6 +1327,7 @@ class MessageSenderGroupsSpec: QuickSpec {
                             members: [
                                 ("051111111111111111111111111111111111111111111111111111111111111112", nil)
                             ],
+                            isRetry: false,
                             allowAccessToHistoricMessages: false,
                             using: dependencies
                         ).sinkUntilComplete()
@@ -1352,6 +1360,7 @@ class MessageSenderGroupsSpec: QuickSpec {
                             members: [
                                 ("051111111111111111111111111111111111111111111111111111111111111112", nil)
                             ],
+                            isRetry: false,
                             allowAccessToHistoricMessages: false,
                             using: dependencies
                         ).sinkUntilComplete()
@@ -1368,6 +1377,50 @@ class MessageSenderGroupsSpec: QuickSpec {
                                 )
                                 .infoString(using: dependencies)
                         ))
+                    }
+                    
+                    // MARK: ---- schedules the member change info message sending
+                    it("schedules the member change info message sending") {
+                        MessageSender.addGroupMembers(
+                            groupSessionId: groupId.hexString,
+                            members: [
+                                ("051111111111111111111111111111111111111111111111111111111111111112", nil)
+                            ],
+                            isRetry: false,
+                            allowAccessToHistoricMessages: false,
+                            using: dependencies
+                        ).sinkUntilComplete()
+                        
+                        expect(mockJobRunner)
+                            .to(call(.exactly(times: 1), matchingParameters: .all) { jobRunner in
+                                jobRunner.add(
+                                    .any,
+                                    job: Job(
+                                        variant: .messageSend,
+                                        behaviour: .runOnceAfterConfigSyncIgnoringPermanentFailure,
+                                        threadId: groupId.hexString,
+                                        details: MessageSendJob.Details(
+                                            destination: .closedGroup(groupPublicKey: groupId.hexString),
+                                            message: try GroupUpdateMemberChangeMessage(
+                                                changeType: .added,
+                                                memberSessionIds: [
+                                                    "051111111111111111111111111111111111111111111111111111111111111112"
+                                                ],
+                                                historyShared: false,
+                                                sentTimestampMs: UInt64(1234567890000),
+                                                authMethod: Authentication.groupAdmin(
+                                                    groupSessionId: SessionId(.group, hex: groupId.hexString),
+                                                    ed25519SecretKey: [1, 2, 3]
+                                                ),
+                                                using: dependencies
+                                            ),
+                                            requiredConfigSyncVariant: .groupMembers
+                                        )
+                                    ),
+                                    dependantJob: nil,
+                                    canStartJob: false
+                                )
+                            })
                     }
                 }
             }
@@ -1418,7 +1471,6 @@ extension Network.BatchResponse {
     fileprivate static let mockAddMemberConfigSyncResponse: AnyPublisher<(ResponseInfoType, Data?), Error> = MockNetwork.batchResponseData(
         with: [
             (SnodeAPI.Endpoint.unrevokeSubaccount, UnrevokeSubaccountResponse.mockBatchSubResponse()),
-            (SnodeAPI.Endpoint.sendMessage, SendMessagesResponse.mockBatchSubResponse()),
             (SnodeAPI.Endpoint.sendMessage, DeleteMessagesResponse.mockBatchSubResponse())
         ]
     )
@@ -1426,7 +1478,6 @@ extension Network.BatchResponse {
     fileprivate static let mockAddMemberHistoricConfigSyncResponse: AnyPublisher<(ResponseInfoType, Data?), Error> = MockNetwork.batchResponseData(
         with: [
             (SnodeAPI.Endpoint.unrevokeSubaccount, UnrevokeSubaccountResponse.mockBatchSubResponse()),
-            (SnodeAPI.Endpoint.sendMessage, SendMessagesResponse.mockBatchSubResponse()),
             (SnodeAPI.Endpoint.sendMessage, SendMessagesResponse.mockBatchSubResponse()),
             (SnodeAPI.Endpoint.sendMessage, DeleteMessagesResponse.mockBatchSubResponse())
         ]

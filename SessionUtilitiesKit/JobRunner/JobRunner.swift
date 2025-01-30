@@ -732,11 +732,15 @@ public final class JobRunner: JobRunnerType {
         // Get the target queue
         let jobQueue: JobQueue? = queues[updatedJob.variant]
         
-        // Don't add to the queue if the JobRunner isn't ready (it's been saved to the db so it'll be loaded
-        // once the queue actually get started later)
-        guard canAddToQueue(updatedJob) || jobQueue?.isRunningInBackgroundTask == true else {
-            return updatedJob
-        }
+        // Don't add to the queue if it should only run after the next config sync or the JobRunner
+        // isn't ready (it's been saved to the db so it'll be loaded once the queue actually get
+        // started later)
+        guard
+            job?.behaviour != .runOnceAfterConfigSyncIgnoringPermanentFailure && (
+                canAddToQueue(updatedJob) ||
+                jobQueue?.isRunningInBackgroundTask == true
+            )
+        else { return updatedJob }
         
         // The queue is ready or running in a background task so we can add the job
         jobQueue?.add(db, job: updatedJob, canStartJob: canStartJob)
@@ -778,7 +782,7 @@ public final class JobRunner: JobRunnerType {
         guard canAddToQueue(updatedJob) else { return updatedJob }
         
         let jobQueue: JobQueue? = queues[updatedJob.variant]
-        jobQueue?.upsert(db, job: updatedJob, canStartJob: canStartJob)
+        guard jobQueue?.upsert(db, job: updatedJob, canStartJob: canStartJob) == true else { return nil }
         
         // Don't start the queue if the job can't be started
         guard canStartJob else { return updatedJob }
@@ -797,7 +801,8 @@ public final class JobRunner: JobRunnerType {
         before otherJob: Job
     ) -> (Int64, Job)? {
         switch job?.behaviour {
-            case .recurringOnActive, .recurringOnLaunch, .runOnceNextLaunch:
+            case .recurringOnActive, .recurringOnLaunch, .runOnceNextLaunch,
+                .runOnceAfterConfigSyncIgnoringPermanentFailure:
                 Log.info(.jobRunner, "Attempted to insert \(job) before the current one even though it's behaviour is \(job?.behaviour)")
                 return nil
                 
@@ -1166,10 +1171,10 @@ public final class JobQueue: Hashable {
         _ db: Database,
         job: Job,
         canStartJob: Bool
-    ) {
+    ) -> Bool {
         guard let jobId: Int64 = job.id else {
-            Log.info(.jobRunner, "Prevented attempt to upsert \(job) without id to queue")
-            return
+            Log.warn(.jobRunner, "Prevented attempt to upsert \(job) without id to queue")
+            return false
         }
         
         // Lock the pendingJobsQueue while checking the index and inserting to ensure we don't run into
@@ -1189,9 +1194,16 @@ public final class JobQueue: Hashable {
         }
         
         // If we didn't update an existing job then we need to add it to the pendingJobsQueue
-        guard !didUpdateExistingJob else { return }
+        guard !didUpdateExistingJob else { return true }
+        
+        // Make sure the job isn't already running before we add it to the queue
+        guard !currentlyRunningJobIds.contains(jobId) else {
+            Log.warn(.jobRunner, "Prevented attempt to upsert \(job) which is currently running")
+            return false
+        }
         
         add(db, job: job, canStartJob: canStartJob)
+        return true
     }
     
     fileprivate func insert(_ job: Job, before otherJob: Job) {
@@ -1628,7 +1640,7 @@ public final class JobQueue: Hashable {
             .defaulting(to: [])
         
         switch job.behaviour {
-            case .runOnce, .runOnceNextLaunch:
+            case .runOnce, .runOnceNextLaunch, .runOnceAfterConfigSyncIgnoringPermanentFailure:
                 dependencies[singleton: .storage].write { db in
                     /// Since this job has been completed we can update the dependencies so other job that were dependant
                     /// on this one can be run
@@ -1759,7 +1771,8 @@ public final class JobQueue: Hashable {
             guard
                 !permanentFailure && (
                     maxFailureCount < 0 ||
-                    updatedFailureCount <= maxFailureCount
+                    updatedFailureCount <= maxFailureCount ||
+                    job.behaviour == .runOnceAfterConfigSyncIgnoringPermanentFailure
                 )
             else {
                 failureText = (maxFailureCount >= 0 && updatedFailureCount > maxFailureCount ?

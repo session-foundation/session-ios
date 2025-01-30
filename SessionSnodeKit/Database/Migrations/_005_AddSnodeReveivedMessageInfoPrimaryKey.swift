@@ -8,7 +8,6 @@ import SessionUtilitiesKit
 enum _005_AddSnodeReveivedMessageInfoPrimaryKey: Migration {
     static let target: TargetMigrations.Identifier = .snodeKit
     static let identifier: String = "AddSnodeReveivedMessageInfoPrimaryKey"
-    static let needsConfigSync: Bool = false
     static let minExpectedRunDuration: TimeInterval = 0.2
     static let fetchedTables: [(TableRecord & FetchableRecord).Type] = [
         _001_InitialSetupMigration.LegacySnodeReceivedMessageInfo.self

@@ -720,8 +720,8 @@ public final class OpenGroupManager {
                         }()
                         lookupCache[message.recipient] = lookup
                         
-                        // We also need to set the 'syncTarget' for outgoing messages to be consistent with
-                        // standard messages
+                        // We also need to set the 'syncTarget' for outgoing messages so the behaviour
+                        // to determine the threadId is consistent with standard messages
                         if fromOutbox {
                             let syncTarget: String = (lookup.sessionId ?? message.recipient)
                             

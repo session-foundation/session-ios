@@ -61,6 +61,18 @@ final class ThreadPickerVC: UIViewController, UITableViewDataSource, UITableView
         
         return result
     }()
+    
+    private lazy var noAccountErrorLabel: UILabel = {
+        let result: UILabel = UILabel()
+        result.font = .systemFont(ofSize: Values.mediumFontSize)
+        result.text = "Oops! Looks like you don't have a \(Constants.app_name) account yet.\n\nYou'll need to create one in the \(Constants.app_name) app before you can share."//.localized()
+        result.textAlignment = .center
+        result.themeTextColor = .textPrimary
+        result.numberOfLines = 0
+        result.isHidden = true
+        
+        return result
+    }()
 
     private lazy var tableView: UITableView = {
         let tableView: UITableView = UITableView()
@@ -85,6 +97,7 @@ final class ThreadPickerVC: UIViewController, UITableViewDataSource, UITableView
         view.themeBackgroundColor = .backgroundPrimary
         view.addSubview(tableView)
         view.addSubview(databaseErrorLabel)
+        view.addSubview(noAccountErrorLabel)
         
         setupLayout()
         
@@ -139,12 +152,21 @@ final class ThreadPickerVC: UIViewController, UITableViewDataSource, UITableView
         databaseErrorLabel.pin(.top, to: .top, of: view, withInset: Values.massiveSpacing)
         databaseErrorLabel.pin(.leading, to: .leading, of: view, withInset: Values.veryLargeSpacing)
         databaseErrorLabel.pin(.trailing, to: .trailing, of: view, withInset: -Values.veryLargeSpacing)
+        
+        noAccountErrorLabel.pin(.top, to: .top, of: view, withInset: Values.massiveSpacing)
+        noAccountErrorLabel.pin(.leading, to: .leading, of: view, withInset: Values.veryLargeSpacing)
+        noAccountErrorLabel.pin(.trailing, to: .trailing, of: view, withInset: -Values.veryLargeSpacing)
     }
     
     // MARK: - Updating
     
     private func startObservingChanges() {
         guard dataChangeObservable == nil else { return }
+        
+        noAccountErrorLabel.isHidden = viewModel.dependencies[singleton: .storage, key: .isReadyForAppExtensions]
+        tableView.isHidden = !viewModel.dependencies[singleton: .storage, key: .isReadyForAppExtensions]
+        
+        guard viewModel.dependencies[singleton: .storage, key: .isReadyForAppExtensions] else { return }
         
         // Start observing for data changes
         dataChangeObservable = self.viewModel.dependencies[singleton: .storage].start(

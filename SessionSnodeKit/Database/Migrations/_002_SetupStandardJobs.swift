@@ -9,7 +9,6 @@ import SessionUtilitiesKit
 enum _002_SetupStandardJobs: Migration {
     static let target: TargetMigrations.Identifier = .snodeKit
     static let identifier: String = "SetupStandardJobs"
-    static let needsConfigSync: Bool = false
     static let minExpectedRunDuration: TimeInterval = 0.1
     static let fetchedTables: [(TableRecord & FetchableRecord).Type] = []
     static let createdOrAlteredTables: [(TableRecord & FetchableRecord).Type] = []

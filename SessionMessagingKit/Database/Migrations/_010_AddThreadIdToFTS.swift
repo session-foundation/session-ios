@@ -9,7 +9,6 @@ import SessionUtilitiesKit
 enum _010_AddThreadIdToFTS: Migration {
     static let target: TargetMigrations.Identifier = .messagingKit
     static let identifier: String = "AddThreadIdToFTS"
-    static let needsConfigSync: Bool = false
     static let minExpectedRunDuration: TimeInterval = 3
     static let fetchedTables: [(TableRecord & FetchableRecord).Type] = []
     static let createdOrAlteredTables: [(TableRecord & FetchableRecord).Type] = []

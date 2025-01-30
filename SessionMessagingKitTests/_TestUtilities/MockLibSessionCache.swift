@@ -10,7 +10,6 @@ import GRDB
 class MockLibSessionCache: Mock<LibSessionCacheType>, LibSessionCacheType {
     var userSessionId: SessionId { mock() }
     var isEmpty: Bool { mock() }
-    var needsSync: Bool { mock() }
     
     // MARK: - State Management
     
@@ -50,6 +49,10 @@ class MockLibSessionCache: Mock<LibSessionCacheType>, LibSessionCacheType {
     }
     
     // MARK: - Pushes
+    
+    func syncAllPendingChanges(_ db: Database) {
+        mockNoReturn(untrackedArgs: [db])
+    }
     
     func withCustomBehaviour(_ behaviour: LibSession.CacheBehaviour, for sessionId: SessionId, variant: ConfigDump.Variant?, change: @escaping () throws -> ()) throws {
         try mockThrowingNoReturn(args: [behaviour, sessionId, variant], untrackedArgs: [change])

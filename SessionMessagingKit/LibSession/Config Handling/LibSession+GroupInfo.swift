@@ -449,18 +449,14 @@ public extension LibSession {
             }
         }
     }
-    
-    static func deleteGroupForEveryone(
-        _ db: Database,
-        groupSessionId: SessionId,
-        using dependencies: Dependencies
-    ) throws {
-        try dependencies.mutate(cache: .libSession) { cache in
-            try cache.performAndPushChange(db, for: .groupInfo, sessionId: groupSessionId) { config in
-                guard case .groupInfo(let conf) = config else { throw LibSessionError.invalidConfigObject }
-                
-                groups_info_destroy_group(conf)
-            }
+}
+
+public extension LibSessionCacheType {
+    func deleteGroupForEveryone(_ db: Database, groupSessionId: SessionId) throws {
+        try performAndPushChange(db, for: .groupInfo, sessionId: groupSessionId) { config in
+            guard case .groupInfo(let conf) = config else { throw LibSessionError.invalidConfigObject }
+            
+            groups_info_destroy_group(conf)
         }
     }
 }

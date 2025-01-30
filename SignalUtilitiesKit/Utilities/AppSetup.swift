@@ -12,7 +12,7 @@ public enum AppSetup {
         additionalMigrationTargets: [MigratableTarget.Type] = [],
         appSpecificBlock: (() -> ())? = nil,
         migrationProgressChanged: ((CGFloat, TimeInterval) -> ())? = nil,
-        migrationsCompletion: @escaping (Result<Void, Error>, Bool) -> (),
+        migrationsCompletion: @escaping (Result<Void, Error>) -> (),
         using dependencies: Dependencies
     ) {
         var backgroundTask: SessionBackgroundTask? = SessionBackgroundTask(label: #function, using: dependencies)
@@ -56,7 +56,7 @@ public enum AppSetup {
         backgroundTask: SessionBackgroundTask? = nil,
         additionalMigrationTargets: [MigratableTarget.Type] = [],
         migrationProgressChanged: ((CGFloat, TimeInterval) -> ())? = nil,
-        migrationsCompletion: @escaping (Result<Void, Error>, Bool) -> (),
+        migrationsCompletion: @escaping (Result<Void, Error>) -> (),
         using dependencies: Dependencies
     ) {
         var backgroundTask: SessionBackgroundTask? = (backgroundTask ?? SessionBackgroundTask(label: #function, using: dependencies))
@@ -74,7 +74,7 @@ public enum AppSetup {
                     case .sessionIdCached:
                         guard let userKeyPair: KeyPair = Identity.fetchUserKeyPair(db) else { return }
                         
-                        // Cache the users session id so we don't need to fetch it from the database every time
+                        /// Cache the users session id so we don't need to fetch it from the database every time
                         dependencies.mutate(cache: .general) {
                             $0.setCachedSessionId(sessionId: SessionId(.standard, publicKey: userKeyPair.publicKey))
                         }
@@ -82,8 +82,7 @@ public enum AppSetup {
                     case .libSessionStateLoaded:
                         guard Identity.userExists(db, using: dependencies) else { return }
                         
-                        // After the migrations have run but before the migration completion we load the
-                        // SessionUtil state
+                        /// After the migrations have run but before the migration completion we load the `libSession` state
                         let cache: LibSession.Cache = LibSession.Cache(
                             userSessionId: dependencies[cache: .general].sessionId,
                             using: dependencies
@@ -92,10 +91,9 @@ public enum AppSetup {
                         dependencies.set(cache: .libSession, to: cache)
                 }
             },
-            onComplete: { result, needsConfigSync in
-                // The 'needsConfigSync' flag should be based on whether either a migration or the
-                // configs need to be sync'ed
-                migrationsCompletion(result, (needsConfigSync || dependencies.mutate(cache: .libSession) { $0.needsSync }))
+            onComplete: { result in
+                // Callback that the migrations have completed
+                migrationsCompletion(result)
                 
                 // The 'if' is only there to prevent the "variable never read" warning from showing
                 if backgroundTask != nil { backgroundTask = nil }

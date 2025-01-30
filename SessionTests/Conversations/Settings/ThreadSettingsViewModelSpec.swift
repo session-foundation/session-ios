@@ -75,6 +75,17 @@ class ThreadSettingsViewModelSpec: QuickSpec {
                 cache
                     .when { $0.isAdmin(groupSessionId: .any) }
                     .thenReturn(false)
+                cache
+                    .when { try $0.withCustomBehaviour(.any, for: .any, variant: .any, change: { }) }
+                    .then { args, untrackedArgs in
+                        let callback: (() throws -> Void)? = (untrackedArgs[test: 0] as? () throws -> Void)
+                        try? callback?()
+                    }
+                    .thenReturn(())
+                cache.when { $0.isEmpty }.thenReturn(false)
+                cache
+                    .when { try $0.pendingChanges(.any, swarmPubkey: .any) }
+                    .thenReturn(LibSession.PendingChanges())
             }
         )
         @TestState(singleton: .crypto, in: dependencies) var mockCrypto: MockCrypto! = MockCrypto(
@@ -885,6 +896,7 @@ class ThreadSettingsViewModelSpec: QuickSpec {
                                             .any,
                                             job: Job(
                                                 variant: .messageSend,
+                                                behaviour: .runOnceAfterConfigSyncIgnoringPermanentFailure,
                                                 threadId: groupPubkey,
                                                 interactionId: nil,
                                                 details: MessageSendJob.Details(
@@ -898,11 +910,12 @@ class ThreadSettingsViewModelSpec: QuickSpec {
                                                             ed25519SecretKey: [1, 2, 3]
                                                         ),
                                                         using: dependencies
-                                                    )
+                                                    ),
+                                                    requiredConfigSyncVariant: .groupInfo
                                                 )
                                             ),
                                             dependantJob: nil,
-                                            canStartJob: true
+                                            canStartJob: false
                                         )
                                     })
                             }
@@ -1037,6 +1050,7 @@ class ThreadSettingsViewModelSpec: QuickSpec {
                                             .any,
                                             job: Job(
                                                 variant: .messageSend,
+                                                behaviour: .runOnceAfterConfigSyncIgnoringPermanentFailure,
                                                 threadId: groupPubkey,
                                                 interactionId: nil,
                                                 details: MessageSendJob.Details(
@@ -1050,11 +1064,12 @@ class ThreadSettingsViewModelSpec: QuickSpec {
                                                             ed25519SecretKey: [1, 2, 3]
                                                         ),
                                                         using: dependencies
-                                                    )
+                                                    ),
+                                                    requiredConfigSyncVariant: .groupInfo
                                                 )
                                             ),
                                             dependantJob: nil,
-                                            canStartJob: true
+                                            canStartJob: false
                                         )
                                     })
                             }

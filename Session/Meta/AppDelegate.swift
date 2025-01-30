@@ -112,7 +112,7 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
                     minEstimatedTotalTime: minEstimatedTotalTime
                 )
             },
-            migrationsCompletion: { [weak self, dependencies] result, needsConfigSync in
+            migrationsCompletion: { [weak self, dependencies] result in
                 if case .failure(let error) = result {
                     DispatchQueue.main.async {
                         self?.initialLaunchFailed = true
@@ -135,10 +135,7 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
                 )
                 
                 /// Now that the theme settings have been applied we can complete the migrations
-                self?.completePostMigrationSetup(
-                    calledFrom: .finishLaunching,
-                    needsConfigSync: needsConfigSync
-                )
+                self?.completePostMigrationSetup(calledFrom: .finishLaunching)
             },
             using: dependencies
         )
@@ -213,7 +210,7 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
                             minEstimatedTotalTime: minEstimatedTotalTime
                         )
                     },
-                    migrationsCompletion: { result, needsConfigSync in
+                    migrationsCompletion: { result in
                         if case .failure(let error) = result {
                             DispatchQueue.main.async {
                                 self?.showFailedStartupAlert(
@@ -225,8 +222,7 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
                         }
                         
                         self?.completePostMigrationSetup(
-                            calledFrom: .enterForeground(initialLaunchFailed: initialLaunchFailed),
-                            needsConfigSync: needsConfigSync
+                            calledFrom: .enterForeground(initialLaunchFailed: initialLaunchFailed)
                         )
                     },
                     using: dependencies
@@ -392,10 +388,7 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
     
     // MARK: - App Readiness
     
-    private func completePostMigrationSetup(
-        calledFrom lifecycleMethod: LifecycleMethod,
-        needsConfigSync: Bool
-    ) {
+    private func completePostMigrationSetup(calledFrom lifecycleMethod: LifecycleMethod) {
         Log.info(.cat, "Migrations completed, performing setup and ensuring rootViewController")
         dependencies[singleton: .jobRunner].setExecutor(SyncPushTokensJob.self, for: .syncPushTokens)
         
@@ -440,23 +433,16 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
             
             /// App won't be ready for extensions and no need to enqueue a config sync unless we successfully completed startup
             dependencies[singleton: .storage].writeAsync { db in
-                // Increment the launch count (guaranteed to change which results in the write actually
-                // doing something and outputting and error if the DB is suspended)
+                /// Increment the launch count (guaranteed to change which results in the write actually doing something and
+                /// outputting and error if the DB is suspended)
                 db[.activeCounter] = ((db[.activeCounter] ?? 0) + 1)
                 
-                // Disable the SAE until the main app has successfully completed launch process
-                // at least once in the post-SAE world.
-                db[.isReadyForAppExtensions] = true
-                
-                if dependencies[cache: .onboarding].state == .completed {
-                    // If the device needs to sync config or the user updated to a new version
-                    if needsConfigSync || dependencies[cache: .appVersion].didJustUpdate {
-                        ConfigurationSyncJob.enqueue(
-                            db,
-                            swarmPublicKey: dependencies[cache: .general].sessionId.hexString,
-                            using: dependencies
-                        )
-                    }
+                /// Now that the migrations are completed schedule config syncs for **all** configs that have pending changes to
+                /// ensure that any pending local state gets pushed and any jobs waiting for a successful config sync are run
+                ///
+                /// **Note:** We only want to do this if the app is active, and the user has completed the Onboarding process
+                if dependencies[singleton: .appContext].isAppForegroundAndActive && dependencies[cache: .onboarding].state == .completed {
+                    dependencies.mutate(cache: .libSession) { $0.syncAllPendingChanges(db) }
                 }
             }
             
@@ -519,7 +505,7 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
                                 minEstimatedTotalTime: minEstimatedTotalTime
                             )
                         },
-                        migrationsCompletion: { [weak self] result, needsConfigSync in
+                        migrationsCompletion: { [weak self] result in
                             switch result {
                                 case .failure:
                                     DispatchQueue.main.async {
@@ -530,10 +516,7 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
                                     }
                                     
                                 case .success:
-                                    self?.completePostMigrationSetup(
-                                        calledFrom: lifecycleMethod,
-                                        needsConfigSync: needsConfigSync
-                                    )
+                                    self?.completePostMigrationSetup(calledFrom: lifecycleMethod)
                             }
                         },
                         using: dependencies
@@ -776,7 +759,7 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
             /// we don't block user interaction while it's running
             DispatchQueue.global(qos: .default).asyncAfter(deadline: .now() + 0.01) {
                 let unreadCount: Int = dependencies[singleton: .storage]
-                    .read { db in try Interaction.fetchUnreadCount(db, using: dependencies) }
+                    .read { db in try Interaction.fetchAppBadgeUnreadCount(db, using: dependencies) }
                     .defaulting(to: 0)
                 
                 DispatchQueue.main.async(using: dependencies) {

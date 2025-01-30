@@ -363,10 +363,20 @@ public extension Message {
         }
     }
     
-    static func threadId(forMessage message: Message, destination: Message.Destination) -> String {
+    static func threadId(
+        forMessage message: Message,
+        destination: Message.Destination,
+        using dependencies: Dependencies
+    ) -> String {
         switch destination {
+            /// One-to-one conversations are actually stored twice (once on the recipients swarm and once on the current users swarm),
+            /// as a result when we send a message it needs to be sent to both swarms, this means that we can't just assume the public
+            /// key for the `destination` is associated to the conversation for this message (because all outgoing messages would
+            /// have the current users public key)
+            ///
+            /// In order to get around this we set the `syncTarget` value when storing an outgoing one-to-one message on our own
+            /// swarm, and can use it to determine what the original destination of the message was
             case .contact(let publicKey), .syncMessage(let publicKey):
-                // Extract the 'syncTarget' value if there is one
                 let maybeSyncTarget: String?
                 
                 switch message {
@@ -374,6 +384,13 @@ public extension Message {
                     case let message as ExpirationTimerUpdate: maybeSyncTarget = message.syncTarget
                     default: maybeSyncTarget = nil
                 }
+                
+                /// A bug once popped up where the `syncTarget` was incorrectly set for an incoming message and, as a result,
+                /// the incoming message appeared within the "Note to Self" conversation so as some defensive coding we check
+                /// if the `maybeSyncTarget` matches the current users id and, if so, use the `publicKey` instead
+                let userSessionId: SessionId = dependencies[cache: .general].sessionId
+                
+                guard maybeSyncTarget != userSessionId.hexString else { return publicKey }
                 
                 return (maybeSyncTarget ?? publicKey)
                 

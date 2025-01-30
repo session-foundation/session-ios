@@ -7,7 +7,6 @@ import SessionUtilitiesKit
 enum _018_DisappearingMessagesConfiguration: Migration {
     static let target: TargetMigrations.Identifier = .messagingKit
     static let identifier: String = "DisappearingMessagesWithTypes"
-    static let needsConfigSync: Bool = false
     static let minExpectedRunDuration: TimeInterval = 0.1
     static var requirements: [MigrationRequirement] = [.libSessionStateLoaded]
     static let fetchedTables: [(TableRecord & FetchableRecord).Type] = [

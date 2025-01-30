@@ -635,7 +635,6 @@ fileprivate struct MutableTestType: Codable, FetchableRecord, MutablePersistable
 fileprivate enum TestInsertTestTypeMigration: Migration {
     static let target: TargetMigrations.Identifier = .test
     static let identifier: String = "TestInsertTestType"
-    static let needsConfigSync: Bool = false
     static let minExpectedRunDuration: TimeInterval = 0
     static let fetchedTables: [(TableRecord & FetchableRecord).Type] = []
     static let createdOrAlteredTables: [(FetchableRecord & TableRecord).Type] = [TestType.self, MutableTestType.self]
@@ -656,7 +655,6 @@ fileprivate enum TestInsertTestTypeMigration: Migration {
 fileprivate enum TestAddColumnMigration: Migration {
     static let target: TargetMigrations.Identifier = .test
     static let identifier: String = "TestAddColumn"
-    static let needsConfigSync: Bool = false
     static let minExpectedRunDuration: TimeInterval = 0
     static let fetchedTables: [(TableRecord & FetchableRecord).Type] = []
     static let createdOrAlteredTables: [(FetchableRecord & TableRecord).Type] = [TestType.self, MutableTestType.self]

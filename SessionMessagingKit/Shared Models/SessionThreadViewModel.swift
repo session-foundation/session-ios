@@ -2028,8 +2028,12 @@ public extension SessionThreadViewModel {
         }
     }
     
-    static func defaultContactsQuery(userSessionId: SessionId) -> AdaptedFetchRequest<SQLRequest<SessionThreadViewModel>> {
+    static func defaultContactsQuery(using dependencies: Dependencies) -> AdaptedFetchRequest<SQLRequest<SessionThreadViewModel>> {
+        let userSessionId: SessionId = dependencies[cache: .general].sessionId
+        let currentTimestamp: TimeInterval = dependencies.dateNow.timeIntervalSince1970
+        
         let thread: TypedTableAlias<SessionThread> = TypedTableAlias()
+        let contact: TypedTableAlias<Contact> = TypedTableAlias()
         let contactProfile: TypedTableAlias<Profile> = TypedTableAlias(ViewModel.self, column: .contactProfile)
         
         /// **Note:** The `numColumnsBeforeProfiles` value **MUST** match the number of fields before
@@ -2039,10 +2043,10 @@ public extension SessionThreadViewModel {
             SELECT
                 100 AS \(Column.rank),
                 
-                \(thread[.rowId]) AS \(ViewModel.Columns.rowId),
-                \(thread[.id]) AS \(ViewModel.Columns.threadId),
-                \(thread[.variant]) AS \(ViewModel.Columns.threadVariant),
-                \(thread[.creationDateTimestamp]) AS \(ViewModel.Columns.threadCreationDateTimestamp),
+                \(contact[.rowId]) AS \(ViewModel.Columns.rowId),
+                \(contact[.id]) AS \(ViewModel.Columns.threadId),
+                \(SessionThread.Variant.contact) AS \(ViewModel.Columns.threadVariant),
+                IFNULL(\(thread[.creationDateTimestamp]), \(currentTimestamp)) AS \(ViewModel.Columns.threadCreationDateTimestamp),
                 '' AS \(ViewModel.Columns.threadMemberNames),
                 
                 (\(SQL("\(thread[.id]) = \(userSessionId.hexString)"))) AS \(ViewModel.Columns.threadIsNoteToSelf),
@@ -2052,10 +2056,9 @@ public extension SessionThreadViewModel {
                 
                 \(SQL("\(userSessionId.hexString)")) AS \(ViewModel.Columns.currentUserSessionId)
 
-            FROM \(SessionThread.self)
-            LEFT JOIN \(contactProfile) ON \(contactProfile[.id]) = \(thread[.id])
-        
-            WHERE \(SQL("\(thread[.variant]) = \(SessionThread.Variant.contact)"))
+            FROM \(Contact.self)
+            LEFT JOIN \(thread) ON \(thread[.id]) = \(contact[.id])
+            LEFT JOIN \(contactProfile) ON \(contactProfile[.id]) = \(contact[.id])
         """
         
         // Add adapters which will group the various 'Profile' columns so they can be decoded

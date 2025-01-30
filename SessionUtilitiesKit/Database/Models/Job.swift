@@ -171,6 +171,13 @@ public struct Job: Codable, Equatable, Hashable, Identifiable, FetchableRecord, 
         /// This job will run once each whenever the app becomes active (launch and return from background) and
         /// may run again during the same session if `nextRunTimestamp` gets set
         case recurringOnActive
+        
+        /// This job will run once after a config sync (the config sync will filter to match a jobs to the same `threadId` as the config
+        /// but then the individual job will need it's own handling about whether it can run or not)
+        ///
+        /// **Note:** Jobs run with this behaviour will retry whenever a config sync occurs (or on launch since we automatically
+        /// enqueue a config sync for all configs on launch) and ignore the `maxFailureCount` so will retry indefinitely
+        case runOnceAfterConfigSyncIgnoringPermanentFailure
     }
     
     /// The `id` value is auto incremented by the database, if the `Job` hasn't been inserted into

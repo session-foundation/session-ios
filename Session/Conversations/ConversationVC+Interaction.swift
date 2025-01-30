@@ -62,7 +62,8 @@ extension ConversationVC:
                                         creationDateTimestamp: .useExistingOrSetTo(
                                             (dependencies[cache: .snodeAPI].currentOffsetTimestampMs() / 1000)
                                         ),
-                                        shouldBeVisible: .useExisting
+                                        shouldBeVisible: .useExisting,
+                                        isDraft: .useExistingOrSetTo(true)
                                     ),
                                     using: dependencies
                                 )
@@ -1348,7 +1349,13 @@ extension ConversationVC:
                     db,
                     id: sessionId,
                     variant: .contact,
-                    values: .existingOrDefault,
+                    values: SessionThread.TargetValues(
+                        creationDateTimestamp: .useExistingOrSetTo(
+                            (dependencies[cache: .snodeAPI].currentOffsetTimestampMs() / 1000)
+                        ),
+                        shouldBeVisible: .useLibSession,
+                        isDraft: .useExistingOrSetTo(true)
+                    ),
                     using: dependencies
                 )
             }
@@ -1384,7 +1391,13 @@ extension ConversationVC:
                 db,
                 id: (lookup.sessionId ?? lookup.blindedId),
                 variant: .contact,
-                values: .existingOrDefault,
+                values: SessionThread.TargetValues(
+                    creationDateTimestamp: .useExistingOrSetTo(
+                        (dependencies[cache: .snodeAPI].currentOffsetTimestampMs() / 1000)
+                    ),
+                    shouldBeVisible: .useLibSession,
+                    isDraft: .useExistingOrSetTo(true)
+                ),
                 using: dependencies
             ).id
         }

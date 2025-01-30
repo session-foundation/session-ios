@@ -955,7 +955,8 @@ class ThreadSettingsViewModel: SessionTableViewModel, NavigatableStateHolder, Ob
                                     creationDateTimestamp: .useExistingOrSetTo(
                                         dependencies[cache: .snodeAPI].currentOffsetTimestampMs() / 1000
                                     ),
-                                    shouldBeVisible: .useExisting
+                                    shouldBeVisible: .useExisting,
+                                    isDraft: .useExistingOrSetTo(true)
                                 ),
                                 using: dependencies
                             )
@@ -985,14 +986,14 @@ class ThreadSettingsViewModel: SessionTableViewModel, NavigatableStateHolder, Ob
         func send(
             _ viewModel: UserListViewModel<GroupMember>?,
             _ memberInfo: [(id: String, profile: Profile?)],
-            isResend: Bool
+            isRetry: Bool
         ) {
             let viewController = ModalActivityIndicatorViewController(canCancel: false) { [dependencies, threadId] modalActivityIndicator in
                 MessageSender
                     .promoteGroupMembers(
                         groupSessionId: SessionId(.group, hex: threadId),
                         members: memberInfo,
-                        sendAdminChangedMessage: !isResend,
+                        isRetry: isRetry,
                         using: dependencies
                     )
                     .sinkUntilComplete(
@@ -1015,7 +1016,7 @@ class ThreadSettingsViewModel: SessionTableViewModel, NavigatableStateHolder, Ob
                                                     dismissOnConfirm: false,
                                                     onConfirm: { modal in
                                                         modal.dismiss(animated: true) {
-                                                            send(viewModel, memberInfo, isResend: isResend)
+                                                            send(viewModel, memberInfo, isRetry: isRetry)
                                                         }
                                                     },
                                                     onCancel: { modal in
@@ -1093,14 +1094,14 @@ class ThreadSettingsViewModel: SessionTableViewModel, NavigatableStateHolder, Ob
                                             )
                                         },
                                         onTap: { viewModel, info in
-                                            send(viewModel, [(info.profileId, info.profile)], isResend: true)
+                                            send(viewModel, [(info.profileId, info.profile)], isRetry: true)
                                         }
                                     )
                             }
                         }
                     ),
                     onSubmit: .callback { viewModel, selectedInfo in
-                        send(viewModel, selectedInfo.map { ($0.profileId, $0.profile) }, isResend: false)
+                        send(viewModel, selectedInfo.map { ($0.profileId, $0.profile) }, isRetry: false)
                     },
                     using: dependencies
                 )

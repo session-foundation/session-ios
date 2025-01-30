@@ -383,6 +383,10 @@ extension Onboarding {
                         )
                     }
                     
+                    /// Now that the onboarding process is completed we can enable the Share and Notification extensions (prior to
+                    /// this point the account is in an invalid state so there is no point enabling them)
+                    db[.isReadyForAppExtensions] = true
+                    
                     /// Now that everything is saved we should update the `Onboarding.Cache` `state` to be `completed` (we do
                     /// this within the db write query because then `updateAllAndConfig` below will trigger a config sync which is
                     /// dependant on this `state` being updated)

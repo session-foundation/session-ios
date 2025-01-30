@@ -9,7 +9,6 @@ import SessionUtilitiesKit
 enum _016_MakeBrokenProfileTimestampsNullable: Migration {
     static let target: TargetMigrations.Identifier = .messagingKit
     static let identifier: String = "MakeBrokenProfileTimestampsNullable"
-    static let needsConfigSync: Bool = false
     static let minExpectedRunDuration: TimeInterval = 0.1
     static var requirements: [MigrationRequirement] = [.libSessionStateLoaded]
     static let fetchedTables: [(TableRecord & FetchableRecord).Type] = []

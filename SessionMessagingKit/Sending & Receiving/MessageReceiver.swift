@@ -114,11 +114,7 @@ public enum MessageReceiver {
                         openGroupWhisperTo = nil
                         threadVariant = .contact
                         threadIdGenerator = { message in
-                            switch message {
-                                case let message as VisibleMessage: return (message.syncTarget ?? sender)
-                                case let message as ExpirationTimerUpdate: return (message.syncTarget ?? sender)
-                                default: return sender
-                            }
+                            Message.threadId(forMessage: message, destination: .contact(publicKey: sender), using: dependencies)
                         }
                         
                     case .groupMessages:

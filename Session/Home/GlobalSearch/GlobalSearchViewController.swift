@@ -45,7 +45,7 @@ class GlobalSearchViewController: BaseVC, LibSessionRespondingViewController, UI
         let nonalphabeticNameTitle: String = "#" // stringlint:ignore
         let contacts: [SessionThreadViewModel] = dependencies[singleton: .storage].read { [dependencies] db -> [SessionThreadViewModel]? in
             try SessionThreadViewModel
-                .defaultContactsQuery(userSessionId: dependencies[cache: .general].sessionId)
+                .defaultContactsQuery(using: dependencies)
                 .fetchAll(db)
         }
         .defaulting(to: [])

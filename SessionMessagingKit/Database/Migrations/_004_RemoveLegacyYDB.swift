@@ -9,7 +9,6 @@ import SessionSnodeKit
 enum _004_RemoveLegacyYDB: Migration {
     static let target: TargetMigrations.Identifier = .messagingKit
     static let identifier: String = "RemoveLegacyYDB"
-    static let needsConfigSync: Bool = false
     static let minExpectedRunDuration: TimeInterval = 0.1
     static let fetchedTables: [(TableRecord & FetchableRecord).Type] = []
     static let createdOrAlteredTables: [(TableRecord & FetchableRecord).Type] = []

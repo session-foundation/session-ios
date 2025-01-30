@@ -40,7 +40,9 @@ extension MessageSender {
             }
             .flatMap { (displayPictureInfo: DisplayPictureManager.UploadResult?) -> AnyPublisher<PreparedGroupData, Error> in
                 dependencies[singleton: .storage].writePublisher { db -> PreparedGroupData in
-                    // Create and cache the libSession entries
+                    let userSessionId: SessionId = dependencies[cache: .general].sessionId
+                    
+                    /// Create and cache the libSession entries
                     let createdInfo: LibSession.CreatedGroupInfo = try LibSession.createGroup(
                         db,
                         name: name,
@@ -52,7 +54,7 @@ extension MessageSender {
                         using: dependencies
                     )
                     
-                    // Save the relevant objects to the database
+                    /// Save the relevant objects to the database
                     let thread: SessionThread = try SessionThread.upsert(
                         db,
                         id: createdInfo.group.id,
@@ -65,6 +67,56 @@ extension MessageSender {
                     )
                     try createdInfo.group.insert(db)
                     try createdInfo.members.forEach { try $0.insert(db) }
+                    
+                    /// Add a record of the initial invites going out
+                    _ = try? Interaction(
+                        threadId: createdInfo.group.id,
+                        threadVariant: .group,
+                        authorId: userSessionId.hexString,
+                        variant: .infoGroupMembersUpdated,
+                        body: ClosedGroup.MessageInfo
+                            .addedUsers(
+                                hasCurrentUser: false,
+                                names: members
+                                    .filter { id, _ in id != userSessionId.hexString }
+                                    .map { id, profile in
+                                        profile?.displayName(for: .group) ??
+                                        Profile.truncated(id: id, truncating: .middle)
+                                    },
+                                historyShared: false
+                            )
+                            .infoString(using: dependencies),
+                        timestampMs: Int64(createdInfo.group.formationTimestamp * 1000),
+                        using: dependencies
+                    ).inserted(db)
+                    
+                    /// Schedule the "members added" control message to be sent after the config sync completes
+                    try dependencies[singleton: .jobRunner].add(
+                        db,
+                        job: Job(
+                            variant: .messageSend,
+                            behaviour: .runOnceAfterConfigSyncIgnoringPermanentFailure,
+                            threadId: createdInfo.group.id,
+                            details: MessageSendJob.Details(
+                                destination: .closedGroup(groupPublicKey: createdInfo.group.id),
+                                message: GroupUpdateMemberChangeMessage(
+                                    changeType: .added,
+                                    memberSessionIds: members
+                                        .filter { id, _ -> Bool in id != userSessionId.hexString }
+                                        .map { id, _ in id },
+                                    historyShared: false,
+                                    sentTimestampMs: UInt64(createdInfo.group.formationTimestamp * 1000),
+                                    authMethod: Authentication.groupAdmin(
+                                        groupSessionId: createdInfo.groupSessionId,
+                                        ed25519SecretKey: createdInfo.identityKeyPair.secretKey
+                                    ),
+                                    using: dependencies
+                                ),
+                                requiredConfigSyncVariant: .groupMembers
+                            )
+                        ),
+                        canStartJob: false
+                    )
                     
                     // Prepare the notification subscription
                     var preparedNotificationSubscription: Network.PreparedRequest<PushNotificationAPI.SubscribeResponse>?
@@ -121,6 +173,9 @@ extension MessageSender {
                                         _ = try? preparedGroupData.thread.delete(db)
                                         _ = try? preparedGroupData.group.delete(db)
                                         try? preparedGroupData.members.forEach { try $0.delete(db) }
+                                        _ = try? Job
+                                            .filter(Job.Columns.threadId == preparedGroupData.group.id)
+                                            .deleteAll(db)
                                     }
                             }
                         }
@@ -178,52 +233,6 @@ extension MessageSender {
                                     canStartJob: true
                                 )
                             }
-                        
-                        // Add a record of the initial invites going out
-                        _ = try? Interaction(
-                            threadId: thread.id,
-                            threadVariant: .group,
-                            authorId: userSessionId.hexString,
-                            variant: .infoGroupMembersUpdated,
-                            body: ClosedGroup.MessageInfo
-                                .addedUsers(
-                                    hasCurrentUser: false,
-                                    names: members
-                                        .filter { id, _ -> Bool in id != userSessionId.hexString }
-                                        .map { id, profile in
-                                            profile?.displayName(for: .group) ??
-                                            Profile.truncated(id: id, truncating: .middle)
-                                        },
-                                    historyShared: false
-                                )
-                                .infoString(using: dependencies),
-                            timestampMs: changeTimestampMs,
-                            using: dependencies
-                        ).inserted(db)
-                        
-                        // Schedule the "members added" control message to be sent to the group
-                        if let privateKey: Data = group.groupIdentityPrivateKey {
-                            try? MessageSender.send(
-                                db,
-                                message: GroupUpdateMemberChangeMessage(
-                                    changeType: .added,
-                                    memberSessionIds: groupMembers
-                                        .filter { $0.profileId != userSessionId.hexString }
-                                        .map { $0.profileId },
-                                    historyShared: false,
-                                    sentTimestampMs: UInt64(changeTimestampMs),
-                                    authMethod: Authentication.groupAdmin(
-                                        groupSessionId: groupSessionId,
-                                        ed25519SecretKey: Array(privateKey)
-                                    ),
-                                    using: dependencies
-                                ),
-                                interactionId: nil,
-                                threadId: thread.id,
-                                threadVariant: .group,
-                                using: dependencies
-                            )
-                        }
                     }
                 }
             )
@@ -261,33 +270,39 @@ extension MessageSender {
         
         return dependencies[singleton: .storage]
             .writePublisher { db in
-                guard let closedGroup: ClosedGroup = try? ClosedGroup.fetchOne(db, id: sessionId.hexString) else {
-                    throw MessageSenderError.invalidClosedGroupUpdate
-                }
+                guard
+                    let closedGroup: ClosedGroup = try? ClosedGroup.fetchOne(db, id: sessionId.hexString),
+                    let groupIdentityPrivateKey: Data = closedGroup.groupIdentityPrivateKey
+                else { throw MessageSenderError.invalidClosedGroupUpdate }
                 
                 let userSessionId: SessionId = dependencies[cache: .general].sessionId
                 let changeTimestampMs: Int64 = dependencies[cache: .snodeAPI].currentOffsetTimestampMs()
                 
-                var groupChanges: [ConfigColumnAssignment] = []
-                
-                if name != closedGroup.name { groupChanges.append(ClosedGroup.Columns.name.set(to: name)) }
-                if groupDescription != closedGroup.groupDescription {
-                    groupChanges.append(ClosedGroup.Columns.groupDescription.set(to: groupDescription))
+                /// Perform the config changes without triggering a config sync (we will trigger one manually as part of the process)
+                try dependencies.mutate(cache: .libSession) { cache in
+                    try cache.withCustomBehaviour(.skipAutomaticConfigSync, for: sessionId) {
+                        var groupChanges: [ConfigColumnAssignment] = []
+                        
+                        if name != closedGroup.name { groupChanges.append(ClosedGroup.Columns.name.set(to: name)) }
+                        if groupDescription != closedGroup.groupDescription {
+                            groupChanges.append(ClosedGroup.Columns.groupDescription.set(to: groupDescription))
+                        }
+                        
+                        /// Update the group (this will be propagated to libSession configs automatically)
+                        if !groupChanges.isEmpty {
+                            _ = try ClosedGroup
+                                .filter(id: sessionId.hexString)
+                                .updateAllAndConfig(
+                                    db,
+                                    ClosedGroup.Columns.name.set(to: name),
+                                    ClosedGroup.Columns.groupDescription.set(to: groupDescription),
+                                    using: dependencies
+                                )
+                        }
+                    }
                 }
                 
-                // Update the group (this will be propagated to libSession configs automatically)
-                if !groupChanges.isEmpty {
-                    _ = try ClosedGroup
-                        .filter(id: sessionId.hexString)
-                        .updateAllAndConfig(
-                            db,
-                            ClosedGroup.Columns.name.set(to: name),
-                            ClosedGroup.Columns.groupDescription.set(to: groupDescription),
-                            using: dependencies
-                        )
-                }
-                
-                // Add a record of the name change to the conversation
+                /// Add a record of the name change to the conversation
                 if name != closedGroup.name {
                     let disappearingConfig: DisappearingMessagesConfiguration? = try? DisappearingMessagesConfiguration.fetchOne(db, id: sessionId.hexString)
                     
@@ -307,26 +322,36 @@ extension MessageSender {
                         using: dependencies
                     ).inserted(db)
                     
-                    // Schedule the control message to be sent to the group
-                    try MessageSender.send(
+                    /// Schedule the control message to be sent to the group after the config sync completes
+                    try dependencies[singleton: .jobRunner].add(
                         db,
-                        message: GroupUpdateInfoChangeMessage(
-                            changeType: .name,
-                            updatedName: name,
-                            sentTimestampMs: UInt64(changeTimestampMs),
-                            authMethod: try Authentication.with(
-                                db,
-                                swarmPublicKey: groupSessionId,
-                                using: dependencies
-                            ),
-                            using: dependencies
-                        ).with(disappearingConfig),
-                        interactionId: nil,
-                        threadId: sessionId.hexString,
-                        threadVariant: .group,
-                        using: dependencies
+                        job: Job(
+                            variant: .messageSend,
+                            behaviour: .runOnceAfterConfigSyncIgnoringPermanentFailure,
+                            threadId: sessionId.hexString,
+                            details: MessageSendJob.Details(
+                                destination: .closedGroup(groupPublicKey: sessionId.hexString),
+                                message: GroupUpdateInfoChangeMessage(
+                                    changeType: .name,
+                                    updatedName: name,
+                                    sentTimestampMs: UInt64(changeTimestampMs),
+                                    authMethod: Authentication.groupAdmin(
+                                        groupSessionId: sessionId,
+                                        ed25519SecretKey: Array(groupIdentityPrivateKey)
+                                    ),
+                                    using: dependencies
+                                ).with(disappearingConfig),
+                                requiredConfigSyncVariant: .groupInfo
+                            )
+                        ),
+                        canStartJob: false
                     )
                 }
+            }
+            .flatMap { _ -> AnyPublisher<Void, Error> in
+                ConfigurationSyncJob
+                    .run(swarmPublicKey: groupSessionId, using: dependencies)
+                    .eraseToAnyPublisher()
             }
             .eraseToAnyPublisher()
     }
@@ -342,40 +367,53 @@ extension MessageSender {
         
         return dependencies[singleton: .storage]
             .writePublisher { db in
+                guard
+                    let groupIdentityPrivateKey: Data = try? ClosedGroup
+                        .filter(id: sessionId.hexString)
+                        .select(.groupIdentityPrivateKey)
+                        .asRequest(of: Data.self)
+                        .fetchOne(db)
+                else { throw MessageSenderError.invalidClosedGroupUpdate }
+                
                 let userSessionId: SessionId = dependencies[cache: .general].sessionId
                 let changeTimestampMs: Int64 = dependencies[cache: .snodeAPI].currentOffsetTimestampMs()
                 
-                switch displayPictureUpdate {
-                    case .groupRemove:
-                        try ClosedGroup
-                            .filter(id: groupSessionId)
-                            .updateAllAndConfig(
-                                db,
-                                ClosedGroup.Columns.displayPictureUrl.set(to: nil),
-                                ClosedGroup.Columns.displayPictureEncryptionKey.set(to: nil),
-                                ClosedGroup.Columns.displayPictureFilename.set(to: nil),
-                                ClosedGroup.Columns.lastDisplayPictureUpdate.set(to: dependencies.dateNow),
-                                using: dependencies
-                            )
-                        
-                    case .groupUpdateTo(let url, let key, let fileName):
-                        try ClosedGroup
-                            .filter(id: groupSessionId)
-                            .updateAllAndConfig(
-                                db,
-                                ClosedGroup.Columns.displayPictureUrl.set(to: url),
-                                ClosedGroup.Columns.displayPictureEncryptionKey.set(to: key),
-                                ClosedGroup.Columns.displayPictureFilename.set(to: fileName),
-                                ClosedGroup.Columns.lastDisplayPictureUpdate.set(to: dependencies.dateNow),
-                                using: dependencies
-                            )
-                        
-                    default: throw MessageSenderError.invalidClosedGroupUpdate
+                /// Perform the config changes without triggering a config sync (we will trigger one manually as part of the process)
+                try dependencies.mutate(cache: .libSession) { cache in
+                    try cache.withCustomBehaviour(.skipAutomaticConfigSync, for: sessionId) {
+                        switch displayPictureUpdate {
+                            case .groupRemove:
+                                try ClosedGroup
+                                    .filter(id: groupSessionId)
+                                    .updateAllAndConfig(
+                                        db,
+                                        ClosedGroup.Columns.displayPictureUrl.set(to: nil),
+                                        ClosedGroup.Columns.displayPictureEncryptionKey.set(to: nil),
+                                        ClosedGroup.Columns.displayPictureFilename.set(to: nil),
+                                        ClosedGroup.Columns.lastDisplayPictureUpdate.set(to: dependencies.dateNow),
+                                        using: dependencies
+                                    )
+                                
+                            case .groupUpdateTo(let url, let key, let fileName):
+                                try ClosedGroup
+                                    .filter(id: groupSessionId)
+                                    .updateAllAndConfig(
+                                        db,
+                                        ClosedGroup.Columns.displayPictureUrl.set(to: url),
+                                        ClosedGroup.Columns.displayPictureEncryptionKey.set(to: key),
+                                        ClosedGroup.Columns.displayPictureFilename.set(to: fileName),
+                                        ClosedGroup.Columns.lastDisplayPictureUpdate.set(to: dependencies.dateNow),
+                                        using: dependencies
+                                    )
+                                
+                            default: throw MessageSenderError.invalidClosedGroupUpdate
+                        }
+                    }
                 }
                 
                 let disappearingConfig: DisappearingMessagesConfiguration? = try? DisappearingMessagesConfiguration.fetchOne(db, id: sessionId.hexString)
                 
-                // Add a record of the change to the conversation
+                /// Add a record of the change to the conversation
                 _ = try Interaction(
                     threadId: groupSessionId,
                     threadVariant: .group,
@@ -392,24 +430,120 @@ extension MessageSender {
                     using: dependencies
                 ).inserted(db)
                 
-                // Schedule the control message to be sent to the group
-                try MessageSender.send(
+                /// Schedule the control message to be sent to the group after the config sync completes
+                try dependencies[singleton: .jobRunner].add(
                     db,
-                    message: GroupUpdateInfoChangeMessage(
-                        changeType: .avatar,
-                        sentTimestampMs: UInt64(changeTimestampMs),
-                        authMethod: try Authentication.with(
-                            db,
-                            swarmPublicKey: groupSessionId,
-                            using: dependencies
-                        ),
-                        using: dependencies
-                    ).with(disappearingConfig),
-                    interactionId: nil,
-                    threadId: sessionId.hexString,
-                    threadVariant: .group,
-                    using: dependencies
+                    job: Job(
+                        variant: .messageSend,
+                        behaviour: .runOnceAfterConfigSyncIgnoringPermanentFailure,
+                        threadId: sessionId.hexString,
+                        details: MessageSendJob.Details(
+                            destination: .closedGroup(groupPublicKey: sessionId.hexString),
+                            message: GroupUpdateInfoChangeMessage(
+                                changeType: .avatar,
+                                sentTimestampMs: UInt64(changeTimestampMs),
+                                authMethod: Authentication.groupAdmin(
+                                    groupSessionId: sessionId,
+                                    ed25519SecretKey: Array(groupIdentityPrivateKey)
+                                ),
+                                using: dependencies
+                            ).with(disappearingConfig),
+                            requiredConfigSyncVariant: .groupInfo
+                        )
+                    ),
+                    canStartJob: false
                 )
+            }
+            .flatMap { _ -> AnyPublisher<Void, Error> in
+                ConfigurationSyncJob
+                    .run(swarmPublicKey: groupSessionId, using: dependencies)
+                    .eraseToAnyPublisher()
+            }
+            .eraseToAnyPublisher()
+    }
+    
+    public static func updateGroup(
+        groupSessionId: String,
+        disapperingMessagesConfig updatedConfig: DisappearingMessagesConfiguration,
+        using dependencies: Dependencies
+    ) -> AnyPublisher<Void, Error> {
+        guard let sessionId: SessionId = try? SessionId(from: groupSessionId), sessionId.prefix == .group else {
+            return Fail(error: MessageSenderError.invalidClosedGroupUpdate).eraseToAnyPublisher()
+        }
+        
+        return dependencies[singleton: .storage]
+            .writePublisher { db in
+                guard
+                    let groupIdentityPrivateKey: Data = try? ClosedGroup
+                        .filter(id: sessionId.hexString)
+                        .select(.groupIdentityPrivateKey)
+                        .asRequest(of: Data.self)
+                        .fetchOne(db)
+                else { throw MessageSenderError.invalidClosedGroupUpdate }
+                
+                let currentOffsetTimestampMs: Int64 = dependencies[cache: .snodeAPI].currentOffsetTimestampMs()
+            
+                /// Perform the config changes without triggering a config sync (we will trigger one manually as part of the process)
+                try dependencies.mutate(cache: .libSession) { cache in
+                    try cache.withCustomBehaviour(.skipAutomaticConfigSync, for: sessionId) {
+                        /// Update the local state
+                        try updatedConfig.upserted(db)
+                        
+                        /// Add a record of the change to the conversation
+                        let interactionId = try updatedConfig
+                            .saved(db)
+                            .insertControlMessage(
+                                db,
+                                threadVariant: .group,
+                                authorId: dependencies[cache: .general].sessionId.hexString,
+                                timestampMs: currentOffsetTimestampMs,
+                                serverHash: nil,
+                                serverExpirationTimestamp: nil,
+                                using: dependencies
+                            )
+                        
+                        /// Update the libSession state
+                        try LibSession.update(
+                            db,
+                            groupSessionId: sessionId,
+                            disappearingConfig: updatedConfig,
+                            using: dependencies
+                        )
+                    }
+                }
+                
+                /// Schedule the control message to be sent to the group after the config sync completes
+                try dependencies[singleton: .jobRunner].add(
+                    db,
+                    job: Job(
+                        variant: .messageSend,
+                        behaviour: .runOnceAfterConfigSyncIgnoringPermanentFailure,
+                        threadId: sessionId.hexString,
+                        details: MessageSendJob.Details(
+                            destination: .closedGroup(groupPublicKey: sessionId.hexString),
+                            message: GroupUpdateInfoChangeMessage(
+                                changeType: .disappearingMessages,
+                                updatedExpiration: UInt32(updatedConfig.isEnabled ?
+                                    updatedConfig.durationSeconds :
+                                    0
+                                ),
+                                sentTimestampMs: UInt64(currentOffsetTimestampMs),
+                                authMethod: Authentication.groupAdmin(
+                                    groupSessionId: sessionId,
+                                    ed25519SecretKey: Array(groupIdentityPrivateKey)
+                                ),
+                                using: dependencies
+                            ),
+                            requiredConfigSyncVariant: .groupInfo
+                        )
+                    ),
+                    canStartJob: false
+                )
+            }
+            .flatMap { _ -> AnyPublisher<Void, Error> in
+                ConfigurationSyncJob
+                    .run(swarmPublicKey: groupSessionId, using: dependencies)
+                    .eraseToAnyPublisher()
             }
             .eraseToAnyPublisher()
     }
@@ -417,6 +551,7 @@ extension MessageSender {
     public static func addGroupMembers(
         groupSessionId: String,
         members: [(id: String, profile: Profile?)],
+        isRetry: Bool,
         allowAccessToHistoricMessages: Bool,
         using dependencies: Dependencies
     ) -> AnyPublisher<Void, Error> {
@@ -432,7 +567,7 @@ extension MessageSender {
         )
         
         return dependencies[singleton: .storage]
-            .writePublisher { db -> ([MemberJobData], Network.PreparedRequest<Void>, Network.PreparedRequest<Void>?, Network.PreparedRequest<Void>, Int64) in
+            .writePublisher { db -> ([MemberJobData], Network.PreparedRequest<Void>, Network.PreparedRequest<Void>?) in
                 guard
                     let groupIdentityPrivateKey: Data = try? ClosedGroup
                         .filter(id: sessionId.hexString)
@@ -441,10 +576,11 @@ extension MessageSender {
                         .fetchOne(db)
                 else { throw MessageSenderError.invalidClosedGroupUpdate }
                 
+                let userSessionId: SessionId = dependencies[cache: .general].sessionId
                 let changeTimestampMs: Int64 = dependencies[cache: .snodeAPI].currentOffsetTimestampMs()
                 var maybeSupplementalKeyRequest: Network.PreparedRequest<Void>?
                 
-                /// Perform the config changes without triggering a config sync (we will do so manually after the process completes)
+                /// Perform the config changes without triggering a config sync (we will trigger one manually as part of the process)
                 try dependencies.mutate(cache: .libSession) { cache in
                     try cache.withCustomBehaviour(.skipAutomaticConfigSync, for: sessionId) {
                         /// Add the members to the `GROUP_MEMBERS` config
@@ -554,74 +690,80 @@ extension MessageSender {
                     using: dependencies
                 )
                 
-                /// Schedule the control message to be sent to the group
-                let memberChangeRequest: Network.PreparedRequest<Void> = try MessageSender.preparedSend(
-                    db,
-                    message: GroupUpdateMemberChangeMessage(
-                        changeType: .added,
-                        memberSessionIds: members.map { $0.id },
-                        historyShared: allowAccessToHistoricMessages,
-                        sentTimestampMs: UInt64(changeTimestampMs),
-                        authMethod: Authentication.groupAdmin(
-                            groupSessionId: sessionId,
-                            ed25519SecretKey: Array(groupIdentityPrivateKey)
+                /// If this is a retry then there is no need to add a record of the change to the conversation (as we would have
+                /// added it during the first attempt)
+                if !isRetry {
+                    let disappearingConfig: DisappearingMessagesConfiguration? = try? DisappearingMessagesConfiguration.fetchOne(db, id: sessionId.hexString)
+                    
+                    /// Add a record of the change to the conversation
+                    _ = try? Interaction(
+                        threadId: groupSessionId,
+                        threadVariant: .group,
+                        authorId: userSessionId.hexString,
+                        variant: .infoGroupMembersUpdated,
+                        body: ClosedGroup.MessageInfo
+                            .addedUsers(
+                                hasCurrentUser: members.map { $0.id }.contains(userSessionId.hexString),
+                                names: members
+                                    .sorted { lhs, rhs in lhs.id == userSessionId.hexString }
+                                    .map { id, profile in
+                                        profile?.displayName(for: .group) ??
+                                        Profile.truncated(id: id, truncating: .middle)
+                                    },
+                                historyShared: allowAccessToHistoricMessages
+                            )
+                            .infoString(using: dependencies),
+                        timestampMs: changeTimestampMs,
+                        expiresInSeconds: disappearingConfig?.expiresInSeconds(),
+                        expiresStartedAtMs: disappearingConfig?.initialExpiresStartedAtMs(
+                            sentTimestampMs: Double(changeTimestampMs)
                         ),
                         using: dependencies
-                    ).with(try? DisappearingMessagesConfiguration.fetchOne(db, id: sessionId.hexString)),
-                    to: .closedGroup(groupPublicKey: sessionId.hexString),
-                    namespace: .groupMessages,
-                    interactionId: nil,
-                    fileIds: [],
-                    using: dependencies
-                )
+                    ).inserted(db)
+                    
+                    /// Schedule the control message to be sent to the group after the config sync completes
+                    try dependencies[singleton: .jobRunner].add(
+                        db,
+                        job: Job(
+                            variant: .messageSend,
+                            behaviour: .runOnceAfterConfigSyncIgnoringPermanentFailure,
+                            threadId: sessionId.hexString,
+                            details: MessageSendJob.Details(
+                                destination: .closedGroup(groupPublicKey: sessionId.hexString),
+                                message: GroupUpdateMemberChangeMessage(
+                                    changeType: .added,
+                                    memberSessionIds: members.map { $0.id },
+                                    historyShared: allowAccessToHistoricMessages,
+                                    sentTimestampMs: UInt64(changeTimestampMs),
+                                    authMethod: Authentication.groupAdmin(
+                                        groupSessionId: sessionId,
+                                        ed25519SecretKey: Array(groupIdentityPrivateKey)
+                                    ),
+                                    using: dependencies
+                                ).with(try? DisappearingMessagesConfiguration.fetchOne(db, id: sessionId.hexString)),
+                                requiredConfigSyncVariant: .groupMembers
+                            )
+                        ),
+                        canStartJob: false
+                    )
+                }
                 
-                return (memberJobData, unrevokeRequest, maybeSupplementalKeyRequest, memberChangeRequest, changeTimestampMs)
+                return (memberJobData, unrevokeRequest, maybeSupplementalKeyRequest)
             }
-            .flatMap { memberJobData, unrevokeRequest, maybeSupplementalKeyRequest, memberChangeRequest, changeTimestampMs -> AnyPublisher<([MemberJobData], Int64), Error> in
+            .flatMap { memberJobData, unrevokeRequest, maybeSupplementalKeyRequest -> AnyPublisher<[MemberJobData], Error> in
                 ConfigurationSyncJob
                     .run(
                         swarmPublicKey: sessionId.hexString,
                         beforeSequenceRequests: [unrevokeRequest, maybeSupplementalKeyRequest].compactMap { $0 },
-                        afterSequenceRequests: [memberChangeRequest],
                         requireAllBatchResponses: true,
                         using: dependencies
                     )
-                    .map { _ in (memberJobData, changeTimestampMs) }
+                    .map { _ in memberJobData }
                     .eraseToAnyPublisher()
             }
             .handleEvents(
-                receiveOutput: { memberJobData, changeTimestampMs in
-                    let userSessionId: SessionId = dependencies[cache: .general].sessionId
-                    
+                receiveOutput: { memberJobData in
                     dependencies[singleton: .storage].writeAsync { db in
-                        let disappearingConfig: DisappearingMessagesConfiguration? = try? DisappearingMessagesConfiguration.fetchOne(db, id: sessionId.hexString)
-                        
-                        /// Add a record of the change to the conversation
-                        _ = try? Interaction(
-                            threadId: groupSessionId,
-                            threadVariant: .group,
-                            authorId: userSessionId.hexString,
-                            variant: .infoGroupMembersUpdated,
-                            body: ClosedGroup.MessageInfo
-                                .addedUsers(
-                                    hasCurrentUser: members.map { $0.id }.contains(userSessionId.hexString),
-                                    names: members
-                                        .sorted { lhs, rhs in lhs.id == userSessionId.hexString }
-                                        .map { id, profile in
-                                            profile?.displayName(for: .group) ??
-                                            Profile.truncated(id: id, truncating: .middle)
-                                        },
-                                    historyShared: allowAccessToHistoricMessages
-                                )
-                                .infoString(using: dependencies),
-                            timestampMs: changeTimestampMs,
-                            expiresInSeconds: disappearingConfig?.expiresInSeconds(),
-                            expiresStartedAtMs: disappearingConfig?.initialExpiresStartedAtMs(
-                                sentTimestampMs: Double(changeTimestampMs)
-                            ),
-                            using: dependencies
-                        ).inserted(db)
-                        
                         /// Schedule jobs to send invitations to the newly added members
                         memberJobData.forEach { id, profile, inviteJobDetails, _ in
                             /// Schedule a job to send an invitation to the newly added member
@@ -652,7 +794,7 @@ extension MessageSender {
         }
         
         return dependencies[singleton: .storage]
-            .writePublisher { db -> ([GroupInviteMemberJob.Details], Network.PreparedRequest<Void>) in
+            .writePublisher { db -> ([GroupInviteMemberJob.Details], Network.PreparedRequest<Void>, Network.PreparedRequest<Void>?) in
                 guard
                     let groupIdentityPrivateKey: Data = try? ClosedGroup
                         .filter(id: groupSessionId)
@@ -660,6 +802,9 @@ extension MessageSender {
                         .asRequest(of: Data.self)
                         .fetchOne(db)
                 else { throw MessageSenderError.invalidClosedGroupUpdate }
+                
+                let changeTimestampMs: Int64 = dependencies[cache: .snodeAPI].currentOffsetTimestampMs()
+                var maybeSupplementalKeyRequest: Network.PreparedRequest<Void>?
                 
                 /// Perform the config changes without triggering a config sync (we will do so manually after the process completes)
                 try dependencies.mutate(cache: .libSession) { cache in
@@ -693,6 +838,45 @@ extension MessageSender {
                                         using: dependencies
                                     )
                             }
+                        }
+                        
+                        /// If any of the members are flagged as `supplement` then it means we _should_ have sent a
+                        /// supplemental keys message when initially inviting them **but** if that initial request failed then
+                        /// the supplemental keys message may not have been sent (since it's not persistent to the `GROUP_KEYS`
+                        /// state this message not existing would result in the member being unable to read old messages) - to
+                        /// handle this case we create a new supplemental keys rotation for those members and try to send it again
+                        let supplementalRotationMemberIds: [String] = memberIds
+                            .filter {
+                                LibSession.isSupplementalMember(
+                                    groupSessionId: sessionId,
+                                    memberId: $0,
+                                    using: dependencies
+                                )
+                            }
+                        
+                        if !supplementalRotationMemberIds.isEmpty {
+                            let supplementData: Data = try LibSession.keySupplement(
+                                db,
+                                groupSessionId: sessionId,
+                                memberIds: Set(supplementalRotationMemberIds),
+                                using: dependencies
+                            )
+                            
+                            maybeSupplementalKeyRequest = try SnodeAPI.preparedSendMessage(
+                                message: SnodeMessage(
+                                    recipient: sessionId.hexString,
+                                    data: supplementData.base64EncodedString(),
+                                    ttl: ConfigDump.Variant.groupKeys.ttl,
+                                    timestampMs: UInt64(changeTimestampMs)
+                                ),
+                                in: .configGroupKeys,
+                                authMethod: Authentication.groupAdmin(
+                                    groupSessionId: sessionId,
+                                    ed25519SecretKey: Array(groupIdentityPrivateKey)
+                                ),
+                                using: dependencies
+                            )
+                            .map { _, _ in () }
                         }
                     }
                 }
@@ -734,13 +918,13 @@ extension MessageSender {
                         using: dependencies
                     )
                 
-                return (memberInfo.map { _, jobDetails in jobDetails }, unrevokeRequest)
+                return (memberInfo.map { _, jobDetails in jobDetails }, unrevokeRequest, maybeSupplementalKeyRequest)
             }
-            .flatMap { memberJobData, unrevokeRequest -> AnyPublisher<[GroupInviteMemberJob.Details], Error> in
+            .flatMap { memberJobData, unrevokeRequest, maybeSupplementalKeyRequest -> AnyPublisher<[GroupInviteMemberJob.Details], Error> in
                 ConfigurationSyncJob
                     .run(
                         swarmPublicKey: sessionId.hexString,
-                        beforeSequenceRequests: [unrevokeRequest],
+                        beforeSequenceRequests: [unrevokeRequest, maybeSupplementalKeyRequest].compactMap { $0 },
                         requireAllBatchResponses: true,
                         using: dependencies
                     )
@@ -796,24 +980,29 @@ extension MessageSender {
                         .fetchOne(db)
                 else { throw MessageSenderError.invalidClosedGroupUpdate }
                 
-                /// Flag the members for removal
-                try LibSession.flagMembersForRemoval(
-                    db,
-                    groupSessionId: sessionId,
-                    memberIds: memberIds,
-                    removeMessages: removeTheirMessages,
-                    using: dependencies
-                )
-                
-                /// Flag  the members in the database as "pending removal" (will result in the UI being updated)
-                try GroupMember
-                    .filter(GroupMember.Columns.groupId == sessionId.hexString)
-                    .filter(memberIds.contains(GroupMember.Columns.profileId))
-                    .updateAllAndConfig(
-                        db,
-                        GroupMember.Columns.roleStatus.set(to: GroupMember.RoleStatus.pendingRemoval),
-                        using: dependencies
-                    )
+                /// Perform the config changes without triggering a config sync (we will do so manually after the process completes)
+                try dependencies.mutate(cache: .libSession) { cache in
+                    try cache.withCustomBehaviour(.skipAutomaticConfigSync, for: sessionId) {
+                        /// Flag the members for removal
+                        try LibSession.flagMembersForRemoval(
+                            db,
+                            groupSessionId: sessionId,
+                            memberIds: memberIds,
+                            removeMessages: removeTheirMessages,
+                            using: dependencies
+                        )
+                        
+                        /// Flag  the members in the database as "pending removal" (will result in the UI being updated)
+                        try GroupMember
+                            .filter(GroupMember.Columns.groupId == sessionId.hexString)
+                            .filter(memberIds.contains(GroupMember.Columns.profileId))
+                            .updateAllAndConfig(
+                                db,
+                                GroupMember.Columns.roleStatus.set(to: GroupMember.RoleStatus.pendingRemoval),
+                                using: dependencies
+                            )
+                    }
+                }
                 
                 /// Schedule a job to process the removals
                 dependencies[singleton: .jobRunner].add(
@@ -863,26 +1052,37 @@ extension MessageSender {
                         using: dependencies
                     ).inserted(db)
                     
-                    /// Schedule the control message to be sent to the group
-                    try MessageSender.send(
+                    /// Schedule the control message to be sent to the group after the config sync completes
+                    try dependencies[singleton: .jobRunner].add(
                         db,
-                        message: GroupUpdateMemberChangeMessage(
-                            changeType: .removed,
-                            memberSessionIds: Array(memberIds),
-                            historyShared: false,
-                            sentTimestampMs: UInt64(targetChangeTimestampMs),
-                            authMethod: Authentication.groupAdmin(
-                                groupSessionId: sessionId,
-                                ed25519SecretKey: Array(groupIdentityPrivateKey)
-                            ),
-                            using: dependencies
-                        ).with(disappearingConfig),
-                        interactionId: nil,
-                        threadId: sessionId.hexString,
-                        threadVariant: .group,
-                        using: dependencies
+                        job: Job(
+                            variant: .messageSend,
+                            behaviour: .runOnceAfterConfigSyncIgnoringPermanentFailure,
+                            threadId: sessionId.hexString,
+                            details: MessageSendJob.Details(
+                                destination: .closedGroup(groupPublicKey: sessionId.hexString),
+                                message: GroupUpdateMemberChangeMessage(
+                                    changeType: .removed,
+                                    memberSessionIds: Array(memberIds),
+                                    historyShared: false,
+                                    sentTimestampMs: UInt64(targetChangeTimestampMs),
+                                    authMethod: Authentication.groupAdmin(
+                                        groupSessionId: sessionId,
+                                        ed25519SecretKey: Array(groupIdentityPrivateKey)
+                                    ),
+                                    using: dependencies
+                                ).with(disappearingConfig),
+                                requiredConfigSyncVariant: .groupMembers
+                            )
+                        ),
+                        canStartJob: false
                     )
                 }
+            }
+            .flatMap { _ -> AnyPublisher<Void, Error> in
+                ConfigurationSyncJob
+                    .run(swarmPublicKey: groupSessionId, using: dependencies)
+                    .eraseToAnyPublisher()
             }
             .eraseToAnyPublisher()
     }
@@ -890,15 +1090,31 @@ extension MessageSender {
     public static func promoteGroupMembers(
         groupSessionId: SessionId,
         members: [(id: String, profile: Profile?)],
-        sendAdminChangedMessage: Bool,
+        isRetry: Bool,
         using dependencies: Dependencies
     ) -> AnyPublisher<Void, Error> {
-        typealias MemberData = (id: String, profile: Profile?)
-
-        let changeTimestampMs: Int64 = dependencies[cache: .snodeAPI].currentOffsetTimestampMs()
-        
         return dependencies[singleton: .storage]
-            .writePublisher { db -> (Set<String>, [MemberData], Network.PreparedRequest<Void>?, Int64) in
+            .writePublisher { db -> Set<String> in
+                guard
+                    let groupIdentityPrivateKey: Data = try? ClosedGroup
+                        .filter(id: groupSessionId.hexString)
+                        .select(.groupIdentityPrivateKey)
+                        .asRequest(of: Data.self)
+                        .fetchOne(db)
+                else { throw MessageSenderError.invalidClosedGroupUpdate }
+            
+                /// Determine which members actually need to be promoted (rather than just resent promotions)
+                let memberIds: Set<String> = Set(members.map(\.id))
+                let memberIdsRequiringPromotions: Set<String> = try GroupMember
+                    .select(.profileId)
+                    .filter(GroupMember.Columns.groupId == groupSessionId.hexString)
+                    .filter(memberIds.contains(GroupMember.Columns.profileId))
+                    .filter(GroupMember.Columns.role == GroupMember.Role.standard)
+                    .asRequest(of: String.self)
+                    .fetchSet(db)
+                let membersReceivingPromotions: [(id: String, profile: Profile?)] = members
+                    .filter { id, _ in memberIdsRequiringPromotions.contains(id) }
+                
                 /// Perform the config changes without triggering a config sync (we will do so manually after the process completes)
                 try dependencies.mutate(cache: .libSession) { cache in
                     try cache.withCustomBehaviour(.skipAutomaticConfigSync, for: groupSessionId) {
@@ -913,122 +1129,109 @@ extension MessageSender {
                                 using: dependencies
                             )
                         }
+                        
+                        /// Update failed admins to be sending
+                        try GroupMember
+                            .filter(GroupMember.Columns.groupId == groupSessionId.hexString)
+                            .filter(memberIds.contains(GroupMember.Columns.profileId))
+                            .filter(GroupMember.Columns.role == GroupMember.Role.admin)
+                            .updateAllAndConfig(
+                                db,
+                                GroupMember.Columns.roleStatus.set(to: GroupMember.RoleStatus.notSentYet),
+                                using: dependencies
+                            )
+                        
+                        /// Update standard members to be admins
+                        try GroupMember
+                            .filter(GroupMember.Columns.groupId == groupSessionId.hexString)
+                            .filter(memberIds.contains(GroupMember.Columns.profileId))
+                            .filter(GroupMember.Columns.role == GroupMember.Role.standard)
+                            .updateAllAndConfig(
+                                db,
+                                GroupMember.Columns.role.set(to: GroupMember.Role.admin),
+                                GroupMember.Columns.roleStatus.set(to: GroupMember.RoleStatus.notSentYet),
+                                using: dependencies
+                            )
                     }
                 }
                 
-                // Determine which members actually need to be promoted (rather than just resent promotions)
-                let memberIds: Set<String> = Set(members.map(\.id))
-                let memberIdsRequiringPromotions: Set<String> = try GroupMember
-                    .select(.profileId)
-                    .filter(GroupMember.Columns.groupId == groupSessionId.hexString)
-                    .filter(memberIds.contains(GroupMember.Columns.profileId))
-                    .filter(GroupMember.Columns.role == GroupMember.Role.standard)
-                    .asRequest(of: String.self)
-                    .fetchSet(db)
-                let membersReceivingPromotions: [MemberData] = members
-                    .filter { id, _ in memberIdsRequiringPromotions.contains(id) }
-                
-                // Update failed admins to be sending
-                try GroupMember
-                    .filter(GroupMember.Columns.groupId == groupSessionId.hexString)
-                    .filter(memberIds.contains(GroupMember.Columns.profileId))
-                    .filter(GroupMember.Columns.role == GroupMember.Role.admin)
-                    .updateAllAndConfig(
-                        db,
-                        GroupMember.Columns.roleStatus.set(to: GroupMember.RoleStatus.notSentYet),
-                        using: dependencies
-                    )
-                
-                // Update standard members to be admins
-                try GroupMember
-                    .filter(GroupMember.Columns.groupId == groupSessionId.hexString)
-                    .filter(memberIds.contains(GroupMember.Columns.profileId))
-                    .filter(GroupMember.Columns.role == GroupMember.Role.standard)
-                    .updateAllAndConfig(
-                        db,
-                        GroupMember.Columns.role.set(to: GroupMember.Role.admin),
-                        GroupMember.Columns.roleStatus.set(to: GroupMember.RoleStatus.notSentYet),
-                        using: dependencies
-                    )
-                
                 /// Send the admin changed message if desired
+                ///
+                /// If this is a retry then there is no need to add a record of the change to the conversation (as we would have
+                /// added it during the first attempt)
                 ///
                 /// **Note:** It's possible that this call could contain both members being promoted as well as admins
                 /// that are getting promotions re-sent to them - we only want to send an admin changed message if there
                 /// is a newly promoted member
-                var memberChangeRequest: Network.PreparedRequest<Void>?
-                
-                if sendAdminChangedMessage && !membersReceivingPromotions.isEmpty {
+                if !isRetry && !membersReceivingPromotions.isEmpty {
+                    let userSessionId: SessionId = dependencies[cache: .general].sessionId
+                    let changeTimestampMs: Int64 = dependencies[cache: .snodeAPI].currentOffsetTimestampMs()
                     let disappearingConfig: DisappearingMessagesConfiguration? = try? DisappearingMessagesConfiguration.fetchOne(db, id: groupSessionId.hexString)
                     
-                    memberChangeRequest = try MessageSender.preparedSend(
-                        db,
-                        message: GroupUpdateMemberChangeMessage(
-                            changeType: .promoted,
-                            memberSessionIds: membersReceivingPromotions.map { $0.id },
-                            historyShared: false,
-                            sentTimestampMs: UInt64(changeTimestampMs),
-                            authMethod: try Authentication.with(
-                                db,
-                                swarmPublicKey: groupSessionId.hexString,
-                                using: dependencies
-                            ),
-                            using: dependencies
-                        ).with(disappearingConfig),
-                        to: .closedGroup(groupPublicKey: groupSessionId.hexString),
-                        namespace: .groupMessages,
-                        interactionId: nil,
-                        fileIds: [],
+                    _ = try Interaction(
+                        threadId: groupSessionId.hexString,
+                        threadVariant: .group,
+                        authorId: userSessionId.hexString,
+                        variant: .infoGroupMembersUpdated,
+                        body: ClosedGroup.MessageInfo
+                            .promotedUsers(
+                                hasCurrentUser: membersReceivingPromotions
+                                    .map { $0.id }
+                                    .contains(userSessionId.hexString),
+                                names: membersReceivingPromotions
+                                    .sorted { lhs, rhs in lhs.id == userSessionId.hexString }
+                                    .map { id, profile in
+                                        profile?.displayName(for: .group) ??
+                                        Profile.truncated(id: id, truncating: .middle)
+                                    }
+                            )
+                            .infoString(using: dependencies),
+                        timestampMs: changeTimestampMs,
+                        expiresInSeconds: disappearingConfig?.expiresInSeconds(),
+                        expiresStartedAtMs: disappearingConfig?.initialExpiresStartedAtMs(
+                            sentTimestampMs: Double(changeTimestampMs)
+                        ),
                         using: dependencies
+                    ).inserted(db)
+                    
+                    /// Schedule the control message to be sent to the group after the config sync completes
+                    try dependencies[singleton: .jobRunner].add(
+                        db,
+                        job: Job(
+                            variant: .messageSend,
+                            behaviour: .runOnceAfterConfigSyncIgnoringPermanentFailure,
+                            threadId: groupSessionId.hexString,
+                            details: MessageSendJob.Details(
+                                destination: .closedGroup(groupPublicKey: groupSessionId.hexString),
+                                message: GroupUpdateMemberChangeMessage(
+                                    changeType: .promoted,
+                                    memberSessionIds: membersReceivingPromotions.map { $0.id },
+                                    historyShared: false,
+                                    sentTimestampMs: UInt64(changeTimestampMs),
+                                    authMethod: Authentication.groupAdmin(
+                                        groupSessionId: groupSessionId,
+                                        ed25519SecretKey: Array(groupIdentityPrivateKey)
+                                    ),
+                                    using: dependencies
+                                ).with(disappearingConfig),
+                                requiredConfigSyncVariant: .groupMembers
+                            )
+                        ),
+                        canStartJob: false
                     )
                 }
                 
-                return (memberIds, membersReceivingPromotions, memberChangeRequest, changeTimestampMs)
+                return memberIds
             }
-            .flatMap { memberIds, membersReceivingPromotions, memberChangeRequest, changeTimestampMs -> AnyPublisher<(Set<String>, [MemberData], Int64), Error> in
+            .flatMap { memberIds -> AnyPublisher<Set<String>, Error> in
                 ConfigurationSyncJob
-                    .run(
-                        swarmPublicKey: groupSessionId.hexString,
-                        afterSequenceRequests: [memberChangeRequest].compactMap { $0 },
-                        requireAllBatchResponses: true,
-                        using: dependencies
-                    )
-                    .map { _ in (memberIds, membersReceivingPromotions, changeTimestampMs) }
+                    .run(swarmPublicKey: groupSessionId.hexString, using: dependencies)
+                    .map { _ in memberIds }
                     .eraseToAnyPublisher()
             }
             .handleEvents(
-                receiveOutput: { memberIds, membersReceivingPromotions, changeTimestampMs in
-                    let userSessionId: SessionId = dependencies[cache: .general].sessionId
-                    
+                receiveOutput: { memberIds in
                     dependencies[singleton: .storage].writeAsync { db in
-                        if sendAdminChangedMessage && !membersReceivingPromotions.isEmpty {
-                            let disappearingConfig: DisappearingMessagesConfiguration? = try? DisappearingMessagesConfiguration.fetchOne(db, id: groupSessionId.hexString)
-                            
-                            _ = try Interaction(
-                                threadId: groupSessionId.hexString,
-                                threadVariant: .group,
-                                authorId: userSessionId.hexString,
-                                variant: .infoGroupMembersUpdated,
-                                body: ClosedGroup.MessageInfo
-                                    .promotedUsers(
-                                        hasCurrentUser: membersReceivingPromotions.map { $0.id }.contains(userSessionId.hexString),
-                                        names: membersReceivingPromotions
-                                            .sorted { lhs, rhs in lhs.id == userSessionId.hexString }
-                                            .map { id, profile in
-                                                profile?.displayName(for: .group) ??
-                                                Profile.truncated(id: id, truncating: .middle)
-                                            }
-                                    )
-                                    .infoString(using: dependencies),
-                                timestampMs: changeTimestampMs,
-                                expiresInSeconds: disappearingConfig?.expiresInSeconds(),
-                                expiresStartedAtMs: disappearingConfig?.initialExpiresStartedAtMs(
-                                    sentTimestampMs: Double(changeTimestampMs)
-                                ),
-                                using: dependencies
-                            ).inserted(db)
-                        }
-                        
                         /// Schedule jobs to send promotions to all members (including previously promoted members)
                         memberIds.forEach { id in
                             dependencies[singleton: .jobRunner].add(

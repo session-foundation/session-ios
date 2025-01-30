@@ -95,3 +95,20 @@ public extension Authentication {
         }
     }
 }
+
+public extension Optional where Wrapped == Authentication.Signature {
+    var nullIfEmpty: Authentication.Signature? {
+        switch self {
+            case .none: return nil
+            case .standard(let signature):
+                guard !signature.isEmpty else { return nil }
+                
+                return self
+                
+            case .subaccount(let subaccount, let subaccountSig, let signature):
+                guard !subaccount.isEmpty, !subaccountSig.isEmpty, !signature.isEmpty else { return nil }
+                
+                return self
+        }
+    }
+}

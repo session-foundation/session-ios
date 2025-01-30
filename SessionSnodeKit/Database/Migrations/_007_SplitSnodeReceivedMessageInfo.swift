@@ -8,7 +8,6 @@ import SessionUtilitiesKit
 enum _007_SplitSnodeReceivedMessageInfo: Migration {
     static let target: TargetMigrations.Identifier = .snodeKit
     static let identifier: String = "SplitSnodeReceivedMessageInfo"
-    static let needsConfigSync: Bool = false
     static let minExpectedRunDuration: TimeInterval = 0.1
     static let fetchedTables: [(TableRecord & FetchableRecord).Type] = [
         _001_InitialSetupMigration.LegacySnodeReceivedMessageInfo.self

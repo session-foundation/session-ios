@@ -111,19 +111,19 @@ public struct SessionId: Equatable, Hashable, CustomStringConvertible {
 
 // MARK: - SessionIdError
 
-public enum SessionIdError: LocalizedError {
+public enum SessionIdError: Error, CustomStringConvertible {
     case emptyValue
     case invalidLength
     case invalidPrefix
     case invalidSessionId
     
     // stringlint:ignore_contents
-    public var errorDescription: String? {
+    public var description: String {
         switch self {
-            case .emptyValue: return "Empty value."
-            case .invalidLength: return "Invalid length."
-            case .invalidPrefix: return "Invalid prefix."
-            case .invalidSessionId: return "Invalid sessionId."
+            case .emptyValue: return "The provided Account ID was empty."
+            case .invalidLength: return "The provided Account ID was the wrong length."
+            case .invalidPrefix: return "The provided Account ID has the wrong prefix."
+            case .invalidSessionId: return "The provided Account ID was invalid."
         }
     }
 }

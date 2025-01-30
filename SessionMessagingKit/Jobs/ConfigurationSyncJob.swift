@@ -87,6 +87,7 @@ public enum ConfigurationSyncJob: JobExecutor {
             (job.transientData as? AdditionalSequenceRequests)?.afterSequenceRequests.isEmpty == false
         else {
             Log.info(.cat, "For \(swarmPublicKey) completed with no pending changes")
+            ConfigurationSyncJob.startJobsWaitingOnConfigSync(swarmPublicKey, using: dependencies)
             return success(job, true)
         }
         
@@ -235,9 +236,37 @@ public enum ConfigurationSyncJob: JobExecutor {
                             .upserted(db)
                     }
                     
+                    ConfigurationSyncJob.startJobsWaitingOnConfigSync(swarmPublicKey, using: dependencies)
                     success((updatedJob ?? job), shouldFinishCurrentJob)
                 }
             )
+    }
+    
+    private static func startJobsWaitingOnConfigSync(
+        _ swarmPublicKey: String,
+        using dependencies: Dependencies
+    ) {
+        let targetJobs: [Job] = dependencies[singleton: .storage].read { db in
+            return try Job
+                .filter(Job.Columns.behaviour == Job.Behaviour.runOnceAfterConfigSyncIgnoringPermanentFailure)
+                .filter(Job.Columns.threadId == swarmPublicKey)
+                .fetchAll(db)
+        }.defaulting(to: [])
+        
+        guard !targetJobs.isEmpty else { return }
+        
+        /// We use `upsert` because we want to avoid re-adding a job that happens to already be running or in the queue as these
+        /// jobs should only run once
+        dependencies[singleton: .storage].writeAsync { db in
+            targetJobs.forEach { job in
+                dependencies[singleton: .jobRunner].upsert(
+                    db,
+                    job: job,
+                    canStartJob: true
+                )
+            }
+        }
+        Log.info(.cat, "Starting \(targetJobs.count) job(s) for \(swarmPublicKey) after successful config sync")
     }
 }
 
