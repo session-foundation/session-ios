@@ -15,16 +15,13 @@ extension BencodeResponse: Decodable {
         info = try {
             /// First try to decode it directly
             if let info: T = try? container.decode(T.self) {
-                SNLog("Successfully decoded info directly")
                 return info
             }
             
             /// If that failed then we need to reset the container and try decode it as a JSON string
             container = try decoder.unkeyedContainer()
             let infoString: String = try container.decode(String.self)
-            SNLog("Successfully decoded info to JSON string")
             let infoData: Data = try infoString.data(using: .ascii) ?? { throw NetworkError.parsingFailed }()
-            SNLog("Successfully decoded info to JSON data")
             return try JSONDecoder(using: decoder.dependencies).decode(T.self, from: infoData)
         }()
         
