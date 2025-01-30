@@ -509,17 +509,11 @@ public enum PushNotificationAPI {
             return (nil, notification.info, .successTooLong)
         }
         
-        // Only show notifcations for messages from default namespace
-        // TODO: Add group messages namespace
-        guard notification.info.namespace == .default else {
-            SNLog("Ignoring notification due to namespace being \(notification.info.namespace) instead of default")
-            return (nil, notification.info, .failureNoContent)
-        }
-        
-        // Check that the body we were given is valid
+        // Check that the body we were given is valid and not empty
         guard
             let notificationData: Data = notification.data,
-            notification.info.dataLength == notificationData.count
+            notification.info.dataLength == notificationData.count,
+            !notificationData.isEmpty
         else {
             SNLog("Get notification data failed")
             return (nil, notification.info, .failureNoContent)
