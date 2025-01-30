@@ -176,16 +176,17 @@ public class NSENotificationPresenter: NSObject, NotificationsProtocol {
         
         let senderName: String = Profile.displayName(db, id: interaction.authorId, threadVariant: thread.variant)
         
-        if messageInfo.state == .permissionDenied {
-            notificationContent.body = "callsYouMissedCallPermissions"
-                .put(key: "name", value: senderName)
-                .localizedDeformatted()
-        }
-        else if messageInfo.state == .permissionDeniedMicrophone {
-            notificationContent.body = String(
-                format: "callsMissedCallFrom".localized(),
-                senderName
-            )
+        switch messageInfo.state {
+            case .permissionDenied:
+                notificationContent.body = "callsYouMissedCallPermissions"
+                    .put(key: "name", value: senderName)
+                    .localizedDeformatted()
+            case .permissionDeniedMicrophone:
+                notificationContent.body = "callsMissedCallFrom"
+                    .put(key: "name", value: senderName)
+                    .localizedDeformatted()
+            default:
+                break
         }
         
         addNotifcationRequest(

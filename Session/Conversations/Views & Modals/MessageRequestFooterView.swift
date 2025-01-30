@@ -109,13 +109,14 @@ class MessageRequestFooterView: UIView {
         self.onDecline = onDecline
         self.themeBackgroundColor = .backgroundPrimary
         
+        setupLayout()
+        
         update(
             threadVariant: threadVariant,
             canWrite: canWrite,
             threadIsMessageRequest: threadIsMessageRequest,
             threadRequiresApproval: threadRequiresApproval
         )
-        setupLayout()
     }
     
     required init?(coder: NSCoder) {

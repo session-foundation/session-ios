@@ -104,6 +104,15 @@ public final class NotificationServiceExtension: UNNotificationServiceExtension 
             (UserDefaults.sharedLokiProject?[.lastCallPreOffer]) != nil
         )
         
+        let hasMicrophonePermission: Bool = {
+            return switch Permissions.microphone {
+                case .undetermined:
+                    (UserDefaults.sharedLokiProject?[.lastSeenHasMicrophonePermission]).defaulting(to: false)
+                default:
+                    Permissions.microphone == .granted
+            }
+        }()
+        
         // HACK: It is important to use write synchronously here to avoid a race condition
         // where the completeSilenty() is called before the local notification request
         // is added to notification center
@@ -146,6 +155,7 @@ public final class NotificationServiceExtension: UNNotificationServiceExtension 
                             using: dependencies
                         )
                         
+                        // FIXME: Do we need to call it here? It does nothing other than log what kind of message we received
                         try MessageReceiver.handleCallMessage(
                             db,
                             threadId: threadId,
@@ -158,7 +168,6 @@ public final class NotificationServiceExtension: UNNotificationServiceExtension 
                             throw NotificationError.ignorableMessage
                         }
                         
-                        let hasMicrophonePermission: Bool = (AVAudioSession.sharedInstance().recordPermission == .granted)
                         switch ((db[.areCallsEnabled] && hasMicrophonePermission), isCallOngoing) {
                             case (false, _):
                                 if

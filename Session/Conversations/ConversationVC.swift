@@ -22,6 +22,7 @@ final class ConversationVC: BaseVC, LibSessionRespondingViewController, Conversa
     private var isAutoLoadingNextPage: Bool = false
     private var isLoadingMore: Bool = false
     var isReplacingThread: Bool = false
+    var isKeyboardVisible: Bool = false
     
     /// This flag indicates whether the thread data has been reloaded after a disappearance (it defaults to true as it will
     /// never have disappeared before - this is only needed for value observers since they run asynchronously)
@@ -530,6 +531,8 @@ final class ConversationVC: BaseVC, LibSessionRespondingViewController, Conversa
         stopObservingChanges()
         viewModel.updateDraft(to: snInputView.text)
         inputAccessoryView?.resignFirstResponder()
+        
+        NotificationCenter.default.removeObserver(self)
     }
 
     override func viewDidDisappear(_ animated: Bool) {
@@ -1387,7 +1390,21 @@ final class ConversationVC: BaseVC, LibSessionRespondingViewController, Conversa
         }
         
         // No nothing if there was no change
-        let keyboardEndFrameConverted: CGRect = self.view.convert(keyboardEndFrame, from: nil)
+        // Note: there is a bug on iOS 15.X for iPhone 6/6s where the converted frame is not accurate.
+        // In iOS 16.1 and later, the keyboard notification object is the screen the keyboard appears on.
+        // This is a workaround to fix the issue
+        let fromCoordinateSpace: UICoordinateSpace? = {
+            if let screen = (notification.object as? UIScreen) {
+                return screen.coordinateSpace
+            } else {
+                var result: UIView? = self.view.superview
+                while result != nil && result?.frame != UIScreen.main.bounds {
+                    result = result?.superview
+                }
+                return result
+            }
+        }()
+        let keyboardEndFrameConverted: CGRect = fromCoordinateSpace?.convert(keyboardEndFrame, to: self.view) ?? keyboardEndFrame
         guard keyboardEndFrameConverted != lastKnownKeyboardFrame else { return }
         
         self.lastKnownKeyboardFrame = keyboardEndFrameConverted
