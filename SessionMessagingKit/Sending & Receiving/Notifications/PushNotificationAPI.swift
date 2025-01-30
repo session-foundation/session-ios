@@ -497,17 +497,33 @@ public enum PushNotificationAPI {
             ),
             let notification: BencodeResponse<NotificationMetadata> = try? BencodeDecoder(using: dependencies)
                 .decode(BencodeResponse<NotificationMetadata>.self, from: decryptedData)
-        else { return (nil, .invalid, .failure) }
+        else {
+            SNLog("Failed to decrypt or decode notification")
+            return (nil, .invalid, .failure)
+        }
         
         // If the metadata says that the message was too large then we should show the generic
         // notification (this is a valid case)
-        guard !notification.info.dataTooLong else { return (nil, notification.info, .successTooLong) }
+        guard !notification.info.dataTooLong else {
+            SNLog("Ignoring notification due to data being too long")
+            return (nil, notification.info, .successTooLong)
+        }
+        
+        // Only show notifcations for messages from default namespace
+        // TODO: Add group messages namespace
+        guard notification.info.namespace == .default else {
+            SNLog("Ignoring notification due to namespace being \(notification.info.namespace) instead of default")
+            return (nil, notification.info, .failureNoContent)
+        }
         
         // Check that the body we were given is valid
         guard
             let notificationData: Data = notification.data,
             notification.info.dataLength == notificationData.count
-        else { return (nil, notification.info, .failure) }
+        else {
+            SNLog("Get notification data failed")
+            return (nil, notification.info, .failureNoContent)
+        }
         
         // Success, we have the notification content
         return (notificationData, notification.info, .success)

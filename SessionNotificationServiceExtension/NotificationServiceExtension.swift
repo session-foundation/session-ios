@@ -83,7 +83,7 @@ public final class NotificationServiceExtension: UNNotificationServiceExtension 
             switch result {
                 // If we got an explicit failure, or we got a success but no content then show
                 // the fallback notification
-                case .success, .legacySuccess, .failure, .legacyFailure:
+                case .success, .legacySuccess, .failure:
                     return self.handleFailure(for: notificationContent, error: .processing(result))
                     
                 // Just log if the notification was too long (a ~2k message should be able to fit so
@@ -98,6 +98,10 @@ public final class NotificationServiceExtension: UNNotificationServiceExtension 
                     
                 case .failureNoContent:
                     Log.warn("Failed due to missing notification content.")
+                    return self.completeSilenty(handledNotification: false)
+                
+                case .legacyFailure:
+                    Log.warn("Received a notification without a valid payload.")
                     return self.completeSilenty(handledNotification: false)
             }
         }
