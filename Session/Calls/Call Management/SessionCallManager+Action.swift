@@ -48,7 +48,7 @@ extension SessionCallManager {
             reportCurrentCallEnded(reason: .unanswered)
         }
         else {
-            reportCurrentCallEnded(reason: nil)
+            reportCurrentCallEnded(reason: .declinedElsewhere)
         }
         
         return true

@@ -647,7 +647,7 @@ final class CallVC: UIViewController, VideoPreviewDelegate {
         Singleton.callManager.endCall(call) { [weak self] error in
             if let _ = error {
                 self?.call.endSessionCall()
-                Singleton.callManager.reportCurrentCallEnded(reason: nil)
+                Singleton.callManager.reportCurrentCallEnded(reason: .declinedElsewhere)
             }
             
             Timer.scheduledTimer(withTimeInterval: 1, repeats: false) { [weak self] _ in

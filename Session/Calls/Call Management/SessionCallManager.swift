@@ -135,7 +135,7 @@ public final class SessionCallManager: NSObject, CallManagerProtocol {
         }
     }
     
-    public func reportCurrentCallEnded(reason: CXCallEndedReason?) {
+    public func reportCurrentCallEnded(reason: CXCallEndedReason) {
         guard Thread.isMainThread else {
             DispatchQueue.main.async {
                 self.reportCurrentCallEnded(reason: reason)
@@ -145,25 +145,21 @@ public final class SessionCallManager: NSObject, CallManagerProtocol {
         
         guard let call = currentCall else {
             self.cleanUpPreviousCall()
-            suspendDatabaseIfCallEndedInBackground()
+            self.suspendDatabaseIfCallEndedInBackground()
             return
         }
         
-        if let reason = reason {
-            self.provider?.reportCall(with: call.callId, endedAt: nil, reason: reason)
-            
-            switch (reason) {
-                case .answeredElsewhere: call.updateCallMessage(mode: .answeredElsewhere, using: dependencies)
-                case .unanswered: call.updateCallMessage(mode: .unanswered, using: dependencies)
-                case .declinedElsewhere: call.updateCallMessage(mode: .local, using: dependencies)
-                default: call.updateCallMessage(mode: .remote, using: dependencies)
-            }
-        }
-        else {
-            call.updateCallMessage(mode: .local, using: dependencies)
+        self.provider?.reportCall(with: call.callId, endedAt: nil, reason: reason)
+        
+        switch (reason) {
+            case .answeredElsewhere: call.updateCallMessage(mode: .answeredElsewhere, using: dependencies)
+            case .unanswered: call.updateCallMessage(mode: .unanswered, using: dependencies)
+            case .declinedElsewhere: call.updateCallMessage(mode: .local, using: dependencies)
+            default: call.updateCallMessage(mode: .remote, using: dependencies)
         }
         
         self.cleanUpPreviousCall()
+        self.suspendDatabaseIfCallEndedInBackground()
     }
     
     public func currentWebRTCSessionMatches(callId: String) -> Bool {
@@ -191,11 +187,8 @@ public final class SessionCallManager: NSObject, CallManagerProtocol {
     public func suspendDatabaseIfCallEndedInBackground() {
         SNLog("[Calls] suspendDatabaseIfCallEndedInBackground.")
         if Singleton.hasAppContext && Singleton.appContext.isInBackground {
-            // FIXME: Initialise the `SessionCallManager` with a dependencies instance
-            let dependencies: Dependencies = Dependencies()
-            
             // Stop all jobs except for message sending and when completed suspend the database
-            JobRunner.stopAndClearPendingJobs(exceptForVariant: .messageSend, using: dependencies) { _ in
+            JobRunner.stopAndClearPendingJobs(exceptForVariant: .messageSend, using: dependencies) { [dependencies = self.dependencies] _ in
                 LibSession.suspendNetworkAccess()
                 dependencies.storage.suspendDatabaseAccess()
                 Log.flush()
