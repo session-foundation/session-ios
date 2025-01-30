@@ -106,6 +106,9 @@ public extension UserDefaults.BoolKey {
     
     /// Indicates whether there is an ongoing call
     static let isCallOngoing: UserDefaults.BoolKey = "isCallOngoing"
+    
+    /// Indicates whether we had the microphone permission the last time the app when to the background
+    static let lastSeenHasMicrophonePermission: UserDefaults.BoolKey = "lastSeenHasMicrophonePermission"
 }
 
 public extension UserDefaults.DateKey {

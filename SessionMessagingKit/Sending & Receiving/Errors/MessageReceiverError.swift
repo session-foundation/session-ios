@@ -24,6 +24,7 @@ public enum MessageReceiverError: LocalizedError {
     case invalidConfigMessageHandling
     case requiredThreadNotInConfig
     case outdatedMessage
+    case duplicatedCall
     case missingRequiredAdminPrivileges
 
     public var isRetryable: Bool {
@@ -76,6 +77,7 @@ public enum MessageReceiverError: LocalizedError {
             case .invalidConfigMessageHandling: return "Invalid handling of a config message."
             case .requiredThreadNotInConfig: return "Required thread not in config."
             case .outdatedMessage: return "Message was sent before a config change which would have removed the message."
+            case .duplicatedCall: return "Duplicate call."
             case .missingRequiredAdminPrivileges: return "Handling this message requires admin privileges which the current user does not have."
         }
     }

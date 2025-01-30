@@ -466,6 +466,7 @@ public enum MessageReceiver {
                 case is ReadReceipt: return true
                 case is TypingIndicator: return true
                 case is UnsendRequest: return true
+                case is CallMessage: return (threadId != dependencies[cache: .general].sessionId.hexString)
                     
                 case let message as ClosedGroupControlMessage:
                     // Only re-show a legacy group conversation if we are going to add a control text message
@@ -484,7 +485,7 @@ public enum MessageReceiver {
                     is GroupUpdateMemberLeftMessage, is GroupUpdateMemberLeftNotificationMessage,
                     is GroupUpdateInviteResponseMessage, is GroupUpdateDeleteMemberContentMessage:
                     return false
-                
+            
                 /// Currently this is just for handling the `groupKicked` message which is sent to a group so the same rules as above apply
                 case is LibSessionMessage: return false
                     

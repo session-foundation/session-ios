@@ -223,8 +223,8 @@ final class IncomingCallBanner: UIView, UIGestureRecognizerDelegate {
         let callVC = CallVC(for: self.call, using: dependencies)
         if let conversationVC = (presentingVC as? TopBannerController)?.wrappedViewController() as? ConversationVC {
             callVC.conversationVC = conversationVC
-            conversationVC.inputAccessoryView?.isHidden = true
-            conversationVC.inputAccessoryView?.alpha = 0
+            conversationVC.resignFirstResponder()
+            conversationVC.hideInputAccessoryView()
         }
         
         presentingVC.present(callVC, animated: true) { [weak self] in

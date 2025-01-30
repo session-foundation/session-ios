@@ -299,6 +299,8 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
         
         Log.info(.cat, "Setting 'isMainAppActive' to false.")
         dependencies[defaults: .appGroup, key: .isMainAppActive] = false
+        Log.info(.cat, "Setting 'lastSeenHasMicrophonePermission'.")
+        dependencies[defaults: .appGroup, key: .lastSeenHasMicrophonePermission] = (Permissions.microphone == .granted)
 
         Log.flush()
     }
@@ -937,8 +939,8 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
             conversationVC.viewModel.threadData.threadId == call.sessionId
         {
             callVC.conversationVC = conversationVC
-            conversationVC.inputAccessoryView?.isHidden = true
-            conversationVC.inputAccessoryView?.alpha = 0
+            conversationVC.resignFirstResponder()
+            conversationVC.hideInputAccessoryView()
         }
         
         presentingVC.present(callVC, animated: true, completion: nil)

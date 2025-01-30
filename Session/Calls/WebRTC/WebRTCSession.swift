@@ -13,6 +13,8 @@ public protocol WebRTCSessionDelegate: AnyObject {
     
     func webRTCIsConnected()
     func isRemoteVideoDidChange(isEnabled: Bool)
+    func iceCandidateDidSend()
+    func iceCandidateDidReceive()
     func dataChannelDidOpen()
     func didReceiveHangUpSignal()
     func reconnectIfNeeded()
@@ -340,8 +342,22 @@ public final class WebRTCSession : NSObject, RTCPeerConnectionDelegate {
                     )
             }
             .subscribe(on: DispatchQueue.global(qos: .userInitiated))
-            .flatMap { [dependencies] preparedRequest in preparedRequest.send(using: dependencies) }
-            .sinkUntilComplete()
+            .flatMap { [dependencies] preparedRequest in
+                preparedRequest
+                    .send(using: dependencies)
+                    .retry(5)
+            }
+            .sinkUntilComplete(
+                receiveCompletion: { [weak self] result in
+                    switch result {
+                        case .finished:
+                            Log.info(.calls, "ICE candidates sent")
+                            self?.delegate?.iceCandidateDidSend()
+                        case .failure(let error):
+                            Log.error(.calls, "Error sending ICE candidates due to error: \(error)")
+                    }
+                }
+            )
     }
     
     public func endCall(
@@ -374,6 +390,7 @@ public final class WebRTCSession : NSObject, RTCPeerConnectionDelegate {
             )
             .send(using: dependencies)
             .subscribe(on: DispatchQueue.global(qos: .userInitiated), using: dependencies)
+            .retry(5)
             .sinkUntilComplete()
     }
     

@@ -8,7 +8,7 @@ import SessionUIKit
 import SessionUtilitiesKit
 import SessionMessagingKit
 
-public enum Permissions {
+extension Permissions {
     @discardableResult public static func requestCameraPermissionIfNeeded(
         presentingViewController: UIViewController? = nil,
         using dependencies: Dependencies,
@@ -58,39 +58,55 @@ public enum Permissions {
         using dependencies: Dependencies,
         onNotGranted: (() -> Void)? = nil
     ) {
-        switch AVAudioSession.sharedInstance().recordPermission {
-            case .granted: break
-            case .denied:
-                guard
-                    let presentingViewController: UIViewController = (presentingViewController ?? dependencies[singleton: .appContext].frontMostViewController)
-                else { return }
-                onNotGranted?()
-                
-                let confirmationModal: ConfirmationModal = ConfirmationModal(
-                    info: ConfirmationModal.Info(
-                        title: "permissionsRequired".localized(),
-                        body: .text(
-                            "permissionsMicrophoneAccessRequiredIos"
-                                .put(key: "app_name", value: Constants.app_name)
-                                .localized()
-                        ),
-                        confirmTitle: "sessionSettings".localized(),
-                        dismissOnConfirm: false,
-                        onConfirm: { [weak presentingViewController] _ in
-                            presentingViewController?.dismiss(animated: true, completion: {
-                                UIApplication.shared.open(URL(string: UIApplication.openSettingsURLString)!)
-                            })
-                        },
-                        afterClosed: { onNotGranted?() }
-                    )
+        let handlePermissionDenied: () -> Void = {
+            guard
+                let presentingViewController: UIViewController = (presentingViewController ?? dependencies[singleton: .appContext].frontMostViewController)
+            else { return }
+            onNotGranted?()
+            
+            let confirmationModal: ConfirmationModal = ConfirmationModal(
+                info: ConfirmationModal.Info(
+                    title: "permissionsRequired".localized(),
+                    body: .text(
+                        "permissionsMicrophoneAccessRequiredIos"
+                            .put(key: "app_name", value: Constants.app_name)
+                            .localized()
+                    ),
+                    confirmTitle: "sessionSettings".localized(),
+                    dismissOnConfirm: false,
+                    onConfirm: { [weak presentingViewController] _ in
+                        presentingViewController?.dismiss(animated: true, completion: {
+                            UIApplication.shared.open(URL(string: UIApplication.openSettingsURLString)!)
+                        })
+                    },
+                    afterClosed: { onNotGranted?() }
                 )
-                presentingViewController.present(confirmationModal, animated: true, completion: nil)
-                
-            case .undetermined:
-                onNotGranted?()
-                AVAudioSession.sharedInstance().requestRecordPermission { _ in }
-                
-            default: break
+            )
+            presentingViewController.present(confirmationModal, animated: true, completion: nil)
+        }
+        
+        if #available(iOS 17.0, *) {
+            switch AVAudioApplication.shared.recordPermission {
+                case .granted: break
+                case .denied: handlePermissionDenied()
+                case .undetermined:
+                    onNotGranted?()
+                    AVAudioApplication.requestRecordPermission { granted in
+                        dependencies[defaults: .appGroup, key: .lastSeenHasMicrophonePermission] = granted
+                    }
+                default: break
+            }
+        } else {
+            switch AVAudioSession.sharedInstance().recordPermission {
+                case .granted: break
+                case .denied: handlePermissionDenied()
+                case .undetermined:
+                    onNotGranted?()
+                    AVAudioSession.sharedInstance().requestRecordPermission { granted in
+                        dependencies[defaults: .appGroup, key: .lastSeenHasMicrophonePermission] = granted
+                    }
+                default: break
+            }
         }
     }
 
