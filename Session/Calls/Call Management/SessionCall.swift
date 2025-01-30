@@ -318,7 +318,7 @@ public final class SessionCall: CurrentCallProtocol, WebRTCSessionDelegate {
     
     func handleCallInitializationFailed() {
         self.endSessionCall()
-        Singleton.callManager.reportCurrentCallEnded(reason: nil)
+        dependencies[singleton: .callManager].reportCurrentCallEnded(reason: nil)
     }
     
     // MARK: - Call Message Handling

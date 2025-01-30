@@ -112,11 +112,9 @@ public final class NotificationServiceExtension: UNNotificationServiceExtension 
         )
         
         let hasMicrophonePermission: Bool = {
-            return switch Permissions.microphone {
-                case .undetermined:
-                    (UserDefaults.sharedLokiProject?[.lastSeenHasMicrophonePermission]).defaulting(to: false)
-                default:
-                    Permissions.microphone == .granted
+            switch Permissions.microphone {
+                case .undetermined: return dependencies[defaults: .appGroup, key: .lastSeenHasMicrophonePermission]
+                default: return (Permissions.microphone == .granted)
             }
         }()
         
