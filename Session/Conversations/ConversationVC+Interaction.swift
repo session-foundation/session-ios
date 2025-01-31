@@ -46,40 +46,19 @@ extension ConversationVC:
                 navigationController?.pushViewController(viewController, animated: true)
                 
             case (.userCount, .group, true, _), (.userCount, .legacyGroup, true, _):
-                let viewController: SessionTableViewController = SessionTableViewController(
-                    viewModel: UserListViewModel(
-                        title: "groupMembers".localized(),
-                        showProfileIcons: true,
-                        request: GroupMember
-                            .filter(GroupMember.Columns.groupId == self.viewModel.threadData.threadId),
-                        onTap: .callback { [weak self, dependencies = viewModel.dependencies] _, memberInfo in
-                            dependencies[singleton: .storage].write { db in
-                                try SessionThread.upsert(
-                                    db,
-                                    id: memberInfo.profileId,
-                                    variant: .contact,
-                                    values: SessionThread.TargetValues(
-                                        creationDateTimestamp: .useExistingOrSetTo(
-                                            (dependencies[cache: .snodeAPI].currentOffsetTimestampMs() / 1000)
-                                        ),
-                                        shouldBeVisible: .useExisting,
-                                        isDraft: .useExistingOrSetTo(true)
-                                    ),
-                                    using: dependencies
-                                )
-                            }
-                            
-                            self?.navigationController?.pushViewController(
-                                ConversationVC(
-                                    threadId: memberInfo.profileId,
-                                    threadVariant: .contact,
-                                    using: dependencies
-                                ),
-                                animated: true
-                            )
-                        },
-                        using: self.viewModel.dependencies
-                    )
+                let viewController: UIViewController = ThreadSettingsViewModel.createMemberListViewController(
+                    threadId: self.viewModel.threadData.threadId,
+                    transitionToConversation: { [weak self, dependencies = viewModel.dependencies] selectedMemberId in
+                        self?.navigationController?.pushViewController(
+                            ConversationVC(
+                                threadId: selectedMemberId,
+                                threadVariant: .contact,
+                                using: dependencies
+                            ),
+                            animated: true
+                        )
+                    },
+                    using: viewModel.dependencies
                 )
                 navigationController?.pushViewController(viewController, animated: true)
                 
@@ -2088,23 +2067,27 @@ extension ConversationVC:
                     /// Trigger the deletion behaviours
                     deletionBehaviours
                         .publisherForAction(at: selectedIndex, using: dependencies)
+                        .showingBlockingLoading(
+                            in: deletionBehaviours.requiresNetworkRequestForAction(at: selectedIndex) ?
+                                self?.viewModel.navigatableState :
+                                nil
+                        )
                         .sinkUntilComplete(
                             receiveCompletion: { result in
-                                switch result {
-                                    case .finished:
-                                        DispatchQueue.main.async {
-                                            self?.viewModel.showToast(
-                                                text: "deleteMessageDeleted"
-                                                    .putNumber(messagesToDelete.count)
-                                                    .localized(),
-                                                backgroundColor: .backgroundSecondary,
-                                                inset: (self?.inputAccessoryView?.frame.height ?? Values.mediumSpacing) + Values.smallSpacing
-                                            )
+                                DispatchQueue.main.async {
+                                    switch result {
+                                        case .finished:
+                                            modal.dismiss(animated: true) {
+                                                self?.viewModel.showToast(
+                                                    text: "deleteMessageDeleted"
+                                                        .putNumber(messagesToDelete.count)
+                                                        .localized(),
+                                                    backgroundColor: .backgroundSecondary,
+                                                    inset: (self?.inputAccessoryView?.frame.height ?? Values.mediumSpacing) + Values.smallSpacing
+                                                )
+                                            }
                                             
-                                            modal.close()
-                                        }
-                                    case .failure:
-                                        DispatchQueue.main.async {
+                                        case .failure:
                                             self?.viewModel.showToast(
                                                 text: "deleteMessageFailed"
                                                     .putNumber(messagesToDelete.count)
@@ -2112,7 +2095,7 @@ extension ConversationVC:
                                                 backgroundColor: .backgroundSecondary,
                                                 inset: (self?.inputAccessoryView?.frame.height ?? Values.mediumSpacing) + Values.smallSpacing
                                             )
-                                        }
+                                    }
                                 }
                             }
                         )

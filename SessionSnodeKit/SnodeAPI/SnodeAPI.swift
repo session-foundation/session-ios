@@ -31,22 +31,18 @@ public final class SnodeAPI {
 
         // If we have any config hashes to refresh TTLs then add those requests first
         if !refreshingConfigHashes.isEmpty {
+            let updatedExpiryMS: Int64 = (
+                dependencies[cache: .snodeAPI].currentOffsetTimestampMs() +
+                (30 * 24 * 60 * 60 * 1000) // 30 days
+            )
             requests.append(
-                try SnodeAPI.prepareRequest(
-                    request: Request(
-                        endpoint: .expire,
-                        swarmPublicKey: authMethod.swarmPublicKey,
-                        body: UpdateExpiryRequest(
-                            messageHashes: refreshingConfigHashes,
-                            expiryMs: UInt64(
-                                dependencies[cache: .snodeAPI].currentOffsetTimestampMs() +
-                                (30 * 24 * 60 * 60 * 1000) // 30 days
-                            ),
-                            extend: true,
-                            authMethod: authMethod
-                        )
-                    ),
-                    responseType: UpdateExpiryResponse.self,
+                try SnodeAPI.preparedUpdateExpiry(
+                    serverHashes: refreshingConfigHashes,
+                    updatedExpiryMs: updatedExpiryMS,
+                    extendOnly: true,
+                    ignoreValidationFailure: true,
+                    explicitTargetNode: snode,
+                    authMethod: authMethod,
                     using: dependencies
                 )
             )
@@ -77,39 +73,6 @@ public final class SnodeAPI {
         .map { (_: ResponseInfoType, batchResponse: Network.BatchResponse) -> [SnodeAPI.Namespace: (info: ResponseInfoType, data: PreparedGetMessagesResponse?)] in
             let messageResponses: [Network.BatchSubResponse<PreparedGetMessagesResponse>] = batchResponse
                 .compactMap { $0 as? Network.BatchSubResponse<PreparedGetMessagesResponse> }
-            
-            /// Since we have extended the TTL for a number of messages we need to make sure we update the local
-            /// `SnodeReceivedMessageInfo.expirationDateMs` values so we don't end up deleting them
-            /// incorrectly before they actually expire on the swarm
-            if
-                !refreshingConfigHashes.isEmpty,
-                let refreshTTLSubReponse: Network.BatchSubResponse<UpdateExpiryResponse> = batchResponse
-                    .first(where: { $0 is Network.BatchSubResponse<UpdateExpiryResponse> })
-                    .asType(Network.BatchSubResponse<UpdateExpiryResponse>.self),
-                let refreshTTLResponse: UpdateExpiryResponse = refreshTTLSubReponse.body,
-                let validResults: [String: UpdateExpiryResponseResult] = try? refreshTTLResponse.validResultMap(
-                    swarmPublicKey: authMethod.swarmPublicKey,
-                    validationData: refreshingConfigHashes,
-                    using: dependencies
-                ),
-                let targetResult: UpdateExpiryResponseResult = validResults[snode.ed25519PubkeyHex],
-                let groupedExpiryResult: [UInt64: [String]] = targetResult.changed
-                    .updated(with: targetResult.unchanged)
-                    .groupedByValue()
-                    .nullIfEmpty()
-            {
-                dependencies[singleton: .storage].writeAsync { db in
-                    try groupedExpiryResult.forEach { updatedExpiry, hashes in
-                        try SnodeReceivedMessageInfo
-                            .filter(hashes.contains(SnodeReceivedMessageInfo.Columns.hash))
-                            .updateAll(
-                                db,
-                                SnodeReceivedMessageInfo.Columns.expirationDateMs
-                                    .set(to: updatedExpiry)
-                            )
-                    }
-                }
-            }
             
             return zip(namespaces, messageResponses)
                 .reduce(into: [:]) { result, next in
@@ -404,6 +367,8 @@ public final class SnodeAPI {
         updatedExpiryMs: Int64,
         shortenOnly: Bool? = nil,
         extendOnly: Bool? = nil,
+        ignoreValidationFailure: Bool = false,
+        explicitTargetNode: LibSession.Snode? = nil,
         authMethod: AuthenticationMethod,
         using dependencies: Dependencies
     ) throws -> Network.PreparedRequest<[String: UpdateExpiryResponseResult]> {
@@ -427,12 +392,53 @@ public final class SnodeAPI {
                 using: dependencies
             )
             .tryMap { _, response -> [String: UpdateExpiryResponseResult] in
-                try response.validResultMap(
-                    swarmPublicKey: authMethod.swarmPublicKey,
-                    validationData: serverHashes,
-                    using: dependencies
-                )
+                do {
+                    return try response.validResultMap(
+                        swarmPublicKey: authMethod.swarmPublicKey,
+                        validationData: serverHashes,
+                        using: dependencies
+                    )
+                }
+                catch {
+                    guard ignoreValidationFailure else { throw error }
+                    
+                    return [:]
+                }
             }
+            .handleEvents(
+                receiveOutput: { _, result in
+                    /// Since we have updated the TTL we need to make sure we also update the local
+                    /// `SnodeReceivedMessageInfo.expirationDateMs` values so they match the updated swarm, if
+                    /// we had a specific `snode` we we're sending the request to then we should use those values, otherwise
+                    /// we can just grab the first value from the response and use that
+                    let maybeTargetResult: UpdateExpiryResponseResult? = {
+                        guard let snode: LibSession.Snode = explicitTargetNode else {
+                            return result.first?.value
+                        }
+                        
+                        return result[snode.ed25519PubkeyHex]
+                    }()
+                    guard
+                        let targetResult: UpdateExpiryResponseResult = maybeTargetResult,
+                        let groupedExpiryResult: [UInt64: [String]] = targetResult.changed
+                            .updated(with: targetResult.unchanged)
+                            .groupedByValue()
+                            .nullIfEmpty()
+                    else { return }
+                        
+                    dependencies[singleton: .storage].writeAsync { db in
+                        try groupedExpiryResult.forEach { updatedExpiry, hashes in
+                            try SnodeReceivedMessageInfo
+                                .filter(hashes.contains(SnodeReceivedMessageInfo.Columns.hash))
+                                .updateAll(
+                                    db,
+                                    SnodeReceivedMessageInfo.Columns.expirationDateMs
+                                        .set(to: updatedExpiry)
+                                )
+                        }
+                    }
+                }
+            )
     }
     
     public static func preparedRevokeSubaccounts(

@@ -35,9 +35,16 @@ public extension MentionInfo {
         let interaction: TypedTableAlias<Interaction> = TypedTableAlias()
         let openGroup: TypedTableAlias<OpenGroup> = TypedTableAlias()
         let groupMember: TypedTableAlias<GroupMember> = TypedTableAlias()
-        
         let prefixesLiteral: SQLExpression = targetPrefixes
-            .map { SQL("\(profile[.id]) LIKE '\(SQL(stringLiteral: "\($0.rawValue)%"))'") }
+            .map { prefix in
+                SQL(
+                """
+                (
+                    \(profile[.id]) > '\(SQL(stringLiteral: "\(prefix.rawValue)"))' AND
+                    \(profile[.id]) < '\(SQL(stringLiteral: "\(prefix.endOfRangeString)"))'
+                )
+                """)
+            }
             .joined(operator: .or)
         let profileFullTextSearch: SQL = SQL(stringLiteral: Profile.fullTextSearchTableName)
         let currentUserIds: Set<String> = [
@@ -59,9 +66,10 @@ public extension MentionInfo {
                 return """
                     FROM \(profileFullTextSearch)
                     JOIN \(Profile.self) ON (
-                        \(Profile.self).rowid = \(profileFullTextSearch).rowid AND
-                        \(SQL("\(threadVariant) != \(SessionThread.Variant.community)")) OR
-                        \(prefixesLiteral)
+                        \(Profile.self).rowid = \(profileFullTextSearch).rowid AND (
+                            \(SQL("\(threadVariant) != \(SessionThread.Variant.community)")) OR
+                            \(prefixesLiteral)
+                        )
                     )
                 """
             }()
@@ -118,10 +126,10 @@ public extension MentionInfo {
                     return SQLRequest("""
                         SELECT
                             \(Profile.self).*,
-                            MAX(\(interaction[.timestampMs])),  -- Want the newest interaction (for sorting)
                             \(SQL("\(threadVariant) AS \(MentionInfo.Columns.threadVariant)")),
                             \(openGroup[.server]) AS \(MentionInfo.Columns.openGroupServer),
-                            \(openGroup[.roomToken]) AS \(MentionInfo.Columns.openGroupRoomToken)
+                            \(openGroup[.roomToken]) AS \(MentionInfo.Columns.openGroupRoomToken),
+                            MAX(\(interaction[.timestampMs]))  -- Want the newest interaction (for sorting)
                     
                         \(targetJoin)
                         JOIN \(Interaction.self) ON (

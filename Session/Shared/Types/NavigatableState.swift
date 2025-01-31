@@ -60,10 +60,12 @@ public struct NavigatableState {
         self.showToast
             .receive(on: DispatchQueue.main)
             .sink { [weak viewController] text, color, inset in
-                guard let view: UIView = viewController?.view else { return }
+                guard let presenter: UIViewController = (viewController?.presentedViewController ?? viewController) else {
+                    return
+                }
                 
                 let toastController: ToastController = ToastController(text: text, background: color)
-                toastController.presentToastView(fromBottomOfView: view, inset: inset)
+                toastController.presentToastView(fromBottomOfView: presenter.view, inset: inset)
             }
             .store(in: &disposables)
         
@@ -111,5 +113,33 @@ public struct NavigatableState {
                 }
             }
             .store(in: &disposables)
+    }
+}
+
+public extension Publisher {
+    func showingBlockingLoading(in navigatableState: NavigatableState?) -> AnyPublisher<Output, Failure> {
+        guard let navigatableState: NavigatableState = navigatableState else {
+            return self.eraseToAnyPublisher()
+        }
+        
+        let modalActivityIndicator: ModalActivityIndicatorViewController = ModalActivityIndicatorViewController(onAppear: { _ in })
+        
+        return self
+            .handleEvents(
+                receiveSubscription: { _ in
+                    navigatableState._transitionToScreen.send((modalActivityIndicator, .present))
+                }
+            )
+            .asResult()
+            .flatMap { result -> AnyPublisher<Output, Failure> in
+                Deferred {
+                    Future<Output, Failure> { resolver in
+                        modalActivityIndicator.dismiss(completion: {
+                            resolver(result)
+                        })
+                    }
+                }.eraseToAnyPublisher()
+            }
+            .eraseToAnyPublisher()
     }
 }

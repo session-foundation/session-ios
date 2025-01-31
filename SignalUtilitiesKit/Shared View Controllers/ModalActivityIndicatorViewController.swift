@@ -1,6 +1,7 @@
 // Copyright © 2022 Rangeproof Pty Ltd. All rights reserved.
 
 import Foundation
+import Combine
 import MediaPlayer
 import SessionUIKit
 import NVActivityIndicatorView
@@ -200,5 +201,33 @@ public class ModalActivityIndicatorViewController: OWSViewController {
     public func setMessage(_ message: String?) {
         messageLabel.text = message
         messageLabel.isHidden = (message == nil)
+    }
+}
+
+public extension Publisher {
+    func showingBlockingLoading(in viewController: UIViewController?) -> AnyPublisher<Output, Failure> {
+        guard let viewController: UIViewController = viewController else {
+            return self.eraseToAnyPublisher()
+        }
+        
+        let modalActivityIndicator: ModalActivityIndicatorViewController = ModalActivityIndicatorViewController(onAppear: { _ in })
+        
+        return self
+            .handleEvents(
+                receiveSubscription: { [weak viewController] _ in
+                    viewController?.present(modalActivityIndicator, animated: true)
+                }
+            )
+            .asResult()
+            .flatMap { result -> AnyPublisher<Output, Failure> in
+                Deferred {
+                    Future<Output, Failure> { resolver in
+                        modalActivityIndicator.dismiss(completion: {
+                            resolver(result)
+                        })
+                    }
+                }.eraseToAnyPublisher()
+            }
+            .eraseToAnyPublisher()
     }
 }

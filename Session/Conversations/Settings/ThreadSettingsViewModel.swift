@@ -929,50 +929,64 @@ class ThreadSettingsViewModel: SessionTableViewModel, NavigatableStateHolder, Ob
         )
     }
     
+    public static func createMemberListViewController(
+        threadId: String,
+        transitionToConversation: @escaping (String) -> Void,
+        using dependencies: Dependencies
+    ) -> UIViewController {
+        return SessionTableViewController(
+            viewModel: UserListViewModel(
+                title: "groupMembers".localized(),
+                showProfileIcons: true,
+                request: GroupMember
+                    .select(
+                        GroupMember.Columns.groupId,
+                        GroupMember.Columns.profileId,
+                        max(GroupMember.Columns.role).forKey(GroupMember.Columns.role.name),
+                        GroupMember.Columns.roleStatus,
+                        GroupMember.Columns.isHidden
+                    )
+                    .filter(GroupMember.Columns.groupId == threadId)
+                    .group(GroupMember.Columns.profileId),
+                onTap: .callback { _, memberInfo in
+                    dependencies[singleton: .storage].write { db in
+                        try SessionThread.upsert(
+                            db,
+                            id: memberInfo.profileId,
+                            variant: .contact,
+                            values: SessionThread.TargetValues(
+                                creationDateTimestamp: .useExistingOrSetTo(
+                                    dependencies[cache: .snodeAPI].currentOffsetTimestampMs() / 1000
+                                ),
+                                shouldBeVisible: .useExisting,
+                                isDraft: .useExistingOrSetTo(true)
+                            ),
+                            using: dependencies
+                        )
+                    }
+                    
+                    transitionToConversation(memberInfo.profileId)
+                },
+                using: dependencies
+            )
+        )
+    }
+    
     private func viewMembers() {
         self.transitionToScreen(
-            SessionTableViewController(
-                viewModel: UserListViewModel(
-                    title: "groupMembers".localized(),
-                    showProfileIcons: true,
-                    request: GroupMember
-                        .select(
-                            GroupMember.Columns.groupId,
-                            GroupMember.Columns.profileId,
-                            max(GroupMember.Columns.role).forKey(GroupMember.Columns.role.name),
-                            GroupMember.Columns.roleStatus,
-                            GroupMember.Columns.isHidden
-                        )
-                        .filter(GroupMember.Columns.groupId == threadId)
-                        .group(GroupMember.Columns.profileId),
-                    onTap: .callback { [weak self, dependencies] _, memberInfo in
-                        dependencies[singleton: .storage].write { db in
-                            try SessionThread.upsert(
-                                db,
-                                id: memberInfo.profileId,
-                                variant: .contact,
-                                values: SessionThread.TargetValues(
-                                    creationDateTimestamp: .useExistingOrSetTo(
-                                        dependencies[cache: .snodeAPI].currentOffsetTimestampMs() / 1000
-                                    ),
-                                    shouldBeVisible: .useExisting,
-                                    isDraft: .useExistingOrSetTo(true)
-                                ),
-                                using: dependencies
-                            )
-                        }
-                        
-                        self?.transitionToScreen(
-                            ConversationVC(
-                                threadId: memberInfo.profileId,
-                                threadVariant: .contact,
-                                using: dependencies
-                            ),
-                            transitionType: .push
-                        )
-                    },
-                    using: dependencies
-                )
+            ThreadSettingsViewModel.createMemberListViewController(
+                threadId: threadId,
+                transitionToConversation: { [weak self, dependencies] selectedMemberId in
+                    self?.transitionToScreen(
+                        ConversationVC(
+                            threadId: selectedMemberId,
+                            threadVariant: .contact,
+                            using: dependencies
+                        ),
+                        transitionType: .push
+                    )
+                },
+                using: dependencies
             )
         )
     }

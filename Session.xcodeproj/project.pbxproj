@@ -182,7 +182,6 @@
 		947AD6902C8968FF000B2730 /* Constants.swift in Sources */ = {isa = PBXBuildFile; fileRef = 947AD68F2C8968FF000B2730 /* Constants.swift */; };
 		94B3DC172AF8592200C88531 /* QuoteView_SwiftUI.swift in Sources */ = {isa = PBXBuildFile; fileRef = 94B3DC162AF8592200C88531 /* QuoteView_SwiftUI.swift */; };
 		94C58AC92D2E037200609195 /* Permissions.swift in Sources */ = {isa = PBXBuildFile; fileRef = 94C58AC82D2E036E00609195 /* Permissions.swift */; };
-		94C5DCB02BE88170003AA8C5 /* BezierPathView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 94C5DCAF2BE88170003AA8C5 /* BezierPathView.swift */; };
 		94E9BC0D2C7BFBDA006984EA /* Localization+Style.swift in Sources */ = {isa = PBXBuildFile; fileRef = 94E9BC0C2C7BFBDA006984EA /* Localization+Style.swift */; };
 		A11CD70D17FA230600A2D1B1 /* QuartzCore.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = A11CD70C17FA230600A2D1B1 /* QuartzCore.framework */; };
 		A163E8AB16F3F6AA0094D68B /* Security.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = A163E8AA16F3F6A90094D68B /* Security.framework */; };
@@ -1454,7 +1453,6 @@
 		947AD68F2C8968FF000B2730 /* Constants.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Constants.swift; sourceTree = "<group>"; };
 		94B3DC162AF8592200C88531 /* QuoteView_SwiftUI.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = QuoteView_SwiftUI.swift; sourceTree = "<group>"; };
 		94C58AC82D2E036E00609195 /* Permissions.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Permissions.swift; sourceTree = "<group>"; };
-		94C5DCAF2BE88170003AA8C5 /* BezierPathView.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = BezierPathView.swift; sourceTree = "<group>"; };
 		94E9BC0C2C7BFBDA006984EA /* Localization+Style.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Localization+Style.swift"; sourceTree = "<group>"; };
 		A11CD70C17FA230600A2D1B1 /* QuartzCore.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = QuartzCore.framework; path = System/Library/Frameworks/QuartzCore.framework; sourceTree = SDKROOT; };
 		A163E8AA16F3F6A90094D68B /* Security.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Security.framework; path = System/Library/Frameworks/Security.framework; sourceTree = SDKROOT; };
@@ -3721,11 +3719,6 @@
 			isa = PBXGroup;
 			children = (
 				94C58AC82D2E036E00609195 /* Permissions.swift */,
-				FD6A39422C2AD81600762359 /* BackgroundTaskManager.swift */,
-				FDFBB74A2A1EFF4900CA7350 /* Bencode.swift */,
-				FD6A39162C2A99A000762359 /* BencodeDecoder.swift */,
-				FD6A39182C2A99AB00762359 /* BencodeEncoder.swift */,
-				FD6A391A2C2A99B600762359 /* BencodeResponse.swift */,
 				FD97B23F2A3FEB050027DD57 /* ARC4RandomNumberGenerator.swift */,
 				FD7443452D07CA9F00862443 /* CGFloat+Utilities.swift */,
 				FD7443462D07CA9F00862443 /* CGPoint+Utilities.swift */,
@@ -7598,7 +7591,6 @@
 				CODE_SIGN_IDENTITY = "";
 				CODE_SIGN_STYLE = Automatic;
 				COPY_PHASE_STRIP = NO;
-				CURRENT_PROJECT_VERSION = 1;
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
 				DEFINES_MODULE = YES;
 				DEVELOPMENT_TEAM = SUQ8J2PCT7;
@@ -7927,7 +7919,7 @@
 				CLANG_WARN__ARC_BRIDGE_CAST_NONARC = YES;
 				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
 				CODE_SIGN_IDENTITY = "iPhone Developer";
-				CURRENT_PROJECT_VERSION = 530;
+				CURRENT_PROJECT_VERSION = 531;
 				ENABLE_BITCODE = NO;
 				ENABLE_STRICT_OBJC_MSGSEND = YES;
 				ENABLE_TESTABILITY = YES;
@@ -8003,7 +7995,7 @@
 				CLANG_WARN__ARC_BRIDGE_CAST_NONARC = YES;
 				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
 				CODE_SIGN_IDENTITY = "iPhone Distribution";
-				CURRENT_PROJECT_VERSION = 530;
+				CURRENT_PROJECT_VERSION = 531;
 				ENABLE_BITCODE = NO;
 				ENABLE_MODULE_VERIFIER = YES;
 				ENABLE_STRICT_OBJC_MSGSEND = YES;
@@ -8066,7 +8058,6 @@
 				CODE_SIGN_ENTITLEMENTS = Session/Meta/Signal.entitlements;
 				CODE_SIGN_IDENTITY = "iPhone Developer";
 				"CODE_SIGN_IDENTITY[sdk=iphoneos*]" = "iPhone Developer";
-				CURRENT_PROJECT_VERSION = 528;
 				DEVELOPMENT_TEAM = SUQ8J2PCT7;
 				FRAMEWORK_SEARCH_PATHS = (
 					"$(inherited)",
@@ -8104,7 +8095,6 @@
 					"$(SRCROOT)",
 				);
 				LLVM_LTO = NO;
-				MARKETING_VERSION = 2.8.7;
 				OTHER_LDFLAGS = "$(inherited)";
 				OTHER_SWIFT_FLAGS = "$(inherited) \"-D\" \"COCOAPODS\" \"-DDEBUG\"";
 				PRODUCT_BUNDLE_IDENTIFIER = "com.loki-project.loki-messenger";
@@ -8134,7 +8124,6 @@
 				CODE_SIGN_ENTITLEMENTS = Session/Meta/Signal.entitlements;
 				CODE_SIGN_IDENTITY = "iPhone Developer";
 				"CODE_SIGN_IDENTITY[sdk=iphoneos*]" = "iPhone Developer";
-				CURRENT_PROJECT_VERSION = 528;
 				DEVELOPMENT_TEAM = SUQ8J2PCT7;
 				FRAMEWORK_SEARCH_PATHS = (
 					"$(inherited)",
@@ -8172,7 +8161,6 @@
 					"$(SRCROOT)",
 				);
 				LLVM_LTO = NO;
-				MARKETING_VERSION = 2.8.7;
 				OTHER_LDFLAGS = "$(inherited)";
 				PRODUCT_BUNDLE_IDENTIFIER = "com.loki-project.loki-messenger";
 				PRODUCT_NAME = Session;

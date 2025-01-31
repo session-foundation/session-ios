@@ -5,6 +5,8 @@ import SessionUIKit
 import SessionUtilitiesKit
 
 public final class InputTextView: UITextView, UITextViewDelegate {
+    private static let defaultFont: UIFont = .systemFont(ofSize: Values.mediumFontSize)
+    private static let defaultThemeTextColor: ThemeValue = .textPrimary
     private weak var snDelegate: InputTextViewDelegate?
     private let maxWidth: CGFloat
     private lazy var heightConstraint = self.set(.height, to: minHeight)
@@ -69,9 +71,11 @@ public final class InputTextView: UITextView, UITextViewDelegate {
         showsHorizontalScrollIndicator = false
         showsVerticalScrollIndicator = false
         
-        font = .systemFont(ofSize: Values.mediumFontSize)
+        /// **Note:** If we add any additional attributes here then we will need to update the logic in
+        /// `textView(_:,shouldChangeTextIn:replacementText:)` to match
+        font = InputTextView.defaultFont
         themeBackgroundColor = .clear
-        themeTextColor = .textPrimary
+        themeTextColor = InputTextView.defaultThemeTextColor
         themeTintColor = .primary
         
         heightConstraint.isActive = true
@@ -116,7 +120,28 @@ public final class InputTextView: UITextView, UITextViewDelegate {
         /// Truncate text based on character count (use `textStorage.replaceCharacters` for built in `undo` support)
         let truncatedText: String = String(text.prefix(remainingSpace))
         let offset: Int = range.location + truncatedText.count
-        textView.textStorage.replaceCharacters(in: range, with: truncatedText)
+        
+        /// Pasting a value that is too large into the input will result in some odd default OS styling being applied to the text which is very
+        /// different from our desired text style, in order to avoid this we need to detect this case and explicitly set the value as an attributed
+        /// string with our explicit styling
+        ///
+        /// **Note:** If we add any additional attributes these will need to be updated to match
+        if currentText.isEmpty {
+            textView.textStorage.setAttributedString(
+                NSAttributedString(
+                    string: truncatedText,
+                    attributes: [
+                        .font: textView.font ?? InputTextView.defaultFont,
+                        .foregroundColor: textView.textColor ?? ThemeManager.currentTheme.color(
+                            for: InputTextView.defaultThemeTextColor
+                        ) as Any
+                    ]
+                )
+            )
+        }
+        else {
+            textView.textStorage.replaceCharacters(in: range, with: truncatedText)
+        }
         
         /// Position cursor after inserted text
         ///

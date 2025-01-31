@@ -46,6 +46,19 @@ public extension MessageViewModel {
         public let body: String
         public let actions: [NamedAction]
         
+        public func requiresNetworkRequestForAction(at index: Int) -> Bool {
+            guard index >= 0, index < actions.count else {
+                return false
+            }
+            
+            return actions[index].behaviours.contains { behaviour in
+                switch behaviour {
+                    case .preparedRequest: return true
+                    case .cancelPendingSendJobs, .deleteFromDatabase, .markAsDeleted: return false
+                }
+            }
+        }
+        
         /// Collect the actions and construct a publisher which triggers each action before returning the result
         public func publisherForAction(at index: Int, using dependencies: Dependencies) -> AnyPublisher<Void, Error> {
             guard index >= 0, index < actions.count else {
