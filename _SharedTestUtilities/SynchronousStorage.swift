@@ -119,14 +119,14 @@ class SynchronousStorage: Storage {
         lineNumber: Int = #line,
         using dependencies: Dependencies = Dependencies(),
         updates: @escaping (Database) throws -> T,
-        completion: @escaping (Database, Result<T, Error>) throws -> Void
+        completion: @escaping (Result<T, Error>) -> Void
     ) {
         do {
             let result: T = try write(using: dependencies, updates: updates) ?? { throw StorageError.failedToSave }()
-            write(using: dependencies) { db in try completion(db, Result.success(result)) }
+            completion(Result.success(result))
         }
         catch {
-            write(using: dependencies) { db in try completion(db, Result.failure(error)) }
+            completion(Result.failure(error))
         }
     }
     

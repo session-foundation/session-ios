@@ -443,8 +443,8 @@ public extension LibSession {
                         return contact.priority
                         
                     case .community:
-                        let maybeUrlInfo: OpenGroupUrlInfo? = Storage.shared
-                            .read { db in try OpenGroupUrlInfo.fetchAll(db, ids: [threadId]) }?
+                        let maybeUrlInfo: OpenGroupUrlInfo? = (try? OpenGroupUrlInfo
+                            .fetchAll(db, ids: [threadId]))?
                             .first
                         
                         guard
@@ -454,7 +454,7 @@ public extension LibSession {
                         else { return LibSession.defaultNewThreadPriority }
                         
                         var community: ugroups_community_info = ugroups_community_info()
-                        let result: Bool = user_groups_get_community(conf, &community, &cBaseUrl, &cRoom)
+                        _ = user_groups_get_community(conf, &community, &cBaseUrl, &cRoom)
                         LibSessionError.clear(conf)
                         
                         return community.priority
@@ -559,7 +559,7 @@ public extension LibSession {
     }
     
     static func conversationInConfig(
-        _ db: Database? = nil,
+        _ db: Database,
         threadId: String,
         threadVariant: SessionThread.Variant,
         visibleOnly: Bool,
@@ -585,7 +585,7 @@ public extension LibSession {
         return dependencies.caches[.libSession]
             .config(for: configVariant, publicKey: userPublicKey)
             .wrappedValue
-            .map { conf in
+            .map { conf -> Bool in
                 guard var cThreadId: [CChar] = threadId.cString(using: .utf8) else { return false }
                 
                 switch threadVariant {
@@ -611,8 +611,8 @@ public extension LibSession {
                         return (!visibleOnly || LibSession.shouldBeVisible(priority: contact.priority))
                         
                     case .community:
-                        let maybeUrlInfo: OpenGroupUrlInfo? = Storage.shared
-                            .read { db in try OpenGroupUrlInfo.fetchAll(db, ids: [threadId]) }?
+                        let maybeUrlInfo: OpenGroupUrlInfo? = (try? OpenGroupUrlInfo
+                            .fetchAll(db, ids: [threadId]))?
                             .first
                         
                         guard

@@ -91,7 +91,7 @@ public struct ProfileManager {
                         .filter(id: profile.id)
                         .updateAll(db, Profile.Columns.profilePictureFileName.set(to: nil))
                 },
-                completion: { _, _ in
+                completion: { _ in
                     // Try to re-download the avatar if it has a URL
                     if let profilePictureUrl: String = profile.profilePictureUrl, !profilePictureUrl.isEmpty {
                         // FIXME: Refactor avatar downloading to be a proper Job so we can avoid this
