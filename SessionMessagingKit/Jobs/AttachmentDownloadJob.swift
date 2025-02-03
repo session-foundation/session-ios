@@ -10,9 +10,9 @@ public enum AttachmentDownloadJob: JobExecutor {
     public static var requiresThreadId: Bool = true
     public static let requiresInteractionId: Bool = true
     
-    public static func run(
+    public static func run<S: Scheduler>(
         _ job: Job,
-        queue: DispatchQueue,
+        scheduler: S,
         success: @escaping (Job, Bool) -> Void,
         failure: @escaping (Job, Error, Bool) -> Void,
         deferred: @escaping (Job) -> Void,
@@ -111,8 +111,8 @@ public enum AttachmentDownloadJob: JobExecutor {
                     .map { _, data in data }
                     .eraseToAnyPublisher()
             }
-            .subscribe(on: queue)
-            .receive(on: queue)
+            .subscribe(on: scheduler, using: dependencies)
+            .receive(on: scheduler, using: dependencies)
             .tryMap { data -> Void in
                 // Store the encrypted data temporarily
                 try data.write(to: temporaryFileUrl, options: .atomic)

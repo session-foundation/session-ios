@@ -389,7 +389,7 @@ public final class SessionCall: CurrentCallProtocol, WebRTCSessionDelegate {
                     using: dependencies
                 )
             },
-            completion: { [dependencies] _, _ in
+            completion: { [dependencies] _ in
                 dependencies[singleton: .callManager].suspendDatabaseIfCallEndedInBackground()
             }
         )

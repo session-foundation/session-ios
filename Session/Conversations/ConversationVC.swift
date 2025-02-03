@@ -651,7 +651,7 @@ final class ConversationVC: BaseVC, LibSessionRespondingViewController, Conversa
                     // PagedDatabaseObserver won't have them so we need to force a re-fetch of the current
                     // data to ensure everything is up to date
                     if didReturnFromBackground {
-                        DispatchQueue.global(qos: .background).asyncAfter(deadline: .now() + 0.01) {
+                        DispatchQueue.global(qos: .background).async {
                             self?.viewModel.pagedDataObserver?.reload()
                         }
                     }

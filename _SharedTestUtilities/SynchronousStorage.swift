@@ -196,14 +196,14 @@ class SynchronousStorage: Storage {
         functionName: String = #function,
         lineNumber: Int = #line,
         updates: @escaping (Database) throws -> T,
-        completion: @escaping (Database, Result<T, Error>) throws -> Void
+        completion: @escaping (Result<T, Error>) -> Void
     ) {
         do {
             let result: T = try write(updates: updates) ?? { throw StorageError.failedToSave }()
-            write { db in try completion(db, Result.success(result)) }
+            completion(Result.success(result))
         }
         catch {
-            write { db in try completion(db, Result.failure(error)) }
+            completion(Result.failure(error))
         }
     }
     

@@ -1,6 +1,7 @@
 // Copyright © 2022 Rangeproof Pty Ltd. All rights reserved.
 
 import Foundation
+import Combine
 import GRDB
 import SessionUtilitiesKit
 import SessionSnodeKit
@@ -25,9 +26,14 @@ public enum GarbageCollectionJob: JobExecutor {
     public static let fourteenDaysInSeconds: TimeInterval = (14 * 24 * 60 * 60)
     private static let minInteractionsToTrim: Int = 2000
     
-    public static func run(
+    private struct FileInfo {
+        let attachmentLocalRelativePaths: Set<String>
+        let displayPictureFilenames: Set<String>
+    }
+    
+    public static func run<S: Scheduler>(
         _ job: Job,
-        queue: DispatchQueue,
+        scheduler: S,
         success: @escaping (Job, Bool) -> Void,
         failure: @escaping (Job, Error, Bool) -> Void,
         deferred: @escaping (Job) -> Void,
@@ -353,18 +359,13 @@ public enum GarbageCollectionJob: JobExecutor {
                         .deleteAll(db)
                 }
             },
-            completion: { _, _ in
+            completion: { _ in
                 // Dispatch async so we can swap from the write queue to a read one (we are done
                 // writing), this has to be done after a slight delay to ensure the transaction
                 // provided by the completion block completes first (ie. so we don't hit
                 // re-entrancy issues)
-                queue.asyncAfter(deadline: .now() + 0.01) {
+                scheduler.schedule {
                     // Retrieve a list of all valid attachmnet and avatar file paths
-                    struct FileInfo {
-                        let attachmentLocalRelativePaths: Set<String>
-                        let displayPictureFilenames: Set<String>
-                    }
-                    
                     let maybeFileInfo: FileInfo? = dependencies[singleton: .storage].read { db -> FileInfo in
                         var attachmentLocalRelativePaths: Set<String> = []
                         var displayPictureFilenames: Set<String> = []

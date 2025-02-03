@@ -1,6 +1,7 @@
 // Copyright © 2022 Rangeproof Pty Ltd. All rights reserved.
 
 import Foundation
+import Combine
 import GRDB
 import SessionSnodeKit
 import SessionUtilitiesKit
@@ -18,9 +19,9 @@ public enum RetrieveDefaultOpenGroupRoomsJob: JobExecutor {
     public static let requiresThreadId: Bool = false
     public static let requiresInteractionId: Bool = false
     
-    public static func run(
+    public static func run<S: Scheduler>(
         _ job: Job,
-        queue: DispatchQueue,
+        scheduler: S,
         success: @escaping (Job, Bool) -> Void,
         failure: @escaping (Job, Error, Bool) -> Void,
         deferred: @escaping (Job) -> Void,
@@ -68,8 +69,8 @@ public enum RetrieveDefaultOpenGroupRoomsJob: JobExecutor {
                 )
             }
             .flatMap { [dependencies] request in request.send(using: dependencies) }
-            .subscribe(on: queue, using: dependencies)
-            .receive(on: queue, using: dependencies)
+            .subscribe(on: scheduler, using: dependencies)
+            .receive(on: scheduler, using: dependencies)
             .retry(8, using: dependencies)
             .sinkUntilComplete(
                 receiveCompletion: { result in
@@ -173,7 +174,7 @@ public enum RetrieveDefaultOpenGroupRoomsJob: JobExecutor {
     public static func run(using dependencies: Dependencies) {
         RetrieveDefaultOpenGroupRoomsJob.run(
             Job(variant: .retrieveDefaultOpenGroupRooms, behaviour: .runOnce),
-            queue: DispatchQueue.global(qos: .default),
+            scheduler: DispatchQueue.global(qos: .default),
             success: { _, _ in },
             failure: { _, _, _ in },
             deferred: { _ in },

@@ -515,7 +515,7 @@ extension LibSession.Config {
 
 public extension LibSession {
     static func conversationInConfig(
-        _ db: Database? = nil,
+        _ db: Database,
         threadId: String,
         threadVariant: SessionThread.Variant,
         visibleOnly: Bool,
@@ -562,8 +562,8 @@ public extension LibSession {
                     return (!visibleOnly || LibSession.shouldBeVisible(priority: contact.priority))
                     
                 case (.community, .userGroups(let conf)):
-                    let maybeUrlInfo: OpenGroupUrlInfo? = dependencies[singleton: .storage]
-                        .read { db in try OpenGroupUrlInfo.fetchAll(db, ids: [threadId]) }?
+                    let maybeUrlInfo: OpenGroupUrlInfo? = (try? OpenGroupUrlInfo
+                        .fetchAll(db, ids: [threadId]))?
                         .first
                     
                     guard

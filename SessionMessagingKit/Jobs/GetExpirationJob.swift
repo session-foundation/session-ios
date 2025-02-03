@@ -12,9 +12,9 @@ public enum GetExpirationJob: JobExecutor {
     public static var requiresInteractionId: Bool = false
     private static let minRunFrequency: TimeInterval = 5
     
-    public static func run(
+    public static func run<S: Scheduler>(
         _ job: Job,
-        queue: DispatchQueue,
+        scheduler: S,
         success: @escaping (Job, Bool) -> Void,
         failure: @escaping (Job, Error, Bool) -> Void,
         deferred: @escaping (Job) -> Void,
@@ -50,8 +50,8 @@ public enum GetExpirationJob: JobExecutor {
                 )
             }
             .flatMap { $0.send(using: dependencies) }
-            .subscribe(on: queue, using: dependencies)
-            .receive(on: queue, using: dependencies)
+            .subscribe(on: scheduler, using: dependencies)
+            .receive(on: scheduler, using: dependencies)
             .sinkUntilComplete(
                 receiveCompletion: { result in
                     switch result {

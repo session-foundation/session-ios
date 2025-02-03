@@ -21,9 +21,9 @@ public enum DisplayPictureDownloadJob: JobExecutor {
     public static var requiresThreadId: Bool = false
     public static var requiresInteractionId: Bool = false
     
-    public static func run(
+    public static func run<S: Scheduler>(
         _ job: Job,
-        queue: DispatchQueue,
+        scheduler: S,
         success: @escaping (Job, Bool) -> Void,
         failure: @escaping (Job, Error, Bool) -> Void,
         deferred: @escaping (Job) -> Void,
@@ -72,8 +72,8 @@ public enum DisplayPictureDownloadJob: JobExecutor {
         
         preparedDownload
             .send(using: dependencies)
-            .subscribe(on: DispatchQueue.global(qos: .background), using: dependencies)
-            .receive(on: DispatchQueue.global(qos: .background), using: dependencies)
+            .subscribe(on: scheduler, using: dependencies)
+            .receive(on: scheduler, using: dependencies)
             .sinkUntilComplete(
                 receiveCompletion: { result in
                     switch result {

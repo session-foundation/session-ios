@@ -376,7 +376,7 @@ open class Storage {
         // Note: The non-async migration should only be used for unit tests
         guard async else { return migrationCompleted(Result(catching: { try migrator.migrate(dbWriter) })) }
         
-        migrator.asyncMigrate(dbWriter) { [dependencies] result in
+        migrator.asyncMigrate(dbWriter) { result in
             let finalResult: Result<Void, Error> = {
                 switch result {
                     case .failure(let error): return .failure(error)
@@ -384,12 +384,7 @@ open class Storage {
                 }
             }()
             
-            // Note: We need to dispatch this after a small 0.01 delay to prevent any potential
-            // re-entrancy issues since the 'asyncMigrate' returns a result containing a DB instance
-            // within a transaction
-            DispatchQueue.global(qos: .userInitiated).asyncAfter(deadline: .now() + 0.01, using: dependencies) {
-                migrationCompleted(finalResult)
-            }
+            migrationCompleted(finalResult)
         }
     }
     
@@ -623,69 +618,142 @@ open class Storage {
         }
     }
     
-    private static func perform<T>(
-        info: CallInfo,
-        updates: @escaping (Database) throws -> T
-    ) -> (Database) throws -> T {
-        return { db in
-            guard info.storage?.isSuspended == false else { throw StorageError.databaseSuspended }
-            
-            let timer: TransactionTimer = TransactionTimer.start(duration: Storage.slowTransactionThreshold, info: info)
-            defer { timer.stop() }
-            
-            // Get the result
-            let result: T = try updates(db)
-            
-            // Update the state flags
-            switch info.isWrite {
-                case true: info.storage?.hasSuccessfullyWritten = true
-                case false: info.storage?.hasSuccessfullyRead = true
-            }
-            
-            return result
+    // MARK: - Operations
+    
+    private static func track<T>(
+        _ db: Database,
+        _ info: CallInfo,
+        _ operation: @escaping (Database) throws -> T
+    ) throws -> T {
+        guard info.storage?.isSuspended == false else { throw StorageError.databaseSuspended }
+        
+        let timer: TransactionTimer = TransactionTimer.start(
+            duration: Storage.slowTransactionThreshold,
+            info: info
+        )
+        defer { timer.stop() }
+        
+        // Get the result
+        let result: T = try operation(db)
+        
+        // Update the state flags
+        switch info.isWrite {
+            case true: info.storage?.hasSuccessfullyWritten = true
+            case false: info.storage?.hasSuccessfullyRead = true
+        }
+        
+        return result
+    }
+    
+    /// This function manually performs `read`/`write` operations in either a synchronous or asyncronous way using a semaphore to
+    /// block the syncrhonous version because `GRDB` has an internal assertion when using it's built-in synchronous `read`/`write`
+    /// functions to prevent reentrancy which is unsupported
+    ///
+    /// Unfortunately this results in the code getting messy when trying to chain multiple database transactions (even
+    /// when using `db.afterNextTransaction`) which is somewhat unintuitive
+    ///
+    /// The `async` variants don't need to worry about this reentrancy issue so instead we route we use those for all operations instead
+    /// and just block the thread when we want to perform a synchronous operation
+    @discardableResult private static func performOperation<T>(
+        _ info: CallInfo,
+        _ operation: @escaping (Database) throws -> T,
+        _ completion: ((Result<T, Error>) -> Void)? = nil
+    ) -> Result<T, Error> {
+        let semaphore: DispatchSemaphore? = (info.isAsync ? nil : DispatchSemaphore(value: 0))
+        var result: Result<T, Error> = .failure(StorageError.invalidQueryResult)
+        
+        /// Perform the actual operation
+        switch (StorageState(info.storage), info.isWrite) {
+            case (.invalid(let error), _): result = .failure(error)
+            case (.valid(let dbWriter), true):
+                dbWriter.asyncWrite(
+                    { db in result = .success(try Storage.track(db, info, operation)) },
+                    completion: { _, dbResult in
+                        switch dbResult {
+                            case .success: break
+                            case .failure(let error): result = .failure(error)
+                        }
+                        semaphore?.signal()
+                        completion?(result)
+                    }
+                )
+                
+            case (.valid(let dbWriter), false):
+                dbWriter.asyncRead { dbResult in
+                    do {
+                        switch dbResult {
+                            case .failure(let error): throw error
+                            case .success(let db): result = .success(try Storage.track(db, info, operation))
+                        }
+                    } catch {
+                        result = .failure(error)
+                    }
+                    semaphore?.signal()
+                    completion?(result)
+                }
+        }
+        
+        /// If this is a synchronous operation then `semaphore` will exist and will block here waiting on the signal from one of the
+        /// above closures to be sent
+        semaphore?.wait()
+        
+        /// Log the error if needed
+        switch result {
+            case .success: break
+            case .failure(let error): StorageState.logIfNeeded(error, isWrite: info.isWrite)
+        }
+        
+        return result
+    }
+    
+    private func performPublisherOperation<T>(
+        _ fileName: String,
+        _ functionName: String,
+        _ lineNumber: Int,
+        isWrite: Bool,
+        _ operation: @escaping (Database) throws -> T
+    ) -> AnyPublisher<T, Error> {
+        switch StorageState(self) {
+            case .invalid(let error): return StorageState.logIfNeeded(error, isWrite: false)
+            case .valid:
+                /// **Note:** GRDB does have `readPublisher`/`writePublisher` functions but it appears to asynchronously
+                /// trigger both the `output` and `complete` closures at the same time which causes a lot of unexpected
+                /// behaviours (this behaviour is apparently expected but still causes a number of odd behaviours in our code
+                /// for more information see https://github.com/groue/GRDB.swift/issues/1334)
+                ///
+                /// Instead of this we are just using `Deferred { Future {} }` which is executed on the specified scheduled
+                /// which behaves in a much more expected way than the GRDB `readPublisher`/`writePublisher` does
+                let info: CallInfo = CallInfo(self, fileName, functionName, lineNumber, .syncWrite)
+                return Deferred {
+                    Future { resolver in
+                        resolver(Storage.performOperation(info, operation))
+                    }
+                }.eraseToAnyPublisher()
         }
     }
     
     // MARK: - Functions
     
     @discardableResult public func write<T>(
-        fileName: String = #file,
-        functionName: String = #function,
-        lineNumber: Int = #line,
+        fileName file: String = #file,
+        functionName funcN: String = #function,
+        lineNumber line: Int = #line,
         updates: @escaping (Database) throws -> T?
     ) -> T? {
-        switch StorageState(self) {
-            case .invalid(let error): return StorageState.logIfNeeded(error, isWrite: true)
-            case .valid(let dbWriter):
-                let info: CallInfo = CallInfo(fileName, functionName, lineNumber, true, self)
-                do { return try dbWriter.write(Storage.perform(info: info, updates: updates)) }
-                catch { return StorageState.logIfNeeded(error, isWrite: true) }
+        switch Storage.performOperation(CallInfo(self, file, funcN, line, .syncWrite), updates) {
+            case .failure: return nil
+            case .success(let result): return result
         }
     }
     
     open func writeAsync<T>(
-        fileName: String = #file,
-        functionName: String = #function,
-        lineNumber: Int = #line,
+        fileName file: String = #file,
+        functionName funcN: String = #function,
+        lineNumber line: Int = #line,
         updates: @escaping (Database) throws -> T,
-        completion: @escaping (Database, Swift.Result<T, Error>) throws -> Void = { _, _ in }
+        completion: @escaping (Result<T, Error>) -> Void = { _ in }
     ) {
-        switch StorageState(self) {
-            case .invalid(let error): return StorageState.logIfNeeded(error, isWrite: true)
-            case .valid(let dbWriter):
-                let info: CallInfo = CallInfo(fileName, functionName, lineNumber, true, self)
-                dbWriter.asyncWrite(
-                    Storage.perform(info: info, updates: updates),
-                    completion: { db, result in
-                        switch result {
-                            case .failure(let error): StorageState.logIfNeeded(error, isWrite: true)
-                            default: break
-                        }
-                        
-                        try? completion(db, result)
-                    }
-                )
-        }
+        Storage.performOperation(CallInfo(self, file, funcN, line, .asyncWrite), updates, completion)
     }
     
     open func writePublisher<T>(
@@ -694,49 +762,18 @@ open class Storage {
         lineNumber: Int = #line,
         updates: @escaping (Database) throws -> T
     ) -> AnyPublisher<T, Error> {
-        switch StorageState(self) {
-            case .invalid(let error): return StorageState.logIfNeeded(error, isWrite: true)
-            case .valid:
-                /// **Note:** GRDB does have a `writePublisher` method but it appears to asynchronously trigger
-                /// both the `output` and `complete` closures at the same time which causes a lot of unexpected
-                /// behaviours (this behaviour is apparently expected but still causes a number of odd behaviours in our code
-                /// for more information see https://github.com/groue/GRDB.swift/issues/1334)
-                ///
-                /// Instead of this we are just using `Deferred { Future {} }` which is executed on the specified scheduled
-                /// which behaves in a much more expected way than the GRDB `writePublisher` does
-                let info: CallInfo = CallInfo(fileName, functionName, lineNumber, true, self)
-                return Deferred {
-                    Future { [weak self] resolver in
-                        /// The `StorageState` may have changed between the creation of the publisher and it actually
-                        /// being executed so we need to check again
-                        switch StorageState(self) {
-                            case .invalid(let error): return StorageState.logIfNeeded(error, isWrite: true)
-                            case .valid(let dbWriter):
-                                do {
-                                    resolver(Result.success(try dbWriter.write(Storage.perform(info: info, updates: updates))))
-                                }
-                                catch {
-                                    StorageState.logIfNeeded(error, isWrite: true)
-                                    resolver(Result.failure(error))
-                                }
-                        }
-                    }
-                }.eraseToAnyPublisher()
-        }
+        return performPublisherOperation(fileName, functionName, lineNumber, isWrite: true, updates)
     }
     
     @discardableResult public func read<T>(
-        fileName: String = #file,
-        functionName: String = #function,
-        lineNumber: Int = #line,
+        fileName file: String = #file,
+        functionName funcN: String = #function,
+        lineNumber line: Int = #line,
         _ value: @escaping (Database) throws -> T?
     ) -> T? {
-        switch StorageState(self) {
-            case .invalid(let error): return StorageState.logIfNeeded(error, isWrite: false)
-            case .valid(let dbWriter):
-                let info: CallInfo = CallInfo(fileName, functionName, lineNumber, false, self)
-                do { return try dbWriter.read(Storage.perform(info: info, updates: value)) }
-                catch { return StorageState.logIfNeeded(error, isWrite: false) }
+        switch Storage.performOperation(CallInfo(self, file, funcN, line, .syncRead), value) {
+            case .failure: return nil
+            case .success(let result): return result
         }
     }
     
@@ -746,35 +783,7 @@ open class Storage {
         lineNumber: Int = #line,
         value: @escaping (Database) throws -> T
     ) -> AnyPublisher<T, Error> {
-        switch StorageState(self) {
-            case .invalid(let error): return StorageState.logIfNeeded(error, isWrite: false)
-            case .valid:
-                /// **Note:** GRDB does have a `readPublisher` method but it appears to asynchronously trigger
-                /// both the `output` and `complete` closures at the same time which causes a lot of unexpected
-                /// behaviours (this behaviour is apparently expected but still causes a number of odd behaviours in our code
-                /// for more information see https://github.com/groue/GRDB.swift/issues/1334)
-                ///
-                /// Instead of this we are just using `Deferred { Future {} }` which is executed on the specified scheduled
-                /// which behaves in a much more expected way than the GRDB `readPublisher` does
-                let info: CallInfo = CallInfo(fileName, functionName, lineNumber, false, self)
-                return Deferred {
-                    Future { [weak self] resolver in
-                        /// The `StorageState` may have changed between the creation of the publisher and it actually
-                        /// being executed so we need to check again
-                        switch StorageState(self) {
-                            case .invalid(let error): return StorageState.logIfNeeded(error, isWrite: false)
-                            case .valid(let dbWriter):
-                                do {
-                                    resolver(Result.success(try dbWriter.read(Storage.perform(info: info, updates: value))))
-                                }
-                                catch {
-                                    StorageState.logIfNeeded(error, isWrite: false)
-                                    resolver(Result.failure(error))
-                                }
-                        }
-                    }
-                }.eraseToAnyPublisher()
-        }
+        return performPublisherOperation(fileName, functionName, lineNumber, isWrite: false, value)
     }
     
     /// Rever to the `ValueObservation.start` method for full documentation
@@ -866,11 +875,18 @@ public extension Publisher where Failure == Error {
 
 private extension Storage {
     class CallInfo {
+        enum Behaviour {
+            case syncRead
+            case asyncRead
+            case syncWrite
+            case asyncWrite
+        }
+        
+        weak var storage: Storage?
         let file: String
         let function: String
         let line: Int
-        let isWrite: Bool
-        weak var storage: Storage?
+        let behaviour: Behaviour
         
         var callInfo: String {
             let fileInfo: String = (file.components(separatedBy: "/").last.map { "\($0):\(line) - " } ?? "")
@@ -878,18 +894,31 @@ private extension Storage {
             return "\(fileInfo)\(function)"
         }
         
+        var isWrite: Bool {
+            switch behaviour {
+                case .syncWrite, .asyncWrite: return true
+                case .syncRead, .asyncRead: return false
+            }
+        }
+        var isAsync: Bool {
+            switch behaviour {
+                case .asyncRead, .asyncWrite: return true
+                case .syncRead, .syncWrite: return false
+            }
+        }
+        
         init(
+            _ storage: Storage?,
             _ file: String,
             _ function: String,
             _ line: Int,
-            _ isWrite: Bool,
-            _ storage: Storage?
+            _ behaviour: Behaviour
         ) {
+            self.storage = storage
             self.file = file
             self.function = function
             self.line = line
-            self.isWrite = isWrite
-            self.storage = storage
+            self.behaviour = behaviour
         }
     }
 }

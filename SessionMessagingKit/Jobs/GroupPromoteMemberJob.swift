@@ -24,19 +24,19 @@ public enum GroupPromoteMemberJob: JobExecutor {
     private static var notifyFailurePublisher: AnyPublisher<Void, Never>?
     private static let notifyFailureTrigger: PassthroughSubject<(), Never> = PassthroughSubject()
     
-    public static func run(
+    private struct GroupInfo: Codable, FetchableRecord {
+        let name: String
+        let groupIdentityPrivateKey: Data
+    }
+    
+    public static func run<S: Scheduler>(
         _ job: Job,
-        queue: DispatchQueue,
+        scheduler: S,
         success: @escaping (Job, Bool) -> Void,
         failure: @escaping (Job, Error, Bool) -> Void,
         deferred: @escaping (Job) -> Void,
         using dependencies: Dependencies
     ) {
-        struct GroupInfo: Codable, FetchableRecord {
-            let name: String
-            let groupIdentityPrivateKey: Data
-        }
-        
         guard
             let threadId: String = job.threadId,
             let detailsData: Data = job.details,
@@ -83,8 +83,8 @@ public enum GroupPromoteMemberJob: JobExecutor {
                 )
             }
             .flatMap { $0.send(using: dependencies) }
-            .subscribe(on: queue, using: dependencies)
-            .receive(on: queue, using: dependencies)
+            .subscribe(on: scheduler, using: dependencies)
+            .receive(on: scheduler, using: dependencies)
             .sinkUntilComplete(
                 receiveCompletion: { result in
                     switch result {

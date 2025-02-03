@@ -19,9 +19,9 @@ public enum GroupLeavingJob: JobExecutor {
     public static var requiresThreadId: Bool = true
     public static var requiresInteractionId: Bool = true
     
-    public static func run(
+    public static func run<S: Scheduler>(
         _ job: Job,
-        queue: DispatchQueue,
+        scheduler: S,
         success: @escaping (Job, Bool) -> Void,
         failure: @escaping (Job, Error, Bool) -> Void,
         deferred: @escaping (Job) -> Void,
@@ -178,8 +178,8 @@ public enum GroupLeavingJob: JobExecutor {
                     default: throw error
                 }
             }
-            .subscribe(on: queue, using: dependencies)
-            .receive(on: queue, using: dependencies)
+            .subscribe(on: scheduler, using: dependencies)
+            .receive(on: scheduler, using: dependencies)
             .sinkUntilComplete(
                 receiveCompletion: { result in
                     switch result {

@@ -21,9 +21,9 @@ public enum ConfigurationSyncJob: JobExecutor {
     private static let maxRunFrequency: TimeInterval = 3
     private static let waitTimeForExpirationUpdate: TimeInterval = 1
     
-    public static func run(
+    public static func run<S: Scheduler>(
         _ job: Job,
-        queue: DispatchQueue,
+        scheduler: S,
         success: @escaping (Job, Bool) -> Void,
         failure: @escaping (Job, Error, Bool) -> Void,
         deferred: @escaping (Job) -> Void,
@@ -144,8 +144,8 @@ public enum ConfigurationSyncJob: JobExecutor {
                 )
             }
             .flatMap { $0.send(using: dependencies) }
-            .subscribe(on: queue, using: dependencies)
-            .receive(on: queue, using: dependencies)
+            .subscribe(on: scheduler, using: dependencies)
+            .receive(on: scheduler, using: dependencies)
             .map { (_: ResponseInfoType, response: Network.BatchResponse) -> [ConfigDump] in
                 /// The number of responses returned might not match the number of changes sent but they will be returned
                 /// in the same order, this means we can just `zip` the two arrays as it will take the smaller of the two and
@@ -345,7 +345,7 @@ public extension ConfigurationSyncJob {
         using dependencies: Dependencies
     ) -> AnyPublisher<Void, Error> {
         return Deferred {
-            Future { resolver in
+            Future<Void, Error> { resolver in
                 guard
                     let job: Job = Job(
                         variant: .configurationSync,
@@ -361,7 +361,7 @@ public extension ConfigurationSyncJob {
                 
                 ConfigurationSyncJob.run(
                     job,
-                    queue: .global(qos: .userInitiated),
+                    scheduler: DispatchQueue.global(qos: .userInitiated),
                     success: { _, _ in resolver(Result.success(())) },
                     failure: { _, error, _ in resolver(Result.failure(error)) },
                     deferred: { job in

@@ -141,9 +141,9 @@ public protocol JobExecutor {
     ///   failure)
     ///   - deferred: The closure which is called when the job is deferred (with an
     ///   updated `job`)
-    static func run(
+    static func run<S: Scheduler>(
         _ job: Job,
-        queue: DispatchQueue,
+        scheduler: S,
         success: @escaping (Job, Bool) -> Void,
         failure: @escaping (Job, Error, Bool) -> Void,
         deferred: @escaping (Job) -> Void,
@@ -1355,10 +1355,7 @@ public final class JobQueue: Hashable {
         // thread and do so by creating a number of background queues to run the jobs on, if this
         // function was called on the wrong queue then we need to dispatch to the correct one
         guard DispatchQueue.with(key: queueKey, matches: queueContext, using: dependencies) else {
-            // Note: We need to dispatch this after a small 0.01 delay to prevent any potential
-            // re-entrancy issues since the `start` function can be called within an existing
-            // database transaction (eg. via `db.afterNextTransactionNestedOnce`)
-            internalQueue.asyncAfter(deadline: .now() + 0.01, using: dependencies) { [weak self] in
+            internalQueue.async { [weak self] in
                 self?.start(forceWhenAlreadyRunning: forceWhenAlreadyRunning)
             }
             return
@@ -1428,7 +1425,7 @@ public final class JobQueue: Hashable {
         
         // Ensure this is running on the correct queue
         guard DispatchQueue.with(key: queueKey, matches: queueContext, using: dependencies) else {
-            internalQueue.asyncAfter(deadline: .now() + 0.01, using: dependencies) { [weak self] in
+            internalQueue.async { [weak self] in
                 self?.runNextJob()
             }
             return
@@ -1554,7 +1551,7 @@ public final class JobQueue: Hashable {
         
         jobExecutor.run(
             nextJob,
-            queue: targetQueue(),
+            scheduler: targetQueue(),
             success: handleJobSucceeded,
             failure: handleJobFailed,
             deferred: handleJobDeferred,
@@ -1564,7 +1561,7 @@ public final class JobQueue: Hashable {
         // If this queue executes concurrently and there are still jobs remaining then immediately attempt
         // to start the next job
         if executionType == .concurrent && numJobsRemaining > 0 {
-            internalQueue.asyncAfter(deadline: .now() + 0.01, using: dependencies) { [weak self] in
+            internalQueue.async { [weak self] in
                 self?.runNextJob()
             }
         }
@@ -1612,8 +1609,8 @@ public final class JobQueue: Hashable {
             // Trigger the 'start' function to load in any pending jobs that aren't already in the
             // queue (for concurrent queues we want to force them to load in pending jobs and add
             // them to the queue regardless of whether the queue is already running)
-            internalQueue.asyncAfter(deadline: .now() + 0.01, using: dependencies) { [weak self] in
-                self?.start(forceWhenAlreadyRunning: (self?.executionType == .concurrent))
+            internalQueue.async { [weak self] in
+                self?.start(forceWhenAlreadyRunning: (self?.executionType != .concurrent))
             }
             return
         }
@@ -1704,7 +1701,7 @@ public final class JobQueue: Hashable {
         
         // Perform job cleanup and start the next job
         performCleanUp(for: job, result: .succeeded)
-        internalQueue.asyncAfter(deadline: .now() + 0.01, using: dependencies) { [weak self] in
+        internalQueue.async { [weak self] in
             self?.runNextJob()
         }
     }
@@ -1720,7 +1717,7 @@ public final class JobQueue: Hashable {
             Log.info(.jobRunner, "\(queueContext) \(job) canceled")
             performCleanUp(for: job, result: .failed(error, permanentFailure))
             
-            internalQueue.asyncAfter(deadline: .now() + 0.01, using: dependencies) { [weak self] in
+            internalQueue.async { [weak self] in
                 self?.runNextJob()
             }
             return
@@ -1746,7 +1743,7 @@ public final class JobQueue: Hashable {
                 _pendingJobsQueue.performUpdate { $0.inserting(job, at: 0) }
             }
             
-            internalQueue.asyncAfter(deadline: .now() + 0.01, using: dependencies) { [weak self] in
+            internalQueue.async { [weak self] in
                 self?.runNextJob()
             }
             return
@@ -1819,7 +1816,7 @@ public final class JobQueue: Hashable {
         
         Log.error(.jobRunner, "\(queueContext) \(job) \(failureText)")
         performCleanUp(for: job, result: .failed(error, permanentFailure))
-        internalQueue.asyncAfter(deadline: .now() + 0.01, using: dependencies) { [weak self] in
+        internalQueue.async { [weak self] in
             self?.runNextJob()
         }
     }
@@ -1872,7 +1869,7 @@ public final class JobQueue: Hashable {
         }
         
         performCleanUp(for: job, result: .deferred)
-        internalQueue.asyncAfter(deadline: .now() + 0.01, using: dependencies) { [weak self] in
+        internalQueue.async { [weak self] in
             self?.runNextJob()
         }
     }

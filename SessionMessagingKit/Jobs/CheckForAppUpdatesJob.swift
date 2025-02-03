@@ -19,9 +19,9 @@ public enum CheckForAppUpdatesJob: JobExecutor {
     public static var requiresThreadId: Bool = false
     public static let requiresInteractionId: Bool = false
     
-    public static func run(
+    public static func run<S: Scheduler>(
         _ job: Job,
-        queue: DispatchQueue,
+        scheduler: S,
         success: @escaping (Job, Bool) -> Void,
         failure: @escaping (Job, Error, Bool) -> Void,
         deferred: @escaping (Job) -> Void,
@@ -49,8 +49,8 @@ public enum CheckForAppUpdatesJob: JobExecutor {
         
         dependencies[singleton: .storage]
             .readPublisher { db -> [UInt8]? in Identity.fetchUserEd25519KeyPair(db)?.secretKey }
-            .subscribe(on: queue)
-            .receive(on: queue)
+            .subscribe(on: scheduler, using: dependencies)
+            .receive(on: scheduler, using: dependencies)
             .tryFlatMap { maybeEd25519SecretKey -> AnyPublisher<(ResponseInfoType, AppVersionResponse), Error> in
                 guard let ed25519SecretKey: [UInt8] = maybeEd25519SecretKey else { throw StorageError.objectNotFound }
                 

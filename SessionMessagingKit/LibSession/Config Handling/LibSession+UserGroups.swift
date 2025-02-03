@@ -322,7 +322,6 @@ internal extension LibSessionCacheType {
         
         // MARK: -- Handle Group Changes
         
-        let userSessionId: SessionId = dependencies[cache: .general].sessionId
         let existingGroupSessionIds: Set<String> = Set(existingThreadInfo
             .filter { $0.value.variant == .group }
             .keys)

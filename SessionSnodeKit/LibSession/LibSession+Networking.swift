@@ -414,10 +414,9 @@ private extension LibSessionNetwork {
                 return Log.error(.network, "CallbackWrapper called with null context.")
             }
             
-            /// Dispatch async so we don't block libSession's internals with Swift logic (which can block other requests), we
-            /// add the `0.01` delay to ensure the closure isn't executed immediately
+            /// Dispatch async so we don't block libSession's internals with Swift logic (which can block other requests)
             let wrapper: CallbackWrapper<Output> = Unmanaged<CallbackWrapper<Output>>.fromOpaque(ctx).takeRetainedValue()
-            DispatchQueue.global(qos: .default).asyncAfter(deadline: .now() + 0.01) { [wrapper] in
+            DispatchQueue.global(qos: .default).async { [wrapper] in
                 wrapper.resultPublisher.send(output)
             }
         }
@@ -741,7 +740,7 @@ public extension LibSession {
             switch (network, dependencies[feature: .forceOffline]) {
                 case (_, true):
                     return Fail(error: NetworkError.serviceUnavailable)
-                        .delay(for: .seconds(1), scheduler: DispatchQueue.main)
+                        .delay(for: .seconds(1), scheduler: DispatchQueue.global(qos: .userInitiated))
                         .eraseToAnyPublisher()
                     
                 case (.some(let existingNetwork), _):
@@ -774,7 +773,7 @@ public extension LibSession {
                     /// **Note:** We do it this way because `DispatchQueue.async` can be optimised out if the code is already running in a
                     /// queue with the same `qos`, this approach ensures the code will run in a subsequent run loop regardless
                     let concurrentQueue = DispatchQueue(label: "Network.callback.registration", attributes: .concurrent)
-                    concurrentQueue.asyncAfter(deadline: .now() + 0.01, flags: .barrier) { [weak self] in
+                    concurrentQueue.async(flags: .barrier) { [weak self] in
                         guard
                             let network: UnsafeMutablePointer<network_object> = self?.network,
                             let dependenciesPtr: UnsafeMutableRawPointer = self?.dependenciesPtr
@@ -789,7 +788,7 @@ public extension LibSession {
                             
                             // Dispatch async so we don't hold up the libSession thread that triggered the update
                             // or have a reentrancy issue with the mutable cache
-                            DispatchQueue.global(qos: .default).asyncAfter(deadline: .now() + 0.01) {
+                            DispatchQueue.global(qos: .default).async {
                                 dependencies.mutate(cache: .libSessionNetwork) { $0.setNetworkStatus(status: status) }
                             }
                         }, dependenciesPtr)
@@ -829,7 +828,7 @@ public extension LibSession {
                             // or have a reentrancy issue with the mutable cache
                             let dependencies: Dependencies = Unmanaged<Dependencies>.fromOpaque(ctx).takeUnretainedValue()
                             
-                            DispatchQueue.global(qos: .default).asyncAfter(deadline: .now() + 0.01) {
+                            DispatchQueue.global(qos: .default).async {
                                 dependencies.mutate(cache: .libSessionNetwork) { $0.setPaths(paths: paths) }
                             }
                         }, dependenciesPtr)

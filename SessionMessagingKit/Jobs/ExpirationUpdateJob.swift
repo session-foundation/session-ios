@@ -11,9 +11,9 @@ public enum ExpirationUpdateJob: JobExecutor {
     public static var requiresThreadId: Bool = true
     public static var requiresInteractionId: Bool = false
     
-    public static func run(
+    public static func run<S: Scheduler>(
         _ job: Job,
-        queue: DispatchQueue,
+        scheduler: S,
         success: @escaping (Job, Bool) -> Void,
         failure: @escaping (Job, Error, Bool) -> Void,
         deferred: @escaping (Job) -> Void,
@@ -40,8 +40,8 @@ public enum ExpirationUpdateJob: JobExecutor {
                     )
             }
             .flatMap { $0.send(using: dependencies) }
-            .subscribe(on: queue, using: dependencies)
-            .receive(on: queue, using: dependencies)
+            .subscribe(on: scheduler, using: dependencies)
+            .receive(on: scheduler, using: dependencies)
             .map { _, response -> [UInt64: [String]] in
                 guard
                     let results: [UpdateExpiryResponseResult] = response

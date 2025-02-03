@@ -378,7 +378,7 @@ public class SwarmPoller: SwarmPollerType & PollerType {
                                     // Note: In the background we just want jobs to fail silently
                                     ConfigMessageReceiveJob.run(
                                         job,
-                                        queue: pollerQueue,
+                                        scheduler: pollerQueue,
                                         success: { _, _ in resolver(Result.success(())) },
                                         failure: { _, _, _ in resolver(Result.success(())) },
                                         deferred: { _ in resolver(Result.success(())) },
@@ -399,7 +399,7 @@ public class SwarmPoller: SwarmPollerType & PollerType {
                                             // Note: In the background we just want jobs to fail silently
                                             MessageReceiveJob.run(
                                                 job,
-                                                queue: pollerQueue,
+                                                scheduler: pollerQueue,
                                                 success: { _, _ in resolver(Result.success(())) },
                                                 failure: { _, _, _ in resolver(Result.success(())) },
                                                 deferred: { _ in resolver(Result.success(())) },

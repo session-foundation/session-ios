@@ -309,7 +309,7 @@ public final class MessageSender {
                     // the notification to go out
                     NotifyPushServerJob.run(
                         job,
-                        queue: .main,
+                        scheduler: DispatchQueue.global(qos: .userInitiated),
                         success: { _, _ in },
                         failure: { _, _, _ in },
                         deferred: { _ in },
@@ -775,31 +775,23 @@ public final class MessageSender {
         
         guard !rowIds.isEmpty else { return error }
         
-        // Note: We need to dispatch this after a small 0.01 delay to prevent any potential
-        // re-entrancy issues since the 'asyncMigrate' returns a result containing a DB instance
-        // within a transaction
-        DispatchQueue.global(qos: .background).asyncAfter(deadline: .now() + 0.01, using: dependencies) {
-            dependencies[singleton: .storage].write { db in
-                switch destination {
-                    case .syncMessage:
-                        try Interaction
-                            .filter(rowIds.contains(Column.rowID))
-                            .updateAll(
-                                db,
-                                Interaction.Columns.state.set(to: Interaction.State.failedToSync),
-                                Interaction.Columns.mostRecentFailureText.set(to: "\(error)")
-                            )
-                        
-                    default:
-                        try Interaction
-                            .filter(rowIds.contains(Column.rowID))
-                            .updateAll(
-                                db,
-                                Interaction.Columns.state.set(to: Interaction.State.failed),
-                                Interaction.Columns.mostRecentFailureText.set(to: "\(error)")
-                            )
-                }
+        /// If we have affected rows then we should update them with the latest error text
+        ///
+        /// **Note:** We `writeAsync` here as performing a syncronous `wrute` results in a reentrancy assertion
+        dependencies[singleton: .storage].writeAsync { db in
+            let targetState: Interaction.State
+            switch destination {
+                case .syncMessage: targetState = .failedToSync
+                default: targetState = .failed
             }
+            
+            _ = try? Interaction
+                .filter(rowIds.contains(Column.rowID))
+                .updateAll(
+                    db,
+                    Interaction.Columns.state.set(to: targetState),
+                    Interaction.Columns.mostRecentFailureText.set(to: "\(error)")
+                )
         }
         
         return error

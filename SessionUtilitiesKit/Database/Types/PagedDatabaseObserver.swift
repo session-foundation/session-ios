@@ -186,12 +186,9 @@ public class PagedDatabaseObserver<ObservedTable, T>: TransactionObserver where 
             return []
         }
         
-        // This looks odd but if we just use `commitProcessingQueue.async` then the code can
-        // get executed immediately wihch can result in a new transaction being started whilst
-        // we are still within the transaction wrapping `databaseDidCommit` (which we don't
-        // want), by adding this tiny 0.01 delay we should be giving it enough time to finish
-        // processing the current transaction
-        commitProcessingQueue.asyncAfter(deadline: .now() + 0.01) { [weak self] in
+        // Dispatch to the `commitProcessingQueue` so we don't block the database `write` queue
+        // when updatind the data
+        commitProcessingQueue.async { [weak self] in
             self?.processDatabaseCommit(committedChanges: committedChanges)
         }
     }

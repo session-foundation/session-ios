@@ -22,9 +22,9 @@ public enum ProcessPendingGroupMemberRemovalsJob: JobExecutor {
     public static var requiresInteractionId: Bool = false
     private static let maxRunFrequency: TimeInterval = 3
     
-    public static func run(
+    public static func run<S: Scheduler>(
         _ job: Job,
-        queue: DispatchQueue,
+        scheduler: S,
         success: @escaping (Job, Bool) -> Void,
         failure: @escaping (Job, Error, Bool) -> Void,
         deferred: @escaping (Job) -> Void,
@@ -196,6 +196,8 @@ public enum ProcessPendingGroupMemberRemovalsJob: JobExecutor {
                 
                 return ()
             }
+            .subscribe(on: scheduler, using: dependencies)
+            .receive(on: scheduler, using: dependencies)
             .sinkUntilComplete(
                 receiveCompletion: { result in
                     switch result {
@@ -268,12 +270,12 @@ public enum ProcessPendingGroupMemberRemovalsJob: JobExecutor {
                                                     using: dependencies
                                                 )
                                                 .send(using: dependencies)
-                                                .subscribe(on: queue, using: dependencies)
+                                                .subscribe(on: scheduler, using: dependencies)
                                                 .sinkUntilComplete()
                                         }
                                     },
-                                    completion: { db, result in
-                                        queue.asyncAfter(deadline: .now() + 0.01, using: dependencies) {
+                                    completion: { result in
+                                        scheduler.schedule {
                                             switch result {
                                                 case .success: success(job, false)
                                                 case .failure(let error): failure(job, error, false)

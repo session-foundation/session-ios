@@ -22,9 +22,9 @@ public enum SyncPushTokensJob: JobExecutor {
     private static let maxFrequency: TimeInterval = (12 * 60 * 60)
     private static let maxRunFrequency: TimeInterval = 1
     
-    public static func run(
+    public static func run<S: Scheduler>(
         _ job: Job,
-        queue: DispatchQueue,
+        scheduler: S,
         success: @escaping (Job, Bool) -> Void,
         failure: @escaping (Job, Error, Bool) -> Void,
         deferred: @escaping (Job) -> Void,
@@ -93,7 +93,7 @@ public enum SyncPushTokensJob: JobExecutor {
                         .setFailureType(to: Error.self)
                         .eraseToAnyPublisher()
                 }
-                .subscribe(on: queue, using: dependencies)
+                .subscribe(on: scheduler, using: dependencies)
                 .sinkUntilComplete(
                     receiveCompletion: { result in
                         switch result {
@@ -190,7 +190,7 @@ public enum SyncPushTokensJob: JobExecutor {
                     .map { _ in () }
                     .eraseToAnyPublisher()
             }
-            .subscribe(on: queue, using: dependencies)
+            .subscribe(on: scheduler, using: dependencies)
             .sinkUntilComplete(
                 // We want to complete this job regardless of success or failure
                 receiveCompletion: { _ in success(job, false) }
@@ -209,7 +209,7 @@ public enum SyncPushTokensJob: JobExecutor {
                                  
         SyncPushTokensJob.run(
             job,
-            queue: DispatchQueue.global(qos: .default),
+            scheduler: DispatchQueue.global(qos: .default),
             success: { _, _ in },
             failure: { _, _, _ in },
             deferred: { _ in },
