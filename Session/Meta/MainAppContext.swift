@@ -154,6 +154,12 @@ final class MainAppContext: AppContext {
     
     // stringlint:ignore_contents
     func ensureSleepBlocking(_ shouldBeBlocking: Bool, blockingObjects: [Any]) {
+        guard Thread.isMainThread else {
+            return DispatchQueue.main.async { [weak self] in
+                self?.ensureSleepBlocking(shouldBeBlocking, blockingObjects: blockingObjects)
+            }
+        }
+        
         if UIApplication.shared.isIdleTimerDisabled != shouldBeBlocking {
             if shouldBeBlocking {
                 var logString: String = "Blocking sleep because of: \(String(describing: blockingObjects.first))"
