@@ -153,6 +153,10 @@ public final class InputTextView: UITextView, UITextViewDelegate {
             }
         }
         
+        /// We need to manually trigger the `handleTextChanged` call because returning `false` here means the
+        /// `textViewDidChange(_:)`delegate won't be called
+        handleTextChanged()
+        
         return false
     }
     
