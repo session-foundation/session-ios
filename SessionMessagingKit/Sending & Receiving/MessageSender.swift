@@ -777,7 +777,7 @@ public final class MessageSender {
         
         /// If we have affected rows then we should update them with the latest error text
         ///
-        /// **Note:** We `writeAsync` here as performing a syncronous `wrute` results in a reentrancy assertion
+        /// **Note:** We `writeAsync` here as performing a syncronous `write` results in a reentrancy assertion
         dependencies[singleton: .storage].writeAsync { db in
             let targetState: Interaction.State
             switch destination {

@@ -1355,7 +1355,7 @@ public final class JobQueue: Hashable {
         // thread and do so by creating a number of background queues to run the jobs on, if this
         // function was called on the wrong queue then we need to dispatch to the correct one
         guard DispatchQueue.with(key: queueKey, matches: queueContext, using: dependencies) else {
-            internalQueue.async { [weak self] in
+            internalQueue.async(using: dependencies) { [weak self] in
                 self?.start(forceWhenAlreadyRunning: forceWhenAlreadyRunning)
             }
             return

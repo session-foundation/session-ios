@@ -1310,9 +1310,10 @@ extension ConversationVC:
                 },
                 onCancel: { [weak self] modal in
                     UIPasteboard.general.string = url.absoluteString
-                    self?.showInputAccessoryView()
                     
-                    modal.dismiss(animated: true)
+                    modal.dismiss(animated: true) {
+                        self?.showInputAccessoryView()
+                    }
                 }
             )
         )

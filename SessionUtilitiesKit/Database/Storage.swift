@@ -610,6 +610,9 @@ open class Storage {
                 case StorageError.databaseSuspended:
                     Log.error(.storage, "Database \(isWrite ? "write" : "read") failed as the database is suspended.")
                     
+                case StorageError.transactionDeadlockTimeout:
+                    Log.critical("[Storage] Database \(isWrite ? "write" : "read") failed due to a potential synchronous query deadlock timeout.")
+                    
                 default: break
             }
         }
@@ -680,7 +683,7 @@ open class Storage {
             case (.invalid(let error), _):
                 result = .failure(error)
                 semaphore?.signal()
-                
+            
             case (.valid(let dbWriter), true):
                 dbWriter.asyncWrite(
                     { db in result = .success(try Storage.track(db, info, operation)) },
@@ -716,7 +719,7 @@ open class Storage {
         /// If this is a synchronous operation then `semaphore` will exist and will block here waiting on the signal from one of the
         /// above closures to be sent
         let semaphoreResult: DispatchTimeoutResult? = semaphore?.wait(timeout: .now() + .seconds(Storage.transactionDeadlockTimeoutSeconds))
-
+        
         /// If the transaction timed out then log the error and report a failure
         guard semaphoreResult != .timedOut else {
             StorageState.logIfNeeded(StorageError.transactionDeadlockTimeout, isWrite: info.isWrite)
@@ -895,51 +898,55 @@ public extension Publisher where Failure == Error {
 // MARK: - CallInfo
 
 private extension Storage {
-    class CallInfo {
-        enum Behaviour {
-            case syncRead
-            case asyncRead
-            case syncWrite
-            case asyncWrite
-        }
-        
-        weak var storage: Storage?
-        let file: String
-        let function: String
-        let line: Int
-        let behaviour: Behaviour
-        
-        var callInfo: String {
-            let fileInfo: String = (file.components(separatedBy: "/").last.map { "\($0):\(line) - " } ?? "")
+    // MARK: - CallInfo
+
+    private extension Storage {
+        class CallInfo {
+            enum Behaviour {
+                case syncRead
+                case asyncRead
+                case syncWrite
+                case asyncWrite
+            }
             
-            return "\(fileInfo)\(function)"
-        }
-        
-        var isWrite: Bool {
-            switch behaviour {
-                case .syncWrite, .asyncWrite: return true
-                case .syncRead, .asyncRead: return false
+            weak var storage: Storage?
+            let file: String
+            let function: String
+            let line: Int
+            let behaviour: Behaviour
+            
+            var callInfo: String {
+                let fileInfo: String = (file.components(separatedBy: "/").last.map { "\($0):\(line) - " } ?? "")
+                
+                return "\(fileInfo)\(function)"
             }
-        }
-        var isAsync: Bool {
-            switch behaviour {
-                case .asyncRead, .asyncWrite: return true
-                case .syncRead, .syncWrite: return false
+            
+            var isWrite: Bool {
+                switch behaviour {
+                    case .syncWrite, .asyncWrite: return true
+                    case .syncRead, .asyncRead: return false
+                }
             }
-        }
-        
-        init(
-            _ storage: Storage?,
-            _ file: String,
-            _ function: String,
-            _ line: Int,
-            _ behaviour: Behaviour
-        ) {
-            self.storage = storage
-            self.file = file
-            self.function = function
-            self.line = line
-            self.behaviour = behaviour
+            var isAsync: Bool {
+                switch behaviour {
+                    case .asyncRead, .asyncWrite: return true
+                    case .syncRead, .syncWrite: return false
+                }
+            }
+            
+            init(
+                _ storage: Storage?,
+                _ file: String,
+                _ function: String,
+                _ line: Int,
+                _ behaviour: Behaviour
+            ) {
+                self.storage = storage
+                self.file = file
+                self.function = function
+                self.line = line
+                self.behaviour = behaviour
+            }
         }
     }
 }
@@ -967,7 +974,7 @@ private extension Storage {
                 result?.timer = nil
                 
                 let action: String = (info.isWrite ? "write" : "read")
-                Log.warn(.storage, "Slow \(action) taking longer than \(Storage.slowTransactionThreshold, format: ".2", omitZeroDecimal: true)s - [ \(info.callInfo) ]")
+                Log.warn("[Storage] Slow \(action) taking longer than \(Storage.slowTransactionThreshold, format: ".2", omitZeroDecimal: true)s - [ \(info.callInfo) ]")
                 result?.wasSlowTransaction = true
             }
             result.timer?.resume()
@@ -983,7 +990,7 @@ private extension Storage {
             
             let end: CFTimeInterval = CACurrentMediaTime()
             let action: String = (info.isWrite ? "write" : "read")
-            Log.warn(.storage, "Slow \(action) completed after \(end - start, format: ".2", omitZeroDecimal: true)s - [ \(info.callInfo) ]")
+            Log.warn("[Storage] Slow \(action) completed after \(end - start, format: ".2", omitZeroDecimal: true)s - [ \(info.callInfo) ]")
         }
     }
 }

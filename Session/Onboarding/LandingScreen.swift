@@ -193,10 +193,11 @@ struct LandingScreen: View {
                         UIApplication.shared.open(url)
                     }
                 },
-                onCancel: { _ in
+                onCancel: { modal in
                     if let url: URL = URL(string: "https://getsession.org/privacy-policy") {
                         UIApplication.shared.open(url)
                     }
+                    modal.close()
                 }
             )
         )
