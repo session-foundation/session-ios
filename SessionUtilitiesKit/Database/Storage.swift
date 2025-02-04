@@ -614,7 +614,10 @@ open class Storage {
         
         /// Perform the actual operation
         switch (StorageState(info.storage), info.isWrite) {
-            case (.invalid(let error), _): result = .failure(error)
+            case (.invalid(let error), _):
+                result = .failure(error)
+                semaphore?.signal()
+            
             case (.valid(let dbWriter), true):
                 dbWriter.asyncWrite(
                     { db in result = .success(try Storage.track(db, info, operation)) },
