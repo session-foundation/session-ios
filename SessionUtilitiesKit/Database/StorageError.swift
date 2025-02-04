@@ -14,6 +14,7 @@ public enum StorageError: Error {
     case keySpecInaccessible
     case decodingFailed
     case invalidQueryResult
+    case transactionDeadlockTimeout
     
     case failedToSave
     case objectNotFound

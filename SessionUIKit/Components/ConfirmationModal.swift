@@ -701,7 +701,10 @@ public extension ConfirmationModal.Info {
         func isValid(with info: ConfirmationModal.Info) -> Bool { boolValue }
     }
     
+    /// The `AfterChangeValidator` will also return `false` for the initial validity check and will use the provided
+    /// value for subsequent checks
     class AfterChangeValidator: ButtonValidator {
+        private(set) var hasDoneInitialValidCheck: Bool = false
         let isValid: (ConfirmationModal.Info) -> Bool
         
         required public init(booleanLiteral value: BooleanLiteralType) {
@@ -717,7 +720,14 @@ public extension ConfirmationModal.Info {
             super.init(booleanLiteral: false)
         }
         
-        public override func isValid(with info: ConfirmationModal.Info) -> Bool { return self.isValid(info) }
+        public override func isValid(with info: ConfirmationModal.Info) -> Bool {
+            guard hasDoneInitialValidCheck else {
+                hasDoneInitialValidCheck = true
+                return false
+            }
+            
+            return self.isValid(info)
+        }
     }
         
     // MARK: - ShowCondition

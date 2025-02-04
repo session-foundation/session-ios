@@ -120,10 +120,15 @@ public extension ConfigDump.Variant {
     
     /// This value defines the order that the ConfigDump records should be loaded in, we need to load the `groupKeys`
     /// config _after_ the `groupInfo` and `groupMembers` configs as it requires those to be passed as arguments
+    ///
+    /// We also may as well load the user configs first (shouldn't make a difference but makes things easier to debug when
+    /// the user configs are loaded first
     var loadOrder: Int {
         switch self {
-            case .groupKeys: return 1
-            default: return 0
+            case .invalid: return 3
+            case .groupKeys: return 2
+            case .groupInfo, .groupMembers: return 1
+            case .userProfile, .contacts, .convoInfoVolatile, .userGroups: return 0
         }
     }
     

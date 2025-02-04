@@ -562,8 +562,8 @@ class EditGroupViewModel: SessionTableViewModel, NavigatableStateHolder, Editabl
                                 let viewController = ModalActivityIndicatorViewController() { modalActivityIndicator in
                                     SnodeAPI
                                         .getSessionID(for: inviteByIdValue, using: dependencies)
-                                        .subscribe(on: DispatchQueue.global(qos: .userInitiated))
-                                        .receive(on: DispatchQueue.main)
+                                        .subscribe(on: DispatchQueue.global(qos: .userInitiated), using: dependencies)
+                                        .receive(on: DispatchQueue.main, using: dependencies)
                                         .sinkUntilComplete(
                                             receiveCompletion: { result in
                                                 switch result {
@@ -620,6 +620,8 @@ class EditGroupViewModel: SessionTableViewModel, NavigatableStateHolder, Editabl
                     allowAccessToHistoricMessages: dependencies[feature: .updatedGroupsAllowHistoricAccessOnInvite],
                     using: dependencies
                 )
+                .subscribe(on: DispatchQueue.global(qos: .userInitiated), using: dependencies)
+                .receive(on: DispatchQueue.main, using: dependencies)
                 .sinkUntilComplete(
                     receiveCompletion: { [weak self] result in
                         modalActivityIndicator.dismiss {
@@ -691,6 +693,8 @@ class EditGroupViewModel: SessionTableViewModel, NavigatableStateHolder, Editabl
                     memberIds: memberIds,
                     using: dependencies
                 )
+                .subscribe(on: DispatchQueue.global(qos: .userInitiated), using: dependencies)
+                .receive(on: DispatchQueue.main, using: dependencies)
                 .sinkUntilComplete(
                     receiveCompletion: { [weak self] result in
                         modalActivityIndicator.dismiss {
@@ -840,8 +844,8 @@ class EditGroupViewModel: SessionTableViewModel, NavigatableStateHolder, Editabl
                                         using: dependencies
                                     )
                                     .eraseToAnyPublisher()
-                                    .subscribe(on: DispatchQueue.global(qos: .userInitiated))
-                                    .receive(on: DispatchQueue.main)
+                                    .subscribe(on: DispatchQueue.global(qos: .userInitiated), using: dependencies)
+                                    .receive(on: DispatchQueue.main, using: dependencies)
                                     .sinkUntilComplete(
                                         receiveCompletion: { [weak self] result in
                                             modalActivityIndicator.dismiss(completion: {

@@ -1002,71 +1002,69 @@ class ThreadSettingsViewModel: SessionTableViewModel, NavigatableStateHolder, Ob
             _ memberInfo: [(id: String, profile: Profile?)],
             isRetry: Bool
         ) {
-            let viewController = ModalActivityIndicatorViewController(canCancel: false) { [dependencies, threadId] modalActivityIndicator in
-                MessageSender
-                    .promoteGroupMembers(
-                        groupSessionId: SessionId(.group, hex: threadId),
-                        members: memberInfo,
-                        isRetry: isRetry,
-                        using: dependencies
-                    )
-                    .sinkUntilComplete(
-                        receiveCompletion: { result in
-                            modalActivityIndicator.dismiss {
-                                switch result {
-                                    case .failure:
-                                        viewModel?.transitionToScreen(
-                                            ConfirmationModal(
-                                                info: ConfirmationModal.Info(
-                                                    title: "promotionFailed"
-                                                        .putNumber(memberInfo.count)
-                                                        .localized(),
-                                                    body: .text("promotionFailedDescription"
-                                                        .putNumber(memberInfo.count)
-                                                        .localized()),
-                                                    confirmTitle: "yes".localized(),
-                                                    cancelTitle: "cancel".localized(),
-                                                    cancelStyle: .alert_text,
-                                                    dismissOnConfirm: false,
-                                                    onConfirm: { modal in
-                                                        modal.dismiss(animated: true) {
-                                                            send(viewModel, memberInfo, isRetry: isRetry)
-                                                        }
-                                                    },
-                                                    onCancel: { modal in
-                                                        /// Flag the members as failed
-                                                        let memberIds: [String] = memberInfo.map(\.id)
-                                                        dependencies[singleton: .storage].writeAsync { db in
-                                                            try? GroupMember
-                                                                .filter(GroupMember.Columns.groupId == threadId)
-                                                                .filter(memberIds.contains(GroupMember.Columns.profileId))
-                                                                .updateAllAndConfig(
-                                                                    db,
-                                                                    GroupMember.Columns.roleStatus.set(to: GroupMember.RoleStatus.failed),
-                                                                    using: dependencies
-                                                                )
-                                                        }
-                                                        modal.dismiss(animated: true)
-                                                    }
-                                                )
-                                            ),
-                                            transitionType: .present
-                                        )
-                                        
-                                    case .finished:
-                                        /// Show a toast that we have sent the promotions
-                                        viewModel?.showToast(
-                                            text: "adminSendingPromotion"
+            MessageSender
+                .promoteGroupMembers(
+                    groupSessionId: SessionId(.group, hex: threadId),
+                    members: memberInfo,
+                    isRetry: isRetry,
+                    using: dependencies
+                )
+                .showingBlockingLoading(in: self.navigatableState)
+                .subscribe(on: DispatchQueue.global(qos: .userInitiated), using: dependencies)
+                .receive(on: DispatchQueue.main, using: dependencies)
+                .sinkUntilComplete(
+                    receiveCompletion: { [threadId, dependencies] result in
+                        switch result {
+                            case .failure:
+                                viewModel?.transitionToScreen(
+                                    ConfirmationModal(
+                                        info: ConfirmationModal.Info(
+                                            title: "promotionFailed"
                                                 .putNumber(memberInfo.count)
                                                 .localized(),
-                                            backgroundColor: .backgroundSecondary
+                                            body: .text("promotionFailedDescription"
+                                                .putNumber(memberInfo.count)
+                                                .localized()),
+                                            confirmTitle: "yes".localized(),
+                                            cancelTitle: "cancel".localized(),
+                                            cancelStyle: .alert_text,
+                                            dismissOnConfirm: false,
+                                            onConfirm: { modal in
+                                                modal.dismiss(animated: true) {
+                                                    send(viewModel, memberInfo, isRetry: isRetry)
+                                                }
+                                            },
+                                            onCancel: { modal in
+                                                /// Flag the members as failed
+                                                let memberIds: [String] = memberInfo.map(\.id)
+                                                dependencies[singleton: .storage].writeAsync { db in
+                                                    try? GroupMember
+                                                        .filter(GroupMember.Columns.groupId == threadId)
+                                                        .filter(memberIds.contains(GroupMember.Columns.profileId))
+                                                        .updateAllAndConfig(
+                                                            db,
+                                                            GroupMember.Columns.roleStatus.set(to: GroupMember.RoleStatus.failed),
+                                                            using: dependencies
+                                                        )
+                                                }
+                                                modal.dismiss(animated: true)
+                                            }
                                         )
-                                }
-                            }
+                                    ),
+                                    transitionType: .present
+                                )
+                                
+                            case .finished:
+                                /// Show a toast that we have sent the promotions
+                                viewModel?.showToast(
+                                    text: "adminSendingPromotion"
+                                        .putNumber(memberInfo.count)
+                                        .localized(),
+                                    backgroundColor: .backgroundSecondary
+                                )
                         }
-                    )
-            }
-            viewModel?.transitionToScreen(viewController, transitionType: .present)
+                    }
+                )
         }
         
         /// Show the selection list
@@ -1317,6 +1315,9 @@ class ThreadSettingsViewModel: SessionTableViewModel, NavigatableStateHolder, Ob
                                 groupDescription: finalDescription,
                                 using: dependencies
                             )
+                            .showingBlockingLoading(in: self?.navigatableState)
+                            .subscribe(on: DispatchQueue.global(qos: .userInitiated), using: dependencies)
+                            .receive(on: DispatchQueue.main, using: dependencies)
                             .sinkUntilComplete(
                                 receiveCompletion: { [weak self] result in
                                     switch result {
@@ -1423,90 +1424,91 @@ class ThreadSettingsViewModel: SessionTableViewModel, NavigatableStateHolder, Ob
             default: break
         }
         
-        func performChanges(_ viewController: ModalActivityIndicatorViewController, _ displayPictureUpdate: DisplayPictureManager.Update) {
-            let existingFileName: String? = dependencies[singleton: .storage].read { [threadId] db in
-                try? ClosedGroup
-                    .filter(id: threadId)
-                    .select(.displayPictureFilename)
-                    .asRequest(of: String.self)
-                    .fetchOne(db)
-            }
-            
-            MessageSender
-                .updateGroup(
-                    groupSessionId: threadId,
-                    displayPictureUpdate: displayPictureUpdate,
-                    using: dependencies
-                )
-                .sinkUntilComplete(
-                    receiveCompletion: { [dependencies] result in
-                        // Remove any cached avatar image value
-                        if let existingFileName: String = existingFileName {
-                            dependencies.mutate(cache: .displayPicture) { $0.imageData[existingFileName] = nil }
-                        }
+        Just(displayPictureUpdate)
+            .setFailureType(to: Error.self)
+            .flatMap { [dependencies] update -> AnyPublisher<DisplayPictureManager.Update, Error> in
+                switch displayPictureUpdate {
+                    case .none, .currentUserRemove, .currentUserUploadImageData, .currentUserUpdateTo,
+                        .contactRemove, .contactUpdateTo:
+                        return Fail(error: AttachmentError.invalidStartState).eraseToAnyPublisher()
                         
-                        DispatchQueue.main.async {
-                            viewController.dismiss(completion: {
-                                onComplete()
-                            })
-                        }
-                    }
-                )
-        }
-        
-        let viewController = ModalActivityIndicatorViewController(canCancel: false) { [weak self, dependencies] viewController in
-            switch displayPictureUpdate {
-                case .none, .currentUserRemove, .currentUserUploadImageData, .currentUserUpdateTo,
-                    .contactRemove, .contactUpdateTo:
-                    viewController.dismiss(animated: true) // Shouldn't get called
-                
-                case .groupRemove, .groupUpdateTo: performChanges(viewController, displayPictureUpdate)
-                case .groupUploadImageData(let data):
-                    dependencies[singleton: .displayPictureManager]
-                        .prepareAndUploadDisplayPicture(imageData: data)
-                        .subscribe(on: DispatchQueue.global(qos: .background), using: dependencies)
-                        .receive(on: DispatchQueue.main, using: dependencies)
-                        .sinkUntilComplete(
-                            receiveCompletion: { result in
-                                switch result {
-                                    case .finished: break
-                                    case .failure(let error):
-                                        viewController.dismiss {
-                                            let message: String = {
-                                                switch (displayPictureUpdate, error) {
-                                                    case (.groupRemove, _): return "profileDisplayPictureRemoveError".localized()
-                                                    case (_, .uploadMaxFileSizeExceeded):
-                                                        return "profileDisplayPictureSizeError".localized()
-                                                    
-                                                    default: return "errorConnection".localized()
-                                                }
-                                            }()
-                                            
-                                            self?.transitionToScreen(
-                                                ConfirmationModal(
-                                                    info: ConfirmationModal.Info(
-                                                        title: "deleteAfterLegacyGroupsGroupUpdateErrorTitle".localized(),
-                                                        body: .text(message),
-                                                        cancelTitle: "okay".localized(),
-                                                        cancelStyle: .alert_text,
-                                                        dismissType: .single
-                                                    )
-                                                ),
-                                                transitionType: .present
-                                            )
-                                        }
-                                }
-                            },
-                            receiveValue: { url, fileName, key in
-                                performChanges(
-                                    viewController,
-                                    .groupUpdateTo(url: url, key: key, fileName: fileName)
-                                )
+                    case .groupRemove, .groupUpdateTo:
+                        return Just(displayPictureUpdate)
+                            .setFailureType(to: Error.self)
+                            .eraseToAnyPublisher()
+                        
+                    case .groupUploadImageData(let data):
+                        return dependencies[singleton: .displayPictureManager]
+                            .prepareAndUploadDisplayPicture(imageData: data)
+                            .map { url, fileName, key -> DisplayPictureManager.Update in
+                                .groupUpdateTo(url: url, key: key, fileName: fileName)
                             }
-                        )
+                            .mapError { $0 as Error }
+                            .eraseToAnyPublisher()
+                }
             }
-        }
-        self.transitionToScreen(viewController, transitionType: .present)
+            .flatMapStorageReadPublisher(using: dependencies) { [threadId] db, displayPictureUpdate -> (DisplayPictureManager.Update, String?) in
+                (
+                    displayPictureUpdate,
+                    try? ClosedGroup
+                        .filter(id: threadId)
+                        .select(.displayPictureFilename)
+                        .asRequest(of: String.self)
+                        .fetchOne(db)
+                )
+            }
+            .flatMap { [threadId, dependencies] displayPictureUpdate, existingFileName -> AnyPublisher<String?, Error> in
+                MessageSender
+                    .updateGroup(
+                        groupSessionId: threadId,
+                        displayPictureUpdate: displayPictureUpdate,
+                        using: dependencies
+                    )
+                    .map { _ in existingFileName }
+                    .eraseToAnyPublisher()
+            }
+            .handleEvents(
+                receiveOutput: { [dependencies] existingFileName in
+                    // Remove any cached avatar image value
+                    if let existingFileName: String = existingFileName {
+                        dependencies.mutate(cache: .displayPicture) { $0.imageData[existingFileName] = nil }
+                    }
+                }
+            )
+            .showingBlockingLoading(in: self.navigatableState)
+            .subscribe(on: DispatchQueue.global(qos: .userInitiated), using: dependencies)
+            .receive(on: DispatchQueue.main, using: dependencies)
+            .sinkUntilComplete(
+                receiveCompletion: { [weak self] result in
+                    switch result {
+                        case .failure(let error):
+                            let message: String = {
+                                switch (displayPictureUpdate, error) {
+                                    case (.groupRemove, _): return "profileDisplayPictureRemoveError".localized()
+                                    case (_, DisplayPictureError.uploadMaxFileSizeExceeded):
+                                        return "profileDisplayPictureSizeError".localized()
+                                    
+                                    default: return "errorConnection".localized()
+                                }
+                            }()
+                            
+                            self?.transitionToScreen(
+                                ConfirmationModal(
+                                    info: ConfirmationModal.Info(
+                                        title: "deleteAfterLegacyGroupsGroupUpdateErrorTitle".localized(),
+                                        body: .text(message),
+                                        cancelTitle: "okay".localized(),
+                                        cancelStyle: .alert_text,
+                                        dismissType: .single
+                                    )
+                                ),
+                                transitionType: .present
+                            )
+                        
+                        case .finished: onComplete()
+                    }
+                }
+            )
     }
     
     private func updateBlockedState(

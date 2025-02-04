@@ -48,6 +48,9 @@ open class Storage {
     /// When attempting to do a write the transaction will wait this long to acquite a lock before failing
     private static let writeTransactionStartTimeout: TimeInterval = 5
     
+    /// If a transaction takes longer than this duration then we should fail the transaction rather than keep hanging
+    private static let transactionDeadlockTimeoutSeconds: Int = 5
+    
     private static var sharedDatabaseDirectoryPath: String { "\(SessionFileManager.nonInjectedAppSharedDataDirectoryPath)/database" }
     private static var databasePath: String { "\(Storage.sharedDatabaseDirectoryPath)/\(Storage.dbFileName)" }
     private static var databasePathShm: String { "\(Storage.sharedDatabaseDirectoryPath)/\(Storage.dbFileName)-shm" }
@@ -376,7 +379,7 @@ open class Storage {
         // Note: The non-async migration should only be used for unit tests
         guard async else { return migrationCompleted(Result(catching: { try migrator.migrate(dbWriter) })) }
         
-        migrator.asyncMigrate(dbWriter) { result in
+        migrator.asyncMigrate(dbWriter) { [dependencies] result in
             let finalResult: Result<Void, Error> = {
                 switch result {
                     case .failure(let error): return .failure(error)
@@ -384,7 +387,11 @@ open class Storage {
                 }
             }()
             
-            migrationCompleted(finalResult)
+            // Note: We need to dispatch this to the next run toop to prevent blocking if the callback
+            // performs subsequent database operations
+            DispatchQueue.global(qos: .userInitiated).async(using: dependencies) {
+                migrationCompleted(finalResult)
+            }
         }
     }
     
@@ -670,7 +677,10 @@ open class Storage {
         
         /// Perform the actual operation
         switch (StorageState(info.storage), info.isWrite) {
-            case (.invalid(let error), _): result = .failure(error)
+            case (.invalid(let error), _):
+                result = .failure(error)
+                semaphore?.signal()
+                
             case (.valid(let dbWriter), true):
                 dbWriter.asyncWrite(
                     { db in result = .success(try Storage.track(db, info, operation)) },
@@ -705,7 +715,13 @@ open class Storage {
         
         /// If this is a synchronous operation then `semaphore` will exist and will block here waiting on the signal from one of the
         /// above closures to be sent
-        semaphore?.wait()
+        let semaphoreResult: DispatchTimeoutResult? = semaphore?.wait(timeout: .now() + .seconds(Storage.transactionDeadlockTimeoutSeconds))
+
+        /// If the transaction timed out then log the error and report a failure
+        guard semaphoreResult != .timedOut else {
+            StorageState.logIfNeeded(StorageError.transactionDeadlockTimeout, isWrite: info.isWrite)
+            return .failure(StorageError.transactionDeadlockTimeout)
+        }
         
         if !info.isAsync { logErrorIfNeeded(result) }
         return result
