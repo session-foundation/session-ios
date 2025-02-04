@@ -1263,9 +1263,11 @@ extension ConversationVC:
                     UIApplication.shared.open(url, options: [:], completionHandler: nil)
                     self?.showInputAccessoryView()
                 },
-                onCancel: { [weak self] _ in
+                onCancel: { [weak self] modal in
                     UIPasteboard.general.string = url.absoluteString
-                    self?.showInputAccessoryView()
+                    modal.dismiss(animated: true) {
+                        self?.showInputAccessoryView()
+                    }
                 }
             )
         )
