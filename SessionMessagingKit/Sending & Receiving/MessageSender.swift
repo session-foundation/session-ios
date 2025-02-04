@@ -1054,30 +1054,28 @@ public final class MessageSender {
         
         guard !rowIds.isEmpty else { return error }
         
-        // Note: We need to dispatch this after a small 0.01 delay to prevent any potential
-        // re-entrancy issues since the 'asyncMigrate' returns a result containing a DB instance
-        // within a transaction
-        DispatchQueue.global(qos: .background).asyncAfter(deadline: .now() + 0.01, using: dependencies) {
-            dependencies.storage.write { db in
-                switch destination {
-                    case .syncMessage:
-                        try Interaction
-                            .filter(rowIds.contains(Column.rowID))
-                            .updateAll(
-                                db,
-                                Interaction.Columns.state.set(to: Interaction.State.failedToSync),
-                                Interaction.Columns.mostRecentFailureText.set(to: "\(error)")
-                            )
-                        
-                    default:
-                        try Interaction
-                            .filter(rowIds.contains(Column.rowID))
-                            .updateAll(
-                                db,
-                                Interaction.Columns.state.set(to: Interaction.State.failed),
-                                Interaction.Columns.mostRecentFailureText.set(to: "\(error)")
-                            )
-                }
+        /// If we have affected rows then we should update them with the latest error text
+        ///
+        /// **Note:** We `writeAsync` here as performing a syncronous `write` results in a reentrancy assertion
+        dependencies.storage.writeAsync { db in
+            switch destination {
+                case .syncMessage:
+                    try Interaction
+                        .filter(rowIds.contains(Column.rowID))
+                        .updateAll(
+                            db,
+                            Interaction.Columns.state.set(to: Interaction.State.failedToSync),
+                            Interaction.Columns.mostRecentFailureText.set(to: "\(error)")
+                        )
+                    
+                default:
+                    try Interaction
+                        .filter(rowIds.contains(Column.rowID))
+                        .updateAll(
+                            db,
+                            Interaction.Columns.state.set(to: Interaction.State.failed),
+                            Interaction.Columns.mostRecentFailureText.set(to: "\(error)")
+                        )
             }
         }
         

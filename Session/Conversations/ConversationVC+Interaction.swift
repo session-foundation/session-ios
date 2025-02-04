@@ -269,7 +269,7 @@ extension ConversationVC:
                         updates: { db in
                             db[.isGiphyEnabled] = true
                         },
-                        completion: { _, _ in
+                        completion: { _ in
                             DispatchQueue.main.async {
                                 self?.handleGIFButtonTapped()
                             }

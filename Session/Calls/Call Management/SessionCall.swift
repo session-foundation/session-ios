@@ -387,7 +387,7 @@ public final class SessionCall: CurrentCallProtocol, WebRTCSessionDelegate {
                     using: dependencies
                 )
             },
-            completion: { _, _ in
+            completion: { _ in
                 Singleton.callManager.suspendDatabaseIfCallEndedInBackground()
             }
         )

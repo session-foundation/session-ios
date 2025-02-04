@@ -292,11 +292,9 @@ public class PushRegistrationManager: NSObject, PKPushRegistryDelegate, PushRegi
         dependencies.storage.resumeDatabaseAccess()
         LibSession.resumeNetworkAccess()
         
-        let maybeCall: SessionCall? = Storage.shared.read { [dependencies = self.dependencies] db in
-            var call: SessionCall? = nil
-            
+        let maybeCall: SessionCall? = Storage.shared.read { [dependencies = self.dependencies] db -> SessionCall? in
             do {
-                call = SessionCall(
+                let call: SessionCall = SessionCall(
                     db,
                     for: caller,
                     uuid: uuid,
@@ -309,12 +307,14 @@ public class PushRegistrationManager: NSObject, PKPushRegistryDelegate, PushRegi
                     .filter(Interaction.Columns.messageUuid == uuid)
                     .fetchOne(db)
                 
-                call?.callInteractionId = interaction?.id
-            } catch {
+                call.callInteractionId = interaction?.id
+                return call
+            }
+            catch {
                 SNLog("[Calls] Failed to create call due to error: \(error)")
             }
             
-            return call
+            return nil
         }
         
         guard let call: SessionCall = maybeCall else {
