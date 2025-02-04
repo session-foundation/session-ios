@@ -533,7 +533,7 @@ open class Storage {
         
         static func logIfNeeded(_ error: Error, isWrite: Bool) {
             switch error {
-                case DatabaseError.SQLITE_ABORT, DatabaseError.SQLITE_INTERRUPT:
+                case DatabaseError.SQLITE_ABORT, DatabaseError.SQLITE_INTERRUPT, DatabaseError.SQLITE_ERROR:
                     let message: String = ((error as? DatabaseError)?.message ?? "Unknown")
                     Log.error("[Storage] Database \(isWrite ? "write" : "read") failed due to error: \(message)")
                 
@@ -599,8 +599,14 @@ open class Storage {
         _ operation: @escaping (Database) throws -> T,
         _ completion: ((Result<T, Error>) -> Void)? = nil
     ) -> Result<T, Error> {
-        let semaphore: DispatchSemaphore? = (info.isAsync ? nil : DispatchSemaphore(value: 0))
         var result: Result<T, Error> = .failure(StorageError.invalidQueryResult)
+        let semaphore: DispatchSemaphore? = (info.isAsync ? nil : DispatchSemaphore(value: 0))
+        let logErrorIfNeeded: (Result<T, Error>) -> () = { result in
+            switch result {
+                case .success: break
+                case .failure(let error): StorageState.logIfNeeded(error, isWrite: info.isWrite)
+            }
+        }
         
         /// Perform the actual operation
         switch (StorageState(info.storage), info.isWrite) {
@@ -614,6 +620,8 @@ open class Storage {
                             case .failure(let error): result = .failure(error)
                         }
                         semaphore?.signal()
+                        
+                        if info.isAsync { logErrorIfNeeded(result) }
                         completion?(result)
                     }
                 )
@@ -629,6 +637,8 @@ open class Storage {
                         result = .failure(error)
                     }
                     semaphore?.signal()
+                    
+                    if info.isAsync { logErrorIfNeeded(result) }
                     completion?(result)
                 }
         }
@@ -643,12 +653,7 @@ open class Storage {
             return .failure(StorageError.transactionDeadlockTimeout)
         }
         
-        /// Log the error if needed
-        switch result {
-            case .success: break
-            case .failure(let error): StorageState.logIfNeeded(error, isWrite: info.isWrite)
-        }
-        
+        if !info.isAsync { logErrorIfNeeded(result) }
         return result
     }
     
