@@ -133,6 +133,12 @@ final class MainAppContext: AppContext {
     }
     
     func setStatusBarHidden(_ isHidden: Bool, animated isAnimated: Bool) {
+        guard Thread.isMainThread else {
+            return DispatchQueue.main.async { [weak self] in
+                self?.setStatusBarHidden(isHidden, animated: isAnimated)
+            }
+        }
+        
         UIApplication.shared.setStatusBarHidden(isHidden, with: (isAnimated ? .slide : .none))
     }
     
@@ -154,6 +160,12 @@ final class MainAppContext: AppContext {
     
     // stringlint:ignore_contents
     func ensureSleepBlocking(_ shouldBeBlocking: Bool, blockingObjects: [Any]) {
+        guard Thread.isMainThread else {
+            return DispatchQueue.main.async { [weak self] in
+                self?.ensureSleepBlocking(shouldBeBlocking, blockingObjects: blockingObjects)
+            }
+        }
+        
         if UIApplication.shared.isIdleTimerDisabled != shouldBeBlocking {
             if shouldBeBlocking {
                 var logString: String = "Blocking sleep because of: \(String(describing: blockingObjects.first))"
@@ -171,6 +183,12 @@ final class MainAppContext: AppContext {
     }
     
     func setNetworkActivityIndicatorVisible(_ value: Bool) {
+        guard Thread.isMainThread else {
+            return DispatchQueue.main.async { [weak self] in
+                self?.setNetworkActivityIndicatorVisible(value)
+            }
+        }
+        
         UIApplication.shared.isNetworkActivityIndicatorVisible = value
     }
     
