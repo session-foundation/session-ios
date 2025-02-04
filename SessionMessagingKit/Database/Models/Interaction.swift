@@ -523,6 +523,7 @@ public extension Interaction {
                 required: Interaction.thread
                     .aliased(thread)
                     .joining(optional: SessionThread.contact)
+                    .joining(optional: SessionThread.closedGroup)
                     .filter(
                         // Ignore muted threads
                         SessionThread.Columns.mutedUntilTimestamp == nil ||
