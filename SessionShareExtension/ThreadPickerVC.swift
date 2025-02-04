@@ -65,7 +65,9 @@ final class ThreadPickerVC: UIViewController, UITableViewDataSource, UITableView
     private lazy var noAccountErrorLabel: UILabel = {
         let result: UILabel = UILabel()
         result.font = .systemFont(ofSize: Values.mediumFontSize)
-        result.text = "Oops! Looks like you don't have a \(Constants.app_name) account yet.\n\nYou'll need to create one in the \(Constants.app_name) app before you can share."//.localized()
+        result.text = "shareExtensionNoAccountError"
+            .put(key: "app_name", value: Constants.app_name)
+            .localized()
         result.textAlignment = .center
         result.themeTextColor = .textPrimary
         result.numberOfLines = 0

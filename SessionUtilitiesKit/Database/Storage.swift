@@ -898,55 +898,51 @@ public extension Publisher where Failure == Error {
 // MARK: - CallInfo
 
 private extension Storage {
-    // MARK: - CallInfo
-
-    private extension Storage {
-        class CallInfo {
-            enum Behaviour {
-                case syncRead
-                case asyncRead
-                case syncWrite
-                case asyncWrite
-            }
+    class CallInfo {
+        enum Behaviour {
+            case syncRead
+            case asyncRead
+            case syncWrite
+            case asyncWrite
+        }
+        
+        weak var storage: Storage?
+        let file: String
+        let function: String
+        let line: Int
+        let behaviour: Behaviour
+        
+        var callInfo: String {
+            let fileInfo: String = (file.components(separatedBy: "/").last.map { "\($0):\(line) - " } ?? "")
             
-            weak var storage: Storage?
-            let file: String
-            let function: String
-            let line: Int
-            let behaviour: Behaviour
-            
-            var callInfo: String {
-                let fileInfo: String = (file.components(separatedBy: "/").last.map { "\($0):\(line) - " } ?? "")
-                
-                return "\(fileInfo)\(function)"
+            return "\(fileInfo)\(function)"
+        }
+        
+        var isWrite: Bool {
+            switch behaviour {
+                case .syncWrite, .asyncWrite: return true
+                case .syncRead, .asyncRead: return false
             }
-            
-            var isWrite: Bool {
-                switch behaviour {
-                    case .syncWrite, .asyncWrite: return true
-                    case .syncRead, .asyncRead: return false
-                }
+        }
+        var isAsync: Bool {
+            switch behaviour {
+                case .asyncRead, .asyncWrite: return true
+                case .syncRead, .syncWrite: return false
             }
-            var isAsync: Bool {
-                switch behaviour {
-                    case .asyncRead, .asyncWrite: return true
-                    case .syncRead, .syncWrite: return false
-                }
-            }
-            
-            init(
-                _ storage: Storage?,
-                _ file: String,
-                _ function: String,
-                _ line: Int,
-                _ behaviour: Behaviour
-            ) {
-                self.storage = storage
-                self.file = file
-                self.function = function
-                self.line = line
-                self.behaviour = behaviour
-            }
+        }
+        
+        init(
+            _ storage: Storage?,
+            _ file: String,
+            _ function: String,
+            _ line: Int,
+            _ behaviour: Behaviour
+        ) {
+            self.storage = storage
+            self.file = file
+            self.function = function
+            self.line = line
+            self.behaviour = behaviour
         }
     }
 }

@@ -2735,8 +2735,8 @@ extension ConversationVC {
         let closedGroupName: String? = self.viewModel.threadData.closedGroupName
         let confirmationModal: ConfirmationModal = ConfirmationModal(
             info: ConfirmationModal.Info(
-                title: "Recreate Group",//.localized(),
-                body: .text("Chat history will not be transferred to the new group. You can still view all chat history in your old group."/*.localized()*/),
+                title: "recreateGroup".localized(),
+                body: .text("legacyGroupChatHistory".localized()),
                 confirmTitle: "theContinue".localized(),
                 confirmStyle: .danger,
                 cancelStyle: .alert_text

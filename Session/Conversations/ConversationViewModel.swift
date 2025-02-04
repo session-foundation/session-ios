@@ -69,10 +69,10 @@ public class ConversationViewModel: OWSAudioPlayerDelegate, NavigatableStateHold
         let localizationKey: String
         
         switch (dependencies[feature: .legacyGroupsDeprecated], threadData.currentUserIsClosedGroupAdmin == true) {
-            case (false, false): localizationKey = "groupLegacyBanner"
-            case (false, true): localizationKey = "groupLegacyBanner"
-            case (true, false): localizationKey = "groupLegacyBanner"
-            case (true, true): localizationKey = "groupLegacyBanner"
+            case (false, false): localizationKey = "legacyGroupBeforeDeprecationMember"
+            case (false, true): localizationKey = "legacyGroupBeforeDeprecationAdmin"
+            case (true, false): localizationKey = "legacyGroupAfterDeprecationMember"
+            case (true, true): localizationKey = "legacyGroupAfterDeprecationAdmin"
         }
         
         // FIXME: Strings should be updated in Crowdin to include the {icon}
