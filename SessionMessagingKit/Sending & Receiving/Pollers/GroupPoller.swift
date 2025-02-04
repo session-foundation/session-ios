@@ -103,6 +103,12 @@ public extension GroupPoller {
                             .fetchSet(db)
                     }?
                     .forEach { [weak self] swarmPublicKey in
+                        // If legacy groups have been deprecated then don't start pollers for them
+                        guard
+                            !dependencies[feature: .legacyGroupsDeprecated] ||
+                            (try? SessionId.Prefix(from: swarmPublicKey)) != .standard
+                        else { return }
+                        
                         self?.getOrCreatePoller(for: swarmPublicKey).startIfNeeded()
                     }
             }

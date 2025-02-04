@@ -78,6 +78,7 @@ class DeveloperSettingsViewModel: SessionTableViewModel, NavigatableStateHolder,
         case debugDisappearingMessageDurations
         
         case updatedGroups
+        case legacyGroupsDeprecated
         case updatedGroupsDisableAutoApprove
         case updatedGroupsRemoveMessagesOnKick
         case updatedGroupsAllowHistoricAccessOnInvite
@@ -113,6 +114,7 @@ class DeveloperSettingsViewModel: SessionTableViewModel, NavigatableStateHolder,
                 case .debugDisappearingMessageDurations: return "debugDisappearingMessageDurations"
                 
                 case .updatedGroups: return "updatedGroups"
+                case .legacyGroupsDeprecated: return "legacyGroupsDeprecated"
                 case .updatedGroupsDisableAutoApprove: return "updatedGroupsDisableAutoApprove"
                 case .updatedGroupsRemoveMessagesOnKick: return "updatedGroupsRemoveMessagesOnKick"
                 case .updatedGroupsAllowHistoricAccessOnInvite: return "updatedGroupsAllowHistoricAccessOnInvite"
@@ -151,6 +153,7 @@ class DeveloperSettingsViewModel: SessionTableViewModel, NavigatableStateHolder,
                 case .debugDisappearingMessageDurations: result.append(.debugDisappearingMessageDurations); fallthrough
                 
                 case .updatedGroups: result.append(.updatedGroups); fallthrough
+                case .legacyGroupsDeprecated: result.append(.legacyGroupsDeprecated); fallthrough
                 case .updatedGroupsDisableAutoApprove: result.append(.updatedGroupsDisableAutoApprove); fallthrough
                 case .updatedGroupsRemoveMessagesOnKick: result.append(.updatedGroupsRemoveMessagesOnKick); fallthrough
                 case .updatedGroupsAllowHistoricAccessOnInvite:
@@ -189,6 +192,7 @@ class DeveloperSettingsViewModel: SessionTableViewModel, NavigatableStateHolder,
         let updatedDisappearingMessages: Bool
         
         let updatedGroups: Bool
+        let legacyGroupsDeprecated: Bool
         let updatedGroupsDisableAutoApprove: Bool
         let updatedGroupsRemoveMessagesOnKick: Bool
         let updatedGroupsAllowHistoricAccessOnInvite: Bool
@@ -220,6 +224,7 @@ class DeveloperSettingsViewModel: SessionTableViewModel, NavigatableStateHolder,
                 updatedDisappearingMessages: dependencies[feature: .updatedDisappearingMessages],
                 
                 updatedGroups: dependencies[feature: .updatedGroups],
+                legacyGroupsDeprecated: dependencies[feature: .legacyGroupsDeprecated],
                 updatedGroupsDisableAutoApprove: dependencies[feature: .updatedGroupsDisableAutoApprove],
                 updatedGroupsRemoveMessagesOnKick: dependencies[feature: .updatedGroupsRemoveMessagesOnKick],
                 updatedGroupsAllowHistoricAccessOnInvite: dependencies[feature: .updatedGroupsAllowHistoricAccessOnInvite],
@@ -475,7 +480,7 @@ class DeveloperSettingsViewModel: SessionTableViewModel, NavigatableStateHolder,
                     id: .updatedGroups,
                     title: "Create Updated Groups",
                     subtitle: """
-                    Controls whether newly created groups are updated or legacy groups.
+                    Controls whether newly created groups are updated or legacy groups.                    
                     """,
                     trailingAccessory: .toggle(
                         current.updatedGroups,
@@ -486,6 +491,22 @@ class DeveloperSettingsViewModel: SessionTableViewModel, NavigatableStateHolder,
                             for: .updatedGroups,
                             to: !current.updatedGroups
                         )
+                    }
+                ),
+                SessionCell.Info(
+                    id: .legacyGroupsDeprecated,
+                    title: "Legacy Groups Deprecated",
+                    subtitle: """
+                    Controls whether legacy groups have been deprecated.
+                    
+                    Note: This doesn't affect whether updated or legacy groups are created when creating new groups.
+                    """,
+                    trailingAccessory: .toggle(
+                        current.legacyGroupsDeprecated,
+                        oldValue: previous?.legacyGroupsDeprecated
+                    ),
+                    onTap: { [weak self] in
+                        self?.updateLegacyGroupsDeprecated(to: !current.legacyGroupsDeprecated)
                     }
                 ),
                 SessionCell.Info(
@@ -731,6 +752,7 @@ class DeveloperSettingsViewModel: SessionTableViewModel, NavigatableStateHolder,
                 case .updatedDisappearingMessages: updateFlag(for: .updatedDisappearingMessages, to: nil)
                     
                 case .updatedGroups: updateFlag(for: .updatedGroups, to: nil)
+                case .legacyGroupsDeprecated: updateLegacyGroupsDeprecated(to: nil)
                 case .updatedGroupsDisableAutoApprove: updateFlag(for: .updatedGroupsDisableAutoApprove, to: nil)
                 case .updatedGroupsRemoveMessagesOnKick: updateFlag(for: .updatedGroupsRemoveMessagesOnKick, to: nil)
                 case .updatedGroupsAllowHistoricAccessOnInvite:
@@ -902,6 +924,17 @@ class DeveloperSettingsViewModel: SessionTableViewModel, NavigatableStateHolder,
         /// Update to the new flag
         dependencies.set(feature: feature, to: updatedFlag)
         forceRefresh(type: .databaseQuery)
+    }
+    
+    private func updateLegacyGroupsDeprecated(to updatedFlag: Bool?) {
+        updateFlag(for: .legacyGroupsDeprecated, to: updatedFlag)
+        
+        // Stop and restart the group pollers now that the flag has been updated (legacy groups
+        // will/won't be started based on the flag)
+        dependencies.mutate(cache: .groupPollers) {
+            $0.stopAndRemoveAllPollers()
+            $0.startAllPollers()
+        }
     }
     
     private func updateForceOffline(current: Bool) {

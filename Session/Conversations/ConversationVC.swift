@@ -130,6 +130,7 @@ final class ConversationVC: BaseVC, LibSessionRespondingViewController, Conversa
     var scrollButtonBottomConstraint: NSLayoutConstraint?
     var scrollButtonMessageRequestsBottomConstraint: NSLayoutConstraint?
     var messageRequestsViewBotomConstraint: NSLayoutConstraint?
+    var legacyGroupsFooterViewViewTopConstraint: NSLayoutConstraint?
     
     lazy var titleView: ConversationTitleView = {
         let result: ConversationTitleView = ConversationTitleView(using: viewModel.dependencies)
@@ -231,23 +232,16 @@ final class ConversationVC: BaseVC, LibSessionRespondingViewController, Conversa
                 onTap: { [weak self] in self?.removeOutdatedClientBanner() }
             )
         )
+        result.isHidden = true
         
         return result
     }()
 
     lazy var legacyGroupsBanner: InfoBanner = {
-        // FIXME: String should be updated in Crowdin to include the {icon}
         let result: InfoBanner = InfoBanner(
             info: InfoBanner.Info(
-                font: .systemFont(ofSize: Values.miniFontSize),
-                message: "groupLegacyBanner"
-                    .put(key: "date", value: Features.legacyGroupDepricationDate.formattedForBanner)
-                    .localizedFormatted(baseFont: .systemFont(ofSize: Values.miniFontSize))
-                    .appending(string: " ")     // Designs have a space before the icon
-                    .appending(
-                        Lucide.Icon.squareArrowUpRight.attributedString(for: .systemFont(ofSize: Values.miniFontSize))
-                    )
-                    .appending(string: " "),    // In case it's a RTL font
+                font: viewModel.legacyGroupsBannerFont,
+                message: viewModel.legacyGroupsBannerMessage,
                 icon: .none,
                 tintColor: .messageBubble_outgoingText,
                 backgroundColor: .primary,
@@ -332,6 +326,46 @@ final class ConversationVC: BaseVC, LibSessionRespondingViewController, Conversa
         onAccept: { [weak self] in self?.acceptMessageRequest() },
         onDecline: { [weak self] in self?.declineMessageRequest() }
     )
+    
+    private lazy var legacyGroupsRecreateGroupView: UIView = {
+        let result: UIView = UIView()
+        result.isHidden = (
+            viewModel.threadData.threadVariant != .legacyGroup ||
+            viewModel.threadData.currentUserIsClosedGroupAdmin != true
+        )
+        
+        return result
+    }()
+    
+    private lazy var legacyGroupsFadeView: GradientView = {
+        let result: GradientView = GradientView()
+        result.themeBackgroundGradient = [
+            .value(.backgroundPrimary, alpha: 0), // Want this to take up 20% (~20px)
+            .backgroundPrimary,
+            .backgroundPrimary,
+            .backgroundPrimary
+        ]
+        result.set(.height, to: 80)
+        
+        return result
+    }()
+    
+    private lazy var legacyGroupsInputBackgroundView: UIView = {
+        let result: UIView = UIView()
+        result.themeBackgroundColor = .backgroundPrimary
+        
+        return result
+    }()
+    
+    private lazy var legacyGroupsFooterButton: SessionButton = {
+        let result: SessionButton = SessionButton(style: .bordered, size: .medium)
+        result.translatesAutoresizingMaskIntoConstraints = false
+        result.setTitle("Recreate Group", for: .normal)
+        result.addTarget(self, action: #selector(recreateLegacyGroupTapped), for: .touchUpInside)
+        result.accessibilityIdentifier = "Legacy Groups Recreate Button"
+        
+        return result
+    }()
 
     // MARK: - Settings
     
@@ -406,6 +440,11 @@ final class ConversationVC: BaseVC, LibSessionRespondingViewController, Conversa
         view.addSubview(scrollButton)
         view.addSubview(stateStackView)
         view.addSubview(messageRequestFooterView)
+        view.addSubview(legacyGroupsRecreateGroupView)
+        
+        legacyGroupsRecreateGroupView.addSubview(legacyGroupsInputBackgroundView)
+        legacyGroupsRecreateGroupView.addSubview(legacyGroupsFadeView)
+        legacyGroupsRecreateGroupView.addSubview(legacyGroupsFooterButton)
         
         stateStackView.pin(.top, to: .top, of: view, withInset: 0)
         stateStackView.pin(.leading, to: .leading, of: view, withInset: 0)
@@ -418,6 +457,22 @@ final class ConversationVC: BaseVC, LibSessionRespondingViewController, Conversa
         self.scrollButtonBottomConstraint = scrollButton.pin(.bottom, to: .bottom, of: view, withInset: -16)
         self.scrollButtonBottomConstraint?.isActive = false // Note: Need to disable this to avoid a conflict with the other bottom constraint
         self.scrollButtonMessageRequestsBottomConstraint = scrollButton.pin(.bottom, to: .top, of: messageRequestFooterView, withInset: -4)
+        
+        legacyGroupsFooterViewViewTopConstraint = legacyGroupsRecreateGroupView
+            .pin(.top, to: .bottom, of: view, withInset: -Values.footerGradientHeight(window: UIApplication.shared.keyWindow))
+        legacyGroupsRecreateGroupView.pin(.leading, to: .leading, of: view)
+        legacyGroupsRecreateGroupView.pin(.trailing, to: .trailing, of: view)
+        legacyGroupsRecreateGroupView.pin(.bottom, to: .bottom, of: view)
+        legacyGroupsFadeView.pin(.top, to: .top, of: legacyGroupsRecreateGroupView)
+        legacyGroupsFadeView.pin(.leading, to: .leading, of: legacyGroupsRecreateGroupView)
+        legacyGroupsFadeView.pin(.trailing, to: .trailing, of: legacyGroupsRecreateGroupView)
+        legacyGroupsInputBackgroundView.pin(.top, to: .bottom, of: legacyGroupsFadeView)
+        legacyGroupsInputBackgroundView.pin(.leading, to: .leading, of: legacyGroupsRecreateGroupView)
+        legacyGroupsInputBackgroundView.pin(.trailing, to: .trailing, of: legacyGroupsRecreateGroupView)
+        legacyGroupsInputBackgroundView.pin(.bottom, to: .bottom, of: legacyGroupsRecreateGroupView)
+        legacyGroupsFooterButton.pin(.top, to: .top, of: legacyGroupsFadeView, withInset: 32)
+        legacyGroupsFooterButton.pin(.leading, to: .leading, of: legacyGroupsFadeView, withInset: 16)
+        legacyGroupsFooterButton.pin(.trailing, to: .trailing, of: legacyGroupsFadeView, withInset: -16)
 
         // Unread count view
         view.addSubview(unreadCountView)
@@ -1268,10 +1323,7 @@ final class ConversationVC: BaseVC, LibSessionRespondingViewController, Conversa
             
             guard
                 let threadData: SessionThreadViewModel = threadData,
-                (
-                    threadData.threadRequiresApproval == false &&
-                    threadData.threadIsMessageRequest == false
-                )
+                threadData.canAccessSettings(using: viewModel.dependencies)
             else {
                 // Note: Adding empty buttons because without it the title alignment is busted (Note: The size was
                 // taken from the layout inspector for the back button in Xcode
@@ -1352,11 +1404,22 @@ final class ConversationVC: BaseVC, LibSessionRespondingViewController, Conversa
             var keyboardEndFrame: CGRect = userInfo[UIResponder.keyboardFrameEndUserInfoKey] as? CGRect
         else { return }
         
-        // If reduce motion+crossfade transitions is on, in iOS 14 UIKit vends out a keyboard end frame
+        // If reduce motion+crossfade transitions is on, in iOS 14 UIKit sends out a keyboard end frame
         // of CGRect zero. This breaks the math below.
         //
         // If our keyboard end frame is CGRectZero, build a fake rect that's translated off the bottom edge.
         if keyboardEndFrame == .zero {
+            keyboardEndFrame = CGRect(
+                x: UIScreen.main.bounds.minX,
+                y: UIScreen.main.bounds.maxY,
+                width: UIScreen.main.bounds.width,
+                height: 0
+            )
+        }
+        
+        // If we explicitly can't write to the thread then the input will be hidden but they keyboard
+        // still reports that it takes up size, so just report 0 height in that case
+        if viewModel.threadData.threadCanWrite == false {
             keyboardEndFrame = CGRect(
                 x: UIScreen.main.bounds.minX,
                 y: UIScreen.main.bounds.maxY,
@@ -1430,6 +1493,7 @@ final class ConversationVC: BaseVC, LibSessionRespondingViewController, Conversa
         let insetDifference: CGFloat = (contentInsets.bottom - tableView.contentInset.bottom)
         scrollButtonBottomConstraint?.constant = -(bottomOffset + 12)
         messageRequestsViewBotomConstraint?.constant = -bottomOffset
+        legacyGroupsFooterViewViewTopConstraint?.constant = -(legacyGroupsFadeView.bounds.height + bottomOffset + (viewModel.threadData.threadCanWrite == false ? 16 : 0))
         tableView.contentInset = contentInsets
         tableView.scrollIndicatorInsets = contentInsets
         

@@ -787,6 +787,9 @@ public final class HomeVC: BaseVC, LibSessionRespondingViewController, UITableVi
                     threadViewModel.threadId != threadViewModel.currentUserSessionId && (
                         threadViewModel.threadVariant != .contact ||
                         (try? SessionId(from: section.elements[indexPath.row].threadId))?.prefix == .standard
+                    ) && (
+                        threadViewModel.threadVariant != .legacyGroup ||
+                        !viewModel.dependencies[feature: .legacyGroupsDeprecated]
                     )
                 else { return nil }
                 
@@ -830,10 +833,16 @@ public final class HomeVC: BaseVC, LibSessionRespondingViewController, UITableVi
                 let sessionIdPrefix: SessionId.Prefix? = try? SessionId.Prefix(from: threadViewModel.threadId)
                 
                 // Cannot properly sync outgoing blinded message requests so only provide valid options
-                let shouldHavePinAction: Bool = (
-                    sessionIdPrefix != .blinded15 &&
-                    sessionIdPrefix != .blinded25
-                )
+                let shouldHavePinAction: Bool = {
+                    switch threadViewModel.threadVariant {
+                        case .legacyGroup: return !viewModel.dependencies[feature: .legacyGroupsDeprecated]
+                        default:
+                            return (
+                                sessionIdPrefix != .blinded15 &&
+                                sessionIdPrefix != .blinded25
+                            )
+                    }
+                }()
                 let shouldHaveMuteAction: Bool = {
                     switch threadViewModel.threadVariant {
                         case .contact: return (
@@ -841,8 +850,11 @@ public final class HomeVC: BaseVC, LibSessionRespondingViewController, UITableVi
                             sessionIdPrefix != .blinded15 &&
                             sessionIdPrefix != .blinded25
                         )
+                        
+                        case .group: return (threadViewModel.currentUserIsClosedGroupMember == true)
                             
-                        case .legacyGroup, .group: return (
+                        case .legacyGroup: return (
+                            !viewModel.dependencies[feature: .legacyGroupsDeprecated] &&
                             threadViewModel.currentUserIsClosedGroupMember == true
                         )
                             
@@ -850,9 +862,9 @@ public final class HomeVC: BaseVC, LibSessionRespondingViewController, UITableVi
                     }
                 }()
                 let destructiveAction: UIContextualAction.SwipeAction = {
-                    switch (threadViewModel.threadVariant, threadViewModel.threadIsNoteToSelf, threadViewModel.currentUserIsClosedGroupMember) {
-                        case (.contact, true, _): return .hide
-                        case (.legacyGroup, _, true), (.group, _, true), (.community, _, _): return .leave
+                    switch (threadViewModel.threadVariant, threadViewModel.threadIsNoteToSelf, threadViewModel.currentUserIsClosedGroupMember, viewModel.dependencies[feature: .legacyGroupsDeprecated]) {
+                        case (.contact, true, _, _): return .hide
+                        case (.legacyGroup, _, true, false), (.group, _, true, _), (.community, _, _, _): return .leave
                         default: return .delete
                     }
                 }()

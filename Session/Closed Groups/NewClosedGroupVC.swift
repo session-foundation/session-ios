@@ -31,17 +31,33 @@ final class NewClosedGroupVC: BaseVC, UITableViewDataSource, UITableViewDelegate
     
     private let dependencies: Dependencies
     private let contactProfiles: [Profile]
+    private let hideCloseButton: Bool
+    private let prefilledName: String?
     private lazy var data: [ArraySection<Section, Profile>] = [
         ArraySection(model: .contacts, elements: contactProfiles)
     ]
-    private var selectedProfiles: [String: Profile] = [:]
+    private var selectedProfiles: [String: Profile]
     private var searchText: String = ""
     
     // MARK: - Initialization
     
-    init(using dependencies: Dependencies) {
+    init(
+        hideCloseButton: Bool = false,
+        prefilledName: String? = nil,
+        preselectedProfiles: [Profile] = [],
+        using dependencies: Dependencies
+    ) {
         self.dependencies = dependencies
-        self.contactProfiles = Profile.fetchAllContactProfiles(excludeCurrentUser: true, using: dependencies)
+        self.hideCloseButton = hideCloseButton
+        self.prefilledName = prefilledName
+        self.contactProfiles = Profile
+            .fetchAllContactProfiles(excludeCurrentUser: true, using: dependencies)
+            .appending(contentsOf: preselectedProfiles)
+            .asSet()
+            .sorted(by: { lhs, rhs -> Bool in lhs.displayName() < rhs.displayName() })
+        self.selectedProfiles = preselectedProfiles.reduce(into: [:]) { result, next in
+            result[next.id] = next
+        }
         
         super.init(nibName: nil, bundle: nil)
     }
@@ -85,6 +101,7 @@ final class NewClosedGroupVC: BaseVC, UITableViewDataSource, UITableViewDelegate
             usesDefaultHeight: false,
             customHeight: NewClosedGroupVC.textFieldHeight
         )
+        result.text = prefilledName
         result.set(.height, to: NewClosedGroupVC.textFieldHeight)
         result.themeBorderColor = .borderSeparator
         result.layer.cornerRadius = 13
@@ -191,11 +208,13 @@ final class NewClosedGroupVC: BaseVC, UITableViewDataSource, UITableViewDelegate
         let customTitleFontSize = Values.largeFontSize
         setNavBarTitle("groupCreate".localized(), customFontSize: customTitleFontSize)
         
-        let closeButton = UIBarButtonItem(image: #imageLiteral(resourceName: "X"), style: .plain, target: self, action: #selector(close))
-        closeButton.themeTintColor = .textPrimary
-        navigationItem.rightBarButtonItem = closeButton
-        navigationItem.leftBarButtonItem?.accessibilityIdentifier = "Cancel"
-        navigationItem.leftBarButtonItem?.isAccessibilityElement = true
+        if !hideCloseButton {
+            let closeButton = UIBarButtonItem(image: #imageLiteral(resourceName: "X"), style: .plain, target: self, action: #selector(close))
+            closeButton.themeTintColor = .textPrimary
+            navigationItem.rightBarButtonItem = closeButton
+            navigationItem.leftBarButtonItem?.accessibilityIdentifier = "Cancel"
+            navigationItem.leftBarButtonItem?.isAccessibilityElement = true
+        }
         
         // Set up content
         setUpViewHierarchy()
@@ -378,7 +397,7 @@ final class NewClosedGroupVC: BaseVC, UITableViewDataSource, UITableViewDelegate
         let message: String? = (dependencies[feature: .updatedGroups] || selectedProfiles.count <= 20 ? nil : "deleteAfterLegacyGroupsGroupCreation".localized()
         )
 
-        ModalActivityIndicatorViewController.present(fromViewController: navigationController!, message: message) { [weak self, dependencies] _ in
+        ModalActivityIndicatorViewController.present(fromViewController: navigationController!, message: message) { [weak self, dependencies] activityIndicatorViewController in
             let createPublisher: AnyPublisher<SessionThread, Error> = {
                 switch dependencies[feature: .updatedGroups] {
                     case true:
@@ -422,12 +441,15 @@ final class NewClosedGroupVC: BaseVC, UITableViewDataSource, UITableViewDelegate
                         }
                     },
                     receiveValue: { thread in
+                        /// When this is triggered via the "Recreate Group" action for Legacy Groups the screen will have been
+                        /// pushed instead of presented and, as a result, we need to dismiss the `activityIndicatorViewController`
+                        /// and want the transition to be animated in order to behave nicely
                         dependencies[singleton: .app].presentConversationCreatingIfNeeded(
                             for: thread.id,
                             variant: thread.variant,
                             action: .none,
-                            dismissing: self?.presentingViewController,
-                            animated: false
+                            dismissing: (self?.presentingViewController ?? activityIndicatorViewController),
+                            animated: (self?.presentingViewController == nil)
                         )
                     }
                 )

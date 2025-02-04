@@ -3,6 +3,7 @@
 import Foundation
 import Combine
 import UniformTypeIdentifiers
+import Lucide
 import GRDB
 import DifferenceKit
 import SessionSnodeKit
@@ -62,6 +63,26 @@ public class ConversationViewModel: OWSAudioPlayerDelegate, NavigatableStateHold
     private let markAsReadTrigger: PassthroughSubject<(SessionThreadViewModel.ReadTarget, Int64?), Never> = PassthroughSubject()
     private var markAsReadPublisher: AnyPublisher<Void, Never>?
     public let dependencies: Dependencies
+    
+    public let legacyGroupsBannerFont: UIFont = .systemFont(ofSize: Values.miniFontSize)
+    public lazy var legacyGroupsBannerMessage: NSAttributedString = {
+        let localizationKey: String
+        
+        switch (dependencies[feature: .legacyGroupsDeprecated], threadData.currentUserIsClosedGroupAdmin == true) {
+            case (false, false): localizationKey = "groupLegacyBanner"
+            case (false, true): localizationKey = "groupLegacyBanner"
+            case (true, false): localizationKey = "groupLegacyBanner"
+            case (true, true): localizationKey = "groupLegacyBanner"
+        }
+        
+        // FIXME: Strings should be updated in Crowdin to include the {icon}
+        return localizationKey
+            .put(key: "date", value: Features.legacyGroupDepricationDate.formattedForBanner)
+            .localizedFormatted(baseFont: legacyGroupsBannerFont)
+            .appending(string: " ")     // Designs have a space before the icon
+            .appending(Lucide.Icon.squareArrowUpRight.attributedString(for: legacyGroupsBannerFont))
+            .appending(string: " ")     // In case it's a RTL font
+    }()
     
     public lazy var blockedBannerMessage: String = {
         let threadData: SessionThreadViewModel = self.internalThreadData

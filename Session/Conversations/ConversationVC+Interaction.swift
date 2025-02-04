@@ -35,6 +35,9 @@ extension ConversationVC:
     }
     
     func openSettingsFromTitleView() {
+        // If we shouldn't be able to access settings then disable the title view shortcuts
+        guard viewModel.threadData.canAccessSettings(using: viewModel.dependencies) else { return }
+        
         switch (titleView.currentLabelType, viewModel.threadData.threadVariant, viewModel.threadData.currentUserIsClosedGroupMember, viewModel.threadData.currentUserIsClosedGroupAdmin) {
             case (.userCount, .group, _, true), (.userCount, .legacyGroup, _, true):
                 let viewController = SessionTableViewController(
@@ -876,6 +879,10 @@ extension ConversationVC:
     func handleItemLongPressed(_ cellViewModel: MessageViewModel) {
         // Show the context menu if applicable
         guard
+            (
+                viewModel.threadData.threadVariant != .legacyGroup ||
+                !viewModel.dependencies[feature: .legacyGroupsDeprecated]
+            ),
             // FIXME: Need to update this when an appropriate replacement is added (see https://teng.pub/technical/2021/11/9/uiapplication-key-window-replacement)
             let keyWindow: UIWindow = UIApplication.shared.keyWindow,
             let sectionIndex: Int = self.viewModel.interactionData
@@ -1463,6 +1470,11 @@ extension ConversationVC:
     }
     
     func removeReact(_ cellViewModel: MessageViewModel, for emoji: EmojiWithSkinTones) {
+        guard
+            viewModel.threadData.threadVariant != .legacyGroup ||
+            !viewModel.dependencies[feature: .legacyGroupsDeprecated]
+        else { return }
+        
         react(cellViewModel, with: emoji.rawValue, remove: true)
     }
     
@@ -2711,6 +2723,90 @@ extension ConversationVC {
                 self?.navigationController?.popViewController(animated: true)
             }
         })
+    }
+}
+
+// MARK: - Legacy Group Actions
+
+extension ConversationVC {
+    @objc public func recreateLegacyGroupTapped() {
+        let threadId: String = self.viewModel.threadData.threadId
+        let closedGroupName: String? = self.viewModel.threadData.closedGroupName
+        let confirmationModal: ConfirmationModal = ConfirmationModal(
+            info: ConfirmationModal.Info(
+                title: "Recreate Group",//.localized(),
+                body: .text("Chat history will not be transferred to the new group. You can still view all chat history in your old group."/*.localized()*/),
+                confirmTitle: "theContinue".localized(),
+                confirmStyle: .danger,
+                cancelStyle: .alert_text
+            ) { [weak self, dependencies = viewModel.dependencies] _ in
+                let groupMemberProfiles: [WithProfile<GroupMember>] = dependencies[singleton: .storage]
+                    .read { db in
+                        try GroupMember
+                            .filter(GroupMember.Columns.groupId == threadId)
+                            .fetchAllWithProfiles(db, using: dependencies)
+                    }
+                    .defaulting(to: [])
+                let viewController: NewClosedGroupVC = NewClosedGroupVC(
+                    hideCloseButton: true,
+                    prefilledName: closedGroupName,
+                    preselectedProfiles: groupMemberProfiles
+                        .filter { $0.profileId != $0.currentUserSessionId.hexString }
+                        .map { $0.profile ?? Profile(id: $0.profileId, name: "") },
+                    using: dependencies
+                )
+                
+                // FIXME: Remove this when we can (it's very fragile)
+                /// There isn't current a way to animate the change of the `UINavigationBar` background color so instead we
+                /// insert this `colorAnimationView` on top of the internal `UIBarBackground` and fade it in/out alongside
+                /// the push/pop transitions
+                ///
+                /// **Note:** If we are unable to get the `UIBarBackground` using the below hacks then the navbar will just
+                /// keep it's existing color and look a bit odd on the destination screen
+                let colorAnimationView: UIView = UIView(
+                    frame: self?.navigationController?.navigationBar.bounds ?? .zero
+                )
+                colorAnimationView.autoresizingMask = [.flexibleWidth, .flexibleHeight]
+                colorAnimationView.themeBackgroundColor = .backgroundSecondary
+                colorAnimationView.alpha = 0
+                
+                if
+                    let navigationBar: UINavigationBar = self?.navigationController?.navigationBar,
+                    let barBackgroundView: UIView = navigationBar.subviews.first(where: { subview -> Bool in
+                        "\(subview)".contains("_UIBarBackground") || (
+                            subview.subviews.first is UIImageView &&
+                            (subview.subviews.first as? UIImageView)?.image == nil
+                        )
+                    })
+                {
+                    barBackgroundView.addSubview(colorAnimationView)
+                    
+                    viewController.onViewWillAppear = { vc in
+                        vc.transitionCoordinator?.animate { _ in
+                            colorAnimationView.alpha = 1
+                        }
+                    }
+                    viewController.onViewWillDisappear = { vc in
+                        vc.transitionCoordinator?.animate(
+                            alongsideTransition: { _ in
+                                colorAnimationView.alpha = 0
+                            },
+                            completion: { _ in
+                                colorAnimationView.removeFromSuperview()
+                            }
+                        )
+                    }
+                    viewController.onViewDidDisappear = { _ in
+                        // If the screen is dismissed without an animation then 'onViewWillDisappear'
+                        // won't be called so we need to clean up
+                        colorAnimationView.removeFromSuperview()
+                    }
+                }
+                self?.navigationController?.pushViewController(viewController, animated: true)
+            }
+        )
+        
+        self.navigationController?.present(confirmationModal, animated: true, completion: nil)
     }
 }
 

@@ -44,6 +44,14 @@ public extension FeatureStorage {
         )
     )
     
+    static let legacyGroupsDeprecated: FeatureConfig<Bool> = Dependencies.create(
+        identifier: "legacyGroupsDeprecated",
+        automaticChangeBehaviour: Feature<Bool>.ChangeBehaviour(
+            value: true,
+            condition: .after(timestamp: Features.legacyGroupDepricationDate.timeIntervalSince1970)
+        )
+    )
+    
     static let updatedGroupsDisableAutoApprove: FeatureConfig<Bool> = Dependencies.create(
         identifier: "updatedGroupsDisableAutoApprove"
     )

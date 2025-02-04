@@ -134,7 +134,8 @@ extension ProjectState {
         .regex(Regex.databaseTableName),
         .regex(Regex.enumCaseDefinition),
         .regex(Regex.imageInitialization),
-        .regex(Regex.variableToStringConversion)
+        .regex(Regex.variableToStringConversion),
+        .regex(Regex.localizedParameter)
     ]
 }
 
@@ -324,6 +325,7 @@ enum Regex {
     static let enumCaseDefinition = #/case .* = /#
     static let imageInitialization = #/(?:UI)?Image\((?:named:)?(?:imageName:)?(?:systemName:)?.*\)/#
     static let variableToStringConversion = #/"\\(.*)"/#
+    static let localizedParameter = #/^(?:\.put(?:Number)?\([^)]+\))*/#
     
     static let crypto = #/Crypto.*\(/#
     
