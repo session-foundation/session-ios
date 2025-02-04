@@ -332,7 +332,11 @@ open class Storage {
                 }
             }()
             
-            migrationCompleted(finalResult)
+            // Note: We need to dispatch this to the next run toop to prevent blocking if the callback
+            // performs subsequent database operations
+            DispatchQueue.global(qos: .userInitiated).async(using: dependencies) {
+                migrationCompleted(finalResult)
+            }
         }
     }
     
