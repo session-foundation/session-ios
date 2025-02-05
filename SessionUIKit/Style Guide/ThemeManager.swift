@@ -15,10 +15,12 @@ public enum ThemeManager {
     /// Unfortunately if we don't do this the `ThemeApplier` is immediately deallocated and we can't use it to update the theme
     private static var uiRegistry: NSMapTable<AnyObject, ThemeApplier> = NSMapTable.weakToStrongObjects()
     
+    private static var _hasLoadedTheme: Bool = false
     private static var _theme: Theme = .classicDark                 // Default to `classicDark`
     private static var _primaryColor: Theme.PrimaryColor = .green   // Default to `green`
     private static var _matchSystemNightModeSetting: Bool = false   // Default to `false`
     
+    public static var hasLoadedTheme: Bool { _hasLoadedTheme }
     public static var currentTheme: Theme { _theme }
     public static var primaryColor: Theme.PrimaryColor { _primaryColor }
     public static var matchSystemNightModeSetting: Bool { _matchSystemNightModeSetting }
@@ -42,6 +44,7 @@ public enum ThemeManager {
         let themeChanged: Bool = (_theme != targetTheme || _primaryColor != targetPrimaryColor)
         _theme = targetTheme
         _primaryColor = targetPrimaryColor
+        _hasLoadedTheme = true
         
         if !hasSetInitialSystemTrait || themeChanged {
             updateAllUI()
@@ -364,7 +367,7 @@ internal class ThemeApplier {
             .filter { $0.info != info }
         
         // Automatically apply the theme immediately (if the database has been setup)
-        if SNUIKit.config?.isStorageValid == true {
+        if SNUIKit.config?.isStorageValid == true || ThemeManager.hasLoadedTheme {
             self.apply(theme: ThemeManager.currentTheme, isInitialApplication: true)
         }
     }

@@ -403,6 +403,7 @@ public struct MessageViewModel: FetchableRecordWithRowId, Decodable, Equatable, 
         }()
         let (positionInCluster, isOnlyMessageInCluster): (Position, Bool) = {
             let isFirstInCluster: Bool = (
+                self.variant.isInfoMessage ||
                 prevModel == nil ||
                 shouldShowDateBeforeThisModel || (
                     self.variant.isOutgoing &&
@@ -414,6 +415,7 @@ public struct MessageViewModel: FetchableRecordWithRowId, Decodable, Equatable, 
                 self.authorId != prevModel?.authorId
             )
             let isLastInCluster: Bool = (
+                self.variant.isInfoMessage ||
                 nextModel == nil ||
                 shouldShowDateBeforeNextModel || (
                     self.variant.isOutgoing &&
@@ -510,9 +512,11 @@ public struct MessageViewModel: FetchableRecordWithRowId, Decodable, Equatable, 
                 guard self.variant.isIncoming else { return nil }
                     
                 // Only if there is a date header or the senders are different
-                guard shouldShowDateBeforeThisModel || self.authorId != prevModel?.authorId else {
-                    return nil
-                }
+                guard
+                    shouldShowDateBeforeThisModel ||
+                    self.authorId != prevModel?.authorId ||
+                    prevModel?.variant.isInfoMessage == true
+                else { return nil }
                     
                 return authorDisplayName
             }(),
