@@ -25,6 +25,7 @@ class ThreadSettingsViewModelSpec: QuickSpec {
         @TestState var communityId: String! = "testserver.testRoom"
         @TestState var dependencies: TestDependencies! = TestDependencies { dependencies in
             dependencies[singleton: .scheduler] = .immediate
+            dependencies.forceSynchronous = true
         }
         @TestState(singleton: .storage, in: dependencies) var mockStorage: Storage! = SynchronousStorage(
             customWriter: try! DatabaseQueue(),
@@ -95,9 +96,10 @@ class ThreadSettingsViewModelSpec: QuickSpec {
                     .thenReturn(Authentication.Signature.standard(signature: "TestSignature".bytes))
             }
         )
-        @TestState var timestampMs: Int64! = 1234567890000
         @TestState(cache: .snodeAPI, in: dependencies) var mockSnodeAPICache: MockSnodeAPICache! = MockSnodeAPICache(
             initialSetup: { cache in
+                var timestampMs: Int64 = 1234567890000
+                
                 cache.when { $0.clockOffsetMs }.thenReturn(0)
                 cache
                     .when { $0.currentOffsetTimestampMs() }

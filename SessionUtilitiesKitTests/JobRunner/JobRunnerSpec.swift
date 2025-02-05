@@ -1,6 +1,7 @@
 // Copyright © 2023 Rangeproof Pty Ltd. All rights reserved.
 
 import Foundation
+import Combine
 import GRDB
 
 import Quick
@@ -1787,9 +1788,9 @@ fileprivate enum TestJob: JobExecutor {
     static let requiresThreadId: Bool = false
     static let requiresInteractionId: Bool = false
     
-    static func run(
+    static func run<S: Scheduler>(
         _ job: Job,
-        queue: DispatchQueue,
+        scheduler: S,
         success: @escaping (Job, Bool) -> Void,
         failure: @escaping (Job, Error, Bool) -> Void,
         deferred: @escaping (Job) -> Void,
@@ -1824,13 +1825,13 @@ fileprivate enum TestJob: JobExecutor {
         }
         
         guard dependencies.fixedTime < details.completeTime else {
-            return queue.async(using: dependencies) {
+            return scheduler.schedule(using: dependencies) {
                 completeJob()
             }
         }
         
         dependencies.async(at: details.completeTime) {
-            queue.async(using: dependencies) {
+            scheduler.schedule(using: dependencies) {
                 completeJob()
             }
         }

@@ -322,7 +322,7 @@ public class ConfirmationModal: Modal, UITextFieldDelegate, UITextViewDelegate {
                 
             case .dualInput(let explanation, let firstInputInfo, let secondInputInfo, let onTextChanged):
                 explanationLabel.attributedText = explanation
-                explanationLabel.canScroll = false
+                explanationLabel.scrollMode = .never
                 explanationLabel.isHidden = (explanation == nil)
                 textField.placeholder = firstInputInfo.placeholder
                 textField.text = (firstInputInfo.initialValue ?? "")
@@ -345,7 +345,7 @@ public class ConfirmationModal: Modal, UITextFieldDelegate, UITextViewDelegate {
             case .radio(let explanation, let warning, let options):
                 mainStackView.spacing = 0
                 explanationLabel.attributedText = explanation
-                explanationLabel.canScroll = false
+                explanationLabel.scrollMode = .never
                 explanationLabel.isHidden = (explanation == nil)
                 warningLabel.attributedText = warning
                 warningLabel.isHidden = (warning == nil)

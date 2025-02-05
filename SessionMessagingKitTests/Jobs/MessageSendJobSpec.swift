@@ -96,7 +96,7 @@ class MessageSendJobSpec: QuickSpec {
                 
                 MessageSendJob.run(
                     job,
-                    queue: .main,
+                    scheduler: DispatchQueue.main,
                     success: { _, _ in },
                     failure: { _, runError, runPermanentFailure in
                         error = runError
@@ -124,7 +124,7 @@ class MessageSendJobSpec: QuickSpec {
                 
                 MessageSendJob.run(
                     job,
-                    queue: .main,
+                    scheduler: DispatchQueue.main,
                     success: { _, _ in },
                     failure: { _, runError, runPermanentFailure in
                         error = runError
@@ -200,7 +200,7 @@ class MessageSendJobSpec: QuickSpec {
                     
                     MessageSendJob.run(
                         job,
-                        queue: .main,
+                        scheduler: DispatchQueue.main,
                         success: { _, _ in },
                         failure: { _, runError, runPermanentFailure in
                             error = runError
@@ -231,7 +231,7 @@ class MessageSendJobSpec: QuickSpec {
                     
                     MessageSendJob.run(
                         job,
-                        queue: .main,
+                        scheduler: DispatchQueue.main,
                         success: { _, _ in },
                         failure: { _, runError, runPermanentFailure in
                             error = runError
@@ -264,7 +264,7 @@ class MessageSendJobSpec: QuickSpec {
                     
                     MessageSendJob.run(
                         job,
-                        queue: .main,
+                        scheduler: DispatchQueue.main,
                         success: { _, _ in },
                         failure: { _, runError, runPermanentFailure in
                             error = runError
@@ -304,7 +304,7 @@ class MessageSendJobSpec: QuickSpec {
                         
                         MessageSendJob.run(
                             job,
-                            queue: .main,
+                            scheduler: DispatchQueue.main,
                             success: { _, _ in },
                             failure: { _, runError, runPermanentFailure in
                                 error = runError
@@ -336,7 +336,7 @@ class MessageSendJobSpec: QuickSpec {
                             
                             MessageSendJob.run(
                                 job,
-                                queue: .main,
+                                scheduler: DispatchQueue.main,
                                 success: { _, _ in },
                                 failure: { _, _, _ in },
                                 deferred: { _ in didDefer = true },
@@ -362,7 +362,7 @@ class MessageSendJobSpec: QuickSpec {
                             
                             MessageSendJob.run(
                                 job,
-                                queue: .main,
+                                scheduler: DispatchQueue.main,
                                 success: { _, _ in },
                                 failure: { _, _, _ in },
                                 deferred: { _ in didDefer = true },
@@ -386,7 +386,7 @@ class MessageSendJobSpec: QuickSpec {
                             
                             MessageSendJob.run(
                                 job,
-                                queue: .main,
+                                scheduler: DispatchQueue.main,
                                 success: { _, _ in },
                                 failure: { _, _, _ in },
                                 deferred: { _ in },
@@ -417,7 +417,7 @@ class MessageSendJobSpec: QuickSpec {
                         it("creates a dependency between the new job and the existing one") {
                             MessageSendJob.run(
                                 job,
-                                queue: .main,
+                                scheduler: DispatchQueue.main,
                                 success: { _, _ in },
                                 failure: { _, _, _ in },
                                 deferred: { _ in },

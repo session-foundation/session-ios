@@ -130,7 +130,7 @@ class DisplayPictureDownloadJobSpec: QuickSpec {
                 
                 DisplayPictureDownloadJob.run(
                     job,
-                    queue: .main,
+                    scheduler: DispatchQueue.main,
                     success: { _, _ in },
                     failure: { _, runError, runPermanentFailure in
                         error = runError
@@ -516,7 +516,7 @@ class DisplayPictureDownloadJobSpec: QuickSpec {
                 
                 DisplayPictureDownloadJob.run(
                     job,
-                    queue: .main,
+                    scheduler: DispatchQueue.main,
                     success: { _, _ in },
                     failure: { _, _, _ in },
                     deferred: { _ in },
@@ -572,7 +572,7 @@ class DisplayPictureDownloadJobSpec: QuickSpec {
                 
                 DisplayPictureDownloadJob.run(
                     job,
-                    queue: .main,
+                    scheduler: DispatchQueue.main,
                     success: { _, _ in },
                     failure: { _, _, _ in },
                     deferred: { _ in },
@@ -621,7 +621,7 @@ class DisplayPictureDownloadJobSpec: QuickSpec {
                 justBeforeEach {
                     DisplayPictureDownloadJob.run(
                         job,
-                        queue: .main,
+                        scheduler: DispatchQueue.main,
                         success: { _, _ in jobResult = .succeeded },
                         failure: { _, error, permanent in jobResult = .failed(error, permanent) },
                         deferred: { _ in jobResult = .deferred },

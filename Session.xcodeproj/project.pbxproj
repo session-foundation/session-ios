@@ -381,6 +381,7 @@
 		D2AEACDC16C426DA00C364C0 /* CFNetwork.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = D2AEACDB16C426DA00C364C0 /* CFNetwork.framework */; };
 		FC3BD9881A30A790005B96BB /* Social.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = FC3BD9871A30A790005B96BB /* Social.framework */; };
 		FCB11D8C1A129A76002F93FB /* CoreMedia.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = FCB11D8B1A129A76002F93FB /* CoreMedia.framework */; };
+		FD00CDCB2D5317A7006B96D3 /* Scheduler+Utilities.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD00CDCA2D5317A3006B96D3 /* Scheduler+Utilities.swift */; };
 		FD0150262CA23D5B005B08A1 /* SessionUtilitiesKit.xctestplan in Resources */ = {isa = PBXBuildFile; fileRef = FD0150252CA23D5B005B08A1 /* SessionUtilitiesKit.xctestplan */; };
 		FD0150282CA23DB7005B08A1 /* GRDBExtensions.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD0150272CA23DB7005B08A1 /* GRDBExtensions.swift */; };
 		FD0150292CA23DB7005B08A1 /* GRDBExtensions.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD0150272CA23DB7005B08A1 /* GRDBExtensions.swift */; };
@@ -1665,6 +1666,7 @@
 		E1A0AD8B16E13FDD0071E604 /* CoreFoundation.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = CoreFoundation.framework; path = System/Library/Frameworks/CoreFoundation.framework; sourceTree = SDKROOT; };
 		FC3BD9871A30A790005B96BB /* Social.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Social.framework; path = System/Library/Frameworks/Social.framework; sourceTree = SDKROOT; };
 		FCB11D8B1A129A76002F93FB /* CoreMedia.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = CoreMedia.framework; path = System/Library/Frameworks/CoreMedia.framework; sourceTree = SDKROOT; };
+		FD00CDCA2D5317A3006B96D3 /* Scheduler+Utilities.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Scheduler+Utilities.swift"; sourceTree = "<group>"; };
 		FD0150252CA23D5B005B08A1 /* SessionUtilitiesKit.xctestplan */ = {isa = PBXFileReference; lastKnownFileType = text; path = SessionUtilitiesKit.xctestplan; sourceTree = "<group>"; };
 		FD0150272CA23DB7005B08A1 /* GRDBExtensions.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GRDBExtensions.swift; sourceTree = "<group>"; };
 		FD01502D2CA24310005B08A1 /* BatchRequestSpec.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BatchRequestSpec.swift; sourceTree = "<group>"; };
@@ -3735,6 +3737,7 @@
 				FDF222082818D2B0000A4995 /* NSAttributedString+Utilities.swift */,
 				FD09797127FAA2F500936362 /* Optional+Utilities.swift */,
 				FDE519F62AB7CDC700450C53 /* Result+Utilities.swift */,
+				FD00CDCA2D5317A3006B96D3 /* Scheduler+Utilities.swift */,
 				FDC0F0032BFECE12002CBFB9 /* TimeUnit.swift */,
 				FDE755132C9BC169002A2623 /* UIAlertAction+Utilities.swift */,
 				FDE755152C9BC169002A2623 /* UIApplicationState+Utilities.swift */,
@@ -5979,6 +5982,7 @@
 				FDE755242C9BC1D1002A2623 /* Publisher+Utilities.swift in Sources */,
 				FDBB25E32988B13800F1508E /* _004_AddJobPriority.swift in Sources */,
 				7B7CB192271508AD0079FF93 /* CallRingTonePlayer.swift in Sources */,
+				FD00CDCB2D5317A7006B96D3 /* Scheduler+Utilities.swift in Sources */,
 				FD848B8B283DC509000E298B /* PagedDatabaseObserver.swift in Sources */,
 				B8856E09256F1676001CE70E /* UIDevice+featureSupport.swift in Sources */,
 				FD2272F02C352200004D8A6C /* General.swift in Sources */,

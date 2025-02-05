@@ -99,7 +99,7 @@ class RetrieveDefaultOpenGroupRoomsJobSpec: QuickSpec {
                 
                 RetrieveDefaultOpenGroupRoomsJob.run(
                     job,
-                    queue: .main,
+                    scheduler: DispatchQueue.main,
                     success: { _, _ in  },
                     failure: { _, _, _ in },
                     deferred: { _ in wasDeferred = true },
@@ -115,7 +115,7 @@ class RetrieveDefaultOpenGroupRoomsJobSpec: QuickSpec {
                 
                 RetrieveDefaultOpenGroupRoomsJob.run(
                     job,
-                    queue: .main,
+                    scheduler: DispatchQueue.main,
                     success: { _, _ in  },
                     failure: { _, _, _ in },
                     deferred: { _ in wasDeferred = true },
@@ -140,7 +140,7 @@ class RetrieveDefaultOpenGroupRoomsJobSpec: QuickSpec {
                     ])
                 RetrieveDefaultOpenGroupRoomsJob.run(
                     job,
-                    queue: .main,
+                    scheduler: DispatchQueue.main,
                     success: { _, _ in  },
                     failure: { _, _, _ in },
                     deferred: { _ in wasDeferred = true },
@@ -158,7 +158,7 @@ class RetrieveDefaultOpenGroupRoomsJobSpec: QuickSpec {
                 
                 RetrieveDefaultOpenGroupRoomsJob.run(
                     job,
-                    queue: .main,
+                    scheduler: DispatchQueue.main,
                     success: { _, _ in  },
                     failure: { _, _, _ in },
                     deferred: { _ in wasDeferred = true },
@@ -176,7 +176,7 @@ class RetrieveDefaultOpenGroupRoomsJobSpec: QuickSpec {
                 
                 RetrieveDefaultOpenGroupRoomsJob.run(
                     job,
-                    queue: .main,
+                    scheduler: DispatchQueue.main,
                     success: { _, _ in },
                     failure: { _, _, _ in },
                     deferred: { _ in },
@@ -213,7 +213,7 @@ class RetrieveDefaultOpenGroupRoomsJobSpec: QuickSpec {
                 
                 RetrieveDefaultOpenGroupRoomsJob.run(
                     job,
-                    queue: .main,
+                    scheduler: DispatchQueue.main,
                     success: { _, _ in },
                     failure: { _, _, _ in },
                     deferred: { _ in },
@@ -252,7 +252,7 @@ class RetrieveDefaultOpenGroupRoomsJobSpec: QuickSpec {
                 }
                 RetrieveDefaultOpenGroupRoomsJob.run(
                     job,
-                    queue: .main,
+                    scheduler: DispatchQueue.main,
                     success: { _, _ in },
                     failure: { _, _, _ in },
                     deferred: { _ in },
@@ -278,7 +278,7 @@ class RetrieveDefaultOpenGroupRoomsJobSpec: QuickSpec {
                 
                 RetrieveDefaultOpenGroupRoomsJob.run(
                     job,
-                    queue: .main,
+                    scheduler: DispatchQueue.main,
                     success: { _, _ in },
                     failure: { _, error_, permanentFailure_ in
                         error = error_
@@ -299,7 +299,7 @@ class RetrieveDefaultOpenGroupRoomsJobSpec: QuickSpec {
             it("stores the updated capabilities") {
                 RetrieveDefaultOpenGroupRoomsJob.run(
                     job,
-                    queue: .main,
+                    scheduler: DispatchQueue.main,
                     success: { _, _ in },
                     failure: { _, _, _ in },
                     deferred: { _ in },
@@ -318,7 +318,7 @@ class RetrieveDefaultOpenGroupRoomsJobSpec: QuickSpec {
             it("inserts the returned rooms") {
                 RetrieveDefaultOpenGroupRoomsJob.run(
                     job,
-                    queue: .main,
+                    scheduler: DispatchQueue.main,
                     success: { _, _ in },
                     failure: { _, _, _ in },
                     deferred: { _ in },
@@ -382,7 +382,7 @@ class RetrieveDefaultOpenGroupRoomsJobSpec: QuickSpec {
                 
                 RetrieveDefaultOpenGroupRoomsJob.run(
                     job,
-                    queue: .main,
+                    scheduler: DispatchQueue.main,
                     success: { _, _ in },
                     failure: { _, _, _ in },
                     deferred: { _ in },
@@ -404,7 +404,7 @@ class RetrieveDefaultOpenGroupRoomsJobSpec: QuickSpec {
             it("schedules a display picture download") {
                 RetrieveDefaultOpenGroupRoomsJob.run(
                     job,
-                    queue: .main,
+                    scheduler: DispatchQueue.main,
                     success: { _, _ in },
                     failure: { _, _, _ in },
                     deferred: { _ in },
@@ -452,7 +452,7 @@ class RetrieveDefaultOpenGroupRoomsJobSpec: QuickSpec {
                 
                 RetrieveDefaultOpenGroupRoomsJob.run(
                     job,
-                    queue: .main,
+                    scheduler: DispatchQueue.main,
                     success: { _, _ in },
                     failure: { _, _, _ in },
                     deferred: { _ in },
@@ -511,7 +511,7 @@ class RetrieveDefaultOpenGroupRoomsJobSpec: QuickSpec {
                 
                 RetrieveDefaultOpenGroupRoomsJob.run(
                     job,
-                    queue: .main,
+                    scheduler: DispatchQueue.main,
                     success: { _, _ in },
                     failure: { _, _, _ in },
                     deferred: { _ in },
@@ -541,7 +541,7 @@ class RetrieveDefaultOpenGroupRoomsJobSpec: QuickSpec {
                 
                 RetrieveDefaultOpenGroupRoomsJob.run(
                     job,
-                    queue: .main,
+                    scheduler: DispatchQueue.main,
                     success: { _, _ in },
                     failure: { _, _, _ in },
                     deferred: { _ in },
@@ -556,7 +556,7 @@ class RetrieveDefaultOpenGroupRoomsJobSpec: QuickSpec {
             it("does not schedule a display picture download if the imageId matches and the image has already been downloaded") {
                 RetrieveDefaultOpenGroupRoomsJob.run(
                     job,
-                    queue: .main,
+                    scheduler: DispatchQueue.main,
                     success: { _, _ in },
                     failure: { _, _, _ in },
                     deferred: { _ in },
