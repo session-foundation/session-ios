@@ -2,13 +2,18 @@
 
 import UIKit
 
-class ScrollableLabel: UIView {
+public class ScrollableLabel: UIView {
+    public enum ScrollMode: Equatable, Hashable {
+        case never
+        case automatic
+    }
+    
     private var oldSize: CGSize = .zero
     private var layoutLoopCounter: Int = 0
     
-    var canScroll: Bool = false {
+    var scrollMode: ScrollMode = .automatic {
         didSet {
-            guard canScroll != oldValue else { return }
+            guard scrollMode != oldValue else { return }
             
             updateContentSizeIfNeeded()
         }
@@ -104,7 +109,7 @@ class ScrollableLabel: UIView {
         label.set(.width, to: .width, of: scrollView)
     }
     
-    override func layoutSubviews() {
+    public override func layoutSubviews() {
         super.layoutSubviews()
         
         guard frame.size != oldSize else {
@@ -128,7 +133,7 @@ class ScrollableLabel: UIView {
         // then we need to fix the height of the scroll view to our desired maximum, other
         let maxCalculatedHeight: CGFloat = (label.font.lineHeight * CGFloat(maxNumberOfLinesWhenScrolling))
         
-        switch (canScroll, maxCalculatedHeight <= scrollView.contentSize.height) {
+        switch (scrollMode != .never, maxCalculatedHeight <= scrollView.contentSize.height) {
             case (false, _), (true, false):
                 scrollViewHeightAnchor.isActive = false
                 labelHeightAnchor.isActive = true

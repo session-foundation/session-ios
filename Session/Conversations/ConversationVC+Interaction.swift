@@ -269,7 +269,7 @@ extension ConversationVC:
                         updates: { db in
                             db[.isGiphyEnabled] = true
                         },
-                        completion: { _, _ in
+                        completion: { _ in
                             DispatchQueue.main.async {
                                 self?.handleGIFButtonTapped()
                             }
@@ -1252,8 +1252,7 @@ extension ConversationVC:
                 body: .attributedText(
                     "urlOpenDescription"
                         .put(key: "url", value: url.absoluteString)
-                        .localizedFormatted(baseFont: .systemFont(ofSize: Values.smallFontSize)),
-                    canScroll: true
+                        .localizedFormatted(baseFont: .systemFont(ofSize: Values.smallFontSize))
                 ),
                 confirmTitle: "open".localized(),
                 confirmStyle: .danger,
@@ -1263,9 +1262,11 @@ extension ConversationVC:
                     UIApplication.shared.open(url, options: [:], completionHandler: nil)
                     self?.showInputAccessoryView()
                 },
-                onCancel: { [weak self] _ in
+                onCancel: { [weak self] modal in
                     UIPasteboard.general.string = url.absoluteString
-                    self?.showInputAccessoryView()
+                    modal.dismiss(animated: true) {
+                        self?.showInputAccessoryView()
+                    }
                 }
             )
         )

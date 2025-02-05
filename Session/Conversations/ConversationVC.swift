@@ -554,12 +554,15 @@ final class ConversationVC: BaseVC, LibSessionRespondingViewController, Conversa
             ) &&
             viewModel.threadData.threadIsNoteToSelf == false &&
             viewModel.threadData.threadShouldBeVisible == false &&
-            !LibSession.conversationInConfig(
-                threadId: threadId,
-                threadVariant: viewModel.threadData.threadVariant,
-                visibleOnly: false,
-                using: viewModel.dependencies
-            )
+            !Storage.shared.read({ [dependencies = viewModel.dependencies, threadVariant = viewModel.threadData.threadVariant] db in
+                LibSession.conversationInConfig(
+                    db,
+                    threadId: threadId,
+                    threadVariant: threadVariant,
+                    visibleOnly: false,
+                    using: dependencies
+                )
+            }).defaulting(to: false)
         {
             Storage.shared.writeAsync { db in
                 _ = try SessionThread   // Intentionally use `deleteAll` here instead of `deleteOrLeave`
@@ -659,7 +662,7 @@ final class ConversationVC: BaseVC, LibSessionRespondingViewController, Conversa
                     // PagedDatabaseObserver won't have them so we need to force a re-fetch of the current
                     // data to ensure everything is up to date
                     if didReturnFromBackground {
-                        DispatchQueue.global(qos: .background).asyncAfter(deadline: .now() + 0.01) {
+                        DispatchQueue.global(qos: .background).async {
                             self?.viewModel.pagedDataObserver?.reload()
                         }
                     }

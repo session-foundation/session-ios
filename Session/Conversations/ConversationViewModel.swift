@@ -198,7 +198,7 @@ public class ConversationViewModel: OWSAudioPlayerDelegate, NavigatableStateHold
         )
         
         // Run the initial query on a background thread so we don't block the push transition
-        DispatchQueue.global(qos: .userInitiated).asyncAfter(deadline: .now() + 0.01) { [weak self] in
+        DispatchQueue.global(qos: .userInitiated).async { [weak self] in
             // If we don't have a `initialFocusedInfo` then default to `.pageBefore` (it'll query
             // from a `0` offset)
             switch (focusedInteractionInfo ?? initialData?.initialUnreadInteractionInfo) {
