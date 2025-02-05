@@ -290,21 +290,21 @@ public class ConfirmationModal: Modal, UITextFieldDelegate, UITextViewDelegate {
             case .none:
                 mainStackView.spacing = Values.smallSpacing
                 
-            case .text(let text, let canScroll):
+            case .text(let text, let scrollMode):
                 mainStackView.spacing = Values.smallSpacing
                 explanationLabel.text = text
-                explanationLabel.canScroll = canScroll
+                explanationLabel.scrollMode = scrollMode
                 explanationLabel.isHidden = false
                 
-            case .attributedText(let attributedText, let canScroll):
+            case .attributedText(let attributedText, let scrollMode):
                 mainStackView.spacing = Values.smallSpacing
                 explanationLabel.attributedText = attributedText
-                explanationLabel.canScroll = canScroll
+                explanationLabel.scrollMode = scrollMode
                 explanationLabel.isHidden = false
                 
             case .input(let explanation, let inputInfo, let onTextChanged):
                 explanationLabel.attributedText = explanation
-                explanationLabel.canScroll = false
+                explanationLabel.scrollMode = .never
                 explanationLabel.isHidden = (explanation == nil)
                 textField.placeholder = inputInfo.placeholder
                 textField.text = (inputInfo.initialValue ?? "")
@@ -775,11 +775,11 @@ public extension ConfirmationModal.Info {
         case none
         case text(
             _ text: String,
-            canScroll: Bool = false
+            scrollMode: ScrollableLabel.ScrollMode = .automatic
         )
         case attributedText(
             _ attributedText: NSAttributedString,
-            canScroll: Bool = false
+            scrollMode: ScrollableLabel.ScrollMode = .automatic
         )
         case input(
             explanation: NSAttributedString?,
