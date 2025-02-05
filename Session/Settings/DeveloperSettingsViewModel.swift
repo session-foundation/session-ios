@@ -1265,9 +1265,18 @@ class DeveloperSettingsViewModel: SessionTableViewModel, NavigatableStateHolder,
                         at: URL(
                             fileURLWithPath: dependencies[singleton: .fileManager].appSharedDataDirectoryPath
                         ),
-                        includingPropertiesForKeys: [.isRegularFileKey]
+                        includingPropertiesForKeys: [.isRegularFileKey, .isHiddenKey]
                     )
-                    let fileUrls: [URL] = (deleteEnumerator?.allObjects.compactMap { $0 as? URL } ?? [])
+                    let fileUrls: [URL] = (deleteEnumerator?.allObjects
+                        .compactMap { $0 as? URL }
+                        .filter { url -> Bool in
+                            guard let resourceValues = try? url.resourceValues(forKeys: [.isHiddenKey]) else {
+                                return true
+                            }
+                            
+                            return (resourceValues.isHidden != true)
+                        })
+                        .defaulting(to: [])
                     try fileUrls.forEach { url in
                         /// The database `wal` and `shm` files might not exist anymore at this point
                         /// so we should only remove files which exist to prevent errors
