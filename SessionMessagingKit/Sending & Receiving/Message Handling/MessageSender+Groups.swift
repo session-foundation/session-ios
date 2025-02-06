@@ -185,7 +185,6 @@ extension MessageSender {
             .handleEvents(
                 receiveOutput: { groupSessionId, _, thread, group, groupMembers, preparedNotificationSubscription in
                     let userSessionId: SessionId = dependencies[cache: .general].sessionId
-                    let changeTimestampMs: Int64 = dependencies[cache: .snodeAPI].currentOffsetTimestampMs()
                     
                     // Start polling
                     dependencies
@@ -490,7 +489,7 @@ extension MessageSender {
                         try updatedConfig.upserted(db)
                         
                         /// Add a record of the change to the conversation
-                        let interactionId = try updatedConfig
+                        _ = try updatedConfig
                             .saved(db)
                             .insertControlMessage(
                                 db,
@@ -551,7 +550,6 @@ extension MessageSender {
     public static func addGroupMembers(
         groupSessionId: String,
         members: [(id: String, profile: Profile?)],
-        isRetry: Bool,
         allowAccessToHistoricMessages: Bool,
         using dependencies: Dependencies
     ) -> AnyPublisher<Void, Error> {
@@ -635,13 +633,15 @@ extension MessageSender {
                         
                         /// Since we have added them to `GROUP_MEMBERS` we may as well insert them into the database (even if the request
                         /// fails the local state will have already been updated anyway)
+                        ///
+                        /// Add them in the `sending` state so the UI is in the correct state immediately
                         members.forEach { id, _ in
                             /// Add the member to the database
                             try? GroupMember(
                                 groupId: sessionId.hexString,
                                 profileId: id,
                                 role: .standard,
-                                roleStatus: .notSentYet,
+                                roleStatus: .sending,
                                 isHidden: false
                             ).upsert(db)
                         }
@@ -690,63 +690,59 @@ extension MessageSender {
                     using: dependencies
                 )
                 
-                /// If this is a retry then there is no need to add a record of the change to the conversation (as we would have
-                /// added it during the first attempt)
-                if !isRetry {
-                    let disappearingConfig: DisappearingMessagesConfiguration? = try? DisappearingMessagesConfiguration.fetchOne(db, id: sessionId.hexString)
-                    
-                    /// Add a record of the change to the conversation
-                    _ = try? Interaction(
-                        threadId: groupSessionId,
-                        threadVariant: .group,
-                        authorId: userSessionId.hexString,
-                        variant: .infoGroupMembersUpdated,
-                        body: ClosedGroup.MessageInfo
-                            .addedUsers(
-                                hasCurrentUser: members.map { $0.id }.contains(userSessionId.hexString),
-                                names: members
-                                    .sorted { lhs, rhs in lhs.id == userSessionId.hexString }
-                                    .map { id, profile in
-                                        profile?.displayName(for: .group) ??
-                                        Profile.truncated(id: id, truncating: .middle)
-                                    },
-                                historyShared: allowAccessToHistoricMessages
-                            )
-                            .infoString(using: dependencies),
-                        timestampMs: changeTimestampMs,
-                        expiresInSeconds: disappearingConfig?.expiresInSeconds(),
-                        expiresStartedAtMs: disappearingConfig?.initialExpiresStartedAtMs(
-                            sentTimestampMs: Double(changeTimestampMs)
-                        ),
-                        using: dependencies
-                    ).inserted(db)
-                    
-                    /// Schedule the control message to be sent to the group after the config sync completes
-                    try dependencies[singleton: .jobRunner].add(
-                        db,
-                        job: Job(
-                            variant: .messageSend,
-                            behaviour: .runOnceAfterConfigSyncIgnoringPermanentFailure,
-                            threadId: sessionId.hexString,
-                            details: MessageSendJob.Details(
-                                destination: .closedGroup(groupPublicKey: sessionId.hexString),
-                                message: GroupUpdateMemberChangeMessage(
-                                    changeType: .added,
-                                    memberSessionIds: members.map { $0.id },
-                                    historyShared: allowAccessToHistoricMessages,
-                                    sentTimestampMs: UInt64(changeTimestampMs),
-                                    authMethod: Authentication.groupAdmin(
-                                        groupSessionId: sessionId,
-                                        ed25519SecretKey: Array(groupIdentityPrivateKey)
-                                    ),
-                                    using: dependencies
-                                ).with(try? DisappearingMessagesConfiguration.fetchOne(db, id: sessionId.hexString)),
-                                requiredConfigSyncVariant: .groupMembers
-                            )
-                        ),
-                        canStartJob: false
-                    )
-                }
+                /// Add a record of the change to the conversation
+                let disappearingConfig: DisappearingMessagesConfiguration? = try? DisappearingMessagesConfiguration.fetchOne(db, id: sessionId.hexString)
+                
+                _ = try? Interaction(
+                    threadId: groupSessionId,
+                    threadVariant: .group,
+                    authorId: userSessionId.hexString,
+                    variant: .infoGroupMembersUpdated,
+                    body: ClosedGroup.MessageInfo
+                        .addedUsers(
+                            hasCurrentUser: members.map { $0.id }.contains(userSessionId.hexString),
+                            names: members
+                                .sorted { lhs, rhs in lhs.id == userSessionId.hexString }
+                                .map { id, profile in
+                                    profile?.displayName(for: .group) ??
+                                    Profile.truncated(id: id, truncating: .middle)
+                                },
+                            historyShared: allowAccessToHistoricMessages
+                        )
+                        .infoString(using: dependencies),
+                    timestampMs: changeTimestampMs,
+                    expiresInSeconds: disappearingConfig?.expiresInSeconds(),
+                    expiresStartedAtMs: disappearingConfig?.initialExpiresStartedAtMs(
+                        sentTimestampMs: Double(changeTimestampMs)
+                    ),
+                    using: dependencies
+                ).inserted(db)
+                
+                /// Schedule the control message to be sent to the group after the config sync completes
+                try dependencies[singleton: .jobRunner].add(
+                    db,
+                    job: Job(
+                        variant: .messageSend,
+                        behaviour: .runOnceAfterConfigSyncIgnoringPermanentFailure,
+                        threadId: sessionId.hexString,
+                        details: MessageSendJob.Details(
+                            destination: .closedGroup(groupPublicKey: sessionId.hexString),
+                            message: GroupUpdateMemberChangeMessage(
+                                changeType: .added,
+                                memberSessionIds: members.map { $0.id },
+                                historyShared: allowAccessToHistoricMessages,
+                                sentTimestampMs: UInt64(changeTimestampMs),
+                                authMethod: Authentication.groupAdmin(
+                                    groupSessionId: sessionId,
+                                    ed25519SecretKey: Array(groupIdentityPrivateKey)
+                                ),
+                                using: dependencies
+                            ).with(try? DisappearingMessagesConfiguration.fetchOne(db, id: sessionId.hexString)),
+                            requiredConfigSyncVariant: .groupMembers
+                        )
+                    ),
+                    canStartJob: false
+                )
                 
                 return (memberJobData, unrevokeRequest, maybeSupplementalKeyRequest)
             }
@@ -763,10 +759,13 @@ extension MessageSender {
             }
             .handleEvents(
                 receiveOutput: { memberJobData in
+                    /// Schedule jobs to send invitations to the newly added members
+                    ///
+                    /// **Note:** We intentionally don't schedule these as `runOnceAfterConfigSyncIgnoringPermanentFailure`
+                    /// because if the above request fails then it's possible a required `keySupplement` message wasn't sent (in which case
+                    /// we want an andmin to manually trigger a resend, which would generate and send a new `keySupplement` message)
                     dependencies[singleton: .storage].writeAsync { db in
-                        /// Schedule jobs to send invitations to the newly added members
                         memberJobData.forEach { id, profile, inviteJobDetails, _ in
-                            /// Schedule a job to send an invitation to the newly added member
                             dependencies[singleton: .jobRunner].add(
                                 db,
                                 job: Job(
@@ -820,7 +819,7 @@ extension MessageSender {
                                 using: dependencies
                             )
                             
-                            /// If the current `GroupMember` isn't already in the `notSentYet` state then update them to be in it
+                            /// If the current `GroupMember` isn't already in the `sending` state then update them to be in it
                             let memberStatus: GroupMember.RoleStatus? = try GroupMember
                                 .select(.roleStatus)
                                 .filter(GroupMember.Columns.groupId == groupSessionId)
@@ -828,13 +827,13 @@ extension MessageSender {
                                 .asRequest(of: GroupMember.RoleStatus.self)
                                 .fetchOne(db)
                             
-                            if memberStatus != .notSentYet {
+                            if memberStatus != .sending {
                                 try GroupMember
                                     .filter(GroupMember.Columns.groupId == groupSessionId)
                                     .filter(GroupMember.Columns.profileId == memberId)
                                     .updateAllAndConfig(
                                         db,
-                                        GroupMember.Columns.roleStatus.set(to: GroupMember.RoleStatus.notSentYet),
+                                        GroupMember.Columns.roleStatus.set(to: GroupMember.RoleStatus.sending),
                                         using: dependencies
                                     )
                             }
@@ -1090,7 +1089,7 @@ extension MessageSender {
     public static func promoteGroupMembers(
         groupSessionId: SessionId,
         members: [(id: String, profile: Profile?)],
-        isRetry: Bool,
+        isResend: Bool,
         using dependencies: Dependencies
     ) -> AnyPublisher<Void, Error> {
         return dependencies[singleton: .storage]
@@ -1124,7 +1123,7 @@ extension MessageSender {
                                 groupSessionId: groupSessionId,
                                 memberId: memberId,
                                 role: .admin,
-                                status: .notSentYet,
+                                status: .sending,
                                 profile: nil,
                                 using: dependencies
                             )
@@ -1137,7 +1136,7 @@ extension MessageSender {
                             .filter(GroupMember.Columns.role == GroupMember.Role.admin)
                             .updateAllAndConfig(
                                 db,
-                                GroupMember.Columns.roleStatus.set(to: GroupMember.RoleStatus.notSentYet),
+                                GroupMember.Columns.roleStatus.set(to: GroupMember.RoleStatus.sending),
                                 using: dependencies
                             )
                         
@@ -1149,7 +1148,7 @@ extension MessageSender {
                             .updateAllAndConfig(
                                 db,
                                 GroupMember.Columns.role.set(to: GroupMember.Role.admin),
-                                GroupMember.Columns.roleStatus.set(to: GroupMember.RoleStatus.notSentYet),
+                                GroupMember.Columns.roleStatus.set(to: GroupMember.RoleStatus.sending),
                                 using: dependencies
                             )
                     }
@@ -1163,7 +1162,7 @@ extension MessageSender {
                 /// **Note:** It's possible that this call could contain both members being promoted as well as admins
                 /// that are getting promotions re-sent to them - we only want to send an admin changed message if there
                 /// is a newly promoted member
-                if !isRetry && !membersReceivingPromotions.isEmpty {
+                if !isResend && !membersReceivingPromotions.isEmpty {
                     let userSessionId: SessionId = dependencies[cache: .general].sessionId
                     let changeTimestampMs: Int64 = dependencies[cache: .snodeAPI].currentOffsetTimestampMs()
                     let disappearingConfig: DisappearingMessagesConfiguration? = try? DisappearingMessagesConfiguration.fetchOne(db, id: groupSessionId.hexString)

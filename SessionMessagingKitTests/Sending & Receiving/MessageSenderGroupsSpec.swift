@@ -954,7 +954,6 @@ class MessageSenderGroupsSpec: QuickSpec {
                             members: [
                                 ("051111111111111111111111111111111111111111111111111111111111111112", nil)
                             ],
-                            isRetry: false,
                             allowAccessToHistoricMessages: false,
                             using: dependencies
                         ).sinkUntilComplete()
@@ -964,14 +963,13 @@ class MessageSenderGroupsSpec: QuickSpec {
                         expect(members?.count).to(equal(0))
                     }
                     
-                    // MARK: ---- adds the member to the database in the notSentYet state
-                    it("adds the member to the database in the notSentYet state") {
+                    // MARK: ---- adds the member to the database in the sending state
+                    it("adds the member to the database in the sending state") {
                         MessageSender.addGroupMembers(
                             groupSessionId: groupId.hexString,
                             members: [
                                 ("051111111111111111111111111111111111111111111111111111111111111112", nil)
                             ],
-                            isRetry: false,
                             allowAccessToHistoricMessages: false,
                             using: dependencies
                         ).sinkUntilComplete()
@@ -981,7 +979,7 @@ class MessageSenderGroupsSpec: QuickSpec {
                         expect(members?.first?.profileId)
                             .to(equal("051111111111111111111111111111111111111111111111111111111111111112"))
                         expect(members?.first?.role).to(equal(.standard))
-                        expect(members?.first?.roleStatus).to(equal(.notSentYet))
+                        expect(members?.first?.roleStatus).to(equal(.sending))
                     }
                     
                     // MARK: ---- adds the member to GROUP_MEMBERS
@@ -991,7 +989,6 @@ class MessageSenderGroupsSpec: QuickSpec {
                             members: [
                                 ("051111111111111111111111111111111111111111111111111111111111111112", nil)
                             ],
-                            isRetry: false,
                             allowAccessToHistoricMessages: false,
                             using: dependencies
                         ).sinkUntilComplete()
@@ -1029,7 +1026,6 @@ class MessageSenderGroupsSpec: QuickSpec {
                                 members: [
                                     ("051111111111111111111111111111111111111111111111111111111111111112", nil)
                                 ],
-                                isRetry: false,
                                 allowAccessToHistoricMessages: true,
                                 using: dependencies
                             ).sinkUntilComplete()
@@ -1096,7 +1092,6 @@ class MessageSenderGroupsSpec: QuickSpec {
                                 members: [
                                     ("051111111111111111111111111111111111111111111111111111111111111112", nil)
                                 ],
-                                isRetry: false,
                                 allowAccessToHistoricMessages: true,
                                 using: dependencies
                             ).sinkUntilComplete()
@@ -1129,7 +1124,6 @@ class MessageSenderGroupsSpec: QuickSpec {
                                 members: [
                                     ("051111111111111111111111111111111111111111111111111111111111111112", nil)
                                 ],
-                                isRetry: false,
                                 allowAccessToHistoricMessages: true,
                                 using: dependencies
                             ).sinkUntilComplete()
@@ -1162,7 +1156,6 @@ class MessageSenderGroupsSpec: QuickSpec {
                                 members: [
                                     ("051111111111111111111111111111111111111111111111111111111111111112", nil)
                                 ],
-                                isRetry: false,
                                 allowAccessToHistoricMessages: true,
                                 using: dependencies
                             ).sinkUntilComplete()
@@ -1188,7 +1181,6 @@ class MessageSenderGroupsSpec: QuickSpec {
                                 members: [
                                     ("051111111111111111111111111111111111111111111111111111111111111112", nil)
                                 ],
-                                isRetry: false,
                                 allowAccessToHistoricMessages: true,
                                 using: dependencies
                             ).sinkUntilComplete()
@@ -1246,7 +1238,6 @@ class MessageSenderGroupsSpec: QuickSpec {
                                 members: [
                                     ("051111111111111111111111111111111111111111111111111111111111111112", nil)
                                 ],
-                                isRetry: false,
                                 allowAccessToHistoricMessages: false,
                                 using: dependencies
                             ).sinkUntilComplete()
@@ -1304,7 +1295,6 @@ class MessageSenderGroupsSpec: QuickSpec {
                             members: [
                                 ("051111111111111111111111111111111111111111111111111111111111111112", nil)
                             ],
-                            isRetry: false,
                             allowAccessToHistoricMessages: false,
                             using: dependencies
                         ).sinkUntilComplete()
@@ -1327,7 +1317,6 @@ class MessageSenderGroupsSpec: QuickSpec {
                             members: [
                                 ("051111111111111111111111111111111111111111111111111111111111111112", nil)
                             ],
-                            isRetry: false,
                             allowAccessToHistoricMessages: false,
                             using: dependencies
                         ).sinkUntilComplete()
@@ -1360,7 +1349,6 @@ class MessageSenderGroupsSpec: QuickSpec {
                             members: [
                                 ("051111111111111111111111111111111111111111111111111111111111111112", nil)
                             ],
-                            isRetry: false,
                             allowAccessToHistoricMessages: false,
                             using: dependencies
                         ).sinkUntilComplete()
@@ -1386,7 +1374,6 @@ class MessageSenderGroupsSpec: QuickSpec {
                             members: [
                                 ("051111111111111111111111111111111111111111111111111111111111111112", nil)
                             ],
-                            isRetry: false,
                             allowAccessToHistoricMessages: false,
                             using: dependencies
                         ).sinkUntilComplete()

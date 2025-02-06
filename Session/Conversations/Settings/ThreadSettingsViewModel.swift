@@ -504,7 +504,9 @@ class ThreadSettingsViewModel: SessionTableViewModel, NavigatableStateHolder, Ob
                             identifier: "Promote admins",
                             label: "Promote admins"
                         ),
-                        onTap: { [weak self] in self?.promoteAdmins() }
+                        onTap: { [weak self] in
+                            self?.promoteAdmins(currentGroupName: threadViewModel.closedGroupName)
+                        }
                     )
                 ),
 
@@ -991,7 +993,7 @@ class ThreadSettingsViewModel: SessionTableViewModel, NavigatableStateHolder, Ob
         )
     }
     
-    private func promoteAdmins() {
+    private func promoteAdmins(currentGroupName: String?) {
         guard dependencies[feature: .updatedGroupsAllowPromotions] else { return }
         
         let groupMember: TypedTableAlias<GroupMember> = TypedTableAlias()
@@ -1000,66 +1002,54 @@ class ThreadSettingsViewModel: SessionTableViewModel, NavigatableStateHolder, Ob
         func send(
             _ viewModel: UserListViewModel<GroupMember>?,
             _ memberInfo: [(id: String, profile: Profile?)],
-            isRetry: Bool
+            isResend: Bool
         ) {
+            /// Show a toast immediately that we are sending invitations
+            viewModel?.showToast(
+                text: "adminSendingPromotion"
+                    .putNumber(memberInfo.count)
+                    .localized(),
+                backgroundColor: .backgroundSecondary
+            )
+            
+            /// Actually trigger the sending process
             MessageSender
                 .promoteGroupMembers(
                     groupSessionId: SessionId(.group, hex: threadId),
                     members: memberInfo,
-                    isRetry: isRetry,
+                    isResend: isResend,
                     using: dependencies
                 )
-                .showingBlockingLoading(in: self.navigatableState)
                 .subscribe(on: DispatchQueue.global(qos: .userInitiated), using: dependencies)
                 .receive(on: DispatchQueue.main, using: dependencies)
                 .sinkUntilComplete(
                     receiveCompletion: { [threadId, dependencies] result in
                         switch result {
+                            case .finished: break
                             case .failure:
-                                viewModel?.transitionToScreen(
-                                    ConfirmationModal(
-                                        info: ConfirmationModal.Info(
-                                            title: "promotionFailed"
-                                                .putNumber(memberInfo.count)
-                                                .localized(),
-                                            body: .text("promotionFailedDescription"
-                                                .putNumber(memberInfo.count)
-                                                .localized()),
-                                            confirmTitle: "yes".localized(),
-                                            cancelTitle: "cancel".localized(),
-                                            cancelStyle: .alert_text,
-                                            dismissOnConfirm: false,
-                                            onConfirm: { modal in
-                                                modal.dismiss(animated: true) {
-                                                    send(viewModel, memberInfo, isRetry: isRetry)
-                                                }
-                                            },
-                                            onCancel: { modal in
-                                                /// Flag the members as failed
-                                                let memberIds: [String] = memberInfo.map(\.id)
-                                                dependencies[singleton: .storage].writeAsync { db in
-                                                    try? GroupMember
-                                                        .filter(GroupMember.Columns.groupId == threadId)
-                                                        .filter(memberIds.contains(GroupMember.Columns.profileId))
-                                                        .updateAllAndConfig(
-                                                            db,
-                                                            GroupMember.Columns.roleStatus.set(to: GroupMember.RoleStatus.failed),
-                                                            using: dependencies
-                                                        )
-                                                }
-                                                modal.dismiss(animated: true)
-                                            }
-                                        )
-                                    ),
-                                    transitionType: .present
-                                )
+                                let memberIds: [String] = memberInfo.map(\.id)
                                 
-                            case .finished:
-                                /// Show a toast that we have sent the promotions
+                                /// Flag the members as failed
+                                dependencies[singleton: .storage].writeAsync { db in
+                                    try? GroupMember
+                                        .filter(GroupMember.Columns.groupId == threadId)
+                                        .filter(memberIds.contains(GroupMember.Columns.profileId))
+                                        .updateAllAndConfig(
+                                            db,
+                                            GroupMember.Columns.roleStatus.set(to: GroupMember.RoleStatus.failed),
+                                            using: dependencies
+                                        )
+                                }
+                                
+                                /// Show a toast that the promotions failed to send
                                 viewModel?.showToast(
-                                    text: "adminSendingPromotion"
-                                        .putNumber(memberInfo.count)
-                                        .localized(),
+                                    text: GroupPromoteMemberJob.failureMessage(
+                                        groupName: (currentGroupName ?? "groupUnknown".localized()),
+                                        memberIds: memberIds,
+                                        profileInfo: memberInfo.reduce(into: [:]) { result, next in
+                                            result[next.id] = next.profile
+                                        }
+                                    ),
                                     backgroundColor: .backgroundSecondary
                                 )
                         }
@@ -1106,14 +1096,14 @@ class ThreadSettingsViewModel: SessionTableViewModel, NavigatableStateHolder, Ob
                                             )
                                         },
                                         onTap: { viewModel, info in
-                                            send(viewModel, [(info.profileId, info.profile)], isRetry: true)
+                                            send(viewModel, [(info.profileId, info.profile)], isResend: true)
                                         }
                                     )
                             }
                         }
                     ),
                     onSubmit: .callback { viewModel, selectedInfo in
-                        send(viewModel, selectedInfo.map { ($0.profileId, $0.profile) }, isRetry: false)
+                        send(viewModel, selectedInfo.map { ($0.profileId, $0.profile) }, isResend: false)
                     },
                     using: dependencies
                 )
@@ -1315,28 +1305,9 @@ class ThreadSettingsViewModel: SessionTableViewModel, NavigatableStateHolder, Ob
                                 groupDescription: finalDescription,
                                 using: dependencies
                             )
-                            .showingBlockingLoading(in: self?.navigatableState)
                             .subscribe(on: DispatchQueue.global(qos: .userInitiated), using: dependencies)
                             .receive(on: DispatchQueue.main, using: dependencies)
-                            .sinkUntilComplete(
-                                receiveCompletion: { [weak self] result in
-                                    switch result {
-                                        case .finished: modal.dismiss(animated: true)
-                                        case .failure:
-                                            self?.transitionToScreen(
-                                                ConfirmationModal(
-                                                    info: ConfirmationModal.Info(
-                                                        title: "theError".localized(),
-                                                        body: .text("deleteAfterLegacyGroupsGroupUpdateErrorTitle".localized()),
-                                                        cancelTitle: "okay".localized(),
-                                                        cancelStyle: .alert_text
-                                                    )
-                                                ),
-                                                transitionType: .present
-                                            )
-                                    }
-                                }
-                            )
+                            .sinkUntilComplete()
                     }
                 )
             ),
@@ -1384,7 +1355,7 @@ class ThreadSettingsViewModel: SessionTableViewModel, NavigatableStateHolder, Ob
                             case .image(_, .some(let valueData), _, _, _, _):
                                 self?.updateGroupDisplayPicture(
                                     displayPictureUpdate: .groupUploadImageData(valueData),
-                                    onComplete: { [weak modal] in modal?.close() }
+                                    onUploadComplete: { [weak modal] in modal?.close() }
                                 )
                                 
                             default: modal.close()
@@ -1393,7 +1364,7 @@ class ThreadSettingsViewModel: SessionTableViewModel, NavigatableStateHolder, Ob
                     onCancel: { [weak self] modal in
                         self?.updateGroupDisplayPicture(
                             displayPictureUpdate: .groupRemove,
-                            onComplete: { [weak modal] in modal?.close() }
+                            onUploadComplete: { [weak modal] in modal?.close() }
                         )
                     }
                 )
@@ -1417,16 +1388,16 @@ class ThreadSettingsViewModel: SessionTableViewModel, NavigatableStateHolder, Ob
     
     private func updateGroupDisplayPicture(
         displayPictureUpdate: DisplayPictureManager.Update,
-        onComplete: @escaping () -> ()
+        onUploadComplete: @escaping () -> ()
     ) {
         switch displayPictureUpdate {
-            case .none: onComplete()
+            case .none: onUploadComplete()
             default: break
         }
         
         Just(displayPictureUpdate)
             .setFailureType(to: Error.self)
-            .flatMap { [dependencies] update -> AnyPublisher<DisplayPictureManager.Update, Error> in
+            .flatMap { [weak self, dependencies] update -> AnyPublisher<DisplayPictureManager.Update, Error> in
                 switch displayPictureUpdate {
                     case .none, .currentUserRemove, .currentUserUploadImageData, .currentUserUpdateTo,
                         .contactRemove, .contactUpdateTo:
@@ -1438,12 +1409,45 @@ class ThreadSettingsViewModel: SessionTableViewModel, NavigatableStateHolder, Ob
                             .eraseToAnyPublisher()
                         
                     case .groupUploadImageData(let data):
+                        /// Show a blocking loading indicator while uploading but not while updating or syncing the group configs
                         return dependencies[singleton: .displayPictureManager]
                             .prepareAndUploadDisplayPicture(imageData: data)
+                            .showingBlockingLoading(in: self?.navigatableState)
                             .map { url, fileName, key -> DisplayPictureManager.Update in
                                 .groupUpdateTo(url: url, key: key, fileName: fileName)
                             }
                             .mapError { $0 as Error }
+                            .handleEvents(
+                                receiveCompletion: { result in
+                                    switch result {
+                                        case .failure(let error):
+                                            let message: String = {
+                                                switch (displayPictureUpdate, error) {
+                                                    case (.groupRemove, _): return "profileDisplayPictureRemoveError".localized()
+                                                    case (_, DisplayPictureError.uploadMaxFileSizeExceeded):
+                                                        return "profileDisplayPictureSizeError".localized()
+                                                    
+                                                    default: return "errorConnection".localized()
+                                                }
+                                            }()
+                                            
+                                            self?.transitionToScreen(
+                                                ConfirmationModal(
+                                                    info: ConfirmationModal.Info(
+                                                        title: "deleteAfterLegacyGroupsGroupUpdateErrorTitle".localized(),
+                                                        body: .text(message),
+                                                        cancelTitle: "okay".localized(),
+                                                        cancelStyle: .alert_text,
+                                                        dismissType: .single
+                                                    )
+                                                ),
+                                                transitionType: .present
+                                            )
+                                        
+                                        case .finished: onUploadComplete()
+                                    }
+                                }
+                            )
                             .eraseToAnyPublisher()
                 }
             }
@@ -1475,40 +1479,9 @@ class ThreadSettingsViewModel: SessionTableViewModel, NavigatableStateHolder, Ob
                     }
                 }
             )
-            .showingBlockingLoading(in: self.navigatableState)
             .subscribe(on: DispatchQueue.global(qos: .userInitiated), using: dependencies)
             .receive(on: DispatchQueue.main, using: dependencies)
-            .sinkUntilComplete(
-                receiveCompletion: { [weak self] result in
-                    switch result {
-                        case .failure(let error):
-                            let message: String = {
-                                switch (displayPictureUpdate, error) {
-                                    case (.groupRemove, _): return "profileDisplayPictureRemoveError".localized()
-                                    case (_, DisplayPictureError.uploadMaxFileSizeExceeded):
-                                        return "profileDisplayPictureSizeError".localized()
-                                    
-                                    default: return "errorConnection".localized()
-                                }
-                            }()
-                            
-                            self?.transitionToScreen(
-                                ConfirmationModal(
-                                    info: ConfirmationModal.Info(
-                                        title: "deleteAfterLegacyGroupsGroupUpdateErrorTitle".localized(),
-                                        body: .text(message),
-                                        cancelTitle: "okay".localized(),
-                                        cancelStyle: .alert_text,
-                                        dismissType: .single
-                                    )
-                                ),
-                                transitionType: .present
-                            )
-                        
-                        case .finished: onComplete()
-                    }
-                }
-            )
+            .sinkUntilComplete()
     }
     
     private func updateBlockedState(

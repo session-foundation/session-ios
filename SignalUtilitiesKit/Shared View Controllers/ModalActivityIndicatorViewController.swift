@@ -210,19 +210,38 @@ public extension Publisher {
             return self.eraseToAnyPublisher()
         }
         
-        let modalActivityIndicator: ModalActivityIndicatorViewController = ModalActivityIndicatorViewController(onAppear: { _ in })
+        var modalActivityIndicator: ModalActivityIndicatorViewController?
+        
+        switch Thread.isMainThread {
+            case true: modalActivityIndicator = ModalActivityIndicatorViewController(onAppear: { _ in })
+            case false:
+                DispatchQueue.main.sync {
+                    modalActivityIndicator = ModalActivityIndicatorViewController(onAppear: { _ in })
+                }
+                
+        }
         
         return self
             .handleEvents(
                 receiveSubscription: { [weak viewController] _ in
-                    viewController?.present(modalActivityIndicator, animated: true)
+                    guard let indicator: ModalActivityIndicatorViewController = modalActivityIndicator else {
+                        return
+                    }
+                    
+                    switch Thread.isMainThread {
+                        case true: viewController?.present(indicator, animated: true)
+                        case false:
+                            DispatchQueue.main.async {
+                                viewController?.present(indicator, animated: true)
+                            }
+                    }
                 }
             )
             .asResult()
             .flatMap { result -> AnyPublisher<Output, Failure> in
                 Deferred {
                     Future<Output, Failure> { resolver in
-                        modalActivityIndicator.dismiss(completion: {
+                        modalActivityIndicator?.dismiss(completion: {
                             resolver(result)
                         })
                     }

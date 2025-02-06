@@ -100,7 +100,14 @@ class MediaPageViewController: UIPageViewController, UIPageViewControllerDataSou
 
     // MARK: - Bottom Bar
     
-    var bottomContainer: UIView!
+    var bottomContainer: UIView = {
+        let result: DynamicallySizedView = DynamicallySizedView()
+        result.clipsToBounds = true
+        result.autoresizingMask = .flexibleHeight
+        result.themeBackgroundColor = .backgroundPrimary
+        
+        return result
+    }()
     
     var footerBar: UIToolbar = {
         let result: UIToolbar = UIToolbar()
@@ -177,12 +184,6 @@ class MediaPageViewController: UIPageViewController, UIPageViewControllerDataSou
         galleryRailView.delegate = self
         galleryRailView.set(.height, to: 72)
         footerBar.set(.height, to: 44)
-
-        let bottomContainer: DynamicallySizedView = DynamicallySizedView()
-        bottomContainer.clipsToBounds = true
-        bottomContainer.autoresizingMask = .flexibleHeight
-        bottomContainer.themeBackgroundColor = .backgroundPrimary
-        self.bottomContainer = bottomContainer
 
         let bottomStack = UIStackView(arrangedSubviews: [captionContainerView, galleryRailView, footerBar])
         bottomStack.axis = .vertical

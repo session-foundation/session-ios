@@ -10,13 +10,16 @@ import SessionMessagingKit
 import SessionUtilitiesKit
 
 public class MediaTileViewController: UIViewController, UICollectionViewDataSource, UICollectionViewDelegate, UICollectionViewDelegateFlowLayout {
+    class DynamicallySizedView: UIView {
+        override var intrinsicContentSize: CGSize { CGSize.zero }
+    }
     
     /// This should be larger than one screen size so we don't have to call it multiple times in rapid succession, but not
     /// so large that loading get's really chopping
     static let itemPageSize: Int = Int(11 * itemsPerPortraitRow)
     static let itemsPerPortraitRow: CGFloat = 4
     static let interItemSpacing: CGFloat = 2
-    static let footerBarHeight: CGFloat = 40
+    static let footerBarHeight: CGFloat = 44
     static let loadMoreHeaderHeight: CGFloat = 100
     
     private let dependencies: Dependencies
@@ -91,6 +94,15 @@ public class MediaTileViewController: UIViewController, UICollectionViewDataSour
         
         return result
     }()
+    
+    var bottomContainer: UIView = {
+        let result: DynamicallySizedView = DynamicallySizedView()
+        result.clipsToBounds = true
+        result.autoresizingMask = .flexibleHeight
+        result.themeBackgroundColor = .backgroundPrimary
+        
+        return result
+    }()
 
     lazy var footerBar: UIToolbar = {
         let result: UIToolbar = UIToolbar()
@@ -116,6 +128,7 @@ public class MediaTileViewController: UIViewController, UICollectionViewDataSour
             action: #selector(didPressDelete)
         )
         result.themeTintColor = .textPrimary
+        result.isEnabled = false
 
         return result
     }()
@@ -139,14 +152,26 @@ public class MediaTileViewController: UIViewController, UICollectionViewDataSour
             hasCustomBackButton: false
         )
 
-        view.addSubview(self.collectionView)
-        collectionView.pin(to: view)
+        view.addSubview(collectionView)
+        view.addSubview(bottomContainer)
+        bottomContainer.addSubview(footerBar)
         
-        view.addSubview(self.footerBar)
-        footerBar.set(.width, to: .width, of: view)
+        collectionView.pin(.top, to: .top, of: view)
+        collectionView.pin(.leading, to: .leading, of: view)
+        collectionView.pin(.trailing, to: .trailing, of: view)
+        collectionView.pin(.bottom, to: .top, of: bottomContainer)
+        
+        footerBar.pin(.top, to: .top, of: bottomContainer)
+        footerBar.pin(.leading, to: .leading, of: bottomContainer)
+        footerBar.pin(.trailing, to: .trailing, of: bottomContainer)
+        footerBar.pin(.bottom, to: .bottom, of: view.safeAreaLayoutGuide)
+        footerBar.set(.width, to: .width, of: bottomContainer)
         footerBar.set(.height, to: MediaTileViewController.footerBarHeight)
-        footerBarBottomConstraint = footerBar.pin(.bottom, to: .bottom, of: view, withInset: -MediaTileViewController.footerBarHeight)
-
+        
+        bottomContainer.pin(.leading, to: .leading, of: view)
+        bottomContainer.pin(.trailing, to: .trailing, of: view)
+        bottomContainer.pin(.bottom, to: .bottom, of: view)
+        
         self.updateSelectButton(updatedData: self.viewModel.galleryData, inBatchSelectMode: false)
         self.mediaTileViewLayout.invalidateLayout()
         
@@ -641,17 +666,6 @@ public class MediaTileViewController: UIViewController, UICollectionViewDataSour
 
     @objc func didTapSelect(_ sender: Any) {
         isInBatchSelectMode = true
-        
-        // show toolbar
-        let view: UIView = self.view
-        UIView.animate(withDuration: 0.1, delay: 0, options: .curveEaseInOut, animations: { [weak self] in
-            self?.footerBarBottomConstraint?.isActive = false
-            self?.footerBarBottomConstraint = self?.footerBar.pin(.bottom, to: .bottom, of: view.safeAreaLayoutGuide)
-            self?.footerBar.superview?.layoutIfNeeded()
-
-            // Ensure toolbar doesn't cover bottom row.
-            self?.collectionView.contentInset.bottom += MediaTileViewController.footerBarHeight
-        }, completion: nil)
     }
 
     @objc func didCancelSelect(_ sender: Any) {

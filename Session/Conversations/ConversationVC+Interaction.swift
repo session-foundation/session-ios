@@ -879,10 +879,6 @@ extension ConversationVC:
     func handleItemLongPressed(_ cellViewModel: MessageViewModel) {
         // Show the context menu if applicable
         guard
-            (
-                viewModel.threadData.threadVariant != .legacyGroup ||
-                !viewModel.dependencies[feature: .legacyGroupsDeprecated]
-            ),
             // FIXME: Need to update this when an appropriate replacement is added (see https://teng.pub/technical/2021/11/9/uiapplication-key-window-replacement)
             let keyWindow: UIWindow = UIApplication.shared.keyWindow,
             let sectionIndex: Int = self.viewModel.interactionData
@@ -1989,7 +1985,7 @@ extension ConversationVC:
             model: quoteDraft,
             isOutgoing: (cellViewModel.variant == .standardOutgoing)
         )
-        snInputView.becomeFirstResponder()
+        _ = snInputView.becomeFirstResponder()
     }
 
     func copy(_ cellViewModel: MessageViewModel) {

@@ -270,8 +270,7 @@ internal extension LibSession {
             case (_, .accepted): groups_members_set_invite_accepted(conf, &cMemberId)
             case (_, .failed): groups_members_set_invite_failed(conf, &cMemberId)
             case (_, .pending): groups_members_set_invite_sent(conf, &cMemberId)
-            case (_, .notSentYet): groups_members_set_invite_not_sent(conf, &cMemberId)
-            case (_, .sending): break     // Internal state (can't set explicitly)
+            case (_, .notSentYet), (_, .sending): groups_members_set_invite_not_sent(conf, &cMemberId)
             case (_, .pendingRemoval), (_, .unknown): break // Unknown or permanent states
         }
         
@@ -442,7 +441,10 @@ internal extension LibSession {
             let status: GROUP_MEMBER_STATUS = groups_members_get_status(conf, &member)
             
             // Ignore members pending removal
-            guard !status.isRemoveStatus else { continue }
+            guard !status.isRemoveStatus else {
+                groups_members_iterator_advance(membersIterator)
+                continue
+            }
             
             result.append(
                 GroupMember(
@@ -501,7 +503,10 @@ internal extension LibSession {
             try LibSession.checkLoopLimitReached(&infiniteLoopGuard, for: .groupMembers)
             
             // Ignore members pending removal
-            guard member.removed == 0 else { continue }
+            guard member.removed == 0 else {
+                groups_members_iterator_advance(membersIterator)
+                continue
+            }
             
             result.append(
                 Profile(

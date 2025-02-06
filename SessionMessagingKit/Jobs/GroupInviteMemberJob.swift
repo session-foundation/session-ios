@@ -132,7 +132,7 @@ public enum GroupInviteMemberJob: JobExecutor {
                             
                             // Notify about the failure
                             dependencies.mutate(cache: .groupInviteMemberJob) { cache in
-                                cache.addInviteFailure(groupId: threadId, memberId: details.memberSessionIdHexString)
+                                cache.addFailure(groupId: threadId, memberId: details.memberSessionIdHexString)
                             }
                             
                             // Register the failure
@@ -206,7 +206,7 @@ public enum GroupInviteMemberJob: JobExecutor {
 // MARK: - GroupInviteMemberJob Cache
 
 public extension GroupInviteMemberJob {
-    struct InviteFailure: Hashable {
+    struct Failure: Hashable {
         let groupId: String
         let memberId: String
     }
@@ -215,51 +215,51 @@ public extension GroupInviteMemberJob {
         private static let notificationDebounceDuration: DispatchQueue.SchedulerTimeType.Stride = .milliseconds(3000)
         
         private let dependencies: Dependencies
-        private let inviteFailedNotificationTrigger: PassthroughSubject<(), Never> = PassthroughSubject()
+        private let failedNotificationTrigger: PassthroughSubject<(), Never> = PassthroughSubject()
         private var disposables: Set<AnyCancellable> = Set()
-        public private(set) var inviteFailures: Set<InviteFailure> = []
+        public private(set) var failures: Set<Failure> = []
         
         // MARK: - Initialiation
         
         init(using dependencies: Dependencies) {
             self.dependencies = dependencies
             
-            setupInviteFailureListener()
+            setupFailureListener()
         }
         
         // MARK: - Functions
         
-        public func addInviteFailure(groupId: String, memberId: String) {
-            inviteFailures.insert(InviteFailure(groupId: groupId, memberId: memberId))
-            inviteFailedNotificationTrigger.send(())
+        public func addFailure(groupId: String, memberId: String) {
+            failures.insert(Failure(groupId: groupId, memberId: memberId))
+            failedNotificationTrigger.send(())
         }
         
         public func clearPendingFailures(for groupId: String) {
-            inviteFailures = inviteFailures.filter { $0.groupId != groupId }
+            failures = failures.filter { $0.groupId != groupId }
         }
         
         // MARK: - Internal Functions
         
-        private func setupInviteFailureListener() {
-            inviteFailedNotificationTrigger
+        private func setupFailureListener() {
+            failedNotificationTrigger
                 .subscribe(on: DispatchQueue.global(qos: .userInitiated), using: dependencies)
                 .debounce(
                     for: Cache.notificationDebounceDuration,
                     scheduler: DispatchQueue.global(qos: .userInitiated)
                 )
-                .map { [dependencies] _ -> (failedInvites: Set<InviteFailure>, groupId: String) in
+                .map { [dependencies] _ -> (failures: Set<Failure>, groupId: String) in
                     dependencies.mutate(cache: .groupInviteMemberJob) { cache in
-                        guard let targetGroupId: String = cache.inviteFailures.first?.groupId else { return ([], "") }
+                        guard let targetGroupId: String = cache.failures.first?.groupId else { return ([], "") }
                         
-                        let result: Set<InviteFailure> = cache.inviteFailures.filter { $0.groupId == targetGroupId }
+                        let result: Set<Failure> = cache.failures.filter { $0.groupId == targetGroupId }
                         cache.clearPendingFailures(for: targetGroupId)
                         return (result, targetGroupId)
                     }
                 }
-                .filter { failedInvites, _ in !failedInvites.isEmpty }
+                .filter { failures, _ in !failures.isEmpty }
                 .setFailureType(to: Error.self)
                 .flatMapStorageReadPublisher(using: dependencies, value: { db, data -> (maybeName: String?, failedMemberIds: [String], profiles: [Profile]) in
-                    let failedMemberIds: [String] = data.failedInvites.map { $0.memberId }
+                    let failedMemberIds: [String] = data.failures.map { $0.memberId }
                     
                     return (
                         try ClosedGroup
@@ -325,13 +325,13 @@ public extension Cache {
 
 /// This is a read-only version of the Cache designed to avoid unintentionally mutating the instance in a non-thread-safe way
 public protocol GroupInviteMemberJobImmutableCacheType: ImmutableCacheType {
-    var inviteFailures: Set<GroupInviteMemberJob.InviteFailure> { get }
+    var failures: Set<GroupInviteMemberJob.Failure> { get }
 }
 
 public protocol GroupInviteMemberJobCacheType: GroupInviteMemberJobImmutableCacheType, MutableCacheType {
-    var inviteFailures: Set<GroupInviteMemberJob.InviteFailure> { get }
+    var failures: Set<GroupInviteMemberJob.Failure> { get }
     
-    func addInviteFailure(groupId: String, memberId: String)
+    func addFailure(groupId: String, memberId: String)
     func clearPendingFailures(for groupId: String)
 }
 

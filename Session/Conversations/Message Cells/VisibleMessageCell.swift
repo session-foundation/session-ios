@@ -359,7 +359,7 @@ final class VisibleMessageCell: MessageCell, TappableLabelDelegate {
             )
 
         // Swipe to reply
-        if ContextMenuVC.viewModelCanReply(cellViewModel) {
+        if ContextMenuVC.viewModelCanReply(cellViewModel, using: dependencies) {
             addGestureRecognizer(panGestureRecognizer)
         }
         else {

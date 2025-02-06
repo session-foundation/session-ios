@@ -153,12 +153,17 @@ extension ContextMenuVC {
         }
     }
     
-    static func viewModelCanReply(_ cellViewModel: MessageViewModel) -> Bool {
+    static func viewModelCanReply(_ cellViewModel: MessageViewModel, using dependencies: Dependencies) -> Bool {
         return (
-            cellViewModel.variant == .standardIncoming || (
-                cellViewModel.variant == .standardOutgoing &&
-                cellViewModel.state != .failed &&
-                cellViewModel.state != .sending
+            (
+                cellViewModel.threadVariant != .legacyGroup ||
+                !dependencies[feature: .legacyGroupsDeprecated]
+            ) && (
+                cellViewModel.variant == .standardIncoming || (
+                    cellViewModel.variant == .standardOutgoing &&
+                    cellViewModel.state != .failed &&
+                    cellViewModel.state != .sending
+                )
             )
         )
     }
@@ -184,6 +189,10 @@ extension ContextMenuVC {
         }
         
         let canRetry: Bool = (
+            (
+                cellViewModel.threadVariant != .legacyGroup ||
+                !dependencies[feature: .legacyGroupsDeprecated]
+            ) &&
             cellViewModel.variant == .standardOutgoing && (
                 cellViewModel.state == .failed || (
                     cellViewModel.threadVariant == .contact &&
@@ -234,6 +243,11 @@ extension ContextMenuVC {
             )
         )
         let shouldShowEmojiActions: Bool = {
+            guard
+                cellViewModel.threadVariant != .legacyGroup ||
+                !dependencies[feature: .legacyGroupsDeprecated]
+            else { return false }
+            
             if cellViewModel.threadVariant == .community {
                 return dependencies[singleton: .openGroupManager].doesOpenGroupSupport(
                     capability: .reactions,
@@ -251,7 +265,7 @@ extension ContextMenuVC {
         }()
         let generatedActions: [Action] = [
             (canRetry ? Action.retry(cellViewModel, delegate) : nil),
-            (viewModelCanReply(cellViewModel) ? Action.reply(cellViewModel, delegate) : nil),
+            (viewModelCanReply(cellViewModel, using: dependencies) ? Action.reply(cellViewModel, delegate) : nil),
             (canCopy ? Action.copy(cellViewModel, delegate) : nil),
             (canSave ? Action.save(cellViewModel, delegate) : nil),
             (canCopySessionId ? Action.copySessionID(cellViewModel, delegate) : nil),

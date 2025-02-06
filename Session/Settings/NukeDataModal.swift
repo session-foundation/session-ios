@@ -228,7 +228,7 @@ final class NukeDataModal: Modal {
                         receiveCompletion: { result in
                             switch result {
                                 case .finished: break
-                                case .failure(let error):
+                                case .failure:
                                     self?.dismiss(animated: true, completion: nil) // Dismiss the loader
                                 
                                     let modal: ConfirmationModal = ConfirmationModal(

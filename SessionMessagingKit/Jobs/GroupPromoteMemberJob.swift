@@ -127,11 +127,9 @@ public enum GroupPromoteMemberJob: JobExecutor {
                             }
                             
                             // Notify about the failure
-                            GroupPromoteMemberJob.notifyOfFailure(
-                                groupId: threadId,
-                                memberId: details.memberSessionIdHexString,
-                                using: dependencies
-                            )
+                            dependencies.mutate(cache: .groupPromoteMemberJob) { cache in
+                                cache.addFailure(groupId: threadId, memberId: details.memberSessionIdHexString)
+                            }
                             
                             // Register the failure
                             switch error {
@@ -152,131 +150,170 @@ public enum GroupPromoteMemberJob: JobExecutor {
             )
     }
     
-    private static func notifyOfFailure(groupId: String, memberId: String, using dependencies: Dependencies) {
-        dependencies.mutate(cache: .groupPromoteMemberJob) { cache in
-            cache.failedMemberIds.insert(memberId)
+    public static func failureMessage(groupName: String, memberIds: [String], profileInfo: [String: Profile]) -> NSAttributedString {
+        switch memberIds.count {
+            case 1:
+                return "adminPromotionFailedDescription"
+                    .put(
+                        key: "name",
+                        value: (
+                            profileInfo[memberIds[0]]?.displayName(for: .group) ??
+                            Profile.truncated(id: memberIds[0], truncating: .middle)
+                        )
+                    )
+                    .put(key: "group_name", value: groupName)
+                    .localizedFormatted(baseFont: ToastController.font)
+                
+            case 2:
+                return "adminPromotionFailedDescriptionTwo"
+                    .put(
+                        key: "name",
+                        value: (
+                            profileInfo[memberIds[0]]?.displayName(for: .group) ??
+                            Profile.truncated(id: memberIds[0], truncating: .middle)
+                        )
+                    )
+                    .put(
+                        key: "other_name",
+                        value: (
+                            profileInfo[memberIds[1]]?.displayName(for: .group) ??
+                            Profile.truncated(id: memberIds[1], truncating: .middle)
+                        )
+                    )
+                    .put(key: "group_name", value: groupName)
+                    .localizedFormatted(baseFont: ToastController.font)
+                
+            default:
+                return "adminPromotionFailedDescriptionMultiple"
+                    .put(
+                        key: "name",
+                        value: (
+                            profileInfo[memberIds[0]]?.displayName(for: .group) ??
+                            Profile.truncated(id: memberIds[0], truncating: .middle)
+                        )
+                    )
+                    .put(key: "count", value: memberIds.count - 1)
+                    .put(key: "group_name", value: groupName)
+                    .localizedFormatted(baseFont: ToastController.font)
         }
-        
-        /// This method can be triggered by each individual invitation failure so we want to throttle the updates to 250ms so that we can group failures
-        /// and show a single toast
-        if notifyFailurePublisher == nil {
-            notifyFailurePublisher = notifyFailureTrigger
-                .debounce(for: notificationDebounceDuration, scheduler: DispatchQueue.global(qos: .userInitiated))
-                .handleEvents(
-                    receiveOutput: { [dependencies] _ in
-                        let failedIds: [String] = dependencies.mutate(cache: .groupPromoteMemberJob) { cache in
-                            let result: Set<String> = cache.failedMemberIds
-                            cache.failedMemberIds.removeAll()
-                            return Array(result)
-                        }
-                        
-                        // Don't do anything if there are no 'failedIds' values or we can't get a window
-                        guard
-                            !failedIds.isEmpty,
-                            let mainWindow: UIWindow = dependencies[singleton: .appContext].mainWindow
-                        else { return }
-                        
-                        typealias FetchedData = (groupName: String, profileInfo: [String: Profile])
-                        
-                        let data: FetchedData = dependencies[singleton: .storage]
-                            .read { db in
-                                (
-                                    try ClosedGroup
-                                        .filter(id: groupId)
-                                        .select(.name)
-                                        .asRequest(of: String.self)
-                                        .fetchOne(db),
-                                    try Profile.filter(ids: failedIds).fetchAll(db)
-                                )
-                            }
-                            .map { maybeName, profiles -> FetchedData in
-                                (
-                                    (maybeName ?? "groupUnknown".localized()),
-                                    profiles.reduce(into: [:]) { result, next in result[next.id] = next }
-                                )
-                            }
-                            .defaulting(to: ("groupUnknown".localized(), [:]))
-                        
-                        let message: NSAttributedString = {
-                            switch failedIds.count {
-                                case 1:
-                                    return "adminPromotionFailedDescription"
-                                        .put(
-                                            key: "name",
-                                            value: (
-                                                data.profileInfo[failedIds[0]]?.displayName(for: .group) ??
-                                                Profile.truncated(id: failedIds[0], truncating: .middle)
-                                            )
-                                        )
-                                        .put(key: "group_name", value: data.groupName)
-                                        .localizedFormatted(baseFont: ToastController.font)
-                                    
-                                case 2:
-                                    return "adminPromotionFailedDescriptionTwo"
-                                        .put(
-                                            key: "name",
-                                            value: (
-                                                data.profileInfo[failedIds[0]]?.displayName(for: .group) ??
-                                                Profile.truncated(id: failedIds[0], truncating: .middle)
-                                            )
-                                        )
-                                        .put(
-                                            key: "other_name",
-                                            value: (
-                                                data.profileInfo[failedIds[1]]?.displayName(for: .group) ??
-                                                Profile.truncated(id: failedIds[1], truncating: .middle)
-                                            )
-                                        )
-                                        .put(key: "group_name", value: data.groupName)
-                                        .localizedFormatted(baseFont: ToastController.font)
-                                    
-                                default:
-                                    // TODO: [GROUPS REBUILD] This doesn't have the standard bold tags
-                                    return "adminPromotionFailedDescriptionMultiple"
-                                        .put(
-                                            key: "name",
-                                            value: (
-                                                data.profileInfo[failedIds[0]]?.displayName(for: .group) ??
-                                                Profile.truncated(id: failedIds[0], truncating: .middle)
-                                            )
-                                        )
-                                        .put(key: "count", value: failedIds.count - 1)
-                                        .put(key: "group_name", value: data.groupName)
-                                        .localizedFormatted(baseFont: ToastController.font)
-                            }
-                        }()
-                        
-                        DispatchQueue.main.async {
-                            let toastController: ToastController = ToastController(
-                                text: message,
-                                background: .backgroundSecondary
-                            )
-                            toastController.presentToastView(fromBottomOfView: mainWindow, inset: Values.largeSpacing)
-                        }
-                    }
-                )
-                .map { _ in () }
-                .eraseToAnyPublisher()
-            
-            notifyFailurePublisher?.sinkUntilComplete()
-        }
-        
-        notifyFailureTrigger.send(())
     }
 }
 
 // MARK: - GroupPromoteMemberJob Cache
 
 public extension GroupPromoteMemberJob {
+    struct Failure: Hashable {
+        let groupId: String
+        let memberId: String
+    }
+    
     class Cache: GroupPromoteMemberJobCacheType {
         public var failedMemberIds: Set<String> = []
+        
+        private static let notificationDebounceDuration: DispatchQueue.SchedulerTimeType.Stride = .milliseconds(3000)
+        
+        private let dependencies: Dependencies
+        private let failedNotificationTrigger: PassthroughSubject<(), Never> = PassthroughSubject()
+        private var disposables: Set<AnyCancellable> = Set()
+        public private(set) var failures: Set<Failure> = []
+        
+        // MARK: - Initialiation
+        
+        init(using dependencies: Dependencies) {
+            self.dependencies = dependencies
+            
+            setupFailureListener()
+        }
+        
+        // MARK: - Functions
+        
+        public func addFailure(groupId: String, memberId: String) {
+            failures.insert(Failure(groupId: groupId, memberId: memberId))
+            failedNotificationTrigger.send(())
+        }
+        
+        public func clearPendingFailures(for groupId: String) {
+            failures = failures.filter { $0.groupId != groupId }
+        }
+        
+        // MARK: - Internal Functions
+        
+        private func setupFailureListener() {
+            failedNotificationTrigger
+                .subscribe(on: DispatchQueue.global(qos: .userInitiated), using: dependencies)
+                .debounce(
+                    for: Cache.notificationDebounceDuration,
+                    scheduler: DispatchQueue.global(qos: .userInitiated)
+                )
+                .map { [dependencies] _ -> (failures: Set<Failure>, groupId: String) in
+                    dependencies.mutate(cache: .groupPromoteMemberJob) { cache in
+                        guard let targetGroupId: String = cache.failures.first?.groupId else { return ([], "") }
+                        
+                        let result: Set<Failure> = cache.failures.filter { $0.groupId == targetGroupId }
+                        cache.clearPendingFailures(for: targetGroupId)
+                        return (result, targetGroupId)
+                    }
+                }
+                .filter { failures, _ in !failures.isEmpty }
+                .setFailureType(to: Error.self)
+                .flatMapStorageReadPublisher(using: dependencies, value: { db, data -> (maybeName: String?, failedMemberIds: [String], profiles: [Profile]) in
+                    let failedMemberIds: [String] = data.failures.map { $0.memberId }
+                    
+                    return (
+                        try ClosedGroup
+                            .filter(id: data.groupId)
+                            .select(.name)
+                            .asRequest(of: String.self)
+                            .fetchOne(db),
+                        failedMemberIds,
+                        try Profile.filter(ids: failedMemberIds).fetchAll(db)
+                    )
+                })
+                .map { maybeName, failedMemberIds, profiles -> (groupName: String, failedIds: [String], profileMap: [String: Profile]) in
+                    let profileMap: [String: Profile] = profiles.reduce(into: [:]) { result, next in
+                        result[next.id] = next
+                    }
+                    let sortedFailedMemberIds: [String] = failedMemberIds.sorted { lhs, rhs in
+                        // Sort by name, followed by id if names aren't present
+                        switch (profileMap[lhs]?.displayName(for: .group), profileMap[rhs]?.displayName(for: .group)) {
+                            case (.some(let lhsName), .some(let rhsName)): return lhsName < rhsName
+                            case (.some, .none): return true
+                            case (.none, .some): return false
+                            case (.none, .none): return lhs < rhs
+                        }
+                    }
+                    
+                    return (
+                        (maybeName ?? "groupUnknown".localized()),
+                        sortedFailedMemberIds,
+                        profileMap
+                    )
+                }
+                .catch { _ in Just(("", [], [:])).eraseToAnyPublisher() }
+                .filter { _, failedIds, _ in !failedIds.isEmpty }
+                .receive(on: DispatchQueue.main, using: dependencies)
+                .sink(receiveValue: { [dependencies] groupName, failedIds, profileMap in
+                    guard let mainWindow: UIWindow = dependencies[singleton: .appContext].mainWindow else { return }
+                    
+                    let toastController: ToastController = ToastController(
+                        text: GroupPromoteMemberJob.failureMessage(
+                            groupName: groupName,
+                            memberIds: failedIds,
+                            profileInfo: profileMap
+                        ),
+                        background: .backgroundSecondary
+                    )
+                    toastController.presentToastView(fromBottomOfView: mainWindow, inset: Values.largeSpacing)
+                })
+                .store(in: &disposables)
+        }
     }
 }
 
 public extension Cache {
     static let groupPromoteMemberJob: CacheConfig<GroupPromoteMemberJobCacheType, GroupPromoteMemberJobImmutableCacheType> = Dependencies.create(
         identifier: "groupPromoteMemberJob",
-        createInstance: { _ in GroupPromoteMemberJob.Cache() },
+        createInstance: { dependencies in GroupPromoteMemberJob.Cache(using: dependencies) },
         mutableInstance: { $0 },
         immutableInstance: { $0 }
     )
@@ -286,11 +323,14 @@ public extension Cache {
 
 /// This is a read-only version of the Cache designed to avoid unintentionally mutating the instance in a non-thread-safe way
 public protocol GroupPromoteMemberJobImmutableCacheType: ImmutableCacheType {
-    var failedMemberIds: Set<String> { get }
+    var failures: Set<GroupPromoteMemberJob.Failure> { get }
 }
 
 public protocol GroupPromoteMemberJobCacheType: GroupPromoteMemberJobImmutableCacheType, MutableCacheType {
-    var failedMemberIds: Set<String> { get set }
+    var failures: Set<GroupPromoteMemberJob.Failure> { get }
+    
+    func addFailure(groupId: String, memberId: String)
+    func clearPendingFailures(for groupId: String)
 }
 
 // MARK: - GroupPromoteMemberJob.Details

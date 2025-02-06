@@ -192,7 +192,6 @@ public final class CommunityPoller: CommunityPollerType & PollerType {
                             )
                             .asRequest(of: String.self)
                             .fetchSet(db)
-                        let userSessionId: SessionId = dependencies[cache: .general].sessionId
 
                         try hiddenRoomIds.forEach { id in
                             try dependencies[singleton: .openGroupManager].delete(

@@ -583,9 +583,7 @@ final class ConversationVC: BaseVC, LibSessionRespondingViewController, Conversa
         
         stopObservingChanges()
         viewModel.updateDraft(to: snInputView.text)
-        inputAccessoryView?.resignFirstResponder()
-        
-        NotificationCenter.default.removeObserver(self)
+        inputAccessoryView?.resignFirstResponder()        
     }
 
     override func viewDidDisappear(_ animated: Bool) {
@@ -1397,7 +1395,6 @@ final class ConversationVC: BaseVC, LibSessionRespondingViewController, Conversa
     // MARK: - Keyboard Avoidance
 
     @objc func handleKeyboardNotification(_ notification: Notification) {
-        guard !viewIsDisappearing else { return }
         guard
             !viewIsDisappearing,
             let userInfo: [AnyHashable: Any] = notification.userInfo,
@@ -1480,20 +1477,23 @@ final class ConversationVC: BaseVC, LibSessionRespondingViewController, Conversa
     private func updateKeyboardAvoidance() {
         guard let lastKnownKeyboardFrame: CGRect = self.lastKnownKeyboardFrame else { return }
         
+        let legacyGroupsFooterOffset: CGFloat = (legacyGroupsRecreateGroupView.isHidden ? 0 :
+            legacyGroupsFadeView.bounds.height) // Intentionally want the height of 'legacyGroupsFadeView'
         let messageRequestsOffset: CGFloat = (messageRequestFooterView.isHidden ? 0 :
             messageRequestFooterView.bounds.height)
         let viewIntersection = view.bounds.intersection(lastKnownKeyboardFrame)
         let bottomOffset: CGFloat = (viewIntersection.isEmpty ? 0 : view.bounds.maxY - viewIntersection.minY)
+        let additionalPadding: CGFloat = (viewIntersection.isEmpty || legacyGroupsRecreateGroupView.isHidden ? Values.mediumSpacing : 0)
         let contentInsets = UIEdgeInsets(
             top: 0,
             left: 0,
-            bottom: bottomOffset + Values.mediumSpacing + messageRequestsOffset,
+            bottom: bottomOffset + additionalPadding + legacyGroupsFooterOffset + messageRequestsOffset,
             right: 0
         )
         let insetDifference: CGFloat = (contentInsets.bottom - tableView.contentInset.bottom)
         scrollButtonBottomConstraint?.constant = -(bottomOffset + 12)
         messageRequestsViewBotomConstraint?.constant = -bottomOffset
-        legacyGroupsFooterViewViewTopConstraint?.constant = -(legacyGroupsFadeView.bounds.height + bottomOffset + (viewModel.threadData.threadCanWrite == false ? 16 : 0))
+        legacyGroupsFooterViewViewTopConstraint?.constant = -(legacyGroupsFooterOffset + bottomOffset + (viewModel.threadData.threadCanWrite == false ? 16 : 0))
         tableView.contentInset = contentInsets
         tableView.scrollIndicatorInsets = contentInsets
         

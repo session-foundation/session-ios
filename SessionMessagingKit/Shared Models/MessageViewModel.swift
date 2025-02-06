@@ -1315,7 +1315,6 @@ public extension MessageViewModel.QuotedInfo {
                 name: "quoteInteractionAttachment"
             )
             let attachment: TypedTableAlias<Attachment> = TypedTableAlias()
-            let interactionAttachment: TypedTableAlias<InteractionAttachment> = TypedTableAlias()
             
             let finalFilterSQL: SQL = {
                 guard let additionalFilters: SQL = additionalFilters else {

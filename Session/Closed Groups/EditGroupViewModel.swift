@@ -359,8 +359,11 @@ class EditGroupViewModel: SessionTableViewModel, NavigatableStateHolder, Editabl
                                         )
                                         
                                     case (.standard, _, true):
-                                        self?.resendInvitations(memberIds: [memberInfo.profileId])
-
+                                        self?.resendInvitations(
+                                            currentGroupName: state.group.name,
+                                            memberInfo: [(memberInfo.profileId, memberInfo.profile)]
+                                        )
+                                    
                                     case (.standard, _, false), (.zombie, _, _):
                                         if !selectedIdsSubject.value.ids.contains(memberInfo.profileId) {
                                             selectedIdsSubject.send((
@@ -396,7 +399,9 @@ class EditGroupViewModel: SessionTableViewModel, NavigatableStateHolder, Editabl
                 accessibility: Accessibility(
                     identifier: "Remove contact button"
                 ),
-                onTap: { [weak self] in self?.removeMembers(currentGroupName: currentGroupName, memberIds: selectedIds) }
+                onTap: { [weak self] in
+                    self?.removeMembers(currentGroupName: currentGroupName, memberIds: selectedIds)
+                }
             )
         }
         .eraseToAnyPublisher()
@@ -457,10 +462,14 @@ class EditGroupViewModel: SessionTableViewModel, NavigatableStateHolder, Editabl
                                         throw UserListError.error("groupAddMemberMaximum".localized())
                                     }
                                     
+                                    // Adding members is an async process and after adding members we
+                                    // want to return to the edit group screen so the admin can see the
+                                    // invitation statuses
                                     self?.addMembers(
                                         currentGroupName: currentGroupName,
                                         memberInfo: selectedMemberInfo.map { ($0.profileId, $0.profile) }
                                     )
+                                    self?.dismissScreen()
                                 }
                                 
                             case .standard: // Assume it's a legacy group
@@ -479,7 +488,9 @@ class EditGroupViewModel: SessionTableViewModel, NavigatableStateHolder, Editabl
                                         name: currentGroupName,
                                         using: dependencies
                                     )
-                                    .mapError { _ in UserListError.error("deleteAfterLegacyGroupsGroupUpdateErrorTitle".localized()) }
+                                    .mapError { _ in
+                                        UserListError.error("deleteAfterLegacyGroupsGroupUpdateErrorTitle".localized())
+                                    }
                                     .eraseToAnyPublisher()
                                 }
                                 
@@ -608,149 +619,115 @@ class EditGroupViewModel: SessionTableViewModel, NavigatableStateHolder, Editabl
     
     private func addMembers(
         currentGroupName: String,
-        memberInfo: [(id: String, profile: Profile?)],
-        isRetry: Bool = false
+        memberInfo: [(id: String, profile: Profile?)]
     ) {
-        let viewController = ModalActivityIndicatorViewController(canCancel: false) { [weak self, dependencies, threadId] modalActivityIndicator in
-            MessageSender
-                .addGroupMembers(
-                    groupSessionId: threadId,
-                    members: memberInfo,
-                    isRetry: isRetry,
-                    allowAccessToHistoricMessages: dependencies[feature: .updatedGroupsAllowHistoricAccessOnInvite],
-                    using: dependencies
-                )
-                .subscribe(on: DispatchQueue.global(qos: .userInitiated), using: dependencies)
-                .receive(on: DispatchQueue.main, using: dependencies)
-                .sinkUntilComplete(
-                    receiveCompletion: { [weak self] result in
-                        modalActivityIndicator.dismiss {
-                            switch result {
-                                case .failure:
-                                    self?.transitionToScreen(
-                                        ConfirmationModal(
-                                            info: ConfirmationModal.Info(
-                                                title: "inviteFailed"
-                                                    .putNumber(memberInfo.count)
-                                                    .localized(),
-                                                body: .text("inviteFailedDescription"
-                                                    .putNumber(memberInfo.count)
-                                                    .localized()),
-                                                confirmTitle: "yes".localized(),
-                                                cancelTitle: "cancel".localized(),
-                                                cancelStyle: .alert_text,
-                                                dismissOnConfirm: false,
-                                                onConfirm: { modal in
-                                                    modal.dismiss(animated: true) {
-                                                        self?.addMembers(
-                                                            currentGroupName: currentGroupName,
-                                                            memberInfo: memberInfo,
-                                                            isRetry: true
-                                                        )
-                                                    }
-                                                },
-                                                onCancel: { modal in
-                                                    /// Flag the members as failed
-                                                    let memberIds: [String] = memberInfo.map(\.id)
-                                                    dependencies[singleton: .storage].writeAsync { db in
-                                                        try? GroupMember
-                                                            .filter(GroupMember.Columns.groupId == threadId)
-                                                            .filter(memberIds.contains(GroupMember.Columns.profileId))
-                                                            .updateAllAndConfig(
-                                                                db,
-                                                                GroupMember.Columns.roleStatus.set(to: GroupMember.RoleStatus.failed),
-                                                                using: dependencies
-                                                            )
-                                                    }
-                                                    modal.dismiss(animated: true)
-                                                }
-                                            )
-                                        ),
-                                        transitionType: .present
-                                    )
-                                    
-                                case .finished:
-                                    /// Show a toast that we have sent the invitations
-                                    self?.showToast(
-                                        text: "groupInviteSending"
-                                            .putNumber(memberInfo.count)
-                                            .localized(),
-                                        backgroundColor: .backgroundSecondary
+        /// Show a toast immediately that we are sending invitations
+        showToast(
+            text: "groupInviteSending"
+                .putNumber(memberInfo.count)
+                .localized(),
+            backgroundColor: .backgroundSecondary
+        )
+        
+        /// Actually trigger the sending process
+        MessageSender
+            .addGroupMembers(
+                groupSessionId: threadId,
+                members: memberInfo,
+                allowAccessToHistoricMessages: dependencies[feature: .updatedGroupsAllowHistoricAccessOnInvite],
+                using: dependencies
+            )
+            .subscribe(on: DispatchQueue.global(qos: .userInitiated), using: dependencies)
+            .receive(on: DispatchQueue.main, using: dependencies)
+            .sinkUntilComplete(
+                receiveCompletion: { [weak self, threadId, dependencies] result in
+                    switch result {
+                        case .finished: break
+                        case .failure:
+                            let memberIds: [String] = memberInfo.map(\.id)
+                            
+                            /// Flag the members as failed
+                            dependencies[singleton: .storage].writeAsync { db in
+                                try? GroupMember
+                                    .filter(GroupMember.Columns.groupId == threadId)
+                                    .filter(memberIds.contains(GroupMember.Columns.profileId))
+                                    .updateAllAndConfig(
+                                        db,
+                                        GroupMember.Columns.roleStatus.set(to: GroupMember.RoleStatus.failed),
+                                        using: dependencies
                                     )
                             }
-                        }
+                            
+                            /// Show a toast that the invitations failed to send
+                            self?.showToast(
+                                text: GroupInviteMemberJob.failureMessage(
+                                    groupName: currentGroupName,
+                                    memberIds: memberIds,
+                                    profileInfo: memberInfo.reduce(into: [:]) { result, next in
+                                        result[next.id] = next.profile
+                                    }
+                                ),
+                                backgroundColor: .backgroundSecondary
+                            )
                     }
-                )
-        }
-        self.transitionToScreen(viewController, transitionType: .present)
+                }
+            )
     }
     
-    private func resendInvitations(memberIds: [String]) {
-        let viewController = ModalActivityIndicatorViewController(canCancel: false) { [weak self, dependencies, threadId] modalActivityIndicator in
-            MessageSender
-                .resendInvitations(
-                    groupSessionId: threadId,
-                    memberIds: memberIds,
-                    using: dependencies
-                )
-                .subscribe(on: DispatchQueue.global(qos: .userInitiated), using: dependencies)
-                .receive(on: DispatchQueue.main, using: dependencies)
-                .sinkUntilComplete(
-                    receiveCompletion: { [weak self] result in
-                        modalActivityIndicator.dismiss {
-                            switch result {
-                                case .failure:
-                                    self?.transitionToScreen(
-                                        ConfirmationModal(
-                                            info: ConfirmationModal.Info(
-                                                title: "inviteFailed"
-                                                    .putNumber(memberIds.count)
-                                                    .localized(),
-                                                body: .text("inviteFailedDescription"
-                                                    .putNumber(memberIds.count)
-                                                    .localized()),
-                                                confirmTitle: "yes".localized(),
-                                                cancelTitle: "cancel".localized(),
-                                                cancelStyle: .alert_text,
-                                                dismissOnConfirm: false,
-                                                onConfirm: { modal in
-                                                    modal.dismiss(animated: true) {
-                                                        self?.resendInvitations(memberIds: memberIds)
-                                                    }
-                                                },
-                                                onCancel: { modal in
-                                                    /// Flag the members as failed
-                                                    dependencies[singleton: .storage].writeAsync { db in
-                                                        try? GroupMember
-                                                            .filter(GroupMember.Columns.groupId == threadId)
-                                                            .filter(memberIds.contains(GroupMember.Columns.profileId))
-                                                            .updateAllAndConfig(
-                                                                db,
-                                                                GroupMember.Columns.roleStatus.set(to: GroupMember.RoleStatus.failed),
-                                                                using: dependencies
-                                                            )
-                                                    }
-                                                    modal.dismiss(animated: true)
-                                                }
-                                            )
-                                        ),
-                                        transitionType: .present
-                                    )
-                                    
-                                case .finished:
-                                    /// Show a toast that we have sent the invitations
-                                    self?.showToast(
-                                        text: "groupInviteSending"
-                                            .putNumber(memberIds.count)
-                                            .localized(),
-                                        backgroundColor: .backgroundSecondary
+    private func resendInvitations(
+        currentGroupName: String,
+        memberInfo: [(id: String, profile: Profile?)]
+    ) {
+        /// Show a toast immediately that we are sending invitations
+        showToast(
+            text: "groupInviteSending"
+                .putNumber(memberInfo.count)
+                .localized(),
+            backgroundColor: .backgroundSecondary
+        )
+        
+        /// Actually trigger the sending process
+        let memberIds: [String] = memberInfo.map { $0.id }
+        
+        MessageSender
+            .resendInvitations(
+                groupSessionId: threadId,
+                memberIds: memberIds,
+                using: dependencies
+            )
+            .subscribe(on: DispatchQueue.global(qos: .userInitiated), using: dependencies)
+            .receive(on: DispatchQueue.main, using: dependencies)
+            .sinkUntilComplete(
+                receiveCompletion: { [weak self, threadId, dependencies] result in
+                    switch result {
+                        case .finished: break
+                        case .failure:
+                            /// Flag the members as failed
+                            dependencies[singleton: .storage].writeAsync { db in
+                                try? GroupMember
+                                    .filter(GroupMember.Columns.groupId == threadId)
+                                    .filter(memberIds.contains(GroupMember.Columns.profileId))
+                                    .updateAllAndConfig(
+                                        db,
+                                        GroupMember.Columns.roleStatus.set(to: GroupMember.RoleStatus.failed),
+                                        using: dependencies
                                     )
                             }
-                        }
+                            
+                            /// Show a toast that the invitations failed to send
+                            self?.showToast(
+                                text: GroupInviteMemberJob.failureMessage(
+                                    groupName: currentGroupName,
+                                    memberIds: memberIds,
+                                    profileInfo: memberInfo.reduce(into: [:]) { result, next in
+                                        result[next.id] = next.profile
+                                    }
+                                ),
+                                backgroundColor: .backgroundSecondary
+                            )
                     }
-                )
-        }
-        self.transitionToScreen(viewController, transitionType: .present)
+                }
+            )
     }
     
     private func removeMembers(currentGroupName: String, memberIds: Set<String>) {

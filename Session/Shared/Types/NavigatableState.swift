@@ -122,19 +122,32 @@ public extension Publisher {
             return self.eraseToAnyPublisher()
         }
         
-        let modalActivityIndicator: ModalActivityIndicatorViewController = ModalActivityIndicatorViewController(onAppear: { _ in })
+        var modalActivityIndicator: ModalActivityIndicatorViewController?
+        
+        switch Thread.isMainThread {
+            case true: modalActivityIndicator = ModalActivityIndicatorViewController(onAppear: { _ in })
+            case false:
+                DispatchQueue.main.sync {
+                    modalActivityIndicator = ModalActivityIndicatorViewController(onAppear: { _ in })
+                }
+                
+        }
         
         return self
             .handleEvents(
                 receiveSubscription: { _ in
-                    navigatableState._transitionToScreen.send((modalActivityIndicator, .present))
+                    guard let indicator: ModalActivityIndicatorViewController = modalActivityIndicator else {
+                        return
+                    }
+                    
+                    navigatableState._transitionToScreen.send((indicator, .present))
                 }
             )
             .asResult()
             .flatMap { result -> AnyPublisher<Output, Failure> in
                 Deferred {
                     Future<Output, Failure> { resolver in
-                        modalActivityIndicator.dismiss(completion: {
+                        modalActivityIndicator?.dismiss(completion: {
                             resolver(result)
                         })
                     }
