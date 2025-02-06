@@ -85,6 +85,9 @@ public class HighlightMentionBackgroundView: UIView {
 
         var origins = [CGPoint](repeating: .zero, count: lines.count)
         CTFrameGetLineOrigins(frame, CFRangeMake(0, 0), &origins)
+
+        var currentMentionBounds: CGRect? = nil  // Store mention bounding box
+        var lastMentionBackgroundColor: UIColor = .clear
         
         for lineIndex in 0..<lines.count {
             let line = lines[lineIndex]
@@ -98,9 +101,18 @@ public class HighlightMentionBackgroundView: UIView {
                 let attributes: NSDictionary = CTRunGetAttributes(run)
                 
                 guard let mentionBackgroundColor: UIColor = attributes.value(forKey: NSAttributedString.Key.currentUserMentionBackgroundColor.rawValue) as? UIColor else {
+                    if let currentBounds = currentMentionBounds {
+                        // Draw a single background rectangle for the mention
+                        let path = UIBezierPath(roundedRect: currentBounds, cornerRadius: 6)
+                        lastMentionBackgroundColor.setFill()
+                        path.fill()
+                        currentMentionBounds = nil // Reset mention bounds
+                    }
+                    lastMentionBackgroundColor = .clear
                     continue
                 }
                 
+                lastMentionBackgroundColor = mentionBackgroundColor
                 let maybeCornerRadius: CGFloat? = (attributes
                     .value(forKey: NSAttributedString.Key.currentUserMentionBackgroundCornerRadius.rawValue) as? CGFloat)
                 let maybePadding: CGFloat? = (attributes
@@ -139,11 +151,22 @@ public class HighlightMentionBackgroundView: UIView {
                     runDescent -
                     extraYOffset
                 )
-                
-                let path = UIBezierPath(roundedRect: runBounds, cornerRadius: (maybeCornerRadius ?? 0))
-                mentionBackgroundColor.setFill()
-                path.fill()
+
+                if currentMentionBounds == nil {
+                    // Start tracking mention bounds
+                    currentMentionBounds = runBounds
+                } else {
+                    // Expand bounds to include this part of the mention
+                    currentMentionBounds = currentMentionBounds!.union(runBounds)
+                }
             }
+        }
+
+        // Final mention draw (in case the loop ends with a mention active)
+        if let currentBounds = currentMentionBounds {
+            let path = UIBezierPath(roundedRect: currentBounds, cornerRadius: 6)
+            lastMentionBackgroundColor.setFill()
+            path.fill()
         }
     }
 }
