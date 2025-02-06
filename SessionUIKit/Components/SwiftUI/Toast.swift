@@ -34,7 +34,7 @@ public struct ToastModifier: ViewModifier {
         }
   
         workItem = task
-        DispatchQueue.main.asyncAfter(deadline: .now() + 5, execute: task)
+        DispatchQueue.main.asyncAfter(deadline: .now() + 1.5, execute: task)
     }
   
     private func dismissToast() {
@@ -61,24 +61,18 @@ public struct ToastView: View {
         VStack(
             spacing: 0
         ) {
-            ZStack {
-                Capsule()
-                    .foregroundColor(themeColor: .toast_background)
-                
-                Text(message)
-                    .font(.system(size: Values.verySmallFontSize))
-                    .foregroundColor(themeColor: .textPrimary)
-                    .multilineTextAlignment(.center)
-                    .frame(maxWidth: .infinity)
-                    .padding(.horizontal, Values.mediumSpacing)
-            }
-            .frame(
-                width: Self.width,
-                height: Self.height
-            )
+            Text(message)
+                .font(.system(size: Values.mediumFontSize))
+                .foregroundColor(themeColor: .textPrimary)
+                .multilineTextAlignment(.center)
+                .padding(.horizontal, Values.largeSpacing)
+                .frame(height: Self.height)
+                .background(
+                    Capsule()
+                        .foregroundColor(themeColor: .toast_background)
+                )
         }
         .frame(
-            maxWidth: .infinity,
             maxHeight: .infinity,
             alignment: .bottom
         )

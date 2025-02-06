@@ -10,6 +10,7 @@ struct MessageInfoScreen: View {
     @EnvironmentObject var host: HostWrapper
     
     @State var index = 1
+    @State var feedbackMessage: String? = nil
     
     static private let cornerRadius: CGFloat = 17
     
@@ -305,7 +306,10 @@ struct MessageInfoScreen: View {
                                     Button(
                                         action: {
                                             actions[index].work()
-                                            dismiss()
+                                            feedbackMessage = actions[index].feedback
+                                            DispatchQueue.main.asyncAfter(deadline: .now() + 2, execute: {
+                                                dismiss()
+                                            })
                                         },
                                         label: {
                                             HStack(spacing: Values.largeSpacing) {
@@ -348,6 +352,7 @@ struct MessageInfoScreen: View {
             }
         }
         .backgroundColor(themeColor: .backgroundPrimary)
+        .toastView(message: $feedbackMessage)
     }
     
     private func showMediaFullScreen(attachment: Attachment) {

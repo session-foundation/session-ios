@@ -14,6 +14,7 @@ extension ContextMenuVC {
     struct Action {
         let icon: UIImage?
         let title: String
+        let feedback: String
         let expirationInfo: ExpirationInfo?
         let themeColor: ThemeValue
         let actionType: ActionType
@@ -32,6 +33,7 @@ extension ContextMenuVC {
         init(
             icon: UIImage? = nil,
             title: String = "",
+            feedback: String = "",
             expirationInfo: ExpirationInfo? = nil,
             themeColor: ThemeValue = .textPrimary,
             actionType: ActionType = .generic,
@@ -40,6 +42,7 @@ extension ContextMenuVC {
         ) {
             self.icon = icon
             self.title = title
+            self.feedback = feedback
             self.expirationInfo = expirationInfo
             self.themeColor = themeColor
             self.actionType = actionType
@@ -80,6 +83,7 @@ extension ContextMenuVC {
             return Action(
                 icon: UIImage(named: "ic_copy"),
                 title: "copy".localized(),
+                feedback: "copied".localized(),
                 accessibilityLabel: "Copy text"
             ) { delegate?.copy(cellViewModel, using: dependencies) }
         }
@@ -88,6 +92,7 @@ extension ContextMenuVC {
             return Action(
                 icon: UIImage(named: "ic_copy"),
                 title: "accountIDCopy".localized(),
+                feedback: "copied".localized(),
                 accessibilityLabel: "Copy Session ID"
                 
             ) { delegate?.copySessionID(cellViewModel) }
@@ -110,6 +115,7 @@ extension ContextMenuVC {
             return Action(
                 icon: UIImage(named: "ic_download"),
                 title: "save".localized(),
+                feedback: "saved".localized(),
                 accessibilityLabel: "Save attachment"
             ) { delegate?.save(cellViewModel, using: dependencies) }
         }
