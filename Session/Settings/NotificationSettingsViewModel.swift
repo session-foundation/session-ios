@@ -105,7 +105,9 @@ class NotificationSettingsViewModel: SessionTableViewModel, NavigatableStateHold
                                 dependencies[defaults: .standard, key: .isUsingFullAPNs] = !dependencies[defaults: .standard, key: .isUsingFullAPNs]
 
                                 // Force sync the push tokens on change
-                                SyncPushTokensJob.run(uploadOnlyIfStale: false, using: dependencies)
+                                SyncPushTokensJob
+                                    .run(uploadOnlyIfStale: false, using: dependencies)
+                                    .sinkUntilComplete()
                                 self?.forceRefresh(type: .postDatabaseQuery)
                             }
                         ),

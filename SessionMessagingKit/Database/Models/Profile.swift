@@ -12,7 +12,7 @@ public struct Profile: Codable, Identifiable, Equatable, Hashable, FetchableReco
     public static var databaseTableName: String { "profile" }
     internal static let interactionForeignKey = ForeignKey([Columns.id], to: [Interaction.Columns.authorId])
     internal static let contactForeignKey = ForeignKey([Columns.id], to: [Contact.Columns.id])
-    internal static let groupMemberForeignKey = ForeignKey([Columns.id], to: [GroupMember.Columns.profileId])
+    internal static let groupMemberForeignKey = ForeignKey([GroupMember.Columns.profileId], to: [Columns.id])
     internal static let contact = hasOne(Contact.self, using: contactForeignKey)
     public static let groupMembers = hasMany(GroupMember.self, using: groupMemberForeignKey)
     

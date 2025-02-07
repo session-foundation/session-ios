@@ -1257,7 +1257,6 @@ class ThreadSettingsViewModel: SessionTableViewModel, NavigatableStateHolder, Ob
                         )
                     },
                     cancelStyle: .danger,
-                    dismissOnConfirm: false,
                     onConfirm: { [weak self, dependencies, threadId] modal in
                         guard
                             let finalName: String = (self?.updatedName ?? "")

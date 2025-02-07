@@ -25,13 +25,7 @@ public enum PushNotificationAPI {
     private static let maxRetryCount: Int = 4
     private static let tokenExpirationInterval: TimeInterval = (12 * 60 * 60)
     
-    public static let server: FeatureValue<String> = FeatureValue(feature: .serviceNetwork) { feature in
-        switch feature {
-            case .mainnet: return "https://push.getsession.org"
-            case .testnet: return "http://push-testnet.getsession.org"
-        }
-    }
-    
+    public static let server: String = "https://push.getsession.org"
     public static let serverPublicKey = "d7557fe563e2610de876c0ac7341b62f3c82d5eea4b62c702392ea4368f51b3b"
     public static let legacyServer = "https://live.apns.getsession.org"
     public static let legacyServerPublicKey = "642a6585919742e5a2d4dc51244964fbcd8bcab2b75612407de58b810740d049"

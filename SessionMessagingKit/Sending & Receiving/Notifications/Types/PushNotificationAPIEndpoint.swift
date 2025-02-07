@@ -45,7 +45,7 @@ public extension PushNotificationAPI {
                     .legacyGroupsOnlySubscribe, .legacyGroupSubscribe, .legacyGroupUnsubscribe:
                     return PushNotificationAPI.legacyServer
                     
-                default: return PushNotificationAPI.server.value(using: dependencies)
+                default: return PushNotificationAPI.server
             }
         }
         

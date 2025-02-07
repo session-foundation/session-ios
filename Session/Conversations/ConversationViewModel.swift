@@ -118,6 +118,7 @@ public class ConversationViewModel: OWSAudioPlayerDelegate, NavigatableStateHold
             currentUserIsClosedGroupMember: Bool?,
             currentUserIsClosedGroupAdmin: Bool?,
             openGroupPermissions: OpenGroup.Permissions?,
+            threadWasMarkedUnread: Bool,
             blinded15SessionId: SessionId?,
             blinded25SessionId: SessionId?
         )
@@ -203,6 +204,12 @@ public class ConversationViewModel: OWSAudioPlayerDelegate, NavigatableStateHold
                     .asRequest(of: OpenGroup.Permissions.self)
                     .fetchOne(db)
             )
+            let threadWasMarkedUnread: Bool = (try? SessionThread
+                .filter(id: threadId)
+                .select(.markedAsUnread)
+                .asRequest(of: Bool.self)
+                .fetchOne(db))
+                .defaulting(to: false)
             let blinded15SessionId: SessionId? = SessionThread.getCurrentUserBlindedSessionId(
                 db,
                 threadId: threadId,
@@ -227,6 +234,7 @@ public class ConversationViewModel: OWSAudioPlayerDelegate, NavigatableStateHold
                 currentUserIsClosedGroupMember,
                 currentUserIsClosedGroupAdmin,
                 openGroupPermissions,
+                threadWasMarkedUnread,
                 blinded15SessionId,
                 blinded25SessionId
             )
@@ -247,6 +255,7 @@ public class ConversationViewModel: OWSAudioPlayerDelegate, NavigatableStateHold
             currentUserIsClosedGroupMember: initialData?.currentUserIsClosedGroupMember,
             currentUserIsClosedGroupAdmin: initialData?.currentUserIsClosedGroupAdmin,
             openGroupPermissions: initialData?.openGroupPermissions,
+            threadWasMarkedUnread: initialData?.threadWasMarkedUnread,
             using: dependencies
         ).populatingPostQueryData(
             currentUserBlinded15SessionIdForThisThread: initialData?.blinded15SessionId?.hexString,

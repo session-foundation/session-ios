@@ -73,6 +73,7 @@ class DeveloperSettingsViewModel: SessionTableViewModel, NavigatableStateHolder,
         case serviceNetwork
         case forceOffline
         case resetSnodeCache
+        case pushNotificationService
         
         case updatedDisappearingMessages
         case debugDisappearingMessageDurations
@@ -109,6 +110,7 @@ class DeveloperSettingsViewModel: SessionTableViewModel, NavigatableStateHolder,
                 case .serviceNetwork: return "serviceNetwork"
                 case .forceOffline: return "forceOffline"
                 case .resetSnodeCache: return "resetSnodeCache"
+                case .pushNotificationService: return "pushNotificationService"
                 
                 case .updatedDisappearingMessages: return "updatedDisappearingMessages"
                 case .debugDisappearingMessageDurations: return "debugDisappearingMessageDurations"
@@ -148,6 +150,7 @@ class DeveloperSettingsViewModel: SessionTableViewModel, NavigatableStateHolder,
                 case .serviceNetwork: result.append(.serviceNetwork); fallthrough
                 case .forceOffline: result.append(.forceOffline); fallthrough
                 case .resetSnodeCache: result.append(.resetSnodeCache); fallthrough
+                case .pushNotificationService: result.append(.pushNotificationService); fallthrough
                 
                 case .updatedDisappearingMessages: result.append(.updatedDisappearingMessages); fallthrough
                 case .debugDisappearingMessageDurations: result.append(.debugDisappearingMessageDurations); fallthrough
@@ -187,6 +190,7 @@ class DeveloperSettingsViewModel: SessionTableViewModel, NavigatableStateHolder,
         
         let serviceNetwork: ServiceNetwork
         let forceOffline: Bool
+        let pushNotificationService: PushNotificationAPI.Service
         
         let debugDisappearingMessageDurations: Bool
         let updatedDisappearingMessages: Bool
@@ -219,6 +223,7 @@ class DeveloperSettingsViewModel: SessionTableViewModel, NavigatableStateHolder,
                 
                 serviceNetwork: dependencies[feature: .serviceNetwork],
                 forceOffline: dependencies[feature: .forceOffline],
+                pushNotificationService: dependencies[feature: .pushNotificationService],
                 
                 debugDisappearingMessageDurations: dependencies[feature: .debugDisappearingMessageDurations],
                 updatedDisappearingMessages: dependencies[feature: .updatedDisappearingMessages],
@@ -429,6 +434,32 @@ class DeveloperSettingsViewModel: SessionTableViewModel, NavigatableStateHolder,
                     """,
                     trailingAccessory: .highlightingBackgroundLabel(title: "Reset Cache"),
                     onTap: { [weak self] in self?.resetServiceNodeCache() }
+                ),
+                SessionCell.Info(
+                    id: .pushNotificationService,
+                    title: "Push Notification Service",
+                    subtitle: """
+                    The service used for subscribing for push notifications. The production service only works for production builds and neither service work in the Simulator. 
+                    
+                    <b>Warning:</b>
+                    Changing this option will result in unsubscribing from the current service and subscribing to the new service which may take a few minutes.
+                    """,
+                    trailingAccessory: .dropDown { current.pushNotificationService.title },
+                    onTap: { [weak self, dependencies] in
+                        self?.transitionToScreen(
+                            SessionTableViewController(
+                                viewModel: SessionListViewModel<PushNotificationAPI.Service>(
+                                    title: "Push Notification Service",
+                                    options: PushNotificationAPI.Service.allCases,
+                                    behaviour: .autoDismiss(
+                                        initialSelection: current.pushNotificationService,
+                                        onOptionSelected: self?.updatePushNotificationService
+                                    ),
+                                    using: dependencies
+                                )
+                            )
+                        )
+                    }
                 )
             ]
         )
@@ -745,7 +776,8 @@ class DeveloperSettingsViewModel: SessionTableViewModel, NavigatableStateHolder,
                 case .loggingCategory: resetLoggingCategories()
                 
                 case .serviceNetwork: updateServiceNetwork(to: nil)
-                case .forceOffline:  updateFlag(for: .forceOffline, to: nil)
+                case .forceOffline: updateFlag(for: .forceOffline, to: nil)
+                case .pushNotificationService: updatePushNotificationService(to: nil)
                     
                 case .debugDisappearingMessageDurations:
                     updateFlag(for: .debugDisappearingMessageDurations, to: nil)
@@ -803,6 +835,30 @@ class DeveloperSettingsViewModel: SessionTableViewModel, NavigatableStateHolder,
     private func updateServiceNetwork(to updatedNetwork: ServiceNetwork?) {
         DeveloperSettingsViewModel.updateServiceNetwork(to: updatedNetwork, using: dependencies)
         forceRefresh(type: .databaseQuery)
+    }
+    
+    private func updatePushNotificationService(to updatedService: PushNotificationAPI.Service?) {
+        guard
+            dependencies[defaults: .standard, key: .isUsingFullAPNs],
+            updatedService != dependencies[feature: .pushNotificationService]
+        else {
+            forceRefresh(type: .databaseQuery)
+            return
+        }
+        
+        /// Disable push notifications to trigger the unsubscribe, then re-enable them after updating the feature setting
+        dependencies[defaults: .standard, key: .isUsingFullAPNs] = false
+        SyncPushTokensJob
+            .run(uploadOnlyIfStale: false, using: dependencies)
+            .handleEvents(
+                receiveOutput: { [weak self, dependencies] _ in
+                    dependencies.set(feature: .pushNotificationService, to: updatedService)
+                    dependencies[defaults: .standard, key: .isUsingFullAPNs] = true
+                    self?.forceRefresh(type: .databaseQuery)
+                }
+            )
+            .flatMap { [dependencies] _ in SyncPushTokensJob.run(uploadOnlyIfStale: false, using: dependencies) }
+            .sinkUntilComplete()
     }
     
     private static func updateServiceNetwork(
@@ -914,7 +970,7 @@ class DeveloperSettingsViewModel: SessionTableViewModel, NavigatableStateHolder,
             dependencies[singleton: .currentUserPoller].startIfNeeded()
             
             /// Re-sync the push tokens (if there are any)
-            SyncPushTokensJob.run(uploadOnlyIfStale: false, using: dependencies)
+            SyncPushTokensJob.run(uploadOnlyIfStale: false, using: dependencies).sinkUntilComplete()
             
             Log.info("[DevSettings] Completed swap to \(String(describing: updatedNetwork))")
         }
@@ -1425,6 +1481,9 @@ private class DocumentPickerResult: NSObject, UIDocumentPickerDelegate {
 extension ServiceNetwork: @retroactive ContentIdentifiable {}
 extension ServiceNetwork: @retroactive ContentEquatable {}
 extension ServiceNetwork: Listable {}
+extension PushNotificationAPI.Service: @retroactive ContentIdentifiable {}
+extension PushNotificationAPI.Service: @retroactive ContentEquatable {}
+extension PushNotificationAPI.Service: Listable {}
 extension Log.Level: @retroactive ContentIdentifiable {}
 extension Log.Level: @retroactive ContentEquatable {}
 extension Log.Level: Listable {}

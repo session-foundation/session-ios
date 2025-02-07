@@ -250,7 +250,10 @@ final class ConversationVC: BaseVC, LibSessionRespondingViewController, Conversa
                 onTap: { [weak self] in self?.openUrl(Features.legacyGroupDepricationUrl) }
             )
         )
-        result.isHidden = (self.viewModel.threadData.threadVariant != .legacyGroup)
+        result.isHidden = (
+            viewModel.threadData.threadVariant != .legacyGroup ||
+            !viewModel.dependencies[feature: .updatedGroups]
+        )
         
         return result
     }()
@@ -331,7 +334,8 @@ final class ConversationVC: BaseVC, LibSessionRespondingViewController, Conversa
         let result: UIView = UIView()
         result.isHidden = (
             viewModel.threadData.threadVariant != .legacyGroup ||
-            viewModel.threadData.currentUserIsClosedGroupAdmin != true
+            viewModel.threadData.currentUserIsClosedGroupAdmin != true ||
+            !viewModel.dependencies[feature: .updatedGroups]
         )
         
         return result
@@ -345,7 +349,7 @@ final class ConversationVC: BaseVC, LibSessionRespondingViewController, Conversa
             .backgroundPrimary,
             .backgroundPrimary
         ]
-        result.set(.height, to: 80)
+        result.set(.height, to: 92)
         
         return result
     }()
@@ -358,7 +362,7 @@ final class ConversationVC: BaseVC, LibSessionRespondingViewController, Conversa
     }()
     
     private lazy var legacyGroupsFooterButton: SessionButton = {
-        let result: SessionButton = SessionButton(style: .bordered, size: .medium)
+        let result: SessionButton = SessionButton(style: .bordered, size: .large)
         result.translatesAutoresizingMaskIntoConstraints = false
         result.setTitle("Recreate Group", for: .normal)
         result.addTarget(self, action: #selector(recreateLegacyGroupTapped), for: .touchUpInside)

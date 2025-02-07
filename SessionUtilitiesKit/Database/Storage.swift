@@ -7,6 +7,10 @@ import CryptoKit
 import Combine
 import GRDB
 
+#if DEBUG
+import Darwin
+#endif
+
 // MARK: - Singleton
 
 public extension Singleton {
@@ -718,7 +722,42 @@ open class Storage {
         
         /// If this is a synchronous operation then `semaphore` will exist and will block here waiting on the signal from one of the
         /// above closures to be sent
-        let semaphoreResult: DispatchTimeoutResult? = semaphore?.wait(timeout: .now() + .seconds(Storage.transactionDeadlockTimeoutSeconds))
+        ///
+        /// **Note:** Unfortunately this timeout can be really annoying when debugging because the semaphore timeout is based on
+        /// system time which doesn't get paused when stopping on a breakpoint (which means if you break in the middle of a database
+        /// query it's pretty much guaranteed to timeout)
+        ///
+        /// To try to avoid this we have the below code to try to replicate the behaviour of the proper semaphore timeout while the debugger
+        /// is attached as this approach does seem to get paused (or at least only perform a single iteration per debugger step)
+        var semaphoreResult: DispatchTimeoutResult?
+        
+        #if DEBUG
+        if !isDebuggerAttached() {
+            semaphoreResult = semaphore?.wait(timeout: .now() + .seconds(Storage.transactionDeadlockTimeoutSeconds))
+        }
+        else if !info.isAsync {
+            let timerSemaphore: DispatchSemaphore = DispatchSemaphore(value: 0)
+            let timerQueue = DispatchQueue(label: "org.session.debugSemaphoreTimer", qos: .userInteractive)
+            let timer = DispatchSource.makeTimerSource(queue: timerQueue)
+            var iterations: UInt64 = 0
+            timer.schedule(deadline: .now(), repeating: .milliseconds(100))
+                        
+            timer.setEventHandler {
+                iterations += 1
+                semaphoreResult = semaphore?.wait(timeout: .now())  // Get the result from the original semaphore
+                
+                if semaphoreResult == .success || iterations >= 50 {
+                    timer.cancel()
+                    timerSemaphore.signal()
+                }
+            }
+            
+            timer.resume()
+            timerSemaphore.wait()   // Wait indefinitely for the timer semaphore
+        }
+        #else
+        semaphoreResult = semaphore?.wait(timeout: .now() + .seconds(Storage.transactionDeadlockTimeoutSeconds))
+        #endif
         
         /// If the transaction timed out then log the error and report a failure
         guard semaphoreResult != .timedOut else {
@@ -1100,3 +1139,14 @@ public extension Storage {
         return try ChaChaPoly.open(sealedBox, using: key, authenticating: Data())
     }
 }
+
+#if DEBUG
+func isDebuggerAttached() -> Bool {
+    var info = kinfo_proc()
+    var size = MemoryLayout<kinfo_proc>.stride
+    var mib: [Int32] = [CTL_KERN, KERN_PROC, KERN_PROC_PID, getpid()]
+    let sysctlResult = sysctl(&mib, UInt32(mib.count), &info, &size, nil, 0)
+    guard sysctlResult == 0 else { return false }
+    return (info.kp_proc.p_flag & P_TRACED) != 0
+}
+#endif

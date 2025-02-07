@@ -116,16 +116,24 @@ public enum SyncPushTokensJob: JobExecutor {
         dependencies[singleton: .pushRegistrationManager].requestPushTokens()
             .flatMap { (pushToken: String, voipToken: String) -> AnyPublisher<(String, String)?, Error> in
                 dependencies[cache: .libSessionNetwork].paths
+                    .filter { !$0.isEmpty }
                     .first()    // Only listen for the first callback
-                    .map { paths in
-                        guard !paths.isEmpty else {
-                            Log.info(.cat, "OS subscription completed, skipping server subscription due to lack of paths")
-                            return nil
-                        }
-                        
-                        return (pushToken, voipToken)
-                    }
+                    .map { _ in (pushToken, voipToken) }
                     .setFailureType(to: Error.self)
+                    .timeout(
+                        .seconds(5),     // Give the paths a chance to build on launch
+                        scheduler: scheduler,
+                        customError: { NetworkError.timeout(error: "", rawData: nil) }
+                    )
+                    .catch { error -> AnyPublisher<(String, String)?, Error> in
+                        switch error {
+                            case NetworkError.timeout:
+                                Log.info(.cat, "OS subscription completed, skipping server subscription due to path build timeout")
+                                return Just(nil).setFailureType(to: Error.self).eraseToAnyPublisher()
+                            
+                            default: return Fail(error: error).eraseToAnyPublisher()
+                        }
+                    }
                     .eraseToAnyPublisher()
             }
             .flatMap { (tokenInfo: (String, String)?) -> AnyPublisher<Void, Error> in
@@ -197,24 +205,44 @@ public enum SyncPushTokensJob: JobExecutor {
             )
     }
     
-    public static func run(uploadOnlyIfStale: Bool, using dependencies: Dependencies) {
-        guard let job: Job = Job(
-            variant: .syncPushTokens,
-            behaviour: .runOnce,
-            details: SyncPushTokensJob.Details(
-                uploadOnlyIfStale: uploadOnlyIfStale
-            )
-        )
-        else { return }
-                                 
-        SyncPushTokensJob.run(
-            job,
-            scheduler: DispatchQueue.global(qos: .default),
-            success: { _, _ in },
-            failure: { _, _, _ in },
-            deferred: { _ in },
-            using: dependencies
-        )
+    public static func run(uploadOnlyIfStale: Bool, using dependencies: Dependencies) -> AnyPublisher<Void, Error> {
+        return Deferred {
+            Future<Void, Error> { resolver in
+                guard let job: Job = Job(
+                    variant: .syncPushTokens,
+                    behaviour: .runOnce,
+                    details: SyncPushTokensJob.Details(
+                        uploadOnlyIfStale: uploadOnlyIfStale
+                    )
+                )
+                else { return resolver(Result.failure(NetworkError.parsingFailed)) }
+                
+                SyncPushTokensJob.run(
+                    job,
+                    scheduler: DispatchQueue.global(qos: .userInitiated),
+                    success: { _, _ in resolver(Result.success(())) },
+                    failure: { _, error, _ in resolver(Result.failure(error)) },
+                    deferred: { job in
+                        dependencies[singleton: .jobRunner]
+                            .afterJob(job)
+                            .first()
+                            .sinkUntilComplete(
+                                receiveValue: { result in
+                                    switch result {
+                                        /// If it gets deferred a second time then we should probably just fail - no use waiting on something
+                                        /// that may never run (also means we can avoid another potential defer loop)
+                                        case .notFound, .deferred: resolver(Result.failure(NetworkError.unknown))
+                                        case .failed(let error, _): resolver(Result.failure(error))
+                                        case .succeeded: resolver(Result.success(()))
+                                    }
+                                }
+                            )
+                    },
+                    using: dependencies
+                )
+            }
+        }
+        .eraseToAnyPublisher()
     }
 }
 

@@ -5,7 +5,8 @@
 import Foundation
 
 public final class Features {
-    public static let legacyGroupDepricationDate: Date = Date.distantFuture            // TODO: [GROUPS REBUILD] Set this date
+    public static let createUpdatedGroupFromDate: Date = Date.distantFuture
+    public static let legacyGroupDepricationDate: Date = Date.distantFuture
     public static let legacyGroupDepricationUrl: String = "https://getsession.org/groups"
 }
 
@@ -40,7 +41,7 @@ public extension FeatureStorage {
         defaultOption: true,
         automaticChangeBehaviour: Feature<Bool>.ChangeBehaviour(
             value: true,
-            condition: .after(timestamp: Features.legacyGroupDepricationDate.timeIntervalSince1970)
+            condition: .after(timestamp: Features.createUpdatedGroupFromDate.timeIntervalSince1970)
         )
     )
     
@@ -91,7 +92,7 @@ public extension FeatureStorage {
 
 // MARK: - FeatureOption
 
-public protocol FeatureOption: RawRepresentable, CaseIterable, Equatable where RawValue == Int {
+public protocol FeatureOption: RawRepresentable, CaseIterable, Equatable {
     static var defaultOption: Self { get }
     
     var isValidOption: Bool { get }
@@ -138,9 +139,10 @@ public struct Feature<T: FeatureOption>: FeatureType {
         defaultOption: T,
         automaticChangeBehaviour: ChangeBehaviour? = nil
     ) {
-        guard T.self == Bool.self || !options.appending(defaultOption).contains(where: { $0.rawValue == 0 }) else {
-            preconditionFailure("A rawValue of '0' is a protected value (it indicates unset)")
-        }
+        guard
+            T.self == Bool.self ||
+            !options.appending(defaultOption).contains(where: { ($0.rawValue as? Int) == 0 })
+        else { preconditionFailure("A rawValue of '0' is a protected value (it indicates unset)") }
         
         self.identifier = identifier
         self.options = options
@@ -157,8 +159,11 @@ public struct Feature<T: FeatureOption>: FeatureType {
             // if an entry exists and return `nil` if not before retrieving an `Int` representation of
             // the value and converting to the desired type
             guard dependencies[defaults: .appGroup].object(forKey: identifier) != nil else { return nil }
+            guard let selectedOption: T.RawValue = dependencies[defaults: .appGroup].object(forKey: identifier) as? T.RawValue else {
+                Log.error("Unable to retrieve feature option for \(identifier) due to incorrect storage type")
+                return nil
+            }
             
-            let selectedOption: Int = dependencies[defaults: .appGroup].integer(forKey: identifier)
             return T(rawValue: selectedOption)
         }()
         

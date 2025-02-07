@@ -469,6 +469,7 @@ public extension SessionThreadViewModel {
         currentUserIsClosedGroupMember: Bool? = nil,
         currentUserIsClosedGroupAdmin: Bool? = nil,
         openGroupPermissions: OpenGroup.Permissions? = nil,
+        threadWasMarkedUnread: Bool? = nil,
         unreadCount: UInt = 0,
         hasUnreadMessagesOfAnyKind: Bool = false,
         threadCanWrite: Bool = true,
@@ -494,7 +495,7 @@ public extension SessionThreadViewModel {
         self.threadIsDraft = nil
         
         self.threadContactIsTyping = nil
-        self.threadWasMarkedUnread = nil
+        self.threadWasMarkedUnread = threadWasMarkedUnread
         self.threadUnreadCount = unreadCount
         self.threadUnreadMentionCount = nil
         self.threadHasUnreadMessagesOfAnyKind = hasUnreadMessagesOfAnyKind
@@ -1031,6 +1032,11 @@ public extension SessionThreadViewModel {
                 \(SQL("\(thread[.variant]) != \(SessionThread.Variant.contact)")) OR
                 \(SQL("\(thread[.id]) = \(userSessionId.hexString)")) OR
                 \(contact[.isApproved]) = true
+            ) AND
+            -- Is not a blocked contact
+            (
+                \(SQL("\(thread[.variant]) != \(SessionThread.Variant.contact)")) OR
+                \(contact[.isBlocked]) != true
             )
         """
     }

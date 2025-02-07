@@ -156,7 +156,11 @@ struct PNModeScreen: View {
             onboarding.completeRegistration {
                 // Trigger the 'SyncPushTokensJob' directly as we don't want to wait for paths to build
                 // before requesting the permission from the user
-                if shouldSyncPushTokens { SyncPushTokensJob.run(uploadOnlyIfStale: false, using: dependencies) }
+                if shouldSyncPushTokens {
+                    SyncPushTokensJob
+                        .run(uploadOnlyIfStale: false, using: dependencies)
+                        .sinkUntilComplete()
+                }
                 
                 let homeVC: HomeVC = HomeVC(using: dependencies)
                 dependencies[singleton: .app].setHomeViewController(homeVC)

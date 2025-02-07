@@ -265,7 +265,8 @@ internal extension LibSession {
         let targetThreads: [SessionThread] = threads
             .filter {
                 $0.id != userSessionId.hexString &&
-                (try? SessionId(from: $0.id))?.prefix == .standard
+                (try? SessionId(from: $0.id))?.prefix != .blinded15 &&
+                (try? SessionId(from: $0.id))?.prefix != .blinded25
             }
         
         // If we have no updated threads then no need to continue

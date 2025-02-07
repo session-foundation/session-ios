@@ -313,9 +313,9 @@ public class ConfirmationModal: Modal, UITextFieldDelegate, UITextViewDelegate {
                 textField.accessibilityIdentifier = inputInfo.accessibility?.identifier
                 textField.accessibilityLabel = inputInfo.accessibility?.label ?? textField.text
                 textFieldContainer.isHidden = false
-                internalOnTextChanged = { [weak confirmButton, weak cancelButton] text, _ in
+                internalOnTextChanged = { [weak textField, weak confirmButton, weak cancelButton] text, _ in
                     onTextChanged(text)
-                    self.textField.accessibilityLabel = text
+                    textField?.accessibilityLabel = text
                     confirmButton?.isEnabled = info.confirmEnabled.isValid(with: info)
                     cancelButton?.isEnabled = info.cancelEnabled.isValid(with: info)
                 }
@@ -327,17 +327,21 @@ public class ConfirmationModal: Modal, UITextFieldDelegate, UITextViewDelegate {
                 textField.placeholder = firstInputInfo.placeholder
                 textField.text = (firstInputInfo.initialValue ?? "")
                 textField.clearButtonMode = (firstInputInfo.clearButton ? .always : .never)
+                textField.isAccessibilityElement = true
                 textField.accessibilityIdentifier = firstInputInfo.accessibility?.identifier
                 textField.accessibilityLabel = firstInputInfo.accessibility?.label
                 textFieldContainer.isHidden = false
                 textView.text = (secondInputInfo.initialValue ?? "")
+                textView.isAccessibilityElement = true
                 textView.accessibilityIdentifier = secondInputInfo.accessibility?.identifier
                 textView.accessibilityLabel = secondInputInfo.accessibility?.label
                 textViewPlaceholder.text = secondInputInfo.placeholder
                 textViewPlaceholder.isHidden = !textView.text.isEmpty
                 textViewContainer.isHidden = false
-                internalOnTextChanged = { [weak confirmButton, weak cancelButton] firstText, secondText in
+                internalOnTextChanged = { [weak textField, weak textView, weak confirmButton, weak cancelButton] firstText, secondText in
                     onTextChanged(firstText, secondText)
+                    textField?.accessibilityLabel = firstText
+                    textView?.accessibilityLabel = secondText
                     confirmButton?.isEnabled = info.confirmEnabled.isValid(with: info)
                     cancelButton?.isEnabled = info.cancelEnabled.isValid(with: info)
                 }

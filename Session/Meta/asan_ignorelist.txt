@@ -1,0 +1,2 @@
+# Exclude all code in the libwebp module from the Address Sanitiser (otherwise it won't build)
+module:libwebp
