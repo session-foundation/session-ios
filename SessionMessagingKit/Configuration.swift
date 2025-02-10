@@ -69,11 +69,25 @@ public enum SNMessagingKit: MigratableTarget { // Just to make the external API 
             .getExpiration: GetExpirationJob.self,
             .groupInviteMember: GroupInviteMemberJob.self,
             .groupPromoteMember: GroupPromoteMemberJob.self,
-            .processPendingGroupMemberRemovals: ProcessPendingGroupMemberRemovalsJob.self
+            .processPendingGroupMemberRemovals: ProcessPendingGroupMemberRemovalsJob.self,
+            .failedGroupInvitesAndPromotions: FailedGroupInvitesAndPromotionsJob.self
         ]
         
         executors.forEach { variant, executor in
             dependencies[singleton: .jobRunner].setExecutor(executor, for: variant)
         }
+        
+        // Register any recurring jobs to ensure they are actually scheduled
+        dependencies[singleton: .jobRunner].registerRecurringJobs(
+            scheduleInfo: [
+                (.disappearingMessages, .recurringOnLaunch, true, false),
+                (.failedMessageSends, .recurringOnLaunch, true, false),
+                (.failedAttachmentDownloads, .recurringOnLaunch, true, false),
+                (.updateProfilePicture, .recurringOnActive, false, false),
+                (.retrieveDefaultOpenGroupRooms, .recurringOnActive, false, false),
+                (.garbageCollection, .recurringOnActive, false, false),
+                (.failedGroupInvitesAndPromotions, .recurringOnLaunch, true, false)
+            ]
+        )
     }
 }

@@ -673,6 +673,10 @@ open class Storage {
         _ operation: @escaping (Database) throws -> T,
         _ completion: ((Result<T, Error>) -> Void)? = nil
     ) -> Result<T, Error> {
+        let queryDbLock = NSLock()
+        var queryDb: Database?
+        let completionLock = NSLock()
+        var didComplete: Bool = false
         var result: Result<T, Error> = .failure(StorageError.invalidQueryResult)
         let semaphore: DispatchSemaphore? = (info.isAsync ? nil : DispatchSemaphore(value: 0))
         let logErrorIfNeeded: (Result<T, Error>) -> () = { result in
@@ -681,26 +685,46 @@ open class Storage {
                 case .failure(let error): StorageState.logIfNeeded(error, isWrite: info.isWrite)
             }
         }
+        let completeOperation: (Result<T, Error>) -> Void = { operationResult in
+            completionLock.lock()
+            defer { completionLock.unlock() }
+            guard !didComplete else { return }
+            
+            /// If the query timed out then we should interrupt the query (don't want the query thread to remain blocked when we've
+            /// already handled it as a failure)
+            switch operationResult {
+                case .failure(let error) where error as? StorageError == StorageError.transactionDeadlockTimeout:
+                    queryDbLock.lock()
+                    defer { queryDbLock.unlock() }
+                    queryDb?.interrupt()
+                    
+                default: break
+            }
+            
+            didComplete = true
+            result = operationResult
+            semaphore?.signal()
+            
+            /// For async operations, log the error and call the completion closure
+            if info.isAsync {
+                logErrorIfNeeded(result)
+                completion?(result)
+            }
+        }
         
         /// Perform the actual operation
         switch (StorageState(info.storage), info.isWrite) {
-            case (.invalid(let error), _):
-                result = .failure(error)
-                semaphore?.signal()
-            
+            case (.invalid(let error), _): completeOperation(.failure(error))
             case (.valid(let dbWriter), true):
                 dbWriter.asyncWrite(
-                    { db in result = .success(try Storage.track(db, info, operation)) },
-                    completion: { _, dbResult in
-                        switch dbResult {
-                            case .success: break
-                            case .failure(let error): result = .failure(error)
-                        }
-                        semaphore?.signal()
+                    { db in
+                        queryDbLock.lock()
+                        defer { queryDbLock.unlock() }
                         
-                        if info.isAsync { logErrorIfNeeded(result) }
-                        completion?(result)
-                    }
+                        queryDb = db
+                        return try Storage.track(db, info, operation)
+                    },
+                    completion: { _, dbResult in completeOperation(dbResult) }
                 )
                 
             case (.valid(let dbWriter), false):
@@ -708,15 +732,16 @@ open class Storage {
                     do {
                         switch dbResult {
                             case .failure(let error): throw error
-                            case .success(let db): result = .success(try Storage.track(db, info, operation))
+                            case .success(let db):
+                                queryDbLock.lock()
+                                defer { queryDbLock.unlock() }
+                                
+                                queryDb = db
+                                completeOperation(.success(try Storage.track(db, info, operation)))
                         }
                     } catch {
-                        result = .failure(error)
+                        completeOperation(.failure(error))
                     }
-                    semaphore?.signal()
-                    
-                    if info.isAsync { logErrorIfNeeded(result) }
-                    completion?(result)
                 }
         }
         
@@ -740,13 +765,13 @@ open class Storage {
             let timerQueue = DispatchQueue(label: "org.session.debugSemaphoreTimer", qos: .userInteractive)
             let timer = DispatchSource.makeTimerSource(queue: timerQueue)
             var iterations: UInt64 = 0
+            
+            /// Every tick of the timer check if the semaphore has completed or we have timed out
             timer.schedule(deadline: .now(), repeating: .milliseconds(100))
-                        
             timer.setEventHandler {
                 iterations += 1
-                semaphoreResult = semaphore?.wait(timeout: .now())  // Get the result from the original semaphore
                 
-                if semaphoreResult == .success || iterations >= 50 {
+                if iterations >= 50 || semaphore?.wait(timeout: .now()) == .success {
                     timer.cancel()
                     timerSemaphore.signal()
                 }
@@ -754,18 +779,18 @@ open class Storage {
             
             timer.resume()
             timerSemaphore.wait()   // Wait indefinitely for the timer semaphore
+            semaphoreResult = (iterations >= 50 ? .timedOut : .success)
         }
         #else
         semaphoreResult = semaphore?.wait(timeout: .now() + .seconds(Storage.transactionDeadlockTimeoutSeconds))
         #endif
         
-        /// If the transaction timed out then log the error and report a failure
-        guard semaphoreResult != .timedOut else {
-            StorageState.logIfNeeded(StorageError.transactionDeadlockTimeout, isWrite: info.isWrite)
-            return .failure(StorageError.transactionDeadlockTimeout)
-        }
+        /// If the transaction timed out then log the error and report a failure, otherwise handle whatever the result was
+        completeOperation(semaphoreResult != .timedOut ?
+            result :
+            .failure(StorageError.transactionDeadlockTimeout)
+        )
         
-        if !info.isAsync { logErrorIfNeeded(result) }
         return result
     }
     

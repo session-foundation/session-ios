@@ -847,7 +847,10 @@ final class ConversationVC: BaseVC, LibSessionRespondingViewController, Conversa
             viewModel.threadData.threadVariant != updatedThreadData.threadVariant ||
             viewModel.threadData.currentUserIsClosedGroupAdmin != updatedThreadData.currentUserIsClosedGroupAdmin
         {
-            legacyGroupsBanner.isHidden = (updatedThreadData.threadVariant != .legacyGroup)
+            legacyGroupsBanner.isHidden = (
+                updatedThreadData.threadVariant != .legacyGroup ||
+                !viewModel.dependencies[feature: .updatedGroups]
+            )
         }
         
         if initialLoad || viewModel.threadData.threadUnreadCount != updatedThreadData.threadUnreadCount {

@@ -151,6 +151,12 @@ public struct Job: Codable, Equatable, Hashable, Identifiable, FetchableRecord, 
         /// them if any exist - only one job can run at a time (if there is already a running job then any subsequent job will
         /// be deferred until it completes)
         case processPendingGroupMemberRemovals
+        
+        /// This is a job which checks for any pending group member invitations or promotions and marks them as failed
+        ///
+        /// **Note:** This is a blocking job so it will run before any other jobs and prevent them from
+        /// running until it's complete
+        case failedGroupInvitesAndPromotions
     }
     
     public enum Behaviour: Int, Codable, DatabaseValueConvertible, CaseIterable {

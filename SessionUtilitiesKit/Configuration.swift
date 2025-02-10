@@ -46,6 +46,14 @@ public enum SNUtilitiesKit: MigratableTarget { // Just to make the external API 
         self.maxFileSize = networkMaxFileSize
         self.localizedFormatted = localizedFormatted
         self.localizedDeformatted = localizedDeformatted
+        
+        // Register any recurring jobs to ensure they are actually scheduled
+        dependencies[singleton: .jobRunner].registerRecurringJobs(
+            scheduleInfo: [
+                (.syncPushTokens, .recurringOnLaunch, false, false),
+                (.syncPushTokens, .recurringOnActive, false, true)
+            ]
+        )
     }
 }
 

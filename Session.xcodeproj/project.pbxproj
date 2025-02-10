@@ -874,6 +874,7 @@
 		FDB6A87C2AD75B7F002D4F96 /* PhotosUI.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = FDB6A87B2AD75B7F002D4F96 /* PhotosUI.framework */; };
 		FDB7400B28EB99A70094D718 /* TimeInterval+Utilities.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDB7400A28EB99A70094D718 /* TimeInterval+Utilities.swift */; };
 		FDB7400D28EBEC240094D718 /* DateHeaderCell.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDB7400C28EBEC240094D718 /* DateHeaderCell.swift */; };
+		FDBA8A842D597975007C19C0 /* FailedGroupInvitesAndPromotionsJob.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDBA8A832D59796F007C19C0 /* FailedGroupInvitesAndPromotionsJob.swift */; };
 		FDBB25E32988B13800F1508E /* _004_AddJobPriority.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDBB25E22988B13800F1508E /* _004_AddJobPriority.swift */; };
 		FDBB25E72988BBBE00F1508E /* UIContextualAction+Theming.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDBB25E62988BBBD00F1508E /* UIContextualAction+Theming.swift */; };
 		FDBEE52E2B6A18B900C143A0 /* UserDefaultsConfig.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDBEE52D2B6A18B900C143A0 /* UserDefaultsConfig.swift */; };
@@ -2047,6 +2048,7 @@
 		FDB6A87B2AD75B7F002D4F96 /* PhotosUI.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = PhotosUI.framework; path = System/Library/Frameworks/PhotosUI.framework; sourceTree = SDKROOT; };
 		FDB7400A28EB99A70094D718 /* TimeInterval+Utilities.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "TimeInterval+Utilities.swift"; sourceTree = "<group>"; };
 		FDB7400C28EBEC240094D718 /* DateHeaderCell.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DateHeaderCell.swift; sourceTree = "<group>"; };
+		FDBA8A832D59796F007C19C0 /* FailedGroupInvitesAndPromotionsJob.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FailedGroupInvitesAndPromotionsJob.swift; sourceTree = "<group>"; };
 		FDBB25E22988B13800F1508E /* _004_AddJobPriority.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = _004_AddJobPriority.swift; sourceTree = "<group>"; };
 		FDBB25E62988BBBD00F1508E /* UIContextualAction+Theming.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "UIContextualAction+Theming.swift"; sourceTree = "<group>"; };
 		FDBEE52D2B6A18B900C143A0 /* UserDefaultsConfig.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = UserDefaultsConfig.swift; sourceTree = "<group>"; };
@@ -3165,6 +3167,7 @@
 				FD22725E2C32911B004D8A6C /* ExpirationUpdateJob.swift */,
 				FD22725A2C32911A004D8A6C /* FailedAttachmentDownloadsJob.swift */,
 				FD2272562C32911A004D8A6C /* FailedMessageSendsJob.swift */,
+				FDBA8A832D59796F007C19C0 /* FailedGroupInvitesAndPromotionsJob.swift */,
 				FD2272662C32911B004D8A6C /* GarbageCollectionJob.swift */,
 				FD2272672C32911B004D8A6C /* GetExpirationJob.swift */,
 				FD2272622C32911B004D8A6C /* GroupInviteMemberJob.swift */,
@@ -6260,6 +6263,7 @@
 				C38D5E8D2575011E00B6A65C /* MessageSender+LegacyClosedGroups.swift in Sources */,
 				FD5C72F7284F0E560029977D /* MessageReceiver+ReadReceipts.swift in Sources */,
 				FDC13D492A16EC20007267C7 /* Service.swift in Sources */,
+				FDBA8A842D597975007C19C0 /* FailedGroupInvitesAndPromotionsJob.swift in Sources */,
 				FD778B6429B189FF001BAC6B /* _014_GenerateInitialUserConfigDumps.swift in Sources */,
 				FDC13D562A171FE4007267C7 /* UnsubscribeRequest.swift in Sources */,
 				C32C598A256D0664003C73A2 /* SNProtoEnvelope+Conversion.swift in Sources */,
@@ -7923,7 +7927,7 @@
 				CLANG_WARN__ARC_BRIDGE_CAST_NONARC = YES;
 				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
 				CODE_SIGN_IDENTITY = "iPhone Developer";
-				CURRENT_PROJECT_VERSION = 536;
+				CURRENT_PROJECT_VERSION = 537;
 				ENABLE_BITCODE = NO;
 				ENABLE_STRICT_OBJC_MSGSEND = YES;
 				ENABLE_TESTABILITY = YES;
@@ -7964,7 +7968,7 @@
 				MARKETING_VERSION = 2.9.0;
 				ONLY_ACTIVE_ARCH = YES;
 				OTHER_CFLAGS = "-Werror=protocol";
-				"OTHER_SWIFT_FLAGS[arch=*]" = "-D DEBUG";
+				OTHER_SWIFT_FLAGS = "-D DEBUG";
 				SDKROOT = iphoneos;
 				SWIFT_VERSION = 5.0;
 				VALIDATE_PRODUCT = YES;
@@ -7999,7 +8003,7 @@
 				CLANG_WARN__ARC_BRIDGE_CAST_NONARC = YES;
 				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
 				CODE_SIGN_IDENTITY = "iPhone Distribution";
-				CURRENT_PROJECT_VERSION = 536;
+				CURRENT_PROJECT_VERSION = 537;
 				ENABLE_BITCODE = NO;
 				ENABLE_MODULE_VERIFIER = YES;
 				ENABLE_STRICT_OBJC_MSGSEND = YES;
@@ -8445,7 +8449,6 @@
 				OTHER_CFLAGS = (
 					"-fobjc-arc-exceptions",
 					"-Werror=protocol",
-					"-fsanitize=address,undefined",
 				);
 				OTHER_LDFLAGS = "-ObjC";
 				PRODUCT_NAME = "$(TARGET_NAME)";

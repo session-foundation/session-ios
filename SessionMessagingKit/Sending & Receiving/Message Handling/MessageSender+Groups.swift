@@ -814,7 +814,7 @@ extension MessageSender {
                                 groupSessionId: SessionId(.group, hex: groupSessionId),
                                 memberId: memberId,
                                 role: .standard,
-                                status: .notSentYet,
+                                status: .sending,
                                 profile: nil,
                                 using: dependencies
                             )

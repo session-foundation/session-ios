@@ -53,6 +53,9 @@ public protocol JobRunnerType: AnyObject {
     func manuallyTriggerResult(_ job: Job?, result: JobRunner.JobResult)
     func afterJob(_ job: Job?, state: JobRunner.JobState) -> AnyPublisher<JobRunner.JobResult, Never>
     func removePendingJob(_ job: Job?)
+    
+    func registerRecurringJobs(scheduleInfo: [JobRunner.ScheduleInfo])
+    func scheduleRecurringJobsIfNeeded()
 }
 
 // MARK: - JobRunnerType Convenience
@@ -213,6 +216,13 @@ public final class JobRunner: JobRunnerType {
         }
     }
     
+    public typealias ScheduleInfo = (
+        variant: Job.Variant,
+        behaviour: Job.Behaviour,
+        shouldBlock: Bool,
+        shouldSkipLaunchBecomeActive: Bool
+    )
+    
     private enum Validation {
         case enqueueOnly
         case persist
@@ -225,6 +235,7 @@ public final class JobRunner: JobRunnerType {
     @ThreadSafeObject private var blockingQueue: JobQueue?
     @ThreadSafeObject private var queues: [Job.Variant: JobQueue]
     @ThreadSafeObject private var blockingQueueDrainCallback: [() -> ()] = []
+    @ThreadSafeObject private var registeredRecurringJobs: [JobRunner.ScheduleInfo] = []
     
     @ThreadSafe internal var appReadyToStartQueues: Bool = false
     @ThreadSafe internal var appHasBecomeActive: Bool = false
@@ -877,6 +888,55 @@ public final class JobRunner: JobRunnerType {
         guard let job: Job = job, let jobId: Int64 = job.id else { return }
         
         queues[job.variant]?.removePendingJob(jobId)
+    }
+    
+    public func registerRecurringJobs(scheduleInfo: [JobRunner.ScheduleInfo]) {
+        _registeredRecurringJobs.performUpdate { $0.appending(contentsOf: scheduleInfo) }
+    }
+    
+    public func scheduleRecurringJobsIfNeeded() {
+        let scheduleInfo: [ScheduleInfo] = registeredRecurringJobs
+        let variants: Set<Job.Variant> = Set(scheduleInfo.map { $0.variant })
+        let maybeExistingJobs: [Job]? = dependencies[singleton: .storage].read { db in
+            try Job
+                .filter(variants.contains(Job.Columns.variant))
+                .fetchAll(db)
+        }
+        
+        guard let existingJobs: [Job] = maybeExistingJobs else {
+            Log.warn(.jobRunner, "Failed to load existing recurring jobs from the database")
+            return
+        }
+        
+        let missingScheduledJobs: [ScheduleInfo] = scheduleInfo
+            .filter { scheduleInfo in
+                !existingJobs.contains { existingJob in
+                    existingJob.variant == scheduleInfo.variant &&
+                    existingJob.behaviour == scheduleInfo.behaviour &&
+                    existingJob.shouldBlock == scheduleInfo.shouldBlock &&
+                    existingJob.shouldSkipLaunchBecomeActive == scheduleInfo.shouldSkipLaunchBecomeActive
+                }
+            }
+        
+        guard !missingScheduledJobs.isEmpty else { return }
+        
+        var numScheduledJobs: Int = 0
+        dependencies[singleton: .storage].write { db in
+            try missingScheduledJobs.forEach { variant, behaviour, shouldBlock, shouldSkipLaunchBecomeActive in
+                _ = try Job(
+                    variant: variant,
+                    behaviour: behaviour,
+                    shouldBlock: shouldBlock,
+                    shouldSkipLaunchBecomeActive: shouldSkipLaunchBecomeActive
+                ).inserted(db)
+                numScheduledJobs += 1
+            }
+        }
+        
+        switch numScheduledJobs == missingScheduledJobs.count {
+            case true: Log.info(.jobRunner, "Scheduled \(numScheduledJobs) missing recurring job(s)")
+            case false: Log.error(.jobRunner, "Failed to schedule \(missingScheduledJobs.count - numScheduledJobs) recurring job(s)")
+        }
     }
     
     // MARK: - Convenience

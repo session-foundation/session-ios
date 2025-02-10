@@ -184,7 +184,33 @@ public enum ConfigurationSyncJob: JobExecutor {
                         case .finished: Log.info(.cat, "For \(swarmPublicKey) completed")
                         case .failure(let error):
                             Log.error(.cat, "For \(swarmPublicKey) failed due to error: \(error)")
-                            failure(job, error, false)
+                            
+                            // If the failure is due to being offline then we should automatically
+                            // retry if the connection is re-established
+                            dependencies[cache: .libSessionNetwork].networkStatus
+                                .first()
+                                .sinkUntilComplete(
+                                    receiveValue: { status in
+                                        switch status {
+                                            // If we are currently connected then use the standard
+                                            // retry behaviour
+                                            case .connected: failure(job, error, false)
+                                                
+                                            // If not then wait until we are connected again before
+                                            // reporting the failure (which will result in the retry
+                                            // occurring once we reestablish a connection)
+                                            default:
+                                                dependencies[cache: .libSessionNetwork].networkStatus
+                                                    .filter { $0 == .connected }
+                                                    .first()
+                                                    .sinkUntilComplete(
+                                                        receiveCompletion: { _ in
+                                                            failure(job, error, false)
+                                                        }
+                                                    )
+                                        }
+                                    }
+                                )
                     }
                 },
                 receiveValue: { (configDumps: [ConfigDump]) in
@@ -349,6 +375,7 @@ public extension ConfigurationSyncJob {
                 guard
                     let job: Job = Job(
                         variant: .configurationSync,
+                        behaviour: .recurring,
                         threadId: swarmPublicKey,
                         details: OptionalDetails(wasManualTrigger: true),
                         transientData: AdditionalSequenceRequests(

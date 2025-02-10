@@ -92,6 +92,10 @@ public enum AppSetup {
                 }
             },
             onComplete: { result in
+                // Now that the migrations are complete we need to ensure any recurring jobs are
+                // properly scheduled
+                dependencies[singleton: .jobRunner].scheduleRecurringJobsIfNeeded()
+                
                 // Callback that the migrations have completed
                 migrationsCompletion(result)
                 
