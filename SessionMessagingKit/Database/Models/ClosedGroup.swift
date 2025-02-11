@@ -111,23 +111,17 @@ public extension ClosedGroup {
 // MARK: - Convenience
 
 public extension ClosedGroup {
-    enum LeaveType {
-        case standard
-        case silent
-        case forced
-    }
-    
     static func removeKeysAndUnsubscribe(
         _ db: Database? = nil,
         threadId: String,
         removeGroupData: Bool,
-        calledFromConfigHandling: Bool
+        using dependencies: Dependencies
     ) throws {
         try removeKeysAndUnsubscribe(
             db,
             threadIds: [threadId],
             removeGroupData: removeGroupData,
-            calledFromConfigHandling: calledFromConfigHandling
+            using: dependencies
         )
     }
     
@@ -135,16 +129,16 @@ public extension ClosedGroup {
         _ db: Database? = nil,
         threadIds: [String],
         removeGroupData: Bool,
-        calledFromConfigHandling: Bool
+        using dependencies: Dependencies
     ) throws {
         guard !threadIds.isEmpty else { return }
         guard let db: Database = db else {
-            Storage.shared.write { db in
+            dependencies.storage.write { db in
                 try ClosedGroup.removeKeysAndUnsubscribe(
                     db,
                     threadIds: threadIds,
                     removeGroupData: removeGroupData,
-                    calledFromConfigHandling: calledFromConfigHandling
+                    using: dependencies
                 )
             }
             return
@@ -195,22 +189,20 @@ public extension ClosedGroup {
                 .deleteAll(db)
         }
         
-        // If we weren't called from config handling then we need to remove the group
-        // data from the config
-        if !calledFromConfigHandling {
-            try LibSession.remove(
-                db,
-                legacyGroupIds: threadVariants
-                    .filter { $0.variant == .legacyGroup }
-                    .map { $0.id }
-            )
-            
-            try LibSession.remove(
-                db,
-                groupIds: threadVariants
-                    .filter { $0.variant == .group }
-                    .map { $0.id }
-            )
-        }
+        // Make sure to remove the group data from the config as well
+        try LibSession.remove(
+            db,
+            legacyGroupIds: threadVariants
+                .filter { $0.variant == .legacyGroup }
+                .map { $0.id },
+            using: dependencies
+        )
+        
+        try LibSession.remove(
+            db,
+            groupIds: threadVariants
+                .filter { $0.variant == .group }
+                .map { $0.id }
+        )
     }
 }

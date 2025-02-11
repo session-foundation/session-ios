@@ -1,6 +1,7 @@
 //
 //  Copyright (c) 2019 Open Whisper Systems. All rights reserved.
 //
+// stringlint:disable
 
 #import "OWSWindowManager.h"
 #import <SessionMessagingKit/SessionMessagingKit-Swift.h>

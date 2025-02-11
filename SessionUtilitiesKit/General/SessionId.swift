@@ -29,6 +29,20 @@ public struct SessionId: Equatable, Hashable, CustomStringConvertible {
                 case .some: throw SessionIdError.invalidSessionId   // Should be covered by above cases
             }
         }
+        
+        /// In SQLite it's more efficient to check if an indexed column is `{column} > '05' AND {column} < '06'` then it is to use
+        /// a wildcard like`{column} LIKE '05%'` as the wildcard can't use the index, so this variable is here to streamline this behaviour
+        ///
+        /// stringlint:ignore_contents
+        public var endOfRangeString: String {
+            switch self {
+                case .standard: return "06"
+                case .blinded15: return "16"
+                case .blinded25: return "26"
+                case .unblinded: return "01"
+                case .group: return "04"
+            }
+        }
     }
     
     public let prefix: Prefix
@@ -102,12 +116,13 @@ public enum SessionIdError: LocalizedError {
     case invalidPrefix
     case invalidSessionId
     
+    // stringlint:ignore_contents
     public var errorDescription: String? {
         switch self {
-            case .emptyValue: return "Empty value."             // stringlint:disable
-            case .invalidLength: return "Invalid length."       // stringlint:disable
-            case .invalidPrefix: return "Invalid prefix."       // stringlint:disable
-            case .invalidSessionId: return "Invalid sessionId." // stringlint:disable
+            case .emptyValue: return "Empty value."
+            case .invalidLength: return "Invalid length."
+            case .invalidPrefix: return "Invalid prefix."
+            case .invalidSessionId: return "Invalid sessionId."
         }
     }
 }

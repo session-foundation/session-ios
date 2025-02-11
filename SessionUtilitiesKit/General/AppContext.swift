@@ -6,11 +6,11 @@ import UIKit
 
 public extension Singleton {
     // FIXME: This will be reworked to be part of dependencies in the Groups Rebuild branch
-    fileprivate static var _appContext: Atomic<AppContext?> = Atomic(nil)
-    static var appContext: AppContext { _appContext.wrappedValue! }
-    static var hasAppContext: Bool { _appContext.wrappedValue != nil }
+    @ThreadSafeObject fileprivate static var cachedAppContext: AppContext? = nil
+    static var appContext: AppContext { cachedAppContext! }
+    static var hasAppContext: Bool { _cachedAppContext.wrappedValue != nil }
     
-    static func setup(appContext: AppContext) { _appContext.mutate { $0 = appContext } }
+    static func setup(appContext: AppContext) { _cachedAppContext.set(to: appContext) }
 }
 
 // MARK: - AppContext
@@ -46,7 +46,9 @@ public extension AppContext {
     var frontmostViewController: UIViewController? { nil }
     var backgroundTimeRemaining: TimeInterval { 0 }
     
+    // Note: CallKit will make the app state as .inactive
     var isInBackground: Bool { reportedApplicationState == .background }
+    var isNotInForeground: Bool { reportedApplicationState != .active }
     var isAppForegroundAndActive: Bool { reportedApplicationState == .active }
     
     // MARK: - Paths
@@ -58,12 +60,12 @@ public extension AppContext {
     var temporaryDirectory: String {
         if let dir: String = _temporaryDirectory { return dir }
         
-        let dirName: String = "ows_temp_\(UUID().uuidString)"   // stringlint:disable
+        let dirName: String = "ows_temp_\(UUID().uuidString)"   // stringlint:ignore
         let dirPath: String = URL(fileURLWithPath: NSTemporaryDirectory())
             .appendingPathComponent(dirName)
             .path
         _temporaryDirectory = dirPath
-        FileSystem.temporaryDirectory.mutate { $0 = dirPath }
+        FileSystem.setTemporaryDirectory(dirPath)
         try? FileSystem.ensureDirectoryExists(at: dirPath, fileProtectionType: .complete)
         
         return dirPath

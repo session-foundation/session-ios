@@ -9,12 +9,14 @@ import SessionSnodeKit
 
 struct NewMessageScreen: View {
     @EnvironmentObject var host: HostWrapper
+    private let dependencies: Dependencies
     
     @State var tabIndex = 0
     @State private var accountIdOrONS: String
     @State private var errorString: String? = nil
     
-    init(accountId: String = "") {
+    init(accountId: String = "", using dependencies: Dependencies) {
+        self.dependencies = dependencies
         self.accountIdOrONS = accountId
     }
     
@@ -122,7 +124,8 @@ struct NewMessageScreen: View {
             variant: .contact,
             action: .compose,
             dismissing: self.host.controller,
-            animated: false
+            animated: false,
+            using: dependencies
         )
     }
 }
@@ -148,7 +151,7 @@ struct EnterAccountIdScreen: View {
                 )
             ) {
                 ZStack {
-                    Text("\("messageNewDescriptionMobile".localized())\(Image(systemName: "questionmark.circle"))")
+                    (Text("messageNewDescriptionMobile".localized()) + Text(Image(systemName: "questionmark.circle")))
                         .font(.system(size: Values.verySmallFontSize))
                         .foregroundColor(themeColor: .textSecondary)
                         .multilineTextAlignment(.center)
@@ -202,5 +205,5 @@ struct EnterAccountIdScreen: View {
 }
 
 #Preview {
-    NewMessageScreen()
+    NewMessageScreen(using: Dependencies())
 }

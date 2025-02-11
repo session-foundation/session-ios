@@ -155,7 +155,7 @@ public final class BackgroundPoller {
         using dependencies: Dependencies
     ) -> [AnyPublisher<Void, Never>] {
         return pollerInfo.map { poller, server -> AnyPublisher<Void, Never> in
-            let pollerName: String = "Community poller for server: \(server)"   // stringlint:disable
+            let pollerName: String = "Community poller for server: \(server)"   // stringlint:ignore
             let pollStart: TimeInterval = dependencies.dateNow.timeIntervalSince1970
             
             return poller

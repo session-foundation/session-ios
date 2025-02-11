@@ -61,7 +61,7 @@ public class ConversationViewModel: OWSAudioPlayerDelegate, NavigatableStateHold
     public let dependencies: Dependencies
     
     public lazy var blockedBannerMessage: String = {
-        let threadData: SessionThreadViewModel = self._threadData.wrappedValue
+        let threadData: SessionThreadViewModel = self.internalThreadData
         
         switch threadData.threadVariant {
             case .contact:
@@ -72,7 +72,7 @@ public class ConversationViewModel: OWSAudioPlayerDelegate, NavigatableStateHold
                 
             return "blockBlockedDescription".localized()
                 
-            default: return "Thread is blocked. Unblock it?" // Should not happen // stringlint:disable
+            default: return "blockUnblock".localized() // Should not happen
         }
     }()
     
@@ -171,19 +171,17 @@ public class ConversationViewModel: OWSAudioPlayerDelegate, NavigatableStateHold
         self.focusedInteractionInfo = (focusedInteractionInfo ?? initialData?.initialUnreadInteractionInfo)
         self.focusBehaviour = (focusedInteractionInfo == nil ? .none : .highlight)
         self.initialUnreadInteractionId = initialData?.initialUnreadInteractionInfo?.id
-        self._threadData = Atomic(
-            SessionThreadViewModel(
-                threadId: threadId,
-                threadVariant: threadVariant,
-                threadIsNoteToSelf: (initialData?.currentUserPublicKey == threadId),
-                threadIsBlocked: initialData?.threadIsBlocked,
-                currentUserIsClosedGroupMember: initialData?.currentUserIsClosedGroupMember,
-                currentUserIsClosedGroupAdmin: initialData?.currentUserIsClosedGroupAdmin,
-                openGroupPermissions: initialData?.openGroupPermissions
-            ).populatingCurrentUserBlindedKeys(
-                currentUserBlinded15PublicKeyForThisThread: initialData?.blinded15Key,
-                currentUserBlinded25PublicKeyForThisThread: initialData?.blinded25Key
-            )
+        self.internalThreadData = SessionThreadViewModel(
+            threadId: threadId,
+            threadVariant: threadVariant,
+            threadIsNoteToSelf: (initialData?.currentUserPublicKey == threadId),
+            threadIsBlocked: initialData?.threadIsBlocked,
+            currentUserIsClosedGroupMember: initialData?.currentUserIsClosedGroupMember,
+            currentUserIsClosedGroupAdmin: initialData?.currentUserIsClosedGroupAdmin,
+            openGroupPermissions: initialData?.openGroupPermissions
+        ).populatingCurrentUserBlindedKeys(
+            currentUserBlinded15PublicKeyForThisThread: initialData?.blinded15Key,
+            currentUserBlinded25PublicKeyForThisThread: initialData?.blinded25Key
         )
         self.pagedDataObserver = nil
         self.dependencies = dependencies
@@ -217,10 +215,10 @@ public class ConversationViewModel: OWSAudioPlayerDelegate, NavigatableStateHold
     
     // MARK: - Thread Data
     
-    private var _threadData: Atomic<SessionThreadViewModel>
+    @ThreadSafe private var internalThreadData: SessionThreadViewModel
     
     /// This value is the current state of the view
-    public var threadData: SessionThreadViewModel { _threadData.wrappedValue }
+    public var threadData: SessionThreadViewModel { internalThreadData }
     
     /// This is all the data the screen needs to populate itself, please see the following link for tips to help optimise
     /// performance https://github.com/groue/GRDB.swift#valueobservation-performance
@@ -240,7 +238,7 @@ public class ConversationViewModel: OWSAudioPlayerDelegate, NavigatableStateHold
             .trackingConstantRegion { [weak self] db -> SessionThreadViewModel? in
                 let userPublicKey: String = getUserHexEncodedPublicKey(db)
                 let recentReactionEmoji: [String] = try Emoji.getRecent(db, withDefaultEmoji: true)
-                let oldThreadData: SessionThreadViewModel? = self?._threadData.wrappedValue
+                let oldThreadData: SessionThreadViewModel? = self?.internalThreadData
                 let threadViewModel: SessionThreadViewModel? = try SessionThreadViewModel
                     .conversationQuery(threadId: threadId, userPublicKey: userPublicKey)
                     .fetchOne(db)
@@ -260,7 +258,7 @@ public class ConversationViewModel: OWSAudioPlayerDelegate, NavigatableStateHold
     }
 
     public func updateThreadData(_ updatedData: SessionThreadViewModel) {
-        self._threadData.mutate { $0 = updatedData }
+        self.internalThreadData = updatedData
     }
     
     // MARK: - Interaction Data
@@ -346,16 +344,6 @@ public class ConversationViewModel: OWSAudioPlayerDelegate, NavigatableStateHold
                     }()
                 ),
                 PagedData.ObservedChanges(
-                    table: RecipientState.self,
-                    columns: [.state, .readTimestampMs, .mostRecentFailureText],
-                    joinToPagedType: {
-                        let interaction: TypedTableAlias<Interaction> = TypedTableAlias()
-                        let recipientState: TypedTableAlias<RecipientState> = TypedTableAlias()
-                        
-                        return SQL("LEFT JOIN \(RecipientState.self) ON \(recipientState[.interactionId]) = \(interaction[.id])")
-                    }()
-                ),
-                PagedData.ObservedChanges(
                     table: DisappearingMessagesConfiguration.self,
                     columns: [ .isEnabled, .type, .durationSeconds ],
                     joinToPagedType: {
@@ -422,7 +410,7 @@ public class ConversationViewModel: OWSAudioPlayerDelegate, NavigatableStateHold
                     updatedData: self?.process(
                         data: updatedData,
                         for: updatedPageInfo,
-                        optimisticMessages: (self?.optimisticallyInsertedMessages.wrappedValue.values)
+                        optimisticMessages: (self?.optimisticallyInsertedMessages.values)
                             .map { $0.map { $0.messageViewModel } },
                         initialUnreadInteractionId: self?.initialUnreadInteractionId
                     ),
@@ -442,7 +430,7 @@ public class ConversationViewModel: OWSAudioPlayerDelegate, NavigatableStateHold
         optimisticMessages: [MessageViewModel]?,
         initialUnreadInteractionId: Int64?
     ) -> [SectionModel] {
-        let threadData: SessionThreadViewModel = self._threadData.wrappedValue
+        let threadData: SessionThreadViewModel = self.internalThreadData
         let typingIndicator: MessageViewModel? = data.first(where: { $0.isTypingIndicator == true })
         let sortedData: [MessageViewModel] = data
             .filter { $0.id != MessageViewModel.optimisticUpdateId }    // Remove old optimistic updates
@@ -536,8 +524,8 @@ public class ConversationViewModel: OWSAudioPlayerDelegate, NavigatableStateHold
         quoteModel: QuotedReplyModel?
     )
     
-    private var optimisticallyInsertedMessages: Atomic<[UUID: OptimisticMessageData]> = Atomic([:])
-    private var optimisticMessageAssociatedInteractionIds: Atomic<[Int64: UUID]> = Atomic([:])
+    @ThreadSafeObject private var optimisticallyInsertedMessages: [UUID: OptimisticMessageData] = [:]
+    @ThreadSafeObject private var optimisticMessageAssociatedInteractionIds: [Int64: UUID] = [:]
     
     public func optimisticallyAppendOutgoingMessage(
         text: String?,
@@ -548,7 +536,7 @@ public class ConversationViewModel: OWSAudioPlayerDelegate, NavigatableStateHold
     ) -> OptimisticMessageData {
         // Generate the optimistic data
         let optimisticMessageId: UUID = UUID()
-        let threadData: SessionThreadViewModel = self._threadData.wrappedValue
+        let threadData: SessionThreadViewModel = self.internalThreadData
         let currentUserProfile: Profile = Profile.fetchOrCreateCurrentUser()
         let interaction: Interaction = Interaction(
             threadId: threadData.threadId,
@@ -632,28 +620,31 @@ public class ConversationViewModel: OWSAudioPlayerDelegate, NavigatableStateHold
             quoteModel
         )
         
-        optimisticallyInsertedMessages.mutate { $0[optimisticMessageId] = optimisticData }
+        _optimisticallyInsertedMessages.performUpdate { $0.setting(optimisticMessageId, optimisticData) }
         forceUpdateDataIfPossible()
         
         return optimisticData
     }
     
     public func failedToStoreOptimisticOutgoingMessage(id: UUID, error: Error) {
-        optimisticallyInsertedMessages.mutate {
-            $0[id] = $0[id].map {
-                (
-                    $0.id,
-                    $0.messageViewModel.with(
-                        state: .failed,
-                        mostRecentFailureText: "shareExtensionDatabaseError".localized()
-                    ),
-                    $0.interaction,
-                    $0.attachmentData,
-                    $0.linkPreviewDraft,
-                    $0.linkPreviewAttachment,
-                    $0.quoteModel
-                )
-            }
+        _optimisticallyInsertedMessages.performUpdate {
+            $0.setting(
+                id,
+                $0[id].map {
+                    (
+                        $0.id,
+                        $0.messageViewModel.with(
+                            state: .failed,
+                            mostRecentFailureText: "shareExtensionDatabaseError".localized()
+                        ),
+                        $0.interaction,
+                        $0.attachmentData,
+                        $0.linkPreviewDraft,
+                        $0.linkPreviewAttachment,
+                        $0.quoteModel
+                    )
+                }
+            )
         }
         
         forceUpdateDataIfPossible()
@@ -663,20 +654,25 @@ public class ConversationViewModel: OWSAudioPlayerDelegate, NavigatableStateHold
     public func associate(optimisticMessageId: UUID, to interactionId: Int64?) {
         guard let interactionId: Int64 = interactionId else { return }
         
-        optimisticMessageAssociatedInteractionIds.mutate { $0[interactionId] = optimisticMessageId }
+        _optimisticMessageAssociatedInteractionIds.performUpdate {
+            $0.setting(interactionId, optimisticMessageId)
+        }
     }
     
     public func optimisticMessageData(for optimisticMessageId: UUID) -> OptimisticMessageData? {
-        return optimisticallyInsertedMessages.wrappedValue[optimisticMessageId]
+        return optimisticallyInsertedMessages[optimisticMessageId]
     }
     
     /// Remove any optimisticUpdate entries which have an associated interactionId in the provided data
     private func resolveOptimisticUpdates(with data: [MessageViewModel]) {
         let interactionIds: [Int64] = data.map { $0.id }
-        let idsToRemove: [UUID] = optimisticMessageAssociatedInteractionIds
-            .mutate { associatedIds in interactionIds.compactMap { associatedIds.removeValue(forKey: $0) } }
-        
-        optimisticallyInsertedMessages.mutate { messages in idsToRemove.forEach { messages.removeValue(forKey: $0) } }
+        let idsToRemove: [UUID] = _optimisticMessageAssociatedInteractionIds
+            .performUpdateAndMap { associatedIds in
+                var updatedAssociatedIds: [Int64: UUID] = associatedIds
+                let result: [UUID] = interactionIds.compactMap { updatedAssociatedIds.removeValue(forKey: $0) }
+                return (updatedAssociatedIds, result)
+            }
+        _optimisticallyInsertedMessages.performUpdate { $0.removingValues(forKeys: idsToRemove) }
     }
     
     private func forceUpdateDataIfPossible() {
@@ -686,7 +682,7 @@ public class ConversationViewModel: OWSAudioPlayerDelegate, NavigatableStateHold
         }
         
         // If we can't get the current page data then don't bother trying to update (it's not going to work)
-        guard let currentPageInfo: PagedData.PageInfo = self.pagedDataObserver?.pageInfo.wrappedValue else { return }
+        guard let currentPageInfo: PagedData.PageInfo = self.pagedDataObserver?.pageInfo else { return }
         
         /// **MUST** have the same logic as in the 'PagedDataObserver.onChangeUnsorted' above
         let currentData: [SectionModel] = (unobservedInteractionDataChanges ?? interactionData)
@@ -695,7 +691,7 @@ public class ConversationViewModel: OWSAudioPlayerDelegate, NavigatableStateHold
             updatedData: process(
                 data: (currentData.first(where: { $0.model == .messages })?.elements ?? []),
                 for: currentPageInfo,
-                optimisticMessages: optimisticallyInsertedMessages.wrappedValue.values.map { $0.messageViewModel },
+                optimisticMessages: optimisticallyInsertedMessages.values.map { $0.messageViewModel },
                 initialUnreadInteractionId: initialUnreadInteractionId
             ),
             currentDataRetriever: { [weak self] in self?.interactionData },
@@ -709,7 +705,7 @@ public class ConversationViewModel: OWSAudioPlayerDelegate, NavigatableStateHold
     // MARK: - Mentions
     
     public func mentions(for query: String = "") -> [MentionInfo] {
-        let threadData: SessionThreadViewModel = self._threadData.wrappedValue
+        let threadData: SessionThreadViewModel = self.internalThreadData
         
         return Storage.shared
             .read { db -> [MentionInfo] in
@@ -792,18 +788,18 @@ public class ConversationViewModel: OWSAudioPlayerDelegate, NavigatableStateHold
             markAsReadPublisher = markAsReadTrigger
                 .throttle(for: .milliseconds(100), scheduler: DispatchQueue.global(qos: .userInitiated), latest: true)
                 .handleEvents(
-                    receiveOutput: { [weak self] target, timestampMs in
-                        let threadData: SessionThreadViewModel? = self?._threadData.wrappedValue
+                    receiveOutput: { [weak self, dependencies] target, timestampMs in
+                        let threadData: SessionThreadViewModel? = self?.internalThreadData
                         
                         switch target {
-                            case .thread: threadData?.markAsRead(target: target)
+                            case .thread: threadData?.markAsRead(target: target, using: dependencies)
                             case .threadAndInteractions(let interactionId):
                                 guard
                                     timestampMs == nil ||
                                     (self?.lastInteractionTimestampMsMarkedAsRead ?? 0) < (timestampMs ?? 0) ||
                                     (self?.lastInteractionIdMarkedAsRead ?? 0) < (interactionId ?? 0)
                                 else {
-                                    threadData?.markAsRead(target: .thread)
+                                    threadData?.markAsRead(target: .thread, using: dependencies)
                                     return
                                 }
                                 
@@ -814,7 +810,7 @@ public class ConversationViewModel: OWSAudioPlayerDelegate, NavigatableStateHold
                                 }
                                 
                                 self?.lastInteractionIdMarkedAsRead = (interactionId ?? threadData?.interactionId)
-                                threadData?.markAsRead(target: target)
+                                threadData?.markAsRead(target: target, using: dependencies)
                         }
                     }
                 )
@@ -846,7 +842,7 @@ public class ConversationViewModel: OWSAudioPlayerDelegate, NavigatableStateHold
     }
     
     public func trustContact() {
-        guard self._threadData.wrappedValue.threadVariant == .contact else { return }
+        guard self.internalThreadData.threadVariant == .contact else { return }
         
         let threadId: String = self.threadId
         
@@ -877,15 +873,19 @@ public class ConversationViewModel: OWSAudioPlayerDelegate, NavigatableStateHold
     }
     
     public func unblockContact() {
-        guard self._threadData.wrappedValue.threadVariant == .contact else { return }
+        guard self.internalThreadData.threadVariant == .contact else { return }
         
         let threadId: String = self.threadId
-        let displayName: String = self._threadData.wrappedValue.displayName
+        let displayName: String = self.internalThreadData.displayName
         
-        Storage.shared.writeAsync { db in
+        Storage.shared.writeAsync { [dependencies] db in
             try Contact
                 .filter(id: threadId)
-                .updateAllAndConfig(db, Contact.Columns.isBlocked.set(to: false))
+                .updateAllAndConfig(
+                    db,
+                    Contact.Columns.isBlocked.set(to: false),
+                    using: dependencies
+                )
         }
     }
     
@@ -922,18 +922,18 @@ public class ConversationViewModel: OWSAudioPlayerDelegate, NavigatableStateHold
         }
     }
     
-    private var audioPlayer: Atomic<OWSAudioPlayer?> = Atomic(nil)
-    private var currentPlayingInteraction: Atomic<Int64?> = Atomic(nil)
-    private var playbackInfo: Atomic<[Int64: PlaybackInfo]> = Atomic([:])
+    @ThreadSafeObject private var audioPlayer: OWSAudioPlayer? = nil
+    @ThreadSafe private var currentPlayingInteraction: Int64? = nil
+    @ThreadSafeObject private var playbackInfo: [Int64: PlaybackInfo] = [:]
     
     public func playbackInfo(for viewModel: MessageViewModel, updateCallback: ((PlaybackInfo?, Error?) -> ())? = nil) -> PlaybackInfo? {
         // Use the existing info if it already exists (update it's callback if provided as that means
         // the cell was reloaded)
-        if let currentPlaybackInfo: PlaybackInfo = playbackInfo.wrappedValue[viewModel.id] {
+        if let currentPlaybackInfo: PlaybackInfo = playbackInfo[viewModel.id] {
             let updatedPlaybackInfo: PlaybackInfo = currentPlaybackInfo
                 .with(updateCallback: updateCallback)
             
-            playbackInfo.mutate { $0[viewModel.id] = updatedPlaybackInfo }
+            _playbackInfo.performUpdate { $0.setting(viewModel.id, updatedPlaybackInfo) }
             
             return updatedPlaybackInfo
         }
@@ -958,7 +958,7 @@ public class ConversationViewModel: OWSAudioPlayerDelegate, NavigatableStateHold
         )
         
         // Cache the info
-        playbackInfo.mutate { $0[viewModel.id] = newPlaybackInfo }
+        _playbackInfo.performUpdate { $0.setting(viewModel.id, newPlaybackInfo) }
         
         return newPlaybackInfo
     }
@@ -977,49 +977,48 @@ public class ConversationViewModel: OWSAudioPlayerDelegate, NavigatableStateHold
         else { return }
         
         // If the user interacted with the currently playing item
-        guard currentPlayingInteraction.wrappedValue != viewModel.id else {
-            let currentPlaybackInfo: PlaybackInfo? = playbackInfo.wrappedValue[viewModel.id]
+        guard currentPlayingInteraction != viewModel.id else {
+            let currentPlaybackInfo: PlaybackInfo? = playbackInfo[viewModel.id]
             let updatedPlaybackInfo: PlaybackInfo? = currentPlaybackInfo?
                 .with(
                     state: (currentPlaybackInfo?.state != .playing ? .playing : .paused),
                     playbackRate: 1
                 )
             
-            audioPlayer.wrappedValue?.playbackRate = 1
+            audioPlayer?.playbackRate = 1
             
             switch currentPlaybackInfo?.state {
-                case .playing: audioPlayer.wrappedValue?.pause()
-                default: audioPlayer.wrappedValue?.play()
+                case .playing: audioPlayer?.pause()
+                default: audioPlayer?.play()
             }
             
             // Update the state and then update the UI with the updated state
-            playbackInfo.mutate { $0[viewModel.id] = updatedPlaybackInfo }
+            _playbackInfo.performUpdate { $0.setting(viewModel.id, updatedPlaybackInfo) }
             updatedPlaybackInfo?.updateCallback(updatedPlaybackInfo, nil)
             return
         }
         
         // First stop any existing audio
-        audioPlayer.wrappedValue?.stop()
+        audioPlayer?.stop()
         
         // Then setup the state for the new audio
-        currentPlayingInteraction.mutate { $0 = viewModel.id }
+        currentPlayingInteraction = viewModel.id
         
-        let currentPlaybackTime: TimeInterval? = playbackInfo.wrappedValue[viewModel.id]?.progress
-        audioPlayer.mutate { [weak self] player in
-            // Note: We clear the delegate and explicitly set to nil here as when the OWSAudioPlayer
-            // gets deallocated it triggers state changes which cause UI bugs when auto-playing
-            player?.delegate = nil
-            player = nil
-            
-            let audioPlayer: OWSAudioPlayer = OWSAudioPlayer(
-                mediaUrl: URL(fileURLWithPath: originalFilePath),
-                audioBehavior: .audioMessagePlayback,
-                delegate: self
-            )
-            audioPlayer.play()
-            audioPlayer.setCurrentTime(currentPlaybackTime ?? 0)
-            player = audioPlayer
-        }
+        let currentPlaybackTime: TimeInterval? = playbackInfo[viewModel.id]?.progress
+        
+        // Note: We clear the delegate and explicitly set to nil here as when the OWSAudioPlayer
+        // gets deallocated it triggers state changes which cause UI bugs when auto-playing
+        audioPlayer?.delegate = nil
+        _audioPlayer.set(to: nil)
+        
+        let newAudioPlayer: OWSAudioPlayer = OWSAudioPlayer(
+            mediaUrl: URL(fileURLWithPath: originalFilePath),
+            audioBehavior: .audioMessagePlayback,
+            delegate: self
+        )
+        newAudioPlayer.play()
+        newAudioPlayer.setCurrentTime(currentPlaybackTime ?? 0)
+        _audioPlayer.set(to: newAudioPlayer)
     }
     
     public func speedUpAudio(for viewModel: MessageViewModel) {
@@ -1030,23 +1029,23 @@ public class ConversationViewModel: OWSAudioPlayerDelegate, NavigatableStateHold
         }
         
         // If we aren't playing the specified item then just start playing it
-        guard viewModel.id == currentPlayingInteraction.wrappedValue else {
+        guard viewModel.id == currentPlayingInteraction else {
             playOrPauseAudio(for: viewModel)
             return
         }
         
-        let updatedPlaybackInfo: PlaybackInfo? = playbackInfo.wrappedValue[viewModel.id]?
+        let updatedPlaybackInfo: PlaybackInfo? = playbackInfo[viewModel.id]?
             .with(playbackRate: 1.5)
         
         // Speed up the audio player
-        audioPlayer.wrappedValue?.playbackRate = 1.5
+        audioPlayer?.playbackRate = 1.5
         
-        playbackInfo.mutate { $0[viewModel.id] = updatedPlaybackInfo }
+        _playbackInfo.performUpdate { $0.setting(viewModel.id, updatedPlaybackInfo) }
         updatedPlaybackInfo?.updateCallback(updatedPlaybackInfo, nil)
     }
     
     public func stopAudioIfNeeded(for viewModel: MessageViewModel) {
-        guard viewModel.id == currentPlayingInteraction.wrappedValue else { return }
+        guard viewModel.id == currentPlayingInteraction else { return }
         
         stopAudio()
     }
@@ -1058,50 +1057,48 @@ public class ConversationViewModel: OWSAudioPlayerDelegate, NavigatableStateHold
             return DispatchQueue.main.sync { [weak self] in self?.stopAudio() }
         }
         
-        audioPlayer.wrappedValue?.stop()
+        audioPlayer?.stop()
         
-        currentPlayingInteraction.mutate { $0 = nil }
-        audioPlayer.mutate {
-            // Note: We clear the delegate and explicitly set to nil here as when the OWSAudioPlayer
-            // gets deallocated it triggers state changes which cause UI bugs when auto-playing
-            $0?.delegate = nil
-            $0 = nil
-        }
+        currentPlayingInteraction = nil
+        // Note: We clear the delegate and explicitly set to nil here as when the OWSAudioPlayer
+        // gets deallocated it triggers state changes which cause UI bugs when auto-playing
+        audioPlayer?.delegate = nil
+        _audioPlayer.set(to: nil)
     }
     
     // MARK: - OWSAudioPlayerDelegate
     
     public func audioPlaybackState() -> AudioPlaybackState {
-        guard let interactionId: Int64 = currentPlayingInteraction.wrappedValue else { return .stopped }
+        guard let interactionId: Int64 = currentPlayingInteraction else { return .stopped }
         
-        return (playbackInfo.wrappedValue[interactionId]?.state ?? .stopped)
+        return (playbackInfo[interactionId]?.state ?? .stopped)
     }
     
     public func setAudioPlaybackState(_ state: AudioPlaybackState) {
-        guard let interactionId: Int64 = currentPlayingInteraction.wrappedValue else { return }
+        guard let interactionId: Int64 = currentPlayingInteraction else { return }
         
-        let updatedPlaybackInfo: PlaybackInfo? = playbackInfo.wrappedValue[interactionId]?
+        let updatedPlaybackInfo: PlaybackInfo? = playbackInfo[interactionId]?
             .with(state: state)
         
-        playbackInfo.mutate { $0[interactionId] = updatedPlaybackInfo }
+        _playbackInfo.performUpdate { $0.setting(interactionId, updatedPlaybackInfo) }
         updatedPlaybackInfo?.updateCallback(updatedPlaybackInfo, nil)
     }
     
     public func setAudioProgress(_ progress: CGFloat, duration: CGFloat) {
-        guard let interactionId: Int64 = currentPlayingInteraction.wrappedValue else { return }
+        guard let interactionId: Int64 = currentPlayingInteraction else { return }
         
-        let updatedPlaybackInfo: PlaybackInfo? = playbackInfo.wrappedValue[interactionId]?
+        let updatedPlaybackInfo: PlaybackInfo? = playbackInfo[interactionId]?
             .with(progress: TimeInterval(progress))
         
-        playbackInfo.mutate { $0[interactionId] = updatedPlaybackInfo }
+        _playbackInfo.performUpdate { $0.setting(interactionId, updatedPlaybackInfo) }
         updatedPlaybackInfo?.updateCallback(updatedPlaybackInfo, nil)
     }
     
     public func audioPlayerDidFinishPlaying(_ player: OWSAudioPlayer, successfully: Bool) {
-        guard let interactionId: Int64 = currentPlayingInteraction.wrappedValue else { return }
+        guard let interactionId: Int64 = currentPlayingInteraction else { return }
         guard successfully else { return }
         
-        let updatedPlaybackInfo: PlaybackInfo? = playbackInfo.wrappedValue[interactionId]?
+        let updatedPlaybackInfo: PlaybackInfo? = playbackInfo[interactionId]?
             .with(
                 state: .stopped,
                 progress: 0,
@@ -1109,7 +1106,7 @@ public class ConversationViewModel: OWSAudioPlayerDelegate, NavigatableStateHold
             )
         
         // Safe the changes and send one final update to the UI
-        playbackInfo.mutate { $0[interactionId] = updatedPlaybackInfo }
+        _playbackInfo.performUpdate { $0.setting(interactionId, updatedPlaybackInfo) }
         updatedPlaybackInfo?.updateCallback(updatedPlaybackInfo, nil)
         
         // Clear out the currently playing record
@@ -1131,9 +1128,9 @@ public class ConversationViewModel: OWSAudioPlayerDelegate, NavigatableStateHold
     }
     
     public func showInvalidAudioFileAlert() {
-        guard let interactionId: Int64 = currentPlayingInteraction.wrappedValue else { return }
+        guard let interactionId: Int64 = currentPlayingInteraction else { return }
         
-        let updatedPlaybackInfo: PlaybackInfo? = playbackInfo.wrappedValue[interactionId]?
+        let updatedPlaybackInfo: PlaybackInfo? = playbackInfo[interactionId]?
             .with(
                 state: .stopped,
                 progress: 0,
@@ -1141,7 +1138,7 @@ public class ConversationViewModel: OWSAudioPlayerDelegate, NavigatableStateHold
             )
         
         stopAudio()
-        playbackInfo.mutate { $0[interactionId] = updatedPlaybackInfo }
+        _playbackInfo.performUpdate { $0.setting(interactionId, updatedPlaybackInfo) }
         updatedPlaybackInfo?.updateCallback(updatedPlaybackInfo, AttachmentError.invalidData)
     }
 }

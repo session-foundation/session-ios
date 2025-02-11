@@ -139,7 +139,11 @@ class PrivacySettingsViewModel: SessionTableViewModel, NavigationItemSource, Nav
                                 }
                                 
                                 Storage.shared.write { db in
-                                    try db.setAndUpdateConfig(.isScreenLockEnabled, to: !db[.isScreenLockEnabled])
+                                    try db.setAndUpdateConfig(
+                                        .isScreenLockEnabled,
+                                        to: !db[.isScreenLockEnabled],
+                                        using: dependencies
+                                    )
                                 }
                             }
                         )
@@ -166,7 +170,8 @@ class PrivacySettingsViewModel: SessionTableViewModel, NavigationItemSource, Nav
                                 Storage.shared.write { db in
                                     try db.setAndUpdateConfig(
                                         .checkForCommunityMessageRequests,
-                                        to: !db[.checkForCommunityMessageRequests]
+                                        to: !db[.checkForCommunityMessageRequests],
+                                        using: dependencies
                                     )
                                 }
                             }
@@ -192,7 +197,11 @@ class PrivacySettingsViewModel: SessionTableViewModel, NavigationItemSource, Nav
                             ),
                             onTap: {
                                 Storage.shared.write { db in
-                                    try db.setAndUpdateConfig(.areReadReceiptsEnabled, to: !db[.areReadReceiptsEnabled])
+                                    try db.setAndUpdateConfig(
+                                        .areReadReceiptsEnabled,
+                                        to: !db[.areReadReceiptsEnabled],
+                                        using: dependencies
+                                    )
                                 }
                             }
                         )
@@ -252,7 +261,11 @@ class PrivacySettingsViewModel: SessionTableViewModel, NavigationItemSource, Nav
                             ),
                             onTap: {
                                 Storage.shared.write { db in
-                                    try db.setAndUpdateConfig(.typingIndicatorsEnabled, to: !db[.typingIndicatorsEnabled])
+                                    try db.setAndUpdateConfig(
+                                        .typingIndicatorsEnabled,
+                                        to: !db[.typingIndicatorsEnabled],
+                                        using: dependencies
+                                    )
                                 }
                             }
                         )
@@ -277,7 +290,11 @@ class PrivacySettingsViewModel: SessionTableViewModel, NavigationItemSource, Nav
                             ),
                             onTap: {
                                 Storage.shared.write { db in
-                                    try db.setAndUpdateConfig(.areLinkPreviewsEnabled, to: !db[.areLinkPreviewsEnabled])
+                                    try db.setAndUpdateConfig(
+                                        .areLinkPreviewsEnabled,
+                                        to: !db[.areLinkPreviewsEnabled],
+                                        using: dependencies
+                                    )
                                 }
                             }
                         )
@@ -308,14 +325,17 @@ class PrivacySettingsViewModel: SessionTableViewModel, NavigationItemSource, Nav
                                 body: .text("callsVoiceAndVideoModalDescription".localized()),
                                 showCondition: .disabled,
                                 confirmTitle: "theContinue".localized(),
-                                confirmAccessibility: Accessibility(identifier: "Enable"),
                                 confirmStyle: .danger,
                                 cancelStyle: .alert_text,
                                 onConfirm: { _ in Permissions.requestMicrophonePermissionIfNeeded() }
                             ),
                             onTap: {
                                 Storage.shared.write { db in
-                                    try db.setAndUpdateConfig(.areCallsEnabled, to: !db[.areCallsEnabled])
+                                    try db.setAndUpdateConfig(
+                                        .areCallsEnabled,
+                                        to: !db[.areCallsEnabled],
+                                        using: dependencies
+                                    )
                                 }
                             }
                         )

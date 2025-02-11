@@ -54,7 +54,7 @@ class UserNotificationConfig {
 
 class UserNotificationPresenterAdaptee: NSObject, UNUserNotificationCenterDelegate {
     private let notificationCenter: UNUserNotificationCenter
-    private var notifications: Atomic<[String: UNNotificationRequest]> = Atomic([:])
+    @ThreadSafeObject private var notifications: [String: UNNotificationRequest] = [:]
 
     override init() {
         self.notificationCenter = UNUserNotificationCenter.current()
@@ -116,11 +116,11 @@ extension UserNotificationPresenterAdaptee: NotificationPresenterAdaptee {
         }
         
         let notificationIdentifier: String = (replacingIdentifier ?? UUID().uuidString)
-        let isReplacingNotification: Bool = (notifications.wrappedValue[notificationIdentifier] != nil)
+        let isReplacingNotification: Bool = (notifications[notificationIdentifier] != nil)
         let shouldPresentNotification: Bool = shouldPresentNotification(
             category: category,
             applicationState: applicationState,
-            frontMostViewController: SessionApp.currentlyOpenConversationViewController.wrappedValue,
+            frontMostViewController: SessionApp.currentlyOpenConversationViewController,
             userInfo: userInfo
         )
         var trigger: UNNotificationTrigger?
@@ -138,7 +138,7 @@ extension UserNotificationPresenterAdaptee: NotificationPresenterAdaptee {
                     repeats: false
                 )
                 
-                let numberExistingNotifications: Int? = notifications.wrappedValue[notificationIdentifier]?
+                let numberExistingNotifications: Int? = notifications[notificationIdentifier]?
                     .content
                     .userInfo[AppNotificationUserInfoKey.threadNotificationCounter]
                     .asType(Int.self)
@@ -175,13 +175,11 @@ extension UserNotificationPresenterAdaptee: NotificationPresenterAdaptee {
         if isReplacingNotification { cancelNotifications(identifiers: [notificationIdentifier]) }
         
         notificationCenter.add(request)
-        notifications.mutate { $0[notificationIdentifier] = request }
+        _notifications.performUpdate { $0.setting(notificationIdentifier, request) }
     }
 
     func cancelNotifications(identifiers: [String]) {
-        notifications.mutate { notifications in
-            identifiers.forEach { notifications.removeValue(forKey: $0) }
-        }
+        _notifications.performUpdate { $0.removingValues(forKeys: identifiers) }
         notificationCenter.removeDeliveredNotifications(withIdentifiers: identifiers)
         notificationCenter.removePendingNotificationRequests(withIdentifiers: identifiers)
     }
@@ -191,7 +189,7 @@ extension UserNotificationPresenterAdaptee: NotificationPresenterAdaptee {
     }
 
     func cancelNotifications(threadId: String) {
-        let notificationsIdsToCancel: [String] = notifications.wrappedValue
+        let notificationsIdsToCancel: [String] = notifications
             .values
             .compactMap { notification in
                 guard
@@ -294,7 +292,7 @@ public class UserNotificationActionHandler: NSObject {
 
         switch action {
             case .markAsRead:
-                return actionHandler.markAsRead(userInfo: userInfo)
+                return actionHandler.markAsRead(userInfo: userInfo, using: dependencies)
                 
             case .reply:
                 guard let textInputResponse = response as? UNTextInputNotificationResponse else {

@@ -9,21 +9,21 @@ import SessionUIKit
 
 public struct SessionApp {
     // FIXME: Refactor this to be protocol based for unit testing (or even dynamic based on view hierarchy - do want to avoid needing to use the main thread to access them though)
-    static let homeViewController: Atomic<HomeVC?> = Atomic(nil)
-    static let currentlyOpenConversationViewController: Atomic<ConversationVC?> = Atomic(nil)
+    @ThreadSafeObject static var homeViewController: HomeVC? = nil
+    @ThreadSafeObject static var currentlyOpenConversationViewController: ConversationVC? = nil
     
     static var versionInfo: String {
         let buildNumber: String = (Bundle.main.infoDictionary?["CFBundleVersion"] as? String)
-            .map { " (\($0))" } // stringlint:disable
+            .map { " (\($0))" }
             .defaulting(to: "")
         let appVersion: String? = (Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String)
-            .map { "App: \($0)\(buildNumber)" } // stringlint:disable
+            .map { "App: \($0)\(buildNumber)" }
         let commitInfo: String? = (Bundle.main.infoDictionary?["GitCommitHash"] as? String).map { "Commit: \($0)" }
         
         let versionInfo: [String] = [
-            "iOS \(UIDevice.current.systemVersion)",        // stringlint:disable
+            "iOS \(UIDevice.current.systemVersion)",
             appVersion,
-            "libSession: \(LibSession.libSessionVersion)",  // stringlint:disable
+            "libSession: \(LibSession.libSessionVersion)",
             commitInfo
         ].compactMap { $0 }
         
@@ -37,7 +37,8 @@ public struct SessionApp {
         variant: SessionThread.Variant,
         action: ConversationViewModel.Action = .none,
         dismissing presentingViewController: UIViewController?,
-        animated: Bool
+        animated: Bool,
+        using dependencies: Dependencies
     ) {
         let threadInfo: (threadExists: Bool, isMessageRequest: Bool)? = Storage.shared.read { db in
             let isMessageRequest: Bool = {
@@ -69,7 +70,7 @@ public struct SessionApp {
         let afterThreadCreated: () -> () = {
             presentingViewController?.dismiss(animated: true, completion: nil)
             
-            homeViewController.wrappedValue?.show(
+            homeViewController?.show(
                 threadId,
                 variant: variant,
                 isMessageRequest: (threadInfo?.isMessageRequest == true),
@@ -79,12 +80,19 @@ public struct SessionApp {
             )
         }
         
-        /// The thread should generally exist at the time of calling this method, but on the off chance it doesn't then we need to `fetchOrCreate` it and
-        /// should do it on a background thread just in case something is keeping the DBWrite thread busy as in the past this could cause the app to hang
+        /// The thread should generally exist at the time of calling this method, but on the off chance it doesn't then we need to
+        /// `fetchOrCreate` it and should do it on a background thread just in case something is keeping the DBWrite thread
+        /// busy as in the past this could cause the app to hang
         guard threadInfo?.threadExists == true else {
             DispatchQueue.global(qos: .userInitiated).async {
                 Storage.shared.write { db in
-                    try SessionThread.fetchOrCreate(db, id: threadId, variant: variant, shouldBeVisible: nil)
+                    try SessionThread.upsert(
+                        db,
+                        id: threadId,
+                        variant: variant,
+                        values: .existingOrDefault,
+                        using: dependencies
+                    )
                 }
 
                 // Send back to main thread for UI transitions
@@ -131,6 +139,14 @@ public struct SessionApp {
         DispatchQueue.main.async {
             exit(0)
         }
+    }
+    
+    static func setHomeViewController(_ homeVC: HomeVC) {
+        _homeViewController.set(to: homeVC)
+    }
+    
+    static func setCurrentlyOpenConversationViewController(_ viewController: ConversationVC?) {
+        _currentlyOpenConversationViewController.set(to: viewController)
     }
     
     public static func showHomeView(using dependencies: Dependencies) {

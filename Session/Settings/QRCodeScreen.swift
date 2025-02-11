@@ -8,10 +8,15 @@ import AVFoundation
 
 struct QRCodeScreen: View {
     @EnvironmentObject var host: HostWrapper
+    let dependencies: Dependencies
     
     @State var tabIndex = 0
     @State private var accountId: String = ""
     @State private var errorString: String? = nil
+    
+    init(using dependencies: Dependencies) {
+        self.dependencies = dependencies
+    }
     
     var body: some View {
         ZStack(alignment: .topLeading) {
@@ -51,7 +56,8 @@ struct QRCodeScreen: View {
                 variant: .contact,
                 action: .compose,
                 dismissing: self.host.controller,
-                animated: false
+                animated: false,
+                using: dependencies
             )
         }
     }
@@ -70,7 +76,7 @@ struct MyQRCodeScreen: View {
             QRCodeView(
                 string: getUserHexEncodedPublicKey(),
                 hasBackground: false,
-                logo: "SessionWhite40",
+                logo: "SessionWhite40", // stringlint:ignore
                 themeStyle: ThemeManager.currentTheme.interfaceStyle
             )
             .accessibility(
@@ -94,5 +100,5 @@ struct MyQRCodeScreen: View {
 }
 
 #Preview {
-    QRCodeScreen()
+    QRCodeScreen(using: Dependencies())
 }

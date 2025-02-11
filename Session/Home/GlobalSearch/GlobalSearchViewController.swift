@@ -42,7 +42,7 @@ class GlobalSearchViewController: BaseVC, LibSessionRespondingViewController, UI
     
     private let dependencies: Dependencies
     private lazy var defaultSearchResults: SearchResultData = {
-        let nonalphabeticNameTitle: String = "#" // stringlint:disable
+        let nonalphabeticNameTitle: String = "#" // stringlint:ignore
         let contacts: [SessionThreadViewModel] = Storage.shared.read { db -> [SessionThreadViewModel]? in
             try SessionThreadViewModel
                 .defaultContactsQuery(userPublicKey: getUserHexEncodedPublicKey(db))
@@ -106,7 +106,7 @@ class GlobalSearchViewController: BaseVC, LibSessionRespondingViewController, UI
         )
     }()
     
-    private var readConnection: Atomic<Database?> = Atomic(nil)
+    @ThreadSafeObject private var readConnection: Database? = nil
     private lazy var searchResultSet: SearchResultData = defaultSearchResults
     private var termForCurrentSearchResultSet: String = ""
     private var lastSearchText: String?
@@ -255,10 +255,10 @@ class GlobalSearchViewController: BaseVC, LibSessionRespondingViewController, UI
         lastSearchText = searchText
 
         DispatchQueue.global(qos: .default).async { [weak self] in
-            self?.readConnection.wrappedValue?.interrupt()
+            self?.readConnection?.interrupt()
             
             let result: Result<[SectionModel], Error>? = Storage.shared.read { db -> Result<[SectionModel], Error> in
-                self?.readConnection.mutate { $0 = db }
+                self?._readConnection.set(to: db)
                 
                 do {
                     let userPublicKey: String = getUserHexEncodedPublicKey(db)
@@ -290,6 +290,7 @@ class GlobalSearchViewController: BaseVC, LibSessionRespondingViewController, UI
                     return .failure(error)
                 }
             }
+            self?._readConnection.set(to: nil)
             
             DispatchQueue.main.async {
                 switch result {
@@ -393,12 +394,13 @@ extension GlobalSearchViewController {
         // If it's a one-to-one thread then make sure the thread exists before pushing to it (in case the
         // contact has been hidden)
         if threadVariant == .contact {
-            Storage.shared.write { db in
-                try SessionThread.fetchOrCreate(
+            Storage.shared.write { [dependencies] db in
+                try SessionThread.upsert(
                     db,
                     id: threadId,
                     variant: threadVariant,
-                    shouldBeVisible: nil    // Don't change current state
+                    values: .existingOrDefault,
+                    using: dependencies
                 )
             }
         }

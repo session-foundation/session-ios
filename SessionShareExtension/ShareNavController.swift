@@ -14,7 +14,7 @@ final class ShareNavController: UINavigationController, ShareViewDelegate {
     
     /// The `ShareNavController` is initialized from a storyboard so we need to manually initialize this
     private let dependencies: Dependencies = Dependencies()
-    private let versionMigrationsComplete: Atomic<Bool> = Atomic(false)
+    @ThreadSafe private var versionMigrationsComplete: Bool = false
     
     // MARK: - Error
     
@@ -52,15 +52,15 @@ final class ShareNavController: UINavigationController, ShareViewDelegate {
 
         AppSetup.setupEnvironment(
             appSpecificBlock: {
+                // stringlint:ignore_start
                 Log.setup(with: Logger(
-                    primaryPrefix: "SessionShareExtension",                                              // stringlint:disable
+                    primaryPrefix: "SessionShareExtension",
                     level: .info,
-                    customDirectory: "\(FileManager.default.appSharedDataDirectoryPath)/Logs/ShareExtension" // stringlint:disable
+                    customDirectory: "\(FileManager.default.appSharedDataDirectoryPath)/Logs/ShareExtension"
                 ))
+                // stringlint:ignore_stop
                 
-                SessionEnvironment.shared?.notificationsManager.mutate {
-                    $0 = NoopNotificationsManager()
-                }
+                SessionEnvironment.shared?.setNotificationsManager(to: NoopNotificationsManager())
                 
                 // Setup LibSession
                 LibSession.addLogger()
@@ -97,7 +97,7 @@ final class ShareNavController: UINavigationController, ShareViewDelegate {
         /// results in the `AppSetup` not actually running (and the UI not actually being loaded correctly) - in order to avoid this
         /// we call `checkIsAppReady` explicitly here assuming that either the `AppSetup` _hasn't_ complete or won't ever
         /// get run
-        checkIsAppReady(migrationsCompleted: versionMigrationsComplete.wrappedValue)
+        checkIsAppReady(migrationsCompleted: versionMigrationsComplete)
     }
     
     override func traitCollectionDidChange(_ previousTraitCollection: UITraitCollection?) {
@@ -118,7 +118,7 @@ final class ShareNavController: UINavigationController, ShareViewDelegate {
             }
         }
 
-        versionMigrationsComplete.mutate { $0 = true }
+        versionMigrationsComplete = true
         checkIsAppReady(migrationsCompleted: true)
     }
 
@@ -272,15 +272,13 @@ final class ShareNavController: UINavigationController, ShareViewDelegate {
             //
             // NOTE: SharingThreadPickerViewController will try to unpack them
             //       and send them as normal text messages if possible.
-            case (_, true): return DataSourcePath(fileUrl: url, shouldDeleteOnDeinit: false)
+            case (_, true):
+                return DataSourcePath(fileUrl: url, sourceFilename: customFileName, shouldDeleteOnDeinit: false)
                 
             default:
-                guard let dataSource = DataSourcePath(fileUrl: url, shouldDeleteOnDeinit: false) else {
+                guard let dataSource = DataSourcePath(fileUrl: url, sourceFilename: customFileName, shouldDeleteOnDeinit: false) else {
                     return nil
                 }
-                
-                // Fallback to the last part of the URL
-                dataSource.sourceFilename = (customFileName ?? url.lastPathComponent)
                 
                 return dataSource
         }
@@ -426,8 +424,8 @@ final class ShareNavController: UINavigationController, ShareViewDelegate {
                     
                     switch value {
                         case let data as Data:
-                            let customFileName = "Contact.vcf" // stringlint:disable
-                            let customFileExtension: String? = srcType.sessionFileExtension
+                            let customFileName = "Contact.vcf" // stringlint:ignore
+                            let customFileExtension: String? = srcType.sessionFileExtension(sourceFilename: nil)
                             
                             guard let tempFilePath = try? FileSystem.write(data: data, toTemporaryFileWithExtension: customFileExtension) else {
                                 resolver(
@@ -457,7 +455,7 @@ final class ShareNavController: UINavigationController, ShareViewDelegate {
                                 )
                                 return
                             }
-                            guard let tempFilePath: String = try? FileSystem.write(data: data, toTemporaryFileWithExtension: "txt") else { // stringlint:disable
+                            guard let tempFilePath: String = try? FileSystem.write(data: data, toTemporaryFileWithExtension: "txt") else { // stringlint:ignore
                                 resolver(
                                     Result.failure(ShareViewControllerError.assertionError(description: "Error writing item data: \(String(describing: error))"))
                                 )
@@ -527,7 +525,7 @@ final class ShareNavController: UINavigationController, ShareViewDelegate {
                             
                         case let image as UIImage:
                             if let data = image.pngData() {
-                                let tempFilePath: String = FileSystem.temporaryFilePath(fileExtension: "png") // stringlint:disable
+                                let tempFilePath: String = FileSystem.temporaryFilePath(fileExtension: "png") // stringlint:ignore
                                 do {
                                     let url = NSURL.fileURL(withPath: tempFilePath)
                                     try data.write(to: url)

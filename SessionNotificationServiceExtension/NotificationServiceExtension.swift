@@ -16,13 +16,15 @@ public final class NotificationServiceExtension: UNNotificationServiceExtension 
     private var startTime: CFTimeInterval = 0
     private var contentHandler: ((UNNotificationContent) -> Void)?
     private var request: UNNotificationRequest?
-    private var hasCompleted: Atomic<Bool> = Atomic(false)
+    @ThreadSafe private var hasCompleted: Bool = false
 
-    public static let isFromRemoteKey = "remote"                                                                   // stringlint:disable
-    public static let threadIdKey = "Signal.AppNotificationsUserInfoKey.threadId"                                  // stringlint:disable
-    public static let threadVariantRaw = "Signal.AppNotificationsUserInfoKey.threadVariantRaw"                     // stringlint:disable
-    public static let threadNotificationCounter = "Session.AppNotificationsUserInfoKey.threadNotificationCounter"  // stringlint:disable
+    // stringlint:ignore_start
+    public static let isFromRemoteKey = "remote"
+    public static let threadIdKey = "Signal.AppNotificationsUserInfoKey.threadId"
+    public static let threadVariantRaw = "Signal.AppNotificationsUserInfoKey.threadVariantRaw"
+    public static let threadNotificationCounter = "Session.AppNotificationsUserInfoKey.threadNotificationCounter"
     private static let callPreOfferLargeNotificationSupressionDuration: TimeInterval = 30
+    // stringlint:ignore_stop
 
     // MARK: Did receive a remote push notification request
     
@@ -32,7 +34,7 @@ public final class NotificationServiceExtension: UNNotificationServiceExtension 
         self.request = request
         
         // It's technically possible for 'completeSilently' to be called twice due to the NSE timeout so
-        self.hasCompleted.mutate { $0 = false }
+        self.hasCompleted = false
         
         // Abort if the main app is running
         guard !(UserDefaults.sharedLokiProject?[.isMainAppActive]).defaulting(to: false) else {
@@ -74,7 +76,7 @@ public final class NotificationServiceExtension: UNNotificationServiceExtension 
             switch result {
                 // If we got an explicit failure, or we got a success but no content then show
                 // the fallback notification
-                case .success, .legacySuccess, .failure, .legacyFailure:
+                case .success, .legacySuccess, .failure:
                     return self.handleFailure(for: notificationContent, error: .processing(result))
                     
                 // Just log if the notification was too long (a ~2k message should be able to fit so
@@ -90,11 +92,26 @@ public final class NotificationServiceExtension: UNNotificationServiceExtension 
                 case .failureNoContent:
                     Log.warn("Failed due to missing notification content.")
                     return self.completeSilenty(handledNotification: false)
+                
+                case .legacyFailure:
+                    Log.warn("Received a notification without a valid payload.")
+                    return self.completeSilenty(handledNotification: false)
             }
         }
         
-        let isCallOngoing: Bool = (UserDefaults.sharedLokiProject?[.isCallOngoing])
-            .defaulting(to: false)
+        let isCallOngoing: Bool = (
+            (UserDefaults.sharedLokiProject?[.isCallOngoing]).defaulting(to: false) &&
+            (UserDefaults.sharedLokiProject?[.lastCallPreOffer]) != nil
+        )
+        
+        let hasMicrophonePermission: Bool = {
+            return switch Permissions.microphone {
+                case .undetermined:
+                    (UserDefaults.sharedLokiProject?[.lastSeenHasMicrophonePermission]).defaulting(to: false)
+                default:
+                    Permissions.microphone == .granted
+            }
+        }()
         
         // HACK: It is important to use write synchronously here to avoid a race condition
         // where the completeSilenty() is called before the local notification request
@@ -138,6 +155,7 @@ public final class NotificationServiceExtension: UNNotificationServiceExtension 
                             using: dependencies
                         )
                         
+                        // FIXME: Do we need to call it here? It does nothing other than log what kind of message we received
                         try MessageReceiver.handleCallMessage(
                             db,
                             threadId: threadId,
@@ -150,7 +168,6 @@ public final class NotificationServiceExtension: UNNotificationServiceExtension 
                             throw NotificationError.ignorableMessage
                         }
                         
-                        let hasMicrophonePermission: Bool = (AVAudioSession.sharedInstance().recordPermission == .granted)
                         switch ((db[.areCallsEnabled] && hasMicrophonePermission), isCallOngoing) {
                             case (false, _):
                                 if
@@ -162,17 +179,17 @@ public final class NotificationServiceExtension: UNNotificationServiceExtension 
                                         using: dependencies
                                     )
                                 {
-                                    let thread: SessionThread = try SessionThread
-                                        .fetchOrCreate(
-                                            db,
-                                            id: sender,
-                                            variant: .contact,
-                                            shouldBeVisible: nil
-                                        )
+                                    let thread: SessionThread = try SessionThread.upsert(
+                                        db,
+                                        id: sender,
+                                        variant: .contact,
+                                        values: .existingOrDefault,
+                                        using: dependencies
+                                    )
 
                                     // Notify the user if the call message wasn't already read
                                     if !interaction.wasRead {
-                                        SessionEnvironment.shared?.notificationsManager.wrappedValue?
+                                        SessionEnvironment.shared?.notificationsManager?
                                             .notifyUser(
                                                 db,
                                                 forIncomingCall: interaction,
@@ -196,7 +213,8 @@ public final class NotificationServiceExtension: UNNotificationServiceExtension 
                                     db,
                                     threadId: threadId,
                                     threadVariant: threadVariant,
-                                    message: messageInfo.message
+                                    message: messageInfo.message,
+                                    using: dependencies
                                 )
                                 
                                 return self?.handleSuccessForIncomingCall(db, for: callMessage)
@@ -207,7 +225,8 @@ public final class NotificationServiceExtension: UNNotificationServiceExtension 
                             db,
                             threadId: threadId,
                             threadVariant: threadVariant,
-                            message: messageInfo.message
+                            message: messageInfo.message,
+                            using: dependencies
                         )
                         
                     case .standard(let threadId, let threadVariant, let proto, let messageInfo):
@@ -308,9 +327,7 @@ public final class NotificationServiceExtension: UNNotificationServiceExtension 
                     forceNSLog: true
                 ))
                 
-                SessionEnvironment.shared?.notificationsManager.mutate {
-                    $0 = NSENotificationPresenter()
-                }
+                SessionEnvironment.shared?.setNotificationsManager(to: NSENotificationPresenter())
                 
                 // Setup LibSession
                 LibSession.addLogger()
@@ -366,13 +383,7 @@ public final class NotificationServiceExtension: UNNotificationServiceExtension 
     
     private func completeSilenty(handledNotification: Bool, isMainAppAndActive: Bool = false, noContent: Bool = false) {
         // Ensure we only run this once
-        guard
-            hasCompleted.mutate({ hasCompleted in
-                let wasCompleted: Bool = hasCompleted
-                hasCompleted = true
-                return wasCompleted
-            }) == false
-        else { return }
+        guard _hasCompleted.performUpdateAndMap({ (true, $0) }) == false else { return }
         
         let silentContent: UNMutableNotificationContent = UNMutableNotificationContent()
         
@@ -483,6 +494,6 @@ public final class NotificationServiceExtension: UNNotificationServiceExtension 
         let userInfo: [String: Any] = [ NotificationServiceExtension.isFromRemoteKey: true ]
         content.userInfo = userInfo
         contentHandler!(content)
-        hasCompleted.mutate { $0 = true }
+        hasCompleted = true
     }
 }

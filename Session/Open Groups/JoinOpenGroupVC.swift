@@ -10,6 +10,7 @@ import SessionUtilitiesKit
 import SignalUtilitiesKit
 
 final class JoinOpenGroupVC: BaseVC, UIPageViewControllerDataSource, UIPageViewControllerDelegate, QRScannerDelegate, NavigatableStateHolder {
+    private let dependencies: Dependencies
     public let navigatableState: NavigatableState = NavigatableState()
     private var disposables: Set<AnyCancellable> = Set()
     
@@ -55,6 +56,18 @@ final class JoinOpenGroupVC: BaseVC, UIPageViewControllerDataSource, UIPageViewC
         
         return result
     }()
+    
+    // MARK: - Initialization
+    
+    init(using dependencies: Dependencies) {
+        self.dependencies = dependencies
+        
+        super.init(nibName: nil, bundle: nil)
+    }
+    
+    required init?(coder: NSCoder) {
+        fatalError("init(coder:) has not been implemented")
+    }
 
     // MARK: - Lifecycle
     
@@ -185,7 +198,7 @@ final class JoinOpenGroupVC: BaseVC, UIPageViewControllerDataSource, UIPageViewC
         
         isJoining = true
         
-        ModalActivityIndicatorViewController.present(fromViewController: navigationController, canCancel: false) { [weak self] _ in
+        ModalActivityIndicatorViewController.present(fromViewController: navigationController, canCancel: false) { [weak self, dependencies] _ in
             Storage.shared
                 .writePublisher { db in
                     OpenGroupManager.shared.add(
@@ -193,7 +206,7 @@ final class JoinOpenGroupVC: BaseVC, UIPageViewControllerDataSource, UIPageViewC
                         roomToken: roomToken,
                         server: server,
                         publicKey: publicKey,
-                        calledFromConfigHandling: false
+                        forceVisible: false
                     )
                 }
                 .flatMap { successfullyAddedGroup in
@@ -201,8 +214,7 @@ final class JoinOpenGroupVC: BaseVC, UIPageViewControllerDataSource, UIPageViewC
                         successfullyAddedGroup: successfullyAddedGroup,
                         roomToken: roomToken,
                         server: server,
-                        publicKey: publicKey,
-                        calledFromConfigHandling: false
+                        publicKey: publicKey
                     )
                 }
                 .subscribe(on: DispatchQueue.global(qos: .userInitiated))
@@ -218,7 +230,7 @@ final class JoinOpenGroupVC: BaseVC, UIPageViewControllerDataSource, UIPageViewC
                                     OpenGroupManager.shared.delete(
                                         db,
                                         openGroupId: OpenGroup.idFor(roomToken: roomToken, server: server),
-                                        calledFromConfigHandling: false
+                                        skipLibSessionUpdate: false
                                     )
                                 }
                                 
@@ -240,7 +252,8 @@ final class JoinOpenGroupVC: BaseVC, UIPageViewControllerDataSource, UIPageViewC
                                         for: OpenGroup.idFor(roomToken: roomToken, server: server),
                                         variant: .community,
                                         dismissing: nil,
-                                        animated: false
+                                        animated: false,
+                                        using: dependencies
                                     )
                                 }
                         }

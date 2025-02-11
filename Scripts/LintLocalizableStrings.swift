@@ -11,13 +11,28 @@
 /// 3. Functionality to update and copy localized permission requirement strings to infoPlist.xcstrings
 
 import Foundation
+import Dispatch
 
 typealias JSON = [String:AnyHashable]
 
 extension ProjectState {
-    /// Adding `// stringlint:disable` to the top of a source file (before imports) or after a string will mean that file/line gets
-    /// ignored by this script (good for some things like the auto-generated emoji strings or debug strings)
-    static let lintSuppression: String = "stringlint:disable"
+    /// Linting control commands
+    enum LintControl: String, CaseIterable {
+        /// Add `// stringlint:disable` to the top of a source file (before imports) to make this script ignore a file
+        case disable = "stringlint:disable"
+        
+        /// Add `// stringlint:ignore` after a line to ignore it
+        case ignoreLine = "stringlint:ignore"
+        
+        /// Add `// stringlint:ignore_start` and `// stringlint:ignore_stop` before and after a
+        /// lines of code to make this script ignore the contents for string linting purposes
+        case ignoreStart = "stringlint:ignore_start"
+        case ignoreStop = "stringlint:ignore_stop"
+        
+        /// Add `// stringlint:ignore_contents` before anything with curly braces (eg. function, class, closure, etc.)
+        /// to everything within the curly braces
+        case ignoreContents = "stringlint:ignore_contents"
+    }
     static let primaryLocalisation: String = "en"
     static let permissionStrings: Set<String> = [
         "permissionsStorageSend",
@@ -47,29 +62,18 @@ extension ProjectState {
         "_SharedTestUtilities/",    // Exclude shared test directory
         "external/"                 // External dependencies
     ]
-    static let excludedPhrases: Set<String> = [ "", " ", "  ", ",", ", ", "null", "\"", "@[0-9a-fA-F]{66}", "^[0-9A-Fa-f]+$", "/" ]
-    static let excludedUnlocalizedStringLineMatching: Set<MatchType> = [
-        .contains(ProjectState.lintSuppression, caseSensitive: false),
+    static let excludedPhrases: Set<String> = ["", " ", "  ", ",", ", ", "null", "\"", "@[0-9a-fA-F]{66}", "^[0-9A-Fa-f]+$", "/"]
+    static let excludedUnlocalizedStringLineMatching: [MatchType] = [
         .prefix("#import", caseSensitive: false),
         .prefix("@available(", caseSensitive: false),
+        .prefix("print(", caseSensitive: false),
+        .prefix("Log.Category =", caseSensitive: false),
         .contains("fatalError(", caseSensitive: false),
         .contains("precondition(", caseSensitive: false),
         .contains("preconditionFailure(", caseSensitive: false),
-        .contains("print(", caseSensitive: false),
-        .contains("SNLog(", caseSensitive: false),
-        .contains("Log.setup(", caseSensitive: false),
-        .contains("Log.verbose(", caseSensitive: false),
-        .contains("Log.debug(", caseSensitive: false),
-        .contains("Log.info(", caseSensitive: false),
-        .contains("Log.warn(", caseSensitive: false),
-        .contains("Log.error(", caseSensitive: false),
-        .contains("Log.critical(", caseSensitive: false),
-        .contains("Log.Category =", caseSensitive: false),
         .contains("logMessage:", caseSensitive: false),
         .contains("owsFailDebug(", caseSensitive: false),
         .contains("#imageLiteral(resourceName:", caseSensitive: false),
-        .contains("UIImage(named:", caseSensitive: false),
-        .contains("UIImage(systemName:", caseSensitive: false),
         .contains("[UIImage imageNamed:", caseSensitive: false),
         .contains("Image(", caseSensitive: false),
         .contains("UIFont(name:", caseSensitive: false),
@@ -85,39 +89,37 @@ extension ProjectState {
         .contains("Notification.Name(", caseSensitive: false),
         .contains("Notification.Key(", caseSensitive: false),
         .contains("DispatchQueue(", caseSensitive: false),
-        .containsAnd(
-            "identifier:",
-            caseSensitive: false,
-            .previousLine(numEarlier: 1, .contains("Accessibility(", caseSensitive: false))
+        .and(
+            .prefix("static let identifier: String = ", caseSensitive: false),
+            .previousLine(numEarlier: 2, .suffix(": Migration {", caseSensitive: false))
         ),
-        .containsAnd(
-            "label:",
-            caseSensitive: false,
-            .previousLine(numEarlier: 1, .contains("Accessibility(", caseSensitive: false))
+        .and(
+            .contains("identifier:", caseSensitive: false),
+            .previousLine(.contains("Accessibility(", caseSensitive: false))
         ),
-        .containsAnd(
-            "label:",
-            caseSensitive: false,
+        .and(
+            .contains("label:", caseSensitive: false),
+            .previousLine(.contains("Accessibility(", caseSensitive: false))
+        ),
+        .and(
+            .contains("label:", caseSensitive: false),
             .previousLine(numEarlier: 2, .contains("Accessibility(", caseSensitive: false))
         ),
         .contains("SQL(", caseSensitive: false),
-        .contains(" == ", caseSensitive: false),
         .contains("forResource:", caseSensitive: false),
         .contains("imageName:", caseSensitive: false),
+        .contains("systemName:", caseSensitive: false),
         .contains(".userInfo[", caseSensitive: false),
         .contains("payload[", caseSensitive: false),
         .contains(".infoDictionary?[", caseSensitive: false),
         .contains("accessibilityId:", caseSensitive: false),
-        .contains("key:", caseSensitive: false),
-        .contains("separator:", caseSensitive: false),
-        .contains("separatedBy:", caseSensitive: false),
-        .nextLine(.contains(".put(key:", caseSensitive: false)),
-        .nextLine(.contains(".putNumber(", caseSensitive: false)),
-        .nextLine(.contains(".localized()", caseSensitive: false)),
-        .regex(".*static var databaseTableName: String"),
-        .regex("case .* = "),
-        .regex("Error.*\\("),
-        .belowLineContaining("PreviewProvider")
+        .belowLineContaining("PreviewProvider"),
+        .regex(Regex.logging),
+        .regex(Regex.errorCreation),
+        .regex(Regex.databaseTableName),
+        .regex(Regex.enumCaseDefinition),
+        .regex(Regex.imageInitialization),
+        .regex(Regex.variableToStringConversion)
     ]
 }
 
@@ -132,12 +134,9 @@ let targetActions: Set<ScriptAction> = {
 }()
 
 print("------------ Searching Through Files ------------")
-let projectState: ProjectState = ProjectState(
-    path: (
-        ProcessInfo.processInfo.environment["PROJECT_DIR"] ??
-        FileManager.default.currentDirectoryPath
-    ),
-    loadSourceFiles: targetActions.contains(.lintStrings)
+let projectState: ProjectState = ProjectState(path:
+    ProcessInfo.processInfo.environment["PROJECT_DIR"] ??
+    FileManager.default.currentDirectoryPath
 )
 print("------------ Processing \(projectState.localizationFile.path) ------------")
 targetActions.forEach { $0.perform(projectState: projectState) }
@@ -206,10 +205,19 @@ enum ScriptAction: String {
                         if let original: String = ((localizations["en"] as? JSON)?["stringUnit"] as? JSON)?["value"] as? String {
                             localizations.forEach { locale, translation in
                                 if let phrase: String = ((translation as? JSON)?["stringUnit"] as? JSON)?["value"] as? String {
-                                    let numberOfVarablesOrignal = Regex.matches("\\{.*\\}", content: original).count
-                                    let numberOfVarablesPhrase = Regex.matches("\\{.*\\}", content: phrase).count
+                                    // Zero-width characters can mess with regex matching so we need to clean them
+                                    // out before matching
+                                    let numberOfVarablesOrignal: Int = original
+                                        .removingUnwantedScalars()
+                                        .matches(of: Regex.dynamicStringVariable)
+                                        .count
+                                    let numberOfVarablesPhrase: Int = phrase
+                                        .removingUnwantedScalars()
+                                        .matches(of: Regex.dynamicStringVariable)
+                                        .count
+                                    
                                     if numberOfVarablesPhrase != numberOfVarablesOrignal {
-                                        Output.warning("\(key) in \(locale) may be faulty")
+                                        Output.warning("\(key) in \(locale) may be faulty ('\(original)' contains \(numberOfVarablesOrignal) vs. '\(phrase)' contains \(numberOfVarablesPhrase))")
                                     }
                                 }
                             }
@@ -221,11 +229,15 @@ enum ScriptAction: String {
                 duplicates.forEach { Output.duplicate(key: $0) }
 
                 // Process the source code
-                print("------------ Processing \(projectState.sourceFiles.count) Source File(s) ------------")
+                print("------------ Processing Source Files ------------")
+                let results = projectState.lintSourceFiles()
+                print("------------ Processed \(results.sourceFiles.count) File(s), Ignored \(results.ignoredPaths.count) File(s) ------------")
+                var totalUnlocalisedStrings: Int = 0
   
-                projectState.sourceFiles.forEach { file in
+                results.sourceFiles.forEach { file in
                     // Add logs for unlocalized strings
                     file.unlocalizedPhrases.forEach { phrase in
+                        totalUnlocalisedStrings += 1
                         Output.warning(phrase, "Found unlocalized string '\(phrase.key)'")
                     }
                     
@@ -238,6 +250,8 @@ enum ScriptAction: String {
                         }
                     }
                 }
+                
+                print("------------ Found \(totalUnlocalisedStrings) unlocalized string(s) ------------")
                 break
             case .updatePermissionStrings:
                 print("------------ Updating permission strings ------------")
@@ -282,25 +296,31 @@ enum ScriptAction: String {
 // MARK: - Functionality
 
 enum Regex {
+    // Initializing these as static variables means we don't init them every time they are used
+    // which can speed up processing
+    static let comment = #/\/\/[^"]*(?:"[^"]*"[^"]*)*/#
+    static let allStrings = #/"[^"\\]*(?:\\.[^"\\]*)*"/#
+    static let localizedString = #/^(?:\.put(?:Number)?\([^)]+\))*\.localized/#
+    static let localizedFunctionCall = #/\.localized(?:Formatted)?\(.*\)/#
+    
+    static let logging = #/(?:SN)?Log.*\(/#
+    static let errorCreation = #/Error.*\(/#
+    static let databaseTableName = #/.*static var databaseTableName: String/#
+    static let enumCaseDefinition = #/case .* = /#
+    static let imageInitialization = #/(?:UI)?Image\((?:named:)?(?:imageName:)?(?:systemName:)?.*\)/#
+    static let variableToStringConversion = #/"\\(.*)"/#
+    
+    static let dynamicStringVariable = #/\{\w+\}/#
+    
     /// Returns a list of strings that match regex pattern from content
     ///
     /// - Parameters:
     ///   - pattern: regex pattern
     ///   - content: content to match
     /// - Returns: list of results
-    static func matches(_ pattern: String, content: String) -> [String] {
-        guard let regex = try? NSRegularExpression(pattern: pattern, options: []) else {
-            fatalError("Regex not formatted correctly: \(pattern)")
-        }
-        
-        let matches = regex.matches(in: content, options: [], range: NSRange(location: 0, length: content.utf16.count))
-        
-        return matches.map {
-            guard let range = Range($0.range(at: 0), in: content) else {
-                fatalError("Incorrect range match")
-            }
-            
-            return String(content[range])
+    static func matches(_ regex: some RegexComponent, content: String) -> [String] {
+        return content.matches(of: regex).map { match in
+            String(content[match.range])
         }
     }
 }
@@ -343,11 +363,13 @@ enum Output {
 // MARK: - ProjectState
 
 struct ProjectState {
-    let sourceFiles: [SourceFile]
+    let queue = DispatchQueue(label: "session.stringlint", attributes: .concurrent)
+    let group = DispatchGroup()
+    let validFileUrls: [URL]
     let localizationFile: XCStringsFile
     let infoPlistLocalizationFile: XCStringsFile
     
-    init(path: String, loadSourceFiles: Bool) {
+    init(path: String) {
         guard
             let enumerator: FileManager.DirectoryEnumerator = FileManager.default.enumerator(
                 at: URL(fileURLWithPath: path),
@@ -359,7 +381,7 @@ struct ProjectState {
         
         // Get a list of valid URLs
         let lowerCaseExcludedPaths: Set<String> = Set(ProjectState.excludedPaths.map { $0.lowercased() })
-        let validFileUrls: [URL] = fileUrls.filter { fileUrl in
+        validFileUrls = fileUrls.filter { fileUrl in
             ((try? fileUrl.resourceValues(forKeys: [.isDirectoryKey]))?.isDirectory == false) &&
             !lowerCaseExcludedPaths.contains { fileUrl.path.lowercased().contains($0) }
         }
@@ -373,17 +395,29 @@ struct ProjectState {
             .filter { fileUrl in fileUrl.path.contains("InfoPlist.xcstrings") }
             .map { XCStringsFile(path: $0.path) }
             .last!
-        
-        guard loadSourceFiles else {
-            self.sourceFiles = []
-            return
-        }
-        
-        // Source files
+    }
+    
+    func lintSourceFiles() -> (sourceFiles: [SourceFile], ignoredPaths: [String]) {
+        let resultLock: NSLock = NSLock()
         let lowerCaseSourceSuffixes: Set<String> = Set(ProjectState.validSourceSuffixes.map { $0.lowercased() })
-        self.sourceFiles = validFileUrls
+        var results: [(path: String, file: SourceFile?)] = []
+        validFileUrls
             .filter { fileUrl in lowerCaseSourceSuffixes.contains(".\(fileUrl.pathExtension)") }
-            .compactMap { SourceFile(path: $0.path) }
+            .forEach { fileUrl in
+                queue.async(group: group) {
+                    let file: SourceFile? = SourceFile(path: fileUrl.path)
+                    resultLock.lock()
+                    results.append((fileUrl.path, file))
+                    resultLock.unlock()
+                }
+            }
+        
+        group.wait()
+        
+        let sourceFiles: [SourceFile] = results.compactMap { _, file in file }
+        let ignoredPaths: [String] = results.filter { _, file in file == nil }.map { path, _ in path }
+        
+        return (sourceFiles, ignoredPaths)
     }
 }
 
@@ -435,6 +469,19 @@ extension ProjectState {
     // MARK: - SourceFile
     
     struct SourceFile: Locatable {
+        struct LintState {
+            var isDisabled: Bool = false
+            var isInIgnoredSection: Bool = false
+            var isInIgnoredContents: Bool = false
+            var ignoredContentsDepth: Int = 0
+        }
+        
+        struct TemplateStringState {
+            var key: String
+            var lineNumber: Int
+            var chainedCalls: [String]
+        }
+        
         struct Phrase: KeyedLocatable {
             let term: String
             let filePath: String
@@ -471,8 +518,7 @@ extension ProjectState {
             // If the file has the lint supression before the first import then ignore the file
             let preImportContent: String = (content.components(separatedBy: "import").first ?? "")
             
-            guard !preImportContent.contains(ProjectState.lintSuppression) else {
-                print("Explicitly ignoring \(path)")
+            guard !preImportContent.contains(ProjectState.LintControl.disable.rawValue) else {
                 return nil
             }
             
@@ -482,124 +528,275 @@ extension ProjectState {
             var unlocalizedKeyPhrase: [String: Phrase] = [:]
             var phrases: [Phrase] = []
             var unlocalizedPhrases: [Phrase] = []
+            var lintState = LintState()
+            var templateState: TemplateStringState?
             
             lines.enumerated().forEach { lineNumber, line in
                 let trimmedLine: String = line.trimmingCharacters(in: .whitespacesAndNewlines)
                 
-                // Ignore the line if it doesn't contain a quotation character (optimisation), it's
-                // been suppressed or it's explicitly excluded due to the rules at the top of the file
+                // Check for lint control commands
+                if let controlCommand: ProjectState.LintControl = checkLintControl(line: trimmedLine) {
+                    updateLintState(&lintState, command: controlCommand, line: trimmedLine)
+                    return
+                }
+                
+                // Track function depth for ignored functions
+                if lintState.isInIgnoredContents {
+                    updateContentsDepth(&lintState, line: trimmedLine)
+                }
+                
+                // Skip linting if disabled
+                guard !shouldSkipLinting(state: lintState) else { return }
+                
+                // Skip lines without quotes (optimization)
+                guard trimmedLine.contains("\"") else { return }
+                
+                // Skip explicitly excluded lines
                 guard
-                    trimmedLine.contains("\"") &&
                     !ProjectState.excludedUnlocalizedStringLineMatching
                         .contains(where: { $0.matches(trimmedLine, lineNumber, lines) })
                 else { return }
                 
-                // Split line based on commented out content and exclude the comment from the linting
-                let commentMatches: [String] = Regex.matches(
-                    "//[^\\\"]*(?:\\\"[^\\\"]*\\\"[^\\\"]*)*",
-                    content: line
+                // Process the line for strings
+                processLine(
+                    line: line,
+                    lineNumber: lineNumber,
+                    path: path,
+                    keyPhrase: &keyPhrase,
+                    unlocalizedKeyPhrase: &unlocalizedKeyPhrase,
+                    phrases: &phrases,
+                    unlocalizedPhrases: &unlocalizedPhrases,
+                    templateState: &templateState,
+                    lines: lines
                 )
-                let targetLine: String = (commentMatches.isEmpty ? line :
-                    line.components(separatedBy: commentMatches[0])[0]
-                )
-                
-                // Use regex to find `NSLocalizedString("", "")`, `"".localized()` and any other `""`
-                // values in the source code
-                //
-                // Note: It's more complex because we need to exclude escaped quotation marks from
-                // strings and also want to ignore any strings that have been commented out, Swift
-                // also doesn't support "lookbehind" in regex so we can use that approach
-                var isUnlocalized: Bool = false
-                var allMatches: Set<String> = Set(
-                    Regex
-                        .matches(
-                            "NSLocalizedString\\(@{0,1}\\\"[^\\\"\\\\]*(?:\\\\.[^\\\"\\\\]*)*(?:\\\")",
-                            content: targetLine
-                        )
-                        .map { match in
-                            match
-                                .removingPrefixIfPresent("NSLocalizedString(@\"")
-                                .removingPrefixIfPresent("NSLocalizedString(\"")
-                                .removingSuffixIfPresent("\")")
-                                .removingSuffixIfPresent("\"")
-                        }
-                )
-                
-                // If we didn't get any matches for the standard `NSLocalizedString` then try our
-                // custom extension `"".localized()`
-                if allMatches.isEmpty {
-                    allMatches = allMatches.union(Set(
-                        Regex
-                            .matches(
-                                "\\\"[^\\\"\\\\]*(?:\\\\.[^\\\"\\\\]*)*\\\"\\.localized",
-                                content: targetLine
-                            )
-                            .map { match in
-                                match
-                                    .removingPrefixIfPresent("\"")
-                                    .removingSuffixIfPresent("\".localized")
-                            }
-                    ))
-                }
-                
-                /// If we still don't have any matches then try to match any strings as unlocalized strings (handling
-                /// nested `"Test\"string\" value"`, empty strings and strings only composed of quotes `"""""""`)
-                ///
-                /// **Note:** While it'd be nice to have the regex automatically exclude the quotes doing so makes it _far_ less
-                /// efficient (approx. by a factor of 8 times) so we remove those ourselves)
-                if allMatches.isEmpty {
-                    // Find strings which are just not localized
-                    let potentialUnlocalizedStrings: [String] = Regex
-                        .matches("\\\"[^\\\"\\\\]*(?:\\\\.[^\\\"\\\\]*)*(?:\\\")", content: targetLine)
-                        // Remove the leading and trailing quotation marks
-                        .map { $0.removingPrefixIfPresent("\"").removingSuffixIfPresent("\"") }
-                        // Remove any empty strings
-                        .filter { !$0.isEmpty }
-                        // Remove any string conversations (ie. `.map { "\($0)" }`
-                        .filter { value in !value.hasPrefix("\\(") || !value.hasSuffix(")") }
-                    
-                    allMatches = allMatches.union(Set(potentialUnlocalizedStrings))
-                    isUnlocalized = true
-                }
-                
-                // Remove any excluded phrases from the matches
-                allMatches = allMatches.subtracting(ProjectState.excludedPhrases.map { "\($0)" })
-                
-                allMatches.forEach { match in
-                    // Files are 1-indexed but arrays are 0-indexed so add 1 to the lineNumber
-                    let result: Phrase = Phrase(
-                        term: match,
-                        filePath: path,
-                        lineNumber: (lineNumber + 1)
-                    )
-                    
-                    if !isUnlocalized {
-                        keyPhrase[match] = result
-                        phrases.append(result)
-                    }
-                    else {
-                        unlocalizedKeyPhrase[match] = result
-                        unlocalizedPhrases.append(result)
-                    }
-                }
             }
             
             return (keyPhrase, phrases, unlocalizedKeyPhrase, unlocalizedPhrases)
         }
+        
+        private static func checkLintControl(line: String) -> ProjectState.LintControl? {
+            /// Need to sort by length to ensure we don't unintentionally detect one control mechanism over another
+            /// due to it containing the full other command - eg. `disable_start` vs `disable`
+            ProjectState.LintControl.allCases
+                .sorted { lhs, rhs in lhs.rawValue.count > rhs.rawValue.count }
+                .first { line.contains($0.rawValue) }
+        }
+        
+        private static func updateLintState(_ state: inout LintState, command: ProjectState.LintControl, line: String) {
+            switch command {
+                case .disable: state.isDisabled = true
+                case .ignoreStart: state.isInIgnoredSection = true
+                case .ignoreStop: state.isInIgnoredSection = false
+                case .ignoreContents:
+                    guard !state.isInIgnoredContents else { return }
+                    
+                    state.isInIgnoredContents = true
+                    state.ignoredContentsDepth = 0
+                    
+                case .ignoreLine: break // Handle single-line ignore in the caller
+            }
+        }
+        
+        private static func updateContentsDepth(_ state: inout LintState, line: String) {
+            if line.contains("{") {
+                state.ignoredContentsDepth += 1
+            }
+            if line.contains("}") {
+                state.ignoredContentsDepth -= 1
+                if state.ignoredContentsDepth == 0 {
+                    state.isInIgnoredContents = false
+                }
+            }
+        }
+        
+        private static func shouldSkipLinting(state: LintState) -> Bool {
+            state.isDisabled || state.isInIgnoredSection || state.isInIgnoredContents
+        }
+        
+        private static func processLine(
+            line: String,
+            lineNumber: Int,
+            path: String,
+            keyPhrase: inout [String: Phrase],
+            unlocalizedKeyPhrase: inout [String: Phrase],
+            phrases: inout [Phrase],
+            unlocalizedPhrases: inout [Phrase],
+            templateState: inout TemplateStringState?,
+            lines: [String]
+        ) {
+            // Handle commented sections
+            let commentMatches = line.matches(of: Regex.comment)
+            let targetLine: String = (commentMatches.isEmpty ?
+                line :
+                String(line[..<commentMatches[0].range.lowerBound])
+            )
+            
+            switch templateState {
+                case .none:
+                    // Extract the strings and remove any excluded phrases
+                    let keyMatches: [String] = extractMatches(from: targetLine, with: Regex.allStrings)
+                        .filter { !ProjectState.excludedPhrases.contains($0) }
+                    
+                    if !keyMatches.isEmpty {
+                        // Iterate through each match to determine localization
+                        for match in keyMatches {
+                            // Find the range of the matched string
+                            if let range = targetLine.range(of: "\"\(match)\"") {
+                                // Check if .localized or a template func is called immediately following
+                                // this specific string
+                                let afterString = targetLine[range.upperBound...]
+                                let isLocalized: Bool = (afterString.firstMatch(of: Regex.localizedString) != nil)
+                                
+                                if isLocalized {
+                                    // Add as a localized phrase
+                                    let phrase = Phrase(
+                                        term: match,
+                                        filePath: path,
+                                        lineNumber: lineNumber + 1 // Files are 1-indexed so add 1 to lineNumber
+                                    )
+                                    keyPhrase[match] = phrase
+                                    phrases.append(phrase)
+                                    return
+                                }
+                                else if (match != keyMatches.last) {
+                                    // There is another string after this one so this couldn't be localized
+                                    // or a multi-line template
+                                    let unlocalizedPhrase = Phrase(
+                                        term: match,
+                                        filePath: path,
+                                        lineNumber: lineNumber + 1 // Files are 1-indexed so add 1 to lineNumber
+                                    )
+                                    unlocalizedKeyPhrase[match] = unlocalizedPhrase
+                                    unlocalizedPhrases.append(unlocalizedPhrase)
+                                }
+                                else {
+                                    // Look ahead to verify if put/putNumber/localized are called in the next lines
+                                    let lookAheadLimit: Int = 2
+                                    var isTemplateChain: Bool = false
+                                    
+                                    for offset in 1...lookAheadLimit {
+                                        let lookAheadIndex: Int = lineNumber + offset
+                                        
+                                        if lookAheadIndex < lines.count {
+                                            let lookAheadLine = lines[lookAheadIndex].trimmingCharacters(in: .whitespacesAndNewlines)
+                                            
+                                            if
+                                                lookAheadLine.hasPrefix(".put(") ||
+                                                lookAheadLine.hasPrefix(".putNumber(") ||
+                                                lookAheadLine.hasPrefix(".localized")
+                                            {
+                                                isTemplateChain = true
+                                                break
+                                            }
+                                        }
+                                    }
+                                    
+                                    if isTemplateChain {
+                                        templateState = TemplateStringState(
+                                            key: keyMatches[0],
+                                            lineNumber: lineNumber,
+                                            chainedCalls: []
+                                        )
+                                        return
+                                    }
+                                    else {
+                                        // We didn't find any of the expected functions when looking ahead
+                                        // so we can assume it's an unlocalised string
+                                        let unlocalizedPhrase = Phrase(
+                                            term: match,
+                                            filePath: path,
+                                            lineNumber: lineNumber + 1 // Files are 1-indexed so add 1 to lineNumber
+                                        )
+                                        unlocalizedKeyPhrase[match] = unlocalizedPhrase
+                                        unlocalizedPhrases.append(unlocalizedPhrase)
+                                    }
+                                }
+                            }
+                        }
+                    }
+                        
+                case .some(let state):
+                    switch targetLine.firstMatch(of: Regex.localizedFunctionCall) {
+                        case .some:
+                            // We finished the change so add as a localized phrase
+                            let phrase = Phrase(
+                                term: state.key,
+                                filePath: path,
+                                lineNumber: state.lineNumber + 1 // Files are 1-indexed so add 1 to lineNumber
+                            )
+                            keyPhrase[state.key] = phrase
+                            phrases.append(phrase)
+                            templateState = nil
+                            
+                        case .none:
+                            // The chain is still going to append the line
+                            templateState?.chainedCalls.append(targetLine)
+                    }
+            }
+        }
+        
+        private static func extractMatches(from line: String, with regex: some RegexComponent) -> [String] {
+            return line.matches(of: regex).map { match in
+                // Clean up the matches
+                return String(line[match.range])
+                    .removingPrefixIfPresent("NSLocalizedString(@\"")
+                    .removingPrefixIfPresent("NSLocalizedString(\"")
+                    .removingPrefixIfPresent("\"")
+                    .removingSuffixIfPresent("\".localized")
+                    .removingSuffixIfPresent("\")")
+                    .removingSuffixIfPresent("\"")
+            }
+        }
+        
+        private static func createPhrases(
+            from matches: Set<String>,
+            isUnlocalized: Bool,
+            lineNumber: Int,
+            path: String,
+            keyPhrase: inout [String: Phrase],
+            unlocalizedKeyPhrase: inout [String: Phrase],
+            phrases: inout [Phrase],
+            unlocalizedPhrases: inout [Phrase]
+        ) {
+            matches.forEach { match in
+                let result = Phrase(
+                    term: match,
+                    filePath: path,
+                    lineNumber: lineNumber + 1
+                )
+                
+                if !isUnlocalized {
+                    keyPhrase[match] = result
+                    phrases.append(result)
+                } else {
+                    unlocalizedKeyPhrase[match] = result
+                    unlocalizedPhrases.append(result)
+                }
+            }
+        }
     }
 }
 
-indirect enum MatchType: Hashable {
+indirect enum MatchType {
+    case and(MatchType, MatchType)
     case prefix(String, caseSensitive: Bool)
+    case suffix(String, caseSensitive: Bool)
     case contains(String, caseSensitive: Bool)
-    case containsAnd(String, caseSensitive: Bool, MatchType)
-    case regex(String)
+    case regex(any RegexComponent)
     case previousLine(numEarlier: Int, MatchType)
-    case nextLine(MatchType)
+    case nextLine(numLater: Int, MatchType)
     case belowLineContaining(String)
+    
+    static func previousLine(_ type: MatchType) -> MatchType { return .previousLine(numEarlier: 1, type) }
+    static func nextLine(_ type: MatchType) -> MatchType { return .nextLine(numLater: 1, type) }
     
     func matches(_ value: String, _ index: Int, _ lines: [String]) -> Bool {
         switch self {
+            case .and(let firstMatch, let secondMatch):
+                guard firstMatch.matches(value, index, lines) else { return false }
+                
+                return secondMatch.matches(value, index, lines)
+                
             case .prefix(let prefix, false):
                 return value
                     .lowercased()
@@ -611,18 +808,19 @@ indirect enum MatchType: Hashable {
                     .trimmingCharacters(in: .whitespacesAndNewlines)
                     .hasPrefix(prefix)
                 
+            case .suffix(let suffix, false):
+                return value
+                    .lowercased()
+                    .trimmingCharacters(in: .whitespacesAndNewlines)
+                    .hasSuffix(suffix.lowercased())
+                
+            case .suffix(let suffix, true):
+                return value
+                    .trimmingCharacters(in: .whitespacesAndNewlines)
+                    .hasSuffix(suffix)
+                
             case .contains(let other, false): return value.lowercased().contains(other.lowercased())
             case .contains(let other, true): return value.contains(other)
-            case .containsAnd(let other, false, let otherMatch):
-                guard value.lowercased().contains(other.lowercased()) else { return false }
-                
-                return otherMatch.matches(value, index, lines)
-                
-            case .containsAnd(let other, true, let otherMatch):
-                guard value.contains(other) else { return false }
-                
-                return otherMatch.matches(value, index, lines)
-                
             case .regex(let regex): return !Regex.matches(regex, content: value).isEmpty
                 
             case .previousLine(let numEarlier, let type):
@@ -631,9 +829,11 @@ indirect enum MatchType: Hashable {
                 let targetIndex: Int = (index - numEarlier)
                 return type.matches(lines[targetIndex], targetIndex, lines)
             
-            case .nextLine(let type):
-                guard index + 1 < lines.count else { return false }
-                return type.matches(lines[index + 1], index + 1, lines)
+            case .nextLine(let numLater, let type):
+                guard index + numLater < lines.count else { return false }
+                
+                let targetIndex: Int = (index + numLater)
+                return type.matches(lines[targetIndex], targetIndex, lines)
             
             case .belowLineContaining(let other):
                 return lines[0..<index].contains(where: { $0.lowercased().contains(other.lowercased()) })
@@ -652,5 +852,15 @@ extension String {
         guard hasSuffix(value) else { return self }
         
         return String(self.prefix(upTo: self.index(self.endIndex, offsetBy: -value.count)))
+    }
+    
+    func removingUnwantedScalars() -> String {
+        let unwantedScalars: Set<Unicode.Scalar> = [
+            "\u{200B}", // ZERO WIDTH SPACE
+            "\u{200C}", // ZERO WIDTH NON-JOINER
+            "\u{200D}", // ZERO WIDTH JOINER
+            "\u{FEFF}"  // ZERO WIDTH NO-BREAK SPACE
+        ]
+        return String(self.unicodeScalars.filter { !unwantedScalars.contains($0) }.map { Character($0) })
     }
 }

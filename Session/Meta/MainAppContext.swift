@@ -133,6 +133,12 @@ final class MainAppContext: AppContext {
     }
     
     func setStatusBarHidden(_ isHidden: Bool, animated isAnimated: Bool) {
+        guard Thread.isMainThread else {
+            return DispatchQueue.main.async { [weak self] in
+                self?.setStatusBarHidden(isHidden, animated: isAnimated)
+            }
+        }
+        
         UIApplication.shared.setStatusBarHidden(isHidden, with: (isAnimated ? .slide : .none))
     }
     
@@ -151,11 +157,18 @@ final class MainAppContext: AppContext {
     func endBackgroundTask(_ backgroundTaskIdentifier: UIBackgroundTaskIdentifier) {
         UIApplication.shared.endBackgroundTask(backgroundTaskIdentifier)
     }
-        
+    
+    // stringlint:ignore_contents
     func ensureSleepBlocking(_ shouldBeBlocking: Bool, blockingObjects: [Any]) {
+        guard Thread.isMainThread else {
+            return DispatchQueue.main.async { [weak self] in
+                self?.ensureSleepBlocking(shouldBeBlocking, blockingObjects: blockingObjects)
+            }
+        }
+        
         if UIApplication.shared.isIdleTimerDisabled != shouldBeBlocking {
             if shouldBeBlocking {
-                var logString: String = "Blocking sleep because of: \(String(describing: blockingObjects.first))" // stringlint:disable
+                var logString: String = "Blocking sleep because of: \(String(describing: blockingObjects.first))"
                 
                 if blockingObjects.count > 1 {
                     logString = "\(logString) (and \(blockingObjects.count - 1) others)"
@@ -170,11 +183,18 @@ final class MainAppContext: AppContext {
     }
     
     func setNetworkActivityIndicatorVisible(_ value: Bool) {
+        guard Thread.isMainThread else {
+            return DispatchQueue.main.async { [weak self] in
+                self?.setNetworkActivityIndicatorVisible(value)
+            }
+        }
+        
         UIApplication.shared.isNetworkActivityIndicatorVisible = value
     }
     
     // MARK: -
     
+    // stringlint:ignore_contents
     func clearOldTemporaryDirectories() {
         // We use the lowest priority queue for this, and wait N seconds
         // to avoid interfering with app startup.
@@ -199,7 +219,7 @@ final class MainAppContext: AppContext {
                 // b) modified time before app launch time.
                 let filePath: String = URL(fileURLWithPath: dirPath).appendingPathComponent(fileName).path
                 
-                if !fileName.hasPrefix("ows_temp") { // stringlint:disable
+                if !fileName.hasPrefix("ows_temp") {
                     // It's fine if we can't get the attributes (the file may have been deleted since we found it),
                     // also don't delete files which were created in the last N minutes
                     guard

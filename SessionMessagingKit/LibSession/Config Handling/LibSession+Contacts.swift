@@ -35,10 +35,11 @@ internal extension LibSession {
         _ db: Database,
         in conf: UnsafeMutablePointer<config_object>?,
         mergeNeedsDump: Bool,
-        latestConfigSentTimestampMs: Int64
+        latestConfigSentTimestampMs: Int64,
+        using dependencies: Dependencies
     ) throws {
         guard mergeNeedsDump else { return }
-        guard conf != nil else { throw LibSessionError.nilConfigObject }
+        guard let conf: UnsafeMutablePointer<config_object> = conf else { throw LibSessionError.nilConfigObject }
         
         // The current users contact data is handled separately so exclude it if it's present (as that's
         // actually a bug)
@@ -140,52 +141,47 @@ internal extension LibSession {
                     .fetchOne(db)
                 let threadExists: Bool = (threadInfo != nil)
                 let updatedShouldBeVisible: Bool = LibSession.shouldBeVisible(priority: data.priority)
-
-                /// If we are hiding the conversation then kick the user from it if it's currently open
-                if !updatedShouldBeVisible {
-                    LibSession.kickFromConversationUIIfNeeded(removedThreadIds: [sessionId])
-                }
                 
-                /// Create the thread if it doesn't exist, otherwise just update it's state
-                if !threadExists {
-                    try SessionThread(
-                        id: sessionId,
-                        variant: .contact,
-                        creationDateTimestamp: data.created,
-                        shouldBeVisible: updatedShouldBeVisible,
-                        pinnedPriority: data.priority
-                    ).save(db)
-                }
-                else {
-                    let changes: [ConfigColumnAssignment] = [
-                        (threadInfo?.shouldBeVisible == updatedShouldBeVisible ? nil :
-                            SessionThread.Columns.shouldBeVisible.set(to: updatedShouldBeVisible)
-                        ),
-                        (threadInfo?.pinnedPriority == data.priority ? nil :
-                            SessionThread.Columns.pinnedPriority.set(to: data.priority)
+                switch (updatedShouldBeVisible, threadExists) {
+                    /// If we are hiding the conversation then kick the user from it if it's currently open then delete the thread
+                    case (false, true):
+                        LibSession.kickFromConversationUIIfNeeded(removedThreadIds: [sessionId])
+                        
+                        try SessionThread.deleteOrLeave(
+                            db,
+                            type: .deleteContactConversationAndMarkHidden,
+                            threadId: sessionId,
+                            using: dependencies
                         )
-                    ].compactMap { $0 }
                     
-                    try SessionThread
-                        .filter(id: sessionId)
-                        .updateAll( // Handling a config update so don't use `updateAllAndConfig`
-                            db,
-                            changes
+                    /// We need to create or update the thread
+                    case (true, _):
+                        let localConfig: DisappearingMessagesConfiguration = try DisappearingMessagesConfiguration
+                            .fetchOne(db, id: sessionId)
+                            .defaulting(to: DisappearingMessagesConfiguration.defaultWith(sessionId))
+                        let disappearingMessagesConfigChanged: Bool = (
+                            data.config.isValidV2Config() &&
+                            data.config != localConfig
                         )
-                }
-                
-                // Update disappearing messages configuration if needed
-                let localConfig: DisappearingMessagesConfiguration = try DisappearingMessagesConfiguration
-                    .fetchOne(db, id: sessionId)
-                    .defaulting(to: DisappearingMessagesConfiguration.defaultWith(sessionId))
-                
-                if data.config.isValidV2Config() && data.config != localConfig {
-                    try data.config
-                        .saved(db)
-                        .clearUnrelatedControlMessages(
+                        
+                        _ = try SessionThread.upsert(
                             db,
-                            threadVariant: .contact
+                            id: sessionId,
+                            variant: .contact,
+                            values: SessionThread.TargetValues(
+                                creationDateTimestamp: data.created,
+                                shouldBeVisible: .setTo(updatedShouldBeVisible),
+                                pinnedPriority: .setTo(data.priority),
+                                disappearingMessagesConfig: (disappearingMessagesConfigChanged ?
+                                    .setTo(data.config) :
+                                    .useExisting
+                                )
+                            ),
+                            using: dependencies
                         )
+                    
+                    /// Thread shouldn't be visible and doesn't exist so no need to do anything
+                    case (false, false): break
                 }
             }
         
@@ -201,8 +197,11 @@ internal extension LibSession {
         let threadIdsToRemove: [String] = try SessionThread
             .filter(!syncedContactIds.contains(SessionThread.Columns.id))
             .filter(SessionThread.Columns.variant == SessionThread.Variant.contact)
-            .filter(!SessionThread.Columns.id.like("\(SessionId.Prefix.blinded15.rawValue)%"))
-            .filter(!SessionThread.Columns.id.like("\(SessionId.Prefix.blinded25.rawValue)%"))
+            .filter(
+                /// Only want to include include standard contact conversations (not blinded conversations)
+                SessionThread.Columns.id > SessionId.Prefix.standard.rawValue &&
+                SessionThread.Columns.id < SessionId.Prefix.standard.endOfRangeString
+            )
             .select(.id)
             .asRequest(of: String.self)
             .fetchAll(db)
@@ -245,16 +244,18 @@ internal extension LibSession {
                 )
             
             // Delete the one-to-one conversations associated to the contact
-            try SessionThread
-                .deleteOrLeave(
-                    db,
-                    threadIds: combinedIds,
-                    threadVariant: .contact,
-                    groupLeaveType: .forced,
-                    calledFromConfigHandling: true
-                )
+            try SessionThread.deleteOrLeave(
+                db,
+                type: .deleteContactConversationAndContact,
+                threadIds: combinedIds,
+                using: dependencies
+            )
             
-            try LibSession.remove(db, volatileContactIds: combinedIds)
+            try LibSession.remove(
+                db,
+                volatileContactIds: combinedIds,
+                using: dependencies
+            )
         }
     }
     
@@ -366,7 +367,11 @@ internal extension LibSession {
 // MARK: - Outgoing Changes
 
 internal extension LibSession {
-    static func updatingContacts<T>(_ db: Database, _ updated: [T]) throws -> [T] {
+    static func updatingContacts<T>(
+        _ db: Database,
+        _ updated: [T],
+        using dependencies: Dependencies
+    ) throws -> [T] {
         guard let updatedContacts: [Contact] = updated as? [Contact] else { throw StorageError.generic }
         
         // The current users contact data doesn't need to sync so exclude it, we also don't want to sync
@@ -384,7 +389,8 @@ internal extension LibSession {
         try LibSession.performAndPushChange(
             db,
             for: .contacts,
-            publicKey: userPublicKey
+            publicKey: userPublicKey,
+            using: dependencies
         ) { conf in
             // When inserting new contacts (or contacts with invalid profile data) we want
             // to add any valid profile information we have so identify if any of the updated
@@ -426,7 +432,11 @@ internal extension LibSession {
         return updated
     }
     
-    static func updatingProfiles<T>(_ db: Database, _ updated: [T]) throws -> [T] {
+    static func updatingProfiles<T>(
+        _ db: Database,
+        _ updated: [T],
+        using dependencies: Dependencies
+    ) throws -> [T] {
         guard let updatedProfiles: [Profile] = updated as? [Profile] else { throw StorageError.generic }
         
         // We should only sync profiles which are associated to contact data to avoid including profiles
@@ -457,7 +467,8 @@ internal extension LibSession {
             try LibSession.performAndPushChange(
                 db,
                 for: .userProfile,
-                publicKey: userPublicKey
+                publicKey: userPublicKey,
+                using: dependencies
             ) { conf in
                 try LibSession.update(
                     profile: updatedUserProfile,
@@ -469,7 +480,8 @@ internal extension LibSession {
         try LibSession.performAndPushChange(
             db,
             for: .contacts,
-            publicKey: userPublicKey
+            publicKey: userPublicKey,
+            using: dependencies
         ) { conf in
             try LibSession
                 .upsert(
@@ -482,7 +494,11 @@ internal extension LibSession {
         return updated
     }
     
-    static func updatingDisappearingConfigs<T>(_ db: Database, _ updated: [T]) throws -> [T] {
+    static func updatingDisappearingConfigs<T>(
+        _ db: Database,
+        _ updated: [T],
+        using dependencies: Dependencies
+    ) throws -> [T] {
         guard let updatedDisappearingConfigs: [DisappearingMessagesConfiguration] = updated as? [DisappearingMessagesConfiguration] else { throw StorageError.generic }
         
         // We should only sync disappearing messages configs which are associated to existing contacts
@@ -511,7 +527,8 @@ internal extension LibSession {
             try LibSession.performAndPushChange(
                 db,
                 for: .userProfile,
-                publicKey: userPublicKey
+                publicKey: userPublicKey,
+                using: dependencies
             ) { conf in
                 try LibSession.updateNoteToSelf(
                     disappearingMessagesConfig: updatedUserDisappearingConfig,
@@ -523,7 +540,8 @@ internal extension LibSession {
         try LibSession.performAndPushChange(
             db,
             for: .contacts,
-            publicKey: userPublicKey
+            publicKey: userPublicKey,
+            using: dependencies
         ) { conf in
             try LibSession
                 .upsert(
@@ -540,11 +558,16 @@ internal extension LibSession {
 // MARK: - External Outgoing Changes
 
 public extension LibSession {
-    static func hide(_ db: Database, contactIds: [String]) throws {
+    static func hide(
+        _ db: Database,
+        contactIds: [String],
+        using dependencies: Dependencies
+    ) throws {
         try LibSession.performAndPushChange(
             db,
             for: .contacts,
-            publicKey: getUserHexEncodedPublicKey(db)
+            publicKey: getUserHexEncodedPublicKey(db, using: dependencies),
+            using: dependencies
         ) { conf in
             // Mark the contacts as hidden
             try LibSession.upsert(
@@ -560,13 +583,18 @@ public extension LibSession {
         }
     }
     
-    static func remove(_ db: Database, contactIds: [String]) throws {
+    static func remove(
+        _ db: Database,
+        contactIds: [String],
+        using dependencies: Dependencies
+    ) throws {
         guard !contactIds.isEmpty else { return }
         
         try LibSession.performAndPushChange(
             db,
             for: .contacts,
-            publicKey: getUserHexEncodedPublicKey(db)
+            publicKey: getUserHexEncodedPublicKey(db, using: dependencies),
+            using: dependencies
         ) { conf in
             contactIds.forEach { sessionId in
                 guard var cSessionId: [CChar] = sessionId.cString(using: .utf8) else { return }
@@ -580,7 +608,8 @@ public extension LibSession {
     static func update(
         _ db: Database,
         sessionId: String,
-        disappearingMessagesConfig: DisappearingMessagesConfiguration
+        disappearingMessagesConfig: DisappearingMessagesConfiguration,
+        using dependencies: Dependencies
     ) throws {
         let userPublicKey: String = getUserHexEncodedPublicKey(db)
         
@@ -589,7 +618,8 @@ public extension LibSession {
                 try LibSession.performAndPushChange(
                     db,
                     for: .userProfile,
-                    publicKey: userPublicKey
+                    publicKey: userPublicKey,
+                    using: dependencies
                 ) { conf in
                     try LibSession.updateNoteToSelf(
                         disappearingMessagesConfig: disappearingMessagesConfig,
@@ -601,7 +631,8 @@ public extension LibSession {
                 try LibSession.performAndPushChange(
                     db,
                     for: .contacts,
-                    publicKey: userPublicKey
+                    publicKey: userPublicKey,
+                    using: dependencies
                 ) { conf in
                     try LibSession
                         .upsert(

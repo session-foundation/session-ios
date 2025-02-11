@@ -12,6 +12,8 @@ public protocol WebRTCSessionDelegate: AnyObject {
     
     func webRTCIsConnected()
     func isRemoteVideoDidChange(isEnabled: Bool)
+    func iceCandidateDidSend()
+    func iceCandidateDidReceive()
     func dataChannelDidOpen()
     func didReceiveHangUpSignal()
     func reconnectIfNeeded()
@@ -19,6 +21,8 @@ public protocol WebRTCSessionDelegate: AnyObject {
 
 /// See https://webrtc.org/getting-started/overview for more information.
 public final class WebRTCSession : NSObject, RTCPeerConnectionDelegate {
+    private let dependencies: Dependencies
+    
     public weak var delegate: WebRTCSessionDelegate?
     public let uuid: String
     private let contactSessionId: String
@@ -84,9 +88,10 @@ public final class WebRTCSession : NSObject, RTCPeerConnectionDelegate {
     public enum WebRTCSessionError: LocalizedError {
         case noThread
         
+        // stringlint:ignore_contents
         public var errorDescription: String? {
             switch self {
-                case .noThread: return "Couldn't find thread for contact." // stringlint:disable
+                case .noThread: return "Couldn't find thread for contact."
             }
         }
     }
@@ -94,12 +99,13 @@ public final class WebRTCSession : NSObject, RTCPeerConnectionDelegate {
     // MARK: Initialization
     public static var current: WebRTCSession?
     
-    public init(for contactSessionId: String, with uuid: String) {
+    public init(for contactSessionId: String, with uuid: String, using dependencies: Dependencies) {
         RTCAudioSession.sharedInstance().useManualAudio = true
         RTCAudioSession.sharedInstance().isAudioEnabled = false
         
         self.contactSessionId = contactSessionId
         self.uuid = uuid
+        self.dependencies = dependencies
         
         super.init()
         
@@ -124,8 +130,7 @@ public final class WebRTCSession : NSObject, RTCPeerConnectionDelegate {
         _ db: Database,
         message: CallMessage,
         interactionId: Int64?,
-        in thread: SessionThread,
-        using dependencies: Dependencies = Dependencies()
+        in thread: SessionThread
     ) throws -> AnyPublisher<Void, Error> {
         SNLog("[Calls] Sending pre-offer message.")
         
@@ -150,15 +155,14 @@ public final class WebRTCSession : NSObject, RTCPeerConnectionDelegate {
     
     public func sendOffer(
         to thread: SessionThread,
-        isRestartingICEConnection: Bool = false,
-        using dependencies: Dependencies = Dependencies()
+        isRestartingICEConnection: Bool = false
     ) -> AnyPublisher<Void, Error> {
         SNLog("[Calls] Sending offer message.")
         let uuid: String = self.uuid
         let mediaConstraints: RTCMediaConstraints = mediaConstraints(isRestartingICEConnection)
         
         return Deferred {
-            Future<Void, Error> { [weak self] resolver in
+            Future<Void, Error> { [weak self, dependencies = self.dependencies] resolver in
                 self?.peerConnection?.offer(for: mediaConstraints) { sdp, error in
                     guard error == nil else { return }
                     
@@ -214,10 +218,7 @@ public final class WebRTCSession : NSObject, RTCPeerConnectionDelegate {
         .eraseToAnyPublisher()
     }
     
-    public func sendAnswer(
-        to sessionId: String,
-        using dependencies: Dependencies = Dependencies()
-    ) -> AnyPublisher<Void, Error> {
+    public func sendAnswer(to sessionId: String) -> AnyPublisher<Void, Error> {
         SNLog("[Calls] Sending answer message.")
         let uuid: String = self.uuid
         let mediaConstraints: RTCMediaConstraints = mediaConstraints(false)
@@ -230,7 +231,7 @@ public final class WebRTCSession : NSObject, RTCPeerConnectionDelegate {
                 
                 return thread
             }
-            .flatMap { [weak self] thread in
+            .flatMap { [weak self, dependencies = self.dependencies] thread in
                 Future<Void, Error> { resolver in
                     self?.peerConnection?.answer(for: mediaConstraints) { [weak self] sdp, error in
                         if let error = error {
@@ -298,7 +299,7 @@ public final class WebRTCSession : NSObject, RTCPeerConnectionDelegate {
         }
     }
     
-    private func sendICECandidates(using dependencies: Dependencies = Dependencies()) {
+    private func sendICECandidates() {
         let candidates: [RTCIceCandidate] = self.queuedICECandidates
         let uuid: String = self.uuid
         let contactSessionId: String = self.contactSessionId
@@ -307,7 +308,7 @@ public final class WebRTCSession : NSObject, RTCPeerConnectionDelegate {
         self.queuedICECandidates.removeAll()
         
         dependencies.storage
-            .writePublisher { db in
+            .writePublisher { [dependencies = self.dependencies] db in
                 guard let thread: SessionThread = try SessionThread.fetchOne(db, id: contactSessionId) else {
                     throw WebRTCSessionError.noThread
                 }
@@ -339,14 +340,27 @@ public final class WebRTCSession : NSObject, RTCPeerConnectionDelegate {
                     )
             }
             .subscribe(on: DispatchQueue.global(qos: .userInitiated))
-            .flatMap { MessageSender.sendImmediate(data: $0, using: dependencies) }
-            .sinkUntilComplete()
+            .flatMap { [dependencies = self.dependencies] sendData in
+                MessageSender
+                    .sendImmediate(data: sendData, using: dependencies)
+                    .retry(5)
+            }
+            .sinkUntilComplete(
+                receiveCompletion: { [weak self] result in
+                    switch result {
+                        case .finished:
+                            SNLog("[Calls] ICE candidates sent")
+                            self?.delegate?.iceCandidateDidSend()
+                        case .failure(let error):
+                            SNLog("[Calls] Error sending ICE candidates due to error: \(error)")
+                    }
+                }
+            )
     }
     
     public func endCall(
         _ db: Database,
-        with sessionId: String,
-        using dependencies: Dependencies = Dependencies()
+        with sessionId: String
     ) throws {
         guard let thread: SessionThread = try SessionThread.fetchOne(db, id: sessionId) else { return }
         
@@ -375,6 +389,7 @@ public final class WebRTCSession : NSObject, RTCPeerConnectionDelegate {
         MessageSender
             .sendImmediate(data: preparedSendData, using: dependencies)
             .subscribe(on: DispatchQueue.global(qos: .userInitiated))
+            .retry(5)
             .sinkUntilComplete()
     }
     
@@ -392,10 +407,11 @@ public final class WebRTCSession : NSObject, RTCPeerConnectionDelegate {
         return RTCMediaConstraints(mandatoryConstraints: mandatory, optionalConstraints: optional)
     }
     
+    // stringlint:ignore_contents
     private func correctSessionDescription(sdp: RTCSessionDescription?) -> RTCSessionDescription? {
         guard let sdp = sdp else { return nil }
-        let cbrSdp = sdp.sdp.description.replace(regex: "(a=fmtp:111 ((?!cbr=).)*)\r?\n", with: "$1;cbr=1\r\n") // stringlint:disable
-        let finalSdp = cbrSdp.replace(regex: ".+urn:ietf:params:rtp-hdrext:ssrc-audio-level.*\r?\n", with: "") // stringlint:disable
+        let cbrSdp = sdp.sdp.description.replace(regex: "(a=fmtp:111 ((?!cbr=).)*)\r?\n", with: "$1;cbr=1\r\n")
+        let finalSdp = cbrSdp.replace(regex: ".+urn:ietf:params:rtp-hdrext:ssrc-audio-level.*\r?\n", with: "")
         return RTCSessionDescription(type: sdp.type, sdp: finalSdp)
     }
     

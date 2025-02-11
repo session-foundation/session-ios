@@ -86,7 +86,10 @@ public enum PushNotificationAPI {
                         currentUserPublicKey: currentUserPublicKey,
                         legacyGroupIds: try ClosedGroup
                             .select(.threadId)
-                            .filter(!ClosedGroup.Columns.threadId.like("\(SessionId.Prefix.group.rawValue)%"))
+                            .filter(
+                                ClosedGroup.Columns.threadId > SessionId.Prefix.standard.rawValue &&
+                                ClosedGroup.Columns.threadId < SessionId.Prefix.standard.endOfRangeString
+                            )
                             .joining(
                                 required: ClosedGroup.members
                                     .filter(GroupMember.Columns.profileId == currentUserPublicKey)
@@ -167,7 +170,10 @@ public enum PushNotificationAPI {
                     getUserHexEncodedPublicKey(db, using: dependencies),
                     try ClosedGroup
                         .select(.threadId)
-                        .filter(!ClosedGroup.Columns.threadId.like("\(SessionId.Prefix.group.rawValue)%"))
+                        .filter(
+                            ClosedGroup.Columns.threadId > SessionId.Prefix.standard.rawValue &&
+                            ClosedGroup.Columns.threadId < SessionId.Prefix.standard.endOfRangeString
+                        )
                         .asRequest(of: String.self)
                         .fetchSet(db)
                 )
@@ -334,7 +340,8 @@ public enum PushNotificationAPI {
                 receiveCompletion: { result in
                     switch result {
                         case .finished: break
-                        case .failure: Log.error("[PushNotificationAPI] Couldn't subscribe for legacy groups.")
+                        case .failure(let error):
+                            Log.error("[PushNotificationAPI] Couldn't subscribe for legacy groups due to error: \(error).")
                     }
                 }
             )
@@ -421,17 +428,27 @@ public enum PushNotificationAPI {
             ),
             let notification: BencodeResponse<NotificationMetadata> = try? BencodeDecoder(using: dependencies)
                 .decode(BencodeResponse<NotificationMetadata>.self, from: decryptedData)
-        else { return (nil, .invalid, .failure) }
+        else {
+            SNLog("Failed to decrypt or decode notification")
+            return (nil, .invalid, .failure)
+        }
         
         // If the metadata says that the message was too large then we should show the generic
         // notification (this is a valid case)
-        guard !notification.info.dataTooLong else { return (nil, notification.info, .successTooLong) }
+        guard !notification.info.dataTooLong else {
+            SNLog("Ignoring notification due to data being too long")
+            return (nil, notification.info, .successTooLong)
+        }
         
-        // Check that the body we were given is valid
+        // Check that the body we were given is valid and not empty
         guard
             let notificationData: Data = notification.data,
-            notification.info.dataLength == notificationData.count
-        else { return (nil, notification.info, .failure) }
+            notification.info.dataLength == notificationData.count,
+            !notificationData.isEmpty
+        else {
+            SNLog("Get notification data failed")
+            return (nil, notification.info, .failureNoContent)
+        }
         
         // Success, we have the notification content
         return (notificationData, notification.info, .success)

@@ -15,7 +15,7 @@ fileprivate typealias ViewModel = SessionThreadViewModel
 ///
 /// **Note:** When updating the UI make sure to check the actual queries being run as some fields will have incorrect default values
 /// in order to optimise their queries to only include the required data
-public struct SessionThreadViewModel: FetchableRecordWithRowId, Decodable, Equatable, Hashable, Identifiable, Differentiable, ColumnExpressible {
+public struct SessionThreadViewModel: FetchableRecordWithRowId, Decodable, Equatable, Hashable, Identifiable, Differentiable, ColumnExpressible, ThreadSafeType {
     public typealias Columns = CodingKeys
     public enum CodingKeys: String, CodingKey, ColumnExpression, CaseIterable {
         case rowId
@@ -68,7 +68,7 @@ public struct SessionThreadViewModel: FetchableRecordWithRowId, Decodable, Equat
         case interactionTimestampMs
         case interactionBody
         case interactionState
-        case interactionHasAtLeastOneReadReceipt
+        case interactionHasBeenReadByRecipient
         case interactionIsOpenGroupInvitation
         case interactionAttachmentDescriptionInfo
         case interactionAttachmentCount
@@ -157,8 +157,8 @@ public struct SessionThreadViewModel: FetchableRecordWithRowId, Decodable, Equat
     public let interactionVariant: Interaction.Variant?
     public let interactionTimestampMs: Int64?
     public let interactionBody: String?
-    public let interactionState: RecipientState.State?
-    public let interactionHasAtLeastOneReadReceipt: Bool?
+    public let interactionState: Interaction.State?
+    public let interactionHasBeenReadByRecipient: Bool?
     public let interactionIsOpenGroupInvitation: Bool?
     public let interactionAttachmentDescriptionInfo: Attachment.DescriptionInfo?
     public let interactionAttachmentCount: Int?
@@ -272,7 +272,7 @@ public struct SessionThreadViewModel: FetchableRecordWithRowId, Decodable, Equat
     }
     
     /// This method marks a thread as read and depending on the target may also update the interactions within a thread as read
-    public func markAsRead(target: ReadTarget) {
+    public func markAsRead(target: ReadTarget, using dependencies: Dependencies) {
         // Store the logic to mark a thread as read (to paths need to run this)
         let threadId: String = self.threadId
         let threadWasMarkedUnread: Bool? = self.threadWasMarkedUnread
@@ -286,7 +286,8 @@ public struct SessionThreadViewModel: FetchableRecordWithRowId, Decodable, Equat
                     .filter(id: threadId)
                     .updateAllAndConfig(
                         db,
-                        SessionThread.Columns.markedAsUnread.set(to: false)
+                        SessionThread.Columns.markedAsUnread.set(to: false),
+                        using: dependencies
                     )
             }
         }
@@ -327,14 +328,15 @@ public struct SessionThreadViewModel: FetchableRecordWithRowId, Decodable, Equat
                             threadVariant: threadVariant,
                             isBlocked: threadIsBlocked,
                             isMessageRequest: threadIsMessageRequest
-                        )
+                        ),
+                        using: dependencies
                     )
                 }
         }
     }
     
     /// This method will mark a thread as read
-    public func markAsUnread() {
+    public func markAsUnread(using dependencies: Dependencies) {
         guard self.threadWasMarkedUnread != true else { return }
         
         let threadId: String = self.threadId
@@ -344,7 +346,8 @@ public struct SessionThreadViewModel: FetchableRecordWithRowId, Decodable, Equat
                 .filter(id: threadId)
                 .updateAllAndConfig(
                     db,
-                    SessionThread.Columns.markedAsUnread.set(to: true)
+                    SessionThread.Columns.markedAsUnread.set(to: true),
+                    using: dependencies
                 )
         }
     }
@@ -420,7 +423,7 @@ public extension SessionThreadViewModel {
         self.interactionTimestampMs = nil
         self.interactionBody = nil
         self.interactionState = nil
-        self.interactionHasAtLeastOneReadReceipt = nil
+        self.interactionHasBeenReadByRecipient = nil
         self.interactionIsOpenGroupInvitation = nil
         self.interactionAttachmentDescriptionInfo = nil
         self.interactionAttachmentCount = nil
@@ -483,7 +486,7 @@ public extension SessionThreadViewModel {
             interactionTimestampMs: self.interactionTimestampMs,
             interactionBody: self.interactionBody,
             interactionState: self.interactionState,
-            interactionHasAtLeastOneReadReceipt: self.interactionHasAtLeastOneReadReceipt,
+            interactionHasBeenReadByRecipient: self.interactionHasBeenReadByRecipient,
             interactionIsOpenGroupInvitation: self.interactionIsOpenGroupInvitation,
             interactionAttachmentDescriptionInfo: self.interactionAttachmentDescriptionInfo,
             interactionAttachmentCount: self.interactionAttachmentCount,
@@ -544,7 +547,7 @@ public extension SessionThreadViewModel {
             interactionTimestampMs: self.interactionTimestampMs,
             interactionBody: self.interactionBody,
             interactionState: self.interactionState,
-            interactionHasAtLeastOneReadReceipt: self.interactionHasAtLeastOneReadReceipt,
+            interactionHasBeenReadByRecipient: self.interactionHasBeenReadByRecipient,
             interactionIsOpenGroupInvitation: self.interactionIsOpenGroupInvitation,
             interactionAttachmentDescriptionInfo: self.interactionAttachmentDescriptionInfo,
             interactionAttachmentCount: self.interactionAttachmentCount,
@@ -640,8 +643,6 @@ public extension SessionThreadViewModel {
             let typingIndicator: TypedTableAlias<ThreadTypingIndicator> = TypedTableAlias()
             let aggregateInteraction: TypedTableAlias<AggregateInteraction> = TypedTableAlias(name: "aggregateInteraction")
             let interaction: TypedTableAlias<Interaction> = TypedTableAlias()
-            let recipientState: TypedTableAlias<RecipientState> = TypedTableAlias()
-            let readReceipt: TypedTableAlias<RecipientState> = TypedTableAlias(name: "readReceipt")
             let linkPreview: TypedTableAlias<LinkPreview> = TypedTableAlias()
             let firstInteractionAttachment: TypedTableAlias<InteractionAttachment> = TypedTableAlias(name: "firstInteractionAttachment")
             let attachment: TypedTableAlias<Attachment> = TypedTableAlias()
@@ -718,20 +719,8 @@ public extension SessionThreadViewModel {
                     \(interaction[.variant]) AS \(ViewModel.Columns.interactionVariant),
                     \(interaction[.timestampMs]) AS \(ViewModel.Columns.interactionTimestampMs),
                     \(interaction[.body]) AS \(ViewModel.Columns.interactionBody),
-
-                    -- Default to 'sending' assuming non-processed interaction when null
-                    IFNULL((
-                        SELECT \(recipientState[.state])
-                        FROM \(RecipientState.self)
-                        WHERE (
-                            \(recipientState[.interactionId]) = \(interaction[.id]) AND
-                            -- Ignore 'skipped' states
-                            \(SQL("\(recipientState[.state]) != \(RecipientState.State.skipped)"))
-                        )
-                        LIMIT 1
-                    ), \(SQL("\(RecipientState.State.sending)"))) AS \(ViewModel.Columns.interactionState),
-                    
-                    (\(readReceipt[.readTimestampMs]) IS NOT NULL) AS \(ViewModel.Columns.interactionHasAtLeastOneReadReceipt),
+                    \(interaction[.state]) AS \(ViewModel.Columns.interactionState),
+                    (\(interaction[.recipientReadTimestampMs]) IS NOT NULL) AS \(ViewModel.Columns.interactionHasBeenReadByRecipient),
                     (\(linkPreview[.url]) IS NOT NULL) AS \(ViewModel.Columns.interactionIsOpenGroupInvitation),
 
                     -- These 4 properties will be combined into 'Attachment.DescriptionInfo'
@@ -768,10 +757,6 @@ public extension SessionThreadViewModel {
                     \(interaction[.id]) = \(aggregateInteraction[.interactionId])
                 )
 
-                LEFT JOIN \(readReceipt) ON (
-                    \(interaction[.id]) = \(readReceipt[.interactionId]) AND
-                    \(readReceipt[.readTimestampMs]) IS NOT NULL
-                )
                 LEFT JOIN \(LinkPreview.self) ON (
                     \(linkPreview[.url]) = \(interaction[.linkPreviewUrl]) AND
                     \(Interaction.linkPreviewFilterLiteral()) AND

@@ -8,17 +8,16 @@ import SessionMessagingKit
 import SessionSnodeKit
 
 enum Onboarding {
-    private static let profileNameRetrievalIdentifier: Atomic<UUID?> = Atomic(nil)
-    private static let profileNameRetrievalPublisher: Atomic<AnyPublisher<String?, Error>?> = Atomic(nil)
+    @ThreadSafe private static var profileNameRetrievalIdentifier: UUID? = nil
+    @ThreadSafeObject private static var profileNameRetrievalPublisher: AnyPublisher<String?, Error>? = nil
     public static var profileNamePublisher: AnyPublisher<String?, Error> {
-        guard let existingPublisher: AnyPublisher<String?, Error> = profileNameRetrievalPublisher.wrappedValue else {
-            return profileNameRetrievalPublisher.mutate { value in
+        guard let existingPublisher: AnyPublisher<String?, Error> = profileNameRetrievalPublisher else {
+            return _profileNameRetrievalPublisher.performUpdateAndMap { value in
                 let requestId: UUID = UUID()
                 let result: AnyPublisher<String?, Error> = createProfileNameRetrievalPublisher(requestId)
                 
-                value = result
-                profileNameRetrievalIdentifier.mutate { $0 = requestId }
-                return result
+                profileNameRetrievalIdentifier = requestId
+                return (result, result)
             }
         }
         
@@ -40,7 +39,7 @@ enum Onboarding {
                 using: dependencies
             )
             .map { _ -> String? in
-                guard requestId == profileNameRetrievalIdentifier.wrappedValue else { return nil }
+                guard requestId == profileNameRetrievalIdentifier else { return nil }
                 
                 return Storage.shared.read { db in
                     try Profile
@@ -86,11 +85,12 @@ enum Onboarding {
             return .completed
         }
         
+        // stringlint:ignore_contents
         var description: String {
             switch self {
-                case .newUser: return "New User"            // stringlint:disable
-                case .missingName: return "Missing Name"    // stringlint:disable
-                case .completed: return "Completed"         // stringlint:disable
+                case .newUser: return "New User"
+                case .missingName: return "Missing Name"
+                case .completed: return "Completed"
             }
         }
     }
@@ -118,8 +118,8 @@ enum Onboarding {
             }
             
             // Clear the profile name retrieve publisher
-            profileNameRetrievalIdentifier.mutate { $0 = nil }
-            profileNameRetrievalPublisher.mutate { $0 = nil }
+            profileNameRetrievalIdentifier = nil
+            _profileNameRetrievalPublisher.set(to: nil)
             
             // Clear the cached 'encodedPublicKey' if needed
             dependencies.caches.mutate(cache: .general) { $0.encodedPublicKey = nil }
@@ -161,21 +161,28 @@ enum Onboarding {
                         db,
                         Contact.Columns.isTrusted.set(to: true),    // Always trust the current user
                         Contact.Columns.isApproved.set(to: true),
-                        Contact.Columns.didApproveMe.set(to: true)
+                        Contact.Columns.didApproveMe.set(to: true),
+                        using: dependencies
                     )
 
                 /// Create the 'Note to Self' thread (not visible by default)
                 ///
                 /// **Note:** We need to explicitly `updateAllAndConfig` the `shouldBeVisible` value to `false`
                 /// otherwise it won't actually get synced correctly
-                try SessionThread
-                    .fetchOrCreate(db, id: x25519PublicKey, variant: .contact, shouldBeVisible: false)
+                try SessionThread.upsert(
+                    db,
+                    id: x25519PublicKey,
+                    variant: .contact,
+                    values: SessionThread.TargetValues(shouldBeVisible: .setTo(false)),
+                    using: dependencies
+                )
                 
                 try SessionThread
                     .filter(id: x25519PublicKey)
                     .updateAllAndConfig(
                         db,
-                        SessionThread.Columns.shouldBeVisible.set(to: false)
+                        SessionThread.Columns.shouldBeVisible.set(to: false),
+                        using: dependencies
                     )
             }
             
@@ -194,7 +201,7 @@ enum Onboarding {
                 .sinkUntilComplete()
         }
         
-        func completeRegistration() {
+        func completeRegistration(using dependencies: Dependencies) {
             // Set the `lastNameUpdate` to the current date, so that we don't overwrite
             // what the user set in the display name step with whatever we find in their
             // swarm (otherwise the user could enter a display name and have it immediately
@@ -204,7 +211,8 @@ enum Onboarding {
                     .filter(id: getUserHexEncodedPublicKey(db))
                     .updateAllAndConfig(
                         db,
-                        Profile.Columns.lastNameUpdate.set(to: Date().timeIntervalSince1970)
+                        Profile.Columns.lastNameUpdate.set(to: Date().timeIntervalSince1970),
+                        using: dependencies
                     )
             }
             

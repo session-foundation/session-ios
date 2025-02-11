@@ -12,7 +12,7 @@ extension MessageSender {
         [MessageSender.PreparedSendData],
         Network.PreparedRequest<PushNotificationAPI.LegacyPushServerResponse>?
     )
-    public static var distributingKeyPairs: Atomic<[String: [ClosedGroupKeyPair]]> = Atomic([:])
+    @ThreadSafeObject public static var distributingKeyPairs: [String: [ClosedGroupKeyPair]] = [:]
     
     public static func createClosedGroup(
         name: String,
@@ -39,9 +39,33 @@ extension MessageSender {
                 let adminsAsData: [Data] = admins.map { Data(hex: $0) }
                 let formationTimestamp: TimeInterval = (TimeInterval(SnodeAPI.currentOffsetTimestampMs()) / 1000)
                 
+                /// Update `libSession` first
+                ///
+                /// **Note:** This **MUST** happen before we call `SessionThread.upsert` as we won't add the group
+                /// if it already exists in `libSession` and upserting the thread results in an update to `libSession` to set
+                /// the `priority`
+                try LibSession.add(
+                    db,
+                    groupPublicKey: groupPublicKey,
+                    name: name,
+                    joinedAt: formationTimestamp,
+                    latestKeyPairPublicKey: Data(encryptionKeyPair.publicKey),
+                    latestKeyPairSecretKey: Data(encryptionKeyPair.secretKey),
+                    latestKeyPairReceivedTimestamp: formationTimestamp,
+                    disappearingConfig: DisappearingMessagesConfiguration.defaultWith(groupPublicKey),
+                    members: members,
+                    admins: admins,
+                    using: dependencies
+                )
+                
                 // Create the relevant objects in the database
-                let thread: SessionThread = try SessionThread
-                    .fetchOrCreate(db, id: groupPublicKey, variant: .legacyGroup, shouldBeVisible: true)
+                let thread: SessionThread = try SessionThread.upsert(
+                    db,
+                    id: groupPublicKey,
+                    variant: .legacyGroup,
+                    values: SessionThread.TargetValues(shouldBeVisible: .setTo(true)),
+                    using: dependencies
+                )
                 try ClosedGroup(
                     threadId: groupPublicKey,
                     name: name,
@@ -49,12 +73,11 @@ extension MessageSender {
                 ).insert(db)
                 
                 // Store the key pair
-                let latestKeyPairReceivedTimestamp: TimeInterval = (TimeInterval(SnodeAPI.currentOffsetTimestampMs()) / 1000)
                 try ClosedGroupKeyPair(
                     threadId: groupPublicKey,
                     publicKey: Data(encryptionKeyPair.publicKey),
                     secretKey: Data(encryptionKeyPair.secretKey),
-                    receivedTimestamp: latestKeyPairReceivedTimestamp
+                    receivedTimestamp: formationTimestamp
                 ).insert(db)
                 
                 // Create the member objects
@@ -75,20 +98,6 @@ extension MessageSender {
                         isHidden: false
                     ).save(db)
                 }
-                
-                // Update libSession
-                try LibSession.add(
-                    db,
-                    groupPublicKey: groupPublicKey,
-                    name: name,
-                    joinedAt: formationTimestamp,
-                    latestKeyPairPublicKey: Data(encryptionKeyPair.publicKey),
-                    latestKeyPairSecretKey: Data(encryptionKeyPair.secretKey),
-                    latestKeyPairReceivedTimestamp: latestKeyPairReceivedTimestamp,
-                    disappearingConfig: DisappearingMessagesConfiguration.defaultWith(groupPublicKey),
-                    members: members,
-                    admins: admins
-                )
                 
                 let memberSendData: [MessageSender.PreparedSendData] = try members
                     .map { memberId -> MessageSender.PreparedSendData in
@@ -117,6 +126,7 @@ extension MessageSender {
                 // Prepare the notification subscription
                 var preparedNotificationSubscription: Network.PreparedRequest<PushNotificationAPI.LegacyPushServerResponse>?
                 
+                // stringlint:ignore_start
                 if let token: String = dependencies.standardUserDefaults[.deviceToken] {
                     preparedNotificationSubscription = try? PushNotificationAPI
                         .preparedSubscribeToLegacyGroups(
@@ -124,7 +134,10 @@ extension MessageSender {
                             currentUserPublicKey: userPublicKey,
                             legacyGroupIds: try ClosedGroup
                                 .select(.threadId)
-                                .filter(!ClosedGroup.Columns.threadId.like("\(SessionId.Prefix.group.rawValue)%")) // stringlint:disable
+                                .filter(
+                                    ClosedGroup.Columns.threadId > SessionId.Prefix.standard.rawValue &&
+                                    ClosedGroup.Columns.threadId < SessionId.Prefix.standard.endOfRangeString
+                                )
                                 .joining(
                                     required: ClosedGroup.members
                                         .filter(GroupMember.Columns.profileId == userPublicKey)
@@ -135,6 +148,7 @@ extension MessageSender {
                             using: dependencies
                         )
                 }
+                // stringlint:ignore_stop
                 
                 return (thread, memberSendData, preparedNotificationSubscription)
             }
@@ -203,9 +217,11 @@ extension MessageSender {
                 ).build()
                 let plaintext = try proto.serializedData()
                 
-                distributingKeyPairs.mutate {
-                    $0[closedGroup.id] = ($0[closedGroup.id] ?? [])
-                        .appending(newKeyPair)
+                _distributingKeyPairs.performUpdate {
+                    $0.setting(
+                        closedGroup.id,
+                        ($0[closedGroup.id] ?? []).appending(newKeyPair)
+                    )
                 }
                 
                 let sendData: MessageSender.PreparedSendData = try MessageSender
@@ -263,15 +279,20 @@ extension MessageSender {
                             admins: allGroupMembers
                                 .filter { $0.role == .admin }
                                 .map { $0.profileId }
-                                .asSet()
+                                .asSet(),
+                            using: dependencies
                         )
                     }
                     
-                    distributingKeyPairs.mutate {
+                    _distributingKeyPairs.performUpdate {
                         if let index = ($0[closedGroup.id] ?? []).firstIndex(of: newKeyPair) {
-                            $0[closedGroup.id] = ($0[closedGroup.id] ?? [])
-                                .removing(index: index)
+                            return $0.setting(
+                                closedGroup.id,
+                                ($0[closedGroup.id] ?? []).removing(index: index)
+                            )
                         }
+                        
+                        return $0
                     }
                 }
             )
@@ -333,7 +354,8 @@ extension MessageSender {
                     try? LibSession.update(
                         db,
                         groupPublicKey: closedGroup.threadId,
-                        name: name
+                        name: name,
+                        using: dependencies
                     )
                 }
                 
@@ -446,7 +468,8 @@ extension MessageSender {
             admins: allGroupMembers
                 .filter { $0.role == .admin }
                 .map { $0.profileId }
-                .asSet()
+                .asSet(),
+            using: dependencies
         )
         
         // Send the update to the group
@@ -463,7 +486,13 @@ extension MessageSender {
         
         try addedMembers.forEach { member in
             // Send updates to the new members individually
-            try SessionThread.fetchOrCreate(db, id: member, variant: .contact, shouldBeVisible: nil)
+            try SessionThread.upsert(
+                db,
+                id: member,
+                variant: .contact,
+                values: .existingOrDefault,
+                using: dependencies
+            )
             
             try MessageSender.send(
                 db,
@@ -655,7 +684,7 @@ extension MessageSender {
         }
         
         // Get the latest encryption key pair
-        var maybeKeyPair: ClosedGroupKeyPair? = distributingKeyPairs.wrappedValue[groupPublicKey]?.last
+        var maybeKeyPair: ClosedGroupKeyPair? = distributingKeyPairs[groupPublicKey]?.last
         
         if maybeKeyPair == nil {
             maybeKeyPair = try? closedGroup.fetchLatestKeyPair(db)
@@ -670,8 +699,13 @@ extension MessageSender {
                 privateKey: keyPair.secretKey
             ).build()
             let plaintext = try proto.serializedData()
-            let thread: SessionThread = try SessionThread
-                .fetchOrCreate(db, id: publicKey, variant: .contact, shouldBeVisible: nil)
+            let thread: SessionThread = try SessionThread.upsert(
+                db,
+                id: publicKey,
+                variant: .contact,
+                values: .existingOrDefault,
+                using: dependencies
+            )
             let ciphertext = try dependencies.crypto.tryGenerate(
                 .ciphertextWithSessionProtocol(
                     db,

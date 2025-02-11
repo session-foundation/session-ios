@@ -13,6 +13,8 @@ public enum StorageError: Error {
     case keySpecCreationFailed
     case keySpecInaccessible
     case decodingFailed
+    case invalidQueryResult
+    case transactionDeadlockTimeout
     
     case failedToSave
     case objectNotFound

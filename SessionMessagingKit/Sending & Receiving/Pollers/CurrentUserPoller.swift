@@ -33,7 +33,7 @@ public final class CurrentUserPoller: Poller {
     public func start(using dependencies: Dependencies = Dependencies()) {
         let publicKey: String = getUserHexEncodedPublicKey(using: dependencies)
         
-        guard isPolling.wrappedValue[publicKey] != true else { return }
+        guard isPolling[publicKey] != true else { return }
         
         SNLog("Started polling.")
         super.startIfNeeded(for: publicKey, using: dependencies)
@@ -46,12 +46,13 @@ public final class CurrentUserPoller: Poller {
     
     // MARK: - Abstract Methods
     
+    // stringlint:ignore_contents
     override public func pollerName(for publicKey: String) -> String {
-        return "Main Poller" // stringlint:disable
+        return "Main Poller"
     }
     
     override func nextPollDelay(for publicKey: String, using dependencies: Dependencies) -> TimeInterval {
-        let failureCount: TimeInterval = TimeInterval(failureCount.wrappedValue[publicKey] ?? 0)
+        let failureCount: TimeInterval = TimeInterval(failureCount[publicKey] ?? 0)
         
         // Scale the poll delay based on the number of failures
         return min(maxRetryInterval, pollInterval + (retryInterval * (failureCount * 1.2)))
@@ -62,10 +63,10 @@ public final class CurrentUserPoller: Poller {
             // Do nothing when an error gets throws right after returning from the background (happens frequently)
         }
         else if
-            let drainBehaviour: Atomic<SwarmDrainBehaviour> = drainBehaviour.wrappedValue[publicKey],
+            let drainBehaviour: ThreadSafeObject<SwarmDrainBehaviour> = drainBehaviour[publicKey],
             case .limitedReuse(_, .some(let targetSnode), _, _, _) = drainBehaviour.wrappedValue
         {
-            drainBehaviour.mutate { $0 = $0.clearTargetSnode() }
+            drainBehaviour.set(to: drainBehaviour.wrappedValue.clearTargetSnode())
             return .continuePollingInfo("Switching from \(targetSnode) to next snode.")
         }
         else {

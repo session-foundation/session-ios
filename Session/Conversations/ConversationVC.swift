@@ -22,6 +22,7 @@ final class ConversationVC: BaseVC, LibSessionRespondingViewController, Conversa
     private var isAutoLoadingNextPage: Bool = false
     private var isLoadingMore: Bool = false
     var isReplacingThread: Bool = false
+    var isKeyboardVisible: Bool = false
     
     /// This flag indicates whether the thread data has been reloaded after a disappearance (it defaults to true as it will
     /// never have disappeared before - this is only needed for value observers since they run asynchronously)
@@ -107,7 +108,10 @@ final class ConversationVC: BaseVC, LibSessionRespondingViewController, Conversa
         return result
     }()
 
-    lazy var recordVoiceMessageActivity = AudioActivity(audioDescription: "Voice message", behavior: .playAndRecord) // stringlint:disable
+    lazy var recordVoiceMessageActivity = AudioActivity(
+        audioDescription: "Voice message",  // stringlint:ignore
+        behavior: .playAndRecord
+    )
 
     lazy var searchController: ConversationSearchController = {
         let result: ConversationSearchController = ConversationSearchController(
@@ -471,10 +475,10 @@ final class ConversationVC: BaseVC, LibSessionRespondingViewController, Conversa
         /// main thread (we don't currently care if it's still in the nav stack though - so if a user is on a conversation settings screen this should
         /// get cleared within `viewWillDisappear`)
         ///
-        /// **Note:** We do this on an async queue because `Atomic<T>` can block if something else is mutating it and we want to avoid
+        /// **Note:** We do this on an async queue because `@ThreadSafe` can block if something else is mutating it and we want to avoid
         /// the risk of blocking the conversation transition
         DispatchQueue.global(qos: .userInitiated).async { [weak self] in
-            SessionApp.currentlyOpenConversationViewController.mutate { $0 = self }
+            SessionApp.setCurrentlyOpenConversationViewController(self)
         }
         
         if delayFirstResponder || isShowingSearchUI {
@@ -511,10 +515,10 @@ final class ConversationVC: BaseVC, LibSessionRespondingViewController, Conversa
         /// main thread (we don't currently care if it's still in the nav stack though - so if a user leaves a conversation settings screen we clear
         /// it, and if a user moves to a different `ConversationVC` this will get updated to that one within `viewDidAppear`)
         ///
-        /// **Note:** We do this on an async queue because `Atomic<T>` can block if something else is mutating it and we want to avoid
+        /// **Note:** We do this on an async queue because `@ThreadSafe` can block if something else is mutating it and we want to avoid
         /// the risk of blocking the conversation transition
         DispatchQueue.global(qos: .userInitiated).async {
-            SessionApp.currentlyOpenConversationViewController.mutate { $0 = nil }
+            SessionApp.setCurrentlyOpenConversationViewController(nil)
         }
         
         viewIsDisappearing = true
@@ -527,6 +531,8 @@ final class ConversationVC: BaseVC, LibSessionRespondingViewController, Conversa
         stopObservingChanges()
         viewModel.updateDraft(to: snInputView.text)
         inputAccessoryView?.resignFirstResponder()
+        
+        NotificationCenter.default.removeObserver(self)
     }
 
     override func viewDidDisappear(_ animated: Bool) {
@@ -548,12 +554,15 @@ final class ConversationVC: BaseVC, LibSessionRespondingViewController, Conversa
             ) &&
             viewModel.threadData.threadIsNoteToSelf == false &&
             viewModel.threadData.threadShouldBeVisible == false &&
-            !LibSession.conversationInConfig(
-                threadId: threadId,
-                threadVariant: viewModel.threadData.threadVariant,
-                visibleOnly: false,
-                using: viewModel.dependencies
-            )
+            !Storage.shared.read({ [dependencies = viewModel.dependencies, threadVariant = viewModel.threadData.threadVariant] db in
+                LibSession.conversationInConfig(
+                    db,
+                    threadId: threadId,
+                    threadVariant: threadVariant,
+                    visibleOnly: false,
+                    using: dependencies
+                )
+            }).defaulting(to: false)
         {
             Storage.shared.writeAsync { db in
                 _ = try SessionThread   // Intentionally use `deleteAll` here instead of `deleteOrLeave`
@@ -1384,7 +1393,21 @@ final class ConversationVC: BaseVC, LibSessionRespondingViewController, Conversa
         }
         
         // No nothing if there was no change
-        let keyboardEndFrameConverted: CGRect = self.view.convert(keyboardEndFrame, from: nil)
+        // Note: there is a bug on iOS 15.X for iPhone 6/6s where the converted frame is not accurate.
+        // In iOS 16.1 and later, the keyboard notification object is the screen the keyboard appears on.
+        // This is a workaround to fix the issue
+        let fromCoordinateSpace: UICoordinateSpace? = {
+            if let screen = (notification.object as? UIScreen) {
+                return screen.coordinateSpace
+            } else {
+                var result: UIView? = self.view.superview
+                while result != nil && result?.frame != UIScreen.main.bounds {
+                    result = result?.superview
+                }
+                return result
+            }
+        }()
+        let keyboardEndFrameConverted: CGRect = fromCoordinateSpace?.convert(keyboardEndFrame, to: self.view) ?? keyboardEndFrame
         guard keyboardEndFrameConverted != lastKnownKeyboardFrame else { return }
         
         self.lastKnownKeyboardFrame = keyboardEndFrameConverted
@@ -1724,7 +1747,7 @@ final class ConversationVC: BaseVC, LibSessionRespondingViewController, Conversa
     func updateUnreadCountView(unreadCount: UInt?) {
         let unreadCount: Int = Int(unreadCount ?? 0)
         let fontSize: CGFloat = (unreadCount < 10000 ? Values.verySmallFontSize : 8)
-        unreadCountLabel.text = (unreadCount < 10000 ? "\(unreadCount)" : "9999+") // stringlint:disable
+        unreadCountLabel.text = (unreadCount < 10000 ? "\(unreadCount)" : "9999+") // stringlint:ignore
         unreadCountLabel.font = .boldSystemFont(ofSize: fontSize)
         unreadCountView.isHidden = (unreadCount == 0)
     }

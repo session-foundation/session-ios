@@ -17,7 +17,8 @@ internal extension LibSession {
     static func handleConvoInfoVolatileUpdate(
         _ db: Database,
         in conf: UnsafeMutablePointer<config_object>?,
-        mergeNeedsDump: Bool
+        mergeNeedsDump: Bool,
+        using dependencies: Dependencies
     ) throws {
         guard mergeNeedsDump else { return }
         guard conf != nil else { throw LibSessionError.nilConfigObject }
@@ -97,7 +98,8 @@ internal extension LibSession {
                     interactionInfo: interactionInfoToMarkAsRead,
                     lastReadTimestampMs: lastReadTimestampMs,
                     trySendReadReceipt: false,  // Interactions already read, no need to send
-                    calledFromConfigHandling: true
+                    useLastReadTimestampForDisappearingMessages: true,
+                    using: dependencies
                 )
                 return nil
             }
@@ -226,7 +228,8 @@ internal extension LibSession {
     
     static func updateMarkedAsUnreadState(
         _ db: Database,
-        threads: [SessionThread]
+        threads: [SessionThread],
+        using dependencies: Dependencies
     ) throws {
         // If we have no updated threads then no need to continue
         guard !threads.isEmpty else { return }
@@ -245,7 +248,8 @@ internal extension LibSession {
         try LibSession.performAndPushChange(
             db,
             for: .convoInfoVolatile,
-            publicKey: getUserHexEncodedPublicKey(db)
+            publicKey: getUserHexEncodedPublicKey(db),
+            using: dependencies
         ) { conf in
             try upsert(
                 convoInfoVolatileChanges: changes,
@@ -254,11 +258,16 @@ internal extension LibSession {
         }
     }
     
-    static func remove(_ db: Database, volatileContactIds: [String]) throws {
+    static func remove(
+        _ db: Database,
+        volatileContactIds: [String],
+        using dependencies: Dependencies
+    ) throws {
         try LibSession.performAndPushChange(
             db,
             for: .convoInfoVolatile,
-            publicKey: getUserHexEncodedPublicKey(db)
+            publicKey: getUserHexEncodedPublicKey(db, using: dependencies),
+            using: dependencies
         ) { conf in
             try volatileContactIds.forEach { contactId in
                 var cSessionId: [CChar] = try contactId.cString(using: .utf8) ?? { throw LibSessionError.invalidCConversion }()
@@ -269,11 +278,16 @@ internal extension LibSession {
         }
     }
     
-    static func remove(_ db: Database, volatileLegacyGroupIds: [String]) throws {
+    static func remove(
+        _ db: Database,
+        volatileLegacyGroupIds: [String],
+        using dependencies: Dependencies
+    ) throws {
         try LibSession.performAndPushChange(
             db,
             for: .convoInfoVolatile,
-            publicKey: getUserHexEncodedPublicKey(db)
+            publicKey: getUserHexEncodedPublicKey(db, using: dependencies),
+            using: dependencies
         ) { conf in
             try volatileLegacyGroupIds.forEach { legacyGroupId in
                 var cLegacyGroupId: [CChar] = try legacyGroupId.cString(using: .utf8) ?? { throw LibSessionError.invalidCConversion }()
@@ -284,11 +298,16 @@ internal extension LibSession {
         }
     }
     
-    static func remove(_ db: Database, volatileCommunityInfo: [OpenGroupUrlInfo]) throws {
+    static func remove(
+        _ db: Database,
+        volatileCommunityInfo: [OpenGroupUrlInfo],
+        using dependencies: Dependencies
+    ) throws {
         try LibSession.performAndPushChange(
             db,
             for: .convoInfoVolatile,
-            publicKey: getUserHexEncodedPublicKey(db)
+            publicKey: getUserHexEncodedPublicKey(db, using: dependencies),
+            using: dependencies
         ) { conf in
             try volatileCommunityInfo.forEach { urlInfo in
                 var cBaseUrl: [CChar] = try urlInfo.server.cString(using: .utf8) ?? { throw LibSessionError.invalidCConversion }()
@@ -308,12 +327,14 @@ public extension LibSession {
         _ db: Database,
         threadId: String,
         threadVariant: SessionThread.Variant,
-        lastReadTimestampMs: Int64
+        lastReadTimestampMs: Int64,
+        using dependencies: Dependencies
     ) throws {
         try LibSession.performAndPushChange(
             db,
             for: .convoInfoVolatile,
-            publicKey: getUserHexEncodedPublicKey(db)
+            publicKey: getUserHexEncodedPublicKey(db, using: dependencies),
+            using: dependencies
         ) { conf in
             try upsert(
                 convoInfoVolatileChanges: [

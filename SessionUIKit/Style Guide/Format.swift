@@ -39,6 +39,6 @@ public enum Format {
     }
     
     public static func duration(_ duration: TimeInterval) -> String {
-        return (Format.durationFormatter.string(from: duration) ?? "0:00") // stringlint:disable
+        return (Format.durationFormatter.string(from: duration) ?? "0:00") // stringlint:ignore
     }
 }

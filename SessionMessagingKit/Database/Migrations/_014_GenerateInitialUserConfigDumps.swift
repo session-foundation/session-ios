@@ -8,7 +8,7 @@ import SessionUtilitiesKit
 /// This migration goes through the current state of the database and generates config dumps for the user config types
 enum _014_GenerateInitialUserConfigDumps: Migration {
     static let target: TargetMigrations.Identifier = .messagingKit
-    static let identifier: String = "GenerateInitialUserConfigDumps" // stringlint:disable
+    static let identifier: String = "GenerateInitialUserConfigDumps"
     static let needsConfigSync: Bool = true
     static let minExpectedRunDuration: TimeInterval = 4.0
     static let fetchedTables: [(TableRecord & FetchableRecord).Type] = [
@@ -41,7 +41,7 @@ enum _014_GenerateInitialUserConfigDumps: Migration {
         
         try dependencies.caches[.libSession]
             .config(for: .userProfile, publicKey: userPublicKey)
-            .mutate { conf in
+            .perform { conf in
                 try LibSession.update(
                     profile: Profile.fetchOrCreateCurrentUser(db, using: dependencies),
                     in: conf
@@ -72,7 +72,7 @@ enum _014_GenerateInitialUserConfigDumps: Migration {
         
         try dependencies.caches[.libSession]
             .config(for: .contacts, publicKey: userPublicKey)
-            .mutate { conf in
+            .perform { conf in
                 // Exclude Note to Self, community, group and outgoing blinded message requests
                 let validContactIds: [String] = allThreads
                     .values
@@ -138,7 +138,7 @@ enum _014_GenerateInitialUserConfigDumps: Migration {
         
         try dependencies.caches[.libSession]
             .config(for: .convoInfoVolatile, publicKey: userPublicKey)
-            .mutate { conf in
+            .perform { conf in
                 let volatileThreadInfo: [LibSession.VolatileThreadInfo] = LibSession.VolatileThreadInfo
                     .fetchAll(db, ids: Array(allThreads.keys))
                 
@@ -163,7 +163,7 @@ enum _014_GenerateInitialUserConfigDumps: Migration {
         
         try dependencies.caches[.libSession]
             .config(for: .userGroups, publicKey: userPublicKey)
-            .mutate { conf in
+            .perform { conf in
                 let legacyGroupData: [LibSession.LegacyGroupInfo] = try LibSession.LegacyGroupInfo.fetchAll(db)
                 let communityData: [LibSession.OpenGroupUrlInfo] = try LibSession.OpenGroupUrlInfo
                     .fetchAll(db, ids: Array(allThreads.keys))
@@ -197,7 +197,7 @@ enum _014_GenerateInitialUserConfigDumps: Migration {
                 
         // MARK: - Threads
         
-        try LibSession.updatingThreads(db, Array(allThreads.values))
+        try LibSession.updatingThreads(db, Array(allThreads.values), using: dependencies)
         
         // MARK: - Syncing
         

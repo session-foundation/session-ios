@@ -49,8 +49,13 @@ enum MockDataGenerator {
         logProgress("", "Start")
         
         // First create the thread used to indicate that the mock data has been generated
-        _ = try? SessionThread
-            .fetchOrCreate(db, id: "MockDatabaseThread", variant: .contact, shouldBeVisible: false)
+        _ = try? SessionThread.upsert(
+            db,
+            id: "MockDatabaseThread",
+            variant: .contact,
+            values: SessionThread.TargetValues(shouldBeVisible: .setTo(false)),
+            using: dependencies
+        )
         
         // MARK: - -- DM Thread
         
@@ -74,13 +79,13 @@ enum MockDataGenerator {
                     .randomElement(using: &dmThreadRandomGenerator) ?? 0)
                 
                 // Generate the thread
-                let thread: SessionThread = try! SessionThread
-                    .fetchOrCreate(
-                        db,
-                        id: randomSessionId,
-                        variant: .contact,
-                        shouldBeVisible: true
-                    )
+                let thread: SessionThread = try! SessionThread.upsert(
+                    db,
+                    id: randomSessionId,
+                    variant: .contact,
+                    values: SessionThread.TargetValues(shouldBeVisible: .setTo(true)),
+                    using: dependencies
+                )
                 
                 // Generate the contact
                 let contact: Contact = try! Contact(
@@ -186,13 +191,13 @@ enum MockDataGenerator {
                     members.append(randomSessionId)
                 }
                 
-                let thread: SessionThread = try! SessionThread
-                    .fetchOrCreate(
-                        db,
-                        id: randomGroupPublicKey,
-                        variant: .legacyGroup,
-                        shouldBeVisible: true
-                    )
+                let thread: SessionThread = try! SessionThread.upsert(
+                    db,
+                    id: randomGroupPublicKey,
+                    variant: .legacyGroup,
+                    values: SessionThread.TargetValues(shouldBeVisible: .setTo(true)),
+                    using: dependencies
+                )
                 _ = try! ClosedGroup(
                     threadId: randomGroupPublicKey,
                     name: groupName,
@@ -316,13 +321,13 @@ enum MockDataGenerator {
                 }
                 
                 // Create the open group model and the thread
-                let thread: SessionThread = try! SessionThread
-                    .fetchOrCreate(
-                        db,
-                        id: randomGroupPublicKey,
-                        variant: .community,
-                        shouldBeVisible: true
-                    )
+                let thread: SessionThread = try! SessionThread.upsert(
+                    db,
+                    id: randomGroupPublicKey,
+                    variant: .community,
+                    values: SessionThread.TargetValues(shouldBeVisible: .setTo(true)),
+                    using: dependencies
+                )
                 _ = try! OpenGroup(
                     server: serverName,
                     roomToken: roomName,

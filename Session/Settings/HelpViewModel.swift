@@ -16,10 +16,6 @@ class HelpViewModel: SessionTableViewModel, NavigatableStateHolder, ObservableTa
     public let state: TableDataState<Section, TableItem> = TableDataState()
     public let observableState: ObservableTableSourceState<Section, TableItem> = ObservableTableSourceState()
     
-#if DEBUG
-    private var databaseKeyEncryptionPassword: String = ""
-#endif
-    
     // MARK: - Initialization
     
     init(using dependencies: Dependencies = Dependencies()) {
@@ -34,9 +30,6 @@ class HelpViewModel: SessionTableViewModel, NavigatableStateHolder, ObservableTa
         case feedback
         case faq
         case support
-#if DEBUG
-        case exportDatabase
-#endif
         
         var style: SessionTableSectionStyle { .padding }
     }
@@ -147,32 +140,8 @@ class HelpViewModel: SessionTableViewModel, NavigatableStateHolder, ObservableTa
                     }
                 )
             ]
-        ),
-        maybeExportDbSection
+        )
     ]
-    
-#if DEBUG
-    private lazy var maybeExportDbSection: SectionModel? = SectionModel(
-        model: .exportDatabase,
-        elements: [
-            SessionCell.Info(
-                id: .support,
-                title: "Export Database", // stringlint:disable
-                rightAccessory: .icon(
-                    UIImage(systemName: "square.and.arrow.up.trianglebadge.exclamationmark")?
-                        .withRenderingMode(.alwaysTemplate),
-                    size: .small
-                ),
-                styling: SessionCell.StyleInfo(
-                    tintColor: .danger
-                ),
-                onTapView: { [weak self] view in self?.exportDatabase(view) }
-            )
-        ]
-    )
-#else
-    private let maybeExportDbSection: SectionModel? = nil
-#endif
     
     // MARK: - Functions
     
@@ -189,26 +158,30 @@ class HelpViewModel: SessionTableViewModel, NavigatableStateHolder, ObservableTa
         else { return }
         
         #if targetEnvironment(simulator)
+        // stringlint:ignore_start
         let modal: ConfirmationModal = ConfirmationModal(
             info: ConfirmationModal.Info(
-                title: "Export Logs",      // stringlint:disable
+                title: "Export Logs",
                 body: .text(
-                    "How would you like to export the logs?\n\n(This modal only appears on the Simulator)" // stringlint:disable
+                    "How would you like to export the logs?\n\n(This modal only appears on the Simulator)"
                 ),
-                confirmTitle: "Copy Path", // stringlint:disable
-                cancelTitle: "Share",      // stringlint:disable
+                confirmTitle: "Copy Path",
+                cancelTitle: "Share",
                 cancelStyle: .alert_text,
                 onConfirm: { _ in UIPasteboard.general.string = latestLogFilePath },
-                onCancel: { _ in
-                    HelpViewModel.shareLogsInternal(
-                        viewControllerToDismiss: viewControllerToDismiss,
-                        targetView: targetView,
-                        animated: animated,
-                        onShareComplete: onShareComplete
-                    )
+                onCancel: { modal in
+                    modal.dismiss(animated: true) {
+                        HelpViewModel.shareLogsInternal(
+                            viewControllerToDismiss: viewControllerToDismiss,
+                            targetView: targetView,
+                            animated: animated,
+                            onShareComplete: onShareComplete
+                        )
+                    }
                 }
             )
         )
+        // stringlint:ignore_stop
         viewController.present(modal, animated: animated, completion: nil)
         #else
         HelpViewModel.shareLogsInternal(
@@ -260,132 +233,4 @@ class HelpViewModel: SessionTableViewModel, NavigatableStateHolder, ObservableTa
             showShareSheet()
         }
     }
-    
-#if DEBUG
-    private func exportDatabase(_ targetView: UIView?) {
-        let generatedPassword: String = UUID().uuidString
-        self.databaseKeyEncryptionPassword = generatedPassword
-        
-        self.transitionToScreen(
-            ConfirmationModal(
-                info: ConfirmationModal.Info(
-                    title: "Export Database", // stringlint:disable
-                    body: .input(
-                        explanation: NSAttributedString(
-                            string: """
-                            Sharing the database and key together is dangerous!
-
-                            We've generated a secure password for you but feel free to provide your own (we will show the generated password again after exporting)
-
-                            This password will be used to encrypt the database decryption key and will be exported alongside the database
-                            """
-                        ),
-                        placeholder: "Enter a password", // stringlint:disable
-                        initialValue: generatedPassword,
-                        clearButton: true,
-                        onChange: { [weak self] value in self?.databaseKeyEncryptionPassword = value }
-                    ),
-                    confirmTitle: "Export", // stringlint:disable
-                    dismissOnConfirm: false,
-                    onConfirm: { [weak self] modal in
-                        modal.dismiss(animated: true) {
-                            guard let password: String = self?.databaseKeyEncryptionPassword, password.count >= 6 else {
-                                self?.transitionToScreen(
-                                    ConfirmationModal(
-                                        info: ConfirmationModal.Info(
-                                            title: "Error", // stringlint:disable
-                                            body: .text("Password must be at least 6 characters") // stringlint:disable
-                                        )
-                                    ),
-                                    transitionType: .present
-                                )
-                                return
-                            }
-                            
-                            do {
-                                let exportInfo = try Storage.shared.exportInfo(password: password)
-                                let shareVC = UIActivityViewController(
-                                    activityItems: [
-                                        URL(fileURLWithPath: exportInfo.dbPath),
-                                        URL(fileURLWithPath: exportInfo.keyPath)
-                                    ],
-                                    applicationActivities: nil
-                                )
-                                shareVC.completionWithItemsHandler = { [weak self] _, completed, _, _ in
-                                    guard
-                                        completed &&
-                                        generatedPassword == self?.databaseKeyEncryptionPassword
-                                    else { return }
-                                    
-                                    self?.transitionToScreen(
-                                        ConfirmationModal(
-                                            info: ConfirmationModal.Info(
-                                                title: "Password", // stringlint:disable
-                                                body: .text("""
-                                                The generated password was:
-                                                \(generatedPassword)
-                                                
-                                                Avoid sending this via the same means as the database
-                                                """),
-                                                confirmTitle: "Share", // stringlint:disable
-                                                dismissOnConfirm: false,
-                                                onConfirm: { [weak self] modal in
-                                                    modal.dismiss(animated: true) {
-                                                        let passwordShareVC = UIActivityViewController(
-                                                            activityItems: [generatedPassword],
-                                                            applicationActivities: nil
-                                                        )
-                                                        if UIDevice.current.isIPad {
-                                                            passwordShareVC.excludedActivityTypes = []
-                                                            passwordShareVC.popoverPresentationController?.permittedArrowDirections = (targetView != nil ? [.up] : [])
-                                                            passwordShareVC.popoverPresentationController?.sourceView = targetView
-                                                            passwordShareVC.popoverPresentationController?.sourceRect = (targetView?.bounds ?? .zero)
-                                                        }
-                                                        
-                                                        self?.transitionToScreen(passwordShareVC, transitionType: .present)
-                                                    }
-                                                }
-                                            )
-                                        ),
-                                        transitionType: .present
-                                    )
-                                }
-                                
-                                if UIDevice.current.isIPad {
-                                    shareVC.excludedActivityTypes = []
-                                    shareVC.popoverPresentationController?.permittedArrowDirections = (targetView != nil ? [.up] : [])
-                                    shareVC.popoverPresentationController?.sourceView = targetView
-                                    shareVC.popoverPresentationController?.sourceRect = (targetView?.bounds ?? .zero)
-                                }
-                                
-                                self?.transitionToScreen(shareVC, transitionType: .present)
-                            }
-                            catch {
-                                let message: String = {
-                                    switch error {
-                                        case CryptoKitError.incorrectKeySize:
-                                            return "The password must be between 6 and 32 characters (padded to 32 bytes)" // stringlint:disable
-                                        
-                                        default: return "Failed to export database" // stringlint:disable
-                                    }
-                                }()
-                                
-                                self?.transitionToScreen(
-                                    ConfirmationModal(
-                                        info: ConfirmationModal.Info(
-                                            title: "Error", // stringlint:disable
-                                            body: .text(message)
-                                        )
-                                    ),
-                                    transitionType: .present
-                                )
-                            }
-                        }
-                    }
-                )
-            ),
-            transitionType: .present
-        )
-    }
-#endif
 }

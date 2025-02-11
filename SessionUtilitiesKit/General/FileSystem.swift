@@ -10,7 +10,7 @@ public enum FileSystem {
     /// The Objective-C `OWSFileSystem` needs to be able to generate a temporary directory but we don't want to spend the time
     /// to add Objective-C support to `Dependencies` since the goal is to refactor everything to Swift so this value should only be
     /// assigned by the `AppContext` class when it gets initialised
-    internal static var temporaryDirectory: Atomic<String?> = Atomic(nil)
+    @ThreadSafeObject private static var temporaryDirectory: String = ""
     
     public static var cachesDirectoryPath: String {
         return NSSearchPathForDirectoriesInDomains(.cachesDirectory, .userDomainMask, true)[0]
@@ -60,14 +60,18 @@ public enum FileSystem {
         return (attributes[.size] as? UInt64)
     }
     
+    public static func setTemporaryDirectory(_ temporaryDirectory: String) {
+        _temporaryDirectory.set(to: temporaryDirectory)
+    }
+    
     public static func temporaryFilePath(fileExtension: String?) -> String {
-        let temporaryDirectory: String = {
-            if let temporaryDirectory: String = self.temporaryDirectory.wrappedValue {
+        let finalTemporaryDirectory: String = {
+            if !temporaryDirectory.isEmpty {
                 return temporaryDirectory
             }
             
             // Not ideal but fallback to creating a new temp directory
-            let dirName: String = "ows_temp_\(UUID().uuidString)"   // stringlint:disable
+            let dirName: String = "ows_temp_\(UUID().uuidString)"   // stringlint:ignore
             let tempDir: String = URL(fileURLWithPath: NSTemporaryDirectory())
                 .appendingPathComponent(dirName)
                 .path
@@ -82,7 +86,7 @@ public enum FileSystem {
             tempFileName = "\(tempFileName).\(fileExtension)"
         }
         
-        return URL(fileURLWithPath: temporaryDirectory)
+        return URL(fileURLWithPath: finalTemporaryDirectory)
             .appendingPathComponent(tempFileName)
             .path
     }

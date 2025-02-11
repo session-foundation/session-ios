@@ -104,7 +104,7 @@ public enum SyncPushTokensJob: JobExecutor {
         /// **Note:** Apple's documentation states that we should re-register for notifications on every launch:
         /// https://developer.apple.com/library/archive/documentation/NetworkingInternet/Conceptual/RemoteNotificationsPG/HandlingRemoteNotifications.html#//apple_ref/doc/uid/TP40008194-CH6-SW1
         Log.info("[SyncPushTokensJob] Re-registering for remote notifications")
-        PushRegistrationManager.shared.requestPushTokens()
+        Singleton.pushRegistrationManager.requestPushTokens()
             .flatMap { (pushToken: String, voipToken: String) -> AnyPublisher<(String, String)?, Error> in
                 Deferred {
                     Future<(String, String)?, Error> { resolver in
@@ -223,10 +223,11 @@ extension SyncPushTokensJob {
 
 // MARK: - Convenience
 
+// stringlint:ignore_contents
 private func redact(_ string: String) -> String {
 #if DEBUG
-    return "[ DEBUG_NOT_REDACTED \(string) ]" // stringlint:disable
+    return "[ DEBUG_NOT_REDACTED \(string) ]"
 #else
-    return "[ READACTED \(string.prefix(2))...\(string.suffix(2)) ]" // stringlint:disable
+    return "[ READACTED \(string.prefix(2))...\(string.suffix(2)) ]"
 #endif
 }

@@ -18,7 +18,10 @@ public class OWSVideoPlayer {
 
     @objc public init(url: URL) {
         self.avPlayer = AVPlayer(url: url)
-        self.audioActivity = AudioActivity(audioDescription: "[OWSVideoPlayer] url:\(url)", behavior: .playback)
+        self.audioActivity = AudioActivity(
+            audioDescription: "[OWSVideoPlayer] url:\(url)", // stringlint:ignore
+            behavior: .playback
+        )
 
         NotificationCenter.default.addObserver(self,
                                                selector: #selector(playerItemDidPlayToCompletion(_:)),

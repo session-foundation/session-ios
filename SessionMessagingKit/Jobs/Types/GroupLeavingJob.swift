@@ -127,7 +127,7 @@ public enum GroupLeavingJob: JobExecutor {
                             db,
                             threadId: threadId,
                             removeGroupData: details.deleteThread,
-                            calledFromConfigHandling: false
+                            using: dependencies
                         )
                     }
                     

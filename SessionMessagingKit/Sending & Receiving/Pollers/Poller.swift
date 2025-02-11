@@ -22,11 +22,11 @@ public class Poller {
         case continuePollingInfo(String)
     }
     
-    private var cancellables: Atomic<[String: AnyCancellable]> = Atomic([:])
-    internal var isPolling: Atomic<[String: Bool]> = Atomic([:])
-    internal var pollCount: Atomic<[String: Int]> = Atomic([:])
-    internal var failureCount: Atomic<[String: Int]> = Atomic([:])
-    internal var drainBehaviour: Atomic<[String: Atomic<SwarmDrainBehaviour>]> = Atomic([:])
+    @ThreadSafeObject private var cancellables: [String: AnyCancellable] = [:]
+    @ThreadSafeObject internal var isPolling: [String: Bool] = [:]
+    @ThreadSafeObject internal var pollCount: [String: Int] = [:]
+    @ThreadSafeObject internal var failureCount: [String: Int] = [:]
+    @ThreadSafeObject internal var drainBehaviour: [String: ThreadSafeObject<SwarmDrainBehaviour>] = [:]
     
     // MARK: - Settings
     
@@ -50,7 +50,7 @@ public class Poller {
     public init() {}
     
     public func stopAllPollers() {
-        let pollers: [String] = Array(isPolling.wrappedValue.keys)
+        let pollers: [String] = Array(isPolling.keys)
         
         pollers.forEach { groupPublicKey in
             self.stopPolling(for: groupPublicKey)
@@ -58,12 +58,12 @@ public class Poller {
     }
     
     public func stopPolling(for publicKey: String) {
-        isPolling.mutate { $0[publicKey] = false }
-        failureCount.mutate { $0[publicKey] = nil }
-        drainBehaviour.mutate { $0[publicKey] = nil }
-        cancellables.mutate {
+        _isPolling.performUpdate { $0.setting(publicKey, false) }
+        _failureCount.performUpdate { $0.removingValue(forKey: publicKey) }
+        _drainBehaviour.performUpdate { $0.removingValue(forKey: publicKey) }
+        _cancellables.performUpdate {
             $0[publicKey]?.cancel()
-            $0.removeAll()
+            return [:]
         }
     }
     
@@ -89,26 +89,26 @@ public class Poller {
     internal func startIfNeeded(for publicKey: String, using dependencies: Dependencies) {
         // Run on the 'pollerQueue' to ensure any 'Atomic' access doesn't block the main thread
         // on startup
-        let drainBehaviour: Atomic<SwarmDrainBehaviour> = Atomic(pollDrainBehaviour)
+        let drainBehaviour: ThreadSafeObject<SwarmDrainBehaviour> = ThreadSafeObject(pollDrainBehaviour)
         
         pollerQueue.async { [weak self] in
-            guard self?.isPolling.wrappedValue[publicKey] != true else { return }
+            guard self?.isPolling[publicKey] != true else { return }
             
             // Might be a race condition that the setUpPolling finishes too soon,
             // and the timer is not created, if we mark the group as is polling
             // after setUpPolling. So the poller may not work, thus misses messages
-            self?.isPolling.mutate { $0[publicKey] = true }
-            self?.drainBehaviour.mutate { $0[publicKey] = drainBehaviour }
+            self?._isPolling.performUpdate { $0.setting(publicKey, true) }
+            self?._drainBehaviour.performUpdate { $0.setting(publicKey, drainBehaviour) }
             self?.pollRecursively(for: publicKey, drainBehaviour: drainBehaviour, using: dependencies)
         }
     }
     
     private func pollRecursively(
         for swarmPublicKey: String,
-        drainBehaviour: Atomic<SwarmDrainBehaviour>,
+        drainBehaviour: ThreadSafeObject<SwarmDrainBehaviour>,
         using dependencies: Dependencies
     ) {
-        guard isPolling.wrappedValue[swarmPublicKey] == true else { return }
+        guard isPolling[swarmPublicKey] == true else { return }
         
         let pollerName: String = pollerName(for: swarmPublicKey)
         let namespaces: [SnodeAPI.Namespace] = self.namespaces
@@ -117,9 +117,11 @@ public class Poller {
         let fallbackPollDelay: TimeInterval = self.nextPollDelay(for: swarmPublicKey, using: dependencies)
         
         // Store the publisher intp the cancellables dictionary
-        cancellables.mutate { [weak self] cancellables in
+        _cancellables.performUpdate { [weak self] cancellables in
             cancellables[swarmPublicKey]?.cancel()
-            cancellables[swarmPublicKey] = self?.poll(
+            return cancellables.setting(
+                swarmPublicKey,
+                self?.poll(
                     namespaces: namespaces,
                     for: swarmPublicKey,
                     drainBehaviour: drainBehaviour,
@@ -137,24 +139,23 @@ public class Poller {
                     receiveCompletion: { _ in },    // Never called
                     receiveValue: { result in
                         // If the polling has been cancelled then don't continue
-                        guard self?.isPolling.wrappedValue[swarmPublicKey] == true else { return }
+                        guard self?.isPolling[swarmPublicKey] == true else { return }
                         
                         // Increment or reset the failureCount
                         let failureCount: Int
                         
                         switch result {
                             case .failure:
-                                failureCount = (self?.failureCount
-                                    .mutate {
+                                failureCount = (self?._failureCount
+                                    .performUpdateAndMap {
                                         let updatedFailureCount: Int = (($0[swarmPublicKey] ?? 0) + 1)
-                                        $0[swarmPublicKey] = updatedFailureCount
-                                        return updatedFailureCount
+                                        return ($0.setting(swarmPublicKey, updatedFailureCount), updatedFailureCount)
                                     })
                                     .defaulting(to: -1)
                                 
                             case .success:
                                 failureCount = 0
-                                self?.failureCount.mutate { $0.removeValue(forKey: swarmPublicKey) }
+                                self?._failureCount.performUpdate { $0.removingValue(forKey: swarmPublicKey) }
                         }
                         
                         // Log information about the poll
@@ -194,6 +195,7 @@ public class Poller {
                         }
                     }
                 )
+            )
         }
     }
     
@@ -202,7 +204,7 @@ public class Poller {
     public func pollFromBackground(
         namespaces: [SnodeAPI.Namespace],
         for swarmPublicKey: String,
-        drainBehaviour: Atomic<SwarmDrainBehaviour>,
+        drainBehaviour: ThreadSafeObject<SwarmDrainBehaviour>,
         using dependencies: Dependencies
     ) -> AnyPublisher<PollResponse, Error> {
         return poll(
@@ -222,7 +224,7 @@ public class Poller {
     public func poll(
         namespaces: [SnodeAPI.Namespace],
         for swarmPublicKey: String,
-        drainBehaviour: Atomic<SwarmDrainBehaviour>,
+        drainBehaviour: ThreadSafeObject<SwarmDrainBehaviour>,
         forceSynchronousProcessing: Bool,
         using dependencies: Dependencies
     ) -> AnyPublisher<PollResponse, Error> {
@@ -413,7 +415,9 @@ public class Poller {
                                     job: job,
                                     canStartJob: (
                                         !forceSynchronousProcessing &&
-                                        (Singleton.hasAppContext && !Singleton.appContext.isInBackground)
+                                        (Singleton.hasAppContext && !Singleton.appContext.isInBackground) ||
+                                        // FIXME: Better seperate the call messages handling, since we need to handle them all the time
+                                        Singleton.callManager.currentCall != nil
                                     ),
                                     using: dependencies
                                 )

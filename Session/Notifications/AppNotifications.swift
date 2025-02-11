@@ -440,7 +440,7 @@ public class NotificationPresenter: NotificationsProtocol {
 
     // MARK: -
 
-    var mostRecentNotifications: Atomic<TruncatedList<UInt64>> = Atomic(TruncatedList<UInt64>(maxLength: kAudioNotificationsThrottleCount))
+    @ThreadSafeObject var mostRecentNotifications: TruncatedList<UInt64> = TruncatedList<UInt64>(maxLength: kAudioNotificationsThrottleCount)
 
     private func requestSound(
         thread: SessionThread,
@@ -459,11 +459,11 @@ public class NotificationPresenter: NotificationsProtocol {
         let nowMs: UInt64 = UInt64(floor(Date().timeIntervalSince1970 * 1000))
         let recentThreshold = nowMs - UInt64(kAudioNotificationsThrottleInterval * 1000)
 
-        let recentNotifications = mostRecentNotifications.wrappedValue.filter { $0 > recentThreshold }
+        let recentNotifications = mostRecentNotifications.filter { $0 > recentThreshold }
 
         guard recentNotifications.count < kAudioNotificationsThrottleCount else { return false }
 
-        mostRecentNotifications.mutate { $0.append(nowMs) }
+        _mostRecentNotifications.performUpdate { $0.appending(nowMs) }
         return true
     }
 }
@@ -480,7 +480,7 @@ class NotificationActionHandler {
 
     // MARK: -
 
-    func markAsRead(userInfo: [AnyHashable: Any]) -> AnyPublisher<Void, Error> {
+    func markAsRead(userInfo: [AnyHashable: Any], using dependencies: Dependencies) -> AnyPublisher<Void, Error> {
         guard let threadId: String = userInfo[AppNotificationUserInfoKey.threadId] as? String else {
             return Fail(error: NotificationError.failDebug("threadId was unexpectedly nil"))
                 .eraseToAnyPublisher()
@@ -491,7 +491,7 @@ class NotificationActionHandler {
                 .eraseToAnyPublisher()
         }
 
-        return markAsRead(threadId: threadId)
+        return markAsRead(threadId: threadId, using: dependencies)
     }
 
     func reply(
@@ -512,14 +512,21 @@ class NotificationActionHandler {
         
         return Storage.shared
             .writePublisher { db in
+                let sentTimestampMs: Int64 = SnodeAPI.currentOffsetTimestampMs()
+                let destinationDisappearingMessagesConfiguration: DisappearingMessagesConfiguration? = try? DisappearingMessagesConfiguration
+                    .filter(id: threadId)
+                    .filter(DisappearingMessagesConfiguration.Columns.isEnabled == true)
+                    .fetchOne(db)
                 let interaction: Interaction = try Interaction(
                     threadId: threadId,
                     threadVariant: thread.variant,
                     authorId: getUserHexEncodedPublicKey(db),
                     variant: .standardOutgoing,
                     body: replyText,
-                    timestampMs: SnodeAPI.currentOffsetTimestampMs(),
-                    hasMention: Interaction.isUserMentioned(db, threadId: threadId, body: replyText)
+                    timestampMs: sentTimestampMs,
+                    hasMention: Interaction.isUserMentioned(db, threadId: threadId, body: replyText),
+                    expiresInSeconds: destinationDisappearingMessagesConfiguration?.durationSeconds,
+                    expiresStartedAtMs: (destinationDisappearingMessagesConfiguration?.type == .disappearAfterSend ? Double(sentTimestampMs) : nil)
                 ).inserted(db)
                 
                 try Interaction.markAsRead(
@@ -532,7 +539,8 @@ class NotificationActionHandler {
                         db,
                         threadId: threadId,
                         threadVariant: thread.variant
-                    )
+                    ),
+                    using: dependencies
                 )
                 
                 return try MessageSender.preparedSendData(
@@ -576,7 +584,8 @@ class NotificationActionHandler {
             for: threadId,
             variant: threadVariant,
             dismissing: nil,
-            animated: (UIApplication.shared.applicationState == .active)
+            animated: (UIApplication.shared.applicationState == .active),
+            using: dependencies
         )
         
         return Just(())
@@ -589,7 +598,7 @@ class NotificationActionHandler {
             .eraseToAnyPublisher()
     }
     
-    private func markAsRead(threadId: String) -> AnyPublisher<Void, Error> {
+    private func markAsRead(threadId: String, using dependencies: Dependencies) -> AnyPublisher<Void, Error> {
         return Storage.shared
             .writePublisher { db in
                 guard
@@ -616,7 +625,8 @@ class NotificationActionHandler {
                         db,
                         threadId: threadId,
                         threadVariant: threadVariant
-                    )
+                    ),
+                    using: dependencies
                 )
             }
             .eraseToAnyPublisher()
@@ -634,18 +644,66 @@ extension NotificationError {
     }
 }
 
-struct TruncatedList<Element> {
+struct TruncatedList<Element>: RangeReplaceableCollection {
     let maxLength: Int
     private var contents: [Element] = []
+    
+    // MARK: - Initialization
+    
+    init() {
+        self.maxLength = 0
+    }
 
     init(maxLength: Int) {
         self.maxLength = maxLength
     }
 
     mutating func append(_ newElement: Element) {
-        var newElements = self.contents
-        newElements.append(newElement)
-        self.contents = Array(newElements.suffix(maxLength))
+        var updatedContents: [Element] = self.contents
+        updatedContents.append(newElement)
+        self.contents = Array(updatedContents.suffix(maxLength))
+    }
+    
+    mutating func append<S: Sequence>(contentsOf newElements: S) where S.Element == Element {
+        var updatedContents: [Element] = self.contents
+        updatedContents.append(contentsOf: newElements)
+        self.contents = Array(updatedContents.suffix(maxLength))
+    }
+    
+    mutating func insert(_ newElement: Element, at i: Int) {
+        var updatedContents: [Element] = self.contents
+        updatedContents.insert(newElement, at: i)
+        self.contents = updatedContents
+    }
+    
+    mutating func remove(at position: Int) -> Element {
+        var updatedContents: [Element] = self.contents
+        let result: Element = updatedContents.remove(at: position)
+        self.contents = updatedContents
+        
+        return result
+    }
+    
+    mutating func removeSubrange(_ bounds: Range<Int>) {
+        var updatedContents: [Element] = self.contents
+        updatedContents.removeSubrange(bounds)
+        self.contents = updatedContents
+    }
+    
+    mutating func replaceSubrange<C: Collection>(_ subrange: Range<Int>, with newElements: C) where C.Element == Element {
+        var updatedContents: [Element] = self.contents
+        updatedContents.replaceSubrange(subrange, with: newElements)
+        self.contents = Array(updatedContents.suffix(maxLength))
+    }
+}
+
+extension TruncatedList {
+    func appending(_ other: Element?) -> TruncatedList<Element> {
+        guard let other: Element = other else { return self }
+        
+        var result: TruncatedList<Element> = self
+        result.append(other)
+        return result
     }
 }
 

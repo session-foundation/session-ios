@@ -15,10 +15,12 @@ import SessionSnodeKit
 public final class SessionCall: CurrentCallProtocol, WebRTCSessionDelegate {
     @objc static let isEnabled = true
     
+    private let dependencies: Dependencies
+    
     // MARK: - Metadata Properties
     public let uuid: String
     public let callId: UUID // This is for CallKit
-    let sessionId: String
+    public let sessionId: String
     let mode: CallMode
     var audioMode: AudioMode
     public let webRTCSession: WebRTCSession
@@ -85,6 +87,7 @@ public final class SessionCall: CurrentCallProtocol, WebRTCSessionDelegate {
         didSet {
             stateDidChange?()
             hasConnectedDidChange?()
+            updateCallDetailedStatus?("Call Connected")
         }
     }
 
@@ -92,6 +95,7 @@ public final class SessionCall: CurrentCallProtocol, WebRTCSessionDelegate {
         didSet {
             stateDidChange?()
             hasEndedDidChange?()
+            updateCallDetailedStatus?("")
         }
     }
 
@@ -111,6 +115,7 @@ public final class SessionCall: CurrentCallProtocol, WebRTCSessionDelegate {
     var remoteVideoStateDidChange: ((Bool) -> Void)?
     var hasStartedReconnecting: (() -> Void)?
     var hasReconnected: (() -> Void)?
+    var updateCallDetailedStatus: ((String) -> Void)?
     
     // MARK: - Derived Properties
     
@@ -147,13 +152,14 @@ public final class SessionCall: CurrentCallProtocol, WebRTCSessionDelegate {
     
     // MARK: - Initialization
     
-    init(_ db: Database, for sessionId: String, uuid: String, mode: CallMode, outgoing: Bool = false) {
+    init(_ db: Database, for sessionId: String, uuid: String, mode: CallMode, outgoing: Bool = false, using dependencies: Dependencies) {
+        self.dependencies = dependencies
         self.sessionId = sessionId
         self.uuid = uuid
         self.callId = UUID()
         self.mode = mode
         self.audioMode = .earpiece
-        self.webRTCSession = WebRTCSession.current ?? WebRTCSession(for: sessionId, with: uuid)
+        self.webRTCSession = WebRTCSession.current ?? WebRTCSession(for: sessionId, with: uuid, using: dependencies)
         self.isOutgoing = outgoing
         
         let avatarData: Data? = ProfileManager.profileAvatar(db, id: sessionId)
@@ -172,22 +178,23 @@ public final class SessionCall: CurrentCallProtocol, WebRTCSessionDelegate {
         WebRTCSession.current = self.webRTCSession
         self.webRTCSession.delegate = self
         
-        if AppEnvironment.shared.callManager.currentCall == nil {
-            AppEnvironment.shared.callManager.currentCall = self
+        if Singleton.callManager.currentCall == nil {
+            Singleton.callManager.setCurrentCall(self)
         }
         else {
             SNLog("[Calls] A call is ongoing.")
         }
     }
     
+    // stringlint:ignore_contents
     func reportIncomingCallIfNeeded(completion: @escaping (Error?) -> Void) {
         guard case .answer = mode else {
-            SessionCallManager.reportFakeCall(info: "Call not in answer mode") // stringlint:disable
+            Singleton.callManager.reportFakeCall(info: "Call not in answer mode")
             return
         }
         
         setupTimeoutTimer()
-        AppEnvironment.shared.callManager.reportIncomingCall(self, callerName: contactName) { error in
+        Singleton.callManager.reportIncomingCall(self, callerName: contactName) { error in
             completion(error)
         }
     }
@@ -245,6 +252,8 @@ public final class SessionCall: CurrentCallProtocol, WebRTCSessionDelegate {
         
         self.callInteractionId = interaction?.id
         
+        self.updateCallDetailedStatus?("Creating Call")
+        
         try? webRTCSession
             .sendPreOffer(
                 db,
@@ -252,10 +261,27 @@ public final class SessionCall: CurrentCallProtocol, WebRTCSessionDelegate {
                 interactionId: interaction?.id,
                 in: thread
             )
+            .retry(5)
             // Start the timeout timer for the call
             .handleEvents(receiveOutput: { [weak self] _ in self?.setupTimeoutTimer() })
-            .flatMap { _ in webRTCSession.sendOffer(to: thread) }
-            .sinkUntilComplete()
+            .flatMap { [weak self] _ in
+                self?.updateCallDetailedStatus?("Sending Call Offer")
+                return webRTCSession
+                    .sendOffer(to: thread)
+                    .retry(5)
+            }
+            .sinkUntilComplete(
+                receiveCompletion: { [weak self] result in
+                    switch result {
+                        case .finished:
+                            SNLog("[Calls] Offer message sent")
+                            self?.updateCallDetailedStatus?("Sending Connection Candidates")
+                        case .failure(let error):
+                            SNLog("[Calls] Error initializing call after 5 retries: \(error), ending call...")
+                            self?.handleCallInitializationFailed()
+                    }
+                }
+            )
     }
     
     func answerSessionCall() {
@@ -264,12 +290,14 @@ public final class SessionCall: CurrentCallProtocol, WebRTCSessionDelegate {
         hasStartedConnecting = true
         
         if let sdp = remoteSDP {
+            SNLog("[Calls] Got remote sdp already")
+            self.updateCallDetailedStatus?("Answering Call")
             webRTCSession.handleRemoteSDP(sdp, from: sessionId) // This sends an answer message internally
         }
     }
     
-    func answerSessionCallInBackground(action: CXAnswerCallAction) {
-        answerCallAction = action
+    func answerSessionCallInBackground() {
+        SNLog("[Calls] Answering call in background")
         self.answerSessionCall()
     }
     
@@ -287,9 +315,14 @@ public final class SessionCall: CurrentCallProtocol, WebRTCSessionDelegate {
         hasEnded = true
     }
     
+    func handleCallInitializationFailed() {
+        self.endSessionCall()
+        Singleton.callManager.reportCurrentCallEnded(reason: nil)
+    }
+    
     // MARK: - Call Message Handling
     
-    public func updateCallMessage(mode: EndCallMode) {
+    public func updateCallMessage(mode: EndCallMode, using dependencies: Dependencies) {
         guard let callInteractionId: Int64 = callInteractionId else { return }
         
         let duration: TimeInterval = self.duration
@@ -350,11 +383,12 @@ public final class SessionCall: CurrentCallProtocol, WebRTCSessionDelegate {
                     threadId: interaction.threadId,
                     threadVariant: threadVariant,
                     includingOlder: false,
-                    trySendReadReceipt: false
+                    trySendReadReceipt: false,
+                    using: dependencies
                 )
             },
-            completion: { _, _ in
-                SessionCallManager.suspendDatabaseIfCallEndedInBackground()
+            completion: { _ in
+                Singleton.callManager.suspendDatabaseIfCallEndedInBackground()
             }
         )
     }
@@ -396,6 +430,18 @@ public final class SessionCall: CurrentCallProtocol, WebRTCSessionDelegate {
         isRemoteVideoEnabled = isEnabled
     }
     
+    public func iceCandidateDidSend() {
+        DispatchQueue.main.async {
+            self.updateCallDetailedStatus?("Awaiting Recipient Answer...")
+        }
+    }
+    
+    public func iceCandidateDidReceive() {
+        DispatchQueue.main.async {
+            self.updateCallDetailedStatus?("Handling Connection Candidates")
+        }
+    }
+    
     public func didReceiveHangUpSignal() {
         self.hasEnded = true
         DispatchQueue.main.async {
@@ -403,7 +449,7 @@ public final class SessionCall: CurrentCallProtocol, WebRTCSessionDelegate {
             guard Singleton.hasAppContext else { return }
             if let callVC = Singleton.appContext.frontmostViewController as? CallVC { callVC.handleEndCallMessage() }
             if let miniCallView = MiniCallView.current { miniCallView.dismiss() }
-            AppEnvironment.shared.callManager.reportCurrentCallEnded(reason: .remoteEnded)
+            Singleton.callManager.reportCurrentCallEnded(reason: .remoteEnded)
         }
     }
     
@@ -460,7 +506,7 @@ public final class SessionCall: CurrentCallProtocol, WebRTCSessionDelegate {
         timeOutTimer = Timer.scheduledTimerOnMainThread(withTimeInterval: timeInterval, repeats: false) { _ in
             self.didTimeout = true
             
-            AppEnvironment.shared.callManager.endCall(self) { error in
+            Singleton.callManager.endCall(self) { error in
                 self.timeOutTimer = nil
             }
         }

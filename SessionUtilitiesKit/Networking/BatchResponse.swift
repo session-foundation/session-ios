@@ -155,6 +155,7 @@ protocol ErasedBatchSubResponse: ResponseInfoType {
 // MARK: - Convenience
 
 internal extension Network.BatchResponse {
+    // stringlint:ignore_contents
     static func decodingResponses(
         from data: Data?,
         as types: [Decodable.Type],
@@ -179,7 +180,7 @@ internal extension Network.BatchResponse {
                 
             case let anyDict as [String: Any]:
                 guard
-                    let resultsArray: [Data] = (anyDict["results"] as? [Any])?   // stringlint:disable
+                    let resultsArray: [Data] = (anyDict["results"] as? [Any])?
                         .compactMap({ try? JSONSerialization.data(withJSONObject: $0) }),
                     (
                         !requireAllResults ||

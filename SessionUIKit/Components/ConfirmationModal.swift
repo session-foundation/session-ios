@@ -167,6 +167,10 @@ public class ConfirmationModal: Modal, UITextFieldDelegate {
         fatalError("init(coder:) has not been implemented")
     }
     
+    deinit {
+        NotificationCenter.default.removeObserver(self)
+    }
+    
     public override func populateContentView() {
         let gestureRecogniser: UITapGestureRecognizer = UITapGestureRecognizer(
             target: self,
@@ -188,6 +192,24 @@ public class ConfirmationModal: Modal, UITextFieldDelegate {
         mainStackView.pin(to: contentView)
         closeButton.pin(.top, to: .top, of: contentView, withInset: 8)
         closeButton.pin(.right, to: .right, of: contentView, withInset: -8)
+        
+        // Observe keyboard notifications
+        let keyboardNotifications: [Notification.Name] = [
+            UIResponder.keyboardWillShowNotification,
+            UIResponder.keyboardDidShowNotification,
+            UIResponder.keyboardWillChangeFrameNotification,
+            UIResponder.keyboardDidChangeFrameNotification,
+            UIResponder.keyboardWillHideNotification,
+            UIResponder.keyboardDidHideNotification
+        ]
+        keyboardNotifications.forEach { notification in
+            NotificationCenter.default.addObserver(
+                self,
+                selector: #selector(handleKeyboardNotification(_:)),
+                name: notification,
+                object: nil
+            )
+        }
     }
     
     // MARK: - Content
@@ -257,16 +279,15 @@ public class ConfirmationModal: Modal, UITextFieldDelegate {
                 imageViewTapGestureRecognizer.isEnabled = true
         }
         
-        confirmButton.accessibilityLabel = info.confirmAccessibility?.label
-        confirmButton.accessibilityIdentifier = info.confirmAccessibility?.identifier
+        confirmButton.accessibilityIdentifier = info.confirmTitle
         confirmButton.isAccessibilityElement = true
         confirmButton.setTitle(info.confirmTitle, for: .normal)
         confirmButton.setThemeTitleColor(info.confirmStyle, for: .normal)
         confirmButton.setThemeTitleColor(.disabled, for: .disabled)
         confirmButton.isHidden = (info.confirmTitle == nil)
         confirmButton.isEnabled = info.confirmEnabled
-        cancelButton.accessibilityLabel = info.cancelAccessibility?.label
-        cancelButton.accessibilityIdentifier = info.cancelAccessibility?.identifier
+        
+        cancelButton.accessibilityIdentifier = info.cancelTitle
         cancelButton.isAccessibilityElement = true
         cancelButton.setTitle(info.cancelTitle, for: .normal)
         cancelButton.setThemeTitleColor(info.cancelStyle, for: .normal)
@@ -274,8 +295,13 @@ public class ConfirmationModal: Modal, UITextFieldDelegate {
         cancelButton.isEnabled = info.cancelEnabled
         closeButton.isHidden = !info.hasCloseButton
         
-        contentView.accessibilityLabel = info.accessibility?.label
-        contentView.accessibilityIdentifier = info.accessibility?.identifier
+        titleLabel.isAccessibilityElement = true
+        titleLabel.accessibilityIdentifier = "Modal heading"
+        titleLabel.accessibilityLabel = titleLabel.text
+        
+        explanationLabel.isAccessibilityElement = true
+        explanationLabel.accessibilityIdentifier = "Modal description"
+        explanationLabel.accessibilityLabel = explanationLabel.text
     }
     
     // MARK: - UITextFieldDelegate
@@ -321,6 +347,67 @@ public class ConfirmationModal: Modal, UITextFieldDelegate {
     override public func cancel() {
         internalOnCancel?(self)
     }
+    
+    // MARK: - Keyboard Avoidance
+
+    @objc func handleKeyboardNotification(_ notification: Notification) {
+        guard
+            let userInfo: [AnyHashable: Any] = notification.userInfo,
+            var keyboardEndFrame: CGRect = userInfo[UIResponder.keyboardFrameEndUserInfoKey] as? CGRect
+        else { return }
+        
+        // If reduce motion+crossfade transitions is on, in iOS 14 UIKit vends out a keyboard end frame
+        // of CGRect zero. This breaks the math below.
+        //
+        // If our keyboard end frame is CGRectZero, build a fake rect that's translated off the bottom edge.
+        if keyboardEndFrame == .zero {
+            keyboardEndFrame = CGRect(
+                x: UIScreen.main.bounds.minX,
+                y: UIScreen.main.bounds.maxY,
+                width: UIScreen.main.bounds.width,
+                height: 0
+            )
+        }
+        
+        // No nothing if there was no change
+//        let keyboardEndFrameConverted: CGRect = self.view.convert(keyboardEndFrame, from: nil)
+//        guard keyboardEndFrameConverted != lastKnownKeyboardFrame else { return }
+//        
+//        self.lastKnownKeyboardFrame = keyboardEndFrameConverted
+        
+        // Please refer to https://github.com/mapbox/mapbox-navigation-ios/issues/1600
+        // and https://stackoverflow.com/a/25260930 to better understand what we are
+        // doing with the UIViewAnimationOptions
+        let curveValue: Int = ((userInfo[UIResponder.keyboardAnimationCurveUserInfoKey] as? Int) ?? Int(UIView.AnimationOptions.curveEaseInOut.rawValue))
+        let options: UIView.AnimationOptions = UIView.AnimationOptions(rawValue: UInt(curveValue << 16))
+        let duration = ((userInfo[UIResponder.keyboardAnimationDurationUserInfoKey] as? TimeInterval) ?? 0)
+        
+        guard duration > 0, !UIAccessibility.isReduceMotionEnabled else {
+            // UIKit by default (sometimes? never?) animates all changes in response to keyboard events.
+            // We want to suppress those animations if the view isn't visible,
+            // otherwise presentation animations don't work properly.
+            UIView.performWithoutAnimation {
+                self.updateKeyboardAvoidance(keyboardEndFrame: keyboardEndFrame)
+            }
+            return
+        }
+        
+        UIView.animate(
+            withDuration: duration,
+            delay: 0,
+            options: options,
+            animations: { [weak self] in
+                self?.updateKeyboardAvoidance(keyboardEndFrame: keyboardEndFrame)
+                self?.view.layoutIfNeeded()
+            },
+            completion: nil
+        )
+    }
+    
+    private func updateKeyboardAvoidance(keyboardEndFrame: CGRect) {
+        contentTopConstraint?.isActive = (keyboardEndFrame.minY < (view.bounds.height - 100))
+        contentCenterYConstraint?.isActive = (contentTopConstraint?.isActive != true)
+    }
 }
 
 // MARK: - Types
@@ -329,14 +416,11 @@ public extension ConfirmationModal {
     struct Info: Equatable, Hashable {
         let title: String
         let body: Body
-        let accessibility: Accessibility?
         public let showCondition: ShowCondition
         let confirmTitle: String?
-        let confirmAccessibility: Accessibility?
         let confirmStyle: ThemeValue
         let confirmEnabled: Bool
         let cancelTitle: String
-        let cancelAccessibility: Accessibility?
         let cancelStyle: ThemeValue
         let cancelEnabled: Bool
         let hasCloseButton: Bool
@@ -351,16 +435,11 @@ public extension ConfirmationModal {
         public init(
             title: String,
             body: Body = .none,
-            accessibility: Accessibility? = nil,
             showCondition: ShowCondition = .none,
             confirmTitle: String? = nil,
-            confirmAccessibility: Accessibility? = nil,
             confirmStyle: ThemeValue = .alert_text,
             confirmEnabled: Bool = true,
             cancelTitle: String = "cancel".localized(),
-            cancelAccessibility: Accessibility? = Accessibility(
-                identifier: "Cancel"
-            ),
             cancelStyle: ThemeValue = .danger,
             cancelEnabled: Bool = true,
             hasCloseButton: Bool = false,
@@ -372,14 +451,11 @@ public extension ConfirmationModal {
         ) {
             self.title = title
             self.body = body
-            self.accessibility = accessibility
             self.showCondition = showCondition
             self.confirmTitle = confirmTitle
-            self.confirmAccessibility = confirmAccessibility
             self.confirmStyle = confirmStyle
             self.confirmEnabled = confirmEnabled
             self.cancelTitle = cancelTitle
-            self.cancelAccessibility = cancelAccessibility
             self.cancelStyle = cancelStyle
             self.cancelEnabled = cancelEnabled
             self.hasCloseButton = hasCloseButton
@@ -403,14 +479,11 @@ public extension ConfirmationModal {
             return Info(
                 title: self.title,
                 body: (body ?? self.body),
-                accessibility: self.accessibility,
                 showCondition: self.showCondition,
                 confirmTitle: self.confirmTitle,
-                confirmAccessibility: self.confirmAccessibility,
                 confirmStyle: self.confirmStyle,
                 confirmEnabled: (confirmEnabled ?? self.confirmEnabled),
                 cancelTitle: self.cancelTitle,
-                cancelAccessibility: self.cancelAccessibility,
                 cancelStyle: self.cancelStyle,
                 cancelEnabled: (cancelEnabled ?? self.cancelEnabled),
                 hasCloseButton: self.hasCloseButton,
@@ -428,14 +501,11 @@ public extension ConfirmationModal {
             return (
                 lhs.title == rhs.title &&
                 lhs.body == rhs.body &&
-                lhs.accessibility == rhs.accessibility &&
                 lhs.showCondition == rhs.showCondition &&
                 lhs.confirmTitle == rhs.confirmTitle &&
-                lhs.confirmAccessibility == rhs.confirmAccessibility &&
                 lhs.confirmStyle == rhs.confirmStyle &&
                 lhs.confirmEnabled == rhs.confirmEnabled &&
                 lhs.cancelTitle == rhs.cancelTitle &&
-                lhs.cancelAccessibility == rhs.cancelAccessibility &&
                 lhs.cancelStyle == rhs.cancelStyle &&
                 lhs.cancelEnabled == rhs.cancelEnabled &&
                 lhs.hasCloseButton == rhs.hasCloseButton &&
@@ -447,14 +517,11 @@ public extension ConfirmationModal {
         public func hash(into hasher: inout Hasher) {
             title.hash(into: &hasher)
             body.hash(into: &hasher)
-            accessibility.hash(into: &hasher)
             showCondition.hash(into: &hasher)
             confirmTitle.hash(into: &hasher)
-            confirmAccessibility.hash(into: &hasher)
             confirmStyle.hash(into: &hasher)
             confirmEnabled.hash(into: &hasher)
             cancelTitle.hash(into: &hasher)
-            cancelAccessibility.hash(into: &hasher)
             cancelStyle.hash(into: &hasher)
             cancelEnabled.hash(into: &hasher)
             hasCloseButton.hash(into: &hasher)

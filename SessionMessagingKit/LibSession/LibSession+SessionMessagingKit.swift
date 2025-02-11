@@ -51,8 +51,9 @@ public extension LibSession {
     
     // MARK: - Variables
     
+    // stringlint:ignore_contents
     internal static func syncDedupeId(_ publicKey: String) -> String {
-        return "EnqueueConfigurationSyncJob-\(publicKey)"   // stringlint:disable
+        return "EnqueueConfigurationSyncJob-\(publicKey)"
     }
     
     static var libSessionVersion: String { String(cString: LIBSESSION_UTIL_VERSION_STR) }
@@ -78,7 +79,7 @@ public extension LibSession {
         
         // If we weren't given a database instance then get one
         guard let db: Database = db else {
-            Storage.shared.read { db in
+            dependencies.storage.read { db in
                 LibSession.loadState(db, userPublicKey: userPublicKey, ed25519SecretKey: secretKey, using: dependencies)
             }
             return
@@ -203,6 +204,7 @@ public extension LibSession {
     
     // MARK: - Pushes
     
+    // stringlint:ignore_contents
     static func pendingChanges(
         _ db: Database,
         publicKey: String,
@@ -231,7 +233,7 @@ public extension LibSession {
             .reduce(into: PendingChanges()) { result, variant in
                 try dependencies.caches[.libSession]
                     .config(for: variant, publicKey: publicKey)
-                    .mutate { conf in
+                    .perform { conf in
                         guard conf != nil else { return }
                         
                         // Check if the config needs to be pushed
@@ -257,11 +259,11 @@ public extension LibSession {
                         guard let cPushData: UnsafeMutablePointer<config_push_data> = config_push(conf) else {
                             let configCountInfo: String = {
                                 switch variant {
-                                    case .userProfile: return "1 profile"  // stringlint:disable
-                                    case .contacts: return "\(contacts_size(conf)) contacts"  // stringlint:disable
-                                    case .userGroups: return "\(user_groups_size(conf)) group conversations"  // stringlint:disable
-                                    case .convoInfoVolatile: return "\(convo_info_volatile_size(conf)) volatile conversations"  // stringlint:disable
-                                    case .invalid: return "Invalid"  // stringlint:disable
+                                    case .userProfile: return "1 profile"
+                                    case .contacts: return "\(contacts_size(conf)) contacts"
+                                    case .userGroups: return "\(user_groups_size(conf)) group conversations"
+                                    case .convoInfoVolatile: return "\(convo_info_volatile_size(conf)) volatile conversations"
+                                    case .invalid: return "Invalid"
                                 }
                             }()
                             
@@ -306,7 +308,7 @@ public extension LibSession {
     ) -> ConfigDump? {
         return dependencies.caches[.libSession]
             .config(for: variant, publicKey: publicKey)
-            .mutate { conf in
+            .performMap { conf in
                 guard
                     conf != nil,
                     var cHash: [CChar] = serverHash.cString(using: .utf8)
@@ -382,7 +384,7 @@ public extension LibSession {
             .forEach { key, value in
                 try dependencies.caches[.libSession]
                     .config(for: key, publicKey: publicKey)
-                    .mutate { conf in
+                    .perform { conf in
                         // Merge the messages
                         var mergeHashes: [UnsafePointer<CChar>?] = (try? (value
                             .compactMap { message in message.serverHash.cString(using: .utf8) }
@@ -455,14 +457,16 @@ public extension LibSession {
                                         db,
                                         in: conf,
                                         mergeNeedsDump: config_needs_dump(conf),
-                                        latestConfigSentTimestampMs: latestConfigSentTimestampMs
+                                        latestConfigSentTimestampMs: latestConfigSentTimestampMs,
+                                        using: dependencies
                                     )
                                     
                                 case .convoInfoVolatile:
                                     try LibSession.handleConvoInfoVolatileUpdate(
                                         db,
                                         in: conf,
-                                        mergeNeedsDump: config_needs_dump(conf)
+                                        mergeNeedsDump: config_needs_dump(conf),
+                                        using: dependencies
                                     )
                                     
                                 case .userGroups:
@@ -573,7 +577,7 @@ public extension LibSession {
             let publicKey: String
         }
         
-        private var configStore: [Key: Atomic<UnsafeMutablePointer<config_object>?>] = [:]
+        private var configStore: [Key: ThreadSafeObject<UnsafeMutablePointer<config_object>?>] = [:]
         
         public var isEmpty: Bool { configStore.isEmpty }
         
@@ -590,16 +594,16 @@ public extension LibSession {
         // MARK: - Functions
         
         public func setConfig(for variant: ConfigDump.Variant, publicKey: String, to config: UnsafeMutablePointer<config_object>?) {
-            configStore[Key(variant: variant, publicKey: publicKey)] = config.map { Atomic($0) }
+            configStore[Key(variant: variant, publicKey: publicKey)] = config.map { ThreadSafeObject($0) }
         }
         
         public func config(
             for variant: ConfigDump.Variant,
             publicKey: String
-        ) -> Atomic<UnsafeMutablePointer<config_object>?> {
+        ) -> ThreadSafeObject<UnsafeMutablePointer<config_object>?> {
             return (
                 configStore[Key(variant: variant, publicKey: publicKey)] ??
-                Atomic(nil)
+                ThreadSafeObject(nil)
             )
         }
         
@@ -624,7 +628,7 @@ public protocol LibSessionImmutableCacheType: ImmutableCacheType {
     var isEmpty: Bool { get }
     var needsSync: Bool { get }
     
-    func config(for variant: ConfigDump.Variant, publicKey: String) -> Atomic<UnsafeMutablePointer<config_object>?>
+    func config(for variant: ConfigDump.Variant, publicKey: String) -> ThreadSafeObject<UnsafeMutablePointer<config_object>?>
 }
 
 public protocol LibSessionCacheType: LibSessionImmutableCacheType, MutableCacheType {
@@ -632,6 +636,6 @@ public protocol LibSessionCacheType: LibSessionImmutableCacheType, MutableCacheT
     var needsSync: Bool { get }
     
     func setConfig(for variant: ConfigDump.Variant, publicKey: String, to config: UnsafeMutablePointer<config_object>?)
-    func config(for variant: ConfigDump.Variant, publicKey: String) -> Atomic<UnsafeMutablePointer<config_object>?>
+    func config(for variant: ConfigDump.Variant, publicKey: String) -> ThreadSafeObject<UnsafeMutablePointer<config_object>?>
     func removeAll()
 }

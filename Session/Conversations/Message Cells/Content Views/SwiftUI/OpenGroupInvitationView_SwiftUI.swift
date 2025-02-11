@@ -14,6 +14,7 @@ struct OpenGroupInvitationView_SwiftUI: View {
     private static let iconSize: CGFloat = 24
     private static let iconImageViewSize: CGFloat = 48
     
+    // stringlint:ignore_contents
     init(
         name: String,
         url: String,
@@ -38,7 +39,7 @@ struct OpenGroupInvitationView_SwiftUI: View {
             spacing: Values.mediumSpacing
         ) {
             // Icon
-            let iconName = (isOutgoing ? "Globe" : "Plus")
+            let iconName = (isOutgoing ? "Globe" : "Plus") // stringlint:ignore
             if let iconImage = UIImage(named: iconName)?
                 .resized(to: CGSize(width: Self.iconSize, height: Self.iconSize))?
                 .withRenderingMode(.alwaysTemplate)

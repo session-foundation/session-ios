@@ -50,17 +50,16 @@ public enum UpdateProfilePictureJob: JobExecutor {
             queue: queue,
             displayPictureUpdate: (profilePictureData.map { .currentUserUploadImageData($0) } ?? .none),
             success: { db in
-                // Need to call the 'success' closure asynchronously on the queue to prevent a reentrancy
-                // issue as it will write to the database and this closure is already called within
-                // another database write
                 queue.async {
                     SNLog("[UpdateProfilePictureJob] Profile successfully updated")
                     success(job, false, dependencies)
                 }
             },
             failure: { error in
-                SNLog("[UpdateProfilePictureJob] Failed to update profile")
-                failure(job, error, false, dependencies)
+                queue.async {
+                    SNLog("[UpdateProfilePictureJob] Failed to update profile")
+                    failure(job, error, false, dependencies)
+                }
             }
         )
     }

@@ -9,7 +9,28 @@ import SessionMessagingKit
 import SignalUtilitiesKit
 import SessionUtilitiesKit
 
+// MARK: - CXProviderConfiguration
+
+public extension CXProviderConfiguration {
+    static func defaultConfiguration(_ useSystemCallLog: Bool = false) -> CXProviderConfiguration {
+        let iconMaskImage: UIImage = #imageLiteral(resourceName: "SessionGreen32")
+        let configuration = CXProviderConfiguration()
+        configuration.supportsVideo = true
+        configuration.maximumCallGroups = 1
+        configuration.maximumCallsPerCallGroup = 1
+        configuration.supportedHandleTypes = [.generic]
+        configuration.iconTemplateImageData = iconMaskImage.pngData()
+        configuration.includesCallsInRecents = useSystemCallLog
+        
+        return configuration
+    }
+}
+
+// MARK: - SessionCallManager
+
 public final class SessionCallManager: NSObject, CallManagerProtocol {
+    let dependencies: Dependencies
+    
     let provider: CXProvider?
     let callController: CXCallController?
     
@@ -27,40 +48,13 @@ public final class SessionCallManager: NSObject, CallManagerProtocol {
         }
     }
     
-    private static var _sharedProvider: CXProvider?
-    static func sharedProvider(useSystemCallLog: Bool) -> CXProvider {
-        let configuration = buildProviderConfiguration(useSystemCallLog: useSystemCallLog)
-
-        if let sharedProvider = self._sharedProvider {
-            sharedProvider.configuration = configuration
-            return sharedProvider
-        }
-        else {
-            SwiftSingletons.register(self)
-            let provider = CXProvider(configuration: configuration)
-            _sharedProvider = provider
-            return provider
-        }
-    }
-    
-    static func buildProviderConfiguration(useSystemCallLog: Bool) -> CXProviderConfiguration {
-        let providerConfiguration = CXProviderConfiguration(localizedName: "Session") // stringlint:disable
-        providerConfiguration.supportsVideo = true
-        providerConfiguration.maximumCallGroups = 1
-        providerConfiguration.maximumCallsPerCallGroup = 1
-        providerConfiguration.supportedHandleTypes = [.generic]
-        let iconMaskImage = #imageLiteral(resourceName: "SessionGreen32")
-        providerConfiguration.iconTemplateImageData = iconMaskImage.pngData()
-        providerConfiguration.includesCallsInRecents = useSystemCallLog
-
-        return providerConfiguration
-    }
-    
     // MARK: - Initialization
     
-    init(useSystemCallLog: Bool = false) {
+    init(useSystemCallLog: Bool = false, using dependencies: Dependencies) {
+        self.dependencies = dependencies
+        
         if Preferences.isCallKitSupported {
-            self.provider = SessionCallManager.sharedProvider(useSystemCallLog: useSystemCallLog)
+            self.provider = CXProvider(configuration: .defaultConfiguration(useSystemCallLog))
             self.callController = CXCallController()
         }
         else {
@@ -76,20 +70,23 @@ public final class SessionCallManager: NSObject, CallManagerProtocol {
     
     // MARK: - Report calls
     
-    public static func reportFakeCall(info: String) {
+    public func reportFakeCall(info: String) {
         let callId = UUID()
-        let provider = SessionCallManager.sharedProvider(useSystemCallLog: false)
-        provider.reportNewIncomingCall(
+        self.provider?.reportNewIncomingCall(
             with: callId,
             update: CXCallUpdate()
         ) { _ in
             SNLog("[Calls] Reported fake incoming call to CallKit due to: \(info)")
         }
-        provider.reportCall(
+        self.provider?.reportCall(
             with: callId,
             endedAt: nil,
             reason: .failed
         )
+    }
+    
+    public func setCurrentCall(_ call: CurrentCallProtocol?) {
+        self.currentCall = call
     }
     
     public func reportOutgoingCall(_ call: SessionCall) {
@@ -108,18 +105,25 @@ public final class SessionCallManager: NSObject, CallManagerProtocol {
         }
     }
     
-    public func reportIncomingCall(_ call: SessionCall, callerName: String, completion: @escaping (Error?) -> Void) {
-        let provider = provider ?? Self.sharedProvider(useSystemCallLog: false)
+    public func reportIncomingCall(_ call: CurrentCallProtocol, callerName: String, completion: @escaping (Error?) -> Void) {
+        // If CallKit isn't supported then we don't have anything to report the call to
+        guard Preferences.isCallKitSupported else {
+            UserDefaults.sharedLokiProject?[.isCallOngoing] = true
+            UserDefaults.sharedLokiProject?[.lastCallPreOffer] = Date()
+            completion(nil)
+            return
+        }
+        
         // Construct a CXCallUpdate describing the incoming call, including the caller.
         let update = CXCallUpdate()
         update.localizedCallerName = callerName
-        update.remoteHandle = CXHandle(type: .generic, value: call.callId.uuidString)
+        update.remoteHandle = CXHandle(type: .generic, value: call.sessionId)
         update.hasVideo = false
 
         disableUnsupportedFeatures(callUpdate: update)
 
         // Report the incoming call to the system
-        provider.reportNewIncomingCall(with: call.callId, update: update) { error in
+        self.provider?.reportNewIncomingCall(with: call.callId, update: update) { error in
             guard error == nil else {
                 self.reportCurrentCallEnded(reason: .failed)
                 completion(error)
@@ -140,11 +144,12 @@ public final class SessionCallManager: NSObject, CallManagerProtocol {
         }
         
         func handleCallEnded() {
+            SNLog("[Calls] Call ended.")
             WebRTCSession.current = nil
             UserDefaults.sharedLokiProject?[.isCallOngoing] = false
             UserDefaults.sharedLokiProject?[.lastCallPreOffer] = nil
             
-            if Singleton.hasAppContext && Singleton.appContext.isInBackground {
+            if Singleton.hasAppContext && Singleton.appContext.isNotInForeground {
                 (UIApplication.shared.delegate as? AppDelegate)?.stopPollers()
                 Log.flush()
             }
@@ -152,7 +157,7 @@ public final class SessionCallManager: NSObject, CallManagerProtocol {
         
         guard let call = currentCall else {
             handleCallEnded()
-            Self.suspendDatabaseIfCallEndedInBackground()
+            suspendDatabaseIfCallEndedInBackground()
             return
         }
         
@@ -160,14 +165,14 @@ public final class SessionCallManager: NSObject, CallManagerProtocol {
             self.provider?.reportCall(with: call.callId, endedAt: nil, reason: reason)
             
             switch (reason) {
-                case .answeredElsewhere: call.updateCallMessage(mode: .answeredElsewhere)
-                case .unanswered: call.updateCallMessage(mode: .unanswered)
-                case .declinedElsewhere: call.updateCallMessage(mode: .local)
-                default: call.updateCallMessage(mode: .remote)
+                case .answeredElsewhere: call.updateCallMessage(mode: .answeredElsewhere, using: dependencies)
+                case .unanswered: call.updateCallMessage(mode: .unanswered, using: dependencies)
+                case .declinedElsewhere: call.updateCallMessage(mode: .local, using: dependencies)
+                default: call.updateCallMessage(mode: .remote, using: dependencies)
             }
         }
         else {
-            call.updateCallMessage(mode: .local)
+            call.updateCallMessage(mode: .local, using: dependencies)
         }
         
         (call as? SessionCall)?.webRTCSession.dropConnection()
@@ -197,7 +202,8 @@ public final class SessionCallManager: NSObject, CallManagerProtocol {
         callUpdate.supportsDTMF = false
     }
     
-    public static func suspendDatabaseIfCallEndedInBackground() {
+    public func suspendDatabaseIfCallEndedInBackground() {
+        SNLog("[Calls] suspendDatabaseIfCallEndedInBackground.")
         if Singleton.hasAppContext && Singleton.appContext.isInBackground {
             // FIXME: Initialise the `SessionCallManager` with a dependencies instance
             let dependencies: Dependencies = Dependencies()
@@ -214,9 +220,11 @@ public final class SessionCallManager: NSObject, CallManagerProtocol {
     // MARK: - UI
     
     public func showCallUIForCall(caller: String, uuid: String, mode: CallMode, interactionId: Int64?) {
-        guard let call: SessionCall = Storage.shared.read({ db in SessionCall(db, for: caller, uuid: uuid, mode: mode) }) else {
-            return
-        }
+        guard
+            let call: SessionCall = Storage.shared.read({ [dependencies] db in
+                SessionCall(db, for: caller, uuid: uuid, mode: mode, using: dependencies)
+            })
+        else { return }
         
         call.callInteractionId = interactionId
         call.reportIncomingCallIfNeeded { error in
@@ -238,8 +246,8 @@ public final class SessionCallManager: NSObject, CallManagerProtocol {
                 {
                     let callVC = CallVC(for: call)
                     callVC.conversationVC = conversationVC
-                    conversationVC.inputAccessoryView?.isHidden = true
-                    conversationVC.inputAccessoryView?.alpha = 0
+                    conversationVC.resignFirstResponder()
+                    conversationVC.hideInputAccessoryView()
                     presentingVC.present(callVC, animated: true, completion: nil)
                 }
                 else if !Preferences.isCallKitSupported {
@@ -294,4 +302,3 @@ public final class SessionCallManager: NSObject, CallManagerProtocol {
         MiniCallView.current?.dismiss()
     }
 }
-

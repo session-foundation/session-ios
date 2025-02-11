@@ -238,12 +238,12 @@ extension OpenGroupAPI {
                                     OpenGroupManager.shared.delete(
                                         db,
                                         openGroupId: id,
-                                        /// **Note:** We pass `calledFromConfigHandling` as `true`
+                                        /// **Note:** We pass `skipLibSessionUpdate` as `true`
                                         /// here because we want to avoid syncing this deletion as the room might
                                         /// not be in an invalid state on other devices - one of the other devices
                                         /// will eventually trigger a new config update which will re-add this room
                                         /// and hopefully at that time it'll work again
-                                        calledFromConfigHandling: true,
+                                        skipLibSessionUpdate: true,
                                         using: dependencies
                                     )
                                 }
@@ -272,6 +272,7 @@ extension OpenGroupAPI {
                 .eraseToAnyPublisher()
         }
         
+        // stringlint:ignore_contents
         private func updateCapabilitiesAndRetryIfNeeded(
             server: String,
             isPostCapabilitiesRetry: Bool,
@@ -287,7 +288,7 @@ extension OpenGroupAPI {
                 !isPostCapabilitiesRetry,
                 let error: NetworkError = error as? NetworkError,
                 case .badRequest(let dataString, _) = error,
-                dataString.contains("Invalid authentication: this server requires the use of blinded ids") // stringlint:disable
+                dataString.contains("Invalid authentication: this server requires the use of blinded ids")
             else {
                 return Just(false)
                     .setFailureType(to: Error.self)

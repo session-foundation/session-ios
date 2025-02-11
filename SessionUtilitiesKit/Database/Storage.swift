@@ -14,8 +14,13 @@ public extension KeychainStorage.DataKey { static let dbCipherKeySpec: Self = "G
 // MARK: - Storage
 
 open class Storage {
+    public struct CurrentlyRunningMigration: ThreadSafeType {
+        public let identifier: TargetMigrations.Identifier
+        public let migration: Migration.Type
+    }
+    
     public static let queuePrefix: String = "SessionDatabase"
-    private static let dbFileName: String = "Session.sqlite"
+    public static let dbFileName: String = "Session.sqlite"
     private static let kSQLCipherKeySpecLength: Int = 48
     
     /// If a transaction takes longer than this duration a warning will be logged but the transaction will continue to run
@@ -24,12 +29,15 @@ open class Storage {
     /// When attempting to do a write the transaction will wait this long to acquite a lock before failing
     private static let writeTransactionStartTimeout: TimeInterval = 5
     
+    /// If a transaction takes longer than this duration then we should fail the transaction rather than keep hanging
+    private static let transactionDeadlockTimeoutSeconds: Int = 5
+    
     private static var sharedDatabaseDirectoryPath: String { "\(FileManager.default.appSharedDataDirectoryPath)/database" }
     private static var databasePath: String { "\(Storage.sharedDatabaseDirectoryPath)/\(Storage.dbFileName)" }
     private static var databasePathShm: String { "\(Storage.sharedDatabaseDirectoryPath)/\(Storage.dbFileName)-shm" }
     private static var databasePathWal: String { "\(Storage.sharedDatabaseDirectoryPath)/\(Storage.dbFileName)-wal" }
     
-    public static var hasCreatedValidInstance: Bool { internalHasCreatedValidInstance.wrappedValue }
+    public static var hasCreatedValidInstance: Bool { internalHasCreatedValidInstance }
     public static var isDatabasePasswordAccessible: Bool {
         guard (try? getDatabaseCipherKeySpec()) != nil else { return false }
         
@@ -37,9 +45,9 @@ open class Storage {
     }
     
     private var startupError: Error?
-    private let migrationsCompleted: Atomic<Bool> = Atomic(false)
-    private static let internalHasCreatedValidInstance: Atomic<Bool> = Atomic(false)
-    internal let internalCurrentlyRunningMigration: Atomic<(identifier: TargetMigrations.Identifier, migration: Migration.Type)?> = Atomic(nil)
+    @ThreadSafe private var migrationsCompleted: Bool = false
+    @ThreadSafe private static var internalHasCreatedValidInstance: Bool = false
+    @ThreadSafe private var internalCurrentlyRunningMigration: CurrentlyRunningMigration? = nil
     
     public static let shared: Storage = Storage()
     public private(set) var isValid: Bool = false
@@ -51,22 +59,34 @@ open class Storage {
     /// This property gets set the first time we successfully write to the database
     public private(set) var hasSuccessfullyWritten: Bool = false
     
-    public var hasCompletedMigrations: Bool { migrationsCompleted.wrappedValue }
-    public var currentlyRunningMigration: (identifier: TargetMigrations.Identifier, migration: Migration.Type)? {
-        internalCurrentlyRunningMigration.wrappedValue
+    public var hasCompletedMigrations: Bool { migrationsCompleted }
+    public var currentlyRunningMigration: CurrentlyRunningMigration? {
+        internalCurrentlyRunningMigration
     }
     public static let defaultPublisherScheduler: ValueObservationScheduler = .async(onQueue: .main)
     
     fileprivate var dbWriter: DatabaseWriter?
     internal var testDbWriter: DatabaseWriter? { dbWriter }
-    private var unprocessedMigrationRequirements: Atomic<[MigrationRequirement]> = Atomic(MigrationRequirement.allCases)
-    private var migrationProgressUpdater: Atomic<((String, CGFloat) -> ())>?
-    private var migrationRequirementProcesser: Atomic<(Database, MigrationRequirement) -> ()>?
+    @ThreadSafeObject private var unprocessedMigrationRequirements: [MigrationRequirement] = MigrationRequirement.allCases
+    @ThreadSafeObject private var migrationProgressUpdater: ((String, CGFloat) -> ())?
+    @ThreadSafeObject private var migrationRequirementProcesser: ((Database, MigrationRequirement) -> ())?
     
     // MARK: - Initialization
     
     public init(customWriter: DatabaseWriter? = nil) {
         configureDatabase(customWriter: customWriter)
+    }
+    
+    public init(
+        testAccessTo databasePath: String,
+        encryptedKeyPath: String,
+        encryptedKeyPassword: String
+    ) throws {
+        try testAccess(
+            databasePath: databasePath,
+            encryptedKeyPath: encryptedKeyPath,
+            encryptedKeyPassword: encryptedKeyPassword
+        )
     }
     
     private func configureDatabase(customWriter: DatabaseWriter? = nil) {
@@ -79,7 +99,7 @@ open class Storage {
         guard customWriter == nil else {
             dbWriter = customWriter
             isValid = true
-            Storage.internalHasCreatedValidInstance.mutate { $0 = true }
+            Storage.internalHasCreatedValidInstance = true
             return
         }
         
@@ -138,7 +158,7 @@ open class Storage {
                 configuration: config
             )
             isValid = true
-            Storage.internalHasCreatedValidInstance.mutate { $0 = true }
+            Storage.internalHasCreatedValidInstance = true
         }
         catch { startupError = error }
     }
@@ -235,7 +255,7 @@ open class Storage {
         let needsConfigSync: Bool = unperformedMigrations
             .contains(where: { _, _, migration in migration.needsConfigSync })
         
-        self.migrationProgressUpdater = Atomic({ targetKey, progress in
+        self._migrationProgressUpdater.set(to: { targetKey, progress in
             guard let migrationIndex: Int = unperformedMigrations.firstIndex(where: { key, _, _ in key == targetKey }) else {
                 return
             }
@@ -250,19 +270,19 @@ open class Storage {
                 onProgressUpdate?(totalProgress, totalMinExpectedDuration)
             }
         })
-        self.migrationRequirementProcesser = Atomic(onMigrationRequirement)
+        self._migrationRequirementProcesser.set(to: onMigrationRequirement)
         
         // Store the logic to run when the migration completes
         let migrationCompleted: (Swift.Result<Void, Error>) -> () = { [weak self] result in
             // Process any unprocessed requirements which need to be processed before completion
             // then clear out the state
-            let requirementProcessor: ((Database, MigrationRequirement) -> ())? = self?.migrationRequirementProcesser?.wrappedValue
-            let remainingMigrationRequirements: [MigrationRequirement] = (self?.unprocessedMigrationRequirements.wrappedValue
+            let requirementProcessor: ((Database, MigrationRequirement) -> ())? = self?.migrationRequirementProcesser
+            let remainingMigrationRequirements: [MigrationRequirement] = (self?.unprocessedMigrationRequirements
                 .filter { $0.shouldProcessAtCompletionIfNotRequired })
                 .defaulting(to: [])
-            self?.migrationsCompleted.mutate { $0 = true }
-            self?.migrationProgressUpdater = nil
-            self?.migrationRequirementProcesser = nil
+            self?.migrationsCompleted = true
+            self?._migrationProgressUpdater.set(to: nil)
+            self?._migrationRequirementProcesser.set(to: nil)
             
             // Process any remaining migration requirements
             if !remainingMigrationRequirements.isEmpty {
@@ -273,7 +293,7 @@ open class Storage {
             
             // Reset in case there is a requirement on a migration which runs when returning from
             // the background
-            self?.unprocessedMigrationRequirements.mutate { $0 = MigrationRequirement.allCases }
+            self?._unprocessedMigrationRequirements.set(to: MigrationRequirement.allCases)
             
             // Don't log anything in the case of a 'success' or if the database is suspended (the
             // latter will happen if the user happens to return to the background too quickly on
@@ -298,42 +318,55 @@ open class Storage {
         
         // If we have an unperformed migration then trigger the progress updater immediately
         if let firstMigrationKey: String = unperformedMigrations.first?.key {
-            self.migrationProgressUpdater?.wrappedValue(firstMigrationKey, 0)
+            self.migrationProgressUpdater?(firstMigrationKey, 0)
         }
         
         // Note: The non-async migration should only be used for unit tests
         guard async else { return migrationCompleted(Result(try migrator.migrate(dbWriter))) }
         
         migrator.asyncMigrate(dbWriter) { result in
-            let finalResult: Swift.Result<Void, Error> = {
+            let finalResult: Result<Void, Error> = {
                 switch result {
                     case .failure(let error): return .failure(error)
                     case .success: return .success(())
                 }
             }()
             
-            // Note: We need to dispatch this to the next run toop to prevent any potential re-entrancy
-            // issues since the 'asyncMigrate' returns a result containing a DB instance
-            DispatchQueue.global(qos: .userInitiated).async {
+            // Note: We need to dispatch this to the next run toop to prevent blocking if the callback
+            // performs subsequent database operations
+            DispatchQueue.global(qos: .userInitiated).async(using: dependencies) {
                 migrationCompleted(finalResult)
             }
         }
     }
     
-    public func willStartMigration(_ db: Database, _ migration: Migration.Type) {
+    public func willStartMigration(
+        _ db: Database,
+        _ migration: Migration.Type,
+        _ identifier: TargetMigrations.Identifier
+    ) {
+        internalCurrentlyRunningMigration = CurrentlyRunningMigration(
+            identifier: identifier,
+            migration: migration
+        )
+        
         let unprocessedRequirements: Set<MigrationRequirement> = migration.requirements.asSet()
-            .intersection(unprocessedMigrationRequirements.wrappedValue.asSet())
+            .intersection(unprocessedMigrationRequirements.asSet())
         
         // No need to do anything if there are no unprocessed requirements
         guard !unprocessedRequirements.isEmpty else { return }
         
         // Process all of the requirements for this migration
-        unprocessedRequirements.forEach { migrationRequirementProcesser?.wrappedValue(db, $0) }
+        unprocessedRequirements.forEach { migrationRequirementProcesser?(db, $0) }
         
         // Remove any processed requirements from the list (don't want to process them multiple times)
-        unprocessedMigrationRequirements.mutate {
-            $0 = Array($0.asSet().subtracting(migration.requirements.asSet()))
+        _unprocessedMigrationRequirements.performUpdate {
+            Array($0.asSet().subtracting(migration.requirements.asSet()))
         }
+    }
+    
+    public func didCompleteMigration() {
+        internalCurrentlyRunningMigration = nil
     }
     
     public static func update(
@@ -344,7 +377,7 @@ open class Storage {
         // In test builds ignore any migration progress updates (we run in a custom database writer anyway)
         guard !SNUtilitiesKit.isRunningTests else { return }
         
-        Storage.shared.migrationProgressUpdater?.wrappedValue(target.key(with: migration), progress)
+        Storage.shared.migrationProgressUpdater?(target.key(with: migration), progress)
     }
     
     // MARK: - Security
@@ -446,10 +479,20 @@ open class Storage {
         Log.info("[Storage] Database access resumed.")
     }
     
+    public func checkpoint(_ mode: Database.CheckpointMode) throws {
+        try dbWriter?.writeWithoutTransaction { db in _ = try db.checkpoint(mode) }
+    }
+    
+    public func closeDatabase() throws {
+        suspendDatabaseAccess()
+        isValid = false
+        dbWriter = nil
+    }
+    
     public func resetAllStorage() {
         isValid = false
-        Storage.internalHasCreatedValidInstance.mutate { $0 = false }
-        migrationsCompleted.mutate { $0 = false }
+        Storage.internalHasCreatedValidInstance = false
+        migrationsCompleted = false
         dbWriter = nil
         
         deleteDatabaseFiles()
@@ -484,8 +527,8 @@ open class Storage {
         case valid(DatabaseWriter)
         case invalid(Error)
         
-        init(_ storage: Storage) {
-            switch (storage.isSuspended, storage.isValid, storage.dbWriter) {
+        init(_ storage: Storage?) {
+            switch (storage?.isSuspended, storage?.isValid, storage?.dbWriter) {
                 case (true, _, _): self = .invalid(StorageError.databaseSuspended)
                 case (false, true, .some(let dbWriter)): self = .valid(dbWriter)
                 default: self = .invalid(StorageError.databaseInvalid)
@@ -494,12 +537,15 @@ open class Storage {
         
         static func logIfNeeded(_ error: Error, isWrite: Bool) {
             switch error {
-                case DatabaseError.SQLITE_ABORT, DatabaseError.SQLITE_INTERRUPT:
+                case DatabaseError.SQLITE_ABORT, DatabaseError.SQLITE_INTERRUPT, DatabaseError.SQLITE_ERROR:
                     let message: String = ((error as? DatabaseError)?.message ?? "Unknown")
                     Log.error("[Storage] Database \(isWrite ? "write" : "read") failed due to error: \(message)")
                 
                 case StorageError.databaseSuspended:
                     Log.error("[Storage] Database \(isWrite ? "write" : "read") failed as the database is suspended.")
+                    
+                case StorageError.transactionDeadlockTimeout:
+                    Log.critical("[Storage] Database \(isWrite ? "write" : "read") failed due to a potential synchronous query deadlock timeout.")
                     
                 default: break
             }
@@ -516,71 +562,158 @@ open class Storage {
         }
     }
     
-    private static func perform<T>(
-        info: CallInfo,
-        updates: @escaping (Database) throws -> T
-    ) -> (Database) throws -> T {
-        return { db in
-            guard info.storage?.isSuspended == false else { throw StorageError.databaseSuspended }
-            
-            let timer: TransactionTimer = TransactionTimer.start(duration: Storage.slowTransactionThreshold, info: info)
-            defer { timer.stop() }
-            
-            // Get the result
-            let result: T = try updates(db)
-            
-            // Update the state flags
-            switch info.isWrite {
-                case true: info.storage?.hasSuccessfullyWritten = true
-                case false: info.storage?.hasSuccessfullyRead = true
+    // MARK: - Operations
+    
+    private static func track<T>(
+        _ db: Database,
+        _ info: CallInfo,
+        _ operation: @escaping (Database) throws -> T
+    ) throws -> T {
+        guard info.storage?.isSuspended == false else { throw StorageError.databaseSuspended }
+        
+        let timer: TransactionTimer = TransactionTimer.start(
+            duration: Storage.slowTransactionThreshold,
+            info: info
+        )
+        defer { timer.stop() }
+        
+        // Get the result
+        let result: T = try operation(db)
+        
+        // Update the state flags
+        switch info.isWrite {
+            case true: info.storage?.hasSuccessfullyWritten = true
+            case false: info.storage?.hasSuccessfullyRead = true
+        }
+        
+        return result
+    }
+    
+    /// This function manually performs `read`/`write` operations in either a synchronous or asyncronous way using a semaphore to
+    /// block the syncrhonous version because `GRDB` has an internal assertion when using it's built-in synchronous `read`/`write`
+    /// functions to prevent reentrancy which is unsupported
+    ///
+    /// Unfortunately this results in the code getting messy when trying to chain multiple database transactions (even
+    /// when using `db.afterNextTransaction`) which is somewhat unintuitive
+    ///
+    /// The `async` variants don't need to worry about this reentrancy issue so instead we route we use those for all operations instead
+    /// and just block the thread when we want to perform a synchronous operation
+    @discardableResult private static func performOperation<T>(
+        _ info: CallInfo,
+        _ operation: @escaping (Database) throws -> T,
+        _ completion: ((Result<T, Error>) -> Void)? = nil
+    ) -> Result<T, Error> {
+        var result: Result<T, Error> = .failure(StorageError.invalidQueryResult)
+        let semaphore: DispatchSemaphore? = (info.isAsync ? nil : DispatchSemaphore(value: 0))
+        let logErrorIfNeeded: (Result<T, Error>) -> () = { result in
+            switch result {
+                case .success: break
+                case .failure(let error): StorageState.logIfNeeded(error, isWrite: info.isWrite)
             }
+        }
+        
+        /// Perform the actual operation
+        switch (StorageState(info.storage), info.isWrite) {
+            case (.invalid(let error), _):
+                result = .failure(error)
+                semaphore?.signal()
             
-            return result
+            case (.valid(let dbWriter), true):
+                dbWriter.asyncWrite(
+                    { db in result = .success(try Storage.track(db, info, operation)) },
+                    completion: { _, dbResult in
+                        switch dbResult {
+                            case .success: break
+                            case .failure(let error): result = .failure(error)
+                        }
+                        semaphore?.signal()
+                        
+                        if info.isAsync { logErrorIfNeeded(result) }
+                        completion?(result)
+                    }
+                )
+                
+            case (.valid(let dbWriter), false):
+                dbWriter.asyncRead { dbResult in
+                    do {
+                        switch dbResult {
+                            case .failure(let error): throw error
+                            case .success(let db): result = .success(try Storage.track(db, info, operation))
+                        }
+                    } catch {
+                        result = .failure(error)
+                    }
+                    semaphore?.signal()
+                    
+                    if info.isAsync { logErrorIfNeeded(result) }
+                    completion?(result)
+                }
+        }
+        
+        /// If this is a synchronous operation then `semaphore` will exist and will block here waiting on the signal from one of the
+        /// above closures to be sent
+        let semaphoreResult: DispatchTimeoutResult? = semaphore?.wait(timeout: .now() + .seconds(Storage.transactionDeadlockTimeoutSeconds))
+        
+        /// If the transaction timed out then log the error and report a failure
+        guard semaphoreResult != .timedOut else {
+            StorageState.logIfNeeded(StorageError.transactionDeadlockTimeout, isWrite: info.isWrite)
+            return .failure(StorageError.transactionDeadlockTimeout)
+        }
+        
+        if !info.isAsync { logErrorIfNeeded(result) }
+        return result
+    }
+    
+    private func performPublisherOperation<T>(
+        _ fileName: String,
+        _ functionName: String,
+        _ lineNumber: Int,
+        isWrite: Bool,
+        _ operation: @escaping (Database) throws -> T
+    ) -> AnyPublisher<T, Error> {
+        switch StorageState(self) {
+            case .invalid(let error): return StorageState.logIfNeeded(error, isWrite: false)
+            case .valid:
+                /// **Note:** GRDB does have `readPublisher`/`writePublisher` functions but it appears to asynchronously
+                /// trigger both the `output` and `complete` closures at the same time which causes a lot of unexpected
+                /// behaviours (this behaviour is apparently expected but still causes a number of odd behaviours in our code
+                /// for more information see https://github.com/groue/GRDB.swift/issues/1334)
+                ///
+                /// Instead of this we are just using `Deferred { Future {} }` which is executed on the specified scheduled
+                /// which behaves in a much more expected way than the GRDB `readPublisher`/`writePublisher` does
+                let info: CallInfo = CallInfo(self, fileName, functionName, lineNumber, .syncWrite)
+                return Deferred {
+                    Future { resolver in
+                        resolver(Storage.performOperation(info, operation))
+                    }
+                }.eraseToAnyPublisher()
         }
     }
     
     // MARK: - Functions
     
     @discardableResult public func write<T>(
-        fileName: String = #file,
-        functionName: String = #function,
-        lineNumber: Int = #line,
+        fileName file: String = #file,
+        functionName funcN: String = #function,
+        lineNumber line: Int = #line,
         using dependencies: Dependencies = Dependencies(),
         updates: @escaping (Database) throws -> T?
     ) -> T? {
-        switch StorageState(self) {
-            case .invalid(let error): return StorageState.logIfNeeded(error, isWrite: true)
-            case .valid(let dbWriter):
-                let info: CallInfo = CallInfo(fileName, functionName, lineNumber, true, self)
-                do { return try dbWriter.write(Storage.perform(info: info, updates: updates)) }
-                catch { return StorageState.logIfNeeded(error, isWrite: true) }
+        switch Storage.performOperation(CallInfo(self, file, funcN, line, .syncWrite), updates) {
+            case .failure: return nil
+            case .success(let result): return result
         }
     }
     
     open func writeAsync<T>(
-        fileName: String = #file,
-        functionName: String = #function,
-        lineNumber: Int = #line,
+        fileName file: String = #file,
+        functionName funcN: String = #function,
+        lineNumber line: Int = #line,
         using dependencies: Dependencies = Dependencies(),
         updates: @escaping (Database) throws -> T,
-        completion: @escaping (Database, Swift.Result<T, Error>) throws -> Void = { _, _ in }
+        completion: @escaping (Result<T, Error>) -> Void = { _ in }
     ) {
-        switch StorageState(self) {
-            case .invalid(let error): return StorageState.logIfNeeded(error, isWrite: true)
-            case .valid(let dbWriter):
-                let info: CallInfo = CallInfo(fileName, functionName, lineNumber, true, self)
-                dbWriter.asyncWrite(
-                    Storage.perform(info: info, updates: updates),
-                    completion: { db, result in
-                        switch result {
-                            case .failure(let error): StorageState.logIfNeeded(error, isWrite: true)
-                            default: break
-                        }
-                        
-                        try? completion(db, result)
-                    }
-                )
-        }
+        Storage.performOperation(CallInfo(self, file, funcN, line, .asyncWrite), updates, completion)
     }
     
     open func writePublisher<T>(
@@ -590,42 +723,19 @@ open class Storage {
         using dependencies: Dependencies = Dependencies(),
         updates: @escaping (Database) throws -> T
     ) -> AnyPublisher<T, Error> {
-        switch StorageState(self) {
-            case .invalid(let error): return StorageState.logIfNeeded(error, isWrite: true)
-            case .valid(let dbWriter):
-                /// **Note:** GRDB does have a `writePublisher` method but it appears to asynchronously trigger
-                /// both the `output` and `complete` closures at the same time which causes a lot of unexpected
-                /// behaviours (this behaviour is apparently expected but still causes a number of odd behaviours in our code
-                /// for more information see https://github.com/groue/GRDB.swift/issues/1334)
-                ///
-                /// Instead of this we are just using `Deferred { Future {} }` which is executed on the specified scheduled
-                /// which behaves in a much more expected way than the GRDB `writePublisher` does
-                let info: CallInfo = CallInfo(fileName, functionName, lineNumber, true, self)
-                return Deferred {
-                    Future { resolver in
-                        do { resolver(Result.success(try dbWriter.write(Storage.perform(info: info, updates: updates)))) }
-                        catch {
-                            StorageState.logIfNeeded(error, isWrite: true)
-                            resolver(Result.failure(error))
-                        }
-                    }
-                }.eraseToAnyPublisher()
-        }
+        return performPublisherOperation(fileName, functionName, lineNumber, isWrite: true, updates)
     }
     
     @discardableResult public func read<T>(
-        fileName: String = #file,
-        functionName: String = #function,
-        lineNumber: Int = #line,
+        fileName file: String = #file,
+        functionName funcN: String = #function,
+        lineNumber line: Int = #line,
         using dependencies: Dependencies = Dependencies(),
         _ value: @escaping (Database) throws -> T?
     ) -> T? {
-        switch StorageState(self) {
-            case .invalid(let error): return StorageState.logIfNeeded(error, isWrite: false)
-            case .valid(let dbWriter):
-                let info: CallInfo = CallInfo(fileName, functionName, lineNumber, false, self)
-                do { return try dbWriter.read(Storage.perform(info: info, updates: value)) }
-                catch { return StorageState.logIfNeeded(error, isWrite: false) }
+        switch Storage.performOperation(CallInfo(self, file, funcN, line, .syncRead), value) {
+            case .failure: return nil
+            case .success(let result): return result
         }
     }
     
@@ -636,27 +746,7 @@ open class Storage {
         using dependencies: Dependencies = Dependencies(),
         value: @escaping (Database) throws -> T
     ) -> AnyPublisher<T, Error> {
-        switch StorageState(self) {
-            case .invalid(let error): return StorageState.logIfNeeded(error, isWrite: false)
-            case .valid(let dbWriter):
-                /// **Note:** GRDB does have a `readPublisher` method but it appears to asynchronously trigger
-                /// both the `output` and `complete` closures at the same time which causes a lot of unexpected
-                /// behaviours (this behaviour is apparently expected but still causes a number of odd behaviours in our code
-                /// for more information see https://github.com/groue/GRDB.swift/issues/1334)
-                ///
-                /// Instead of this we are just using `Deferred { Future {} }` which is executed on the specified scheduled
-                /// which behaves in a much more expected way than the GRDB `readPublisher` does
-                let info: CallInfo = CallInfo(fileName, functionName, lineNumber, false, self)
-                return Deferred {
-                    Future { resolver in
-                        do { resolver(Result.success(try dbWriter.read(Storage.perform(info: info, updates: value)))) }
-                        catch {
-                            StorageState.logIfNeeded(error, isWrite: false)
-                            resolver(Result.failure(error))
-                        }
-                    }
-                }.eraseToAnyPublisher()
-        }
+        return performPublisherOperation(fileName, functionName, lineNumber, isWrite: false, value)
     }
     
     /// Rever to the `ValueObservation.start` method for full documentation
@@ -732,9 +822,60 @@ public extension ValueObservation {
 
 // MARK: - Debug Convenience
 
-#if DEBUG
 public extension Storage {
-    func exportInfo(password: String) throws -> (dbPath: String, keyPath: String) {
+    static let encKeyFilename: String = "key.enc"
+    
+    func testAccess(
+        databasePath: String,
+        encryptedKeyPath: String,
+        encryptedKeyPassword: String
+    ) throws {
+        /// First we need to ensure we can decrypt the encrypted key file
+        do {
+            var tmpKeySpec: Data = try decryptSecureExportedKey(
+                path: encryptedKeyPath,
+                password: encryptedKeyPassword
+            )
+            tmpKeySpec.resetBytes(in: 0..<tmpKeySpec.count)
+        }
+        catch { return }
+        
+        /// Then configure the database using the key
+        var config = Configuration()
+
+        /// Load in the SQLCipher keys
+        config.prepareDatabase { [weak self] db in
+            var keySpec: Data = try self?.decryptSecureExportedKey(
+                path: encryptedKeyPath,
+                password: encryptedKeyPassword
+            ) ?? { throw StorageError.invalidKeySpec }()
+            defer { keySpec.resetBytes(in: 0..<keySpec.count) } // Reset content immediately after use
+            
+            // Use a raw key spec, where the 96 hexadecimal digits are provided
+            // (i.e. 64 hex for the 256 bit key, followed by 32 hex for the 128 bit salt)
+            // using explicit BLOB syntax, e.g.:
+            //
+            // x'98483C6EB40B6C31A448C22A66DED3B5E5E8D5119CAC8327B655C8B5C483648101010101010101010101010101010101'
+            keySpec = try (keySpec.toHexString().data(using: .utf8) ?? { throw StorageError.invalidKeySpec }())
+            keySpec.insert(contentsOf: [120, 39], at: 0)    // "x'" prefix
+            keySpec.append(39)                              // "'" suffix
+            
+            try db.usePassphrase(keySpec)
+            
+            // According to the SQLCipher docs iOS needs the 'cipher_plaintext_header_size' value set to at least
+            // 32 as iOS extends special privileges to the database and needs this header to be in plaintext
+            // to determine the file type
+            //
+            // For more info see: https://www.zetetic.net/sqlcipher/sqlcipher-api/#cipher_plaintext_header_size
+            try db.execute(sql: "PRAGMA cipher_plaintext_header_size = 32")
+        }
+        
+        // Create the DatabasePool to allow us to connect to the database and mark the storage as valid
+        dbWriter = try DatabasePool(path: databasePath, configuration: config)
+        isValid = true
+    }
+    
+    func secureExportKey(password: String) throws -> String {
         var keySpec: Data = try getOrGenerateDatabaseKeySpec()
         defer { keySpec.resetBytes(in: 0..<keySpec.count) } // Reset content immediately after use
         
@@ -753,27 +894,61 @@ public extension Storage {
         let hash: SHA256.Digest = SHA256.hash(data: passwordData)
         let key: SymmetricKey = SymmetricKey(data: Data(hash.makeIterator()))
         let sealedBox: ChaChaPoly.SealedBox = try ChaChaPoly.seal(keySpec, using: key, nonce: nonce, authenticating: Data())
-        let keyInfoPath: String = "\(NSTemporaryDirectory())key.enc"
+        let keyInfoPath: String = (Singleton.hasAppContext ?
+            "\(Singleton.appContext.temporaryDirectory)/\(Storage.encKeyFilename)" :
+            "\(NSTemporaryDirectory())\(Storage.encKeyFilename)"
+        )
         let encryptedKeyBase64: String = sealedBox.combined.base64EncodedString()
         try encryptedKeyBase64.write(toFile: keyInfoPath, atomically: true, encoding: .utf8)
         
-        return (
-            Storage.databasePath,
-            keyInfoPath
-        )
+        return keyInfoPath
+    }
+    
+    func replaceDatabaseKey(path: String, password: String) throws {
+        var keySpec: Data = try decryptSecureExportedKey(path: path, password: password)
+        defer { keySpec.resetBytes(in: 0..<keySpec.count) } // Reset content immediately after use
+        
+        try Singleton.keychain.set(data: keySpec, forKey: .dbCipherKeySpec)
+    }
+    
+    fileprivate func decryptSecureExportedKey(path: String, password: String) throws -> Data {
+        let encKeyBase64: String = try String(contentsOf: URL(fileURLWithPath: path), encoding: .utf8)
+        
+        guard
+            var passwordData: Data = password.data(using: .utf8),
+            var encKeyData: Data = Data(base64Encoded: encKeyBase64)
+        else { throw StorageError.generic }
+        defer {
+            // Reset content immediately after use
+            passwordData.resetBytes(in: 0..<passwordData.count)
+            encKeyData.resetBytes(in: 0..<encKeyData.count)
+        }
+        
+        let hash: SHA256.Digest = SHA256.hash(data: passwordData)
+        let key: SymmetricKey = SymmetricKey(data: Data(hash.makeIterator()))
+        
+        let sealedBox: ChaChaPoly.SealedBox = try ChaChaPoly.SealedBox(combined: encKeyData)
+        
+        return try ChaChaPoly.open(sealedBox, using: key, authenticating: Data())
     }
 }
-#endif
 
 // MARK: - CallInfo
 
 private extension Storage {
     class CallInfo {
+        enum Behaviour {
+            case syncRead
+            case asyncRead
+            case syncWrite
+            case asyncWrite
+        }
+        
+        weak var storage: Storage?
         let file: String
         let function: String
         let line: Int
-        let isWrite: Bool
-        weak var storage: Storage?
+        let behaviour: Behaviour
         
         var callInfo: String {
             let fileInfo: String = (file.components(separatedBy: "/").last.map { "\($0):\(line) - " } ?? "")
@@ -781,18 +956,31 @@ private extension Storage {
             return "\(fileInfo)\(function)"
         }
         
+        var isWrite: Bool {
+            switch behaviour {
+                case .syncWrite, .asyncWrite: return true
+                case .syncRead, .asyncRead: return false
+            }
+        }
+        var isAsync: Bool {
+            switch behaviour {
+                case .asyncRead, .asyncWrite: return true
+                case .syncRead, .syncWrite: return false
+            }
+        }
+        
         init(
+            _ storage: Storage?,
             _ file: String,
             _ function: String,
             _ line: Int,
-            _ isWrite: Bool,
-            _ storage: Storage?
+            _ behaviour: Behaviour
         ) {
+            self.storage = storage
             self.file = file
             self.function = function
             self.line = line
-            self.isWrite = isWrite
-            self.storage = storage
+            self.behaviour = behaviour
         }
     }
 }

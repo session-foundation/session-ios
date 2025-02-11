@@ -96,7 +96,6 @@ extension ConversationVC:
                     title: "callsPermissionsRequired".localized(),
                     body: .text("callsPermissionsRequiredDescription".localized()),
                     confirmTitle: "sessionSettings".localized(),
-                    confirmAccessibility: Accessibility(identifier: "Settings"),
                     dismissOnConfirm: false // Custom dismissal logic
                 ) { [weak self] _ in
                     self?.dismiss(animated: true) {
@@ -121,12 +120,21 @@ extension ConversationVC:
         
         let threadId: String = self.viewModel.threadData.threadId
         
-        guard AVAudioSession.sharedInstance().recordPermission == .granted else { return }
-        guard self.viewModel.threadData.threadVariant == .contact else { return }
-        guard AppEnvironment.shared.callManager.currentCall == nil else { return }
-        guard let call: SessionCall = Storage.shared.read({ db in SessionCall(db, for: threadId, uuid: UUID().uuidString.lowercased(), mode: .offer, outgoing: true) }) else {
-            return
-        }
+        guard
+            Permissions.microphone == .granted,
+            self.viewModel.threadData.threadVariant == .contact,
+            Singleton.callManager.currentCall == nil,
+            let call: SessionCall = Storage.shared.read({ [dependencies = viewModel.dependencies] db in
+                SessionCall(
+                    db,
+                    for: threadId,
+                    uuid: UUID().uuidString.lowercased(),
+                    mode: .offer,
+                    outgoing: true,
+                    using: dependencies
+                )
+            })
+        else { return }
         
         let callVC = CallVC(for: call)
         callVC.conversationVC = self
@@ -160,9 +168,7 @@ extension ConversationVC:
                         .localizedFormatted(baseFont: .systemFont(ofSize: Values.smallFontSize))
                 ),
                 confirmTitle: "blockUnblock".localized(),
-                confirmAccessibility: Accessibility(identifier: "Confirm block"),
-                confirmStyle: .danger, 
-                cancelAccessibility: Accessibility(identifier: "Cancel block"),
+                confirmStyle: .danger,
                 cancelStyle: .alert_text,
                 dismissOnConfirm: false // Custom dismissal logic
             ) { [weak self] _ in
@@ -263,7 +269,7 @@ extension ConversationVC:
                         updates: { db in
                             db[.isGiphyEnabled] = true
                         },
-                        completion: { _, _ in
+                        completion: { _ in
                             DispatchQueue.main.async {
                                 self?.handleGIFButtonTapped()
                             }
@@ -317,7 +323,7 @@ extension ConversationVC:
         
         Permissions.requestMicrophonePermissionIfNeeded()
         
-        if AVAudioSession.sharedInstance().recordPermission != .granted {
+        if Permissions.microphone != .granted {
             SNLog("Proceeding without microphone access. Any recorded video will be silent.")
         }
         
@@ -372,7 +378,7 @@ extension ConversationVC:
         }
         
         let fileName = urlResourceValues.name ?? "attachment".localized()
-        guard let dataSource = DataSourcePath(fileUrl: url, shouldDeleteOnDeinit: false) else {
+        guard let dataSource = DataSourcePath(fileUrl: url, sourceFilename: urlResourceValues.name, shouldDeleteOnDeinit: false) else {
             DispatchQueue.main.async { [weak self] in
                 self?.viewModel.showToast(text: "attachmentsErrorLoad".localized())
             }
@@ -406,7 +412,7 @@ extension ConversationVC:
 
     func showAttachmentApprovalDialogAfterProcessingVideo(at url: URL, with fileName: String) {
         ModalActivityIndicatorViewController.present(fromViewController: self, canCancel: true, message: nil) { [weak self, dependencies = viewModel.dependencies] modalActivityIndicator in
-            let dataSource = DataSourcePath(fileUrl: url, shouldDeleteOnDeinit: false)!
+            let dataSource = DataSourcePath(fileUrl: url, sourceFilename: fileName, shouldDeleteOnDeinit: false)!
             dataSource.sourceFilename = fileName
             
             SignalAttachment
@@ -543,7 +549,8 @@ extension ConversationVC:
                             .updateAllAndConfig(
                                 db,
                                 SessionThread.Columns.shouldBeVisible.set(to: true),
-                                SessionThread.Columns.pinnedPriority.set(to: LibSession.visiblePriority)
+                                SessionThread.Columns.pinnedPriority.set(to: LibSession.visiblePriority),
+                                using: dependencies
                             )
                     }
                     
@@ -724,7 +731,7 @@ extension ConversationVC:
         
         let newText: String = snInputView.text.replacingCharacters(
             in: currentMentionStartIndex...,
-            with: "@\(mentionInfo.profile.displayName(for: self.viewModel.threadData.threadVariant)) " // stringlint:disable
+            with: "@\(mentionInfo.profile.displayName(for: self.viewModel.threadData.threadVariant)) " // stringlint:ignore
         )
         
         snInputView.text = newText
@@ -759,6 +766,7 @@ extension ConversationVC:
             isCharacterBeforeLastWhiteSpaceOrStartOfLine = characterBeforeLast.isWhitespace
         }
         
+        // stringlint:ignore_start
         if lastCharacter == "@" && isCharacterBeforeLastWhiteSpaceOrStartOfLine {
             currentMentionStartIndex = lastCharacterIndex
             snInputView.showMentionsUI(for: self.viewModel.mentions())
@@ -773,6 +781,7 @@ extension ConversationVC:
                 snInputView.showMentionsUI(for: self.viewModel.mentions(for: query))
             }
         }
+        // stringlint:ignore_stop
     }
 
     func resetMentions() {
@@ -780,27 +789,43 @@ extension ConversationVC:
         mentions = []
     }
 
+    // stringlint:ignore_contents
     func replaceMentions(in text: String) -> String {
         var result = text
         for mention in mentions {
-            guard let range = result.range(of: "@\(mention.profile.displayName(for: mention.threadVariant))") else { continue } // stringlint:disable
-            result = result.replacingCharacters(in: range, with: "@\(mention.profile.id)") // stringlint:disable
+            guard let range = result.range(of: "@\(mention.profile.displayName(for: mention.threadVariant))") else { continue }
+            result = result.replacingCharacters(in: range, with: "@\(mention.profile.id)")
         }
         
         return result
     }
     
     func hideInputAccessoryView() {
-        DispatchQueue.main.async {
-            self.inputAccessoryView?.isHidden = true
-            self.inputAccessoryView?.alpha = 0
+        guard Thread.isMainThread else {
+            DispatchQueue.main.async {
+                self.hideInputAccessoryView()
+            }
+            return
         }
+        self.isKeyboardVisible = self.snInputView.isInputFirstResponder
+        self.inputAccessoryView?.resignFirstResponder()
+        self.inputAccessoryView?.isHidden = true
+        self.inputAccessoryView?.alpha = 0
     }
     
     func showInputAccessoryView() {
+        guard Thread.isMainThread else {
+            DispatchQueue.main.async {
+                self.showInputAccessoryView()
+            }
+            return
+        }
         UIView.animate(withDuration: 0.25, animations: {
             self.inputAccessoryView?.isHidden = false
             self.inputAccessoryView?.alpha = 1
+            if self.isKeyboardVisible {
+                self.inputAccessoryView?.becomeFirstResponder()
+            }
         })
     }
 
@@ -921,20 +946,45 @@ extension ConversationVC:
                 info: ConfirmationModal.Info(
                     title: "disappearingMessagesFollowSetting".localized(),
                     body: .attributedText(modalBodyString.formatted(baseFont: .systemFont(ofSize: Values.smallFontSize))),
-                    accessibility: Accessibility(identifier: "Follow setting dialog"),
                     confirmTitle: modalConfirmTitle,
-                    confirmAccessibility: Accessibility(identifier: "Set button"),
                     confirmStyle: .danger,
                     cancelStyle: .textPrimary,
                     dismissOnConfirm: false // Custom dismissal logic
                 ) { [weak self] _ in
                     dependencies.storage.writeAsync { db in
-                        try messageDisappearingConfig.save(db)
+                        let userPublicKey: String = getUserHexEncodedPublicKey(db, using: dependencies)
+                        let currentTimestampMs: Int64 = SnodeAPI.currentOffsetTimestampMs()
+                        
+                        let interactionId = try messageDisappearingConfig
+                            .saved(db)
+                            .insertControlMessage(
+                                db,
+                                threadVariant: cellViewModel.threadVariant,
+                                authorId: userPublicKey,
+                                timestampMs: currentTimestampMs,
+                                serverHash: nil,
+                                serverExpirationTimestamp: nil
+                            )
+                        
+                        let expirationTimerUpdateMessage: ExpirationTimerUpdate = ExpirationTimerUpdate()
+                            .with(sentTimestamp: UInt64(currentTimestampMs))
+                            .with(messageDisappearingConfig)
+
+                        try MessageSender.send(
+                            db,
+                            message: expirationTimerUpdateMessage,
+                            interactionId: interactionId,
+                            threadId: cellViewModel.threadId,
+                            threadVariant: cellViewModel.threadVariant,
+                            using: dependencies
+                        )
+                        
                         try LibSession
                             .update(
                                 db,
                                 sessionId: cellViewModel.threadId,
-                                disappearingMessagesConfig: messageDisappearingConfig
+                                disappearingMessagesConfig: messageDisappearingConfig,
+                                using: dependencies
                             )
                     }
                     self?.dismiss(animated: true, completion: nil)
@@ -955,8 +1005,6 @@ extension ConversationVC:
                     title: "attachmentsAutoDownloadModalTitle".localized(),
                     body: .attributedText(message),
                     confirmTitle: "download".localized(),
-                    confirmAccessibility: Accessibility(identifier: "Download media"),
-                    cancelAccessibility: Accessibility(identifier: "Don't download media"),
                     dismissOnConfirm: false // Custom dismissal logic
                 ) { [weak self] _ in
                     self?.viewModel.trustContact()
@@ -1215,14 +1263,18 @@ extension ConversationVC:
                     UIApplication.shared.open(url, options: [:], completionHandler: nil)
                     self?.showInputAccessoryView()
                 },
-                onCancel: { [weak self] _ in
+                onCancel: { [weak self] modal in
                     UIPasteboard.general.string = url.absoluteString
-                    self?.showInputAccessoryView()
+                    modal.dismiss(animated: true) {
+                        self?.showInputAccessoryView()
+                    }
                 }
             )
         )
         
-        self.present(modal, animated: true)
+        self.present(modal, animated: true) { [weak self] in
+            self?.hideInputAccessoryView()
+        }
     }
     
     func handleReplyButtonTapped(for cellViewModel: MessageViewModel, using dependencies: Dependencies) {
@@ -1234,9 +1286,14 @@ extension ConversationVC:
         // FIXME: Add in support for starting a thread with a 'blinded25' id
         guard (try? SessionId.Prefix(from: sessionId)) != .blinded25 else { return }
         guard (try? SessionId.Prefix(from: sessionId)) == .blinded15 else {
-            Storage.shared.write { db in
-                try SessionThread
-                    .fetchOrCreate(db, id: sessionId, variant: .contact, shouldBeVisible: nil)
+            Storage.shared.write { [dependencies = viewModel.dependencies] db in
+                try SessionThread.upsert(
+                    db,
+                    id: sessionId,
+                    variant: .contact,
+                    values: .existingOrDefault,
+                    using: dependencies
+                )
             }
             
             let conversationVC: ConversationVC = ConversationVC(
@@ -1255,7 +1312,7 @@ extension ConversationVC:
             return
         }
         
-        let targetThreadId: String? = Storage.shared.write { db in
+        let targetThreadId: String? = Storage.shared.write { [dependencies = viewModel.dependencies] db in
             let lookup: BlindedIdLookup = try BlindedIdLookup
                 .fetchOrCreate(
                     db,
@@ -1265,14 +1322,13 @@ extension ConversationVC:
                     isCheckingForOutbox: false
                 )
             
-            return try SessionThread
-                .fetchOrCreate(
-                    db,
-                    id: (lookup.sessionId ?? lookup.blindedId),
-                    variant: .contact,
-                    shouldBeVisible: nil
-                )
-                .id
+            return try SessionThread.upsert(
+                db,
+                id: (lookup.sessionId ?? lookup.blindedId),
+                variant: .contact,
+                values: .existingOrDefault,
+                using: dependencies
+            ).id
         }
         
         guard let threadId: String = targetThreadId else { return }
@@ -1489,7 +1545,11 @@ extension ConversationVC:
                 if self?.viewModel.threadData.threadShouldBeVisible == false {
                     _ = try SessionThread
                         .filter(id: cellViewModel.threadId)
-                        .updateAllAndConfig(db, SessionThread.Columns.shouldBeVisible.set(to: true))
+                        .updateAllAndConfig(
+                            db,
+                            SessionThread.Columns.shouldBeVisible.set(to: true),
+                            using: dependencies
+                        )
                 }
                 
                 let pendingReaction: Reaction? = {
@@ -1723,7 +1783,7 @@ extension ConversationVC:
                                 roomToken: room,
                                 server: server,
                                 publicKey: publicKey,
-                                calledFromConfigHandling: false
+                                forceVisible: false
                             )
                         }
                         .flatMap { successfullyAddedGroup in
@@ -1731,8 +1791,7 @@ extension ConversationVC:
                                 successfullyAddedGroup: successfullyAddedGroup,
                                 roomToken: room,
                                 server: server,
-                                publicKey: publicKey,
-                                calledFromConfigHandling: false
+                                publicKey: publicKey
                             )
                         }
                         .subscribe(on: DispatchQueue.global(qos: .userInitiated))
@@ -1749,7 +1808,7 @@ extension ConversationVC:
                                             OpenGroupManager.shared.delete(
                                                 db,
                                                 openGroupId: OpenGroup.idFor(roomToken: room, server: server),
-                                                calledFromConfigHandling: false
+                                                skipLibSessionUpdate: false
                                             )
                                         }
                                         
@@ -2087,6 +2146,7 @@ extension ConversationVC:
                 }
                 
                 // Delete the message from the open group
+                self.hideInputAccessoryView()
                 deleteRemotely(
                     from: self,
                     request: Storage.shared
@@ -2111,13 +2171,14 @@ extension ConversationVC:
                     userPublicKey :
                     cellViewModel.threadId
                 )
-                let serverHash: String? = Storage.shared.read { db -> String? in
-                    try Interaction
-                        .select(.serverHash)
-                        .filter(id: cellViewModel.id)
-                        .asRequest(of: String.self)
-                        .fetchOne(db)
-                }
+                let serverHashes: Set<String> = Storage.shared
+                    .read { db -> Set<String> in
+                        try Interaction.serverHashesForDeletion(
+                            db,
+                            interactionIds: [cellViewModel.id]
+                        )
+                    }
+                    .defaulting(to: [])
                 let unsendRequest: UnsendRequest = UnsendRequest(
                     timestamp: UInt64(cellViewModel.timestampMs),
                     author: (cellViewModel.variant == .standardOutgoing ?
@@ -2131,7 +2192,7 @@ extension ConversationVC:
                 )
                 
                 // For incoming interactions or interactions with no serverHash just delete them locally
-                guard cellViewModel.variant == .standardOutgoing, let serverHash: String = serverHash else {
+                guard cellViewModel.variant == .standardOutgoing, !serverHashes.isEmpty else {
                     Storage.shared.writeAsync { db in
                         _ = try Interaction
                             .filter(id: cellViewModel.id)
@@ -2139,7 +2200,7 @@ extension ConversationVC:
                         
                         // No need to send the unsendRequest if there is no serverHash (ie. the message
                         // was outgoing but never got to the server)
-                        guard serverHash != nil else { return }
+                        guard !serverHashes.isEmpty else { return }
                         
                         MessageSender
                             .send(
@@ -2187,7 +2248,6 @@ extension ConversationVC:
                 actionSheet.addAction(UIAlertAction(
                     title: {
                         switch (cellViewModel.threadVariant, cellViewModel.threadId) {
-                            case (.legacyGroup, _), (.group, _): return "clearMessagesForEveryone".localized()
                             case (_, userPublicKey): return "deleteMessageDevicesAll".localized()
                             default: return "deleteMessageEveryone".localized()
                         }
@@ -2197,6 +2257,10 @@ extension ConversationVC:
                 ) { [weak self] _ in
                     let completeServerDeletion = {
                         Storage.shared.writeAsync { db in
+                            _ = try Interaction
+                                .filter(id: cellViewModel.id)
+                                .deleteAll(db)
+                            
                             try MessageSender
                                 .send(
                                     db,
@@ -2206,7 +2270,15 @@ extension ConversationVC:
                                     threadVariant: cellViewModel.threadVariant,
                                     using: dependencies
                                 )
+                            
+                            /// We should also remove the `SnodeReceivedMessageInfo` entries for the hashes (otherwise we
+                            /// might try to poll for a hash which no longer exists, resulting in fetching the last 14 days of messages)
+                            try SnodeReceivedMessageInfo.handlePotentialDeletedOrInvalidHash(
+                                db,
+                                potentiallyInvalidHashes: Array(serverHashes)
+                            )
                         }
+                        self?.showInputAccessoryView()
                     }
                         
                     // We can only delete messages on the server for `contact` and `group` conversations
@@ -2219,7 +2291,7 @@ extension ConversationVC:
                         request: SnodeAPI
                             .deleteMessages(
                                 swarmPublicKey: targetPublicKey,
-                                serverHashes: [serverHash]
+                                serverHashes: Array(serverHashes)
                             )
                             .map { _ in () }
                             .eraseToAnyPublisher()
@@ -2422,14 +2494,14 @@ extension ConversationVC:
         
         // Keep screen on
         UIApplication.shared.isIdleTimerDisabled = false
-        guard AVAudioSession.sharedInstance().recordPermission == .granted else { return }
+        guard Permissions.microphone == .granted else { return }
         
         // Cancel any current audio playback
         self.viewModel.stopAudio()
         
         // Create URL
         let directory: String = Singleton.appContext.temporaryDirectory
-        let fileName: String = "\(SnodeAPI.currentOffsetTimestampMs()).m4a" // stringlint:disable
+        let fileName: String = "\(SnodeAPI.currentOffsetTimestampMs()).m4a" // stringlint:ignore
         let url: URL = URL(fileURLWithPath: directory).appendingPathComponent(fileName)
         
         // Set up audio session
@@ -2526,13 +2598,14 @@ extension ConversationVC:
         }
         
         // Get data
-        let dataSourceOrNil = DataSourcePath(fileUrl: audioRecorder.url, shouldDeleteOnDeinit: true)
+        let dataSourceOrNil = DataSourcePath(fileUrl: audioRecorder.url, sourceFilename: nil, shouldDeleteOnDeinit: true)
         self.audioRecorder = nil
         
         guard let dataSource = dataSourceOrNil else { return SNLog("Couldn't load recorded data.") }
         
         // Create attachment
-        let fileName = ("messageVoice".localized() as NSString).appendingPathExtension("m4a")
+        let fileName = ("messageVoice".localized() as NSString)
+            .appendingPathExtension("m4a") // stringlint:ignore
         dataSource.sourceFilename = fileName
         
         let attachment = SignalAttachment.voiceMessageAttachment(dataSource: dataSource, type: .mpeg4Audio)
@@ -2692,7 +2765,8 @@ extension ConversationVC {
                         db,
                         Contact.Columns.isApproved.set(to: true),
                         Contact.Columns.didApproveMe
-                            .set(to: contact.didApproveMe || !isNewThread)
+                            .set(to: contact.didApproveMe || !isNewThread),
+                        using: dependencies
                     )
             }
             .subscribe(on: DispatchQueue.global(qos: .userInitiated))
@@ -2722,7 +2796,8 @@ extension ConversationVC {
             tableView: self.tableView,
             threadViewModel: self.viewModel.threadData,
             viewController: self, 
-            navigatableStateHolder: nil
+            navigatableStateHolder: nil,
+            using: viewModel.dependencies
         )
         
         guard let action: UIContextualAction = actions?.first else { return }
@@ -2746,7 +2821,8 @@ extension ConversationVC {
             tableView: self.tableView,
             threadViewModel: self.viewModel.threadData,
             viewController: self,
-            navigatableStateHolder: nil
+            navigatableStateHolder: nil,
+            using: viewModel.dependencies
         )
         
         guard let action: UIContextualAction = actions?.first else { return }

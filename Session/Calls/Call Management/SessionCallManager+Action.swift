@@ -16,31 +16,26 @@ extension SessionCallManager {
         return true
     }
     
-    @discardableResult
-    public func answerCallAction() -> Bool {
-        guard let call: SessionCall = (self.currentCall as? SessionCall) else { return false }
+    public func answerCallAction() {
+        guard let call: SessionCall = (self.currentCall as? SessionCall) else { return }
         
         if Singleton.hasAppContext, Singleton.appContext.frontmostViewController is CallVC {
             call.answerSessionCall()
         }
         else {
-            guard
-                Singleton.hasAppContext,
-                let presentingVC = Singleton.appContext.frontmostViewController
-            else { return false } // FIXME: Handle more gracefully
-            let callVC = CallVC(for: call)
+            guard Singleton.hasAppContext, let presentingVC = Singleton.appContext.frontmostViewController else { return } // FIXME: Handle more gracefully
             
+            let callVC = CallVC(for: call)
             if let conversationVC = presentingVC as? ConversationVC {
                 callVC.conversationVC = conversationVC
-                conversationVC.inputAccessoryView?.isHidden = true
-                conversationVC.inputAccessoryView?.alpha = 0
+                conversationVC.resignFirstResponder()
+                conversationVC.hideInputAccessoryView()
             }
             
             presentingVC.present(callVC, animated: true) {
                 call.answerSessionCall()
             }
         }
-        return true
     }
     
     @discardableResult

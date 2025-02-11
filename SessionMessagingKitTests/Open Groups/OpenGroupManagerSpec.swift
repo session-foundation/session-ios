@@ -19,7 +19,7 @@ class OpenGroupManagerSpec: QuickSpec {
             id: 234,
             serverHash: "TestServerHash",
             messageUuid: nil,
-            threadId: OpenGroup.idFor(roomToken: "testRoom", server: "testServer"),
+            threadId: OpenGroup.idFor(roomToken: "testRoom", server: "http://127.0.0.1"),
             authorId: "TestAuthorId",
             variant: .standardOutgoing,
             body: "Test",
@@ -31,16 +31,20 @@ class OpenGroupManagerSpec: QuickSpec {
             expiresStartedAtMs: nil,
             linkPreviewUrl: nil,
             openGroupServerMessageId: nil,
+            openGroupWhisper: false,
             openGroupWhisperMods: false,
-            openGroupWhisperTo: nil
+            openGroupWhisperTo: nil,
+            state: .sending,
+            recipientReadTimestampMs: nil,
+            mostRecentFailureText: nil
         )
         @TestState var testGroupThread: SessionThread! = SessionThread(
-            id: OpenGroup.idFor(roomToken: "testRoom", server: "testServer"),
+            id: OpenGroup.idFor(roomToken: "testRoom", server: "http://127.0.0.1"),
             variant: .community,
             creationDateTimestamp: 0
         )
         @TestState var testOpenGroup: OpenGroup! = OpenGroup(
-            server: "testServer",
+            server: "http://127.0.0.1",
             roomToken: "testRoom",
             publicKey: TestConstants.publicKey,
             isActive: true,
@@ -206,6 +210,14 @@ class OpenGroupManagerSpec: QuickSpec {
         
         // MARK: - an OpenGroupManager
         describe("an OpenGroupManager") {
+            beforeEach {
+                LibSession.loadState(
+                    userPublicKey: "05\(TestConstants.publicKey)",
+                    ed25519SecretKey: Array(Data(hex: TestConstants.edSecretKey)),
+                    using: dependencies
+                )
+            }
+            
             // MARK: -- cache data
             context("cache data") {
                 // MARK: ---- defaults the time since last open to greatestFiniteMagnitude
@@ -297,7 +309,7 @@ class OpenGroupManagerSpec: QuickSpec {
                     
                     expect(mockOGMCache)
                         .to(call(matchingParameters: true) {
-                            $0.getOrCreatePoller(for: "testserver")
+                            $0.getOrCreatePoller(for: "http://127.0.0.1")
                         })
                     expect(mockOGMCache)
                         .to(call(matchingParameters: true) {
@@ -433,7 +445,7 @@ class OpenGroupManagerSpec: QuickSpec {
                 // MARK: ---- when there is a thread for the room and the cache has a poller
                 context("when there is a thread for the room and the cache has a poller") {
                     beforeEach {
-                        mockOGMCache.when { $0.serversBeingPolled }.thenReturn(["testserver"])
+                        mockOGMCache.when { $0.serversBeingPolled }.thenReturn(["http://127.0.0.1"])
                     }
                     
                     // MARK: ------ for the no-scheme variant
@@ -446,7 +458,7 @@ class OpenGroupManagerSpec: QuickSpec {
                                         .hasExistingOpenGroup(
                                             db,
                                             roomToken: "testRoom",
-                                            server: "testServer",
+                                            server: "http://127.0.0.1",
                                             publicKey: TestConstants.serverPublicKey,
                                             using: dependencies
                                         )
@@ -462,7 +474,7 @@ class OpenGroupManagerSpec: QuickSpec {
                                         .hasExistingOpenGroup(
                                             db,
                                             roomToken: "testRoom",
-                                            server: "http://testServer",
+                                            server: "http://127.0.0.1",
                                             publicKey: TestConstants.serverPublicKey,
                                             using: dependencies
                                         )
@@ -478,7 +490,7 @@ class OpenGroupManagerSpec: QuickSpec {
                                         .hasExistingOpenGroup(
                                             db,
                                             roomToken: "testRoom",
-                                            server: "https://testServer",
+                                            server: "http://127.0.0.1",
                                             publicKey: TestConstants.serverPublicKey,
                                             using: dependencies
                                         )
@@ -497,7 +509,7 @@ class OpenGroupManagerSpec: QuickSpec {
                                         .hasExistingOpenGroup(
                                             db,
                                             roomToken: "testRoom",
-                                            server: "testServer",
+                                            server: "http://127.0.0.1",
                                             publicKey: TestConstants.serverPublicKey,
                                             using: dependencies
                                         )
@@ -513,7 +525,7 @@ class OpenGroupManagerSpec: QuickSpec {
                                         .hasExistingOpenGroup(
                                             db,
                                             roomToken: "testRoom",
-                                            server: "http://testServer",
+                                            server: "http://127.0.0.1",
                                             publicKey: TestConstants.serverPublicKey,
                                             using: dependencies
                                         )
@@ -529,7 +541,7 @@ class OpenGroupManagerSpec: QuickSpec {
                                         .hasExistingOpenGroup(
                                             db,
                                             roomToken: "testRoom",
-                                            server: "https://testServer",
+                                            server: "http://127.0.0.1",
                                             publicKey: TestConstants.serverPublicKey,
                                             using: dependencies
                                         )
@@ -548,7 +560,7 @@ class OpenGroupManagerSpec: QuickSpec {
                                         .hasExistingOpenGroup(
                                             db,
                                             roomToken: "testRoom",
-                                            server: "testServer",
+                                            server: "http://127.0.0.1",
                                             publicKey: TestConstants.serverPublicKey,
                                             using: dependencies
                                         )
@@ -564,7 +576,7 @@ class OpenGroupManagerSpec: QuickSpec {
                                         .hasExistingOpenGroup(
                                             db,
                                             roomToken: "testRoom",
-                                            server: "http://testServer",
+                                            server: "http://127.0.0.1",
                                             publicKey: TestConstants.serverPublicKey,
                                             using: dependencies
                                         )
@@ -580,7 +592,7 @@ class OpenGroupManagerSpec: QuickSpec {
                                         .hasExistingOpenGroup(
                                             db,
                                             roomToken: "testRoom",
-                                            server: "https://testServer",
+                                            server: "http://127.0.0.1",
                                             publicKey: TestConstants.serverPublicKey,
                                             using: dependencies
                                         )
@@ -684,7 +696,7 @@ class OpenGroupManagerSpec: QuickSpec {
                                 .hasExistingOpenGroup(
                                     db,
                                     roomToken: "testRoom",
-                                    server: "testServer",
+                                    server: "http://127.0.0.1",
                                     publicKey: TestConstants.serverPublicKey,
                                     using: dependencies
                                 )
@@ -704,7 +716,7 @@ class OpenGroupManagerSpec: QuickSpec {
                                 .hasExistingOpenGroup(
                                     db,
                                     roomToken: "testRoom",
-                                    server: "testServer",
+                                    server: "http://127.0.0.1",
                                     publicKey: TestConstants.serverPublicKey,
                                     using: dependencies
                                 )
@@ -716,6 +728,14 @@ class OpenGroupManagerSpec: QuickSpec {
         
         // MARK: - an OpenGroupManager
         describe("an OpenGroupManager") {
+            beforeEach {
+                LibSession.loadState(
+                    userPublicKey: "05\(TestConstants.publicKey)",
+                    ed25519SecretKey: Array(Data(hex: TestConstants.edSecretKey)),
+                    using: dependencies
+                )
+            }
+            
             // MARK: -- when adding
             context("when adding") {
                 beforeEach {
@@ -738,23 +758,21 @@ class OpenGroupManagerSpec: QuickSpec {
                 it("stores the open group server") {
                     mockStorage
                         .writePublisher { (db: Database) -> Bool in
-                            openGroupManager
-                                .add(
-                                    db,
-                                    roomToken: "testRoom",
-                                    server: "testServer",
-                                    publicKey: TestConstants.serverPublicKey,
-                                    calledFromConfigHandling: true, // Don't trigger LibSession logic
-                                    using: dependencies
-                                )
+                            openGroupManager.add(
+                                db,
+                                roomToken: "testRoom",
+                                server: "http://127.0.0.1",
+                                publicKey: TestConstants.serverPublicKey,
+                                forceVisible: false,
+                                using: dependencies
+                            )
                         }
                         .flatMap { successfullyAddedGroup in
                             openGroupManager.performInitialRequestsAfterAdd(
                                 successfullyAddedGroup: successfullyAddedGroup,
                                 roomToken: "testRoom",
-                                server: "testServer",
+                                server: "http://127.0.0.1",
                                 publicKey: TestConstants.serverPublicKey,
-                                calledFromConfigHandling: true, // Don't trigger LibSession logic
                                 using: dependencies
                             )
                         }
@@ -769,30 +787,28 @@ class OpenGroupManagerSpec: QuickSpec {
                                     .fetchOne(db)
                             }
                     )
-                    .to(equal(OpenGroup.idFor(roomToken: "testRoom", server: "testServer")))
+                    .to(equal(OpenGroup.idFor(roomToken: "testRoom", server: "http://127.0.0.1")))
                 }
                 
                 // MARK: ---- adds a poller
                 it("adds a poller") {
                     mockStorage
                         .writePublisher { (db: Database) -> Bool in
-                            openGroupManager
-                                .add(
-                                    db,
-                                    roomToken: "testRoom",
-                                    server: "testServer",
-                                    publicKey: TestConstants.serverPublicKey,
-                                    calledFromConfigHandling: true, // Don't trigger LibSession logic
-                                    using: dependencies
-                                )
+                            openGroupManager.add(
+                                db,
+                                roomToken: "testRoom",
+                                server: "http://127.0.0.1",
+                                publicKey: TestConstants.serverPublicKey,
+                                forceVisible: false,
+                                using: dependencies
+                            )
                         }
                         .flatMap { successfullyAddedGroup in
                             openGroupManager.performInitialRequestsAfterAdd(
                                 successfullyAddedGroup: successfullyAddedGroup,
                                 roomToken: "testRoom",
-                                server: "testServer",
+                                server: "http://127.0.0.1",
                                 publicKey: TestConstants.serverPublicKey,
-                                calledFromConfigHandling: true, // Don't trigger LibSession logic
                                 using: dependencies
                             )
                         }
@@ -800,7 +816,7 @@ class OpenGroupManagerSpec: QuickSpec {
                     
                     expect(mockOGMCache)
                         .to(call(matchingParameters: true) {
-                            $0.getOrCreatePoller(for: "testserver")
+                            $0.getOrCreatePoller(for: "http://127.0.0.1")
                         })
                     expect(mockPoller)
                         .to(call(matchingParameters: true) { [dependencies = dependencies!] in
@@ -811,7 +827,7 @@ class OpenGroupManagerSpec: QuickSpec {
                 // MARK: ---- an existing room
                 context("an existing room") {
                     beforeEach {
-                        mockOGMCache.when { $0.serversBeingPolled }.thenReturn(["testserver"])
+                        mockOGMCache.when { $0.serversBeingPolled }.thenReturn(["http://127.0.0.1"])
                         mockStorage.write { db in
                             try testOpenGroup.insert(db)
                         }
@@ -821,27 +837,25 @@ class OpenGroupManagerSpec: QuickSpec {
                     it("does not reset the sequence number or update the public key") {
                         mockStorage
                             .writePublisher { (db: Database) -> Bool in
-                                openGroupManager
-                                    .add(
-                                        db,
-                                        roomToken: "testRoom",
-                                        server: "testServer",
-                                        publicKey: TestConstants.serverPublicKey
-                                            .replacingOccurrences(of: "c3", with: "00")
-                                            .replacingOccurrences(of: "b3", with: "00"),
-                                        calledFromConfigHandling: true, // Don't trigger LibSession logic
-                                        using: dependencies
-                                    )
+                                openGroupManager.add(
+                                    db,
+                                    roomToken: "testRoom",
+                                    server: "http://127.0.0.1",
+                                    publicKey: TestConstants.serverPublicKey
+                                        .replacingOccurrences(of: "c3", with: "00")
+                                        .replacingOccurrences(of: "b3", with: "00"),
+                                    forceVisible: false,
+                                    using: dependencies
+                                )
                             }
                             .flatMap { successfullyAddedGroup in
                                 openGroupManager.performInitialRequestsAfterAdd(
                                     successfullyAddedGroup: successfullyAddedGroup,
                                     roomToken: "testRoom",
-                                    server: "testServer",
+                                    server: "http://127.0.0.1",
                                     publicKey: TestConstants.serverPublicKey
                                         .replacingOccurrences(of: "c3", with: "00")
                                         .replacingOccurrences(of: "b3", with: "00"),
-                                    calledFromConfigHandling: true, // Don't trigger LibSession logic
                                     using: dependencies
                                 )
                             }
@@ -888,23 +902,21 @@ class OpenGroupManagerSpec: QuickSpec {
                         
                         mockStorage
                             .writePublisher { (db: Database) -> Bool in
-                                openGroupManager
-                                    .add(
-                                        db,
-                                        roomToken: "testRoom",
-                                        server: "testServer",
-                                        publicKey: TestConstants.serverPublicKey,
-                                        calledFromConfigHandling: true, // Don't trigger LibSession logic
-                                        using: dependencies
-                                    )
+                                openGroupManager.add(
+                                    db,
+                                    roomToken: "testRoom",
+                                    server: "http://127.0.0.1",
+                                    publicKey: TestConstants.serverPublicKey,
+                                    forceVisible: false,
+                                    using: dependencies
+                                )
                             }
                             .flatMap { successfullyAddedGroup in
                                 openGroupManager.performInitialRequestsAfterAdd(
                                     successfullyAddedGroup: successfullyAddedGroup,
                                     roomToken: "testRoom",
-                                    server: "testServer",
+                                    server: "http://127.0.0.1",
                                     publicKey: TestConstants.serverPublicKey,
-                                    calledFromConfigHandling: true, // Don't trigger LibSession logic
                                     using: dependencies
                                 )
                             }
@@ -930,7 +942,7 @@ class OpenGroupManagerSpec: QuickSpec {
                             .updateAll(
                                 db,
                                 Interaction.Columns.threadId
-                                    .set(to: OpenGroup.idFor(roomToken: "testRoom", server: "testServer"))
+                                    .set(to: OpenGroup.idFor(roomToken: "testRoom", server: "http://127.0.0.1"))
                             )
                     }
                 }
@@ -938,13 +950,12 @@ class OpenGroupManagerSpec: QuickSpec {
                 // MARK: ---- removes all interactions for the thread
                 it("removes all interactions for the thread") {
                     mockStorage.write { db in
-                        openGroupManager
-                            .delete(
-                                db,
-                                openGroupId: OpenGroup.idFor(roomToken: "testRoom", server: "testServer"),
-                                calledFromConfigHandling: true, // Don't trigger LibSession logic
-                                using: dependencies
-                            )
+                        openGroupManager.delete(
+                            db,
+                            openGroupId: OpenGroup.idFor(roomToken: "testRoom", server: "http://127.0.0.1"),
+                            skipLibSessionUpdate: true, // Don't trigger LibSession logic
+                            using: dependencies
+                        )
                     }
                     
                     expect(mockStorage.read { db in try Interaction.fetchCount(db) })
@@ -954,13 +965,12 @@ class OpenGroupManagerSpec: QuickSpec {
                 // MARK: ---- removes the given thread
                 it("removes the given thread") {
                     mockStorage.write { db in
-                        openGroupManager
-                            .delete(
-                                db,
-                                openGroupId: OpenGroup.idFor(roomToken: "testRoom", server: "testServer"),
-                                calledFromConfigHandling: true, // Don't trigger LibSession logic
-                                using: dependencies
-                            )
+                        openGroupManager.delete(
+                            db,
+                            openGroupId: OpenGroup.idFor(roomToken: "testRoom", server: "http://127.0.0.1"),
+                            skipLibSessionUpdate: true, // Don't trigger LibSession logic
+                            using: dependencies
+                        )
                     }
                     
                     expect(mockStorage.read { db -> Int in try SessionThread.fetchCount(db) })
@@ -972,28 +982,26 @@ class OpenGroupManagerSpec: QuickSpec {
                     // MARK: ------ stops the poller
                     it("stops the poller") {
                         mockStorage.write { db in
-                            openGroupManager
-                                .delete(
-                                    db,
-                                    openGroupId: OpenGroup.idFor(roomToken: "testRoom", server: "testServer"),
-                                    calledFromConfigHandling: true, // Don't trigger LibSession logic
-                                    using: dependencies
-                                )
+                            openGroupManager.delete(
+                                db,
+                                openGroupId: OpenGroup.idFor(roomToken: "testRoom", server: "http://127.0.0.1"),
+                                skipLibSessionUpdate: true, // Don't trigger LibSession logic
+                                using: dependencies
+                            )
                         }
                         
-                        expect(mockOGMCache).to(call(matchingParameters: true) { $0.stopAndRemovePoller(for: "testserver") })
+                        expect(mockOGMCache).to(call(matchingParameters: true) { $0.stopAndRemovePoller(for: "http://127.0.0.1") })
                     }
                     
                     // MARK: ------ removes the open group
                     it("removes the open group") {
                         mockStorage.write { db in
-                            openGroupManager
-                                .delete(
-                                    db,
-                                    openGroupId: OpenGroup.idFor(roomToken: "testRoom", server: "testServer"),
-                                    calledFromConfigHandling: true, // Don't trigger LibSession logic
-                                    using: dependencies
-                                )
+                            openGroupManager.delete(
+                                db,
+                                openGroupId: OpenGroup.idFor(roomToken: "testRoom", server: "http://127.0.0.1"),
+                                skipLibSessionUpdate: true, // Don't trigger LibSession logic
+                                using: dependencies
+                            )
                         }
                         
                         expect(mockStorage.read { db in try OpenGroup.fetchCount(db) })
@@ -1008,7 +1016,7 @@ class OpenGroupManagerSpec: QuickSpec {
                             try OpenGroup.deleteAll(db)
                             try testOpenGroup.insert(db)
                             try OpenGroup(
-                                server: "testServer",
+                                server: "http://127.0.0.1",
                                 roomToken: "testRoom1",
                                 publicKey: TestConstants.publicKey,
                                 isActive: true,
@@ -1028,13 +1036,12 @@ class OpenGroupManagerSpec: QuickSpec {
                     // MARK: ------ removes the open group
                     it("removes the open group") {
                         mockStorage.write { db in
-                            openGroupManager
-                                .delete(
-                                    db,
-                                    openGroupId: OpenGroup.idFor(roomToken: "testRoom", server: "testServer"),
-                                    calledFromConfigHandling: true, // Don't trigger LibSession logic
-                                    using: dependencies
-                                )
+                            openGroupManager.delete(
+                                db,
+                                openGroupId: OpenGroup.idFor(roomToken: "testRoom", server: "http://127.0.0.1"),
+                                skipLibSessionUpdate: true, // Don't trigger LibSession logic
+                                using: dependencies
+                            )
                         }
                         
                         expect(mockStorage.read { db in try OpenGroup.fetchCount(db) })
@@ -1083,13 +1090,12 @@ class OpenGroupManagerSpec: QuickSpec {
                     // MARK: ------ does not remove the open group
                     it("does not remove the open group") {
                         mockStorage.write { db in
-                            openGroupManager
-                                .delete(
-                                    db,
-                                    openGroupId: OpenGroup.idFor(roomToken: "testRoom", server: OpenGroupAPI.defaultServer),
-                                    calledFromConfigHandling: true, // Don't trigger LibSession logic
-                                    using: dependencies
-                                )
+                            openGroupManager.delete(
+                                db,
+                                openGroupId: OpenGroup.idFor(roomToken: "testRoom", server: OpenGroupAPI.defaultServer),
+                                skipLibSessionUpdate: true, // Don't trigger LibSession logic
+                                using: dependencies
+                            )
                         }
                         
                         expect(mockStorage.read { db in try OpenGroup.fetchCount(db) })
@@ -1099,13 +1105,12 @@ class OpenGroupManagerSpec: QuickSpec {
                     // MARK: ------ deactivates the open group
                     it("deactivates the open group") {
                         mockStorage.write { db in
-                            openGroupManager
-                                .delete(
-                                    db,
-                                    openGroupId: OpenGroup.idFor(roomToken: "testRoom", server: OpenGroupAPI.defaultServer),
-                                    calledFromConfigHandling: true, // Don't trigger LibSession logic
-                                    using: dependencies
-                                )
+                            openGroupManager.delete(
+                                db,
+                                openGroupId: OpenGroup.idFor(roomToken: "testRoom", server: OpenGroupAPI.defaultServer),
+                                skipLibSessionUpdate: true, // Don't trigger LibSession logic
+                                using: dependencies
+                            )
                         }
                         
                         expect(
@@ -1129,7 +1134,7 @@ class OpenGroupManagerSpec: QuickSpec {
                             .handleCapabilities(
                                 db,
                                 capabilities: OpenGroupAPI.Capabilities(capabilities: [.sogs], missing: []),
-                                on: "testserver"
+                                on: "http://127.0.0.1"
                             )
                     }
                 }
@@ -1144,6 +1149,14 @@ class OpenGroupManagerSpec: QuickSpec {
         
         // MARK: - an OpenGroupManager
         describe("an OpenGroupManager") {
+            beforeEach {
+                LibSession.loadState(
+                    userPublicKey: "05\(TestConstants.publicKey)",
+                    ed25519SecretKey: Array(Data(hex: TestConstants.edSecretKey)),
+                    using: dependencies
+                )
+            }
+            
             // MARK: -- when handling room poll info
             context("when handling room poll info") {
                 beforeEach {
@@ -1177,7 +1190,7 @@ class OpenGroupManagerSpec: QuickSpec {
                             pollInfo: testPollInfo,
                             publicKey: TestConstants.publicKey,
                             for: "testRoom",
-                            on: "testServer",
+                            on: "http://127.0.0.1",
                             using: dependencies
                         )// { didComplete = true }
                     }
@@ -1202,7 +1215,7 @@ class OpenGroupManagerSpec: QuickSpec {
                             pollInfo: testPollInfo,
                             publicKey: TestConstants.publicKey,
                             for: "testRoom",
-                            on: "testServer",
+                            on: "http://127.0.0.1",
                             using: dependencies
                         ) { didCallComplete = true }
                     }
@@ -1220,7 +1233,7 @@ class OpenGroupManagerSpec: QuickSpec {
                             pollInfo: testPollInfo,
                             publicKey: TestConstants.publicKey,
                             for: "testRoom",
-                            on: "testServer",
+                            on: "http://127.0.0.1",
                             waitForImageToComplete: true,
                             using: dependencies
                         ) { didCallComplete = true }
@@ -1236,7 +1249,7 @@ class OpenGroupManagerSpec: QuickSpec {
                     mockStorage.write { db in
                         try OpenGroup.deleteAll(db)
                         try OpenGroup(
-                            server: "testServer",
+                            server: "http://127.0.0.1",
                             roomToken: "testRoom",
                             publicKey: TestConstants.publicKey,
                             isActive: true,
@@ -1250,7 +1263,7 @@ class OpenGroupManagerSpec: QuickSpec {
                     
                     mockOGMCache.when { $0.groupImagePublishers }
                         .thenReturn([
-                            OpenGroup.idFor(roomToken: "testRoom", server: "testServer"): Just(Data()).setFailureType(to: Error.self).eraseToAnyPublisher()
+                            OpenGroup.idFor(roomToken: "testRoom", server: "http://127.0.0.1"): Just(Data()).setFailureType(to: Error.self).eraseToAnyPublisher()
                         ])
                     
                     mockStorage.write { db in
@@ -1259,7 +1272,7 @@ class OpenGroupManagerSpec: QuickSpec {
                             pollInfo: testPollInfo,
                             publicKey: TestConstants.publicKey,
                             for: "testRoom",
-                            on: "testServer",
+                            on: "http://127.0.0.1",
                             waitForImageToComplete: true,
                             using: dependencies
                         ) { didCallComplete = true }
@@ -1289,7 +1302,7 @@ class OpenGroupManagerSpec: QuickSpec {
                                 pollInfo: testPollInfo,
                                 publicKey: TestConstants.publicKey,
                                 for: "testRoom",
-                                on: "testServer",
+                                on: "http://127.0.0.1",
                                 using: dependencies
                             )
                         }
@@ -1299,7 +1312,7 @@ class OpenGroupManagerSpec: QuickSpec {
                                 try GroupMember
                                     .filter(GroupMember.Columns.groupId == OpenGroup.idFor(
                                         roomToken: "testRoom",
-                                        server: "testServer"
+                                        server: "http://127.0.0.1"
                                     ))
                                     .fetchOne(db)
                             }
@@ -1307,7 +1320,7 @@ class OpenGroupManagerSpec: QuickSpec {
                             GroupMember(
                                 groupId: OpenGroup.idFor(
                                     roomToken: "testRoom",
-                                    server: "testServer"
+                                    server: "http://127.0.0.1"
                                 ),
                                 profileId: "TestMod",
                                 role: .moderator,
@@ -1335,7 +1348,7 @@ class OpenGroupManagerSpec: QuickSpec {
                                 pollInfo: testPollInfo,
                                 publicKey: TestConstants.publicKey,
                                 for: "testRoom",
-                                on: "testServer",
+                                on: "http://127.0.0.1",
                                 using: dependencies
                             )
                         }
@@ -1345,7 +1358,7 @@ class OpenGroupManagerSpec: QuickSpec {
                                 try GroupMember
                                     .filter(GroupMember.Columns.groupId == OpenGroup.idFor(
                                         roomToken: "testRoom",
-                                        server: "testServer"
+                                        server: "http://127.0.0.1"
                                     ))
                                     .fetchOne(db)
                             }
@@ -1353,7 +1366,7 @@ class OpenGroupManagerSpec: QuickSpec {
                             GroupMember(
                                 groupId: OpenGroup.idFor(
                                     roomToken: "testRoom",
-                                    server: "testServer"
+                                    server: "http://127.0.0.1"
                                 ),
                                 profileId: "TestMod2",
                                 role: .moderator,
@@ -1375,7 +1388,7 @@ class OpenGroupManagerSpec: QuickSpec {
                                 pollInfo: testPollInfo,
                                 publicKey: TestConstants.publicKey,
                                 for: "testRoom",
-                                on: "testServer",
+                                on: "http://127.0.0.1",
                                 using: dependencies
                             )
                         }
@@ -1406,7 +1419,7 @@ class OpenGroupManagerSpec: QuickSpec {
                                 pollInfo: testPollInfo,
                                 publicKey: TestConstants.publicKey,
                                 for: "testRoom",
-                                on: "testServer",
+                                on: "http://127.0.0.1",
                                 using: dependencies
                             )
                         }
@@ -1416,7 +1429,7 @@ class OpenGroupManagerSpec: QuickSpec {
                                 try GroupMember
                                     .filter(GroupMember.Columns.groupId == OpenGroup.idFor(
                                         roomToken: "testRoom",
-                                        server: "testServer"
+                                        server: "http://127.0.0.1"
                                     ))
                                     .fetchOne(db)
                             }
@@ -1424,7 +1437,7 @@ class OpenGroupManagerSpec: QuickSpec {
                             GroupMember(
                                 groupId: OpenGroup.idFor(
                                     roomToken: "testRoom",
-                                    server: "testServer"
+                                    server: "http://127.0.0.1"
                                 ),
                                 profileId: "TestAdmin",
                                 role: .admin,
@@ -1452,7 +1465,7 @@ class OpenGroupManagerSpec: QuickSpec {
                                 pollInfo: testPollInfo,
                                 publicKey: TestConstants.publicKey,
                                 for: "testRoom",
-                                on: "testServer",
+                                on: "http://127.0.0.1",
                                 using: dependencies
                             )
                         }
@@ -1462,7 +1475,7 @@ class OpenGroupManagerSpec: QuickSpec {
                                 try GroupMember
                                     .filter(GroupMember.Columns.groupId == OpenGroup.idFor(
                                         roomToken: "testRoom",
-                                        server: "testServer"
+                                        server: "http://127.0.0.1"
                                     ))
                                     .fetchOne(db)
                             }
@@ -1470,7 +1483,7 @@ class OpenGroupManagerSpec: QuickSpec {
                             GroupMember(
                                 groupId: OpenGroup.idFor(
                                     roomToken: "testRoom",
-                                    server: "testServer"
+                                    server: "http://127.0.0.1"
                                 ),
                                 profileId: "TestAdmin2",
                                 role: .admin,
@@ -1493,7 +1506,7 @@ class OpenGroupManagerSpec: QuickSpec {
                                 pollInfo: testPollInfo,
                                 publicKey: TestConstants.publicKey,
                                 for: "testRoom",
-                                on: "testServer",
+                                on: "http://127.0.0.1",
                                 using: dependencies
                             )
                         }
@@ -1517,7 +1530,7 @@ class OpenGroupManagerSpec: QuickSpec {
                                 pollInfo: testPollInfo,
                                 publicKey: TestConstants.publicKey,
                                 for: "testRoom",
-                                on: "testServer",
+                                on: "http://127.0.0.1",
                                 using: dependencies
                             )
                         }
@@ -1536,7 +1549,7 @@ class OpenGroupManagerSpec: QuickSpec {
                                 pollInfo: testPollInfo,
                                 publicKey: nil,
                                 for: "testRoom",
-                                on: "testServer",
+                                on: "http://127.0.0.1",
                                 using: dependencies
                             )
                         }
@@ -1569,7 +1582,7 @@ class OpenGroupManagerSpec: QuickSpec {
                         
                         mockOGMCache.when { $0.groupImagePublishers }
                             .thenReturn([
-                                OpenGroup.idFor(roomToken: "testRoom", server: "testServer"): Just(imageData).setFailureType(to: Error.self).eraseToAnyPublisher()
+                                OpenGroup.idFor(roomToken: "testRoom", server: "http://127.0.0.1"): Just(imageData).setFailureType(to: Error.self).eraseToAnyPublisher()
                             ])
                     }
                     
@@ -1591,7 +1604,7 @@ class OpenGroupManagerSpec: QuickSpec {
                                 pollInfo: testPollInfo,
                                 publicKey: TestConstants.publicKey,
                                 for: "testRoom",
-                                on: "testServer",
+                                on: "http://127.0.0.1",
                                 waitForImageToComplete: true,
                                 using: dependencies
                             )
@@ -1620,7 +1633,7 @@ class OpenGroupManagerSpec: QuickSpec {
                         mockStorage.write { db in
                             try OpenGroup.deleteAll(db)
                             try OpenGroup(
-                                server: "testServer",
+                                server: "http://127.0.0.1",
                                 roomToken: "testRoom",
                                 publicKey: TestConstants.publicKey,
                                 isActive: true,
@@ -1644,7 +1657,7 @@ class OpenGroupManagerSpec: QuickSpec {
                                 pollInfo: testPollInfo,
                                 publicKey: TestConstants.publicKey,
                                 for: "testRoom",
-                                on: "testServer",
+                                on: "http://127.0.0.1",
                                 waitForImageToComplete: true,
                                 using: dependencies
                             )
@@ -1673,7 +1686,7 @@ class OpenGroupManagerSpec: QuickSpec {
                         mockStorage.write { db in
                             try OpenGroup.deleteAll(db)
                             try OpenGroup(
-                                server: "testServer",
+                                server: "http://127.0.0.1",
                                 roomToken: "testRoom",
                                 publicKey: TestConstants.publicKey,
                                 isActive: true,
@@ -1709,7 +1722,7 @@ class OpenGroupManagerSpec: QuickSpec {
                                 pollInfo: testPollInfo,
                                 publicKey: TestConstants.publicKey,
                                 for: "testRoom",
-                                on: "testServer",
+                                on: "http://127.0.0.1",
                                 waitForImageToComplete: true,
                                 using: dependencies
                             )
@@ -1742,7 +1755,7 @@ class OpenGroupManagerSpec: QuickSpec {
                                 pollInfo: testPollInfo,
                                 publicKey: TestConstants.publicKey,
                                 for: "testRoom",
-                                on: "testServer",
+                                on: "http://127.0.0.1",
                                 waitForImageToComplete: true,
                                 using: dependencies
                             )
@@ -1762,7 +1775,7 @@ class OpenGroupManagerSpec: QuickSpec {
                     it("does nothing if it fails to retrieve the room image") {
                         mockOGMCache.when { $0.groupImagePublishers }
                             .thenReturn([
-                                OpenGroup.idFor(roomToken: "testRoom", server: "testServer"): Fail(error: NetworkError.unknown).eraseToAnyPublisher()
+                                OpenGroup.idFor(roomToken: "testRoom", server: "http://127.0.0.1"): Fail(error: NetworkError.unknown).eraseToAnyPublisher()
                             ])
                         
                         testPollInfo = OpenGroupAPI.RoomPollInfo.mockValue.with(
@@ -1781,7 +1794,7 @@ class OpenGroupManagerSpec: QuickSpec {
                                 pollInfo: testPollInfo,
                                 publicKey: TestConstants.publicKey,
                                 for: "testRoom",
-                                on: "testServer",
+                                on: "http://127.0.0.1",
                                 waitForImageToComplete: true,
                                 using: dependencies
                             )
@@ -1815,7 +1828,7 @@ class OpenGroupManagerSpec: QuickSpec {
                                 pollInfo: testPollInfo,
                                 publicKey: TestConstants.publicKey,
                                 for: "testRoom",
-                                on: "testServer",
+                                on: "http://127.0.0.1",
                                 waitForImageToComplete: true,
                                 using: dependencies
                             )
@@ -1836,6 +1849,14 @@ class OpenGroupManagerSpec: QuickSpec {
         
         // MARK: - an OpenGroupManager
         describe("an OpenGroupManager") {
+            beforeEach {
+                LibSession.loadState(
+                    userPublicKey: "05\(TestConstants.publicKey)",
+                    ed25519SecretKey: Array(Data(hex: TestConstants.edSecretKey)),
+                    using: dependencies
+                )
+            }
+            
             // MARK: -- when handling messages
             context("when handling messages") {
                 beforeEach {
@@ -1868,7 +1889,7 @@ class OpenGroupManagerSpec: QuickSpec {
                                 )
                             ],
                             for: "testRoom",
-                            on: "testServer",
+                            on: "http://127.0.0.1",
                             using: dependencies
                         )
                     }
@@ -1890,7 +1911,7 @@ class OpenGroupManagerSpec: QuickSpec {
                             db,
                             messages: [],
                             for: "testRoom",
-                            on: "testServer",
+                            on: "http://127.0.0.1",
                             using: dependencies
                         )
                     }
@@ -1931,7 +1952,7 @@ class OpenGroupManagerSpec: QuickSpec {
                                 )
                             ],
                             for: "testRoom",
-                            on: "testServer",
+                            on: "http://127.0.0.1",
                             using: dependencies
                         )
                     }
@@ -1965,7 +1986,7 @@ class OpenGroupManagerSpec: QuickSpec {
                                 )
                             ],
                             for: "testRoom",
-                            on: "testServer",
+                            on: "http://127.0.0.1",
                             using: dependencies
                         )
                     }
@@ -1980,7 +2001,7 @@ class OpenGroupManagerSpec: QuickSpec {
                             db,
                             messages: [testMessage],
                             for: "testRoom",
-                            on: "testServer",
+                            on: "http://127.0.0.1",
                             using: dependencies
                         )
                     }
@@ -2011,7 +2032,7 @@ class OpenGroupManagerSpec: QuickSpec {
                                 testMessage,
                             ],
                             for: "testRoom",
-                            on: "testServer",
+                            on: "http://127.0.0.1",
                             using: dependencies
                         )
                     }
@@ -2051,7 +2072,7 @@ class OpenGroupManagerSpec: QuickSpec {
                                     )
                                 ],
                                 for: "testRoom",
-                                on: "testServer",
+                                on: "http://127.0.0.1",
                                 using: dependencies
                             )
                         }
@@ -2081,7 +2102,7 @@ class OpenGroupManagerSpec: QuickSpec {
                                     )
                                 ],
                                 for: "testRoom",
-                                on: "testServer",
+                                on: "http://127.0.0.1",
                                 using: dependencies
                             )
                         }
@@ -2128,7 +2149,7 @@ class OpenGroupManagerSpec: QuickSpec {
                             db,
                             messages: [],
                             fromOutbox: false,
-                            on: "testServer",
+                            on: "http://127.0.0.1",
                             using: dependencies
                         )
                     }
@@ -2162,7 +2183,7 @@ class OpenGroupManagerSpec: QuickSpec {
                             db,
                             messages: [testDirectMessage],
                             fromOutbox: false,
-                            on: "testServer",
+                            on: "http://127.0.0.1",
                             using: dependencies
                         )
                     }
@@ -2201,7 +2222,7 @@ class OpenGroupManagerSpec: QuickSpec {
                             db,
                             messages: [testDirectMessage],
                             fromOutbox: false,
-                            on: "testServer",
+                            on: "http://127.0.0.1",
                             using: dependencies
                         )
                     }
@@ -2224,7 +2245,7 @@ class OpenGroupManagerSpec: QuickSpec {
                                 db,
                                 messages: [testDirectMessage],
                                 fromOutbox: false,
-                                on: "testServer",
+                                on: "http://127.0.0.1",
                                 using: dependencies
                             )
                         }
@@ -2266,7 +2287,7 @@ class OpenGroupManagerSpec: QuickSpec {
                                 db,
                                 messages: [testDirectMessage],
                                 fromOutbox: false,
-                                on: "testServer",
+                                on: "http://127.0.0.1",
                                 using: dependencies
                             )
                         }
@@ -2281,7 +2302,7 @@ class OpenGroupManagerSpec: QuickSpec {
                                 db,
                                 messages: [testDirectMessage],
                                 fromOutbox: false,
-                                on: "testServer",
+                                on: "http://127.0.0.1",
                                 using: dependencies
                             )
                         }
@@ -2306,7 +2327,7 @@ class OpenGroupManagerSpec: QuickSpec {
                                     testDirectMessage
                                 ],
                                 fromOutbox: false,
-                                on: "testServer",
+                                on: "http://127.0.0.1",
                                 using: dependencies
                             )
                         }
@@ -2330,7 +2351,7 @@ class OpenGroupManagerSpec: QuickSpec {
                                 db,
                                 messages: [testDirectMessage],
                                 fromOutbox: true,
-                                on: "testServer",
+                                on: "http://127.0.0.1",
                                 using: dependencies
                             )
                         }
@@ -2351,7 +2372,7 @@ class OpenGroupManagerSpec: QuickSpec {
                             try BlindedIdLookup(
                                 blindedId: "15\(TestConstants.publicKey)",
                                 sessionId: "TestSessionId",
-                                openGroupServer: "testserver",
+                                openGroupServer: "http://127.0.0.1",
                                 openGroupPublicKey: "05\(TestConstants.publicKey)"
                             ).insert(db)
                         }
@@ -2361,7 +2382,7 @@ class OpenGroupManagerSpec: QuickSpec {
                                 db,
                                 messages: [testDirectMessage],
                                 fromOutbox: true,
-                                on: "testServer",
+                                on: "http://127.0.0.1",
                                 using: dependencies
                             )
                         }
@@ -2377,7 +2398,7 @@ class OpenGroupManagerSpec: QuickSpec {
                                 db,
                                 messages: [testDirectMessage],
                                 fromOutbox: true,
-                                on: "testServer",
+                                on: "http://127.0.0.1",
                                 using: dependencies
                             )
                         }
@@ -2426,7 +2447,7 @@ class OpenGroupManagerSpec: QuickSpec {
                                 db,
                                 messages: [testDirectMessage],
                                 fromOutbox: true,
-                                on: "testServer",
+                                on: "http://127.0.0.1",
                                 using: dependencies
                             )
                         }
@@ -2441,7 +2462,7 @@ class OpenGroupManagerSpec: QuickSpec {
                                 db,
                                 messages: [testDirectMessage],
                                 fromOutbox: true,
-                                on: "testServer",
+                                on: "http://127.0.0.1",
                                 using: dependencies
                             )
                         }
@@ -2466,7 +2487,7 @@ class OpenGroupManagerSpec: QuickSpec {
                                     testDirectMessage
                                 ],
                                 fromOutbox: true,
-                                on: "testServer",
+                                on: "http://127.0.0.1",
                                 using: dependencies
                             )
                         }
@@ -2479,6 +2500,14 @@ class OpenGroupManagerSpec: QuickSpec {
         
         // MARK: - an OpenGroupManager
         describe("an OpenGroupManager") {
+            beforeEach {
+                LibSession.loadState(
+                    userPublicKey: "05\(TestConstants.publicKey)",
+                    ed25519SecretKey: Array(Data(hex: TestConstants.edSecretKey)),
+                    using: dependencies
+                )
+            }
+            
             // MARK: -- when determining if a user is a moderator or an admin
             context("when determining if a user is a moderator or an admin") {
                 beforeEach {
@@ -2493,7 +2522,7 @@ class OpenGroupManagerSpec: QuickSpec {
                         OpenGroupManager.isUserModeratorOrAdmin(
                             "05\(TestConstants.publicKey)",
                             for: "testRoom",
-                            on: "testServer",
+                            on: "http://127.0.0.1",
                             using: dependencies
                         )
                     ).to(beFalse())
@@ -2505,7 +2534,7 @@ class OpenGroupManagerSpec: QuickSpec {
                         OpenGroupManager.isUserModeratorOrAdmin(
                             "05\(TestConstants.publicKey)",
                             for: "testRoom",
-                            on: "testServer",
+                            on: "http://127.0.0.1",
                             using: dependencies
                         )
                     ).to(beFalse())
@@ -2515,7 +2544,7 @@ class OpenGroupManagerSpec: QuickSpec {
                 it("returns true if the key is in the moderator set") {
                     mockStorage.write { db in
                         try GroupMember(
-                            groupId: OpenGroup.idFor(roomToken: "testRoom", server: "testServer"),
+                            groupId: OpenGroup.idFor(roomToken: "testRoom", server: "http://127.0.0.1"),
                             profileId: "05\(TestConstants.publicKey)",
                             role: .moderator,
                             isHidden: false
@@ -2526,7 +2555,7 @@ class OpenGroupManagerSpec: QuickSpec {
                         OpenGroupManager.isUserModeratorOrAdmin(
                             "05\(TestConstants.publicKey)",
                             for: "testRoom",
-                            on: "testServer",
+                            on: "http://127.0.0.1",
                             using: dependencies
                         )
                     ).to(beTrue())
@@ -2536,7 +2565,7 @@ class OpenGroupManagerSpec: QuickSpec {
                 it("returns true if the key is in the admin set") {
                     mockStorage.write { db in
                         try GroupMember(
-                            groupId: OpenGroup.idFor(roomToken: "testRoom", server: "testServer"),
+                            groupId: OpenGroup.idFor(roomToken: "testRoom", server: "http://127.0.0.1"),
                             profileId: "05\(TestConstants.publicKey)",
                             role: .admin,
                             isHidden: false
@@ -2547,7 +2576,7 @@ class OpenGroupManagerSpec: QuickSpec {
                         OpenGroupManager.isUserModeratorOrAdmin(
                             "05\(TestConstants.publicKey)",
                             for: "testRoom",
-                            on: "testServer",
+                            on: "http://127.0.0.1",
                             using: dependencies
                         )
                     ).to(beTrue())
@@ -2557,7 +2586,7 @@ class OpenGroupManagerSpec: QuickSpec {
                 it("returns true if the moderator is hidden") {
                     mockStorage.write { db in
                         try GroupMember(
-                            groupId: OpenGroup.idFor(roomToken: "testRoom", server: "testServer"),
+                            groupId: OpenGroup.idFor(roomToken: "testRoom", server: "http://127.0.0.1"),
                             profileId: "05\(TestConstants.publicKey)",
                             role: .moderator,
                             isHidden: true
@@ -2568,7 +2597,7 @@ class OpenGroupManagerSpec: QuickSpec {
                         OpenGroupManager.isUserModeratorOrAdmin(
                             "05\(TestConstants.publicKey)",
                             for: "testRoom",
-                            on: "testServer",
+                            on: "http://127.0.0.1",
                             using: dependencies
                         )
                     ).to(beTrue())
@@ -2578,7 +2607,7 @@ class OpenGroupManagerSpec: QuickSpec {
                 it("returns true if the admin is hidden") {
                     mockStorage.write { db in
                         try GroupMember(
-                            groupId: OpenGroup.idFor(roomToken: "testRoom", server: "testServer"),
+                            groupId: OpenGroup.idFor(roomToken: "testRoom", server: "http://127.0.0.1"),
                             profileId: "05\(TestConstants.publicKey)",
                             role: .admin,
                             isHidden: true
@@ -2589,7 +2618,7 @@ class OpenGroupManagerSpec: QuickSpec {
                         OpenGroupManager.isUserModeratorOrAdmin(
                             "05\(TestConstants.publicKey)",
                             for: "testRoom",
-                            on: "testServer",
+                            on: "http://127.0.0.1",
                             using: dependencies
                         )
                     ).to(beTrue())
@@ -2601,7 +2630,7 @@ class OpenGroupManagerSpec: QuickSpec {
                         OpenGroupManager.isUserModeratorOrAdmin(
                             "InvalidValue",
                             for: "testRoom",
-                            on: "testServer",
+                            on: "http://127.0.0.1",
                             using: dependencies
                         )
                     ).to(beFalse())
@@ -2622,7 +2651,7 @@ class OpenGroupManagerSpec: QuickSpec {
                             OpenGroupManager.isUserModeratorOrAdmin(
                                 "05\(TestConstants.publicKey)",
                                 for: "testRoom",
-                                on: "testServer",
+                                on: "http://127.0.0.1",
                                 using: dependencies
                             )
                         ).to(beFalse())
@@ -2634,7 +2663,7 @@ class OpenGroupManagerSpec: QuickSpec {
                             let otherKey: String = TestConstants.publicKey.replacingOccurrences(of: "7", with: "6")
                             
                             try GroupMember(
-                                groupId: OpenGroup.idFor(roomToken: "testRoom", server: "testServer"),
+                                groupId: OpenGroup.idFor(roomToken: "testRoom", server: "http://127.0.0.1"),
                                 profileId: "00\(otherKey)",
                                 role: .moderator,
                                 isHidden: false
@@ -2648,7 +2677,7 @@ class OpenGroupManagerSpec: QuickSpec {
                             OpenGroupManager.isUserModeratorOrAdmin(
                                 "05\(TestConstants.publicKey)",
                                 for: "testRoom",
-                                on: "testServer",
+                                on: "http://127.0.0.1",
                                 using: dependencies
                             )
                         ).to(beTrue())
@@ -2667,7 +2696,7 @@ class OpenGroupManagerSpec: QuickSpec {
                             )
                         mockStorage.write { db in
                             try GroupMember(
-                                groupId: OpenGroup.idFor(roomToken: "testRoom", server: "testServer"),
+                                groupId: OpenGroup.idFor(roomToken: "testRoom", server: "http://127.0.0.1"),
                                 profileId: "15\(otherKey)",
                                 role: .moderator,
                                 isHidden: false
@@ -2678,7 +2707,7 @@ class OpenGroupManagerSpec: QuickSpec {
                             OpenGroupManager.isUserModeratorOrAdmin(
                                 "05\(TestConstants.publicKey)",
                                 for: "testRoom",
-                                on: "testServer",
+                                on: "http://127.0.0.1",
                                 using: dependencies
                             )
                         ).to(beTrue())
@@ -2698,7 +2727,7 @@ class OpenGroupManagerSpec: QuickSpec {
                             OpenGroupManager.isUserModeratorOrAdmin(
                                 "00\(TestConstants.publicKey)",
                                 for: "testRoom",
-                                on: "testServer",
+                                on: "http://127.0.0.1",
                                 using: dependencies
                             )
                         ).to(beFalse())
@@ -2717,7 +2746,7 @@ class OpenGroupManagerSpec: QuickSpec {
                             OpenGroupManager.isUserModeratorOrAdmin(
                                 "00\(TestConstants.publicKey)",
                                 for: "testRoom",
-                                on: "testServer",
+                                on: "http://127.0.0.1",
                                 using: dependencies
                             )
                         ).to(beFalse())
@@ -2729,7 +2758,7 @@ class OpenGroupManagerSpec: QuickSpec {
                         mockGeneralCache.when { $0.encodedPublicKey }.thenReturn("05\(otherKey)")
                         mockStorage.write { db in
                             try GroupMember(
-                                groupId: OpenGroup.idFor(roomToken: "testRoom", server: "testServer"),
+                                groupId: OpenGroup.idFor(roomToken: "testRoom", server: "http://127.0.0.1"),
                                 profileId: "05\(otherKey)",
                                 role: .moderator,
                                 isHidden: false
@@ -2745,7 +2774,7 @@ class OpenGroupManagerSpec: QuickSpec {
                             OpenGroupManager.isUserModeratorOrAdmin(
                                 "00\(TestConstants.publicKey)",
                                 for: "testRoom",
-                                on: "testServer",
+                                on: "http://127.0.0.1",
                                 using: dependencies
                             )
                         ).to(beTrue())
@@ -2764,7 +2793,7 @@ class OpenGroupManagerSpec: QuickSpec {
                             )
                         mockStorage.write { db in
                             try GroupMember(
-                                groupId: OpenGroup.idFor(roomToken: "testRoom", server: "testServer"),
+                                groupId: OpenGroup.idFor(roomToken: "testRoom", server: "http://127.0.0.1"),
                                 profileId: "15\(otherKey)",
                                 role: .moderator,
                                 isHidden: false
@@ -2780,7 +2809,7 @@ class OpenGroupManagerSpec: QuickSpec {
                             OpenGroupManager.isUserModeratorOrAdmin(
                                 "00\(TestConstants.publicKey)",
                                 for: "testRoom",
-                                on: "testServer",
+                                on: "http://127.0.0.1",
                                 using: dependencies
                             )
                         ).to(beTrue())
@@ -2800,7 +2829,7 @@ class OpenGroupManagerSpec: QuickSpec {
                             OpenGroupManager.isUserModeratorOrAdmin(
                                 "15\(TestConstants.publicKey)",
                                 for: "testRoom",
-                                on: "testServer",
+                                on: "http://127.0.0.1",
                                 using: dependencies
                             )
                         ).to(beFalse())
@@ -2816,7 +2845,7 @@ class OpenGroupManagerSpec: QuickSpec {
                             OpenGroupManager.isUserModeratorOrAdmin(
                                 "15\(TestConstants.publicKey)",
                                 for: "testRoom",
-                                on: "testServer",
+                                on: "http://127.0.0.1",
                                 using: dependencies
                             )
                         ).to(beFalse())
@@ -2838,7 +2867,7 @@ class OpenGroupManagerSpec: QuickSpec {
                             OpenGroupManager.isUserModeratorOrAdmin(
                                 "15\(TestConstants.publicKey)",
                                 for: "testRoom",
-                                on: "testServer",
+                                on: "http://127.0.0.1",
                                 using: dependencies
                             )
                         ).to(beFalse())
@@ -2858,7 +2887,7 @@ class OpenGroupManagerSpec: QuickSpec {
                             )
                         mockStorage.write { db in
                             try GroupMember(
-                                groupId: OpenGroup.idFor(roomToken: "testRoom", server: "testServer"),
+                                groupId: OpenGroup.idFor(roomToken: "testRoom", server: "http://127.0.0.1"),
                                 profileId: "05\(otherKey)",
                                 role: .moderator,
                                 isHidden: false
@@ -2874,7 +2903,7 @@ class OpenGroupManagerSpec: QuickSpec {
                             OpenGroupManager.isUserModeratorOrAdmin(
                                 "15\(TestConstants.publicKey)",
                                 for: "testRoom",
-                                on: "testServer",
+                                on: "http://127.0.0.1",
                                 using: dependencies
                             )
                         ).to(beTrue())
@@ -2894,7 +2923,7 @@ class OpenGroupManagerSpec: QuickSpec {
                             let otherKey: String = TestConstants.publicKey.replacingOccurrences(of: "7", with: "6")
                             
                             try GroupMember(
-                                groupId: OpenGroup.idFor(roomToken: "testRoom", server: "testServer"),
+                                groupId: OpenGroup.idFor(roomToken: "testRoom", server: "http://127.0.0.1"),
                                 profileId: "00\(otherKey)",
                                 role: .moderator,
                                 isHidden: false
@@ -2910,7 +2939,7 @@ class OpenGroupManagerSpec: QuickSpec {
                             OpenGroupManager.isUserModeratorOrAdmin(
                                 "15\(TestConstants.publicKey)",
                                 for: "testRoom",
-                                on: "testServer",
+                                on: "http://127.0.0.1",
                                 using: dependencies
                             )
                         ).to(beTrue())
@@ -3179,14 +3208,14 @@ class OpenGroupManagerSpec: QuickSpec {
                     .eraseToAnyPublisher()
                     mockOGMCache
                         .when { $0.groupImagePublishers }
-                        .thenReturn([OpenGroup.idFor(roomToken: "testRoom", server: "testServer"): publisher])
+                        .thenReturn([OpenGroup.idFor(roomToken: "testRoom", server: "http://127.0.0.1"): publisher])
                     
                     var result: Data?
                     OpenGroupManager
                         .roomImage(
                             fileId: "1",
                             for: "testRoom",
-                            on: "testServer",
+                            on: "http://127.0.0.1",
                             existingData: nil,
                             using: dependencies
                         )
@@ -3202,7 +3231,7 @@ class OpenGroupManagerSpec: QuickSpec {
                         .roomImage(
                             fileId: "1",
                             for: "testRoom",
-                            on: "testServer",
+                            on: "http://127.0.0.1",
                             existingData: nil,
                             using: dependencies
                         )
@@ -3212,7 +3241,7 @@ class OpenGroupManagerSpec: QuickSpec {
                         mockStorage.read { db -> Data? in
                             try OpenGroup
                                 .select(.imageData)
-                                .filter(id: OpenGroup.idFor(roomToken: "testRoom", server: "testServer"))
+                                .filter(id: OpenGroup.idFor(roomToken: "testRoom", server: "http://127.0.0.1"))
                                 .asRequest(of: Data.self)
                                 .fetchOne(db)
                         }
@@ -3225,7 +3254,7 @@ class OpenGroupManagerSpec: QuickSpec {
                         .roomImage(
                             fileId: "1",
                             for: "testRoom",
-                            on: "testServer",
+                            on: "http://127.0.0.1",
                             existingData: nil,
                             using: dependencies
                         )
@@ -3246,7 +3275,7 @@ class OpenGroupManagerSpec: QuickSpec {
                         .roomImage(
                             fileId: "1",
                             for: "testRoom",
-                            on: "testServer",
+                            on: "http://127.0.0.1",
                             existingData: nil,
                             using: dependencies
                         )
@@ -3254,7 +3283,7 @@ class OpenGroupManagerSpec: QuickSpec {
                     
                     expect(mockOGMCache)
                         .to(call(matchingParameters: true) {
-                            $0.groupImagePublishers = [OpenGroup.idFor(roomToken: "testRoom", server: "testServer"): publisher]
+                            $0.groupImagePublishers = [OpenGroup.idFor(roomToken: "testRoom", server: "http://127.0.0.1"): publisher]
                         })
                 }
                 

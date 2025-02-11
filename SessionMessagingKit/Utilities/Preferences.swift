@@ -6,6 +6,7 @@ import GRDB
 import DifferenceKit
 import SessionUtilitiesKit
 
+// stringlint:ignore_contents
 public extension Setting.EnumKey {
     /// Controls how notifications should appear for the user (See `NotificationPreviewType` for the options)
     static let preferencesNotificationPreviewType: Setting.EnumKey = "preferencesNotificationPreviewType"
@@ -14,6 +15,7 @@ public extension Setting.EnumKey {
     static let defaultNotificationSound: Setting.EnumKey = "defaultNotificationSound"
 }
 
+// stringlint:ignore_contents
 public extension Setting.BoolKey {
     /// Controls whether typing indicators are enabled
     ///
@@ -71,8 +73,13 @@ public extension Setting.BoolKey {
     
     /// Controls whether the device will poll for community message requests (SOGS `/inbox` endpoint)
     static let checkForCommunityMessageRequests: Setting.BoolKey = "checkForCommunityMessageRequests"
+    
+    /// Controls whether developer mode is enabled (this displays a section within the Settings screen which allows manual control of feature flags
+    /// and system settings for better debugging)
+    static let developerModeEnabled: Setting.BoolKey = "developerModeEnabled"
 }
 
+// stringlint:ignore_contents
 public extension Setting.StringKey {
     /// This is the most recently recorded Push Notifications token
     static let lastRecordedPushToken: Setting.StringKey = "lastRecordedPushToken"
@@ -89,12 +96,14 @@ public extension Setting.StringKey {
     }
 }
 
+// stringlint:ignore_contents
 public extension Setting.DoubleKey {
     /// The duration of the timeout for screen lock in seconds
     @available(*, unavailable, message: "Screen Lock should always be instant now")
     static let screenLockTimeoutSeconds: Setting.DoubleKey = "screenLockTimeoutSeconds"
 }
 
+// stringlint:ignore_contents
 public extension Setting.IntKey {
     /// This is the number of times the app has successfully become active, it's not actually used for anything but allows us to make
     /// a database change on launch so the database will output an error if it fails to write
@@ -129,8 +138,8 @@ public enum Preferences {
         
         // Don't store too many sounds in memory (Most users will only use 1 or 2 sounds anyway)
         private static let maxCachedSounds: Int = 4
-        private static var cachedSystemSounds: Atomic<[String: (url: URL?, soundId: SystemSoundID)]> = Atomic([:])
-        private static var cachedSystemSoundOrder: Atomic<[String]> = Atomic([])
+        @ThreadSafeObject private static var cachedSystemSounds: [String: (url: URL?, soundId: SystemSoundID)] = [:]
+        @ThreadSafeObject private static var cachedSystemSoundOrder: [String] = []
         
         // Values
         
@@ -221,6 +230,7 @@ public enum Preferences {
         
         // MARK: - Functions
         
+        // stringlint:ignore_contents
         public func filename(quiet: Bool = false) -> String? {
             switch self {
                 case .`default`: return ""
@@ -278,7 +288,7 @@ public enum Preferences {
         public static func systemSoundId(for sound: Sound, quiet: Bool) -> SystemSoundID {
             let cacheKey: String = "\(sound.rawValue):\(quiet ? 1 : 0)"
             
-            if let cachedSound: SystemSoundID = cachedSystemSounds.wrappedValue[cacheKey]?.soundId {
+            if let cachedSound: SystemSoundID = cachedSystemSounds[cacheKey]?.soundId {
                 return cachedSound
             }
             
@@ -287,17 +297,20 @@ public enum Preferences {
                 soundId: SystemSoundID()
             )
             
-            cachedSystemSounds.mutate { cache in
-                cachedSystemSoundOrder.mutate { order in
+            _cachedSystemSounds.performUpdate { cache in
+                var updatedCache: [String: (url: URL?, soundId: SystemSoundID)] = cache
+                _cachedSystemSoundOrder.performUpdate { order in
+                    var updatedOrder: [String] = order
+                    
                     if order.count > Sound.maxCachedSounds {
-                        cache.removeValue(forKey: order[0])
-                        order.remove(at: 0)
+                        updatedCache.removeValue(forKey: order[0])
+                        updatedOrder.remove(at: 0)
                     }
                     
-                    order.append(cacheKey)
+                    return updatedOrder.appending(cacheKey)
                 }
                 
-                cache[cacheKey] = systemSound
+                return updatedCache.setting(cacheKey, systemSound)
             }
             
             return systemSound.soundId
@@ -319,6 +332,7 @@ public enum Preferences {
         }
     }
     
+    // stringlint:ignore_contents
     public static var isCallKitSupported: Bool {
 #if targetEnvironment(simulator)
         /// The iOS simulator doesn't support CallKit, when receiving a call on the simulator and routing it via CallKit it

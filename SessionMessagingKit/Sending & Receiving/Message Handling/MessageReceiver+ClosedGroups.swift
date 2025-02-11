@@ -31,7 +31,8 @@ extension MessageReceiver {
                     db,
                     threadId: threadId,
                     threadVariant: threadVariant,
-                    message: message
+                    message: message,
+                    using: dependencies
                 )
                 
             case .membersAdded:
@@ -39,7 +40,8 @@ extension MessageReceiver {
                     db,
                     threadId: threadId,
                     threadVariant: threadVariant,
-                    message: message
+                    message: message,
+                    using: dependencies
                 )
                 
             case .membersRemoved:
@@ -47,7 +49,8 @@ extension MessageReceiver {
                     db,
                     threadId: threadId,
                     threadVariant: threadVariant,
-                    message: message
+                    message: message,
+                    using: dependencies
                 )
                 
             case .memberLeft:
@@ -55,7 +58,8 @@ extension MessageReceiver {
                     db,
                     threadId: threadId,
                     threadVariant: threadVariant,
-                    message: message
+                    message: message,
+                    using: dependencies
                 )
                 
             case .encryptionKeyPairRequest: break // Currently not used
@@ -117,7 +121,7 @@ extension MessageReceiver {
             admins: adminsAsData.map { $0.toHexString() },
             expirationTimer: expirationTimer,
             formationTimestampMs: sentTimestamp,
-            calledFromConfigHandling: false,
+            forceApprove: false,
             using: dependencies
         )
     }
@@ -131,13 +135,14 @@ extension MessageReceiver {
         admins: [String],
         expirationTimer: UInt32,
         formationTimestampMs: UInt64,
-        calledFromConfigHandling: Bool,
+        forceApprove: Bool,
         using dependencies: Dependencies
     ) throws {
         // With new closed groups we only want to create them if the admin creating the closed group is an
         // approved contact (to prevent spam via closed groups getting around message requests if users are
         // on old or modified clients)
         var hasApprovedAdmin: Bool = false
+        let receivedTimestamp: TimeInterval = (TimeInterval(SnodeAPI.currentOffsetTimestampMs()) / 1000)
         
         for adminId in admins {
             if let contact: Contact = try? Contact.fetchOne(db, id: adminId), contact.isApproved {
@@ -146,20 +151,49 @@ extension MessageReceiver {
             }
         }
         
-        // If the group came from the updated config handling then it doesn't matter if we
-        // have an approved admin - we should add it regardless (as it's been synced from
-        // antoher device)
-        guard hasApprovedAdmin || calledFromConfigHandling else { return }
+        // If we want to force approve the group (eg. if it came from config handling) then it
+        // doesn't matter if we have an approved admin - we should add it regardless
+        guard hasApprovedAdmin || forceApprove else { return }
+        
+        // Create the disappearing config
+        let disappearingConfig: DisappearingMessagesConfiguration = DisappearingMessagesConfiguration
+            .defaultWith(groupPublicKey)
+            .with(
+                isEnabled: (expirationTimer > 0),
+                durationSeconds: TimeInterval(expirationTimer),
+                type: (expirationTimer > 0 ? .disappearAfterSend : .unknown)
+            )
+        
+        /// Update `libSession` first
+        ///
+        /// **Note:** This **MUST** happen before we call `SessionThread.upsert` as we won't add the group
+        /// if it already exists in `libSession` and upserting the thread results in an update to `libSession` to set
+        /// the `priority`
+        try? LibSession.add(
+            db,
+            groupPublicKey: groupPublicKey,
+            name: name,
+            joinedAt: (TimeInterval(formationTimestampMs) / 1000),
+            latestKeyPairPublicKey: Data(encryptionKeyPair.publicKey),
+            latestKeyPairSecretKey: Data(encryptionKeyPair.secretKey),
+            latestKeyPairReceivedTimestamp: receivedTimestamp,
+            disappearingConfig: disappearingConfig,
+            members: members.asSet(),
+            admins: admins.asSet(),
+            using: dependencies
+        )
         
         // Create the group
-        let thread: SessionThread = try SessionThread
-            .fetchOrCreate(
-                db,
-                id: groupPublicKey,
-                variant: .legacyGroup,
+        let thread: SessionThread = try SessionThread.upsert(
+            db,
+            id: groupPublicKey,
+            variant: .legacyGroup,
+            values: SessionThread.TargetValues(
                 creationDateTimestamp: (TimeInterval(formationTimestampMs) / 1000),
-                shouldBeVisible: true
-            )
+                shouldBeVisible: .setTo(true)
+            ),
+            using: dependencies
+        )
         let closedGroup: ClosedGroup = try ClosedGroup(
             threadId: groupPublicKey,
             name: name,
@@ -191,20 +225,11 @@ extension MessageReceiver {
         }
         
         // Update the DisappearingMessages config
-        var disappearingConfig = DisappearingMessagesConfiguration.defaultWith(thread.id)
         if (try? thread.disappearingMessagesConfiguration.fetchOne(db)) == nil {
-            let isEnabled: Bool = (expirationTimer > 0)
-            disappearingConfig = try disappearingConfig
-                .with(
-                    isEnabled: isEnabled,
-                    durationSeconds: TimeInterval(expirationTimer),
-                    type: isEnabled ? .disappearAfterSend : .unknown
-                )
-                .saved(db)
+            try disappearingConfig.upsert(db)
         }
         
         // Store the key pair if it doesn't already exist
-        let receivedTimestamp: TimeInterval = (TimeInterval(SnodeAPI.currentOffsetTimestampMs()) / 1000)
         let newKeyPair: ClosedGroupKeyPair = ClosedGroupKeyPair(
             threadId: groupPublicKey,
             publicKey: Data(encryptionKeyPair.publicKey),
@@ -219,21 +244,20 @@ extension MessageReceiver {
             try newKeyPair.insert(db)
         }
         
-        if !calledFromConfigHandling {
-            // Update libSession
-            try? LibSession.add(
-                db,
-                groupPublicKey: groupPublicKey,
-                name: name,
-                joinedAt: (TimeInterval(formationTimestampMs) / 1000),
-                latestKeyPairPublicKey: Data(encryptionKeyPair.publicKey),
-                latestKeyPairSecretKey: Data(encryptionKeyPair.secretKey),
-                latestKeyPairReceivedTimestamp: receivedTimestamp,
-                disappearingConfig: disappearingConfig,
-                members: members.asSet(),
-                admins: admins.asSet()
-            )
-        }
+        // Update libSession
+        try? LibSession.add(
+            db,
+            groupPublicKey: groupPublicKey,
+            name: name,
+            joinedAt: (TimeInterval(formationTimestampMs) / 1000),
+            latestKeyPairPublicKey: Data(encryptionKeyPair.publicKey),
+            latestKeyPairSecretKey: Data(encryptionKeyPair.secretKey),
+            latestKeyPairReceivedTimestamp: receivedTimestamp,
+            disappearingConfig: disappearingConfig,
+            members: members.asSet(),
+            admins: admins.asSet(),
+            using: dependencies
+        )
         
         // Start polling
         ClosedGroupPoller.shared.startIfNeeded(for: groupPublicKey, using: dependencies)
@@ -246,7 +270,10 @@ extension MessageReceiver {
                 currentUserPublicKey: currentUserPublicKey,
                 legacyGroupIds: try ClosedGroup
                     .select(.threadId)
-                    .filter(!ClosedGroup.Columns.threadId.like("\(SessionId.Prefix.group.rawValue)%"))
+                    .filter(
+                        ClosedGroup.Columns.threadId > SessionId.Prefix.standard.rawValue &&
+                        ClosedGroup.Columns.threadId < SessionId.Prefix.standard.endOfRangeString
+                    )
                     .joining(
                         required: ClosedGroup.members
                             .filter(GroupMember.Columns.profileId == currentUserPublicKey)
@@ -330,7 +357,8 @@ extension MessageReceiver {
             try? LibSession.update(
                 db,
                 groupPublicKey: groupPublicKey,
-                latestKeyPair: keyPair
+                latestKeyPair: keyPair,
+                using: dependencies
             )
         }
         catch {
@@ -348,7 +376,8 @@ extension MessageReceiver {
         _ db: Database,
         threadId: String,
         threadVariant: SessionThread.Variant,
-        message: ClosedGroupControlMessage
+        message: ClosedGroupControlMessage,
+        using dependencies: Dependencies
     ) throws {
         guard
             let messageKind: ClosedGroupControlMessage.Kind = message.kind,
@@ -367,7 +396,8 @@ extension MessageReceiver {
                 try? LibSession.update(
                     db,
                     groupPublicKey: threadId,
-                    name: name
+                    name: name,
+                    using: dependencies
                 )
                 
                 _ = try ClosedGroup
@@ -384,7 +414,8 @@ extension MessageReceiver {
         _ db: Database,
         threadId: String,
         threadVariant: SessionThread.Variant,
-        message: ClosedGroupControlMessage
+        message: ClosedGroupControlMessage,
+        using dependencies: Dependencies
     ) throws {
         guard
             let messageKind: ClosedGroupControlMessage.Kind = message.kind,
@@ -418,7 +449,8 @@ extension MessageReceiver {
                     admins: allMembers
                         .filter { $0.role == .admin }
                         .map { $0.profileId }
-                        .asSet()
+                        .asSet(),
+                    using: dependencies
                 )
                 
                 // Create records for any new members
@@ -473,7 +505,8 @@ extension MessageReceiver {
         _ db: Database,
         threadId: String,
         threadVariant: SessionThread.Variant,
-        message: ClosedGroupControlMessage
+        message: ClosedGroupControlMessage,
+        using dependencies: Dependencies
     ) throws {
         guard
             let messageKind: ClosedGroupControlMessage.Kind = message.kind,
@@ -525,7 +558,8 @@ extension MessageReceiver {
                     admins: allMembers
                         .filter { $0.role == .admin }
                         .map { $0.profileId }
-                        .asSet()
+                        .asSet(),
+                    using: dependencies
                 )
                 
                 // Delete the removed members
@@ -546,7 +580,7 @@ extension MessageReceiver {
                         db,
                         threadId: threadId,
                         removeGroupData: true,
-                        calledFromConfigHandling: false
+                        using: dependencies
                     )
                 }
             }
@@ -561,7 +595,8 @@ extension MessageReceiver {
         _ db: Database,
         threadId: String,
         threadVariant: SessionThread.Variant,
-        message: ClosedGroupControlMessage
+        message: ClosedGroupControlMessage,
+        using dependencies: Dependencies
     ) throws {
         guard
             let messageKind: ClosedGroupControlMessage.Kind = message.kind,
@@ -600,7 +635,8 @@ extension MessageReceiver {
                     admins: allMembers
                         .filter { $0.role == .admin }
                         .map { $0.profileId }
-                        .asSet()
+                        .asSet(),
+                    using: dependencies
                 )
                 
                 // Delete the members to remove
@@ -614,7 +650,7 @@ extension MessageReceiver {
                         db,
                         threadId: threadId,
                         removeGroupData: (sender == userPublicKey),
-                        calledFromConfigHandling: false
+                        using: dependencies
                     )
                 }
                 

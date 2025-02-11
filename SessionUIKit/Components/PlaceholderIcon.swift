@@ -5,11 +5,11 @@ import CryptoKit
 import SessionUtilitiesKit
 
 public class PlaceholderIcon {
-    private static let placeholderCache: Atomic<NSCache<NSString, UIImage>> = {
+    @ThreadSafeObject private static var placeholderCache: NSCache<NSString, UIImage> = {
         let result = NSCache<NSString, UIImage>()
         result.countLimit = 50
         
-        return Atomic(result)
+        return result
     }()
     
     private let seed: Int
@@ -43,6 +43,7 @@ public class PlaceholderIcon {
     
     // MARK: - Convenience
     
+    // stringlint:ignore_contents
     public static func generate(seed: String, text: String, size: CGFloat) -> UIImage {
         let icon = PlaceholderIcon(seed: seed)
         
@@ -64,7 +65,7 @@ public class PlaceholderIcon {
             .joined()
         let cacheKey: String = "\(content)-\(Int(floor(size)))"
         
-        if let cachedIcon: UIImage = placeholderCache.wrappedValue.object(forKey: cacheKey as NSString) {
+        if let cachedIcon: UIImage = placeholderCache.object(forKey: cacheKey as NSString) {
             return cachedIcon
         }
         
@@ -80,7 +81,7 @@ public class PlaceholderIcon {
         let renderer = UIGraphicsImageRenderer(size: rect.size)
         let result = renderer.image { layer.render(in: $0.cgContext) }
         
-        placeholderCache.mutate { $0.setObject(result, forKey: cacheKey as NSString) }
+        _placeholderCache.performUpdate { $0.settingObject(result, forKey: cacheKey as NSString) }
         
         return result
     }
@@ -125,5 +126,12 @@ public class PlaceholderIcon {
 private extension String {
     func matches(_ regex: String) -> Bool {
         return self.range(of: regex, options: .regularExpression, range: nil, locale: nil) != nil
+    }
+}
+
+private extension NSCache {
+    @objc func settingObject(_ object: ObjectType, forKey key: KeyType) -> NSCache<KeyType, ObjectType> {
+        setObject(object, forKey: key)
+        return self
     }
 }

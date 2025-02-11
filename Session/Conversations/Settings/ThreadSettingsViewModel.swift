@@ -157,7 +157,8 @@ class ThreadSettingsViewModel: SessionTableViewModel, NavigationItemSource, Navi
                                     .updateAllAndConfig(
                                         db,
                                         Profile.Columns.nickname
-                                            .set(to: (updatedNickname.isEmpty ? nil : editedDisplayName))
+                                            .set(to: (updatedNickname.isEmpty ? nil : editedDisplayName)),
+                                        using: dependencies
                                     )
                             }
                         }
@@ -515,10 +516,17 @@ class ThreadSettingsViewModel: SessionTableViewModel, NavigationItemSource, Navi
                             ),
                             confirmationInfo: ConfirmationModal.Info(
                                 title: "groupLeave".localized(),
-                                body: .attributedText(
-                                    (currentUserIsClosedGroupAdmin ? "groupDeleteDescription" : "groupLeaveDescription")
-                                        .put(key: "group_name", value: threadViewModel.displayName)
-                                        .localizedFormatted(baseFont: .boldSystemFont(ofSize: Values.smallFontSize))
+                                body: (currentUserIsClosedGroupAdmin ?
+                                    .attributedText(
+                                        "groupDeleteDescription"
+                                            .put(key: "group_name", value: threadViewModel.displayName)
+                                            .localizedFormatted(baseFont: .boldSystemFont(ofSize: Values.smallFontSize))
+                                    ) :
+                                    .attributedText(
+                                        "groupLeaveDescription"
+                                            .put(key: "group_name", value: threadViewModel.displayName)
+                                            .localizedFormatted(baseFont: .boldSystemFont(ofSize: Values.smallFontSize))
+                                    )
                                 ),
                                 confirmTitle: "leave".localized(),
                                 confirmStyle: .danger,
@@ -528,10 +536,9 @@ class ThreadSettingsViewModel: SessionTableViewModel, NavigationItemSource, Navi
                                 dependencies.storage.write { db in
                                     try SessionThread.deleteOrLeave(
                                         db,
+                                        type: .leaveGroupAsync,
                                         threadId: threadViewModel.threadId,
-                                        threadVariant: threadViewModel.threadVariant,
-                                        groupLeaveType: .standard,
-                                        calledFromConfigHandling: false
+                                        using: dependencies
                                     )
                                 }
                             }
@@ -707,7 +714,6 @@ class ThreadSettingsViewModel: SessionTableViewModel, NavigationItemSource, Navi
                                     "blockUnblock".localized() :
                                     "block".localized()
                                 ),
-                                confirmAccessibility: Accessibility(identifier: "Confirm block"),
                                 confirmStyle: .danger,
                                 cancelStyle: .alert_text
                             ),
@@ -769,8 +775,13 @@ class ThreadSettingsViewModel: SessionTableViewModel, NavigationItemSource, Navi
         dependencies.storage.writeAsync { [dependencies] db in
             let currentUserSessionId: String = getUserHexEncodedPublicKey(db, using: dependencies)
             try selectedUsers.forEach { userId in
-                let thread: SessionThread = try SessionThread
-                    .fetchOrCreate(db, id: userId, variant: .contact, shouldBeVisible: nil)
+                let thread: SessionThread = try SessionThread.upsert(
+                    db,
+                    id: userId,
+                    variant: .contact,
+                    values: .existingOrDefault,
+                    using: dependencies
+                )
                 
                 try LinkPreview(
                     url: communityUrl,
@@ -779,18 +790,19 @@ class ThreadSettingsViewModel: SessionTableViewModel, NavigationItemSource, Navi
                 )
                 .save(db)
                 
+                let sentTimestampMs: Int64 = SnodeAPI.currentOffsetTimestampMs()
+                let destinationDisappearingMessagesConfiguration: DisappearingMessagesConfiguration? = try? DisappearingMessagesConfiguration
+                    .filter(id: userId)
+                    .filter(DisappearingMessagesConfiguration.Columns.isEnabled == true)
+                    .fetchOne(db)
                 let interaction: Interaction = try Interaction(
                     threadId: thread.id,
                     threadVariant: thread.variant,
                     authorId: currentUserSessionId,
                     variant: .standardOutgoing,
-                    timestampMs: SnodeAPI.currentOffsetTimestampMs(),
-                    expiresInSeconds: try? DisappearingMessagesConfiguration
-                        .select(.durationSeconds)
-                        .filter(id: userId)
-                        .filter(DisappearingMessagesConfiguration.Columns.isEnabled == true)
-                        .asRequest(of: TimeInterval.self)
-                        .fetchOne(db),
+                    timestampMs: sentTimestampMs,
+                    expiresInSeconds: destinationDisappearingMessagesConfiguration?.durationSeconds,
+                    expiresStartedAtMs: (destinationDisappearingMessagesConfiguration?.type == .disappearAfterSend ? Double(sentTimestampMs) : nil),
                     linkPreviewUrl: communityUrl
                 )
                 .inserted(db)
@@ -826,12 +838,13 @@ class ThreadSettingsViewModel: SessionTableViewModel, NavigationItemSource, Navi
     ) {
         guard oldBlockedState != isBlocked else { return }
         
-        dependencies.storage.writeAsync { db in
+        dependencies.storage.writeAsync { [dependencies] db in
             try Contact
                 .filter(id: threadId)
                 .updateAllAndConfig(
                     db,
-                    Contact.Columns.isBlocked.set(to: isBlocked)
+                    Contact.Columns.isBlocked.set(to: isBlocked),
+                    using: dependencies
                 )
         }
     }

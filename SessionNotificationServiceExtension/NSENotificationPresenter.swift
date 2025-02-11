@@ -176,16 +176,17 @@ public class NSENotificationPresenter: NSObject, NotificationsProtocol {
         
         let senderName: String = Profile.displayName(db, id: interaction.authorId, threadVariant: thread.variant)
         
-        if messageInfo.state == .permissionDenied {
-            notificationContent.body = "callsYouMissedCallPermissions"
-                .put(key: "name", value: senderName)
-                .localizedDeformatted()
-        }
-        else if messageInfo.state == .permissionDeniedMicrophone {
-            notificationContent.body = String(
-                format: "callsMissedCallFrom".localized(),
-                senderName
-            )
+        switch messageInfo.state {
+            case .permissionDenied:
+                notificationContent.body = "callsYouMissedCallPermissions"
+                    .put(key: "name", value: senderName)
+                    .localizedDeformatted()
+            case .permissionDeniedMicrophone:
+                notificationContent.body = "callsMissedCallFrom"
+                    .put(key: "name", value: senderName)
+                    .localizedDeformatted()
+            default:
+                break
         }
         
         addNotifcationRequest(
@@ -280,7 +281,7 @@ private extension String {
             var matchEnd = m1.range.location + m1.range.length
             
             if let displayName: String = Profile.displayNameNoFallback(id: publicKey) {
-                result = (result as NSString).replacingCharacters(in: m1.range, with: "@\(displayName)") // stringlint:disable
+                result = (result as NSString).replacingCharacters(in: m1.range, with: "@\(displayName)")
                 mentions.append((range: NSRange(location: m1.range.location, length: displayName.utf16.count + 1), publicKey: publicKey)) // + 1 to include the @
                 matchEnd = m1.range.location + displayName.utf16.count
             }

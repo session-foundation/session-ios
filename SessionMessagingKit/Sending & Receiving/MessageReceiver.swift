@@ -23,6 +23,9 @@ public enum MessageReceiver {
         let sentTimestamp: UInt64
         let serverHash: String?
         let openGroupServerMessageId: UInt64?
+        let openGroupWhisper: Bool
+        let openGroupWhisperMods: Bool
+        let openGroupWhisperTo: String?
         let threadVariant: SessionThread.Variant
         let threadIdGenerator: (Message) throws -> String
         
@@ -37,12 +40,15 @@ public enum MessageReceiver {
                     data: data
                 )
                 
-            case (_, .community(let openGroupId, let messageSender, let timestamp, let messageServerId)):
+            case (_, .community(let openGroupId, let messageSender, let timestamp, let messageServerId, let messageWhisper, let messageWhisperMods, let messageWhisperTo)):
                 plaintext = data.removePadding()   // Remove the padding
                 sender = messageSender
                 sentTimestamp = UInt64(floor(timestamp * 1000)) // Convert to ms for database consistency
                 serverHash = nil
                 openGroupServerMessageId = UInt64(messageServerId)
+                openGroupWhisper = messageWhisper
+                openGroupWhisperMods = messageWhisperMods
+                openGroupWhisperTo = messageWhisperTo
                 threadVariant = .community
                 threadIdGenerator = { message in
                     // Guard against control messages in open groups
@@ -67,6 +73,9 @@ public enum MessageReceiver {
                 sentTimestamp = UInt64(floor(timestamp * 1000)) // Convert to ms for database consistency
                 serverHash = nil
                 openGroupServerMessageId = UInt64(messageServerId)
+                openGroupWhisper = false
+                openGroupWhisperMods = false
+                openGroupWhisperTo = nil
                 threadVariant = .contact
                 threadIdGenerator = { _ in sender }
                 
@@ -92,10 +101,14 @@ public enum MessageReceiver {
                         sentTimestamp = envelope.timestamp
                         serverHash = swarmServerHash
                         openGroupServerMessageId = nil
+                        openGroupWhisper = false
+                        openGroupWhisperMods = false
+                        openGroupWhisperTo = nil
                         threadVariant = .contact
                         threadIdGenerator = { message in
                             switch message {
                                 case let message as VisibleMessage: return (message.syncTarget ?? sender)
+                                case let message as ExpirationTimerUpdate: return (message.syncTarget ?? sender)
                                 default: return sender
                             }
                         }
@@ -156,6 +169,9 @@ public enum MessageReceiver {
                         }
                         
                         openGroupServerMessageId = nil
+                        openGroupWhisper = false
+                        openGroupWhisperMods = false
+                        openGroupWhisperTo = nil
                         threadVariant = .legacyGroup
                         threadIdGenerator = { _ in publicKey }
                         
@@ -176,11 +192,13 @@ public enum MessageReceiver {
            .successOrThrow())
         let message: Message = try (customMessage ?? Message.createMessageFrom(proto, sender: sender))
         message.sender = sender
-        message.recipient = userSessionId
         message.serverHash = serverHash
         message.sentTimestamp = sentTimestamp
         message.receivedTimestamp = UInt64(SnodeAPI.currentOffsetTimestampMs())
         message.openGroupServerMessageId = openGroupServerMessageId
+        message.openGroupWhisper = openGroupWhisper
+        message.openGroupWhisperMods = openGroupWhisperMods
+        message.openGroupWhisperTo = openGroupWhisperTo
         
         // Ignore disappearing message settings in communities (in case of modified clients)
         if threadVariant != .community {
@@ -264,7 +282,8 @@ public enum MessageReceiver {
             version: ((!proto.hasExpirationType && !proto.hasExpirationTimer) ?
                 .legacyDisappearingMessages :
                 .newDisappearingMessages
-            )
+            ),
+            using: dependencies
         )
         
         switch message {
@@ -309,7 +328,8 @@ public enum MessageReceiver {
                     threadVariant: threadVariant,
                     message: message,
                     serverExpirationTimestamp: serverExpirationTimestamp,
-                    proto: proto
+                    proto: proto,
+                    using: dependencies
                 )
                 
             case let message as UnsendRequest:
@@ -317,7 +337,8 @@ public enum MessageReceiver {
                     db,
                     threadId: threadId,
                     threadVariant: threadVariant,
-                    message: message
+                    message: message,
+                    using: dependencies
                 )
                 
             case let message as CallMessage:
@@ -343,21 +364,29 @@ public enum MessageReceiver {
                     threadVariant: threadVariant,
                     message: message, 
                     serverExpirationTimestamp: serverExpirationTimestamp,
-                    associatedWithProto: proto
+                    associatedWithProto: proto,
+                    using: dependencies
                 )
             
             default: throw MessageReceiverError.unknownMessage
         }
         
         // Perform any required post-handling logic
-        try MessageReceiver.postHandleMessage(db, threadId: threadId, threadVariant: threadVariant, message: message)
+        try MessageReceiver.postHandleMessage(
+            db,
+            threadId: threadId,
+            threadVariant: threadVariant,
+            message: message,
+            using: dependencies
+        )
     }
     
     public static func postHandleMessage(
         _ db: Database,
         threadId: String,
         threadVariant: SessionThread.Variant,
-        message: Message
+        message: Message,
+        using dependencies: Dependencies
     ) throws {
         // When handling any message type which has related UI we want to make sure the thread becomes
         // visible (the only other spot this flag gets set is when sending messages)
@@ -374,6 +403,13 @@ public enum MessageReceiver {
                 }
                 
                 fallthrough
+            
+            case is CallMessage:
+                if threadId == getUserHexEncodedPublicKey(db, using: dependencies) {
+                    break
+                } else {
+                    fallthrough
+                }
                 
             default:
                 // Only update the `shouldBeVisible` flag if the thread is currently not visible
@@ -389,7 +425,7 @@ public enum MessageReceiver {
                 // For disappear after send, this is necessary so the message will disappear even if it is not read
                 if threadVariant != .community {
                     db.afterNextTransactionNestedOnce(
-                        dedupeId: "PostInsertDisappearingMessagesJob",  // stringlint:disable
+                        dedupeId: "PostInsertDisappearingMessagesJob",  // stringlint:ignore
                         onCommit: { db in
                             JobRunner.upsert(
                                 db,
@@ -406,7 +442,8 @@ public enum MessageReceiver {
                     .updateAllAndConfig(
                         db,
                         SessionThread.Columns.shouldBeVisible.set(to: true),
-                        SessionThread.Columns.pinnedPriority.set(to: LibSession.visiblePriority)
+                        SessionThread.Columns.pinnedPriority.set(to: LibSession.visiblePriority),
+                        using: dependencies
                     )
         }
     }

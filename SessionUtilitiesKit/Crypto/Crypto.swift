@@ -8,8 +8,8 @@ import Foundation
 
 public extension Singleton {
     // FIXME: This will be reworked to be part of dependencies in the Groups Rebuild branch
-    fileprivate static var _crypto: Atomic<CryptoType> = Atomic(Crypto())
-    static var crypto: CryptoType { _crypto.wrappedValue }
+    @ThreadSafeObject fileprivate static var cachedCrypto: CryptoType = Crypto()
+    static var crypto: CryptoType { cachedCrypto }
 }
 
 // MARK: - CryptoType

@@ -9,7 +9,7 @@ import Nimble
 @testable import SessionMessagingKit
 @testable import SessionUtilitiesKit
 
-extension Job: MutableIdentifiable {
+extension Job: @retroactive MutableIdentifiable {
     public mutating func setId(_ id: Int64?) { self.id = id }
 }
 
@@ -63,11 +63,15 @@ class MessageSendJobSpec: QuickSpec {
                     SNMessagingKit.self
                 ],
                 initialData: { db in
-                    try SessionThread.fetchOrCreate(
+                    try SessionThread.upsert(
                         db,
                         id: "Test1",
                         variant: .contact,
-                        shouldBeVisible: true
+                        values: SessionThread.TargetValues(
+                            // False is the default and will mean we don't need libSession loaded
+                            shouldBeVisible: .setTo(false)
+                        ),
+                        using: dependencies
                     )
                 },
                 using: dependencies
@@ -149,8 +153,12 @@ class MessageSendJobSpec: QuickSpec {
                         expiresStartedAtMs: nil,
                         linkPreviewUrl: nil,
                         openGroupServerMessageId: nil,
+                        openGroupWhisper: false,
                         openGroupWhisperMods: false,
-                        openGroupWhisperTo: nil
+                        openGroupWhisperTo: nil,
+                        state: .sending,
+                        recipientReadTimestampMs: nil,
+                        mostRecentFailureText: nil
                     )
                     job = Job(
                         variant: .messageSend,

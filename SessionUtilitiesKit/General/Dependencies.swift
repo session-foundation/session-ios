@@ -4,28 +4,28 @@ import Foundation
 import GRDB
 
 public class Dependencies {
-    private var _storage: Atomic<Storage?>
+    @ThreadSafeObject private var cachedStorage: Storage?
     public var storage: Storage {
-        get { Dependencies.getValueSettingIfNull(&_storage) { Storage.shared } }
-        set { _storage.mutate { $0 = newValue } }
+        get { Dependencies.getValueSettingIfNull(&_cachedStorage) { Storage.shared } }
+        set { _cachedStorage.set(to: newValue) }
     }
     
-    private var _network: Atomic<NetworkType?>
+    @ThreadSafeObject private var cachedNetwork: NetworkType?
     public var network: NetworkType {
-        get { Dependencies.getValueSettingIfNull(&_network) { Network() } }
-        set { _network.mutate { $0 = newValue } }
+        get { Dependencies.getValueSettingIfNull(&_cachedNetwork) { Network() } }
+        set { _cachedNetwork.set(to: newValue) }
     }
     
-    private var _crypto: Atomic<CryptoType?>
+    @ThreadSafeObject private var cachedCrypto: CryptoType?
     public var crypto: CryptoType {
-        get { Dependencies.getValueSettingIfNull(&_crypto) { Crypto() } }
-        set { _crypto.mutate { $0 = newValue } }
+        get { Dependencies.getValueSettingIfNull(&_cachedCrypto) { Crypto() } }
+        set { _cachedCrypto.set(to: newValue) }
     }
     
-    private var _standardUserDefaults: Atomic<UserDefaultsType?>
+    @ThreadSafeObject private var cachedStandardUserDefaults: UserDefaultsType?
     public var standardUserDefaults: UserDefaultsType {
-        get { Dependencies.getValueSettingIfNull(&_standardUserDefaults) { UserDefaults.standard } }
-        set { _standardUserDefaults.mutate { $0 = newValue } }
+        get { Dependencies.getValueSettingIfNull(&_cachedStandardUserDefaults) { UserDefaults.standard } }
+        set { _cachedStandardUserDefaults.set(to: newValue) }
     }
     
     private var _caches: CachesType
@@ -34,34 +34,34 @@ public class Dependencies {
         set { _caches = newValue }
     }
     
-    private var _jobRunner: Atomic<JobRunnerType?>
+    @ThreadSafeObject private var cachedJobRunner: JobRunnerType?
     public var jobRunner: JobRunnerType {
-        get { Dependencies.getValueSettingIfNull(&_jobRunner) { JobRunner.instance } }
-        set { _jobRunner.mutate { $0 = newValue } }
+        get { Dependencies.getValueSettingIfNull(&_cachedJobRunner) { JobRunner.instance } }
+        set { _cachedJobRunner.set(to: newValue) }
     }
     
-    private var _scheduler: Atomic<ValueObservationScheduler?>
+    @ThreadSafeObject private var cachedScheduler: ValueObservationScheduler?
     public var scheduler: ValueObservationScheduler {
-        get { Dependencies.getValueSettingIfNull(&_scheduler) { Storage.defaultPublisherScheduler } }
-        set { _scheduler.mutate { $0 = newValue } }
+        get { Dependencies.getValueSettingIfNull(&_cachedScheduler) { Storage.defaultPublisherScheduler } }
+        set { _cachedScheduler.set(to: newValue) }
     }
     
-    private var _dateNow: Atomic<Date?>
+    @ThreadSafe private var cachedDateNow: Date?
     public var dateNow: Date {
-        get { (_dateNow.wrappedValue ?? Date()) }
-        set { _dateNow.mutate { $0 = newValue } }
+        get { (cachedDateNow ?? Date()) }
+        set { cachedDateNow = newValue }
     }
     
-    private var _fixedTime: Atomic<Int?>
+    @ThreadSafe private var cachedFixedTime: Int?
     public var fixedTime: Int {
-        get { Dependencies.getValueSettingIfNull(&_fixedTime) { 0 } }
-        set { _fixedTime.mutate { $0 = newValue } }
+        get { (cachedFixedTime ?? 0) }
+        set { cachedFixedTime = newValue  }
     }
     
-    private var _forceSynchronous: Bool
+    @ThreadSafe private var cachedForceSynchronous: Bool
     public var forceSynchronous: Bool {
-        get { _forceSynchronous }
-        set { _forceSynchronous = newValue }
+        get { cachedForceSynchronous }
+        set { cachedForceSynchronous = newValue }
     }
     
     public var asyncExecutions: [Int: [() -> Void]] = [:]
@@ -80,47 +80,37 @@ public class Dependencies {
         fixedTime: Int? = nil,
         forceSynchronous: Bool = false
     ) {
-        _storage = Atomic(storage)
-        _network = Atomic(network)
-        _crypto = Atomic(crypto)
-        _standardUserDefaults = Atomic(standardUserDefaults)
+        _cachedStorage = ThreadSafeObject(storage)
+        _cachedNetwork = ThreadSafeObject(network)
+        _cachedCrypto = ThreadSafeObject(crypto)
+        _cachedStandardUserDefaults = ThreadSafeObject(standardUserDefaults)
         _caches = caches
-        _jobRunner = Atomic(jobRunner)
-        _scheduler = Atomic(scheduler)
-        _dateNow = Atomic(dateNow)
-        _fixedTime = Atomic(fixedTime)
-        _forceSynchronous = forceSynchronous
+        _cachedJobRunner = ThreadSafeObject(jobRunner)
+        _cachedScheduler = ThreadSafeObject(scheduler)
+        _cachedDateNow = ThreadSafe(dateNow)
+        _cachedFixedTime = ThreadSafe(fixedTime)
+        _cachedForceSynchronous = ThreadSafe(forceSynchronous)
     }
     
     // MARK: - Convenience
     
-    private static func getValueSettingIfNull<T>(_ maybeValue: inout Atomic<T?>, _ valueGenerator: () -> T) -> T {
+    private static func getValueSettingIfNull<T>(_ maybeValue: inout ThreadSafeObject<Optional<T>>, _ valueGenerator: () -> T) -> T {
         guard let value: T = maybeValue.wrappedValue else {
             let value: T = valueGenerator()
-            maybeValue.mutate { $0 = value }
+            maybeValue.set(to: value)
             return value
         }
         
         return value
     }
     
-    private static func getMutableValueSettingIfNull<T>(_ maybeValue: inout Atomic<T?>, _ valueGenerator: () -> T) -> Atomic<T> {
-        guard let value: T = maybeValue.wrappedValue else {
-            let value: T = valueGenerator()
-            maybeValue.mutate { $0 = value }
-            return Atomic(value)
-        }
-        
-        return Atomic(value)
-    }
-    
 #if DEBUG
     public func stepForwardInTime() {
-        let targetTime: Int = ((_fixedTime.wrappedValue ?? 0) + 1)
-        _fixedTime.mutate { $0 = targetTime }
+        let targetTime: Int = (fixedTime + 1)
+        fixedTime = targetTime
         
-        if let currentDate: Date = _dateNow.wrappedValue {
-            _dateNow.mutate { $0 = Date(timeIntervalSince1970: currentDate.timeIntervalSince1970 + 1) }
+        if let currentDate: Date = _cachedDateNow.wrappedValue {
+            dateNow = Date(timeIntervalSince1970: currentDate.timeIntervalSince1970 + 1)
         }
         
         // Run and clear any executions which should run at the target time

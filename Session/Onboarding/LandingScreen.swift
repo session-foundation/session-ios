@@ -150,16 +150,8 @@ struct LandingScreen: View {
                 title: "urlOpen".localized(),
                 body: .text("urlOpenBrowser".localized()),
                 confirmTitle: "onboardingTos".localized(),
-                confirmAccessibility: Accessibility(
-                    identifier: "Terms of service button",
-                    label: "Terms of service button"
-                ),
                 confirmStyle: .textPrimary,
                 cancelTitle: "onboardingPrivacy".localized(),
-                cancelAccessibility: Accessibility(
-                    identifier: "Privacy policy button",
-                    label: "Privacy policy button"
-                ),
                 cancelStyle: .textPrimary,
                 hasCloseButton: true,
                 onConfirm: { _ in
@@ -167,10 +159,11 @@ struct LandingScreen: View {
                         UIApplication.shared.open(url)
                     }
                 },
-                onCancel: { _ in
+                onCancel: { modal in
                     if let url: URL = URL(string: "https://getsession.org/privacy-policy") {
                         UIApplication.shared.open(url)
                     }
+                    modal.close()
                 }
             )
         )

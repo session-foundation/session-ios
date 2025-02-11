@@ -1,13 +1,17 @@
 #!/usr/bin/env xcrun swift
 
-import Foundation
-
+// Copyright © 2023 Rangeproof Pty Ltd. All rights reserved.
+//
+// stringlint:disable
+//
 // The way this works is:
 // • Run the AbandonedStrings executable (see https://www.avanderlee.com/xcode/unused-localized-strings/)
 // • Paste the list of unused strings below
 // • Run this script by doing:
 //   swiftc remove_unused_strings.swift
 //   ./remove_unused_strings
+
+import Foundation
 
 let unusedStringKeys = [
     
