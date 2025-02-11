@@ -90,6 +90,7 @@ class DeveloperSettingsViewModel: SessionTableViewModel, NavigatableStateHolder,
         case updatedGroupsDeleteBeforeNow
         case updatedGroupsDeleteAttachmentsBeforeNow
         
+        case forceSlowDatabaseQueries
         case exportDatabase
         case importDatabase
         
@@ -127,6 +128,7 @@ class DeveloperSettingsViewModel: SessionTableViewModel, NavigatableStateHolder,
                 case .updatedGroupsDeleteBeforeNow: return "updatedGroupsDeleteBeforeNow"
                 case .updatedGroupsDeleteAttachmentsBeforeNow: return "updatedGroupsDeleteAttachmentsBeforeNow"
                 
+                case .forceSlowDatabaseQueries: return "forceSlowDatabaseQueries"
                 case .exportDatabase: return "exportDatabase"
                 case .importDatabase: return "importDatabase"
             }
@@ -168,6 +170,7 @@ class DeveloperSettingsViewModel: SessionTableViewModel, NavigatableStateHolder,
                 case .updatedGroupsDeleteBeforeNow: result.append(.updatedGroupsDeleteBeforeNow); fallthrough
                 case .updatedGroupsDeleteAttachmentsBeforeNow: result.append(.updatedGroupsDeleteAttachmentsBeforeNow); fallthrough
                 
+                case .forceSlowDatabaseQueries: result.append(.forceSlowDatabaseQueries); fallthrough
                 case .exportDatabase: result.append(.exportDatabase); fallthrough
                 case .importDatabase: result.append(.importDatabase)
             }
@@ -206,6 +209,8 @@ class DeveloperSettingsViewModel: SessionTableViewModel, NavigatableStateHolder,
         let updatedGroupsAllowInviteById: Bool
         let updatedGroupsDeleteBeforeNow: Bool
         let updatedGroupsDeleteAttachmentsBeforeNow: Bool
+        
+        let forceSlowDatabaseQueries: Bool
     }
     
     let title: String = "Developer Settings"
@@ -238,7 +243,9 @@ class DeveloperSettingsViewModel: SessionTableViewModel, NavigatableStateHolder,
                 updatedGroupsAllowPromotions: dependencies[feature: .updatedGroupsAllowPromotions],
                 updatedGroupsAllowInviteById: dependencies[feature: .updatedGroupsAllowInviteById],
                 updatedGroupsDeleteBeforeNow: dependencies[feature: .updatedGroupsDeleteBeforeNow],
-                updatedGroupsDeleteAttachmentsBeforeNow: dependencies[feature: .updatedGroupsDeleteAttachmentsBeforeNow]
+                updatedGroupsDeleteAttachmentsBeforeNow: dependencies[feature: .updatedGroupsDeleteAttachmentsBeforeNow],
+                
+                forceSlowDatabaseQueries: dependencies[feature: .forceSlowDatabaseQueries]
             )
         }
         .compactMapWithPrevious { [weak self] prev, current -> [SectionModel]? in self?.content(prev, current) }
@@ -717,6 +724,25 @@ class DeveloperSettingsViewModel: SessionTableViewModel, NavigatableStateHolder,
             model: .database,
             elements: [
                 SessionCell.Info(
+                    id: .forceSlowDatabaseQueries,
+                    title: "Force slow database queries",
+                    subtitle: """
+                    Controls whether we artificially add an initial 1s delay to all database queries.
+                    
+                    <b>Note:</b> This is generally not desired (as it'll make things run slowly) but can be beneficial for testing to track down database queries which are running on the main thread when they shouldn't be.
+                    """,
+                    trailingAccessory: .toggle(
+                        current.forceSlowDatabaseQueries,
+                        oldValue: previous?.forceSlowDatabaseQueries
+                    ),
+                    onTap: { [weak self] in
+                        self?.updateFlag(
+                            for: .forceSlowDatabaseQueries,
+                            to: !current.forceSlowDatabaseQueries
+                        )
+                    }
+                ),
+                SessionCell.Info(
                     id: .exportDatabase,
                     title: "Export App Data",
                     trailingAccessory: .icon(
@@ -796,6 +822,8 @@ class DeveloperSettingsViewModel: SessionTableViewModel, NavigatableStateHolder,
                 case .updatedGroupsAllowInviteById: updateFlag(for: .updatedGroupsAllowInviteById, to: nil)
                 case .updatedGroupsDeleteBeforeNow: updateFlag(for: .updatedGroupsDeleteBeforeNow, to: nil)
                 case .updatedGroupsDeleteAttachmentsBeforeNow: updateFlag(for: .updatedGroupsDeleteAttachmentsBeforeNow, to: nil)
+                    
+                case .forceSlowDatabaseQueries: updateFlag(for: .forceSlowDatabaseQueries, to: nil)
             }
         }
         

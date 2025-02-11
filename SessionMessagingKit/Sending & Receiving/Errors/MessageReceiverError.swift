@@ -26,6 +26,7 @@ public enum MessageReceiverError: LocalizedError {
     case outdatedMessage
     case duplicatedCall
     case missingRequiredAdminPrivileges
+    case deprecatedMessage
 
     public var isRetryable: Bool {
         switch self {
@@ -79,6 +80,7 @@ public enum MessageReceiverError: LocalizedError {
             case .outdatedMessage: return "Message was sent before a config change which would have removed the message."
             case .duplicatedCall: return "Duplicate call."
             case .missingRequiredAdminPrivileges: return "Handling this message requires admin privileges which the current user does not have."
+            case .deprecatedMessage: return "This message type has been deprecated."
         }
     }
 }

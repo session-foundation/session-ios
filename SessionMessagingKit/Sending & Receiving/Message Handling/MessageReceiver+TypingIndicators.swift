@@ -34,7 +34,7 @@ extension MessageReceiver {
                     ))
                     .isEmpty(db))
                     .defaulting(to: false)
-                let needsToStartTypingIndicator: Bool = dependencies[singleton: .typingIndicators].didStartTypingNeedsToStart(
+                dependencies[singleton: .typingIndicators].startIfNeeded(
                     threadId: threadId,
                     threadVariant: threadVariant,
                     threadIsBlocked: threadIsBlocked,
@@ -42,10 +42,6 @@ extension MessageReceiver {
                     direction: .incoming,
                     timestampMs: message.sentTimestampMs.map { Int64($0) }
                 )
-                
-                if needsToStartTypingIndicator {
-                    dependencies[singleton: .typingIndicators].start(db, threadId: threadId, direction: .incoming)
-                }
                 
             case .stopped:
                 dependencies[singleton: .typingIndicators].didStopTyping(db, threadId: threadId, direction: .incoming)

@@ -130,6 +130,12 @@ open class Modal: UIViewController, UIGestureRecognizerDelegate {
         populateContentView()
     }
     
+    open override func viewDidDisappear(_ animated: Bool) {
+        super.viewDidDisappear(animated)
+        
+        afterClosed?()
+    }
+    
     /// To be overridden by subclasses.
     open func populateContentView() {
         preconditionFailure("populateContentView() is abstract and must be overridden.")
@@ -167,9 +173,7 @@ open class Modal: UIViewController, UIGestureRecognizerDelegate {
                 }
         }
         
-        targetViewController?.presentingViewController?.dismiss(animated: true) { [weak self] in
-            self?.afterClosed?()
-        }
+        targetViewController?.presentingViewController?.dismiss(animated: true)
     }
     
     // MARK: - UIGestureRecognizerDelegate

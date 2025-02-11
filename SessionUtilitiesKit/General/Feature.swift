@@ -36,6 +36,10 @@ public extension FeatureStorage {
         )
     )
     
+    static let forceSlowDatabaseQueries: FeatureConfig<Bool> = Dependencies.create(
+        identifier: "forceSlowDatabaseQueries"
+    )
+    
     static let updatedGroups: FeatureConfig<Bool> = Dependencies.create(
         identifier: "updatedGroups",
         defaultOption: true,

@@ -14,6 +14,8 @@ extension MessageReceiver {
         message: ClosedGroupControlMessage,
         using dependencies: Dependencies
     ) throws {
+        guard !dependencies[feature: .legacyGroupsDeprecated] else { throw MessageReceiverError.deprecatedMessage }
+        
         switch message.kind {
             case .new: try handleNewLegacyClosedGroup(db, message: message, using: dependencies)
             

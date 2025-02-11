@@ -714,24 +714,14 @@ extension ConversationVC:
         let newText: String = (inputTextView.text ?? "")
         
         if !newText.isEmpty {
-            let threadId: String = self.viewModel.threadData.threadId
-            let threadVariant: SessionThread.Variant = self.viewModel.threadData.threadVariant
-            let threadIsMessageRequest: Bool = (self.viewModel.threadData.threadIsMessageRequest == true)
-            let threadIsBlocked: Bool = (self.viewModel.threadData.threadIsBlocked == true)
-            let needsToStartTypingIndicator: Bool = viewModel.dependencies[singleton: .typingIndicators].didStartTypingNeedsToStart(
-                threadId: threadId,
-                threadVariant: threadVariant,
-                threadIsBlocked: threadIsBlocked,
-                threadIsMessageRequest: threadIsMessageRequest,
+            viewModel.dependencies[singleton: .typingIndicators].startIfNeeded(
+                threadId: viewModel.threadData.threadId,
+                threadVariant: viewModel.threadData.threadVariant,
+                threadIsBlocked: (viewModel.threadData.threadIsBlocked == true),
+                threadIsMessageRequest: (viewModel.threadData.threadIsMessageRequest == true),
                 direction: .outgoing,
                 timestampMs: viewModel.dependencies[cache: .snodeAPI].currentOffsetTimestampMs()
             )
-            
-            if needsToStartTypingIndicator {
-                viewModel.dependencies[singleton: .storage].writeAsync { [dependencies = viewModel.dependencies] db in
-                    dependencies[singleton: .typingIndicators].start(db, threadId: threadId, direction: .outgoing)
-                }
-            }
         }
         
         updateMentions(for: newText)
@@ -2086,13 +2076,17 @@ extension ConversationVC:
                                     switch result {
                                         case .finished:
                                             modal.dismiss(animated: true) {
-                                                self?.viewModel.showToast(
-                                                    text: "deleteMessageDeleted"
-                                                        .putNumber(messagesToDelete.count)
-                                                        .localized(),
-                                                    backgroundColor: .backgroundSecondary,
-                                                    inset: (self?.inputAccessoryView?.frame.height ?? Values.mediumSpacing) + Values.smallSpacing
-                                                )
+                                                /// Dispatch after a delay because becoming the first responder can cause
+                                                /// an odd appearance animation
+                                                DispatchQueue.main.asyncAfter(deadline: .now() + .milliseconds(150)) {
+                                                    self?.viewModel.showToast(
+                                                        text: "deleteMessageDeleted"
+                                                            .putNumber(messagesToDelete.count)
+                                                            .localized(),
+                                                        backgroundColor: .backgroundSecondary,
+                                                        inset: (self?.inputAccessoryView?.frame.height ?? Values.mediumSpacing) + Values.smallSpacing
+                                                    )
+                                                }
                                             }
                                             
                                         case .failure:

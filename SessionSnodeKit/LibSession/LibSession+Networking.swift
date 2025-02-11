@@ -12,7 +12,14 @@ import SessionUtilitiesKit
 public extension Cache {
     static let libSessionNetwork: CacheConfig<LibSession.NetworkCacheType, LibSession.NetworkImmutableCacheType> = Dependencies.create(
         identifier: "libSessionNetwork",
-        createInstance: { dependencies in LibSession.NetworkCache(using: dependencies) },
+        createInstance: { dependencies in
+            /// The `libSessionNetwork` cache gets warmed during startup and creates a network instance, populates the snode
+            /// cache and builds onion requests when created - when running unit tests we don't want to do any of that unless explicitly
+            /// desired within the test itself so instead we default to a `NoopNetworkCache` when running unit tests
+            guard !SNUtilitiesKit.isRunningTests else { return LibSession.NoopNetworkCache() }
+            
+            return LibSession.NetworkCache(using: dependencies)
+        },
         mutableInstance: { $0 },
         immutableInstance: { $0 }
     )
@@ -896,5 +903,28 @@ public extension LibSession {
         func setNetworkStatus(status: NetworkStatus)
         func setPaths(paths: [[Snode]])
         func clearSnodeCache()
+    }
+    
+    class NoopNetworkCache: NetworkCacheType {
+        public var isSuspended: Bool { return false }
+        public var networkStatus: AnyPublisher<NetworkStatus, Never> {
+            Just(NetworkStatus.unknown).eraseToAnyPublisher()
+        }
+        
+        public var paths: AnyPublisher<[[Snode]], Never> { Just([]).eraseToAnyPublisher() }
+        public var hasPaths: Bool { return false }
+        public var currentPaths: [[LibSession.Snode]] { [] }
+        public var pathsDescription: String { "" }
+        
+        public func suspendNetworkAccess() {}
+        public func resumeNetworkAccess() {}
+        public func getOrCreateNetwork() -> AnyPublisher<UnsafeMutablePointer<network_object>?, Error> {
+            return Fail(error: NetworkError.invalidState)
+                .eraseToAnyPublisher()
+        }
+        
+        public func setNetworkStatus(status: NetworkStatus) {}
+        public func setPaths(paths: [[LibSession.Snode]]) {}
+        public func clearSnodeCache() {}
     }
 }

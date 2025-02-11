@@ -1435,32 +1435,42 @@ public extension Interaction {
                 )
         }
         
-        /// Mark the messages as deleted (ie. remove as much message data as we can)
-        try interactionInfo.grouped(by: { $0.variant }).forEach { variant, info in
-            let targetVariant: Interaction.Variant = {
-                switch (variant, localOnly) {
-                    case (.standardOutgoing, true), (.standardOutgoingDeletedLocally, true):
-                        return .standardOutgoingDeletedLocally
-                    case (.standardOutgoing, false), (.standardOutgoingDeletedLocally, false), (.standardOutgoingDeleted, _):
-                        return .standardOutgoingDeleted
-                    case (.standardIncoming, true), (.standardIncomingDeletedLocally, true):
-                        return .standardIncomingDeletedLocally
-                    default: return .standardIncomingDeleted
-                }
-            }()
-            
-            try Interaction
-                .filter(ids: info.map { $0.id })
-                .updateAll(
-                    db,
-                    Interaction.Columns.variant.set(to: targetVariant),
-                    Interaction.Columns.body.set(to: nil),
-                    Interaction.Columns.wasRead.set(to: true),
-                    Interaction.Columns.hasMention.set(to: false),
-                    Interaction.Columns.linkPreviewUrl.set(to: nil),
-                    Interaction.Columns.state.set(to: Interaction.State.deleted)
-                )
-        }
+        /// Delete info messages entirely (can't really mark them as deleted since they don't have a sender
+        let infoMessageIds: Set<Int64> = interactionInfo
+            .filter { $0.variant.isInfoMessage }
+            .compactMap { $0.id }
+            .asSet()
+        _ = try Interaction.deleteAll(db, ids: infoMessageIds)
+        
+        /// Mark non-info messages as deleted (ie. remove as much message data as we can)
+        try interactionInfo
+            .filter { !$0.variant.isInfoMessage }
+            .grouped(by: { $0.variant })
+            .forEach { variant, info in
+                let targetVariant: Interaction.Variant = {
+                    switch (variant, localOnly) {
+                        case (.standardOutgoing, true), (.standardOutgoingDeletedLocally, true):
+                            return .standardOutgoingDeletedLocally
+                        case (.standardOutgoing, false), (.standardOutgoingDeletedLocally, false), (.standardOutgoingDeleted, _):
+                            return .standardOutgoingDeleted
+                        case (.standardIncoming, true), (.standardIncomingDeletedLocally, true):
+                            return .standardIncomingDeletedLocally
+                        default: return .standardIncomingDeleted
+                    }
+                }()
+                
+                try Interaction
+                    .filter(ids: info.map { $0.id })
+                    .updateAll(
+                        db,
+                        Interaction.Columns.variant.set(to: targetVariant),
+                        Interaction.Columns.body.set(to: nil),
+                        Interaction.Columns.wasRead.set(to: true),
+                        Interaction.Columns.hasMention.set(to: false),
+                        Interaction.Columns.linkPreviewUrl.set(to: nil),
+                        Interaction.Columns.state.set(to: Interaction.State.deleted)
+                    )
+            }
         
         /// If we had attachments then we want to try to delete their associated files immediately (in the next run loop) as that's the
         /// behaviour users would expect, if this fails for some reason then they will be cleaned up by the `GarbageCollectionJob`

@@ -670,14 +670,16 @@ open class Storage {
     /// and just block the thread when we want to perform a synchronous operation
     @discardableResult private static func performOperation<T>(
         _ info: CallInfo,
+        _ dependencies: Dependencies,
         _ operation: @escaping (Database) throws -> T,
         _ completion: ((Result<T, Error>) -> Void)? = nil
     ) -> Result<T, Error> {
-        let queryDbLock = NSLock()
+        // A serial queue for synchronizing completion updates.
+        let syncQueue = DispatchQueue(label: "com.session.performOperation.syncQueue")
+        
         var queryDb: Database?
-        let completionLock = NSLock()
         var didComplete: Bool = false
-        var result: Result<T, Error> = .failure(StorageError.invalidQueryResult)
+        var finalResult: Result<T, Error> = .failure(StorageError.invalidQueryResult)
         let semaphore: DispatchSemaphore? = (info.isAsync ? nil : DispatchSemaphore(value: 0))
         let logErrorIfNeeded: (Result<T, Error>) -> () = { result in
             switch result {
@@ -685,46 +687,37 @@ open class Storage {
                 case .failure(let error): StorageState.logIfNeeded(error, isWrite: info.isWrite)
             }
         }
-        let completeOperation: (Result<T, Error>) -> Void = { operationResult in
-            completionLock.lock()
-            defer { completionLock.unlock() }
-            guard !didComplete else { return }
-            
-            /// If the query timed out then we should interrupt the query (don't want the query thread to remain blocked when we've
-            /// already handled it as a failure)
-            switch operationResult {
-                case .failure(let error) where error as? StorageError == StorageError.transactionDeadlockTimeout:
-                    queryDbLock.lock()
-                    defer { queryDbLock.unlock() }
-                    queryDb?.interrupt()
-                    
-                default: break
-            }
-            
-            didComplete = true
-            result = operationResult
-            semaphore?.signal()
-            
-            /// For async operations, log the error and call the completion closure
-            if info.isAsync {
-                logErrorIfNeeded(result)
-                completion?(result)
+        
+        func completeOperation(with result: Result<T, Error>) {
+            syncQueue.sync {
+                if didComplete { return }
+                didComplete = true
+                finalResult = result
+                semaphore?.signal()
+                
+                // For async operations, log and invoke the completion closure.
+                if info.isAsync {
+                    logErrorIfNeeded(result)
+                    completion?(result)
+                }
             }
         }
         
         /// Perform the actual operation
         switch (StorageState(info.storage), info.isWrite) {
-            case (.invalid(let error), _): completeOperation(.failure(error))
+            case (.invalid(let error), _): completeOperation(with: .failure(error))
             case (.valid(let dbWriter), true):
                 dbWriter.asyncWrite(
                     { db in
-                        queryDbLock.lock()
-                        defer { queryDbLock.unlock() }
+                        syncQueue.sync { queryDb = db }
                         
-                        queryDb = db
+                        if dependencies[feature: .forceSlowDatabaseQueries] {
+                            Thread.sleep(forTimeInterval: 1)
+                        }
+                        
                         return try Storage.track(db, info, operation)
                     },
-                    completion: { _, dbResult in completeOperation(dbResult) }
+                    completion: { _, dbResult in completeOperation(with: dbResult) }
                 )
                 
             case (.valid(let dbWriter), false):
@@ -733,14 +726,16 @@ open class Storage {
                         switch dbResult {
                             case .failure(let error): throw error
                             case .success(let db):
-                                queryDbLock.lock()
-                                defer { queryDbLock.unlock() }
+                                syncQueue.sync { queryDb = db }
                                 
-                                queryDb = db
-                                completeOperation(.success(try Storage.track(db, info, operation)))
+                                if dependencies[feature: .forceSlowDatabaseQueries] {
+                                    Thread.sleep(forTimeInterval: 1)
+                                }
+                                
+                                completeOperation(with: .success(try Storage.track(db, info, operation)))
                         }
                     } catch {
-                        completeOperation(.failure(error))
+                        completeOperation(with: .failure(error))
                     }
                 }
         }
@@ -760,38 +755,50 @@ open class Storage {
         if !isDebuggerAttached() {
             semaphoreResult = semaphore?.wait(timeout: .now() + .seconds(Storage.transactionDeadlockTimeoutSeconds))
         }
-        else if !info.isAsync {
-            let timerSemaphore: DispatchSemaphore = DispatchSemaphore(value: 0)
-            let timerQueue = DispatchQueue(label: "org.session.debugSemaphoreTimer", qos: .userInteractive)
-            let timer = DispatchSource.makeTimerSource(queue: timerQueue)
-            var iterations: UInt64 = 0
+        else if !info.isAsync, let semaphore: DispatchSemaphore = semaphore {
+            let pollQueue: DispatchQueue = DispatchQueue.global(qos: .userInitiated)
+            var iterations: Int = 0
+            let maxIterations: Int = 50
+            let pollCompletionSemaphore: DispatchSemaphore = DispatchSemaphore(value: 0)
             
-            /// Every tick of the timer check if the semaphore has completed or we have timed out
-            timer.schedule(deadline: .now(), repeating: .milliseconds(100))
-            timer.setEventHandler {
+            /// Stagger the size of the `pollIntervals` to avoid holding up the thread in case the query resolves very quickly
+            let pollIntervals: [DispatchTimeInterval] = [
+                .milliseconds(5), .milliseconds(5), .milliseconds(10), .milliseconds(10), .milliseconds(10),
+                .milliseconds(100)
+            ]
+            
+            func pollSemaphore() {
                 iterations += 1
                 
-                if iterations >= 50 || semaphore?.wait(timeout: .now()) == .success {
-                    timer.cancel()
-                    timerSemaphore.signal()
+                guard iterations < maxIterations && semaphore.wait(timeout: .now()) != .success else {
+                    pollCompletionSemaphore.signal()
+                    return
+                }
+                
+                let nextInterval: DispatchTimeInterval = pollIntervals[min(iterations, pollIntervals.count - 1)]
+                pollQueue.asyncAfter(deadline: .now() + nextInterval) {
+                    pollSemaphore()
                 }
             }
             
-            timer.resume()
-            timerSemaphore.wait()   // Wait indefinitely for the timer semaphore
+            /// Poll the semaphore in a background queue
+            pollQueue.asyncAfter(deadline: .now() + pollIntervals[0]) { pollSemaphore() }
+            pollCompletionSemaphore.wait()   // Wait indefinitely for the timer semaphore
             semaphoreResult = (iterations >= 50 ? .timedOut : .success)
         }
         #else
         semaphoreResult = semaphore?.wait(timeout: .now() + .seconds(Storage.transactionDeadlockTimeoutSeconds))
         #endif
         
-        /// If the transaction timed out then log the error and report a failure, otherwise handle whatever the result was
-        completeOperation(semaphoreResult != .timedOut ?
-            result :
-            .failure(StorageError.transactionDeadlockTimeout)
-        )
+        /// If the query timed out then we should interrupt the query (don't want the query thread to remain blocked when we've
+        /// already handled it as a failure) and need to call `completeOperation` as it wouldn't have been called within the
+        /// db transaction yet
+        if semaphoreResult == .timedOut {
+            syncQueue.sync { queryDb?.interrupt() }
+            completeOperation(with: .failure(StorageError.transactionDeadlockTimeout))
+        }
         
-        return result
+        return finalResult
     }
     
     private func performPublisherOperation<T>(
@@ -812,9 +819,9 @@ open class Storage {
                 /// Instead of this we are just using `Deferred { Future {} }` which is executed on the specified scheduled
                 /// which behaves in a much more expected way than the GRDB `readPublisher`/`writePublisher` does
                 let info: CallInfo = CallInfo(self, fileName, functionName, lineNumber, .syncWrite)
-                return Deferred {
+                return Deferred { [dependencies] in
                     Future { resolver in
-                        resolver(Storage.performOperation(info, operation))
+                        resolver(Storage.performOperation(info, dependencies, operation))
                     }
                 }.eraseToAnyPublisher()
         }
@@ -828,7 +835,7 @@ open class Storage {
         lineNumber line: Int = #line,
         updates: @escaping (Database) throws -> T?
     ) -> T? {
-        switch Storage.performOperation(CallInfo(self, file, funcN, line, .syncWrite), updates) {
+        switch Storage.performOperation(CallInfo(self, file, funcN, line, .syncWrite), dependencies, updates) {
             case .failure: return nil
             case .success(let result): return result
         }
@@ -841,7 +848,7 @@ open class Storage {
         updates: @escaping (Database) throws -> T,
         completion: @escaping (Result<T, Error>) -> Void = { _ in }
     ) {
-        Storage.performOperation(CallInfo(self, file, funcN, line, .asyncWrite), updates, completion)
+        Storage.performOperation(CallInfo(self, file, funcN, line, .asyncWrite), dependencies, updates, completion)
     }
     
     open func writePublisher<T>(
@@ -859,7 +866,7 @@ open class Storage {
         lineNumber line: Int = #line,
         _ value: @escaping (Database) throws -> T?
     ) -> T? {
-        switch Storage.performOperation(CallInfo(self, file, funcN, line, .syncRead), value) {
+        switch Storage.performOperation(CallInfo(self, file, funcN, line, .syncRead), dependencies, value) {
             case .failure: return nil
             case .success(let result): return result
         }

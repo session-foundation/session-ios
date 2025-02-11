@@ -42,6 +42,7 @@ public final class GroupPoller: SwarmPoller {
     override public func nextPollDelay() -> TimeInterval {
         // Get the received date of the last message in the thread. If we don't have
         // any messages yet, pick some reasonable fake time interval to use instead
+        // FIXME: Update this to be based on `active_at` once it gets added to libSession
         let lastMessageDate: Date = dependencies[singleton: .storage]
             .read { [pollerDestination] db in
                 try Interaction
@@ -57,8 +58,28 @@ public final class GroupPoller: SwarmPoller {
                 return Date(timeIntervalSince1970: TimeInterval(Double(receivedAtTimestampMs) / 1000))
             }
             .defaulting(to: dependencies.dateNow.addingTimeInterval(-5 * 60))
+        let lastReadDate: Date = dependencies
+            .mutate(cache: .libSession) { cache in
+                cache.conversationLastRead(
+                    threadId: pollerDestination.target,
+                    // FIXME: Remove this check when legacy groups are deprecated (leaving the feature flag commented out to make it easier to find)
+                    // dependencies[feature: .legacyGroupsDeprecated]
+                    threadVariant: ((try? SessionId.Prefix(from: pollerDestination.target)) != .standard ?
+                        .group :
+                        .legacyGroup
+                    ),
+                    openGroup: nil
+                )
+            }
+            .map { lastReadTimestampMs in
+                guard lastReadTimestampMs > 0 else { return nil }
+                
+                return Date(timeIntervalSince1970: TimeInterval(Double(lastReadTimestampMs) / 1000))
+            }
+            .defaulting(to: dependencies.dateNow.addingTimeInterval(-5 * 60))
         
-        let timeSinceLastMessage: TimeInterval = dependencies.dateNow.timeIntervalSince(lastMessageDate)
+        let timeSinceLastMessage: TimeInterval = dependencies.dateNow
+            .timeIntervalSince(max(lastMessageDate, lastReadDate))
         let limit: Double = (12 * 60 * 60)
         let a: TimeInterval = ((maxPollInterval - minPollInterval) / limit)
         let nextPollInterval: TimeInterval = a * min(timeSinceLastMessage, limit) + minPollInterval

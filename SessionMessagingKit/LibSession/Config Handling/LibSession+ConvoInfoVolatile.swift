@@ -406,6 +406,70 @@ public extension LibSession {
 }
 
 public extension LibSessionCacheType {
+    func conversationLastRead(
+        threadId: String,
+        threadVariant: SessionThread.Variant,
+        openGroup: OpenGroup?
+    ) -> Int64? {
+        // If we don't have a config then just assume it's unread
+        guard case .convoInfoVolatile(let conf) = config(for: .convoInfoVolatile, sessionId: userSessionId) else {
+            return nil
+        }
+        
+        switch threadVariant {
+            case .contact:
+                var oneToOne: convo_info_volatile_1to1 = convo_info_volatile_1to1()
+                guard
+                    var cThreadId: [CChar] = threadId.cString(using: .utf8),
+                    convo_info_volatile_get_1to1(conf, &oneToOne, &cThreadId)
+                else {
+                    LibSessionError.clear(conf)
+                    return nil
+                }
+                
+                return oneToOne.last_read
+                
+            case .legacyGroup:
+                var legacyGroup: convo_info_volatile_legacy_group = convo_info_volatile_legacy_group()
+                
+                guard
+                    var cThreadId: [CChar] = threadId.cString(using: .utf8),
+                    convo_info_volatile_get_legacy_group(conf, &legacyGroup, &cThreadId)
+                else {
+                    LibSessionError.clear(conf)
+                    return nil
+                }
+                
+                return legacyGroup.last_read
+                
+            case .community:
+                guard let openGroup: OpenGroup = openGroup else { return nil }
+                
+                var convoCommunity: convo_info_volatile_community = convo_info_volatile_community()
+                
+                guard
+                    var cBaseUrl: [CChar] = openGroup.server.cString(using: .utf8),
+                    var cRoomToken: [CChar] = openGroup.roomToken.cString(using: .utf8),
+                    convo_info_volatile_get_community(conf, &convoCommunity, &cBaseUrl, &cRoomToken)
+                else {
+                    LibSessionError.clear(conf)
+                    return nil
+                }
+                
+                return convoCommunity.last_read
+                
+            case .group:
+                var group: convo_info_volatile_group = convo_info_volatile_group()
+
+                guard
+                    var cThreadId: [CChar] = threadId.cString(using: .utf8),
+                    convo_info_volatile_get_group(conf, &group, &cThreadId)
+                else { return nil }
+
+                return group.last_read
+        }
+    }
+    
     func timestampAlreadyRead(
         threadId: String,
         threadVariant: SessionThread.Variant,

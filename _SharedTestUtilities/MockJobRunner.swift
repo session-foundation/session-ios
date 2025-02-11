@@ -71,4 +71,13 @@ class MockJobRunner: Mock<JobRunnerType>, JobRunnerType {
     func removePendingJob(_ job: Job?) {
         mockNoReturn(args: [job])
     }
+    
+    
+    func registerRecurringJobs(scheduleInfo: [JobRunner.ScheduleInfo]) {
+        mockNoReturn(args: [scheduleInfo])
+    }
+    
+    func scheduleRecurringJobsIfNeeded() {
+        mockNoReturn()
+    }
 }
