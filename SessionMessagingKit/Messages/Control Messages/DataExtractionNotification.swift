@@ -42,8 +42,8 @@ public final class DataExtractionNotification: ControlMessage {
 
     // MARK: - Validation
     
-    public override func isValid(using dependencies: Dependencies) -> Bool {
-        guard super.isValid(using: dependencies), let kind = kind else { return false }
+    public override func isValid(isSending: Bool) -> Bool {
+        guard super.isValid(isSending: isSending), let kind = kind else { return false }
         
         switch kind {
             case .screenshot: return true

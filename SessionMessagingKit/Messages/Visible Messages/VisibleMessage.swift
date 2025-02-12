@@ -34,8 +34,8 @@ public final class VisibleMessage: Message {
     
     // MARK: - Validation
     
-    public override func isValid(using dependencies: Dependencies) -> Bool {
-        guard super.isValid(using: dependencies) else { return false }
+    public override func isValid(isSending: Bool) -> Bool {
+        guard super.isValid(isSending: isSending) else { return false }
         if !attachmentIds.isEmpty || dataMessageHasAttachments == true { return true }
         if openGroupInvitation != nil { return true }
         if reaction != nil { return true }

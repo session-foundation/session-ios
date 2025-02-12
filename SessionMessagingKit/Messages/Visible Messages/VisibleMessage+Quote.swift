@@ -12,7 +12,7 @@ public extension VisibleMessage {
         public let text: String?
         public let attachmentId: String?
 
-        public func isValid(using dependencies: Dependencies) -> Bool { timestamp != nil && publicKey != nil }
+        public func isValid(isSending: Bool) -> Bool { timestamp != nil && publicKey != nil }
         
         // MARK: - Initialization
 

@@ -18,7 +18,7 @@ public extension VisibleMessage {
         /// This is the behaviour for the reaction
         public var kind: Kind
         
-        public func isValid(using dependencies: Dependencies) -> Bool { true }
+        public func isValid(isSending: Bool) -> Bool { true }
         
         // MARK: - Kind
         

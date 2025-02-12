@@ -568,7 +568,7 @@ public final class MessageSender {
         using dependencies: Dependencies
     ) throws {
         /// Check the message itself is valid
-        guard message.isValid(using: dependencies) else { throw MessageSenderError.invalidMessage }
+        guard message.isValid(isSending: true) else { throw MessageSenderError.invalidMessage }
         
         /// We now allow the creation of message data without validating it's attachments have finished uploading first, this is here to
         /// ensure we don't send a message which should have uploaded files

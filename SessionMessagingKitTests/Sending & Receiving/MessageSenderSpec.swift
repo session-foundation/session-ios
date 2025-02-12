@@ -37,6 +37,11 @@ class MessageSenderSpec: QuickSpec {
                     .thenReturn(Array(Data(base64Encoded: "pbTUizreT0sqJ2R2LloseQDyVL2RYztD")!))
             }
         )
+        @TestState(cache: .general, in: dependencies) var mockGeneralCache: MockGeneralCache! = MockGeneralCache(
+            initialSetup: { cache in
+                cache.when { $0.sessionId }.thenReturn(SessionId(.standard, hex: TestConstants.publicKey))
+            }
+        )
         
         // MARK: - a MessageSender
         describe("a MessageSender") {

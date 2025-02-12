@@ -157,7 +157,7 @@ public final class ClosedGroupControlMessage: ControlMessage {
         public var publicKey: String?
         public var encryptedKeyPair: Data?
 
-        public func isValid(using dependencies: Dependencies) -> Bool { publicKey != nil && encryptedKeyPair != nil }
+        public func isValid(isSending: Bool) -> Bool { publicKey != nil && encryptedKeyPair != nil }
 
         public init(publicKey: String, encryptedKeyPair: Data) {
             self.publicKey = publicKey
@@ -192,8 +192,8 @@ public final class ClosedGroupControlMessage: ControlMessage {
 
     // MARK: - Validation
     
-    public override func isValid(using dependencies: Dependencies) -> Bool {
-        guard super.isValid(using: dependencies), let kind = kind else { return false }
+    public override func isValid(isSending: Bool) -> Bool {
+        guard super.isValid(isSending: isSending), let kind = kind else { return false }
         
         switch kind {
             case .new(let publicKey, let name, let encryptionKeyPair, let members, let admins, _):

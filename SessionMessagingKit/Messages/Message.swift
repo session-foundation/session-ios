@@ -44,10 +44,22 @@ public class Message: Codable {
 
     // MARK: - Validation
     
-    public func isValid(using dependencies: Dependencies) -> Bool {
-        if let sentTimestampMs = sentTimestampMs { guard sentTimestampMs > 0 else { return false } }
-        if let receivedTimestampMs = receivedTimestampMs { guard receivedTimestampMs > 0 else { return false } }
-        return sender != nil
+    public func isValid(isSending: Bool) -> Bool {
+        guard
+            let sentTimestampMs: UInt64 = sentTimestampMs,
+            sentTimestampMs > 0,
+            sender != nil
+        else { return false }
+        
+        /// If this is an incoming message then ensure we also have a received timestamp
+        if !isSending {
+            guard
+                let receivedTimestampMs: UInt64 = receivedTimestampMs,
+                receivedTimestampMs > 0
+            else { return false }
+        }
+        
+        return true
     }
     
     // MARK: - Initialization

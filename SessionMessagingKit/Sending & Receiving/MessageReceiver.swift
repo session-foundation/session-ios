@@ -269,7 +269,7 @@ public enum MessageReceiver {
         }
         
         // Validate
-        guard message.isValid(using: dependencies) else {
+        guard message.isValid(isSending: false) else {
             throw MessageReceiverError.invalidMessage
         }
         

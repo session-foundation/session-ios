@@ -13,7 +13,7 @@ public final class LibSessionMessage: Message, NotProtoConvertible {
     
     // MARK: - Validation
     
-    public override func isValid(using dependencies: Dependencies) -> Bool {
+    public override func isValid(isSending: Bool) -> Bool {
         return !ciphertext.isEmpty
     }
 
