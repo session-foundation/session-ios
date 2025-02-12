@@ -88,6 +88,7 @@ public class HighlightMentionBackgroundView: UIView {
 
         var currentMentionBounds: CGRect? = nil  // Store mention bounding box
         var lastMentionBackgroundColor: UIColor = .clear
+        var lastMentionBackgroundCornerRadius: CGFloat = 0
         
         for lineIndex in 0..<lines.count {
             let line = lines[lineIndex]
@@ -103,7 +104,7 @@ public class HighlightMentionBackgroundView: UIView {
                 guard let mentionBackgroundColor: UIColor = attributes.value(forKey: NSAttributedString.Key.currentUserMentionBackgroundColor.rawValue) as? UIColor else {
                     if let currentBounds = currentMentionBounds {
                         // Draw a single background rectangle for the mention
-                        let path = UIBezierPath(roundedRect: currentBounds, cornerRadius: 6)
+                        let path = UIBezierPath(roundedRect: currentBounds, cornerRadius: lastMentionBackgroundCornerRadius)
                         lastMentionBackgroundColor.setFill()
                         path.fill()
                         currentMentionBounds = nil // Reset mention bounds
@@ -115,6 +116,7 @@ public class HighlightMentionBackgroundView: UIView {
                 lastMentionBackgroundColor = mentionBackgroundColor
                 let maybeCornerRadius: CGFloat? = (attributes
                     .value(forKey: NSAttributedString.Key.currentUserMentionBackgroundCornerRadius.rawValue) as? CGFloat)
+                lastMentionBackgroundCornerRadius = maybeCornerRadius ?? 0
                 let maybePadding: CGFloat? = (attributes
                     .value(forKey: NSAttributedString.Key.currentUserMentionBackgroundPadding.rawValue) as? CGFloat)
                 let padding: CGFloat = (maybePadding ?? 0)
@@ -127,12 +129,10 @@ public class HighlightMentionBackgroundView: UIView {
                 runBounds.size.height = (runAscent + runDescent + (padding * 2))
 
                 let xOffset: CGFloat = {
-                    switch CTRunGetStatus(run) {
-                        case .rightToLeft:
-                            return CTLineGetOffsetForStringIndex(line, range.location + range.length, nil)
-                            
-                        default:
-                            return CTLineGetOffsetForStringIndex(line, range.location, nil)
+                    if CTRunGetStatus(run).contains(.rightToLeft) {
+                        return CTLineGetOffsetForStringIndex(line, range.location + range.length, nil)
+                    } else {
+                        return CTLineGetOffsetForStringIndex(line, range.location, nil)
                     }
                 }()
                 
@@ -164,7 +164,7 @@ public class HighlightMentionBackgroundView: UIView {
 
         // Final mention draw (in case the loop ends with a mention active)
         if let currentBounds = currentMentionBounds {
-            let path = UIBezierPath(roundedRect: currentBounds, cornerRadius: 6)
+            let path = UIBezierPath(roundedRect: currentBounds, cornerRadius: lastMentionBackgroundCornerRadius)
             lastMentionBackgroundColor.setFill()
             path.fill()
         }
