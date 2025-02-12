@@ -85,7 +85,9 @@ public class SwarmPoller: SwarmPollerType & PollerType {
         _pollerDrainBehaviour.set(to: behaviour)
     }
 
-    // MARK: - Private API
+    // MARK: - Polling
+    
+    public func pollerDidStart() {}
     
     /// Polls based on it's configuration and processes any messages, returning an array of messages that were
     /// successfully processed

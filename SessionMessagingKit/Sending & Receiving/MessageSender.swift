@@ -171,7 +171,7 @@ public final class MessageSender {
                         MessageWrapper.wrap(
                             type: .closedGroupMessage,
                             timestampMs: sentTimestampMs,
-                            base64EncodedContent: plaintext.base64EncodedString(),
+                            content: plaintext,
                             wrapInWebSocketMessage: false
                         )
                     )
@@ -221,7 +221,7 @@ public final class MessageSender {
                                     default: return ""                  // Empty for all other cases
                                 }
                             }(),
-                            base64EncodedContent: ciphertext.base64EncodedString()
+                            content: ciphertext
                         )
                     )
                     .mapError { MessageSenderError.other(nil, "Couldn't wrap message", $0) }

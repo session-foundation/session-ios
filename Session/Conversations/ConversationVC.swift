@@ -206,6 +206,7 @@ final class ConversationVC: BaseVC, LibSessionRespondingViewController, Conversa
         let result: UIStackView = UIStackView(arrangedSubviews: [
             outdatedClientBanner,
             legacyGroupsBanner,
+            expiredGroupBanner,
             emptyStatePaddingView,
             emptyStateLabelContainer
         ])
@@ -253,6 +254,27 @@ final class ConversationVC: BaseVC, LibSessionRespondingViewController, Conversa
         result.isHidden = (
             viewModel.threadData.threadVariant != .legacyGroup ||
             !viewModel.dependencies[feature: .updatedGroups]
+        )
+        
+        return result
+    }()
+    
+    lazy var expiredGroupBanner: InfoBanner = {
+        let result: InfoBanner = InfoBanner(
+            info: InfoBanner.Info(
+                font: .systemFont(ofSize: Values.miniFontSize),
+                message: "groupNotUpdatedWarning"
+                    .localizedFormatted(baseFont: .systemFont(ofSize: Values.miniFontSize)),
+                icon: .none,
+                tintColor: .black,
+                backgroundColor: .explicitPrimary(.orange),
+                accessibility: Accessibility(label: "Expired group banner"),
+                height: nil
+            )
+        )
+        result.isHidden = (
+            viewModel.threadData.threadVariant != .group ||
+            viewModel.threadData.closedGroupExpired != true
         )
         
         return result
@@ -850,6 +872,17 @@ final class ConversationVC: BaseVC, LibSessionRespondingViewController, Conversa
             legacyGroupsBanner.isHidden = (
                 updatedThreadData.threadVariant != .legacyGroup ||
                 !viewModel.dependencies[feature: .updatedGroups]
+            )
+        }
+        
+        if
+            initialLoad ||
+            viewModel.threadData.threadVariant != updatedThreadData.threadVariant ||
+            viewModel.threadData.closedGroupExpired != updatedThreadData.closedGroupExpired
+        {
+            expiredGroupBanner.isHidden = (
+                updatedThreadData.threadVariant != .group ||
+                updatedThreadData.closedGroupExpired != true
             )
         }
         

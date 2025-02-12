@@ -58,6 +58,7 @@ public struct SessionThreadViewModel: FetchableRecordWithRowId, Decodable, Equat
         case closedGroupName
         case closedGroupDescription
         case closedGroupUserCount
+        case closedGroupExpired
         case currentUserIsClosedGroupMember
         case currentUserIsClosedGroupAdmin
         case openGroupName
@@ -160,6 +161,7 @@ public struct SessionThreadViewModel: FetchableRecordWithRowId, Decodable, Equat
     public let closedGroupName: String?
     private let closedGroupDescription: String?
     private let closedGroupUserCount: Int?
+    public let closedGroupExpired: Bool?
     public let currentUserIsClosedGroupMember: Bool?
     public let currentUserIsClosedGroupAdmin: Bool?
     public let openGroupName: String?
@@ -466,6 +468,7 @@ public extension SessionThreadViewModel {
         threadIsBlocked: Bool? = nil,
         contactProfile: Profile? = nil,
         closedGroupAdminProfile: Profile? = nil,
+        closedGroupExpired: Bool? = nil,
         currentUserIsClosedGroupMember: Bool? = nil,
         currentUserIsClosedGroupAdmin: Bool? = nil,
         openGroupPermissions: OpenGroup.Permissions? = nil,
@@ -515,6 +518,7 @@ public extension SessionThreadViewModel {
         self.closedGroupName = nil
         self.closedGroupDescription = nil
         self.closedGroupUserCount = nil
+        self.closedGroupExpired = closedGroupExpired
         self.currentUserIsClosedGroupMember = currentUserIsClosedGroupMember
         self.currentUserIsClosedGroupAdmin = currentUserIsClosedGroupAdmin
         self.openGroupName = nil
@@ -589,6 +593,7 @@ public extension SessionThreadViewModel {
             closedGroupName: self.closedGroupName,
             closedGroupDescription: self.closedGroupDescription,
             closedGroupUserCount: self.closedGroupUserCount,
+            closedGroupExpired: self.closedGroupExpired,
             currentUserIsClosedGroupMember: self.currentUserIsClosedGroupMember,
             currentUserIsClosedGroupAdmin: self.currentUserIsClosedGroupAdmin,
             openGroupName: self.openGroupName,
@@ -662,6 +667,7 @@ public extension SessionThreadViewModel {
             closedGroupName: self.closedGroupName,
             closedGroupDescription: self.closedGroupDescription,
             closedGroupUserCount: self.closedGroupUserCount,
+            closedGroupExpired: self.closedGroupExpired,
             currentUserIsClosedGroupMember: self.currentUserIsClosedGroupMember,
             currentUserIsClosedGroupAdmin: self.currentUserIsClosedGroupAdmin,
             openGroupName: self.openGroupName,
@@ -795,7 +801,7 @@ public extension SessionThreadViewModel {
             ///
             /// Explicitly set default values for the fields ignored for search results
             let numColumnsBeforeProfiles: Int = 15
-            let numColumnsBetweenProfilesAndAttachmentInfo: Int = 12 // The attachment info columns will be combined
+            let numColumnsBetweenProfilesAndAttachmentInfo: Int = 13 // The attachment info columns will be combined
             let request: SQLRequest<ViewModel> = """
                 SELECT
                     \(thread[.rowId]) AS \(ViewModel.Columns.rowId),
@@ -828,6 +834,7 @@ public extension SessionThreadViewModel {
                     \(closedGroupProfileBackFallback.allColumns),
                     \(closedGroupAdminProfile.allColumns),
                     \(closedGroup[.name]) AS \(ViewModel.Columns.closedGroupName),
+                    \(closedGroup[.expired]) AS \(ViewModel.Columns.closedGroupExpired),
 
                     EXISTS (
                         SELECT 1
@@ -1153,6 +1160,7 @@ public extension SessionThreadViewModel {
                 \(contact[.lastKnownClientVersion]) AS \(ViewModel.Columns.contactLastKnownClientVersion),
                 \(closedGroup[.name]) AS \(ViewModel.Columns.closedGroupName),
                 \(closedGroupUserCount[.closedGroupUserCount]),
+                \(closedGroup[.expired]) AS \(ViewModel.Columns.closedGroupExpired),
                 
                 EXISTS (
                     SELECT 1
@@ -1283,6 +1291,7 @@ public extension SessionThreadViewModel {
         
                 \(closedGroup[.name]) AS \(ViewModel.Columns.closedGroupName),
                 \(closedGroup[.groupDescription]) AS \(ViewModel.Columns.closedGroupDescription),
+                \(closedGroup[.expired]) AS \(ViewModel.Columns.closedGroupExpired),
                 
                 EXISTS (
                     SELECT 1
@@ -2187,6 +2196,7 @@ public extension SessionThreadViewModel {
                 \(closedGroupProfileBackFallback.allColumns),
                 \(closedGroupAdminProfile.allColumns),
                 \(closedGroup[.name]) AS \(ViewModel.Columns.closedGroupName),
+                \(closedGroup[.expired]) AS \(ViewModel.Columns.closedGroupExpired),
         
                 EXISTS (
                     SELECT 1

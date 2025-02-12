@@ -75,6 +75,7 @@ public protocol PollerType: AnyObject {
     func startIfNeeded()
     func stop()
     
+    func pollerDidStart()
     func poll(forceSynchronousProcessing: Bool) -> AnyPublisher<PollResult, Error>
     func nextPollDelay() -> TimeInterval
     func handlePollError(_ error: Error, _ lastError: Error?) -> PollerErrorResponse
@@ -96,6 +97,8 @@ public extension PollerType {
             if self?.logStartAndStopCalls == true {
                 Log.info(.poller, "Started \(pollerName).")
             }
+            
+            self?.pollerDidStart()
         }
     }
     

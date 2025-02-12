@@ -757,14 +757,17 @@ open class Storage {
         }
         else if !info.isAsync, let semaphore: DispatchSemaphore = semaphore {
             let pollQueue: DispatchQueue = DispatchQueue.global(qos: .userInitiated)
+            let standardPollInterval: DispatchTimeInterval = .milliseconds(100)
             var iterations: Int = 0
-            let maxIterations: Int = 50
+            let maxIterations: Int = ((Storage.transactionDeadlockTimeoutSeconds * 1000) / standardPollInterval.milliseconds)
             let pollCompletionSemaphore: DispatchSemaphore = DispatchSemaphore(value: 0)
             
-            /// Stagger the size of the `pollIntervals` to avoid holding up the thread in case the query resolves very quickly
+            /// Stagger the size of the `pollIntervals` to avoid holding up the thread in case the query resolves very quickly (this
+            /// means the timeout will occur ~500ms early but helps prevent false main thread lag appearing when debugging that wouldn't
+            /// affect production)
             let pollIntervals: [DispatchTimeInterval] = [
                 .milliseconds(5), .milliseconds(5), .milliseconds(10), .milliseconds(10), .milliseconds(10),
-                .milliseconds(100)
+                standardPollInterval
             ]
             
             func pollSemaphore() {
@@ -797,6 +800,10 @@ open class Storage {
             syncQueue.sync { queryDb?.interrupt() }
             completeOperation(with: .failure(StorageError.transactionDeadlockTimeout))
         }
+        
+        /// Before returning we need to wait for any pending updates on `syncQueue` to be completed to ensure that objects
+        /// don't get incorrectly released while they are still being used
+        syncQueue.sync { }
         
         return finalResult
     }

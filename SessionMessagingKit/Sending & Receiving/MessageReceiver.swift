@@ -269,10 +269,7 @@ public enum MessageReceiver {
         }
         
         // Validate
-        guard
-            message.isValid(using: dependencies) ||
-            (message as? VisibleMessage)?.isValidWithDataMessageAttachments(using: dependencies) == true
-        else {
+        guard message.isValid(using: dependencies) else {
             throw MessageReceiverError.invalidMessage
         }
         

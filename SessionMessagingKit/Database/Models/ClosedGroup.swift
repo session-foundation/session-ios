@@ -34,6 +34,7 @@ public struct ClosedGroup: Codable, Equatable, Hashable, Identifiable, Fetchable
         case groupIdentityPrivateKey
         case authData
         case invited
+        case expired
     }
     
     public var id: String { threadId }  // Identifiable
@@ -72,6 +73,9 @@ public struct ClosedGroup: Codable, Equatable, Hashable, Identifiable, Fetchable
     
     /// A flag indicating whether this group is in the "invite" state
     public let invited: Bool?
+    
+    /// A flag indicating whether this group is in the "expired" state (ie. it's config messages no longer exist)
+    public let expired: Bool?
     
     // MARK: - Relationships
     
@@ -121,7 +125,8 @@ public struct ClosedGroup: Codable, Equatable, Hashable, Identifiable, Fetchable
         shouldPoll: Bool?,
         groupIdentityPrivateKey: Data? = nil,
         authData: Data? = nil,
-        invited: Bool?
+        invited: Bool?,
+        expired: Bool? = false
     ) {
         self.threadId = threadId
         self.name = name
@@ -135,6 +140,7 @@ public struct ClosedGroup: Codable, Equatable, Hashable, Identifiable, Fetchable
         self.groupIdentityPrivateKey = groupIdentityPrivateKey
         self.authData = authData
         self.invited = invited
+        self.expired = expired
     }
 }
 

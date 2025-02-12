@@ -39,7 +39,8 @@ public enum SNMessagingKit: MigratableTarget { // Just to make the external API 
                     _019_ScheduleAppUpdateCheckJob.self,
                     _020_AddMissingWhisperFlag.self,
                     _021_ReworkRecipientState.self,
-                    _022_GroupsRebuildChanges.self
+                    _022_GroupsRebuildChanges.self,
+                    _023_GroupsExpiredFlag.self
                 ]
             ]
         )

@@ -27,7 +27,7 @@ public enum MessageWrapper {
         type: SNProtoEnvelope.SNProtoEnvelopeType,
         timestampMs: UInt64,
         senderPublicKey: String = "",   // FIXME: Remove once legacy groups are deprecated
-        base64EncodedContent: String,
+        content: Data,
         wrapInWebSocketMessage: Bool = true
     ) throws -> Data {
         do {
@@ -35,7 +35,7 @@ public enum MessageWrapper {
                 type: type,
                 timestamp: timestampMs,
                 senderPublicKey: senderPublicKey,
-                base64EncodedContent: base64EncodedContent
+                content: content
             )
             
             // If we don't want to wrap the message within the `WebSocketProtoWebSocketMessage` type
@@ -50,16 +50,12 @@ public enum MessageWrapper {
         }
     }
 
-    private static func createEnvelope(type: SNProtoEnvelope.SNProtoEnvelopeType, timestamp: UInt64, senderPublicKey: String, base64EncodedContent: String) throws -> SNProtoEnvelope {
+    private static func createEnvelope(type: SNProtoEnvelope.SNProtoEnvelopeType, timestamp: UInt64, senderPublicKey: String, content: Data) throws -> SNProtoEnvelope {
         do {
             let builder = SNProtoEnvelope.builder(type: type, timestamp: timestamp)
             builder.setSource(senderPublicKey)
             builder.setSourceDevice(1)
-            if let content = Data(base64Encoded: base64EncodedContent, options: .ignoreUnknownCharacters) {
-                builder.setContent(content)
-            } else {
-                throw Error.failedToWrapMessageInEnvelope
-            }
+            builder.setContent(content)
             return try builder.build()
         } catch let error {
             SNLog("Failed to wrap message in envelope: \(error).")

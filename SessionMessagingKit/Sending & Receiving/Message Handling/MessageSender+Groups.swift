@@ -590,16 +590,10 @@ extension MessageSender {
                             using: dependencies
                         )
                         
-                        /// We need to update the group keys when adding new members, this should be done by either supplementing the
-                        /// current keys (which allows access to existing messages) or by doing a full `rekey` which means new messages
-                        /// will be encrypted using new keys
-                        ///
-                        /// **Note:** This **MUST** be called _after_ the new members have been added to the group, otherwise the
-                        /// keys may not be generated correctly for the newly added members
+                        /// If we want to grant access to historic messages then we need to generate a supplemental keys message,
+                        /// since our state doesn't care about the `GROUP_KEYS` needed for other members triggering a `keySupplement`
+                        /// change won't result in the `GROUP_KEYS` config changing so we need to push the change directly
                         if allowAccessToHistoricMessages {
-                            /// Since our state doesn't care about the `GROUP_KEYS` needed for other members triggering a `keySupplement`
-                            /// change won't result in the `GROUP_KEYS` config changing or the `ConfigurationSyncJob` getting triggered
-                            /// we need to push the change directly
                             let supplementData: Data = try LibSession.keySupplement(
                                 db,
                                 groupSessionId: sessionId,
@@ -623,13 +617,23 @@ extension MessageSender {
                             )
                             .map { _, _ in () }
                         }
-                        else {
-                            try LibSession.rekey(
-                                db,
-                                groupSessionId: sessionId,
-                                using: dependencies
-                            )
-                        }
+                        
+                        /// Since we have added new members we need to perform a `rekey` so that all new messages get
+                        /// encrypted using new keys and the `GROUP_KEYS` `seqNo` is increased
+                        ///
+                        /// **Note:** This **MUST** be called _after_ the new members have been added to the group, otherwise the
+                        /// keys may not be generated correctly for the newly added members
+                        ///
+                        /// **Note 2:** This **MUST** be done even when peforming a `keySupplement` because if the member
+                        /// with supplemental access was kicked from the group during the current key rotation then the kicked message
+                        /// would still be valid due to the `seqNo` and the member's device would consider the member kicked (we also
+                        /// do this after doing the `keySupplement` as otherwise the new key would be needlessly included in the
+                        /// `keySupplement` message)
+                        try LibSession.rekey(
+                            db,
+                            groupSessionId: sessionId,
+                            using: dependencies
+                        )
                         
                         /// Since we have added them to `GROUP_MEMBERS` we may as well insert them into the database (even if the request
                         /// fails the local state will have already been updated anyway)

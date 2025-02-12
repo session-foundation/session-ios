@@ -33,6 +33,25 @@ internal extension LibSessionCacheType {
             throw LibSessionError.invalidConfigObject
         }
         
+        /// If the group had been flagged as "expired" (because it got no config messages when initially polling) then receiving a config
+        /// message means the group is no longer expired, so update it's state
+        let groupFlaggedAsExpired: Bool = (try? ClosedGroup
+            .filter(id: groupSessionId.hexString)
+            .select(.expired)
+            .asRequest(of: Bool.self)
+            .fetchOne(db))
+            .defaulting(to: false)
+        
+        if groupFlaggedAsExpired {
+            try ClosedGroup
+                .filter(id: groupSessionId.hexString)
+                .updateAllAndConfig(
+                    db,
+                    ClosedGroup.Columns.expired.set(to: false),
+                    using: dependencies
+                )
+        }
+        
         /// If two admins rekeyed for different member changes at the same time then there is a "key collision" and the "needs rekey" function
         /// will return true to indicate that a 3rd `rekey` needs to be made to have a final set of keys which includes all members
         ///

@@ -611,18 +611,23 @@ public extension UIContextualAction {
                                     }
                                 }
                                 
-                                guard threadViewModel.currentUserIsClosedGroupAdmin == false else {
-                                    return "groupDeleteDescription"
-                                        .put(key: "group_name", value: threadViewModel.displayName)
-                                        .localizedFormatted(baseFont: .boldSystemFont(ofSize: Values.smallFontSize))
-                                }
+                                let threadInfo: (SessionThread.Variant, Bool, Bool) = (
+                                    threadViewModel.threadVariant,
+                                    threadViewModel.currentUserIsClosedGroupAdmin == true,
+                                    dependencies[feature: .legacyGroupsDeprecated]
+                                )
                                 
-                                switch threadViewModel.threadVariant {
-                                    case .contact:
+                                switch threadInfo {
+                                    case (.contact, _, _):
                                         return "conversationsDeleteDescription"
                                             .put(key: "name", value: threadViewModel.displayName)
                                             .localizedFormatted(baseFont: .boldSystemFont(ofSize: Values.smallFontSize))
                                         
+                                    case (.group, true, _), (.legacyGroup, true, false):
+                                        return "groupDeleteDescription"
+                                            .put(key: "group_name", value: threadViewModel.displayName)
+                                            .localizedFormatted(baseFont: .boldSystemFont(ofSize: Values.smallFontSize))
+                                    
                                     default:
                                         return "groupDeleteDescriptionMember"
                                             .put(key: "group_name", value: threadViewModel.displayName)

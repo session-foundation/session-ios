@@ -36,7 +36,50 @@ public final class GroupPoller: SwarmPoller {
             .revokedRetrievableGroupMessages
         ]
     }
-
+    
+    public override func pollerDidStart() {
+        guard
+            let sessionId: SessionId = try? SessionId(from: pollerDestination.target),
+            sessionId.prefix == .group
+        else { return }
+        
+        let keysGeneration: Int = (try? LibSession
+            .currentGeneration(groupSessionId: sessionId, using: dependencies))
+            .defaulting(to: 0)
+        
+        /// If the keys generation is greated than `0` then it means we have a valid config so shouldn't continue
+        guard keysGeneration == 0 else { return }
+        
+        dependencies[singleton: .storage]
+            .readPublisher { [pollerDestination] db in
+                try ClosedGroup
+                    .filter(id: pollerDestination.target)
+                    .select(.expired)
+                    .asRequest(of: Bool.self)
+                    .fetchOne(db)
+            }
+            .filter { ($0 != true) }
+            .flatMap { [receivedPollResponse] _ in receivedPollResponse }
+            .first()
+            .map { $0.filter { $0.isConfigMessage } }
+            .filter { !$0.contains(where: { $0.namespace == SnodeAPI.Namespace.configGroupKeys }) }
+            .sinkUntilComplete(
+                receiveValue: { [pollerDestination, pollerName, dependencies] configMessages in
+                    Log.error(.poller, "\(pollerName) received no config messages in it's first poll, flagging as expired.")
+                    
+                    dependencies[singleton: .storage].writeAsync { db in
+                        try ClosedGroup
+                            .filter(id: pollerDestination.target)
+                            .updateAllAndConfig(
+                                db,
+                                ClosedGroup.Columns.expired.set(to: true),
+                                using: dependencies
+                            )
+                    }
+                }
+            )
+    }
+    
     // MARK: - Abstract Methods
 
     override public func nextPollDelay() -> TimeInterval {
