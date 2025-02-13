@@ -5,6 +5,7 @@
 import Foundation
 import Combine
 import GRDB
+import Punycode
 import SessionUtilitiesKit
 
 public extension Network.RequestType {
@@ -344,7 +345,7 @@ public final class SnodeAPI {
         let validationCount = 3
         
         // The name must be lowercased
-        let onsName = onsName.lowercased()
+        let onsName = onsName.lowercased().idnaEncoded ?? onsName.lowercased()
         
         // Hash the ONS name using BLAKE2b
         guard
