@@ -307,9 +307,12 @@ struct MessageInfoScreen: View {
                                         action: {
                                             actions[index].work()
                                             feedbackMessage = actions[index].feedback
-                                            DispatchQueue.main.asyncAfter(deadline: .now() + 2, execute: {
-                                                dismiss()
-                                            })
+                                            if actions[index].shouldDismissInfoScreen {
+                                                let deadline: DispatchTime = .now() + (feedbackMessage?.isEmpty == false ? 2 : 0)
+                                                DispatchQueue.main.asyncAfter(deadline: deadline, execute: {
+                                                    dismiss()
+                                                })
+                                            }
                                         },
                                         label: {
                                             HStack(spacing: Values.largeSpacing) {

@@ -2,6 +2,7 @@
 
 import SwiftUI
 import Combine
+import NaturalLanguage
 
 public struct ToastModifier: ViewModifier {
     @Binding var message: String?
@@ -34,7 +35,17 @@ public struct ToastModifier: ViewModifier {
         }
   
         workItem = task
-        DispatchQueue.main.asyncAfter(deadline: .now() + 1.5, execute: task)
+        
+        let duration: TimeInterval = {
+            guard let message: String = message else { return 1.5 }
+            
+            let tokenizer = NLTokenizer(unit: .word)
+            tokenizer.string = message
+            let wordCount = tokenizer.tokens(for: message.startIndex..<message.endIndex).count
+            return min(1.5 + Double(wordCount - 1) * 0.1 , 5)
+        }()
+        
+        DispatchQueue.main.asyncAfter(deadline: .now() + duration, execute: task)
     }
   
     private func dismissToast() {

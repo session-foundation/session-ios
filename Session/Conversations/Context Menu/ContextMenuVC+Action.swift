@@ -14,10 +14,11 @@ extension ContextMenuVC {
     struct Action {
         let icon: UIImage?
         let title: String
-        let feedback: String
+        let feedback: String?
         let expirationInfo: ExpirationInfo?
         let themeColor: ThemeValue
         let actionType: ActionType
+        let shouldDismissInfoScreen: Bool
         let accessibilityLabel: String?
         let work: () -> Void
         
@@ -33,10 +34,11 @@ extension ContextMenuVC {
         init(
             icon: UIImage? = nil,
             title: String = "",
-            feedback: String = "",
+            feedback: String? = nil,
             expirationInfo: ExpirationInfo? = nil,
             themeColor: ThemeValue = .textPrimary,
             actionType: ActionType = .generic,
+            shouldDismissInfoScreen: Bool = false,
             accessibilityLabel: String? = nil,
             work: @escaping () -> Void
         ) {
@@ -46,6 +48,7 @@ extension ContextMenuVC {
             self.expirationInfo = expirationInfo
             self.themeColor = themeColor
             self.actionType = actionType
+            self.shouldDismissInfoScreen = shouldDismissInfoScreen
             self.accessibilityLabel = accessibilityLabel
             self.work = work
         }
@@ -75,6 +78,7 @@ extension ContextMenuVC {
             return Action(
                 icon: UIImage(named: "ic_reply"),
                 title: "reply".localized(),
+                shouldDismissInfoScreen: true,
                 accessibilityLabel: "Reply to message"
             ) { delegate?.reply(cellViewModel, using: dependencies) }
         }
@@ -107,6 +111,7 @@ extension ContextMenuVC {
                     expiresInSeconds: cellViewModel.expiresInSeconds
                 ),
                 themeColor: .danger,
+                shouldDismissInfoScreen: true,
                 accessibilityLabel: "Delete message"
             ) { delegate?.delete(cellViewModel, using: dependencies) }
         }
@@ -134,6 +139,7 @@ extension ContextMenuVC {
                 icon: UIImage(named: "ic_block"),
                 title: "banDeleteAll".localized(),
                 themeColor: .danger,
+                shouldDismissInfoScreen: true,
                 accessibilityLabel: "Ban user and delete"
             ) { delegate?.banAndDeleteAllMessages(cellViewModel, using: dependencies) }
         }
