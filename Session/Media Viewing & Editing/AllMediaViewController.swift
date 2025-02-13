@@ -5,6 +5,7 @@ import QuartzCore
 import GRDB
 import DifferenceKit
 import SessionUIKit
+import SessionMessagingKit
 import SessionUtilitiesKit
 import SignalUtilitiesKit
 
@@ -22,7 +23,12 @@ public class AllMediaViewController: UIViewController, UIPageViewControllerDataS
                 TabBar.Tab(title: "media".localized()) { [weak self] in
                     guard let self = self else { return }
                     self.pageVC.setViewControllers([ self.pages[0] ], direction: .forward, animated: false, completion: nil)
-                    self.updateSelectButton(updatedData: self.mediaTitleViewController.viewModel.galleryData, inBatchSelectMode: self.mediaTitleViewController.isInBatchSelectMode)
+                    self.updateSelectButton(
+                        threadVariant: self.mediaTitleViewController.viewModel.threadVariant,
+                        updatedData: self.mediaTitleViewController.viewModel.galleryData,
+                        inBatchSelectMode: self.mediaTitleViewController.isInBatchSelectMode,
+                        using: self.mediaTitleViewController.viewModel.dependencies
+                    )
                 },
                 TabBar.Tab(title: "files".localized()) { [weak self] in
                     guard let self = self else { return }
@@ -177,8 +183,18 @@ extension AllMediaViewController: MediaTileViewControllerDelegate {
         self.present(detailViewController, animated: animated)
     }
     
-    public func updateSelectButton(updatedData: [MediaGalleryViewModel.SectionModel], inBatchSelectMode: Bool) {
-        guard !updatedData.isEmpty else {
+    public func updateSelectButton(
+        threadVariant: SessionThread.Variant,
+        updatedData: [MediaGalleryViewModel.SectionModel],
+        inBatchSelectMode: Bool,
+        using dependencies: Dependencies
+    ) {
+        guard
+            !updatedData.isEmpty, (
+                threadVariant != .legacyGroup ||
+                !dependencies[feature: .legacyGroupsDeprecated]
+            )
+        else {
             self.navigationItem.rightBarButtonItem = nil
             return
         }

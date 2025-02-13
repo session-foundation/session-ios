@@ -55,6 +55,7 @@ public final class ExpirationTimerUpdate: ControlMessage {
         dataMessageProto.setFlags(UInt32(SNProtoDataMessage.SNProtoDataMessageFlags.expirationTimerUpdate.rawValue))
         if let syncTarget = syncTarget { dataMessageProto.setSyncTarget(syncTarget) }
         let contentProto = SNProtoContent.builder()
+        if let sigTimestampMs = sigTimestampMs { contentProto.setSigTimestamp(sigTimestampMs) }
         
         // DisappearingMessagesConfiguration
         setDisappearingMessagesConfigurationIfNeeded(on: contentProto)

@@ -98,6 +98,7 @@ public final class DataExtractionNotification: ControlMessage {
                 dataExtractionNotification.setTimestamp(timestamp)
             }
             let contentProto = SNProtoContent.builder()
+            if let sigTimestampMs = sigTimestampMs { contentProto.setSigTimestamp(sigTimestampMs) }
             contentProto.setDataExtractionNotification(try dataExtractionNotification.build())
             // DisappearingMessagesConfiguration
             setDisappearingMessagesConfigurationIfNeeded(on: contentProto)

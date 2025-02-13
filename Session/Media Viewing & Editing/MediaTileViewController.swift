@@ -661,7 +661,12 @@ public class MediaTileViewController: UIViewController, UICollectionViewDataSour
     }
 
     func updateSelectButton(updatedData: [MediaGalleryViewModel.SectionModel], inBatchSelectMode: Bool) {
-        delegate?.updateSelectButton(updatedData: updatedData, inBatchSelectMode: inBatchSelectMode)
+        delegate?.updateSelectButton(
+            threadVariant: viewModel.threadVariant,
+            updatedData: updatedData,
+            inBatchSelectMode: inBatchSelectMode,
+            using: viewModel.dependencies
+        )
     }
 
     @objc func didTapSelect(_ sender: Any) {
@@ -964,5 +969,10 @@ extension MediaTileViewController: MediaPresentationContextProvider {
 
 public protocol MediaTileViewControllerDelegate: AnyObject {
     func presentdetailViewController(_ detailViewController: UIViewController, animated: Bool)
-    func updateSelectButton(updatedData: [MediaGalleryViewModel.SectionModel], inBatchSelectMode: Bool)
+    func updateSelectButton(
+        threadVariant: SessionThread.Variant,
+        updatedData: [MediaGalleryViewModel.SectionModel],
+        inBatchSelectMode: Bool,
+        using dependencies: Dependencies
+    )
 }

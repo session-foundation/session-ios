@@ -93,18 +93,22 @@ class OpenGroupManagerSpec: QuickSpec {
             base64EncodedSignature: nil,
             reactions: nil
         )
-        @TestState var testDirectMessage: OpenGroupAPI.DirectMessage! = OpenGroupAPI.DirectMessage(
-            id: 128,
-            sender: "15\(TestConstants.blind15PublicKey)",
-            recipient: "15\(TestConstants.blind15PublicKey)",
-            posted: 1234567890,
-            expires: 1234567990,
-            base64EncodedMessage: Data(
-                [UInt8](arrayLiteral: 0) +
-                "TestMessage".bytes +
-                Array(Data(base64Encoded: "pbTUizreT0sqJ2R2LloseQDyVL2RYztD")!)
-            ).base64EncodedString()
-        )
+        @TestState var testDirectMessage: OpenGroupAPI.DirectMessage! = {
+            let proto = SNProtoContent.builder()
+            let protoDataBuilder = SNProtoDataMessage.builder()
+            proto.setSigTimestamp(1234567890000)
+            protoDataBuilder.setBody("TestMessage")
+            proto.setDataMessage(try! protoDataBuilder.build())
+            
+            return OpenGroupAPI.DirectMessage(
+                id: 128,
+                sender: "15\(TestConstants.blind15PublicKey)",
+                recipient: "15\(TestConstants.blind15PublicKey)",
+                posted: 1234567890,
+                expires: 1234567990,
+                base64EncodedMessage: try! proto.build().serializedData().base64EncodedString()
+            )
+        }()
         @TestState(singleton: .storage, in: dependencies) var mockStorage: Storage! = SynchronousStorage(
             customWriter: try! DatabaseQueue(),
             migrationTargets: [
@@ -1912,7 +1916,7 @@ class OpenGroupManagerSpec: QuickSpec {
                             )
                         }
                         .thenReturn((
-                            plaintext: Data(base64Encoded:"ChQKC1Rlc3RNZXNzYWdlONCI7I/3Iw==")! +
+                            plaintext: Data(base64Encoded:"Cg0KC1Rlc3RNZXNzYWdlcNCI7I/3Iw==")! +
                             Data([0x80]) +
                             Data([UInt8](repeating: 0, count: 32)),
                             senderSessionIdHex: "05\(TestConstants.publicKey)"

@@ -363,6 +363,8 @@ class MessageReceiverGroupsSpec: QuickSpec {
         }()
         @TestState var visibleMessageProto: SNProtoContent! = {
             let proto = SNProtoContent.builder()
+            proto.setSigTimestamp((1234568890 - (60 * 10)) * 1000)
+            
             let dataMessage = SNProtoDataMessage.builder()
             dataMessage.setBody("Test")
             proto.setDataMessage(try! dataMessage.build())

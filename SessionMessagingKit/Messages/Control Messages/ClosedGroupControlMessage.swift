@@ -339,6 +339,7 @@ public final class ClosedGroupControlMessage: ControlMessage {
                 closedGroupControlMessage = SNProtoDataMessageClosedGroupControlMessage.builder(type: .encryptionKeyPairRequest)
             }
             let contentProto = SNProtoContent.builder()
+            if let sigTimestampMs = sigTimestampMs { contentProto.setSigTimestamp(sigTimestampMs) }
             let dataMessageProto = SNProtoDataMessage.builder()
             dataMessageProto.setClosedGroupControlMessage(try closedGroupControlMessage.build())
 

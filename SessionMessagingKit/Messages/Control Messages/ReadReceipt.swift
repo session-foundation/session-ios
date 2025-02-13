@@ -62,6 +62,7 @@ public final class ReadReceipt: ControlMessage {
         let receiptProto = SNProtoReceiptMessage.builder(type: .read)
         receiptProto.setTimestamp(timestamps)
         let contentProto = SNProtoContent.builder()
+        if let sigTimestampMs = sigTimestampMs { contentProto.setSigTimestamp(sigTimestampMs) }
         do {
             contentProto.setReceiptMessage(try receiptProto.build())
             // DisappearingMessagesConfiguration

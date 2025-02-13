@@ -38,6 +38,7 @@ public final class MessageSender {
             updatedMessage.sentTimestampMs ??
             UInt64(messageSendTimestampMs)
         )
+        updatedMessage.sigTimestampMs = updatedMessage.sentTimestampMs
         
         do {
             switch destination {
@@ -111,6 +112,7 @@ public final class MessageSender {
         let sentTimestampMs: UInt64 = (message.sentTimestampMs ?? UInt64(messageSendTimestampMs))
         message.sender = userSessionId.hexString
         message.sentTimestampMs = sentTimestampMs
+        message.sigTimestampMs = sentTimestampMs
         
         // Ensure the message is valid
         try MessageSender.ensureValidMessage(message, destination: destination, fileIds: fileIds, using: dependencies)

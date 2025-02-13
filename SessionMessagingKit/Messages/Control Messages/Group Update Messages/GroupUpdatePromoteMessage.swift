@@ -91,6 +91,7 @@ public final class GroupUpdatePromoteMessage: ControlMessage {
             dataMessage.setGroupUpdateMessage(try groupUpdateMessage.build())
             
             let contentProto = SNProtoContent.builder()
+            if let sigTimestampMs = sigTimestampMs { contentProto.setSigTimestamp(sigTimestampMs) }
             contentProto.setDataMessage(try dataMessage.build())
             return try contentProto.build()
         } catch {

@@ -68,6 +68,7 @@ public final class UnsendRequest: ControlMessage {
         }
         let unsendRequestProto = SNProtoUnsendRequest.builder(timestamp: timestamp, author: author)
         let contentProto = SNProtoContent.builder()
+        if let sigTimestampMs = sigTimestampMs { contentProto.setSigTimestamp(sigTimestampMs) }
         do {
             contentProto.setUnsendRequest(try unsendRequestProto.build())
             // DisappearingMessagesConfiguration

@@ -148,7 +148,10 @@ public enum MessageReceiver {
                         
                     case .revokedRetrievableGroupMessages:
                         plaintext = Data()  // Requires custom decryption
-                        customProto = try SNProtoContent.builder().build()
+                        
+                        let contentProto: SNProtoContent.SNProtoContentBuilder = SNProtoContent.builder()
+                        contentProto.setSigTimestamp(0)
+                        customProto = try contentProto.build()
                         customMessage = LibSessionMessage(ciphertext: data)
                         sender = publicKey  // The "group" sends these messages
                         sentTimestampMs = 0
@@ -242,6 +245,7 @@ public enum MessageReceiver {
         message.sender = sender
         message.serverHash = serverHash
         message.sentTimestampMs = sentTimestampMs
+        message.sigTimestampMs = (proto.hasSigTimestamp ? proto.sigTimestamp : nil)
         message.receivedTimestampMs = dependencies[cache: .snodeAPI].currentOffsetTimestampMs()
         message.openGroupServerMessageId = openGroupServerMessageId
         message.openGroupWhisper = openGroupWhisper

@@ -196,16 +196,23 @@ public enum ConfigurationSyncJob: JobExecutor {
                                             // retry behaviour
                                             case .connected: failure(job, error, false)
                                                 
-                                            // If not then wait until we are connected again before
-                                            // reporting the failure (which will result in the retry
-                                            // occurring once we reestablish a connection)
+                                            // If not then permanently fail the job and reschedule it
+                                            // to run again if we re-establish the connection
                                             default:
+                                                failure(job, error, true)
+                                                
                                                 dependencies[cache: .libSessionNetwork].networkStatus
                                                     .filter { $0 == .connected }
                                                     .first()
                                                     .sinkUntilComplete(
                                                         receiveCompletion: { _ in
-                                                            failure(job, error, false)
+                                                            dependencies[singleton: .storage].writeAsync { db in
+                                                                ConfigurationSyncJob.enqueue(
+                                                                    db,
+                                                                    swarmPublicKey: swarmPublicKey,
+                                                                    using: dependencies
+                                                                )
+                                                            }
                                                         }
                                                     )
                                         }

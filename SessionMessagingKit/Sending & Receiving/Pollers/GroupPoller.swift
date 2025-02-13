@@ -43,12 +43,12 @@ public final class GroupPoller: SwarmPoller {
             sessionId.prefix == .group
         else { return }
         
-        let keysGeneration: Int = (try? LibSession
-            .currentGeneration(groupSessionId: sessionId, using: dependencies))
+        let numKeys: Int = dependencies
+            .mutate(cache: .libSession) { $0.config(for: .groupKeys, sessionId: sessionId)?.count }
             .defaulting(to: 0)
         
         /// If the keys generation is greated than `0` then it means we have a valid config so shouldn't continue
-        guard keysGeneration == 0 else { return }
+        guard numKeys == 0 else { return }
         
         dependencies[singleton: .storage]
             .readPublisher { [pollerDestination] db in

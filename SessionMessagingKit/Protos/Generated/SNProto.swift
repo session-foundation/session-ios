@@ -645,6 +645,9 @@ extension SNProtoMessageRequestResponse.SNProtoMessageRequestResponseBuilder {
         if hasExpirationTimer {
             builder.setExpirationTimer(expirationTimer)
         }
+        if hasSigTimestamp {
+            builder.setSigTimestamp(sigTimestamp)
+        }
         return builder
     }
 
@@ -690,6 +693,10 @@ extension SNProtoMessageRequestResponse.SNProtoMessageRequestResponseBuilder {
             proto.expirationTimer = valueParam
         }
 
+        @objc public func setSigTimestamp(_ valueParam: UInt64) {
+            proto.sigTimestamp = valueParam
+        }
+
         @objc public func build() throws -> SNProtoContent {
             return try SNProtoContent.parseProto(proto)
         }
@@ -727,6 +734,13 @@ extension SNProtoMessageRequestResponse.SNProtoMessageRequestResponseBuilder {
     }
     @objc public var hasExpirationTimer: Bool {
         return proto.hasExpirationTimer
+    }
+
+    @objc public var sigTimestamp: UInt64 {
+        return proto.sigTimestamp
+    }
+    @objc public var hasSigTimestamp: Bool {
+        return proto.hasSigTimestamp
     }
 
     private init(proto: SessionProtos_Content,

@@ -190,6 +190,7 @@ public final class CallMessage: ControlMessage {
         }
         
         let contentProto = SNProtoContent.builder()
+        if let sigTimestampMs = sigTimestampMs { contentProto.setSigTimestamp(sigTimestampMs) }
         
         // DisappearingMessagesConfiguration
         setDisappearingMessagesConfigurationIfNeeded(on: contentProto)

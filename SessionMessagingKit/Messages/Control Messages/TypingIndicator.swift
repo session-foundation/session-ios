@@ -89,6 +89,7 @@ public final class TypingIndicator: ControlMessage {
         }
         let typingIndicatorProto = SNProtoTypingMessage.builder(timestamp: timestampMs, action: kind.toProto())
         let contentProto = SNProtoContent.builder()
+        if let sigTimestampMs = sigTimestampMs { contentProto.setSigTimestamp(sigTimestampMs) }
         do {
             contentProto.setTypingMessage(try typingIndicatorProto.build())
             return try contentProto.build()

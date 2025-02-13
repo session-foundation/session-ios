@@ -366,7 +366,7 @@ class MediaPageViewController: UIPageViewController, UIPageViewControllerDataSou
                 buildFlexibleSpace(),
                 (self.currentItem.isVideo ? self.videoPlayBarButton : nil),
                 (self.currentItem.isVideo ? buildFlexibleSpace() : nil),
-                deleteBarButton
+                (self.viewModel.threadVariant != .legacyGroup || !viewModel.dependencies[feature: .legacyGroupsDeprecated] ? deleteBarButton : nil)
             ].compactMap { $0 },
             animated: false
         )

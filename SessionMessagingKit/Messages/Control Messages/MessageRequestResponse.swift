@@ -71,6 +71,7 @@ public final class MessageRequestResponse: ControlMessage {
         }
         
         let contentProto = SNProtoContent.builder()
+        if let sigTimestampMs = sigTimestampMs { contentProto.setSigTimestamp(sigTimestampMs) }
         
         do {
             contentProto.setMessageRequestResponse(try messageRequestResponseProto.build())

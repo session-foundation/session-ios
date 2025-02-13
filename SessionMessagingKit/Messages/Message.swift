@@ -24,6 +24,7 @@ public class Message: Codable {
     
     public var id: String?
     public var sentTimestampMs: UInt64?
+    public var sigTimestampMs: UInt64?
     public var receivedTimestampMs: UInt64?
     public var sender: String?
     public var openGroupServerMessageId: UInt64?
@@ -59,7 +60,30 @@ public class Message: Codable {
             else { return false }
         }
         
-        return true
+        /// We added a new `sigTimestampMs` which is included in the message data so can be verified as part of the signature
+        /// to have been sent from the sender but legacy clients won't include this value so when `contentTimestampMs` isn't present
+        /// we should consider `sentTimestampMs` as valid even though we can't confirm it was sent by the sender
+        ///
+        /// If `contentTimestampMs` is present then we should confirm that it matches the `sentTimestampMs` (if it doesn't then
+        /// this message could have been manipulated)
+        ///
+        /// **Note:** In community conversations the `sentTimestampMs` is the server timestamp that the message was `posted`
+        /// at, due to this we need to allow for some variation between the values
+        switch (isSending, sigTimestampMs, openGroupServerMessageId) {
+            case (_, .some(let sigTimestampMs), .none), (true, .some(let sigTimestampMs), .some):
+                return (sigTimestampMs == sentTimestampMs)
+            
+            /// Outgoing messages to a community should have matching `sigTimestampMs` and `sentTimestampMs`
+            /// values as they are set locally, when we get a response from the community we update the `sentTimestampMs` to
+            /// be the `posted` value returned from the API which is where timestamp variation needs to be supported
+            case (false, .some(let sigTimestampMs), .some):
+                let delta: TimeInterval = (TimeInterval(max(sigTimestampMs, sentTimestampMs) - min(sigTimestampMs, sentTimestampMs)) / 1000)
+                
+                return delta < OpenGroupAPI.validTimestampVarianceThreshold
+                
+            // FIXME: We want to remove support for this case in a future release
+            case (_, .none, _): return true
+        }
     }
     
     // MARK: - Initialization

@@ -56,6 +56,32 @@ public extension LibSession {
             }
         }
         
+        var count: Int {
+            switch self {
+                case .userProfile(let conf): return 1
+                case .contacts(let conf): return contacts_size(conf)
+                case .convoInfoVolatile(let conf): return convo_info_volatile_size(conf)
+                case .userGroups(let conf): return user_groups_size(conf)
+                
+                case .groupInfo(let conf): return 1
+                case .groupMembers(let conf): return groups_members_size(conf)
+                case .groupKeys(let conf, _, _): return groups_keys_size(conf)
+            }
+        }
+        
+        var countDescription: String {
+            switch self {
+                case .userProfile: return "\(count) profile"
+                case .contacts: return "\(count) contacts"
+                case .userGroups: return "\(count) group conversations"
+                case .convoInfoVolatile: return "\(count) volatile conversations"
+                    
+                case .groupInfo: return "\(count) group info"
+                case .groupMembers: return "\(count) group members"
+                case .groupKeys: return "\(count) group keys"
+            }
+        }
+        
         var needsPush: Bool {
             switch self {
                 case .userProfile(let conf), .contacts(let conf),
@@ -320,28 +346,6 @@ public extension LibSession {
                     }
                     
                     return successfulMergeTimestamps.last
-            }
-        }
-        
-        func count(for variant: ConfigDump.Variant) -> String {
-            let funcMap: [ConfigDump.Variant: (info: String, size: ConfigSizeInfo)] = [
-                .userProfile: ("profile", { _ in 1 }),
-                .contacts: ("contacts", contacts_size),
-                .userGroups: ("group conversations", user_groups_size),
-                .convoInfoVolatile: ("volatile conversations", convo_info_volatile_size),
-                .groupInfo: ("group info", { _ in 1 }),
-                .groupMembers: ("group members", groups_members_size)
-            ]
-            
-            switch self {
-                case .groupKeys(let conf, _, _): return "\(groups_keys_size(conf)) group keys"
-                
-                case .userProfile(let conf), .contacts(let conf),
-                    .convoInfoVolatile(let conf), .userGroups(let conf),
-                    .groupInfo(let conf), .groupMembers(let conf):
-                    return funcMap[variant]
-                        .map { "\($0.size(conf)) \($0.info)" }
-                        .defaulting(to: "Invalid")
             }
         }
     }

@@ -599,12 +599,10 @@ public extension LibSession {
                     guard config.needsPush else { return }
                     
                     guard let data: PendingChanges.PushData = config.push(variant: info.variant) else {
-                        let configCountInfo: String = config.count(for: info.variant)
-                        
                         throw LibSessionError(
                             config,
                             fallbackError: .unableToGeneratePushData,
-                            logMessage: "Failed to generate push data for \(info.variant) config data, size: \(configCountInfo), error"
+                            logMessage: "Failed to generate push data for \(info.variant) config data, size: \(config.countDescription), error"
                         )
                     }
                     
