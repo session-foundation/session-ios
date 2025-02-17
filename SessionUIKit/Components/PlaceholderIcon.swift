@@ -4,20 +4,18 @@ import UIKit
 import CryptoKit
 
 public class PlaceholderIcon {
-    private let seed: Int
+    private static let colors: [UIColor] = Theme.PrimaryColor.allCases.map { $0.color }
     
-    // Color palette
-    private var colors: [UIColor] = Theme.PrimaryColor.allCases.map { $0.color }
+    private let seed: Int
     
     // MARK: - Initialization
     
-    init(seed: Int, colors: [UIColor]? = nil) {
+    init(seed: Int) {
         self.seed = seed
-        if let colors = colors { self.colors = colors }
     }
     
     // stringlint:ignore_contents
-    convenience init(seed: String, colors: [UIColor]? = nil) {
+    convenience init(seed: String) {
         // Ensure we have a correct hash
         var hash = seed
         
@@ -28,11 +26,11 @@ public class PlaceholderIcon {
         }
         
         guard let number = Int(String(hash.prefix(12)), radix: 16) else {
-            self.init(seed: 0, colors: colors)
+            self.init(seed: 0)
             return
         }
         
-        self.init(seed: number, colors: colors)
+        self.init(seed: number)
     }
     
     // MARK: - Convenience
@@ -62,7 +60,7 @@ public class PlaceholderIcon {
             .compactMap { word in word.first.map { String($0) } }
             .joined()
         
-        return SNUIKit.placeholderIconCacher(cacheKey: "\(content)-\(Int(floor(size)))") {
+        return SNUIKit.placeholderIconCacher(cacheKey: "\(seed)-\(Int(floor(size)))") {
             let layer = icon.generateLayer(
                 with: size,
                 text: (initials.count >= 2 ?
@@ -81,7 +79,7 @@ public class PlaceholderIcon {
     // MARK: - Internal
     
     private func generateLayer(with diameter: CGFloat, text: String) -> CALayer {
-        let color: UIColor = self.colors[seed % self.colors.count]
+        let color: UIColor = PlaceholderIcon.colors[seed % PlaceholderIcon.colors.count]
         let base: CALayer = getTextLayer(with: diameter, color: color, text: text)
         base.masksToBounds = true
         

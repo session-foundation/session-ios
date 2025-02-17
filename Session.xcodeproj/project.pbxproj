@@ -408,7 +408,6 @@
 		FD02CC122C367762009AB976 /* Request+PushNotificationAPI.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD02CC112C367761009AB976 /* Request+PushNotificationAPI.swift */; };
 		FD02CC142C3677E6009AB976 /* Request+OpenGroupAPI.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD02CC132C3677E6009AB976 /* Request+OpenGroupAPI.swift */; };
 		FD02CC162C3681EF009AB976 /* RevokeSubaccountResponse.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD02CC152C3681EF009AB976 /* RevokeSubaccountResponse.swift */; };
-		FD0606BF2BC8C10200C3816E /* _005_AddJobUniqueHash.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD0606BE2BC8C10200C3816E /* _005_AddJobUniqueHash.swift */; };
 		FD0606C32BCE13ED00C3816E /* MessageRequestFooterView.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD0606C22BCE13ED00C3816E /* MessageRequestFooterView.swift */; };
 		FD078E5427E197CA000769AF /* OpenGroupManagerSpec.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDC2909D27D85751005DAE71 /* OpenGroupManagerSpec.swift */; };
 		FD0969F92A69FFE700C5C365 /* Mocked.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD0969F82A69FFE700C5C365 /* Mocked.swift */; };
@@ -1689,7 +1688,6 @@
 		FD02CC112C367761009AB976 /* Request+PushNotificationAPI.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = "Request+PushNotificationAPI.swift"; sourceTree = "<group>"; };
 		FD02CC132C3677E6009AB976 /* Request+OpenGroupAPI.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = "Request+OpenGroupAPI.swift"; sourceTree = "<group>"; };
 		FD02CC152C3681EF009AB976 /* RevokeSubaccountResponse.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = RevokeSubaccountResponse.swift; sourceTree = "<group>"; };
-		FD0606BE2BC8C10200C3816E /* _005_AddJobUniqueHash.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = _005_AddJobUniqueHash.swift; sourceTree = "<group>"; };
 		FD0606C22BCE13ED00C3816E /* MessageRequestFooterView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MessageRequestFooterView.swift; sourceTree = "<group>"; };
 		FD0969F82A69FFE700C5C365 /* Mocked.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Mocked.swift; sourceTree = "<group>"; };
 		FD09796A27F6C67500936362 /* Failable.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Failable.swift; sourceTree = "<group>"; };
@@ -3886,7 +3884,6 @@
 				FD17D7E627F6A16700122BE0 /* _003_YDBToGRDBMigration.swift */,
 				FDBB25E22988B13800F1508E /* _004_AddJobPriority.swift */,
 				FD1936462ACE752F004BCF0F /* _005_AddJobUniqueHash.swift */,
-				FD0606BE2BC8C10200C3816E /* _005_AddJobUniqueHash.swift */,
 			);
 			path = Migrations;
 			sourceTree = "<group>";
@@ -5977,7 +5974,6 @@
 				FD2272C72C34EAF5004D8A6C /* ColumnExpressible.swift in Sources */,
 				FDB3486E2BE8457F00B716C2 /* BackgroundTaskManager.swift in Sources */,
 				943C6D842B86B5F1004ACE64 /* Localization.swift in Sources */,
-				FD0606BF2BC8C10200C3816E /* _005_AddJobUniqueHash.swift in Sources */,
 				7B1D74B027C365960030B423 /* Timer+MainThread.swift in Sources */,
 				FD428B192B4B576F006D0888 /* AppContext.swift in Sources */,
 				FD2272D42C34ECE1004D8A6C /* BencodeEncoder.swift in Sources */,
@@ -7935,7 +7931,7 @@
 				CLANG_WARN__ARC_BRIDGE_CAST_NONARC = YES;
 				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
 				CODE_SIGN_IDENTITY = "iPhone Developer";
-				CURRENT_PROJECT_VERSION = 541;
+				CURRENT_PROJECT_VERSION = 542;
 				ENABLE_BITCODE = NO;
 				ENABLE_STRICT_OBJC_MSGSEND = YES;
 				ENABLE_TESTABILITY = YES;
@@ -8011,7 +8007,7 @@
 				CLANG_WARN__ARC_BRIDGE_CAST_NONARC = YES;
 				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
 				CODE_SIGN_IDENTITY = "iPhone Distribution";
-				CURRENT_PROJECT_VERSION = 541;
+				CURRENT_PROJECT_VERSION = 542;
 				ENABLE_BITCODE = NO;
 				ENABLE_MODULE_VERIFIER = YES;
 				ENABLE_STRICT_OBJC_MSGSEND = YES;

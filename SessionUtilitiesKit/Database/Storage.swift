@@ -668,37 +668,40 @@ open class Storage {
     ///
     /// The `async` variants don't need to worry about this reentrancy issue so instead we route we use those for all operations instead
     /// and just block the thread when we want to perform a synchronous operation
+    ///
+    /// **Note:** When running a synchronous operation the result will be returned and `asyncCompletion` will not be called, and
+    /// vice-versa for an asynchronous operation
     @discardableResult private static func performOperation<T>(
         _ info: CallInfo,
         _ dependencies: Dependencies,
         _ operation: @escaping (Database) throws -> T,
-        _ completion: ((Result<T, Error>) -> Void)? = nil
+        _ asyncCompletion: ((Result<T, Error>) -> Void)? = nil
     ) -> Result<T, Error> {
         // A serial queue for synchronizing completion updates.
         let syncQueue = DispatchQueue(label: "com.session.performOperation.syncQueue")
         
         var queryDb: Database?
-        var didComplete: Bool = false
-        var finalResult: Result<T, Error> = .failure(StorageError.invalidQueryResult)
+        var didTimeout: Bool = false
+        var operationResult: Result<T, Error>?
         let semaphore: DispatchSemaphore? = (info.isAsync ? nil : DispatchSemaphore(value: 0))
-        let logErrorIfNeeded: (Result<T, Error>) -> () = { result in
+        let logErrorIfNeeded: (Result<T, Error>) -> Result<T, Error> = { result in
             switch result {
                 case .success: break
                 case .failure(let error): StorageState.logIfNeeded(error, isWrite: info.isWrite)
             }
+            
+            return result
         }
         
         func completeOperation(with result: Result<T, Error>) {
             syncQueue.sync {
-                if didComplete { return }
-                didComplete = true
-                finalResult = result
+                guard !didTimeout && operationResult == nil else { return }
+                operationResult = result
                 semaphore?.signal()
                 
                 // For async operations, log and invoke the completion closure.
                 if info.isAsync {
-                    logErrorIfNeeded(result)
-                    completion?(result)
+                    asyncCompletion?(logErrorIfNeeded(result))
                 }
             }
         }
@@ -749,63 +752,38 @@ open class Storage {
         ///
         /// To try to avoid this we have the below code to try to replicate the behaviour of the proper semaphore timeout while the debugger
         /// is attached as this approach does seem to get paused (or at least only perform a single iteration per debugger step)
-        var semaphoreResult: DispatchTimeoutResult?
-        
-        #if DEBUG
-        if !isDebuggerAttached() {
+        if let semaphore: DispatchSemaphore = semaphore {
+            var semaphoreResult: DispatchTimeoutResult
+            
+            #if DEBUG
+            if isDebuggerAttached() {
+                semaphoreResult = debugWait(semaphore: semaphore, info: info)
+            }
+            else {
+                semaphoreResult = semaphore.wait(timeout: .now() + .seconds(Storage.transactionDeadlockTimeoutSeconds))
+            }
+            #else
             semaphoreResult = semaphore?.wait(timeout: .now() + .seconds(Storage.transactionDeadlockTimeoutSeconds))
-        }
-        else if !info.isAsync, let semaphore: DispatchSemaphore = semaphore {
-            let pollQueue: DispatchQueue = DispatchQueue.global(qos: .userInitiated)
-            let standardPollInterval: DispatchTimeInterval = .milliseconds(100)
-            var iterations: Int = 0
-            let maxIterations: Int = ((Storage.transactionDeadlockTimeoutSeconds * 1000) / standardPollInterval.milliseconds)
-            let pollCompletionSemaphore: DispatchSemaphore = DispatchSemaphore(value: 0)
+            #endif
             
-            /// Stagger the size of the `pollIntervals` to avoid holding up the thread in case the query resolves very quickly (this
-            /// means the timeout will occur ~500ms early but helps prevent false main thread lag appearing when debugging that wouldn't
-            /// affect production)
-            let pollIntervals: [DispatchTimeInterval] = [
-                .milliseconds(5), .milliseconds(5), .milliseconds(10), .milliseconds(10), .milliseconds(10),
-                standardPollInterval
-            ]
-            
-            func pollSemaphore() {
-                iterations += 1
-                
-                guard iterations < maxIterations && semaphore.wait(timeout: .now()) != .success else {
-                    pollCompletionSemaphore.signal()
-                    return
-                }
-                
-                let nextInterval: DispatchTimeInterval = pollIntervals[min(iterations, pollIntervals.count - 1)]
-                pollQueue.asyncAfter(deadline: .now() + nextInterval) {
-                    pollSemaphore()
+            /// If the query timed out then we should interrupt the query (don't want the query thread to remain blocked when we've
+            /// already handled it as a failure)
+            if semaphoreResult == .timedOut {
+                syncQueue.sync {
+                    didTimeout = true
+                    queryDb?.interrupt()
                 }
             }
             
-            /// Poll the semaphore in a background queue
-            pollQueue.asyncAfter(deadline: .now() + pollIntervals[0]) { pollSemaphore() }
-            pollCompletionSemaphore.wait()   // Wait indefinitely for the timer semaphore
-            semaphoreResult = (iterations >= 50 ? .timedOut : .success)
-        }
-        #else
-        semaphoreResult = semaphore?.wait(timeout: .now() + .seconds(Storage.transactionDeadlockTimeoutSeconds))
-        #endif
-        
-        /// If the query timed out then we should interrupt the query (don't want the query thread to remain blocked when we've
-        /// already handled it as a failure) and need to call `completeOperation` as it wouldn't have been called within the
-        /// db transaction yet
-        if semaphoreResult == .timedOut {
-            syncQueue.sync { queryDb?.interrupt() }
-            completeOperation(with: .failure(StorageError.transactionDeadlockTimeout))
+            /// Before returning we need to wait for any pending updates on `syncQueue` to be completed to ensure that objects
+            /// don't get incorrectly released while they are still being used
+            syncQueue.sync { }
+            
+            return logErrorIfNeeded(operationResult ?? .failure(StorageError.transactionDeadlockTimeout))
         }
         
-        /// Before returning we need to wait for any pending updates on `syncQueue` to be completed to ensure that objects
-        /// don't get incorrectly released while they are still being used
-        syncQueue.sync { }
-        
-        return finalResult
+        /// For the `async` operation the returned value should be ignored so just return the `invalidQueryResult` error
+        return .failure(StorageError.invalidQueryResult)
     }
     
     private func performPublisherOperation<T>(
@@ -832,6 +810,42 @@ open class Storage {
                     }
                 }.eraseToAnyPublisher()
         }
+    }
+    
+    private static func debugWait(semaphore: DispatchSemaphore, info: CallInfo) -> DispatchTimeoutResult {
+        let pollQueue: DispatchQueue = DispatchQueue(label: "com.session.debugWaitTimer.\(UUID().uuidString)")
+        let standardPollInterval: DispatchTimeInterval = .milliseconds(100)
+        var iterations: Int = 0
+        let maxIterations: Int = ((Storage.transactionDeadlockTimeoutSeconds * 1000) / standardPollInterval.milliseconds)
+        let pollCompletionSemaphore: DispatchSemaphore = DispatchSemaphore(value: 0)
+        
+        /// Stagger the size of the `pollIntervals` to avoid holding up the thread in case the query resolves very quickly (this
+        /// means the timeout will occur ~500ms early but helps prevent false main thread lag appearing when debugging that wouldn't
+        /// affect production)
+        let pollIntervals: [DispatchTimeInterval] = [
+            .milliseconds(5), .milliseconds(5), .milliseconds(10), .milliseconds(10), .milliseconds(10),
+            standardPollInterval
+        ]
+        
+        func pollSemaphore() {
+            iterations += 1
+            
+            guard iterations < maxIterations && semaphore.wait(timeout: .now()) != .success else {
+                pollCompletionSemaphore.signal()
+                return
+            }
+            
+            let nextInterval: DispatchTimeInterval = pollIntervals[min(iterations, pollIntervals.count - 1)]
+            pollQueue.asyncAfter(deadline: .now() + nextInterval) {
+                pollSemaphore()
+            }
+        }
+        
+        /// Poll the semaphore in a background queue
+        pollQueue.asyncAfter(deadline: .now() + pollIntervals[0]) { pollSemaphore() }
+        pollCompletionSemaphore.wait()   // Wait indefinitely for the timer semaphore
+        
+        return (iterations >= 50 ? .timedOut : .success)
     }
     
     // MARK: - Functions

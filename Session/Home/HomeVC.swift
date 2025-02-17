@@ -835,7 +835,13 @@ public final class HomeVC: BaseVC, LibSessionRespondingViewController, UITableVi
                 // Cannot properly sync outgoing blinded message requests so only provide valid options
                 let shouldHavePinAction: Bool = {
                     switch threadViewModel.threadVariant {
-                        case .legacyGroup: return !viewModel.dependencies[feature: .legacyGroupsDeprecated]
+                        case .legacyGroup:
+                            // Only allow unpin once deprecated
+                            return (
+                                !viewModel.dependencies[feature: .legacyGroupsDeprecated] ||
+                                threadViewModel.threadPinnedPriority > 0
+                            )
+                        
                         default:
                             return (
                                 sessionIdPrefix != .blinded15 &&

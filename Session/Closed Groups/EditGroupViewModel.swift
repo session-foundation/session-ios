@@ -77,15 +77,15 @@ class EditGroupViewModel: SessionTableViewModel, NavigatableStateHolder, Editabl
     
     private struct State: Equatable {
         let group: ClosedGroup
-        let profileFront: Profile?
-        let profileBack: Profile?
+        let profile: Profile?
+        let additionalProfile: Profile?
         let members: [WithProfile<GroupMember>]
         let isValid: Bool
         
         static let invalidState: State = State(
             group: ClosedGroup(threadId: "", name: "", formationTimestamp: 0, shouldPoll: false, invited: false),
-            profileFront: nil,
-            profileBack: nil,
+            profile: nil,
+            additionalProfile: nil,
             members: [],
             isValid: false
         )
@@ -133,8 +133,8 @@ class EditGroupViewModel: SessionTableViewModel, NavigatableStateHolder, Editabl
             
             return State(
                 group: group,
-                profileFront: profileFront,
-                profileBack: profileBack,
+                profile: profileBack,
+                additionalProfile: profileFront,
                 members: try GroupMember
                     .filter(GroupMember.Columns.groupId == threadId)
                     .fetchAllWithProfiles(db, using: dependencies),
@@ -194,9 +194,9 @@ class EditGroupViewModel: SessionTableViewModel, NavigatableStateHolder, Editabl
                             size: .hero,
                             threadVariant: (isUpdatedGroup ? .group : .legacyGroup),
                             displayPictureFilename: state.group.displayPictureFilename,
-                            profile: state.profileFront,
+                            profile: state.profile,
                             profileIcon: .none,
-                            additionalProfile: state.profileBack,
+                            additionalProfile: state.additionalProfile,
                             additionalProfileIcon: .none,
                             accessibility: nil
                         ),

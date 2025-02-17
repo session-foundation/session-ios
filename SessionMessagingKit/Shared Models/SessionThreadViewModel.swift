@@ -2075,7 +2075,7 @@ public extension SessionThreadViewModel {
                 IFNULL(\(thread[.creationDateTimestamp]), \(currentTimestamp)) AS \(ViewModel.Columns.threadCreationDateTimestamp),
                 '' AS \(ViewModel.Columns.threadMemberNames),
                 
-                (\(SQL("\(thread[.id]) = \(userSessionId.hexString)"))) AS \(ViewModel.Columns.threadIsNoteToSelf),
+                (\(SQL("\(contact[.id]) = \(userSessionId.hexString)"))) AS \(ViewModel.Columns.threadIsNoteToSelf),
                 IFNULL(\(thread[.pinnedPriority]), 0) AS \(ViewModel.Columns.threadPinnedPriority),
                 
                 \(contactProfile.allColumns),

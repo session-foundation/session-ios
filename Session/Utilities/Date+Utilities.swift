@@ -39,7 +39,7 @@ public extension Date {
     }
     
     var formattedForBanner: String {
-        return Date.dateOnlyFormatter.string(from: self)
+        return Date.localTimeAndDateFormatter.string(from: self)
     }
 }
 
@@ -92,6 +92,16 @@ fileprivate extension Date {
         
         // 6 Jun 2023
         result.dateFormat = "d MMM YYYY"
+        
+        return result
+    }()
+    
+    static let localTimeAndDateFormatter: DateFormatter = {
+        let result: DateFormatter = DateFormatter()
+        result.locale = Locale.current
+        
+        // 2:12pm 6 Jun 2023
+        result.dateFormat = "h:mm a, d MMM YYYY"
         
         return result
     }()
