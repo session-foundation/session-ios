@@ -948,12 +948,13 @@ extension ConversationVC:
                 ),
                 messageInfo.state == .permissionDeniedMicrophone
             else {
-                let callMissedTipsModal: CallMissedTipsModal = CallMissedTipsModal(caller: cellViewModel.authorName)
+                let callMissedTipsModal: CallMissedTipsModal = CallMissedTipsModal(
+                    caller: cellViewModel.authorName,
+                    presentingViewController: self
+                )
                 present(callMissedTipsModal, animated: true, completion: nil)
                 return
             }
-            
-            Permissions.requestMicrophonePermissionIfNeeded(presentingViewController: self)
             return
         }
         
