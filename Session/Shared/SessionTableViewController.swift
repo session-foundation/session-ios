@@ -163,6 +163,7 @@ class SessionTableViewController<ViewModel>: BaseVC, UITableViewDataSource, UITa
         
         viewHasAppeared = true
         autoLoadNextPageIfNeeded()
+        viewModel.onAppear(targetViewController: self)
     }
     
     override func viewWillDisappear(_ animated: Bool) {
@@ -583,7 +584,12 @@ class SessionTableViewController<ViewModel>: BaseVC, UITableViewDataSource, UITa
         let confirmationModal: ConfirmationModal = ConfirmationModal(
             targetView: tappedView,
             info: confirmationInfo
-                .with(onConfirm: { _ in performAction() })
+                .with(
+                    onConfirm: { modal in
+                        confirmationInfo.onConfirm?(modal)
+                        performAction()
+                    }
+                )
         )
         present(confirmationModal, animated: true, completion: nil)
     }

@@ -426,7 +426,7 @@ public extension ConfirmationModal {
         let hasCloseButton: Bool
         let dismissOnConfirm: Bool
         let dismissType: Modal.DismissType
-        let onConfirm: ((ConfirmationModal) -> ())?
+        public let onConfirm: ((ConfirmationModal) -> ())?
         let onCancel: ((ConfirmationModal) -> ())?
         let afterClosed: (() -> ())?
         

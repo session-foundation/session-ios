@@ -269,6 +269,10 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
         guard Singleton.hasAppContext else { return }
         
         Singleton.appContext.clearOldTemporaryDirectories()
+        
+        if Storage.shared[.areCallsEnabled] {
+            Permissions.checkLocalNetworkPermission()
+        }
     }
     
     func applicationWillResignActive(_ application: UIApplication) {

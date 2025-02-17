@@ -13,8 +13,6 @@ import SessionUtilitiesKit
 import SessionSnodeKit
 
 public final class SessionCall: CurrentCallProtocol, WebRTCSessionDelegate {
-    @objc static let isEnabled = true
-    
     private let dependencies: Dependencies
     
     // MARK: - Metadata Properties

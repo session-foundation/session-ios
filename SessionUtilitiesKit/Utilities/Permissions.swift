@@ -1,17 +1,18 @@
 // Copyright © 2025 Rangeproof Pty Ltd. All rights reserved.
 
 import AVFAudio
+import AVFoundation
 
 public enum Permissions {
     
-    public enum MicrophonePermisson {
+    public enum Status {
         case denied
         case granted
         case undetermined
         case unknown
     }
     
-    public static var microphone: MicrophonePermisson {
+    public static var microphone: Status {
         if #available(iOSApplicationExtension 17.0, *) {
             switch AVAudioApplication.shared.recordPermission {
                 case .undetermined:
@@ -34,6 +35,29 @@ public enum Permissions {
                 @unknown default:
                     return .unknown
             }
+        }
+    }
+    
+    public static var camera: Status {
+        switch AVCaptureDevice.authorizationStatus(for: .video) {
+            case .notDetermined:
+                return .undetermined
+            case .restricted, .denied:
+                return .denied
+            case .authorized:
+                return .granted
+            @unknown default:
+                return .unknown
+        }
+    }
+    
+    public static var localNetwork: Status {
+        let status: Bool? = UserDefaults.sharedLokiProject?[.lastSeenHasLocalNetworkPermission]
+        switch status {
+            case .none:
+                return .unknown
+            case .some(let value):
+                return value ? .granted : .denied
         }
     }
 }

@@ -7,6 +7,7 @@ import AVFAudio
 import SessionUIKit
 import SessionUtilitiesKit
 import SessionMessagingKit
+import Network
 
 extension Permissions {
     @discardableResult public static func requestCameraPermissionIfNeeded(
@@ -164,5 +165,32 @@ extension Permissions {
                 
             default: return
         }
+    }
+    
+    public static func requestLocalNetworkPermissionIfNeeded() {
+        checkLocalNetworkPermission()
+    }
+    
+    public static func checkLocalNetworkPermission() {
+        let connection = NWConnection(host: "192.168.1.1", port: 80, using: .tcp)
+        connection.stateUpdateHandler = { newState in
+            switch newState {
+                case .ready:
+                    UserDefaults.sharedLokiProject?[.lastSeenHasLocalNetworkPermission] = true
+                    connection.cancel() // Stop connection since we only need permission status
+                case .failed(let error):
+                    switch error {
+                        case .posix(let code):
+                            if code.rawValue == 13 {
+                                UserDefaults.sharedLokiProject?[.lastSeenHasLocalNetworkPermission] = false
+                            }
+                        default:
+                            break
+                    }
+                default:
+                    break
+            }
+        }
+        connection.start(queue: .main)
     }
 }
