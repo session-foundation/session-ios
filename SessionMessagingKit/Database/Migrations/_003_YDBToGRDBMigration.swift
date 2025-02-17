@@ -14,8 +14,15 @@ enum _003_YDBToGRDBMigration: Migration {
     
     static func migrate(_ db: Database, using dependencies: Dependencies) throws {
         guard
-            !SNUtilitiesKit.isRunningTests &&
-            Identity.userExists(db, using: dependencies)
+            !SNUtilitiesKit.isRunningTests,
+            let numEdSecretKeys: Int = try? Int.fetchOne(
+                db,
+                sql: "SELECT COUNT(*) FROM identity WHERE variant == ?",
+                arguments: [
+                    Identity.Variant.ed25519SecretKey.rawValue
+                ]
+            ),
+            numEdSecretKeys > 0
         else { return Storage.update(progress: 1, for: self, in: target, using: dependencies) }
         
         Log.error(.migration, "Attempted to perform legacy migation")

@@ -18,21 +18,21 @@ enum _007_HomeQueryOptimisationIndexes: Migration {
     static func migrate(_ db: Database, using dependencies: Dependencies) throws {
         try db.create(
             index: "interaction_on_wasRead_and_hasMention_and_threadId",
-            on: Interaction.databaseTableName,
+            on: "interaction",
             columns: [
-                Interaction.Columns.wasRead.name,
-                Interaction.Columns.hasMention.name,
-                Interaction.Columns.threadId.name
+                "wasRead",
+                "hasMention",
+                "threadId"
             ]
         )
         
         try db.create(
             index: "interaction_on_threadId_and_timestampMs_and_variant",
-            on: Interaction.databaseTableName,
+            on: "interaction",
             columns: [
-                Interaction.Columns.threadId.name,
-                Interaction.Columns.timestampMs.name,
-                Interaction.Columns.variant.name
+                "threadId",
+                "timestampMs",
+                "variant"
             ]
         )
         

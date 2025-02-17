@@ -20,13 +20,29 @@ enum _014_GenerateInitialUserConfigDumps: Migration {
     
     static func migrate(_ db: Database, using dependencies: Dependencies) throws {
         // If we have no ed25519 key then there is no need to create cached dump data
-        guard Identity.fetchUserEd25519KeyPair(db) != nil else {
+        guard
+            let numEdSecretKeys: Int = try? Int.fetchOne(
+                db,
+                sql: "SELECT COUNT(*) FROM identity WHERE variant == ?",
+                arguments: [
+                    Identity.Variant.ed25519SecretKey.rawValue
+                ]
+            ),
+            numEdSecretKeys > 0
+        else {
             Storage.update(progress: 1, for: self, in: target, using: dependencies)
             return
         }
         
         // Create the initial config state        
-        let userSessionId: SessionId = dependencies[cache: .general].sessionId
+        let userSessionId: SessionId = SessionId(
+            .standard,
+            publicKey: Array((try? Data.fetchOne(
+                db,
+                sql: "SELECT data FROM identity WHERE variant == ?",
+                arguments: [Identity.Variant.x25519PublicKey.rawValue]
+            )).defaulting(to: Data()))
+        )
         let timestampMs: Int64 = Int64(dependencies.dateNow.timeIntervalSince1970 * TimeInterval(1000))
         let cache: LibSession.Cache = LibSession.Cache(userSessionId: userSessionId, using: dependencies)
         
@@ -35,9 +51,9 @@ enum _014_GenerateInitialUserConfigDumps: Migration {
         
         // Retrieve all threads (we are going to base the config dump data on the active
         // threads rather than anything else in the database)
-        let allThreads: [String: SessionThread] = try SessionThread
-            .fetchAll(db)
-            .reduce(into: [:]) { result, next in result[next.id] = next }
+        let allThreads: [String: Row] = try Row
+            .fetchAll(db, sql: "SELECT * FROM thread")
+            .reduce(into: [:]) { result, next in result[next["id"]] = next }
         
         // MARK: - UserProfile Config Dump
         
@@ -50,11 +66,11 @@ enum _014_GenerateInitialUserConfigDumps: Migration {
         
         try LibSession.updateNoteToSelf(
             priority: {
-                guard allThreads[userSessionId.hexString]?.shouldBeVisible == true else {
+                guard allThreads[userSessionId.hexString]?["shouldBeVisible"] == true else {
                     return LibSession.hiddenPriority
                 }
                 
-                return Int32(allThreads[userSessionId.hexString]?.pinnedPriority ?? 0)
+                return Int32(allThreads[userSessionId.hexString]?["pinnedPriority"] ?? 0)
             }(),
             in: userProfileConfig
         )
@@ -75,11 +91,11 @@ enum _014_GenerateInitialUserConfigDumps: Migration {
         let validContactIds: [String] = allThreads
             .values
             .filter { thread in
-                thread.variant == .contact &&
-                thread.id != userSessionId.hexString &&
-                (try? SessionId(from: thread.id))?.prefix == .standard
+                thread["variant"] == SessionThread.Variant.contact.rawValue &&
+                thread["id"] != userSessionId.hexString &&
+                (try? SessionId(from: thread["id"]))?.prefix == .standard
             }
-            .map { $0.id }
+            .map { $0["id"] }
         let contactsData: [ContactInfo] = try Contact
             .filter(
                 Contact.Columns.isBlocked == true ||

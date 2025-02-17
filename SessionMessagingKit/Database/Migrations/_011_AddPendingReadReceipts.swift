@@ -15,20 +15,20 @@ enum _011_AddPendingReadReceipts: Migration {
     static let droppedTables: [(TableRecord & FetchableRecord).Type] = []
     
     static func migrate(_ db: Database, using dependencies: Dependencies) throws {
-        try db.create(table: PendingReadReceipt.self) { t in
-            t.column(.threadId, .text)
+        try db.create(table: "pendingReadReceipt") { t in
+            t.column("threadId", .text)
                 .notNull()
                 .indexed()                                            // Quicker querying
-                .references(SessionThread.self, onDelete: .cascade)   // Delete if Thread deleted
-            t.column(.interactionTimestampMs, .integer)
+                .references("thread", onDelete: .cascade)             // Delete if Thread deleted
+            t.column("interactionTimestampMs", .integer)
                 .notNull()
                 .indexed()                                            // Quicker querying
-            t.column(.readTimestampMs, .integer)
+            t.column("readTimestampMs", .integer)
                 .notNull()
-            t.column(.serverExpirationTimestamp, .double)
+            t.column("serverExpirationTimestamp", .double)
                 .notNull()
             
-            t.primaryKey([.threadId, .interactionTimestampMs])
+            t.primaryKey(["threadId", "interactionTimestampMs"])
         }
         
         Storage.update(progress: 1, for: self, in: target, using: dependencies)

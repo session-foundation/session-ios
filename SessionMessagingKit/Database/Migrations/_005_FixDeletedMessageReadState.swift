@@ -14,13 +14,17 @@ enum _005_FixDeletedMessageReadState: Migration {
     static let droppedTables: [(TableRecord & FetchableRecord).Type] = []
     
     static func migrate(_ db: Database, using dependencies: Dependencies) throws {
-        _ = try Interaction
-            .filter(
-                Interaction.Columns.variant == Interaction.Variant.standardIncomingDeleted ||
-                Interaction.Columns.variant == Interaction.Variant.standardOutgoing ||
-                Interaction.Columns.variant == Interaction.Variant.infoDisappearingMessagesUpdate
-            )
-            .updateAll(db, Interaction.Columns.wasRead.set(to: true))
+        try db.execute(
+            sql: """
+                UPDATE interaction
+                SET wasRead = true
+                WHERE variant IN (?, ?, ?)
+            """,
+            arguments: [
+                Interaction.Variant.standardIncomingDeleted.rawValue,
+                Interaction.Variant.standardOutgoing.rawValue,
+                Interaction.Variant.infoDisappearingMessagesUpdate.rawValue
+            ])
         
         Storage.update(progress: 1, for: self, in: target, using: dependencies)
     }

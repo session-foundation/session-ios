@@ -18,39 +18,22 @@ enum _002_SetupStandardJobs: Migration {
     static func migrate(_ db: Database, using dependencies: Dependencies) throws {
         // Start by adding the jobs that don't have collections (in the jobs like these
         // will be added via migrations)
-        try autoreleasepool {
-            _ = try Job(
-                variant: .disappearingMessages,
-                behaviour: .recurringOnLaunch,
-                shouldBlock: true
-            ).migrationSafeInserted(db)
-            
-            _ = try Job(
-                variant: .failedMessageSends,
-                behaviour: .recurringOnLaunch,
-                shouldBlock: true
-            ).migrationSafeInserted(db)
-            
-            _ = try Job(
-                variant: .failedAttachmentDownloads,
-                behaviour: .recurringOnLaunch,
-                shouldBlock: true
-            ).migrationSafeInserted(db)
-            
-            _ = try Job(
-                variant: .updateProfilePicture,
-                behaviour: .recurringOnActive
-            ).migrationSafeInserted(db)
-            
-            _ = try Job(
-                variant: .retrieveDefaultOpenGroupRooms,
-                behaviour: .recurringOnActive
-            ).migrationSafeInserted(db)
-            
-            _ = try Job(
-                variant: .garbageCollection,
-                behaviour: .recurringOnActive
-            ).migrationSafeInserted(db)
+        let jobInfo: [(variant: Job.Variant, behaviour: Job.Behaviour, shouldBlock: Bool)] = [
+            (.disappearingMessages, .recurringOnLaunch, true),
+            (.failedMessageSends, .recurringOnLaunch, true),
+            (.failedAttachmentDownloads, .recurringOnLaunch, true),
+            (.updateProfilePicture, .recurringOnActive, false),
+            (.retrieveDefaultOpenGroupRooms, .recurringOnActive, false),
+            (.garbageCollection, .recurringOnActive, false)
+        ]
+        
+        try jobInfo.forEach { variant, behaviour, shouldBlock in
+            try db.execute(
+                sql: """
+                    INSERT INTO job VALUES (?, ?, ?)
+                """,
+                arguments: [variant.rawValue, behaviour.rawValue, shouldBlock]
+            )
         }
         
         Storage.update(progress: 1, for: self, in: target, using: dependencies)
