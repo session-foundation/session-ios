@@ -79,7 +79,10 @@ enum _013_SessionUtilChanges: Migration {
         }
         
         // Insert into the new table, drop the old table and rename the new table to be the old one
-        let existingKeyPairs: [Row] = try Row.fetchAll(db, sql: "SELECT * FROM closedGroupKeyPair")
+        let existingKeyPairs: [Row] = try Row.fetchAll(db, sql: """
+                SELECT threadId, publicKey, secretKey, receivedTimestamp
+                FROM closedGroupKeyPair
+        """)
         existingKeyPairs.forEach { row in
             let threadId: String = row["threadId"]
             let publicKey: Data = row["publicKey"]
@@ -187,8 +190,7 @@ enum _013_SessionUtilChanges: Migration {
         if ProcessInfo.processInfo.environment["XCTestConfigurationFilePath"] == nil {
             let threadExists: Bool? = try Bool.fetchOne(
                 db,
-                sql: "EXISTS (SELECT * FROM thread WHERE id = ?)",
-                arguments: [userSessionId.hexString]
+                sql: "SELECT EXISTS (SELECT * FROM thread WHERE id = '\(userSessionId.hexString)')"
             )
             
             if threadExists == false {

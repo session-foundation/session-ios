@@ -132,7 +132,7 @@ enum _022_GroupsRebuildChanges: Migration {
                         )
                         VALUES (
                             '\(group.groupSessionId)',
-                            \(group.name),
+                            '\(group.name)',
                             \(group.joinedAt),
                             \(group.invited == false),
                             ?,

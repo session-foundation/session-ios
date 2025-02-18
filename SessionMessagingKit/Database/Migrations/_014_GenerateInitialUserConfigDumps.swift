@@ -77,7 +77,8 @@ enum _014_GenerateInitialUserConfigDumps: Migration {
                     return LibSession.hiddenPriority
                 }
                 
-                return Int32(allThreads[userSessionId.hexString]?["pinnedPriority"] ?? 0)
+                let pinnedPriority: Int32? = allThreads[userSessionId.hexString]?["pinnedPriority"]
+                return (pinnedPriority ?? 0)
             }(),
             in: userProfileConfig
         )
@@ -155,7 +156,8 @@ enum _014_GenerateInitialUserConfigDumps: Migration {
                                 return -1 // Hidden priority
                             }
                             
-                            return Int32(allThreads[contactId]?["pinnedPriority"] ?? 0)
+                            let pinnedPriority: Int32? = allThreads[contactId]?["pinnedPriority"]
+                            return (pinnedPriority ?? 0)
                         }(),
                         created: allThreads[contactId]?["creationDateTimestamp"]
                     )
@@ -247,13 +249,16 @@ enum _014_GenerateInitialUserConfigDumps: Migration {
                     )
                 }
                 
+                let markedAsUnread: Bool? = info["markedAsUnread"]
+                let timestampMs: Int64? = info["timestampMs"]
+                
                 return LibSession.VolatileThreadInfo(
                     threadId: info["id"],
                     variant: variant,
                     openGroupUrlInfo: openGroupUrlInfo,
                     changes: [
-                        .markedAsUnread(info["markedAsUnread"] ?? false),
-                        .lastReadTimestampMs(info["timestampMs"] ?? 0)
+                        .markedAsUnread(markedAsUnread ?? false),
+                        .lastReadTimestampMs(timestampMs ?? 0)
                     ]
                 )
             },
@@ -379,6 +384,7 @@ enum _014_GenerateInitialUserConfigDumps: Migration {
         try LibSession.upsert(
             communities: communityInfo.compactMap { info in
                 let threadId: String = info["threadId"]
+                let pinnedPriority: Int32? = allThreads[threadId]?["pinnedPriority"]
                 
                 return LibSession.CommunityInfo(
                     urlInfo: LibSession.OpenGroupUrlInfo(
@@ -387,7 +393,7 @@ enum _014_GenerateInitialUserConfigDumps: Migration {
                         roomToken: info["roomToken"],
                         publicKey: info["publicKey"]
                     ),
-                    priority: Int32(allThreads[threadId]?["pinnedPriority"] ?? 0)
+                    priority: (pinnedPriority ?? 0)
                 )
             },
             in: userGroupsConfig

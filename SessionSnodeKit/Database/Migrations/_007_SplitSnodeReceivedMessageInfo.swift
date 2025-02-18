@@ -13,7 +13,10 @@ enum _007_SplitSnodeReceivedMessageInfo: Migration {
     
     static func migrate(_ db: Database, using dependencies: Dependencies) throws {
         /// Fetch the existing values and then drop the table
-        let existingValues: [Row] = try Row.fetchAll(db, sql: "SELECT * FROM snodeReceivedMessageInfo")
+        let existingValues: [Row] = try Row.fetchAll(db, sql: """
+            SELECT key, hash, expirationDateMs, wasDeletedOrInvalid
+            FROM snodeReceivedMessageInfo
+        """)
         try db.drop(table: "snodeReceivedMessageInfo")
         
         /// Create the new table
@@ -93,6 +96,7 @@ enum _007_SplitSnodeReceivedMessageInfo: Migration {
                 
                 return (Int(swarmPublicKeySplitComponents[1]) ?? SnodeAPI.Namespace.default.rawValue)
             }()
+            let wasDeletedOrInvalid: Bool? = info["wasDeletedOrInvalid"]
             
             return (
                 swarmPublicKey,
@@ -100,7 +104,7 @@ enum _007_SplitSnodeReceivedMessageInfo: Migration {
                 targetNamespace,
                 info["hash"],
                 info["expirationDateMs"],
-                (info["wasDeletedOrInvalid"] == true)
+                (wasDeletedOrInvalid == true)
             )
         }
         
