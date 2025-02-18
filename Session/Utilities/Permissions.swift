@@ -188,8 +188,8 @@ extension Permissions {
     }
     
     public static func requestLocalNetworkAuthorization() async throws -> Bool {
-        let type = "_preflight_check._tcp"
-        let queue = DispatchQueue(label: "com.nonstrict.localNetworkAuthCheck")
+        let type = "_session_local_network_access_check._tcp"
+        let queue = DispatchQueue(label: "localNetworkAuthCheck")
 
         let listener = try NWListener(using: NWParameters(tls: .none, tcp: NWProtocolTCP.Options()))
         listener.service = NWListener.Service(name: UUID().uuidString, type: type)
