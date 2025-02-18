@@ -15,25 +15,12 @@ public protocol Migration {
     static var target: TargetMigrations.Identifier { get }
     static var identifier: String { get }
     static var minExpectedRunDuration: TimeInterval { get }
-    static var requirements: [MigrationRequirement] { get }
-    
-    /// This includes any tables which are fetched from as part of the migration so that we can test they can still be parsed
-    /// correctly within migration tests
-    static var fetchedTables: [(TableRecord & FetchableRecord).Type] { get }
-    
-    /// This includes any tables which are created or altered as part of the migration so that we can test they can still be parsed
-    /// correctly within migration tests
-    static var createdOrAlteredTables: [(TableRecord & FetchableRecord).Type] { get }
-    
-    /// This includes any tables which have been permanently dropped as part of this migration
-    static var droppedTables: [(TableRecord & FetchableRecord).Type] { get }
+    static var createdTables: [(TableRecord & FetchableRecord).Type] { get }
     
     static func migrate(_ db: Database, using dependencies: Dependencies) throws
 }
 
 public extension Migration {
-    static var requirements: [MigrationRequirement] { [] }
-    
     static func loggedMigrate(
         _ storage: Storage?,
         targetIdentifier: TargetMigrations.Identifier,

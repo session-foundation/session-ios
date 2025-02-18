@@ -17,18 +17,16 @@ enum _001_ThemePreferences: Migration {
     static let target: TargetMigrations.Identifier = ._deprecatedUIKit
     static let identifier: String = "ThemePreferences"
     static let minExpectedRunDuration: TimeInterval = 0.1
-    static let fetchedTables: [(TableRecord & FetchableRecord).Type] = [Identity.self]
-    static let createdOrAlteredTables: [(TableRecord & FetchableRecord).Type] = []
-    static let droppedTables: [(TableRecord & FetchableRecord).Type] = []
+    static let createdTables: [(TableRecord & FetchableRecord).Type] = []
     
     static func migrate(_ db: Database, using dependencies: Dependencies) throws {
         // Determine if the user was matching the system setting (previously the absence of this value
         // indicated that the app should match the system setting)
-        let isExistingUser: Bool = Identity.userExists(db, using: dependencies)
+        let isExistingUser: Bool = MigrationHelper.userExists(db)
         let hadCustomLegacyThemeSetting: Bool = UserDefaults.standard.dictionaryRepresentation()
             .keys
             .contains("appMode")
-        let matchSystemNightModeSetting: Bool = (isExistingUser && !hadCustomLegacyThemeSetting)
+        var matchSystemNightModeSetting: Bool = (isExistingUser && !hadCustomLegacyThemeSetting)
         let targetTheme: Theme = (!hadCustomLegacyThemeSetting ?
             Theme.classicDark :
             (UserDefaults.standard.integer(forKey: "appMode") == 0 ?
@@ -39,9 +37,26 @@ enum _001_ThemePreferences: Migration {
         let targetPrimaryColor: Theme.PrimaryColor = .green
         
         // Save the settings
-        db[.themeMatchSystemDayNightCycle] = matchSystemNightModeSetting
-        db[.theme] = targetTheme
-        db[.themePrimaryColor] = targetPrimaryColor
+        try db.execute(sql: """
+            DELETE FROM setting
+            WHERE key IN ('themeMatchSystemDayNightCycle', 'selectedTheme', 'selectedThemePrimaryColor')
+        """)
+        
+        let matchSystemNightModeSettingAsData: Data = withUnsafeBytes(of: &matchSystemNightModeSetting) { Data($0) }
+        try db.execute(
+            sql: """
+                INSERT INTO setting (key, value)
+                VALUES
+                    ('themeMatchSystemDayNightCycle', ?),
+                    ('selectedTheme', ?),
+                    ('selectedThemePrimaryColor', ?)
+            """,
+            arguments: [
+                matchSystemNightModeSettingAsData,
+                targetTheme.rawValue.data(using: .utf8),
+                targetPrimaryColor.rawValue.data(using: .utf8)
+            ]
+        )
         
         Storage.update(progress: 1, for: self, in: target, using: dependencies)
     }

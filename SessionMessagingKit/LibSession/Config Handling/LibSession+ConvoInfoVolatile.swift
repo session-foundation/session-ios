@@ -561,13 +561,6 @@ public extension LibSession {
                 .asRequest(of: OpenGroupUrlInfo.self)
                 .fetchAll(db)
         }
-        
-        static func fetchAll(_ db: Database) throws -> [OpenGroupUrlInfo] {
-            return try OpenGroup
-                .select(.threadId, .server, .roomToken, .publicKey)
-                .asRequest(of: OpenGroupUrlInfo.self)
-                .fetchAll(db)
-        }
     }
     
     struct VolatileThreadInfo {
@@ -581,7 +574,7 @@ public extension LibSession {
         fileprivate let openGroupUrlInfo: OpenGroupUrlInfo?
         let changes: [Change]
         
-        fileprivate init(
+        internal init(
             threadId: String,
             variant: SessionThread.Variant,
             openGroupUrlInfo: OpenGroupUrlInfo? = nil,

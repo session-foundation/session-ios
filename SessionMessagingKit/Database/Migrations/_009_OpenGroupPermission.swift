@@ -8,9 +8,7 @@ enum _009_OpenGroupPermission: Migration {
     static let target: TargetMigrations.Identifier = .messagingKit
     static let identifier: String = "OpenGroupPermission"
     static let minExpectedRunDuration: TimeInterval = 0.01
-    static let fetchedTables: [(TableRecord & FetchableRecord).Type] = []
-    static let createdOrAlteredTables: [(TableRecord & FetchableRecord).Type] = [OpenGroup.self]
-    static let droppedTables: [(TableRecord & FetchableRecord).Type] = []
+    static let createdTables: [(TableRecord & FetchableRecord).Type] = []
     
     static func migrate(_ db: Database, using dependencies: Dependencies) throws {
         try db.alter(table: "openGroup") { t in
@@ -21,10 +19,7 @@ enum _009_OpenGroupPermission: Migration {
         // When modifying OpenGroup behaviours we should always look to reset the `infoUpdates`
         // value for all OpenGroups to ensure they all have the correct state for newly
         // added/changed fields
-        try db.execute(sql: """
-            UPDATE openGroup
-            SET infoUpdates = 0
-        """)
+        try db.execute(sql: "UPDATE openGroup SET infoUpdates = 0")
         
         Storage.update(progress: 1, for: self, in: target, using: dependencies)
     }

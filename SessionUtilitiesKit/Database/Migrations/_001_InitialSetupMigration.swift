@@ -9,69 +9,67 @@ enum _001_InitialSetupMigration: Migration {
     static let target: TargetMigrations.Identifier = .utilitiesKit
     static let identifier: String = "initialSetup"
     static let minExpectedRunDuration: TimeInterval = 0.1
-    static let fetchedTables: [(TableRecord & FetchableRecord).Type] = []
-    static let createdOrAlteredTables: [(TableRecord & FetchableRecord).Type] = [
+    static let createdTables: [(TableRecord & FetchableRecord).Type] = [
         Identity.self, Job.self, JobDependencies.self, Setting.self
     ]
-    static let droppedTables: [(TableRecord & FetchableRecord).Type] = []
     
     static func migrate(_ db: Database, using dependencies: Dependencies) throws {
-        try db.create(table: Identity.self) { t in
-            t.column(.variant, .text)
+        try db.create(table: "identity") { t in
+            t.column("variant", .text)
                 .notNull()
                 .unique()
                 .primaryKey()
-            t.column(.data, .blob).notNull()
+            t.column("data", .blob).notNull()
         }
         
-        try db.create(table: Job.self) { t in
-            t.column(.id, .integer)
+        try db.create(table: "job") { t in
+            t.column("id", .integer)
                 .notNull()
                 .primaryKey(autoincrement: true)
-            t.column(.failureCount, .integer)
+            t.column("failureCount", .integer)
                 .notNull()
                 .defaults(to: 0)
-            t.column(.variant, .integer)
+            t.column("variant", .integer)
                 .notNull()
                 .indexed()                                            // Quicker querying
-            t.column(.behaviour, .integer)
+            t.column("behaviour", .integer)
                 .notNull()
                 .indexed()                                            // Quicker querying
-            t.column(.shouldBlock, .boolean)
+            t.column("shouldBlock", .boolean)
                 .notNull()
                 .indexed()                                            // Quicker querying
                 .defaults(to: false)
-            t.column(.shouldSkipLaunchBecomeActive, .boolean)
+            t.column("shouldSkipLaunchBecomeActive", .boolean)
                 .notNull()
                 .defaults(to: false)
-            t.column(.nextRunTimestamp, .double)
+            t.column("nextRunTimestamp", .double)
                 .notNull()
                 .indexed()                                            // Quicker querying
                 .defaults(to: 0)
-            t.column(.threadId, .text)
+            t.column("threadId", .text)
                 .indexed()                                            // Quicker querying
-            t.column(.interactionId, .text)
+            t.column("interactionId", .text)
                 .indexed()                                            // Quicker querying
-            t.column(.details, .blob)
+            t.column("details", .blob)
         }
         
-        try db.create(table: JobDependencies.self) { t in
-            t.column(.jobId, .integer)
+        try db.create(table: "jobDependencies") { t in
+            t.column("jobId", .integer)
                 .notNull()
-                .references(Job.self, onDelete: .cascade)             // Delete if Job deleted
-            t.column(.dependantId, .integer)
+                .references("job", onDelete: .cascade)                // Delete if Job deleted
+            t.column("dependantId", .integer)
                 .indexed()                                            // Quicker querying
-                .references(Job.self, onDelete: .setNull)             // Delete if Job deleted
+                .references("job", onDelete: .setNull)                // Delete if Job deleted
             
-            t.primaryKey([.jobId, .dependantId])
+            t.primaryKey(["jobId", "dependantId"])
         }
         
-        try db.create(table: Setting.self) { t in
-            t.column(.key, .text)
+        try db.create(table: "setting") { t in
+            t.column("key", .text)
                 .notNull()
                 .unique()
                 .primaryKey()
-            t.column(.value, .blob).notNull()
+            t.column("value", .blob).notNull()
         }
         
         Storage.update(progress: 1, for: self, in: target, using: dependencies)

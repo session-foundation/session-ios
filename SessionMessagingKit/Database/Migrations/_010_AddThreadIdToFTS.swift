@@ -10,9 +10,7 @@ enum _010_AddThreadIdToFTS: Migration {
     static let target: TargetMigrations.Identifier = .messagingKit
     static let identifier: String = "AddThreadIdToFTS"
     static let minExpectedRunDuration: TimeInterval = 3
-    static let fetchedTables: [(TableRecord & FetchableRecord).Type] = []
-    static let createdOrAlteredTables: [(TableRecord & FetchableRecord).Type] = []
-    static let droppedTables: [(TableRecord & FetchableRecord).Type] = []
+    static let createdTables: [(TableRecord & FetchableRecord).Type] = []
     
     static func migrate(_ db: Database, using dependencies: Dependencies) throws {
         // Can't actually alter a virtual table in SQLite so we need to drop and recreate it,

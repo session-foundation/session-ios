@@ -306,10 +306,14 @@ internal extension LibSession {
                 }
                 
                 // Assign all properties to match the updated contact (if there is one)
-                if let updatedContact: Contact = info.contact {
-                    contact.approved = updatedContact.isApproved
-                    contact.approved_me = updatedContact.didApproveMe
-                    contact.blocked = updatedContact.isBlocked
+                if
+                    let isApproved: Bool = info.isApproved,
+                    let didApproveMe: Bool = info.didApproveMe,
+                    let isBlocked: Bool = info.isBlocked
+                {
+                    contact.approved = isApproved
+                    contact.approved_me = didApproveMe
+                    contact.blocked = isBlocked
                     
                     // If we were given a `created` timestamp then set it to the min between the current
                     // setting and the value (as long as the current setting isn't `0`)
@@ -324,14 +328,14 @@ internal extension LibSession {
                 
                 // Update the profile data (if there is one - users we have sent a message request to may
                 // not have profile info in certain situations)
-                if let updatedProfile: Profile = info.profile {
+                if let updatedName: String = info.name {
                     let oldAvatarUrl: String? = contact.get(\.profile_pic.url)
                     let oldAvatarKey: Data? = contact.get(\.profile_pic.key)
                     
-                    contact.set(\.name, to: updatedProfile.name)
-                    contact.set(\.nickname, to: updatedProfile.nickname)
-                    contact.set(\.profile_pic.url, to: updatedProfile.profilePictureUrl)
-                    contact.set(\.profile_pic.key, to: updatedProfile.profileEncryptionKey)
+                    contact.set(\.name, to: updatedName)
+                    contact.set(\.nickname, to: info.nickname)
+                    contact.set(\.profile_pic.url, to: info.profilePictureUrl)
+                    contact.set(\.profile_pic.key, to: info.profileEncryptionKey)
                     
                     // Attempts retrieval of the profile picture (will schedule a download if
                     // needed via a throttled subscription on another thread to prevent blocking)
@@ -339,9 +343,10 @@ internal extension LibSession {
                     // Note: Only trigger the avatar download if we are in the main app (don't
                     // want the extensions to trigger this as it can clog up their networking)
                     if
+                        let updatedProfile: Profile = info.profile,
                         dependencies[singleton: .appContext].isMainApp && (
-                            oldAvatarUrl != (updatedProfile.profilePictureUrl ?? "") ||
-                            oldAvatarKey != (updatedProfile.profileEncryptionKey ?? Data(repeating: 0, count: DisplayPictureManager.aes256KeyByteLength))
+                            oldAvatarUrl != (info.profilePictureUrl ?? "") ||
+                            oldAvatarKey != (info.profileEncryptionKey ?? Data(repeating: 0, count: DisplayPictureManager.aes256KeyByteLength))
                         )
                     {
                         dependencies[singleton: .displayPictureManager].displayPicture(
@@ -356,11 +361,11 @@ internal extension LibSession {
                 
                 // Assign all properties to match the updated disappearing messages configuration (if there is one)
                 if
-                    let updatedConfig: DisappearingMessagesConfiguration = info.config,
-                    let exp_mode: CONVO_EXPIRATION_MODE = updatedConfig.type?.toLibSession()
+                    let disappearingInfo: LibSession.DisappearingMessageInfo = info.disappearingMessagesInfo,
+                    let exp_mode: CONVO_EXPIRATION_MODE = disappearingInfo.type?.toLibSession()
                 {
                     contact.exp_mode = exp_mode
-                    contact.exp_seconds = Int32(updatedConfig.durationSeconds)
+                    contact.exp_seconds = Int32(disappearingInfo.durationSeconds)
                 }
                 
                 // Store the updated contact (can't be sure if we made any changes above)
@@ -649,11 +654,31 @@ public extension LibSession {
 extension LibSession {
     struct SyncedContactInfo {
         let id: String
-        let contact: Contact?
-        let profile: Profile?
-        let config: DisappearingMessagesConfiguration?
+        let isTrusted: Bool?
+        let isApproved: Bool?
+        let isBlocked: Bool?
+        let didApproveMe: Bool?
+        
+        let name: String?
+        let nickname: String?
+        let profilePictureUrl: String?
+        let profileEncryptionKey: Data?
+        
+        let disappearingMessagesInfo: DisappearingMessageInfo?
         let priority: Int32?
         let created: TimeInterval?
+        
+        fileprivate var profile: Profile? {
+            guard let name: String = name else { return nil }
+            
+            return Profile(
+                id: id,
+                name: name,
+                nickname: nickname,
+                profilePictureUrl: profilePictureUrl,
+                profileEncryptionKey: profileEncryptionKey
+            )
+        }
         
         init(
             id: String,
@@ -663,12 +688,73 @@ extension LibSession {
             priority: Int32? = nil,
             created: TimeInterval? = nil
         ) {
+            self.init(
+                id: id,
+                isTrusted: contact?.isTrusted,
+                isApproved: contact?.isApproved,
+                isBlocked: contact?.isBlocked,
+                didApproveMe: contact?.didApproveMe,
+                name: profile?.name,
+                nickname: profile?.nickname,
+                profilePictureUrl: profile?.profilePictureUrl,
+                profileEncryptionKey: profile?.profileEncryptionKey,
+                disappearingMessagesInfo: disappearingMessagesConfig.map {
+                    DisappearingMessageInfo(
+                        isEnabled: $0.isEnabled,
+                        durationSeconds: Int64($0.durationSeconds),
+                        rawType: $0.type?.rawValue
+                    )
+                },
+                priority: priority,
+                created: created
+            )
+        }
+        
+        init(
+            id: String,
+            isTrusted: Bool? = nil,
+            isApproved: Bool? = nil,
+            isBlocked: Bool? = nil,
+            didApproveMe: Bool? = nil,
+            name: String? = nil,
+            nickname: String? = nil,
+            profilePictureUrl: String? = nil,
+            profileEncryptionKey: Data? = nil,
+            disappearingMessagesInfo: DisappearingMessageInfo? = nil,
+            priority: Int32? = nil,
+            created: TimeInterval? = nil
+        ) {
             self.id = id
-            self.contact = contact
-            self.profile = profile
-            self.config = disappearingMessagesConfig
+            self.isTrusted = isTrusted
+            self.isApproved = isApproved
+            self.isBlocked = isBlocked
+            self.didApproveMe = didApproveMe
+            self.name = name
+            self.nickname = nickname
+            self.profilePictureUrl = profilePictureUrl
+            self.profileEncryptionKey = profileEncryptionKey
+            self.disappearingMessagesInfo = disappearingMessagesInfo
             self.priority = priority
             self.created = created
+        }
+    }
+    
+    struct DisappearingMessageInfo {
+        let isEnabled: Bool
+        let durationSeconds: Int64
+        let rawType: Int?
+        
+        var type: DisappearingMessagesConfiguration.DisappearingMessageType? {
+            rawType.map { DisappearingMessagesConfiguration.DisappearingMessageType(rawValue: $0) }
+        }
+        
+        func generateConfig(for threadId: String) -> DisappearingMessagesConfiguration {
+            DisappearingMessagesConfiguration(
+                threadId: threadId,
+                isEnabled: isEnabled,
+                durationSeconds: TimeInterval(durationSeconds),
+                type: rawType.map { DisappearingMessagesConfiguration.DisappearingMessageType(rawValue: $0) }
+            )
         }
     }
 }
@@ -681,13 +767,6 @@ private struct ContactData {
     let config: DisappearingMessagesConfiguration
     let priority: Int32
     let created: TimeInterval
-}
-
-// MARK: - ThreadCount
-
-private struct ThreadCount: Codable, FetchableRecord {
-    let id: String
-    let interactionCount: Int
 }
 
 // MARK: - Convenience

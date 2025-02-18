@@ -9,47 +9,48 @@ enum _007_SplitSnodeReceivedMessageInfo: Migration {
     static let target: TargetMigrations.Identifier = .snodeKit
     static let identifier: String = "SplitSnodeReceivedMessageInfo"
     static let minExpectedRunDuration: TimeInterval = 0.1
-    static let fetchedTables: [(TableRecord & FetchableRecord).Type] = [
-        _001_InitialSetupMigration.LegacySnodeReceivedMessageInfo.self
-    ]
-    static let createdOrAlteredTables: [(TableRecord & FetchableRecord).Type] = [SnodeReceivedMessageInfo.self]
-    static let droppedTables: [(TableRecord & FetchableRecord).Type] = [
-        _001_InitialSetupMigration.LegacySnodeReceivedMessageInfo.self
-    ]
+    static let createdTables: [(TableRecord & FetchableRecord).Type] = [SnodeReceivedMessageInfo.self]
     
     static func migrate(_ db: Database, using dependencies: Dependencies) throws {
-        typealias LegacyInfo = _001_InitialSetupMigration.LegacySnodeReceivedMessageInfo
-        
         /// Fetch the existing values and then drop the table
-        let existingValues: [LegacyInfo] = try LegacyInfo.fetchAll(db)
-        try db.drop(table: LegacyInfo.self)
+        let existingValues: [Row] = try Row.fetchAll(db, sql: "SELECT * FROM snodeReceivedMessageInfo")
+        try db.drop(table: "snodeReceivedMessageInfo")
         
         /// Create the new table
-        try db.create(table: SnodeReceivedMessageInfo.self) { t in
-            t.column(.swarmPublicKey, .text)
+        try db.create(table: "snodeReceivedMessageInfo") { t in
+            t.column("swarmPublicKey", .text)
                 .notNull()
                 .indexed()
-            t.column(.snodeAddress, .text).notNull()
-            t.column(.namespace, .integer).notNull()
+            t.column("snodeAddress", .text).notNull()
+            t.column("namespace", .integer).notNull()
                 .indexed()
-            t.column(.hash, .text)
+            t.column("hash", .text)
                 .notNull()
                 .indexed()
-            t.column(.expirationDateMs, .integer)
+            t.column("expirationDateMs", .integer)
                 .notNull()
                 .indexed()
-            t.column(.wasDeletedOrInvalid, .boolean)
+            t.column("wasDeletedOrInvalid", .boolean)
                 .notNull()
                 .indexed()
             
-            t.primaryKey([.swarmPublicKey, .snodeAddress, .namespace, .hash])
+            t.primaryKey(["swarmPublicKey", "snodeAddress", "namespace", "hash"])
         }
         
         /// Convert the old data to the new structure and insert it
+        typealias Info = (
+            swarmPublicKey: String,
+            snodeAddress: String,
+            namespace: Int,
+            hash: String,
+            expirationDateMs: Int64,
+            wasDeletedOrInvalid: Bool
+        )
         let timestampNowMs: Int64 = Int64(dependencies.dateNow.timeIntervalSince1970 * 1000)
-        let updatedValues: [SnodeReceivedMessageInfo] = existingValues.compactMap { info in
+        let updatedValues: [Info] = existingValues.compactMap { info -> Info? in
             /// The old key was a combination of `{snode address}.{publicKey}.{namespace}`
-            let keyComponents: [String] = info.key.components(separatedBy: ".") // stringlint:ignore
+            let key: String = info["key"]
+            let keyComponents: [String] = key.components(separatedBy: ".")
             
             /// Because node addresses are likely ip addresses the `keyComponents` array above may have an inconsistent length
             /// as such we need to find the swarm public key and then split again based on that value
@@ -75,11 +76,11 @@ enum _007_SplitSnodeReceivedMessageInfo: Migration {
             /// exclude them here as they just take up space otherwise
             guard
                 let swarmPublicKey: String = maybeSwarmPublicKey,
-                info.expirationDateMs > timestampNowMs
+                info["expirationDateMs"] > timestampNowMs
             else { return nil }
             
             /// Split on the `swarmPublicKey`
-            let swarmPublicKeySplitComponents: [String] = info.key
+            let swarmPublicKeySplitComponents: [String] = key
                 .components(separatedBy: ".\(swarmPublicKey).") // stringlint:ignore
                 .filter { !$0.isEmpty }
             
@@ -93,17 +94,39 @@ enum _007_SplitSnodeReceivedMessageInfo: Migration {
                 return (Int(swarmPublicKeySplitComponents[1]) ?? SnodeAPI.Namespace.default.rawValue)
             }()
             
-            return SnodeReceivedMessageInfo(
-                swarmPublicKey: swarmPublicKey,
-                snodeAddress: swarmPublicKeySplitComponents[0],
-                namespace: targetNamespace,
-                hash: info.hash,
-                expirationDateMs: info.expirationDateMs,
-                wasDeletedOrInvalid: (info.wasDeletedOrInvalid == true)
+            return (
+                swarmPublicKey,
+                swarmPublicKeySplitComponents[0],
+                targetNamespace,
+                info["hash"],
+                info["expirationDateMs"],
+                (info["wasDeletedOrInvalid"] == true)
             )
         }
         
-        try updatedValues.forEach { _ = try $0.inserted(db) }
+        try updatedValues.forEach {
+            try db.execute(
+                sql: """
+                    INSERT INTO snodeReceivedMessageInfo (
+                        swarmPublicKey,
+                        snodeAddress,
+                        namespace,
+                        hash,
+                        expirationDateMs,
+                        wasDeletedOrInvalid
+                    )
+                    VALUES (?, ?, ?, ?, ?, ?)
+                """,
+                arguments: [
+                    $0.swarmPublicKey,
+                    $0.snodeAddress,
+                    $0.namespace,
+                    $0.hash,
+                    $0.expirationDateMs,
+                    $0.wasDeletedOrInvalid
+                ]
+            )
+        }
         
         Storage.update(progress: 1, for: self, in: target, using: dependencies)
     }

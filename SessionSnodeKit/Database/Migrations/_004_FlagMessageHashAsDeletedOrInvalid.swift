@@ -11,15 +11,11 @@ enum _004_FlagMessageHashAsDeletedOrInvalid: Migration {
     static let target: TargetMigrations.Identifier = .snodeKit
     static let identifier: String = "FlagMessageHashAsDeletedOrInvalid"
     static let minExpectedRunDuration: TimeInterval = 0.2
-    static let fetchedTables: [(TableRecord & FetchableRecord).Type] = []
-    static let createdOrAlteredTables: [(TableRecord & FetchableRecord).Type] = [
-        _001_InitialSetupMigration.LegacySnodeReceivedMessageInfo.self
-    ]
-    static let droppedTables: [(TableRecord & FetchableRecord).Type] = []
+    static let createdTables: [(TableRecord & FetchableRecord).Type] = []
     
     static func migrate(_ db: Database, using dependencies: Dependencies) throws {
-        try db.alter(table: _001_InitialSetupMigration.LegacySnodeReceivedMessageInfo.self) { t in
-            t.add(.wasDeletedOrInvalid, .boolean)
+        try db.alter(table: "snodeReceivedMessageInfo") { t in
+            t.add(column: "wasDeletedOrInvalid", .boolean)
                 .indexed()                                 // Faster querying
         }
         

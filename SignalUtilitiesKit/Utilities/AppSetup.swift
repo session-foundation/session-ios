@@ -69,37 +69,38 @@ public enum AppSetup {
                     SNMessagingKit.self
                 ]),
             onProgressUpdate: migrationProgressChanged,
-            onMigrationRequirement: { db, requirement in
-                switch requirement {
-                    case .sessionIdCached:
-                        guard let userKeyPair: KeyPair = Identity.fetchUserKeyPair(db) else { return }
-                        
-                        /// Cache the users session id so we don't need to fetch it from the database every time
-                        dependencies.mutate(cache: .general) {
-                            $0.setCachedSessionId(sessionId: SessionId(.standard, publicKey: userKeyPair.publicKey))
-                        }
-                        
-                    case .libSessionStateLoaded:
-                        guard Identity.userExists(db, using: dependencies) else { return }
-                        
-                        /// After the migrations have run but before the migration completion we load the `libSession` state
-                        let cache: LibSession.Cache = LibSession.Cache(
-                            userSessionId: dependencies[cache: .general].sessionId,
-                            using: dependencies
-                        )
-                        cache.loadState(db)
-                        dependencies.set(cache: .libSession, to: cache)
-                }
-            },
             onComplete: { result in
-                // Now that the migrations are complete we need to ensure any recurring jobs are
-                // properly scheduled
+                // Now that the migrations are complete there are a few more states which need
+                // to be setup
+                dependencies[singleton: .storage].read { db in
+                    guard
+                        Identity.userExists(db, using: dependencies),
+                        let userKeyPair: KeyPair = Identity.fetchUserKeyPair(db)
+                    else { return }
+                    
+                    let userSessionId: SessionId = SessionId(.standard, publicKey: userKeyPair.publicKey)
+                    
+                    /// Cache the users session id so we don't need to fetch it from the database every time
+                    dependencies.mutate(cache: .general) {
+                        $0.setCachedSessionId(sessionId: userSessionId)
+                    }
+                    
+                    /// Load the `libSession` state into memory
+                    let cache: LibSession.Cache = LibSession.Cache(
+                        userSessionId: userSessionId,
+                        using: dependencies
+                    )
+                    cache.loadState(db)
+                    dependencies.set(cache: .libSession, to: cache)
+                }
+                
+                /// Ensure any recurring jobs are properly scheduled
                 dependencies[singleton: .jobRunner].scheduleRecurringJobsIfNeeded()
                 
-                // Callback that the migrations have completed
+                /// Callback that the migrations have completed
                 migrationsCompletion(result)
                 
-                // The 'if' is only there to prevent the "variable never read" warning from showing
+                /// The 'if' is only there to prevent the "variable never read" warning from showing
                 if backgroundTask != nil { backgroundTask = nil }
             }
         )

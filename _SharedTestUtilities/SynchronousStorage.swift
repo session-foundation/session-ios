@@ -25,7 +25,6 @@ class SynchronousStorage: Storage {
                 migrationTargets: migrationTargets,
                 async: false,
                 onProgressUpdate: nil,
-                onMigrationRequirement: { _, _ in },
                 onComplete: { _ in }
             )
         }
@@ -36,7 +35,6 @@ class SynchronousStorage: Storage {
                 sortedMigrations: migrations,
                 async: false,
                 onProgressUpdate: nil,
-                onMigrationRequirement: { _, _ in },
                 onComplete: { _ in }
             )
         }

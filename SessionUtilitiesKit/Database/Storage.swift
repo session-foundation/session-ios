@@ -66,9 +66,7 @@ open class Storage {
     
     // MARK: - Migration Variables
     
-    @ThreadSafeObject private var unprocessedMigrationRequirements: [MigrationRequirement] = MigrationRequirement.allCases
     @ThreadSafeObject private var migrationProgressUpdater: ((String, CGFloat) -> ())?
-    @ThreadSafeObject private var migrationRequirementProcesser: ((Database, MigrationRequirement) -> ())?
     @ThreadSafe private var internalCurrentlyRunningMigration: CurrentlyRunningMigration? = nil
     @ThreadSafe private var migrationsCompleted: Bool = false
     
@@ -245,14 +243,12 @@ open class Storage {
         migrationTargets: [MigratableTarget.Type],
         async: Bool = true,
         onProgressUpdate: ((CGFloat, TimeInterval) -> ())?,
-        onMigrationRequirement: @escaping (Database, MigrationRequirement) -> (),
         onComplete: @escaping (Result<Void, Error>) -> ()
     ) {
         perform(
             sortedMigrations: Storage.sortedMigrationInfo(migrationTargets: migrationTargets),
             async: async,
             onProgressUpdate: onProgressUpdate,
-            onMigrationRequirement: onMigrationRequirement,
             onComplete: onComplete
         )
     }
@@ -261,7 +257,6 @@ open class Storage {
         sortedMigrations: [KeyedMigration],
         async: Bool,
         onProgressUpdate: ((CGFloat, TimeInterval) -> ())?,
-        onMigrationRequirement: @escaping (Database, MigrationRequirement) -> (),
         onComplete: @escaping (Result<Void, Error>) -> ()
     ) {
         guard isValid, let dbWriter: DatabaseWriter = dbWriter else {
@@ -315,7 +310,6 @@ open class Storage {
                 onProgressUpdate?(totalProgress, totalMinExpectedDuration)
             }
         })
-        self._migrationRequirementProcesser.set(to: onMigrationRequirement)
         
         // Store the logic to run when the migration completes
         let migrationCompleted: (Result<Void, Error>) -> () = { [weak self, migrator, dbWriter] result in
@@ -325,26 +319,8 @@ open class Storage {
                 self?.migrationProgressUpdater?(lastMigrationKey, 1)
             }
             
-            // Process any unprocessed requirements which need to be processed before completion
-            // then clear out the state
-            let requirementProcessor: ((Database, MigrationRequirement) -> ())? = self?.migrationRequirementProcesser
-            let remainingMigrationRequirements: [MigrationRequirement] = (self?.unprocessedMigrationRequirements
-                .filter { $0.shouldProcessAtCompletionIfNotRequired })
-                .defaulting(to: [])
             self?.migrationsCompleted = true
             self?._migrationProgressUpdater.set(to: nil)
-            self?._migrationRequirementProcesser.set(to: nil)
-            
-            // Process any remaining migration requirements
-            if !remainingMigrationRequirements.isEmpty && requirementProcessor != nil {
-                self?.write { db in
-                    remainingMigrationRequirements.forEach { requirementProcessor?(db, $0) }
-                }
-            }
-            
-            // Reset in case there is a requirement on a migration which runs when returning from
-            // the background
-            self?._unprocessedMigrationRequirements.set(to: MigrationRequirement.allCases)
             
             // Don't log anything in the case of a 'success' or if the database is suspended (the
             // latter will happen if the user happens to return to the background too quickly on
@@ -408,28 +384,6 @@ open class Storage {
             identifier: identifier,
             migration: migration
         )
-        
-        guard let largestMigrationRequirement: MigrationRequirement = migration.requirements.max() else { return }
-                
-        // Get all requirements that are earlier than the largest requirement on the migration and find
-        // any that haven't yet been run (we need to run them in order as later requirements might be
-        // dependant on earlier ones and earlier requirements might not be included in the migration)
-        let requirementsToProcess: [MigrationRequirement] = MigrationRequirement.allCases
-            .filter { $0 <= largestMigrationRequirement }
-            .asSet()
-            .intersection(unprocessedMigrationRequirements.asSet())
-            .sorted()
-        
-        // No need to do anything if there are no unprocessed requirements
-        guard !requirementsToProcess.isEmpty else { return }
-        
-        // Process all of the requirements for this migration
-        requirementsToProcess.forEach { migrationRequirementProcesser?(db, $0) }
-        
-        // Remove any processed requirements from the list (don't want to process them multiple times)
-        _unprocessedMigrationRequirements.performUpdate {
-            Array($0.asSet().subtracting(requirementsToProcess.asSet()))
-        }
     }
     
     public func didCompleteMigration() {

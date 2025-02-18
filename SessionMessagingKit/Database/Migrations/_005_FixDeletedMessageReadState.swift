@@ -9,9 +9,7 @@ enum _005_FixDeletedMessageReadState: Migration {
     static let target: TargetMigrations.Identifier = .messagingKit
     static let identifier: String = "FixDeletedMessageReadState"
     static let minExpectedRunDuration: TimeInterval = 0.01
-    static let fetchedTables: [(TableRecord & FetchableRecord).Type] = []
-    static let createdOrAlteredTables: [(TableRecord & FetchableRecord).Type] = []
-    static let droppedTables: [(TableRecord & FetchableRecord).Type] = []
+    static let createdTables: [(TableRecord & FetchableRecord).Type] = []
     
     static func migrate(_ db: Database, using dependencies: Dependencies) throws {
         try db.execute(

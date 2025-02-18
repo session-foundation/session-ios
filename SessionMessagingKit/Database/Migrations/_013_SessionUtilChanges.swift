@@ -13,14 +13,7 @@ enum _013_SessionUtilChanges: Migration {
     static let target: TargetMigrations.Identifier = .messagingKit
     static let identifier: String = "SessionUtilChanges"
     static let minExpectedRunDuration: TimeInterval = 0.4
-    static var requirements: [MigrationRequirement] = [.sessionIdCached]
-    static let fetchedTables: [(TableRecord & FetchableRecord).Type] = [
-        Identity.self, GroupMember.self, ClosedGroupKeyPair.self, SessionThread.self
-    ]
-    static let createdOrAlteredTables: [(TableRecord & FetchableRecord).Type] = [
-        SessionThread.self, Profile.self, GroupMember.self, ClosedGroupKeyPair.self, ConfigDump.self
-    ]
-    static let droppedTables: [(TableRecord & FetchableRecord).Type] = []
+    static let createdTables: [(TableRecord & FetchableRecord).Type] = [ConfigDump.self]
     
     static func migrate(_ db: Database, using dependencies: Dependencies) throws {
         // Add `markedAsUnread` to the thread table
@@ -66,8 +59,8 @@ enum _013_SessionUtilChanges: Migration {
         
         // Need to create the indexes separately from creating 'tmpGroupMember' to ensure they
         // have the correct names
-        try db.create(index: "groupMember_on_groupId", on: "groupMember", columns: ["groupId"])
-        try db.create(index: "groupMember_on_profileId", on: "groupMember", columns: ["profileId"])
+        try db.create(indexOn: "groupMember", columns: ["groupId"])
+        try db.create(indexOn: "groupMember", columns: ["profileId"])
         
         try db.alter(table: "closedGroupKeyPair") { t in
             t.add(column: "threadKeyPairHash", .text).defaults(to: "")
@@ -120,33 +113,13 @@ enum _013_SessionUtilChanges: Migration {
         //
         // Note: Need to create the indexes separately from creating 'TmpClosedGroupKeyPair' to ensure they
         // have the correct names
-        try db.create(
-            index: "closedGroupKeyPair_on_threadId",
-            on: "closedGroupKeyPair",
-            columns: ["threadId"]
-        )
-        try db.create(
-            index: "closedGroupKeyPair_on_receivedTimestamp",
-            on: "closedGroupKeyPair",
-            columns: ["receivedTimestamp"]
-        )
-        try db.create(
-            index: "closedGroupKeyPair_on_threadKeyPairHash",
-            on: "closedGroupKeyPair",
-            columns: ["threadKeyPairHash"]
-        )
-        try db.create(
-            index: "closedGroupKeyPair_on_threadId_and_threadKeyPairHash",
-            on: "closedGroupKeyPair",
-            columns: ["threadId", "threadKeyPairHash"]
-        )
+        try db.create(indexOn: "closedGroupKeyPair", columns: ["threadId"])
+        try db.create(indexOn: "closedGroupKeyPair", columns: ["receivedTimestamp"])
+        try db.create(indexOn: "closedGroupKeyPair", columns: ["threadKeyPairHash"])
+        try db.create(indexOn: "closedGroupKeyPair", columns: ["threadId", "threadKeyPairHash"])
         
         // Add an index for the 'Quote' table to speed up queries
-        try db.create(
-            index: "quote_on_timestampMs",
-            on: "quote",
-            columns: ["timestampMs"]
-        )
+        try db.create(indexOn: "quote", columns: ["timestampMs"])
         
         // New table for storing the latest config dump for each type
         try db.create(table: "configDump") { t in
@@ -165,21 +138,10 @@ enum _013_SessionUtilChanges: Migration {
         }
         
         // Migrate the 'isPinned' value to 'pinnedPriority'
-        try db.execute(sql: """
-            UPDATE openGroup
-            SET pinnedPriority = 1
-            WHERE isPinned = true
-        """)
+        try db.execute(sql: "UPDATE thread SET pinnedPriority = 1 WHERE isPinned = true")
         
         // If we don't have an ed25519 key then no need to create cached dump data
-        let userSessionId: SessionId = SessionId(
-            .standard,
-            publicKey: Array((try? Data.fetchOne(
-                db,
-                sql: "SELECT data FROM identity WHERE variant == ?",
-                arguments: [Identity.Variant.x25519PublicKey.rawValue]
-            )).defaulting(to: Data()))
-        )
+        let userSessionId: SessionId = MigrationHelper.userSessionId(db)
         
         /// Remove any hidden threads to avoid syncing them (they are basically shadow threads created by starting a conversation
         /// but not sending a message so can just be cleared out)
@@ -194,46 +156,28 @@ enum _013_SessionUtilChanges: Migration {
         /// - Interaction
         /// - ThreadTypingIndicator
         /// - PendingReadReceipt
-        let threadIdsToDelete: [String] = try String.fetchAll(
-            db,
-            sql: """
-                SELECT id
-                FROM thread
-                WHERE (
-                    shouldBeVisible = false AND
-                    id != ?
-                )
-            """,
-            arguments: [userSessionId.hexString]
-        )
-        try db.execute(sql: """
-            DELETE FROM thread
-            WHERE id IN \(threadIdsToDelete)
-        """)
-        try db.execute(sql: """
-            DELETE FROM disappearingMessagesConfiguration
-            WHERE threadId IN \(threadIdsToDelete)
-        """)
-        try db.execute(sql: """
-            DELETE FROM closedGroup
-            WHERE threadId IN \(threadIdsToDelete)
-        """)
-        try db.execute(sql: """
-            DELETE FROM groupMember
-            WHERE groupId IN \(threadIdsToDelete)
-        """)
-        try db.execute(sql: """
-            DELETE FROM interaction
-            WHERE threadId IN \(threadIdsToDelete)
-        """)
-        try db.execute(sql: """
-            DELETE FROM threadTypingIndicator
-            WHERE threadId IN \(threadIdsToDelete)
-        """)
-        try db.execute(sql: """
-            DELETE FROM pendingReadReceipt
-            WHERE threadId IN \(threadIdsToDelete)
-        """)
+        let threadIdsToDelete: String = try String
+            .fetchAll(
+                db,
+                sql: """
+                    SELECT id
+                    FROM thread
+                    WHERE (
+                        shouldBeVisible = false AND
+                        id != ?
+                    )
+                """,
+                arguments: [userSessionId.hexString]
+            )
+            .map { "'\($0)'" }
+            .joined(separator: ", ")
+        try db.execute(sql: "DELETE FROM thread WHERE id IN (\(threadIdsToDelete))")
+        try db.execute(sql: "DELETE FROM disappearingMessagesConfiguration WHERE threadId IN (\(threadIdsToDelete))")
+        try db.execute(sql: "DELETE FROM closedGroup WHERE threadId IN (\(threadIdsToDelete))")
+        try db.execute(sql: "DELETE FROM groupMember WHERE groupId IN (\(threadIdsToDelete))")
+        try db.execute(sql: "DELETE FROM interaction WHERE threadId IN (\(threadIdsToDelete))")
+        try db.execute(sql: "DELETE FROM threadTypingIndicator WHERE threadId IN (\(threadIdsToDelete))")
+        try db.execute(sql: "DELETE FROM pendingReadReceipt WHERE threadId IN (\(threadIdsToDelete))")
         
         /// There was previously a bug which allowed users to fully delete the 'Note to Self' conversation but we don't want that, so
         /// create it again if it doesn't exists
@@ -241,7 +185,13 @@ enum _013_SessionUtilChanges: Migration {
         /// **Note:** Since migrations are run when running tests creating a random SessionThread will result in unexpected thread
         /// counts so don't do this when running tests (this logic is the same as in `MainAppContext.isRunningTests`
         if ProcessInfo.processInfo.environment["XCTestConfigurationFilePath"] == nil {
-            if (try SessionThread.exists(db, id: userSessionId.hexString)) == false {
+            let threadExists: Bool? = try Bool.fetchOne(
+                db,
+                sql: "EXISTS (SELECT * FROM thread WHERE id = ?)",
+                arguments: [userSessionId.hexString]
+            )
+            
+            if threadExists == false {
                 try db.execute(
                     sql: """
                         INSERT INTO thread (
@@ -263,11 +213,11 @@ enum _013_SessionUtilChanges: Migration {
                         userSessionId.hexString,
                         SessionThread.Variant.contact.rawValue,
                         (dependencies[cache: .snodeAPI].currentOffsetTimestampMs() / 1000),
-                        LibSession.shouldBeVisible(priority: LibSession.hiddenPriority),
+                        false,  // Not visible
                         false,
                         false,
                         false,
-                        LibSession.hiddenPriority
+                        -1,     // Hidden priority at the time of writing
                     ]
                 )
             }

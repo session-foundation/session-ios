@@ -184,17 +184,31 @@ internal extension LibSession {
         profile: Profile,
         in config: Config?
     ) throws {
+        try update(
+            profileInfo: ProfileInfo(
+                name: profile.name,
+                profilePictureUrl: profile.profilePictureUrl,
+                profileEncryptionKey: profile.profileEncryptionKey
+            ),
+            in: config
+        )
+    }
+    
+    static func update(
+        profileInfo: ProfileInfo,
+        in config: Config?
+    ) throws {
         guard case .userProfile(let conf) = config else { throw LibSessionError.invalidConfigObject }
         
         // Update the name
-        var cUpdatedName: [CChar] = try profile.name.cString(using: .utf8) ?? { throw LibSessionError.invalidCConversion }()
+        var cUpdatedName: [CChar] = try profileInfo.name.cString(using: .utf8) ?? { throw LibSessionError.invalidCConversion }()
         user_profile_set_name(conf, &cUpdatedName)
         try LibSessionError.throwIfNeeded(conf)
         
         // Either assign the updated profile pic, or sent a blank profile pic (to remove the current one)
         var profilePic: user_profile_pic = user_profile_pic()
-        profilePic.set(\.url, to: profile.profilePictureUrl)
-        profilePic.set(\.key, to: profile.profileEncryptionKey)
+        profilePic.set(\.url, to: profileInfo.profilePictureUrl)
+        profilePic.set(\.key, to: profileInfo.profileEncryptionKey)
         user_profile_set_pic(conf, profilePic)
         try LibSessionError.throwIfNeeded(conf)
     }
@@ -255,6 +269,16 @@ extension LibSession {
         guard case .userProfile(let conf) = config else { throw LibSessionError.invalidConfigObject }
     
         return user_profile_get_blinded_msgreqs(conf)
+    }
+}
+
+// MARK: - ProfileInfo
+
+public extension LibSession {
+    struct ProfileInfo {
+        let name: String
+        let profilePictureUrl: String?
+        let profileEncryptionKey: Data?
     }
 }
 

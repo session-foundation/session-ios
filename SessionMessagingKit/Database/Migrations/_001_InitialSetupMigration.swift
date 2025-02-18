@@ -10,15 +10,12 @@ enum _001_InitialSetupMigration: Migration {
     static let target: TargetMigrations.Identifier = .messagingKit
     static let identifier: String = "initialSetup"
     static let minExpectedRunDuration: TimeInterval = 0.1
-    static let fetchedTables: [(TableRecord & FetchableRecord).Type] = []
-    static let createdOrAlteredTables: [(TableRecord & FetchableRecord).Type] = [
+    static let createdTables: [(TableRecord & FetchableRecord).Type] = [
         Contact.self, Profile.self, SessionThread.self, DisappearingMessagesConfiguration.self,
         ClosedGroup.self, ClosedGroupKeyPair.self, OpenGroup.self, Capability.self, BlindedIdLookup.self,
-        GroupMember.self, Interaction.self, LegacyRecipientState.self, Attachment.self,
-        InteractionAttachment.self, Quote.self, LinkPreview.self, ControlMessageProcessRecord.self,
-        ThreadTypingIndicator.self
+        GroupMember.self, Interaction.self, Attachment.self, InteractionAttachment.self, Quote.self,
+        LinkPreview.self, ControlMessageProcessRecord.self, ThreadTypingIndicator.self
     ]
-    static let droppedTables: [(TableRecord & FetchableRecord).Type] = []
     
     public static let fullTextSearchTokenizer: FTS5TokenizerDescriptor = {
         // Define the tokenizer to be used in all the FTS tables
@@ -389,35 +386,5 @@ enum _001_InitialSetupMigration: Migration {
         }
         
         Storage.update(progress: 1, for: self, in: target, using: dependencies)
-    }
-}
-
-internal extension _001_InitialSetupMigration {
-    struct LegacyRecipientState: Codable, FetchableRecord, PersistableRecord, TableRecord, ColumnExpressible {
-        public static var databaseTableName: String { "recipientState" }
-        
-        public typealias Columns = CodingKeys
-        public enum CodingKeys: String, CodingKey, ColumnExpression {
-            case interactionId
-            case recipientId
-            case state
-            case readTimestampMs
-            case mostRecentFailureText
-        }
-        
-        public enum State: Int, Codable, DatabaseValueConvertible {
-            case sending
-            case failed
-            case skipped
-            case sent
-            case failedToSync
-            case syncing
-        }
-        
-        public let interactionId: Int64
-        public let recipientId: String
-        public let state: State
-        public let readTimestampMs: Int64?
-        public let mostRecentFailureText: String?
     }
 }
