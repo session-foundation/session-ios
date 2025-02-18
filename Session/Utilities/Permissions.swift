@@ -172,25 +172,134 @@ extension Permissions {
     }
     
     public static func checkLocalNetworkPermission() {
-        let connection = NWConnection(host: "192.168.1.1", port: 80, using: .tcp)
-        connection.stateUpdateHandler = { newState in
-            switch newState {
-                case .ready:
+        Task {
+            do {
+                if try await requestLocalNetworkAuthorization() {
+                    // Permission is granted, continue to next onboarding step
                     UserDefaults.sharedLokiProject?[.lastSeenHasLocalNetworkPermission] = true
-                    connection.cancel() // Stop connection since we only need permission status
-                case .failed(let error):
-                    switch error {
-                        case .posix(let code):
-                            if code.rawValue == 13 {
-                                UserDefaults.sharedLokiProject?[.lastSeenHasLocalNetworkPermission] = false
-                            }
-                        default:
-                            break
-                    }
-                default:
-                    break
+                } else {
+                    // Permission denied, explain why we need it and show button to open Settings
+                    UserDefaults.sharedLokiProject?[.lastSeenHasLocalNetworkPermission] = false
+                }
+            } catch {
+                // Networking failure, handle error
             }
         }
-        connection.start(queue: .main)
+    }
+    
+    public static func requestLocalNetworkAuthorization() async throws -> Bool {
+        let type = "_preflight_check._tcp"
+        let queue = DispatchQueue(label: "com.nonstrict.localNetworkAuthCheck")
+
+        let listener = try NWListener(using: NWParameters(tls: .none, tcp: NWProtocolTCP.Options()))
+        listener.service = NWListener.Service(name: UUID().uuidString, type: type)
+        listener.newConnectionHandler = { _ in } // Must be set or else the listener will error with POSIX error 22
+
+        let parameters = NWParameters()
+        parameters.includePeerToPeer = true
+        let browser = NWBrowser(for: .bonjour(type: type, domain: nil), using: parameters)
+
+        return try await withTaskCancellationHandler {
+            try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Bool, Error>) in
+                class LocalState {
+                    var didResume = false
+                }
+                let local = LocalState()
+                @Sendable func resume(with result: Result<Bool, Error>) {
+                    if local.didResume {
+                        print("Already resumed, ignoring subsequent result.")
+                        return
+                    }
+                    local.didResume = true
+
+                    // Teardown listener and browser
+                    listener.stateUpdateHandler = { _ in }
+                    browser.stateUpdateHandler = { _ in }
+                    browser.browseResultsChangedHandler = { _, _ in }
+                    listener.cancel()
+                    browser.cancel()
+
+                    continuation.resume(with: result)
+                }
+
+                // Do not setup listener/browser is we're already cancelled, it does work but logs a lot of very ugly errors
+                if Task.isCancelled {
+                    resume(with: .failure(CancellationError()))
+                    return
+                }
+
+                listener.stateUpdateHandler = { newState in
+                    switch newState {
+                        case .setup:
+                            print("Listener performing setup.")
+                        case .ready:
+                            print("Listener ready to be discovered.")
+                        case .cancelled:
+                            print("Listener cancelled.")
+                            resume(with: .failure(CancellationError()))
+                        case .failed(let error):
+                            print("Listener failed, stopping. \(error)")
+                            resume(with: .failure(error))
+                        case .waiting(let error):
+                            print("Listener waiting, stopping. \(error)")
+                            resume(with: .failure(error))
+                        @unknown default:
+                            print("Ignoring unknown listener state: \(String(describing: newState))")
+                    }
+                }
+                listener.start(queue: queue)
+
+                browser.stateUpdateHandler = { newState in
+                    switch newState {
+                        case .setup:
+                            print("Browser performing setup.")
+                            return
+                        case .ready:
+                            print("Browser ready to discover listeners.")
+                            return
+                        case .cancelled:
+                            print("Browser cancelled.")
+                            resume(with: .failure(CancellationError()))
+                        case .failed(let error):
+                            print("Browser failed, stopping. \(error)")
+                            resume(with: .failure(error))
+                        case let .waiting(error):
+                            switch error {
+                            case .dns(DNSServiceErrorType(kDNSServiceErr_PolicyDenied)):
+                                print("Browser permission denied, reporting failure.")
+                                resume(with: .success(false))
+                            default:
+                                print("Browser waiting, stopping. \(error)")
+                                resume(with: .failure(error))
+                            }
+                        @unknown default:
+                            print("Ignoring unknown browser state: \(String(describing: newState))")
+                            return
+                    }
+                }
+
+                browser.browseResultsChangedHandler = { results, changes in
+                    if results.isEmpty {
+                        print("Got empty result set from browser, ignoring.")
+                        return
+                    }
+
+                    print("Discovered \(results.count) listeners, reporting success.")
+                    resume(with: .success(true))
+                }
+                browser.start(queue: queue)
+
+                // Task cancelled while setting up listener & browser, tear down immediatly
+                if Task.isCancelled {
+                    print("Task cancelled during listener & browser start. (Some warnings might be logged by the listener or browser.)")
+                    resume(with: .failure(CancellationError()))
+                    return
+                }
+            }
+        } onCancel: {
+            listener.cancel()
+            browser.cancel()
+        }
     }
 }
+

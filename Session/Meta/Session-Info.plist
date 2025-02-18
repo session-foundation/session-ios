@@ -152,5 +152,9 @@
 	</array>
 	<key>UIViewControllerBasedStatusBarAppearance</key>
 	<true/>
+	<key>NSBonjourServices</key>
+	<array>
+		<string>_preflight_check._tcp</string>
+	</array>
 </dict>
 </plist>
