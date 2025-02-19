@@ -311,7 +311,10 @@ private class MigrationTest {
                         arguments: StatementArguments(columnInfo.map { (column: Row) in
                             // If we want to allow setting nulls (and the column is nullable but not a primary
                             // key) then use null for it's value
-                            guard !nullsWherePossible || column["notnull"] != 0 || column["pk"] == 1 else {
+                            let notNull: Int = column["notnull"]
+                            let primaryKey: Int = column["pk"]
+                            
+                            guard !nullsWherePossible || notNull != 0 || primaryKey == 1 else {
                                 return nil
                             }
                             
