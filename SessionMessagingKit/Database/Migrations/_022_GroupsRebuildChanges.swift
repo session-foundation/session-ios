@@ -12,94 +12,173 @@ enum _022_GroupsRebuildChanges: Migration {
     static let target: TargetMigrations.Identifier = .messagingKit
     static let identifier: String = "GroupsRebuildChanges"
     static let minExpectedRunDuration: TimeInterval = 0.1
-    static var requirements: [MigrationRequirement] = [.sessionIdCached, .libSessionStateLoaded]
-    static var fetchedTables: [(FetchableRecord & TableRecord).Type] = [
-        Identity.self, OpenGroup.self
-    ]
-    static var createdOrAlteredTables: [(FetchableRecord & TableRecord).Type] = [
-        SessionThread.self, ClosedGroup.self, OpenGroup.self, GroupMember.self
-    ]
-    static let droppedTables: [(TableRecord & FetchableRecord).Type] = []
+    static var createdTables: [(FetchableRecord & TableRecord).Type] = []
     
     static func migrate(_ db: Database, using dependencies: Dependencies) throws {
-        try db.alter(table: SessionThread.self) { t in
-            t.add(.isDraft, .boolean).defaults(to: false)
+        try db.alter(table: "thread") { t in
+            t.add(column: "isDraft", .boolean).defaults(to: false)
         }
         
-        try db.alter(table: ClosedGroup.self) { t in
-            t.add(.groupDescription, .text)
-            t.add(.displayPictureUrl, .text)
-            t.add(.displayPictureFilename, .text)
-            t.add(.displayPictureEncryptionKey, .blob)
-            t.add(.lastDisplayPictureUpdate, .integer).defaults(to: 0)
-            t.add(.shouldPoll, .boolean).defaults(to: false)
-            t.add(.groupIdentityPrivateKey, .blob)
-            t.add(.authData, .blob)
-            t.add(.invited, .boolean).defaults(to: false)
+        try db.alter(table: "closedGroup") { t in
+            t.add(column: "groupDescription", .text)
+            t.add(column: "displayPictureUrl", .text)
+            t.add(column: "displayPictureFilename", .text)
+            t.add(column: "displayPictureEncryptionKey", .blob)
+            t.add(column: "lastDisplayPictureUpdate", .integer).defaults(to: 0)
+            t.add(column: "shouldPoll", .boolean).defaults(to: false)
+            t.add(column: "groupIdentityPrivateKey", .blob)
+            t.add(column: "authData", .blob)
+            t.add(column: "invited", .boolean).defaults(to: false)
         }
         
-        try db.alter(table: OpenGroup.self) { t in
-            t.add(.displayPictureFilename, .text)
-            t.add(.lastDisplayPictureUpdate, .integer).defaults(to: 0)
+        try db.alter(table: "openGroup") { t in
+            t.add(column: "displayPictureFilename", .text)
+            t.add(column: "lastDisplayPictureUpdate", .integer).defaults(to: 0)
         }
         
-        try db.alter(table: GroupMember.self) { t in
-            t.add(.roleStatus, .integer)
+        try db.alter(table: "groupMember") { t in
+            t.add(column: "roleStatus", .integer)
                 .notNull()
                 .defaults(to: GroupMember.RoleStatus.accepted)
         }
         
-        let userSessionId: SessionId = dependencies[cache: .general].sessionId
+        guard
+            MigrationHelper.userExists(db),
+            let userEd25519SecretKey: Data = MigrationHelper.fetchIdentityValue(db, key: "ed25519SecretKey")
+        else { return Storage.update(progress: 1, for: self, in: target, using: dependencies) }
+        
+        let userSessionId: SessionId = MigrationHelper.userSessionId(db)
         
         // Update existing groups where the current user is a member to have `shouldPoll` as `true`
-        try ClosedGroup
-            .joining(
-                required: ClosedGroup.members
-                    .filter(GroupMember.Columns.profileId == userSessionId.hexString)
+        try db.execute(sql: """
+            UPDATE closedGroup
+            SET shouldPoll = true
+            WHERE EXISTS (
+                SELECT 1
+                FROM groupMember
+                WHERE groupMember.groupId = closedGroup.threadId
+                AND groupMember.profileId = '\(userSessionId.hexString)'
             )
-            .updateAll(
-                db,
-                ClosedGroup.Columns.shouldPoll.set(to: true)
-            )
+        """)
         
         // If a user had upgraded a different device their config could already contain V2 groups
         // so we should check and, if so, create those
-        try dependencies.mutate(cache: .libSession) { cache in
-            guard case .userGroups(let conf) = cache.config(for: .userGroups, sessionId: userSessionId) else {
-                return
-            }
-            
-            // Extract all of the user group info
+        let cache: LibSession.Cache = LibSession.Cache(userSessionId: userSessionId, using: dependencies)
+        let userGroupsConfig: LibSession.Config = try cache.loadState(
+            for: .userGroups,
+            sessionId: userSessionId,
+            userEd25519SecretKey: Array(userEd25519SecretKey),
+            groupEd25519SecretKey: nil,
+            cachedData: MigrationHelper.configDump(db, for: ConfigDump.Variant.userGroups.rawValue)
+        )
+        let convoInfoVolatileConfig: LibSession.Config = try cache.loadState(
+            for: .convoInfoVolatile,
+            sessionId: userSessionId,
+            userEd25519SecretKey: Array(userEd25519SecretKey),
+            groupEd25519SecretKey: nil,
+            cachedData: MigrationHelper.configDump(db, for: ConfigDump.Variant.convoInfoVolatile.rawValue)
+        )
+        
+        // Extract all of the user group info
+        if case .userGroups(let conf) = userGroupsConfig, case .convoInfoVolatile(let convoInfoVolatileConf) = convoInfoVolatileConfig {
             let extractedUserGroups: LibSession.ExtractedUserGroups = try LibSession.extractUserGroups(
                 from: conf,
                 using: dependencies
             )
+            let volatileThreadInfo: [String: LibSession.VolatileThreadInfo] = try LibSession
+                .extractConvoVolatileInfo(from: convoInfoVolatileConf)
+                .reduce(into: [:]) { result, next in result[next.threadId] = next }
             
             try extractedUserGroups.groups.forEach { group in
-                // Add a new group if it doesn't already exist
-                try MessageReceiver.handleNewGroup(
-                    db,
-                    groupSessionId: group.groupSessionId,
-                    groupIdentityPrivateKey: group.groupIdentityPrivateKey,
-                    name: group.name,
-                    authData: group.authData,
-                    joinedAt: group.joinedAt,
-                    invited: group.invited,
-                    forceMarkAsInvited: false,
-                    using: dependencies
+                let markedAsUnread: Bool = (volatileThreadInfo[group.groupSessionId]?.changes
+                    .contains(where: { change in
+                        switch change {
+                            case .markedAsUnread(let value): return value
+                            default: return false
+                        }
+                    }))
+                    .defaulting(to: false)
+                
+                try db.execute(sql: """
+                    INSERT INTO thread (
+                        id,
+                        variant,
+                        creationDateTimestamp,
+                        shouldBeVisible,
+                        isPinned,
+                        markedAsUnread,
+                        pinnedPriority
+                    )
+                    VALUES (
+                        '\(group.groupSessionId)',
+                        \(SessionThread.Variant.group.rawValue),
+                        \(group.joinedAt),
+                        true,
+                        false,
+                        \(markedAsUnread),
+                        \(group.priority)
+                    )
+                """)
+                try db.execute(
+                    sql: """
+                        INSERT INTO closedGroup (
+                            threadId,
+                            name,
+                            formationTimestamp,
+                            shouldPoll,
+                            groupIdentityPrivateKey,
+                            authData,
+                            invited
+                        )
+                        VALUES (
+                            '\(group.groupSessionId)',
+                            '\(group.name)',
+                            \(group.joinedAt),
+                            \(group.invited == false),
+                            ?,
+                            ?,
+                            \(group.invited)
+                        )
+                    """,
+                    arguments: [group.groupIdentityPrivateKey, group.authData]
                 )
+                
+                /// If the group isn't in the invited state then make sure to subscribe for PNs once the migrations are done
+                if !group.invited, let token: String = dependencies[defaults: .standard, key: .deviceToken] {
+                    db.afterNextTransaction { db in
+                        try? PushNotificationAPI
+                            .preparedSubscribe(
+                                db,
+                                token: Data(hex: token),
+                                sessionIds: [SessionId(.group, hex: group.groupSessionId)],
+                                using: dependencies
+                            )
+                            .send(using: dependencies)
+                            .subscribe(on: DispatchQueue.global(qos: .userInitiated), using: dependencies)
+                            .sinkUntilComplete()
+                    }
+                }
             }
         }
         
         // Move the `imageData` out of the `OpenGroup` table and on to disk to be consistent with
         // the other display picture logic
-        let existingImageInfo: [OpenGroupImageInfo] = try OpenGroup
-            .filter(OpenGroup.Columns.deprecatedColumn("imageData") != nil)
-            .select(OpenGroup.Columns.threadId, OpenGroup.Columns.deprecatedColumn("imageData"))
-            .asRequest(of: OpenGroupImageInfo.self)
-            .fetchAll(db)
+        let timestampMs: TimeInterval = TimeInterval(dependencies[cache: .snodeAPI].currentOffsetTimestampMs() / 1000)
+        let existingImageInfo: [Row] = try Row.fetchAll(db, sql: """
+            SELECT threadid, imageData
+            FROM openGroup
+            WHERE imageData IS NOT NULL
+        """)
         
         existingImageInfo.forEach { imageInfo in
+            guard
+                let threadId: String = imageInfo["threadId"],
+                let imageData: Data = imageInfo["imageData"]
+            else {
+                Log.error("[GroupsRebuildChanges] Failed to extract imageData from community")
+                return
+            }
+            
             let fileName: String = dependencies[singleton: .displayPictureManager].generateFilename()
             
             guard let filePath: String = try? dependencies[singleton: .displayPictureManager].filepath(for: fileName) else {
@@ -108,38 +187,25 @@ enum _022_GroupsRebuildChanges: Migration {
             }
             
             // Save the decrypted display picture to disk
-            try? imageInfo.data.write(to: URL(fileURLWithPath: filePath), options: [.atomic])
+            try? imageData.write(to: URL(fileURLWithPath: filePath), options: [.atomic])
             
             guard UIImage(contentsOfFile: filePath) != nil else {
-                Log.error("[GroupsRebuildChanges] Failed to save Community imageData for \(imageInfo.threadId)")
+                Log.error("[GroupsRebuildChanges] Failed to save Community imageData for \(threadId)")
                 return
             }
             
             // Update the database with the new info
-            _ = try? OpenGroup
-                .filter(id: imageInfo.threadId)
-                .updateAll( // Unsynced so no 'updateAllAndConfig'
-                    db,
-                    OpenGroup.Columns.deprecatedColumn("imageData").set(to: nil),
-                    OpenGroup.Columns.displayPictureFilename.set(to: fileName),
-                    OpenGroup.Columns.lastDisplayPictureUpdate.set(
-                        to: TimeInterval(dependencies[cache: .snodeAPI].currentOffsetTimestampMs() / 1000)
-                    )
-                )
+            try? db.execute(sql: """
+                UPDATE openGroup
+                SET
+                    imageData = NULL,
+                    displayPictureFilename = '\(fileName)',
+                    lastDisplayPictureUpdate = \(timestampMs)
+                WHERE id = '\(threadId)'
+            """)
         }
         
         Storage.update(progress: 1, for: self, in: target, using: dependencies)
-    }
-    
-    struct OpenGroupImageInfo: FetchableRecord, Decodable, ColumnExpressible {
-        typealias Columns = CodingKeys
-        enum CodingKeys: String, CodingKey, ColumnExpression, CaseIterable {
-            case threadId
-            case data = "imageData"
-        }
-        
-        let threadId: String
-        let data: Data
     }
 }
 

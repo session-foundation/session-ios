@@ -17,56 +17,6 @@ internal extension Cache {
 }
 
 public extension Database {
-    func create<T>(
-        table: T.Type,
-        options: TableOptions = [],
-        body: (TypedTableDefinition<T>) throws -> Void
-    ) throws where T: TableRecord, T: ColumnExpressible {
-        try create(table: T.databaseTableName, options: options) { tableDefinition in
-            let typedDefinition: TypedTableDefinition<T> = TypedTableDefinition(definition: tableDefinition)
-            
-            try body(typedDefinition)
-        }
-    }
-    
-    func alter<T>(
-        table: T.Type,
-        body: (TypedTableAlteration<T>) -> Void
-    ) throws where T: TableRecord, T: ColumnExpressible {
-        try alter(table: T.databaseTableName) { tableAlteration in
-            let typedAlteration: TypedTableAlteration<T> = TypedTableAlteration(alteration: tableAlteration)
-            
-            body(typedAlteration)
-        }
-    }
-    
-    func drop<T>(table: T.Type) throws where T: TableRecord {
-        try drop(table: T.databaseTableName)
-    }
-    
-    func createIndex<T>(
-        withCustomName customName: String? = nil,
-        on table: T.Type,
-        columns: [T.Columns],
-        options: IndexOptions = [],
-        condition: (any SQLExpressible)? = nil
-    ) throws where T: TableRecord, T: ColumnExpressible {
-        guard !columns.isEmpty else { throw StorageError.invalidData }
-        
-        let indexName: String = (
-            customName ??
-            "\(T.databaseTableName)_on_\(columns.map { $0.name }.joined(separator: "_and_"))"
-        )
-        
-        try create(
-            index: indexName,
-            on: T.databaseTableName,
-            columns: columns.map { $0.name },
-            options: options,
-            condition: condition
-        )
-    }
-    
     func makeFTS5Pattern<T>(rawPattern: String, forTable table: T.Type) throws -> FTS5Pattern where T: TableRecord, T: ColumnExpressible {
         return try makeFTS5Pattern(rawPattern: rawPattern, forTable: table.databaseTableName)
     }

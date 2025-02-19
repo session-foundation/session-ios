@@ -290,7 +290,7 @@ public extension LibSession {
                 }
         }
         
-        private func loadState(
+        internal func loadState(
             for variant: ConfigDump.Variant,
             sessionId: SessionId,
             userEd25519SecretKey: [UInt8],

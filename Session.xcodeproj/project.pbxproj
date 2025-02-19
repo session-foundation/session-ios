@@ -464,9 +464,7 @@
 		FD17D7AE27F41C4300122BE0 /* SnodeReceivedMessageInfo.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD17D7AD27F41C4300122BE0 /* SnodeReceivedMessageInfo.swift */; };
 		FD17D7B827F51ECA00122BE0 /* Migration.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD17D7B727F51ECA00122BE0 /* Migration.swift */; };
 		FD17D7BA27F51F2100122BE0 /* TargetMigrations.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD17D7B927F51F2100122BE0 /* TargetMigrations.swift */; };
-		FD17D7C127F5200100122BE0 /* TypedTableDefinition.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD17D7C027F5200100122BE0 /* TypedTableDefinition.swift */; };
 		FD17D7C327F5204C00122BE0 /* Database+Utilities.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD17D7C227F5204C00122BE0 /* Database+Utilities.swift */; };
-		FD17D7C527F5206300122BE0 /* ColumnDefinition+Utilities.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD17D7C427F5206300122BE0 /* ColumnDefinition+Utilities.swift */; };
 		FD17D7C727F5207C00122BE0 /* DatabaseMigrator+Utilities.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD17D7C627F5207C00122BE0 /* DatabaseMigrator+Utilities.swift */; };
 		FD17D7CA27F546D900122BE0 /* _001_InitialSetupMigration.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD17D7C927F546D900122BE0 /* _001_InitialSetupMigration.swift */; };
 		FD17D7CD27F546FF00122BE0 /* Setting.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD17D7CC27F546FF00122BE0 /* Setting.swift */; };
@@ -475,10 +473,8 @@
 		FD19363C2ACA3134004BCF0F /* ResponseInfo+SnodeAPI.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD19363B2ACA3134004BCF0F /* ResponseInfo+SnodeAPI.swift */; };
 		FD19363F2ACA66DE004BCF0F /* DatabaseSpec.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD19363E2ACA66DE004BCF0F /* DatabaseSpec.swift */; };
 		FD1A94FB2900D1C2000D73D3 /* PersistableRecord+Utilities.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD1A94FA2900D1C2000D73D3 /* PersistableRecord+Utilities.swift */; };
-		FD1A94FE2900D2EA000D73D3 /* PersistableRecordUtilitiesSpec.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD1A94FD2900D2EA000D73D3 /* PersistableRecordUtilitiesSpec.swift */; };
 		FD1C98E4282E3C5B00B76F9E /* UINavigationBar+Utilities.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD1C98E3282E3C5B00B76F9E /* UINavigationBar+Utilities.swift */; };
 		FD1D732E2A86114600E3F410 /* _015_BlockCommunityMessageRequests.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD1D732D2A86114600E3F410 /* _015_BlockCommunityMessageRequests.swift */; };
-		FD1F9C9F2A862BE60050F671 /* MigrationRequirement.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD1F9C9E2A862BE60050F671 /* MigrationRequirement.swift */; };
 		FD22726B2C32911C004D8A6C /* SendReadReceiptsJob.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD2272532C32911A004D8A6C /* SendReadReceiptsJob.swift */; };
 		FD22726C2C32911C004D8A6C /* GroupLeavingJob.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD2272542C32911A004D8A6C /* GroupLeavingJob.swift */; };
 		FD22726D2C32911C004D8A6C /* CheckForAppUpdatesJob.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD2272552C32911A004D8A6C /* CheckForAppUpdatesJob.swift */; };
@@ -643,7 +639,6 @@
 		FD37EA0528AA00C1003AE748 /* NotificationSettingsViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD37EA0428AA00C1003AE748 /* NotificationSettingsViewModel.swift */; };
 		FD37EA0D28AB2A45003AE748 /* _005_FixDeletedMessageReadState.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD37EA0C28AB2A45003AE748 /* _005_FixDeletedMessageReadState.swift */; };
 		FD37EA0F28AB3330003AE748 /* _006_FixHiddenModAdminSupport.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD37EA0E28AB3330003AE748 /* _006_FixHiddenModAdminSupport.swift */; };
-		FD37EA1128AB34B3003AE748 /* TypedTableAlteration.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD37EA1028AB34B3003AE748 /* TypedTableAlteration.swift */; };
 		FD37EA1528AB42CB003AE748 /* IdentitySpec.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD37EA1428AB42CB003AE748 /* IdentitySpec.swift */; };
 		FD37EA1728AC5605003AE748 /* NotificationContentViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD37EA1628AC5605003AE748 /* NotificationContentViewModel.swift */; };
 		FD37EA1928AC5CCA003AE748 /* NotificationSoundViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD37EA1828AC5CCA003AE748 /* NotificationSoundViewModel.swift */; };
@@ -684,6 +679,8 @@
 		FD49E2482B05C1D500FFBBB5 /* MockKeychain.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD49E2452B05C1D500FFBBB5 /* MockKeychain.swift */; };
 		FD49E2492B05C1D500FFBBB5 /* MockKeychain.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD49E2452B05C1D500FFBBB5 /* MockKeychain.swift */; };
 		FD4B200E283492210034334B /* InsetLockableTableView.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD4B200D283492210034334B /* InsetLockableTableView.swift */; };
+		FD4BB22B2D63F20700D0DC3D /* MigrationHelper.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD4BB22A2D63F20600D0DC3D /* MigrationHelper.swift */; };
+		FD4BB22C2D63FA8600D0DC3D /* _005_AddJobUniqueHash.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD1936462ACE752F004BCF0F /* _005_AddJobUniqueHash.swift */; };
 		FD4C4E9C2B02E2A300C72199 /* DisplayPictureError.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD4C4E9B2B02E2A300C72199 /* DisplayPictureError.swift */; };
 		FD4C53AF2CC1D62E003B10F4 /* _021_ReworkRecipientState.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD4C53AE2CC1D61E003B10F4 /* _021_ReworkRecipientState.swift */; };
 		FD52090328B4680F006098F6 /* RadioButton.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD52090228B4680F006098F6 /* RadioButton.swift */; };
@@ -1735,9 +1732,7 @@
 		FD17D7B727F51ECA00122BE0 /* Migration.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Migration.swift; sourceTree = "<group>"; };
 		FD17D7B927F51F2100122BE0 /* TargetMigrations.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TargetMigrations.swift; sourceTree = "<group>"; };
 		FD17D7BE27F51F8200122BE0 /* ColumnExpressible.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ColumnExpressible.swift; sourceTree = "<group>"; };
-		FD17D7C027F5200100122BE0 /* TypedTableDefinition.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TypedTableDefinition.swift; sourceTree = "<group>"; };
 		FD17D7C227F5204C00122BE0 /* Database+Utilities.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Database+Utilities.swift"; sourceTree = "<group>"; };
-		FD17D7C427F5206300122BE0 /* ColumnDefinition+Utilities.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "ColumnDefinition+Utilities.swift"; sourceTree = "<group>"; };
 		FD17D7C627F5207C00122BE0 /* DatabaseMigrator+Utilities.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "DatabaseMigrator+Utilities.swift"; sourceTree = "<group>"; };
 		FD17D7C927F546D900122BE0 /* _001_InitialSetupMigration.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = _001_InitialSetupMigration.swift; sourceTree = "<group>"; };
 		FD17D7CC27F546FF00122BE0 /* Setting.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Setting.swift; sourceTree = "<group>"; };
@@ -1747,11 +1742,9 @@
 		FD19363E2ACA66DE004BCF0F /* DatabaseSpec.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DatabaseSpec.swift; sourceTree = "<group>"; };
 		FD1936462ACE752F004BCF0F /* _005_AddJobUniqueHash.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = _005_AddJobUniqueHash.swift; sourceTree = "<group>"; };
 		FD1A94FA2900D1C2000D73D3 /* PersistableRecord+Utilities.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "PersistableRecord+Utilities.swift"; sourceTree = "<group>"; };
-		FD1A94FD2900D2EA000D73D3 /* PersistableRecordUtilitiesSpec.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PersistableRecordUtilitiesSpec.swift; sourceTree = "<group>"; };
 		FD1C98E3282E3C5B00B76F9E /* UINavigationBar+Utilities.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "UINavigationBar+Utilities.swift"; sourceTree = "<group>"; };
 		FD1D73292A85AA2000E3F410 /* Setting+Utilities.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Setting+Utilities.swift"; sourceTree = "<group>"; };
 		FD1D732D2A86114600E3F410 /* _015_BlockCommunityMessageRequests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = _015_BlockCommunityMessageRequests.swift; sourceTree = "<group>"; };
-		FD1F9C9E2A862BE60050F671 /* MigrationRequirement.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MigrationRequirement.swift; sourceTree = "<group>"; };
 		FD2272532C32911A004D8A6C /* SendReadReceiptsJob.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = SendReadReceiptsJob.swift; sourceTree = "<group>"; };
 		FD2272542C32911A004D8A6C /* GroupLeavingJob.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = GroupLeavingJob.swift; sourceTree = "<group>"; };
 		FD2272552C32911A004D8A6C /* CheckForAppUpdatesJob.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = CheckForAppUpdatesJob.swift; sourceTree = "<group>"; };
@@ -1868,7 +1861,6 @@
 		FD37EA0A28AB12E2003AE748 /* SessionCell.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SessionCell.swift; sourceTree = "<group>"; };
 		FD37EA0C28AB2A45003AE748 /* _005_FixDeletedMessageReadState.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = _005_FixDeletedMessageReadState.swift; sourceTree = "<group>"; };
 		FD37EA0E28AB3330003AE748 /* _006_FixHiddenModAdminSupport.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = _006_FixHiddenModAdminSupport.swift; sourceTree = "<group>"; };
-		FD37EA1028AB34B3003AE748 /* TypedTableAlteration.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TypedTableAlteration.swift; sourceTree = "<group>"; };
 		FD37EA1428AB42CB003AE748 /* IdentitySpec.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IdentitySpec.swift; sourceTree = "<group>"; };
 		FD37EA1628AC5605003AE748 /* NotificationContentViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NotificationContentViewModel.swift; sourceTree = "<group>"; };
 		FD37EA1828AC5CCA003AE748 /* NotificationSoundViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NotificationSoundViewModel.swift; sourceTree = "<group>"; };
@@ -1899,6 +1891,7 @@
 		FD481AA22CB889A400ECC4CF /* RetrieveDefaultOpenGroupRoomsJobSpec.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RetrieveDefaultOpenGroupRoomsJobSpec.swift; sourceTree = "<group>"; };
 		FD49E2452B05C1D500FFBBB5 /* MockKeychain.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MockKeychain.swift; sourceTree = "<group>"; };
 		FD4B200D283492210034334B /* InsetLockableTableView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = InsetLockableTableView.swift; sourceTree = "<group>"; };
+		FD4BB22A2D63F20600D0DC3D /* MigrationHelper.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MigrationHelper.swift; sourceTree = "<group>"; };
 		FD4C4E9B2B02E2A300C72199 /* DisplayPictureError.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = DisplayPictureError.swift; sourceTree = "<group>"; };
 		FD4C53AE2CC1D61E003B10F4 /* _021_ReworkRecipientState.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = _021_ReworkRecipientState.swift; sourceTree = "<group>"; };
 		FD52090228B4680F006098F6 /* RadioButton.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RadioButton.swift; sourceTree = "<group>"; };
@@ -2026,7 +2019,6 @@
 		FDAA167A2AC28E2F00DDBF77 /* SnodeRequestSpec.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SnodeRequestSpec.swift; sourceTree = "<group>"; };
 		FDAA167C2AC528A200DDBF77 /* Preferences+Sound.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Preferences+Sound.swift"; sourceTree = "<group>"; };
 		FDAA167E2AC5290000DDBF77 /* Preferences+NotificationPreviewType.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Preferences+NotificationPreviewType.swift"; sourceTree = "<group>"; };
-		FDAED05B2A7C6CE600091B25 /* MigrationRequirement.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MigrationRequirement.swift; sourceTree = "<group>"; };
 		FDB348622BE3774000B716C2 /* BezierPathView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BezierPathView.swift; sourceTree = "<group>"; };
 		FDB3486C2BE8448500B716C2 /* SessionUtilitiesKit.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = SessionUtilitiesKit.h; sourceTree = "<group>"; };
 		FDB3486D2BE8457F00B716C2 /* BackgroundTaskManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BackgroundTaskManager.swift; sourceTree = "<group>"; };
@@ -3849,11 +3841,8 @@
 			children = (
 				FD17D7BE27F51F8200122BE0 /* ColumnExpressible.swift */,
 				FD17D7B727F51ECA00122BE0 /* Migration.swift */,
-				FD1F9C9E2A862BE60050F671 /* MigrationRequirement.swift */,
+				FD4BB22A2D63F20600D0DC3D /* MigrationHelper.swift */,
 				FD17D7B927F51F2100122BE0 /* TargetMigrations.swift */,
-				FDAED05B2A7C6CE600091B25 /* MigrationRequirement.swift */,
-				FD17D7C027F5200100122BE0 /* TypedTableDefinition.swift */,
-				FD37EA1028AB34B3003AE748 /* TypedTableAlteration.swift */,
 				FD7162DA281B6C440060647B /* TypedTableAlias.swift */,
 				FD848B8A283DC509000E298B /* PagedDatabaseObserver.swift */,
 			);
@@ -3863,7 +3852,6 @@
 		FD17D7BB27F51F5C00122BE0 /* Utilities */ = {
 			isa = PBXGroup;
 			children = (
-				FD17D7C427F5206300122BE0 /* ColumnDefinition+Utilities.swift */,
 				FD17D7C227F5204C00122BE0 /* Database+Utilities.swift */,
 				FD17D7C627F5207C00122BE0 /* DatabaseMigrator+Utilities.swift */,
 				FDF22210281B5E0B000A4995 /* TableRecord+Utilities.swift */,
@@ -3905,14 +3893,6 @@
 				FD19363E2ACA66DE004BCF0F /* DatabaseSpec.swift */,
 			);
 			path = Database;
-			sourceTree = "<group>";
-		};
-		FD1A94FC2900D2DB000D73D3 /* Utilities */ = {
-			isa = PBXGroup;
-			children = (
-				FD1A94FD2900D2EA000D73D3 /* PersistableRecordUtilitiesSpec.swift */,
-			);
-			path = Utilities;
 			sourceTree = "<group>";
 		};
 		FD2272842C33E28D004D8A6C /* SnodeAPI */ = {
@@ -4041,7 +4021,6 @@
 			isa = PBXGroup;
 			children = (
 				FD37EA1328AB42C1003AE748 /* Models */,
-				FD1A94FC2900D2DB000D73D3 /* Utilities */,
 			);
 			path = Database;
 			sourceTree = "<group>";
@@ -5982,7 +5961,6 @@
 				FDE754DC2C9BAF8A002A2623 /* CryptoError.swift in Sources */,
 				FDFF9FDF2A787F57005E0628 /* JSONEncoder+Utilities.swift in Sources */,
 				FDE754CD2C9BAF37002A2623 /* UTType+Utilities.swift in Sources */,
-				FD17D7C127F5200100122BE0 /* TypedTableDefinition.swift in Sources */,
 				FDE754D22C9BAF53002A2623 /* JobDependencies.swift in Sources */,
 				FDE755242C9BC1D1002A2623 /* Publisher+Utilities.swift in Sources */,
 				FDBB25E32988B13800F1508E /* _004_AddJobPriority.swift in Sources */,
@@ -6012,16 +5990,16 @@
 				FD3765EA2ADE37B400DC1489 /* Authentication.swift in Sources */,
 				FD17D7CA27F546D900122BE0 /* _001_InitialSetupMigration.swift in Sources */,
 				FDE755202C9BC1A6002A2623 /* CacheConfig.swift in Sources */,
+				FD4BB22C2D63FA8600D0DC3D /* _005_AddJobUniqueHash.swift in Sources */,
 				FDE755192C9BC169002A2623 /* UIImage+Utilities.swift in Sources */,
 				C3BBE0AA2554D4DE0050F1E3 /* Dictionary+Utilities.swift in Sources */,
 				FD97B2402A3FEB050027DD57 /* ARC4RandomNumberGenerator.swift in Sources */,
-				FD37EA1128AB34B3003AE748 /* TypedTableAlteration.swift in Sources */,
 				FD5931AB2A8DCB0A0040147D /* ScopeAdapter+Utilities.swift in Sources */,
+				FD4BB22B2D63F20700D0DC3D /* MigrationHelper.swift in Sources */,
 				FD99D0872D0FA731005D2E15 /* ThreadSafe.swift in Sources */,
 				FD37E9FF28A5F2CD003AE748 /* Configuration.swift in Sources */,
 				FDB7400B28EB99A70094D718 /* TimeInterval+Utilities.swift in Sources */,
 				FD09797D27FBDB2000936362 /* Notification+Utilities.swift in Sources */,
-				FD1F9C9F2A862BE60050F671 /* MigrationRequirement.swift in Sources */,
 				FDC6D7602862B3F600B04575 /* Dependencies.swift in Sources */,
 				FD17D7C727F5207C00122BE0 /* DatabaseMigrator+Utilities.swift in Sources */,
 				FD848B9328420164000E298B /* UnicodeScalar+Utilities.swift in Sources */,
@@ -6036,7 +6014,6 @@
 				FD17D7C327F5204C00122BE0 /* Database+Utilities.swift in Sources */,
 				FDE754DD2C9BAF8A002A2623 /* Mnemonic.swift in Sources */,
 				FDBEE52E2B6A18B900C143A0 /* UserDefaultsConfig.swift in Sources */,
-				FD17D7C527F5206300122BE0 /* ColumnDefinition+Utilities.swift in Sources */,
 				FDC438CD27BC641200C60D73 /* Set+Utilities.swift in Sources */,
 				B8856DE6256F15F2001CE70E /* String+SSK.swift in Sources */,
 				FDE754E02C9BAF8A002A2623 /* Hex.swift in Sources */,
@@ -6625,7 +6602,6 @@
 				FD2AAAEE28ED3E1100A49611 /* MockGeneralCache.swift in Sources */,
 				FD37EA1528AB42CB003AE748 /* IdentitySpec.swift in Sources */,
 				FD0B77B229B82B7A009169BA /* ArrayUtilitiesSpec.swift in Sources */,
-				FD1A94FE2900D2EA000D73D3 /* PersistableRecordUtilitiesSpec.swift in Sources */,
 				FD23CE262A676B5B0000B97C /* DependenciesSpec.swift in Sources */,
 				FDDF074A29DAB36900E5E8B5 /* JobRunnerSpec.swift in Sources */,
 				FD0969FB2A6A00B100C5C365 /* Mocked.swift in Sources */,

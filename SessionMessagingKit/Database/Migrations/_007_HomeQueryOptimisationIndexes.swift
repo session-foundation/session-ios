@@ -11,29 +11,16 @@ enum _007_HomeQueryOptimisationIndexes: Migration {
     static let target: TargetMigrations.Identifier = .messagingKit
     static let identifier: String = "HomeQueryOptimisationIndexes"
     static let minExpectedRunDuration: TimeInterval = 0.01
-    static let fetchedTables: [(TableRecord & FetchableRecord).Type] = []
-    static let createdOrAlteredTables: [(TableRecord & FetchableRecord).Type] = []
-    static let droppedTables: [(TableRecord & FetchableRecord).Type] = []
+    static let createdTables: [(TableRecord & FetchableRecord).Type] = []
     
     static func migrate(_ db: Database, using dependencies: Dependencies) throws {
         try db.create(
-            index: "interaction_on_wasRead_and_hasMention_and_threadId",
-            on: Interaction.databaseTableName,
-            columns: [
-                Interaction.Columns.wasRead.name,
-                Interaction.Columns.hasMention.name,
-                Interaction.Columns.threadId.name
-            ]
+            indexOn: "interaction",
+            columns: ["wasRead", "hasMention", "threadId"]
         )
-        
         try db.create(
-            index: "interaction_on_threadId_and_timestampMs_and_variant",
-            on: Interaction.databaseTableName,
-            columns: [
-                Interaction.Columns.threadId.name,
-                Interaction.Columns.timestampMs.name,
-                Interaction.Columns.variant.name
-            ]
+            indexOn: "interaction",
+            columns: ["threadId", "timestampMs", "variant"]
         )
         
         Storage.update(progress: 1, for: self, in: target, using: dependencies)

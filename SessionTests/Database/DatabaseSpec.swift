@@ -46,7 +46,7 @@ class DatabaseSpec: QuickSpec {
             ]
         )
         let dynamicTests: [MigrationTest] = MigrationTest.extractTests(allMigrations)
-        let allDatabaseTypes: [(TableRecord & FetchableRecord).Type] = MigrationTest.extractDatabaseTypes(allMigrations)
+        let allTableTypes: [(TableRecord & FetchableRecord).Type] = MigrationTest.extractDatabaseTypes(allMigrations)
         MigrationTest.explicitValues = [
             // Specific enum values needed
             TableColumn(SessionThread.self, .notificationSound): 1000,
@@ -64,66 +64,6 @@ class DatabaseSpec: QuickSpec {
         
         // MARK: - a Database
         describe("a Database") {
-            // MARK: -- triggers the migration requirements in the order defined by the enum
-            it("triggers the migration requirements in the order defined by the enum") {
-                var migrationRequirementsTriggered: [MigrationRequirement] = []
-                mockStorage.perform(
-                    migrationTargets: [
-                        TestAllMigrationRequirementsReversedMigratableTarget.self
-                    ],
-                    async: false,
-                    onProgressUpdate: nil,
-                    onMigrationRequirement: { [dependencies = dependencies!] db, requirement in
-                        migrationRequirementsTriggered.append(requirement)
-                        
-                        MigrationTest.handleRequirements(db, requirement: requirement, using: dependencies)
-                    },
-                    onComplete: { _ in }
-                )
-                
-                expect(migrationRequirementsTriggered).to(equal([.sessionIdCached, .libSessionStateLoaded]))
-            }
-            
-            // MARK: -- triggers all prior migration requirements if only a latter one is called
-            it("triggers all prior migration requirements if only a latter one is called") {
-                var migrationRequirementsTriggered: [MigrationRequirement] = []
-                mockStorage.perform(
-                    migrationTargets: [
-                        TestRequiresLibSessionStateMigratableTarget.self
-                    ],
-                    async: false,
-                    onProgressUpdate: nil,
-                    onMigrationRequirement: { [dependencies = dependencies!] db, requirement in
-                        migrationRequirementsTriggered.append(requirement)
-                        
-                        MigrationTest.handleRequirements(db, requirement: requirement, using: dependencies)
-                    },
-                    onComplete: { _ in }
-                )
-                
-                expect(migrationRequirementsTriggered).to(equal([.sessionIdCached, .libSessionStateLoaded]))
-            }
-            
-            // MARK: -- triggers migration requirements which were not explicitly included
-            it("triggers migration requirements which were not explicitly included") {
-                var migrationRequirementsTriggered: [MigrationRequirement] = []
-                mockStorage.perform(
-                    migrationTargets: [
-                        TestRequiresSessionIdCachedMigratableTarget.self
-                    ],
-                    async: false,
-                    onProgressUpdate: nil,
-                    onMigrationRequirement: { [dependencies = dependencies!] db, requirement in
-                        migrationRequirementsTriggered.append(requirement)
-                        
-                        MigrationTest.handleRequirements(db, requirement: requirement, using: dependencies)
-                    },
-                    onComplete: { _ in }
-                )
-                
-                expect(migrationRequirementsTriggered).to(equal([.sessionIdCached, .libSessionStateLoaded]))
-            }
-            
             // MARK: -- can be created from an empty state
             it("can be created from an empty state") {
                 mockStorage.perform(
@@ -135,24 +75,18 @@ class DatabaseSpec: QuickSpec {
                     ],
                     async: false,
                     onProgressUpdate: nil,
-                    onMigrationRequirement: { [dependencies = dependencies!] db, requirement in
-                        MigrationTest.handleRequirements(db, requirement: requirement, using: dependencies)
-                    },
                     onComplete: { result in initialResult = result }
                 )
                 
                 expect(initialResult).to(beSuccess())
             }
             
-            // MARK: -- can still parse the database types
-            it("can still parse the database types") {
+            // MARK: -- can still parse the database table types
+            it("can still parse the database table types") {
                 mockStorage.perform(
                     sortedMigrations: allMigrations,
                     async: false,
                     onProgressUpdate: nil,
-                    onMigrationRequirement: { [dependencies = dependencies!] db, requirement in
-                        MigrationTest.handleRequirements(db, requirement: requirement, using: dependencies)
-                    },
                     onComplete: { result in initialResult = result }
                 )
                 expect(initialResult).to(beSuccess())
@@ -164,7 +98,7 @@ class DatabaseSpec: QuickSpec {
                 // Fetch the records which are required by the migrations or were modified by them to
                 // ensure the decoding is also still working correctly
                 mockStorage.read { db in
-                    allDatabaseTypes.forEach { table in
+                    allTableTypes.forEach { table in
                         expect { try table.fetchAll(db) }.toNot(throwError())
                     }
                 }
@@ -176,9 +110,6 @@ class DatabaseSpec: QuickSpec {
                     sortedMigrations: allMigrations,
                     async: false,
                     onProgressUpdate: nil,
-                    onMigrationRequirement: { [dependencies = dependencies!] db, requirement in
-                        MigrationTest.handleRequirements(db, requirement: requirement, using: dependencies)
-                    },
                     onComplete: { result in initialResult = result }
                 )
                 expect(initialResult).to(beSuccess())
@@ -190,7 +121,7 @@ class DatabaseSpec: QuickSpec {
                 // Fetch the records which are required by the migrations or were modified by them to
                 // ensure the decoding is also still working correctly
                 mockStorage.read { db in
-                    allDatabaseTypes.forEach { table in
+                    allTableTypes.forEach { table in
                         expect { try table.fetchAll(db) }.toNot(throwError())
                     }
                 }
@@ -203,9 +134,6 @@ class DatabaseSpec: QuickSpec {
                         sortedMigrations: test.initialMigrations,
                         async: false,
                         onProgressUpdate: nil,
-                        onMigrationRequirement: { [dependencies = dependencies!] db, requirement in
-                            MigrationTest.handleRequirements(db, requirement: requirement, using: dependencies)
-                        },
                         onComplete: { result in initialResult = result }
                     )
                     expect(initialResult).to(beSuccess())
@@ -219,29 +147,9 @@ class DatabaseSpec: QuickSpec {
                         sortedMigrations: test.migrationsToTest,
                         async: false,
                         onProgressUpdate: nil,
-                        onMigrationRequirement: { [dependencies = dependencies!] db, requirement in
-                            MigrationTest.handleRequirements(db, requirement: requirement, using: dependencies)
-                        },
                         onComplete: { result in finalResult = result }
                     )
                     expect(finalResult).to(beSuccess())
-                    
-                    /// Ensure all of the `fetchedTables` records can still be decoded correctly after the migrations have completed (since
-                    /// we perform multiple migrations above it's possible these won't work after the `initialMigrations` but actually will
-                    /// work when required as an intermediate migration could have satisfied the data requirements)
-                    let droppedTables: Set<ObjectIdentifier> = test.migrationsToTest
-                        .flatMap { _, _, migration in migration.droppedTables }
-                        .map { ObjectIdentifier($0) }
-                        .asSet()
-                    let tablesToTest: [(TableRecord & FetchableRecord).Type] = test.migrationsToTest
-                        .flatMap { _, _, migration in migration.fetchedTables }
-                        .filter { table in !droppedTables.contains(ObjectIdentifier(table)) }
-                    
-                    mockStorage.read { db in
-                        tablesToTest.forEach { table in
-                            expect { try table.fetchAll(db) }.toNot(throwError())
-                        }
-                    }
                 }
             }
         }
@@ -308,46 +216,13 @@ private class MigrationTest {
     }
     
     static func extractDatabaseTypes(_ allMigrations: [Storage.KeyedMigration]) -> [(TableRecord & FetchableRecord).Type] {
-        let droppedTables: Set<ObjectIdentifier> = allMigrations
-            .flatMap { _, _, migration in migration.droppedTables }
-            .map { ObjectIdentifier($0) }
-            .asSet()
-        
-        return allMigrations
+        return Array(allMigrations
             .reduce(into: [:]) { result, next in
-                next.migration.fetchedTables.forEach { table in
-                    result[ObjectIdentifier(table).hashValue] = table
-                }
-                
-                next.migration.createdOrAlteredTables.forEach { table in
+                next.migration.createdTables.forEach { table in
                     result[ObjectIdentifier(table).hashValue] = table
                 }
             }
-            .values
-            .filter { table in !droppedTables.contains(ObjectIdentifier(table)) }
-    }
-    
-    static func handleRequirements(_ db: Database, requirement: MigrationRequirement, using dependencies: Dependencies) {
-        switch requirement {
-            case .sessionIdCached:
-                guard Identity.userExists(db, using: dependencies) else { return }
-                
-                // Warm the general cache (will cache the users session id so we don't need to fetch it from
-                // the database every time)
-                dependencies.warmCache(cache: .general)
-            
-            case .libSessionStateLoaded:
-                guard Identity.userExists(db, using: dependencies) else { return }
-                
-                // After the migrations have run but before the migration completion we load the
-                // SessionUtil state
-                let cache: LibSession.Cache = LibSession.Cache(
-                    userSessionId: dependencies[cache: .general].sessionId,
-                    using: dependencies
-                )
-                cache.loadState(db)
-                dependencies.set(cache: .libSession, to: cache)
-        }
+            .values)
     }
     
     // MARK: - Mock Data
@@ -436,7 +311,10 @@ private class MigrationTest {
                         arguments: StatementArguments(columnInfo.map { (column: Row) in
                             // If we want to allow setting nulls (and the column is nullable but not a primary
                             // key) then use null for it's value
-                            guard !nullsWherePossible || column["notnull"] != 0 || column["pk"] == 1 else {
+                            let notNull: Int = column["notnull"]
+                            let primaryKey: Int = column["pk"]
+                            
+                            guard !nullsWherePossible || notNull != 0 || primaryKey == 1 else {
                                 return nil
                             }
                             
@@ -509,10 +387,7 @@ enum TestRequiresAllMigrationRequirementsReversedMigration: Migration {
     static let target: TargetMigrations.Identifier = .session
     static let identifier: String = "test" // stringlint:ignore
     static let minExpectedRunDuration: TimeInterval = 0.1
-    static var requirements: [MigrationRequirement] = MigrationRequirement.allCases.reversed()
-    static let fetchedTables: [(TableRecord & FetchableRecord).Type] = []
-    static let createdOrAlteredTables: [(TableRecord & FetchableRecord).Type] = []
-    static let droppedTables: [(TableRecord & FetchableRecord).Type] = []
+    static let createdTables: [(TableRecord & FetchableRecord).Type] = []
     
     static func migrate(_ db: Database, using dependencies: Dependencies) throws {}
 }
@@ -521,10 +396,7 @@ enum TestRequiresLibSessionStateMigration: Migration {
     static let target: TargetMigrations.Identifier = .session
     static let identifier: String = "test" // stringlint:ignore
     static let minExpectedRunDuration: TimeInterval = 0.1
-    static var requirements: [MigrationRequirement] = [.libSessionStateLoaded]
-    static let fetchedTables: [(TableRecord & FetchableRecord).Type] = []
-    static let createdOrAlteredTables: [(TableRecord & FetchableRecord).Type] = []
-    static let droppedTables: [(TableRecord & FetchableRecord).Type] = []
+    static let createdTables: [(TableRecord & FetchableRecord).Type] = []
     
     static func migrate(_ db: Database, using dependencies: Dependencies) throws {}
 }
@@ -533,10 +405,7 @@ enum TestRequiresSessionIdCachedMigration: Migration {
     static let target: TargetMigrations.Identifier = .session
     static let identifier: String = "test" // stringlint:ignore
     static let minExpectedRunDuration: TimeInterval = 0.1
-    static var requirements: [MigrationRequirement] = [.sessionIdCached]
-    static let fetchedTables: [(TableRecord & FetchableRecord).Type] = []
-    static let createdOrAlteredTables: [(TableRecord & FetchableRecord).Type] = []
-    static let droppedTables: [(TableRecord & FetchableRecord).Type] = []
+    static let createdTables: [(TableRecord & FetchableRecord).Type] = []
     
     static func migrate(_ db: Database, using dependencies: Dependencies) throws {}
 }

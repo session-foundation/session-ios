@@ -8,16 +8,13 @@ enum _019_ScheduleAppUpdateCheckJob: Migration {
     static let target: TargetMigrations.Identifier = .messagingKit
     static let identifier: String = "ScheduleAppUpdateCheckJob"
     static let minExpectedRunDuration: TimeInterval = 0.1
-    static var requirements: [MigrationRequirement] = [.libSessionStateLoaded]
-    static let fetchedTables: [(TableRecord & FetchableRecord).Type] = []
-    static let createdOrAlteredTables: [(TableRecord & FetchableRecord).Type] = []
-    static let droppedTables: [(TableRecord & FetchableRecord).Type] = []
+    static let createdTables: [(TableRecord & FetchableRecord).Type] = []
     
     static func migrate(_ db: Database, using dependencies: Dependencies) throws {
-        _ = try Job(
-            variant: .checkForAppUpdates,
-            behaviour: .recurring
-        ).migrationSafeInserted(db)
+        try db.execute(sql: """
+            INSERT INTO job (variant, behaviour)
+            VALUES (\(Job.Variant.checkForAppUpdates.rawValue), \(Job.Behaviour.recurring.rawValue))
+        """)
         
         Storage.update(progress: 1, for: self, in: target, using: dependencies)
     }

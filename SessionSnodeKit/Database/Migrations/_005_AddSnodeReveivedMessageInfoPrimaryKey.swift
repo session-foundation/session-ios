@@ -9,66 +9,36 @@ enum _005_AddSnodeReveivedMessageInfoPrimaryKey: Migration {
     static let target: TargetMigrations.Identifier = .snodeKit
     static let identifier: String = "AddSnodeReveivedMessageInfoPrimaryKey"
     static let minExpectedRunDuration: TimeInterval = 0.2
-    static let fetchedTables: [(TableRecord & FetchableRecord).Type] = [
-        _001_InitialSetupMigration.LegacySnodeReceivedMessageInfo.self
-    ]
-    static let createdOrAlteredTables: [(TableRecord & FetchableRecord).Type] = [
-        _001_InitialSetupMigration.LegacySnodeReceivedMessageInfo.self
-    ]
-    static let droppedTables: [(TableRecord & FetchableRecord).Type] = []
+    static let createdTables: [(TableRecord & FetchableRecord).Type] = [SnodeReceivedMessageInfo.self]
     
     static func migrate(_ db: Database, using dependencies: Dependencies) throws {
-        typealias LegacyInfo = _001_InitialSetupMigration.LegacySnodeReceivedMessageInfo
-        
         // SQLite doesn't support adding a new primary key after creation so we need to create a new table with
         // the setup we want, copy data from the old table over, drop the old table and rename the new table
-        struct TmpSnodeReceivedMessageInfo: Codable, TableRecord, FetchableRecord, PersistableRecord, ColumnExpressible {
-            static var databaseTableName: String { "tmpSnodeReceivedMessageInfo" }
+        try db.create(table: "tmpSnodeReceivedMessageInfo") { t in
+            t.column("key", .text).notNull()
+            t.column("hash", .text).notNull()
+            t.column("expirationDateMs", .integer).notNull()
+            t.column("wasDeletedOrInvalid", .boolean)
             
-            typealias Columns = CodingKeys
-            enum CodingKeys: String, CodingKey, ColumnExpression {
-                case key
-                case hash
-                case expirationDateMs
-                case wasDeletedOrInvalid
-            }
-
-            let key: String
-            let hash: String
-            let expirationDateMs: Int64
-            var wasDeletedOrInvalid: Bool?
-        }
-        
-        try db.create(table: TmpSnodeReceivedMessageInfo.self) { t in
-            t.column(.key, .text).notNull()
-            t.column(.hash, .text).notNull()
-            t.column(.expirationDateMs, .integer).notNull()
-            t.column(.wasDeletedOrInvalid, .boolean)
-            
-            t.primaryKey([.key, .hash])
+            t.primaryKey(["key", "hash"])
         }
         
         // Insert into the new table, drop the old table and rename the new table to be the old one
-        let tmpInfo: TypedTableAlias<TmpSnodeReceivedMessageInfo> = TypedTableAlias()
-        let info: TypedTableAlias<LegacyInfo> = TypedTableAlias()
         try db.execute(literal: """
-            INSERT INTO \(tmpInfo)
-            SELECT \(info[.key]), \(info[.hash]), \(info[.expirationDateMs]), \(info[.wasDeletedOrInvalid])
-            FROM \(info)
+            INSERT INTO tmpSnodeReceivedMessageInfo
+            SELECT key, hash, expirationDateMs, wasDeletedOrInvalid
+            FROM snodeReceivedMessageInfo
         """)
         
-        try db.drop(table: LegacyInfo.self)
-        try db.rename(
-            table: TmpSnodeReceivedMessageInfo.databaseTableName,
-            to: LegacyInfo.databaseTableName
-        )
+        try db.drop(table: "snodeReceivedMessageInfo")
+        try db.rename(table: "tmpSnodeReceivedMessageInfo", to: "snodeReceivedMessageInfo")
         
         // Need to create the indexes separately from creating 'TmpSnodeReceivedMessageInfo' to
         // ensure they have the correct names
-        try db.createIndex(on: LegacyInfo.self, columns: [.key])
-        try db.createIndex(on: LegacyInfo.self, columns: [.hash])
-        try db.createIndex(on: LegacyInfo.self, columns: [.expirationDateMs])
-        try db.createIndex(on: LegacyInfo.self, columns: [.wasDeletedOrInvalid])
+        try db.create(indexOn: "snodeReceivedMessageInfo", columns: ["key"])
+        try db.create(indexOn: "snodeReceivedMessageInfo", columns: ["hash"])
+        try db.create(indexOn: "snodeReceivedMessageInfo", columns: ["expirationDateMs"])
+        try db.create(indexOn: "snodeReceivedMessageInfo", columns: ["wasDeletedOrInvalid"])
         
         Storage.update(progress: 1, for: self, in: target, using: dependencies)
     }

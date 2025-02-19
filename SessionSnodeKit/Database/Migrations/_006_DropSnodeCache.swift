@@ -9,19 +9,19 @@ enum _006_DropSnodeCache: Migration {
     static let target: TargetMigrations.Identifier = .snodeKit
     static let identifier: String = "DropSnodeCache"
     static let minExpectedRunDuration: TimeInterval = 0.1
-    static let fetchedTables: [(TableRecord & FetchableRecord).Type] = []
-    static let createdOrAlteredTables: [(TableRecord & FetchableRecord).Type] = []
-    static let droppedTables: [(TableRecord & FetchableRecord).Type] = [
-        _001_InitialSetupMigration.LegacySnode.self, _001_InitialSetupMigration.LegacySnodeSet.self
-    ]
+    static let createdTables: [(TableRecord & FetchableRecord).Type] = []
     
     static func migrate(_ db: Database, using dependencies: Dependencies) throws {
-        try db.drop(table: _001_InitialSetupMigration.LegacySnode.self)
-        try db.drop(table: _001_InitialSetupMigration.LegacySnodeSet.self)
+        try db.drop(table: "snode")
+        try db.drop(table: "snodeSet")
         
         // Drop the old snode cache jobs as well
-        let variants: [Job.Variant] = [._legacy_getSnodePool, ._legacy_buildPaths, ._legacy_getSwarm]
-        try Job.filter(variants.contains(Job.Columns.variant)).deleteAll(db)
+        let variantsToDelete: String = [
+            Job.Variant._legacy_getSnodePool,
+            Job.Variant._legacy_buildPaths,
+            Job.Variant._legacy_getSwarm
+        ].map { "\($0.rawValue)" }.joined(separator: ", ")
+        try db.execute(sql: "DELETE FROM job WHERE variant IN (\(variantsToDelete))")
         
         Storage.update(progress: 1, for: self, in: target, using: dependencies)
     }

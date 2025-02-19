@@ -7,14 +7,12 @@ enum _003_YDBToGRDBMigration: Migration {
     static let target: TargetMigrations.Identifier = .utilitiesKit
     static let identifier: String = "YDBToGRDBMigration"
     static let minExpectedRunDuration: TimeInterval = 0.1
-    static let fetchedTables: [(TableRecord & FetchableRecord).Type] = [Identity.self]
-    static let createdOrAlteredTables: [(TableRecord & FetchableRecord).Type] = []
-    static let droppedTables: [(TableRecord & FetchableRecord).Type] = []
+    static let createdTables: [(TableRecord & FetchableRecord).Type] = []
     
     static func migrate(_ db: Database, using dependencies: Dependencies) throws {
         guard
             !SNUtilitiesKit.isRunningTests &&
-            Identity.userExists(db, using: dependencies)
+            MigrationHelper.userExists(db)
         else { return Storage.update(progress: 1, for: self, in: target, using: dependencies) }
         
         Log.error(.migration, "Attempted to perform legacy migation")

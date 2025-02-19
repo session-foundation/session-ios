@@ -9,34 +9,32 @@ enum _008_EmojiReacts: Migration {
     static let target: TargetMigrations.Identifier = .messagingKit
     static let identifier: String = "EmojiReacts"
     static let minExpectedRunDuration: TimeInterval = 0.01
-    static let fetchedTables: [(TableRecord & FetchableRecord).Type] = []
-    static let createdOrAlteredTables: [(TableRecord & FetchableRecord).Type] = [Reaction.self]
-    static let droppedTables: [(TableRecord & FetchableRecord).Type] = []
+    static let createdTables: [(TableRecord & FetchableRecord).Type] = [Reaction.self]
     
     static func migrate(_ db: Database, using dependencies: Dependencies) throws {
-        try db.create(table: Reaction.self) { t in
-            t.column(.interactionId, .numeric)
+        try db.create(table: "reaction") { t in
+            t.column("interactionId", .numeric)
                 .notNull()
                 .indexed()                                            // Quicker querying
-                .references(Interaction.self, onDelete: .cascade)     // Delete if Interaction deleted
-            t.column(.serverHash, .text)
-            t.column(.timestampMs, .text)
+                .references("interaction", onDelete: .cascade)        // Delete if Interaction deleted
+            t.column("serverHash", .text)
+            t.column("timestampMs", .text)
                 .notNull()
-            t.column(.authorId, .text)
-                .notNull()
-                .indexed()                                            // Quicker querying
-            t.column(.emoji, .text)
+            t.column("authorId", .text)
                 .notNull()
                 .indexed()                                            // Quicker querying
-            t.column(.count, .integer)
+            t.column("emoji", .text)
+                .notNull()
+                .indexed()                                            // Quicker querying
+            t.column("count", .integer)
                 .notNull()
                 .defaults(to: 0)
-            t.column(.sortId, .integer)
+            t.column("sortId", .integer)
                 .notNull()
                 .defaults(to: 0)
             
             /// A specific author should only be able to have a single instance of each emoji on a particular interaction
-            t.uniqueKey([.interactionId, .emoji, .authorId])
+            t.uniqueKey(["interactionId", "emoji", "authorId"])
         }
         
         Storage.update(progress: 1, for: self, in: target, using: dependencies)

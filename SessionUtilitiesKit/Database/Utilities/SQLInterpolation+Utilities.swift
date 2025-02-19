@@ -12,12 +12,11 @@ public extension SQLInterpolation {
     ///     let player: TypedTableAlias<T> = TypedTableAlias()
     ///     let request: SQLRequest<Player> = "SELECT * FROM \(player)"
     @_disfavoredOverload
-    mutating func appendInterpolation<T>(_ typedTableAlias: TypedTableAlias<T>, asSubquery: Bool = false) {
+    mutating func appendInterpolation<T>(_ typedTableAlias: TypedTableAlias<T>) {
         let name: String = typedTableAlias.name
         
         guard let tableName: String = typedTableAlias.tableName else { return appendLiteral(name.quotedDatabaseIdentifier) }
         guard name != tableName else { return appendLiteral(tableName.quotedDatabaseIdentifier) }
-        guard !asSubquery else { return appendLiteral("AS \(name.quotedDatabaseIdentifier)") }
         
         appendLiteral("\(tableName.quotedDatabaseIdentifier) AS \(name.quotedDatabaseIdentifier)")
     }
