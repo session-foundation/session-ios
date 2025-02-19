@@ -21,7 +21,7 @@ public class TypingIndicators {
     
     private let dependencies: Dependencies
     @ThreadSafeObject private var timerQueue: DispatchQueue = DispatchQueue(
-        label: "org.getsession.typingIndicatorQueue",
+        label: "org.getsession.typingIndicatorQueue",   // stringlint:ignore
         qos: .userInteractive
     )
     @ThreadSafeObject private var outgoing: [String: Indicator] = [:]

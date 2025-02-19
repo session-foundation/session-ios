@@ -151,47 +151,33 @@ public enum GroupPromoteMemberJob: JobExecutor {
     }
     
     public static func failureMessage(groupName: String, memberIds: [String], profileInfo: [String: Profile]) -> NSAttributedString {
+        let memberZeroName: String = memberIds.first.map {
+            profileInfo[$0]?.displayName(for: .group) ??
+            Profile.truncated(id: $0, truncating: .middle)
+        }.defaulting(to: "anonymous".localized())
+        
         switch memberIds.count {
             case 1:
                 return "adminPromotionFailedDescription"
-                    .put(
-                        key: "name",
-                        value: (
-                            profileInfo[memberIds[0]]?.displayName(for: .group) ??
-                            Profile.truncated(id: memberIds[0], truncating: .middle)
-                        )
-                    )
+                    .put(key: "name", value: memberZeroName)
                     .put(key: "group_name", value: groupName)
                     .localizedFormatted(baseFont: ToastController.font)
                 
             case 2:
+                let memberOneName: String = (
+                    profileInfo[memberIds[1]]?.displayName(for: .group) ??
+                    Profile.truncated(id: memberIds[1], truncating: .middle)
+                )
+                
                 return "adminPromotionFailedDescriptionTwo"
-                    .put(
-                        key: "name",
-                        value: (
-                            profileInfo[memberIds[0]]?.displayName(for: .group) ??
-                            Profile.truncated(id: memberIds[0], truncating: .middle)
-                        )
-                    )
-                    .put(
-                        key: "other_name",
-                        value: (
-                            profileInfo[memberIds[1]]?.displayName(for: .group) ??
-                            Profile.truncated(id: memberIds[1], truncating: .middle)
-                        )
-                    )
+                    .put(key: "name", value: memberZeroName)
+                    .put(key: "other_name", value: memberOneName)
                     .put(key: "group_name", value: groupName)
                     .localizedFormatted(baseFont: ToastController.font)
                 
             default:
                 return "adminPromotionFailedDescriptionMultiple"
-                    .put(
-                        key: "name",
-                        value: (
-                            profileInfo[memberIds[0]]?.displayName(for: .group) ??
-                            Profile.truncated(id: memberIds[0], truncating: .middle)
-                        )
-                    )
+                    .put(key: "name", value: memberZeroName)
                     .put(key: "count", value: memberIds.count - 1)
                     .put(key: "group_name", value: groupName)
                     .localizedFormatted(baseFont: ToastController.font)

@@ -619,6 +619,7 @@ extension Attachment {
         if let sourceFilename: String = sourceFilename, !sourceFilename.isEmpty {
             // Ensure that the filename is a valid filesystem name,
             // replacing invalid characters with an underscore.
+            // stringlint:ignore_start
             var normalizedFileName: String = sourceFilename
                 .trimmingCharacters(in: .whitespacesAndNewlines)
                 .components(separatedBy: .whitespacesAndNewlines)
@@ -629,6 +630,7 @@ extension Attachment {
                 .joined(separator: "_")
                 .components(separatedBy: CharacterSet(charactersIn: "<>|\\:()&;?*/~"))
                 .joined(separator: "_")
+            // stringlint:ignore_stop
             
             while normalizedFileName.hasPrefix(".") {   // stringlint:ignore
                 normalizedFileName = String(normalizedFileName.substring(from: 1))

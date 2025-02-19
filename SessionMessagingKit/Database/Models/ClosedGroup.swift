@@ -534,7 +534,7 @@ public extension ClosedGroup {
                     
                 case .addedUsers(true, let names, true) where names.count == 2:
                     return "groupMemberNewYouHistoryTwo"
-                        .put(key: "name", value: names[1])          // The current user will always be the first name
+                        .put(key: "other_name", value: names[1])          // The current user will always be the first name
                         .localized()
                     
                 case .addedUsers(false, let names, false):
@@ -605,7 +605,7 @@ public extension ClosedGroup {
                     
                 case .promotedUsers(true, let names) where names.count == 2:
                     return "groupPromotedYouTwo"
-                        .put(key: "name", value: names[1])              // The current user will always be the first name
+                        .put(key: "other_name", value: names[1])              // The current user will always be the first name
                         .localized()
                     
                 case .promotedUsers(false, let names):

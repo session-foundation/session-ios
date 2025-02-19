@@ -78,6 +78,7 @@ extension ProjectState {
         .contains("#imageLiteral(resourceName:", caseSensitive: false),
         .contains("[UIImage imageNamed:", caseSensitive: false),
         .contains("Image(", caseSensitive: false),
+        .contains("image:", caseSensitive: false),
         .contains("logo:", caseSensitive: false),
         .contains("UIFont(name:", caseSensitive: false),
         .contains(".dateFormat =", caseSensitive: false),
@@ -129,13 +130,13 @@ extension ProjectState {
         ),
         .belowLineContaining("PreviewProvider"),
         .belowLineContaining("#Preview"),
+        .belowLineContaining(": Migration {"),
         .regex(Regex.logging),
         .regex(Regex.errorCreation),
         .regex(Regex.databaseTableName),
         .regex(Regex.enumCaseDefinition),
         .regex(Regex.imageInitialization),
-        .regex(Regex.variableToStringConversion),
-        .regex(Regex.localizedParameter)
+        .regex(Regex.variableToStringConversion)
     ]
 }
 
@@ -208,6 +209,7 @@ enum ScriptAction: String {
                 }
                 
                 var allKeys: [String] = []
+                var tokensForKey: [String: Set<String>] = [:]
                 var duplicates: [String] = []
                 projectState.localizationFile.strings.forEach { key, value in
                     if allKeys.contains(key) {
@@ -219,21 +221,32 @@ enum ScriptAction: String {
                     // Add warning for probably faulty translation
                     if let localizations: JSON = (value as? JSON)?["localizations"] as? JSON {
                         if let original: String = ((localizations["en"] as? JSON)?["stringUnit"] as? JSON)?["value"] as? String {
+                            let processedOriginal: String = original.removingUnwantedScalars()
+                            let tokensInOriginal: [String] = processedOriginal
+                                .matches(of: Regex.dynamicStringVariable)
+                                .map { match in
+                                    String(processedOriginal[match.range])
+                                        .trimmingCharacters(in: CharacterSet(charactersIn: "{}"))
+                                }
+                            let numberOfTokensOrignal: Int = tokensInOriginal.count
+                            
+                            // Only add to the dict if there are tokens
+                            if !tokensInOriginal.isEmpty {
+                                tokensForKey[key] = Set(tokensInOriginal)
+                            }
+                            
+                            // Check that the number of tokens match (including 0 tokens)
                             localizations.forEach { locale, translation in
                                 if let phrase: String = ((translation as? JSON)?["stringUnit"] as? JSON)?["value"] as? String {
                                     // Zero-width characters can mess with regex matching so we need to clean them
                                     // out before matching
-                                    let numberOfVarablesOrignal: Int = original
-                                        .removingUnwantedScalars()
-                                        .matches(of: Regex.dynamicStringVariable)
-                                        .count
-                                    let numberOfVarablesPhrase: Int = phrase
+                                    let numberOfTokensPhrase: Int = phrase
                                         .removingUnwantedScalars()
                                         .matches(of: Regex.dynamicStringVariable)
                                         .count
                                     
-                                    if numberOfVarablesPhrase != numberOfVarablesOrignal {
-                                        Output.warning("\(key) in \(locale) may be faulty ('\(original)' contains \(numberOfVarablesOrignal) vs. '\(phrase)' contains \(numberOfVarablesPhrase))")
+                                    if numberOfTokensPhrase != numberOfTokensOrignal {
+                                        Output.warning("\(key) in \(locale) may be faulty ('\(original)' contains \(numberOfTokensOrignal) vs. '\(phrase)' contains \(numberOfTokensPhrase))")
                                     }
                                 }
                             }
@@ -265,10 +278,39 @@ enum ScriptAction: String {
                             case .none: Output.error(file, "Localized phrase '\(key)' missing from strings files")
                         }
                     }
+                    
+                    // Add errors for incorrect/missing tokens
+                    file.keyPhrase.forEach { key, phrase in
+                        guard
+                            let tokens: Set<String> = tokensForKey[key],
+                            tokens != phrase.providedTokens
+                        else { return }
+                        
+                        let extra: Set<String> = phrase.providedTokens.subtracting(tokens)
+                        let missing: Set<String> = tokens.subtracting(phrase.providedTokens)
+                        let tokensString: String = tokens.map { "{\($0)}" }.joined(separator: ", ")
+                        let providedString: String = {
+                            let result: String = phrase.providedTokens.map { "{\($0)}" }.joined(separator: ", ")
+                            
+                            guard !result.isEmpty else { return "no tokens" }
+                            
+                            return "'\(result)'"
+                        }()
+                        let description: String = [
+                            (!extra.isEmpty || !missing.isEmpty ? " (" : nil),
+                            (!extra.isEmpty ? "Extra: '\(extra.map { "{\($0)}" }.joined(separator: ", "))'" : nil),
+                            (!extra.isEmpty && !missing.isEmpty ? ", " : ""),
+                            (!missing.isEmpty ? "Missing: '\(missing.map { "{\($0)}" }.joined(separator: ", "))'" : nil),
+                            (!extra.isEmpty || !missing.isEmpty ? ")" : nil)
+                        ].compactMap { $0 }.joined()
+                        
+                        Output.error(phrase, "Localized phrase '\(key)' requires the token(s) '\(tokensString)' and has \(providedString)\(description)")
+                    }
                 }
                 
                 print("------------ Found \(totalUnlocalisedStrings) unlocalized string(s) ------------")
                 break
+            
             case .updatePermissionStrings:
                 print("------------ Updating permission strings ------------")
                 var strings: JSON = projectState.infoPlistLocalizationFile.strings
@@ -317,15 +359,17 @@ enum Regex {
     static let comment = #/\/\/[^"]*(?:"[^"]*"[^"]*)*/#
     static let allStrings = #/"[^"\\]*(?:\\.[^"\\]*)*"/#
     static let localizedString = #/^(?:\.put(?:Number)?\([^)]+\))*\.localized/#
-    static let localizedFunctionCall = #/\.localized(?:Formatted)?\(.*\)/#
+    static let localizedFunctionCall = #/\.localized(?:Formatted)?(?:Deformatted)?\(.*\)/#
+    static let localizationHelperCall = #/LocalizationHelper\(template:\s*(?:"[^"]+"|(?!self\b)[A-Za-z_]\w*)\s*\)/#
     
     static let logging = #/(?:SN)?Log.*\(/#
     static let errorCreation = #/Error.*\(/#
     static let databaseTableName = #/.*static var databaseTableName: String/#
-    static let enumCaseDefinition = #/case .* = /#
+    static let enumCaseDefinition = #/case [^:]* = /#
     static let imageInitialization = #/(?:UI)?Image\((?:named:)?(?:imageName:)?(?:systemName:)?.*\)/#
     static let variableToStringConversion = #/"\\(.*)"/#
     static let localizedParameter = #/^(?:\.put(?:Number)?\([^)]+\))*/#
+    static let localizedParameterToken = #/(?:\.put\(key:\s*"(?<token>[^"]+)")/#
     
     static let crypto = #/Crypto.*\(/#
     
@@ -499,10 +543,13 @@ extension ProjectState {
             var key: String
             var lineNumber: Int
             var chainedCalls: [String]
+            let isExplicitLocalizationMatch: Bool
+            let possibleKeyPhrases: [Phrase]
         }
         
-        struct Phrase: KeyedLocatable {
+        struct Phrase: KeyedLocatable, Equatable {
             let term: String
+            let providedTokens: Set<String>
             let filePath: String
             let lineNumber: Int
             
@@ -567,8 +614,13 @@ extension ProjectState {
                 // Skip linting if disabled
                 guard !shouldSkipLinting(state: lintState) else { return }
                 
-                // Skip lines without quotes (optimization)
-                guard trimmedLine.contains("\"") else { return }
+                // Skip lines without quotes or an explicit LocalizationHelper definition if we
+                // aren't in template construction (optimization)
+                guard
+                    trimmedLine.contains("\"") ||
+                    trimmedLine.contains("LocalizationHelper(template:") ||
+                    templateState != nil
+                else { return }
                 
                 // Skip explicitly excluded lines
                 guard
@@ -653,14 +705,22 @@ extension ProjectState {
             switch templateState {
                 case .none:
                     // Extract the strings and remove any excluded phrases
-                    let keyMatches: [String] = extractMatches(from: targetLine, with: Regex.allStrings)
+                    var isExplicitLocalizationMatch: Bool = false
+                    var keyMatches: [String] = extractMatches(from: targetLine, with: Regex.allStrings)
                         .filter { !ProjectState.excludedPhrases.contains($0) }
+                    
+                    if let explicitLocalizationMatch = targetLine.firstMatch(of: Regex.localizationHelperCall) {
+                        keyMatches.append(String(targetLine[explicitLocalizationMatch.range]))
+                        isExplicitLocalizationMatch = true
+                    }
                     
                     if !keyMatches.isEmpty {
                         // Iterate through each match to determine localization
                         for match in keyMatches {
+                            let explicitStringRange = targetLine.range(of: "\"\(match)\"")
+                            
                             // Find the range of the matched string
-                            if let range = targetLine.range(of: "\"\(match)\"") {
+                            if let range = explicitStringRange {
                                 // Check if .localized or a template func is called immediately following
                                 // this specific string
                                 let afterString = targetLine[range.upperBound...]
@@ -670,6 +730,9 @@ extension ProjectState {
                                     // Add as a localized phrase
                                     let phrase = Phrase(
                                         term: match,
+                                        providedTokens: Set(targetLine
+                                            .matches(of: Regex.localizedParameterToken)
+                                            .map { String($0.output.token) }),
                                         filePath: path,
                                         lineNumber: lineNumber + 1 // Files are 1-indexed so add 1 to lineNumber
                                     )
@@ -682,72 +745,144 @@ extension ProjectState {
                                     // or a multi-line template
                                     let unlocalizedPhrase = Phrase(
                                         term: match,
+                                        providedTokens: [],
                                         filePath: path,
                                         lineNumber: lineNumber + 1 // Files are 1-indexed so add 1 to lineNumber
                                     )
                                     unlocalizedKeyPhrase[match] = unlocalizedPhrase
                                     unlocalizedPhrases.append(unlocalizedPhrase)
+                                    continue
                                 }
-                                else {
-                                    // Look ahead to verify if put/putNumber/localized are called in the next lines
-                                    let lookAheadLimit: Int = 2
-                                    var isTemplateChain: Bool = false
+                            }
+                            
+                            // If it doesn't match one of the two cases above or isn't an explicit string
+                            // then look ahead to verify if put/putNumber/localized are called in the next lines
+                            let lookAheadLimit: Int = 2
+                            var isTemplateChain: Bool = false
+                            
+                            for offset in 1...lookAheadLimit {
+                                let lookAheadIndex: Int = lineNumber + offset
+                                
+                                if lookAheadIndex < lines.count {
+                                    let lookAheadLine = lines[lookAheadIndex].trimmingCharacters(in: .whitespacesAndNewlines)
                                     
-                                    for offset in 1...lookAheadLimit {
-                                        let lookAheadIndex: Int = lineNumber + offset
-                                        
-                                        if lookAheadIndex < lines.count {
-                                            let lookAheadLine = lines[lookAheadIndex].trimmingCharacters(in: .whitespacesAndNewlines)
-                                            
-                                            if
-                                                lookAheadLine.hasPrefix(".put(") ||
-                                                lookAheadLine.hasPrefix(".putNumber(") ||
-                                                lookAheadLine.hasPrefix(".localized")
-                                            {
-                                                isTemplateChain = true
-                                                break
-                                            }
-                                        }
-                                    }
-                                    
-                                    if isTemplateChain {
-                                        templateState = TemplateStringState(
-                                            key: keyMatches[0],
-                                            lineNumber: lineNumber,
-                                            chainedCalls: []
-                                        )
-                                        return
-                                    }
-                                    else {
-                                        // We didn't find any of the expected functions when looking ahead
-                                        // so we can assume it's an unlocalised string
-                                        let unlocalizedPhrase = Phrase(
-                                            term: match,
-                                            filePath: path,
-                                            lineNumber: lineNumber + 1 // Files are 1-indexed so add 1 to lineNumber
-                                        )
-                                        unlocalizedKeyPhrase[match] = unlocalizedPhrase
-                                        unlocalizedPhrases.append(unlocalizedPhrase)
+                                    if
+                                        lookAheadLine.hasPrefix(".put(") ||
+                                        lookAheadLine.hasPrefix(".putNumber(") ||
+                                        lookAheadLine.hasPrefix(".localized")
+                                    {
+                                        isTemplateChain = true
+                                        break
                                     }
                                 }
+                            }
+                            
+                            if isTemplateChain {
+                                var possibleKeyPhrases: [Phrase] = []
+                                
+                                // If the match was due to an explicit `LocalizationHelper(template:)`
+                                // then we need to look back through the code to find the definition
+                                // of the template value (assuming it's a variable)
+                                if isExplicitLocalizationMatch {
+                                    let variableName: String = keyMatches[0]
+                                        .replacingOccurrences(of: "LocalizationHelper(template:", with: "")
+                                        .trimmingCharacters(in: CharacterSet(charactersIn: ")"))
+                                        .trimmingCharacters(in: .whitespacesAndNewlines)
+                                    
+                                    // Note: Files are 1-indexed so need to `$0.lineNumber - 1`
+                                    possibleKeyPhrases = unlocalizedPhrases
+                                        .filter { lines[$0.lineNumber - 1].contains("\(variableName) = ") }
+                                }
+                                
+                                templateState = TemplateStringState(
+                                    key: keyMatches[0],
+                                    lineNumber: lineNumber,
+                                    chainedCalls: [],
+                                    isExplicitLocalizationMatch: isExplicitLocalizationMatch,
+                                    possibleKeyPhrases: possibleKeyPhrases
+                                )
+                                return
+                            }
+                            else if explicitStringRange != nil {
+                                if targetLine.contains("LocalizationHelper") {
+                                    Output.error("RAWR not a template chain")
+                                }
+                                
+                                // We didn't find any of the expected functions when looking ahead
+                                // so we can assume it's an unlocalised string
+                                let unlocalizedPhrase = Phrase(
+                                    term: match,
+                                    providedTokens: [],
+                                    filePath: path,
+                                    lineNumber: lineNumber + 1 // Files are 1-indexed so add 1 to lineNumber
+                                )
+                                unlocalizedKeyPhrase[match] = unlocalizedPhrase
+                                unlocalizedPhrases.append(unlocalizedPhrase)
                             }
                         }
                     }
                         
                 case .some(let state):
-                    switch targetLine.firstMatch(of: Regex.localizedFunctionCall) {
-                        case .some:
-                            // We finished the change so add as a localized phrase
-                            let phrase = Phrase(
-                                term: state.key,
-                                filePath: path,
-                                lineNumber: state.lineNumber + 1 // Files are 1-indexed so add 1 to lineNumber
+                    let trimmedLine: String = targetLine.trimmingCharacters(in: CharacterSet(charactersIn: ","))
+                    let localizedMatch = trimmedLine.firstMatch(of: Regex.localizedFunctionCall)
+                    let lineEndsInLocalized: Bool? = localizedMatch.map { match in
+                        let matchString: String = String(trimmedLine[match.range])
+                        
+                        // Need to make sure the parentheses are balanced as `localized())` would be
+                        // considered a valid match when we don't want it to be for the purposes of this
+                        return (
+                            match.range.upperBound == trimmedLine.endIndex &&
+                            matchString.count(where: { $0 == "(" }) == matchString.count(where: { $0 == ")" })
+                        )
+                    }
+                    
+                    switch (localizedMatch, lineEndsInLocalized, targetLine.firstMatch(of: Regex.localizedParameter)) {
+                        // If the string contains only a `localized` call, or contains both a `localized`
+                        // call and also a `.put(Number)` but ends with the `localized` call then assume
+                        // we finishing the localized string (as opposed to localizing the value for a
+                        // token to be included in the string)
+                        case (.some, true, _), (.some, false, .none):
+                            // We finished the change so add as a localized phrase(s)
+                            let keys: [String] = (state.isExplicitLocalizationMatch && !state.possibleKeyPhrases.isEmpty ?
+                                state.possibleKeyPhrases.map { $0.key } :
+                                [state.key]
                             )
-                            keyPhrase[state.key] = phrase
-                            phrases.append(phrase)
+                            
+                            keys.forEach { key in
+                                let phrase = Phrase(
+                                    term: key,
+                                    providedTokens: Set(state.chainedCalls
+                                        .compactMap { callLine -> String? in
+                                            guard
+                                                let tokenName = callLine
+                                                    .firstMatch(of: Regex.localizedParameterToken)?
+                                                    .output
+                                                    .token
+                                            else { return nil }
+                                            
+                                            return String(tokenName)
+                                        }),
+                                    filePath: path,
+                                    lineNumber: state.lineNumber + 1 // Files are 1-indexed so add 1 to lineNumber
+                                )
+                                keyPhrase[key] = phrase
+                                phrases.append(phrase)
+                            }
                             templateState = nil
                             
-                        case .none:
+                            // If it was an explicit LocalizationHelper template (provided with a variable)
+                            // then we want to remove those values from the unlocalized strings
+                            if state.isExplicitLocalizationMatch && !state.possibleKeyPhrases.isEmpty {
+                                state.possibleKeyPhrases.forEach { phrase in
+                                    unlocalizedKeyPhrase.removeValue(forKey: phrase.key)
+                                }
+                                
+                                unlocalizedPhrases = unlocalizedPhrases.filter {
+                                    !state.possibleKeyPhrases.contains($0)
+                                }
+                            }
+                            
+                        default:
                             // The chain is still going to append the line
                             templateState?.chainedCalls.append(targetLine)
                     }
@@ -780,6 +915,7 @@ extension ProjectState {
             matches.forEach { match in
                 let result = Phrase(
                     term: match,
+                    providedTokens: [],
                     filePath: path,
                     lineNumber: lineNumber + 1
                 )

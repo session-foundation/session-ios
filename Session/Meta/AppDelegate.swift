@@ -885,6 +885,7 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
         
         // URL Scheme is sessionmessenger://DM?sessionID=1234
         // We can later add more parameters like message etc.
+        // stringlint:ignore_contents
         if components.host == "DM" {
             let matches: [URLQueryItem] = (components.queryItems ?? [])
                 .filter { item in item.name == "sessionID" }
