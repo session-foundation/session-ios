@@ -76,7 +76,7 @@ public class ConversationViewModel: OWSAudioPlayerDelegate, NavigatableStateHold
         }
         
         // FIXME: Strings should be updated in Crowdin to include the {icon}
-        return localizationKey
+        return LocalizationHelper(template: localizationKey)
             .put(key: "date", value: Features.legacyGroupDepricationDate.formattedForBanner)
             .localizedFormatted(baseFont: legacyGroupsBannerFont)
             .appending(string: " ")     // Designs have a space before the icon

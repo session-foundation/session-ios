@@ -386,7 +386,7 @@ final class ConversationVC: BaseVC, LibSessionRespondingViewController, Conversa
     private lazy var legacyGroupsFooterButton: SessionButton = {
         let result: SessionButton = SessionButton(style: .bordered, size: .large)
         result.translatesAutoresizingMaskIntoConstraints = false
-        result.setTitle("Recreate Group", for: .normal)
+        result.setTitle("recreateGroup".localized(), for: .normal)
         result.addTarget(self, action: #selector(recreateLegacyGroupTapped), for: .touchUpInside)
         result.accessibilityIdentifier = "Legacy Groups Recreate Button"
         
@@ -823,7 +823,7 @@ final class ConversationVC: BaseVC, LibSessionRespondingViewController, Conversa
            
             let messageRequestsViewWasVisible: Bool = (self.messageRequestFooterView.isHidden == false)
             
-            UIView.animate(withDuration: 0.3) { [weak self, dependencies = viewModel.dependencies] in
+            UIView.animate(withDuration: 0.3) { [weak self] in
                 self?.messageRequestFooterView.update(
                     threadVariant: updatedThreadData.threadVariant,
                     canWrite: (updatedThreadData.threadCanWrite == true),
@@ -1585,16 +1585,14 @@ final class ConversationVC: BaseVC, LibSessionRespondingViewController, Conversa
             return
         }
         
+        let profileDispalyName: String = Profile.displayName(
+            id: outdatedMemberId,
+            threadVariant: self.viewModel.threadData.threadVariant,
+            using: viewModel.dependencies
+        )
         self.outdatedClientBanner.update(
             message: "disappearingMessagesLegacy"
-                .put(
-                    key: "name",
-                    value: Profile.displayName(
-                        id: outdatedMemberId,
-                        threadVariant: self.viewModel.threadData.threadVariant,
-                        using: viewModel.dependencies
-                    )
-                )
+                .put(key: "name", value: profileDispalyName)
                 .localizedFormatted(baseFont: self.outdatedClientBanner.font),
             onTap: { [weak self] in self?.removeOutdatedClientBanner() }
         )

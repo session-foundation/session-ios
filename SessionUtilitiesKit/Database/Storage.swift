@@ -717,7 +717,7 @@ open class Storage {
                 semaphoreResult = semaphore.wait(timeout: .now() + .seconds(Storage.transactionDeadlockTimeoutSeconds))
             }
             #else
-            semaphoreResult = semaphore?.wait(timeout: .now() + .seconds(Storage.transactionDeadlockTimeoutSeconds))
+            semaphoreResult = semaphore.wait(timeout: .now() + .seconds(Storage.transactionDeadlockTimeoutSeconds))
             #endif
             
             /// If the query timed out then we should interrupt the query (don't want the query thread to remain blocked when we've

@@ -150,7 +150,7 @@ public class SwarmPoller: SwarmPollerType & PollerType {
                     .compactMap { $0.value.data?.messages.map { $0.info.hash } }
                     .reduce([], +)
                 var messageCount: Int = 0
-                var processedMessages: [ProcessedMessage] = []
+                var finalProcessedMessages: [ProcessedMessage] = []
                 var hadValidHashUpdate: Bool = false
                 
                 return dependencies[singleton: .storage].writePublisher { db -> (configMessageJobs: [Job], standardMessageJobs: [Job], pollResult: PollResult) in
@@ -258,6 +258,9 @@ public class SwarmPoller: SwarmPollerType & PollerType {
                                 }
                             }
                             
+                            /// Make sure to add any synchronously processed messages to the `finalProcessedMessages`
+                            /// as otherwise they wouldn't be emitted by the `receivedPollResponseSubject`
+                            finalProcessedMessages += processedMessages
                             return nil
                         }
                         .flatMap { $0 }
@@ -266,8 +269,8 @@ public class SwarmPoller: SwarmPollerType & PollerType {
                     // to create message receive jobs or mess with cached hashes)
                     guard shouldStoreMessages else {
                         messageCount += allProcessedMessages.count
-                        processedMessages += allProcessedMessages
-                        return ([], [], (processedMessages, rawMessageCount, messageCount, hadValidHashUpdate))
+                        finalProcessedMessages += allProcessedMessages
+                        return ([], [], (finalProcessedMessages, rawMessageCount, messageCount, hadValidHashUpdate))
                     }
                     
                     // Add a job to process the config messages first
@@ -276,7 +279,7 @@ public class SwarmPoller: SwarmPollerType & PollerType {
                         .grouped { $0.threadId }
                         .compactMap { threadId, threadMessages in
                             messageCount += threadMessages.count
-                            processedMessages += threadMessages
+                            finalProcessedMessages += threadMessages
                             
                             let job: Job? = Job(
                                 variant: .configMessageReceive,
@@ -306,7 +309,7 @@ public class SwarmPoller: SwarmPollerType & PollerType {
                         .grouped { $0.threadId }
                         .compactMap { threadId, threadMessages in
                             messageCount += threadMessages.count
-                            processedMessages += threadMessages
+                            finalProcessedMessages += threadMessages
                             
                             let job: Job? = Job(
                                 variant: .messageReceive,
@@ -360,7 +363,7 @@ public class SwarmPoller: SwarmPollerType & PollerType {
                         otherKnownValidHashes: otherKnownHashes
                     )
                     
-                    return (configMessageJobs, standardMessageJobs, (processedMessages, rawMessageCount, messageCount, hadValidHashUpdate))
+                    return (configMessageJobs, standardMessageJobs, (finalProcessedMessages, rawMessageCount, messageCount, hadValidHashUpdate))
                 }
             }
             .flatMap { [dependencies] (configMessageJobs: [Job], standardMessageJobs: [Job], pollResult: PollResult) -> AnyPublisher<PollResult, Error> in

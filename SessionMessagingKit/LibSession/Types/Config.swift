@@ -58,12 +58,12 @@ public extension LibSession {
         
         var count: Int {
             switch self {
-                case .userProfile(let conf): return 1
+                case .userProfile: return 1
                 case .contacts(let conf): return contacts_size(conf)
                 case .convoInfoVolatile(let conf): return convo_info_volatile_size(conf)
                 case .userGroups(let conf): return user_groups_size(conf)
                 
-                case .groupInfo(let conf): return 1
+                case .groupInfo: return 1
                 case .groupMembers(let conf): return groups_members_size(conf)
                 case .groupKeys(let conf, _, _): return groups_keys_size(conf)
             }
