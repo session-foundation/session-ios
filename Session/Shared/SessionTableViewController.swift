@@ -405,14 +405,18 @@ class SessionTableViewController<ViewModel>: BaseVC, UITableViewDataSource, UITa
                 self?.footerButton.isHidden = (buttonInfo == nil)
                 
                 // If we have a footerButton then we want to manually control the contentInset
+                let window: UIWindow? = UIApplication.shared.keyWindow
                 self?.tableView.contentInsetAdjustmentBehavior = (buttonInfo == nil ? .automatic : .never)
                 self?.tableView.contentInset = UIEdgeInsets(
                     top: 0,
                     left: 0,
-                    bottom: (buttonInfo == nil ?
-                        0 :
-                        Values.footerGradientHeight(window: UIApplication.shared.keyWindow)
-                    ),
+                    bottom: {
+                        switch (buttonInfo, window?.safeAreaInsets.bottom) {
+                            case (.none, 0): return Values.largeSpacing
+                            case (.none, _): return 0
+                            case (.some, _): return Values.footerGradientHeight(window: window)
+                        }
+                    }(),
                     right: 0
                 )
             }

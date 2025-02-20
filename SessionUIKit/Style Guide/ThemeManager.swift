@@ -40,8 +40,14 @@ public enum ThemeManager {
                 default: return _primaryColor
             }
         }()
-        let targetMatchSystemNightModeSetting: Bool = (matchSystemNightModeSetting ?? _matchSystemNightModeSetting)
+        let targetMatchSystemNightModeSetting: Bool = {
+            switch matchSystemNightModeSetting {
+                case .some(let value): return value
+                case .none: return _matchSystemNightModeSetting
+            }
+        }()
         let themeChanged: Bool = (_theme != targetTheme || _primaryColor != targetPrimaryColor)
+        let matchSystemChanged: Bool = (_matchSystemNightModeSetting != targetMatchSystemNightModeSetting)
         _theme = targetTheme
         _primaryColor = targetPrimaryColor
         _hasLoadedTheme = true
@@ -50,7 +56,7 @@ public enum ThemeManager {
             updateAllUI()
         }
         
-        if _matchSystemNightModeSetting != targetMatchSystemNightModeSetting {
+        if matchSystemChanged {
             _matchSystemNightModeSetting = targetMatchSystemNightModeSetting
             
             // Note: We need to set this to 'unspecified' to force the UI to properly update as the
@@ -61,7 +67,7 @@ public enum ThemeManager {
         }
         
         // If the theme was changed then trigger the callback for the theme settings change (so it gets persisted)
-        guard themeChanged || _matchSystemNightModeSetting != targetMatchSystemNightModeSetting else { return }
+        guard themeChanged || matchSystemChanged else { return }
         
         SNUIKit.themeSettingsChanged(targetTheme, targetPrimaryColor, targetMatchSystemNightModeSetting)
     }
