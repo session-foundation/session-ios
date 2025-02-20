@@ -255,19 +255,9 @@ class SettingsViewModel: SessionTableViewModel, NavigationItemSource, Navigatabl
             elements: [
                 SessionCell.Info(
                     id: .path,
-                    leadingAccessory: .customView(uniqueId: "PathStatusView") { [dependencies] in // stringlint:ignore
-                        // Need to ensure this view is the same size as the icons so
-                        // wrap it in a larger view
-                        let result: UIView = UIView()
-                        let pathView: PathStatusView = PathStatusView(size: .large, using: dependencies)
-                        result.addSubview(pathView)
-                        
-                        result.set(.width, to: IconSize.medium.size)
-                        result.set(.height, to: IconSize.medium.size)
-                        pathView.center(in: result)
-                        
-                        return result
-                    },
+                    leadingAccessory: .custom(
+                        info: PathStatusViewAccessory.Info()
+                    ),
                     title: "onionRoutingPath".localized(),
                     onTap: { [weak self, dependencies] in self?.transitionToScreen(PathVC(using: dependencies)) }
                 ),
@@ -331,7 +321,9 @@ class SettingsViewModel: SessionTableViewModel, NavigationItemSource, Navigatabl
                     ),
                     title: "sessionAppearance".localized(),
                     onTap: { [weak self, dependencies] in
-                        self?.transitionToScreen(AppearanceViewController(using: dependencies))
+                        self?.transitionToScreen(
+                            SessionTableViewController(viewModel: AppearanceViewModel(using: dependencies))
+                        )
                     }
                 ),
                 SessionCell.Info(
