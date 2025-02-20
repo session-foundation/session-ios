@@ -794,8 +794,8 @@ final class CallVC: UIViewController, VideoPreviewDelegate {
                 default:
                     let image = UIImage(named: "Speaker")?.withRenderingMode(.alwaysTemplate)
                     volumeView.setRouteButtonImage(image, for: .normal)
-                    volumeView.themeTintColor = .backgroundSecondary
-                    volumeView.themeBackgroundColor = .textPrimary
+                    volumeView.themeTintColor = .textPrimary
+                    volumeView.themeBackgroundColor = .backgroundPrimary
             }
         }
     }
