@@ -179,7 +179,9 @@ enum _022_GroupsRebuildChanges: Migration {
                 return
             }
             
-            let fileName: String = dependencies[singleton: .displayPictureManager].generateFilename()
+            let fileName: String = dependencies[singleton: .displayPictureManager].generateFilename(
+                format: imageData.guessedImageFormat
+            )
             
             guard let filePath: String = try? dependencies[singleton: .displayPictureManager].filepath(for: fileName) else {
                 Log.error("[GroupsRebuildChanges] Failed to generate community file path for current file name")
@@ -201,7 +203,7 @@ enum _022_GroupsRebuildChanges: Migration {
                     imageData = NULL,
                     displayPictureFilename = '\(fileName)',
                     lastDisplayPictureUpdate = \(timestampMs)
-                WHERE id = '\(threadId)'
+                WHERE threadId = '\(threadId)'
             """)
         }
         

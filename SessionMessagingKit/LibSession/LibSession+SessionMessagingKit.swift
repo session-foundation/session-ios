@@ -357,7 +357,7 @@ public extension LibSession {
                         case .groupMembers(let membersConf) = configStore[sessionId, .groupMembers]
                     else {
                         throw LibSessionError.unableToCreateConfigObject
-                            .logging("Unable to create \(variant.rawValue) config object: Group info and member config states not loaded")
+                            .logging("Unable to create \(variant.rawValue) config object for \(sessionId): Group info and member config states not loaded")
                     }
                     
                     return try groups_keys_init(
@@ -398,7 +398,7 @@ public extension LibSession {
                         case .groupMembers(let membersConf) = configStore[sessionId, .groupMembers]
                     else {
                         throw LibSessionError.unableToCreateConfigObject
-                            .logging("Unable to create \(variant.rawValue) config object: Group info and member config states not loaded")
+                            .logging("Unable to create \(variant.rawValue) config object for \(sessionId): Group info and member config states not loaded")
                     }
                     
                     return try groups_keys_init(

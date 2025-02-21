@@ -177,11 +177,8 @@ public extension Profile {
             
             case (.contactUpdateTo(let url, let key, let fileName), false),
                 (.currentUserUpdateTo(let url, let key, let fileName), true):
-                var avatarNeedsDownload: Bool = false
-                
                 if url != profile.profilePictureUrl {
                     profileChanges.append(Profile.Columns.profilePictureUrl.set(to: url))
-                    avatarNeedsDownload = true
                 }
                 
                 if key != profile.profileEncryptionKey && key.count == DisplayPictureManager.aes256KeyByteLength {
@@ -194,13 +191,33 @@ public extension Profile {
                 }
                 
                 // If we have already downloaded the image then no need to download it again
-                let maybeFilePath: String? = try? dependencies[singleton: .displayPictureManager].filepath(
-                    for: fileName.defaulting(
-                        to: dependencies[singleton: .displayPictureManager].generateFilename(for: url)
-                    )
-                )
+                let fileExistsAtExpectedPath: Bool = {
+                    switch fileName {
+                        case .some(let fileName):
+                            let maybeFilePath: String? = try? dependencies[singleton: .displayPictureManager]
+                                .filepath(for: fileName)
+                            return maybeFilePath
+                                .map { dependencies[singleton: .fileManager].fileExists(atPath: $0) }
+                                .defaulting(to: false)
+                            
+                        case .none:
+                            // If we don't have a fileName then we want to try to check if the path that
+                            // would be generated for the URL exists, we don't know what the file extension
+                            // should be so need to check if there is any file type with this name
+                            let expectedFilename: String = dependencies[singleton: .displayPictureManager]
+                                .generateFilenameWithoutExtension(for: url)
+                            let displayPictureFolderPath: String = dependencies[singleton: .displayPictureManager].sharedDataDisplayPictureDirPath()
+                            let filePaths: [URL] = (try? dependencies[singleton: .fileManager]
+                                .contentsOfDirectory(at: URL(fileURLWithPath: displayPictureFolderPath)))
+                                .defaulting(to: [])
+                            
+                            return filePaths.contains(where: { url -> Bool in
+                                url.deletingLastPathComponent().lastPathComponent == expectedFilename
+                            })
+                    }
+                }()
                 
-                if avatarNeedsDownload, let filePath: String = maybeFilePath, !dependencies[singleton: .fileManager].fileExists(atPath: filePath) {
+                if !fileExistsAtExpectedPath {
                     dependencies[singleton: .jobRunner].add(
                         db,
                         job: Job(

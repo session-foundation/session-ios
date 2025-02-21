@@ -59,12 +59,12 @@ public enum DisplayPictureDownloadJob: JobExecutor {
             }()
         else { return failure(job, JobRunnerError.missingRequiredDetails, true) }
             
-        let fileName: String = dependencies[singleton: .displayPictureManager].generateFilename(
+        let fileName: String = dependencies[singleton: .displayPictureManager].generateFilenameWithoutExtension(
             for: (preparedDownload.destination.url?.absoluteString)
                 .defaulting(to: preparedDownload.destination.urlPathAndParamsString)
         )
         
-        guard let filePath: String = try? dependencies[singleton: .displayPictureManager].filepath(for: fileName) else {
+        guard let filePathNoExtension: String = try? dependencies[singleton: .displayPictureManager].filepath(for: fileName) else {
             Log.error(.cat, "Failed to generate display picture file path for \(details.target)")
             failure(job, DisplayPictureError.invalidFilename, true)
             return
@@ -104,10 +104,17 @@ public enum DisplayPictureDownloadJob: JobExecutor {
                     }
                     
                     // Ensure the data is actually image data and then save it to disk
+                    let fileExtension: String = (preparedDownload.destination.url?.pathExtension
+                        .nullIfEmpty)
+                        .defaulting(to: decryptedData.guessedImageFormat.fileExtension)
+                    let finalFileUrl: URL = URL(fileURLWithPath: filePathNoExtension)
+                        .appendingPathExtension(fileExtension)
+                    let finalFileName: String = finalFileUrl.lastPathComponent
+                    
                     guard
                         UIImage(data: decryptedData) != nil,
                         dependencies[singleton: .fileManager].createFile(
-                            atPath: filePath,
+                            atPath: finalFileUrl.path,
                             contents: decryptedData
                         )
                     else {
@@ -119,7 +126,7 @@ public enum DisplayPictureDownloadJob: JobExecutor {
                     // Update the cache first (in case the DBWrite thread is blocked, this way other threads
                     // can retrieve from the cache and avoid triggering a download)
                     dependencies.mutate(cache: .displayPicture) { cache in
-                        cache.imageData[fileName] = decryptedData
+                        cache.imageData[finalFileName] = decryptedData
                     }
                     
                     // Store the updated information in the database
@@ -132,7 +139,7 @@ public enum DisplayPictureDownloadJob: JobExecutor {
                                         db,
                                         Profile.Columns.profilePictureUrl.set(to: url),
                                         Profile.Columns.profileEncryptionKey.set(to: encryptionKey),
-                                        Profile.Columns.profilePictureFileName.set(to: fileName),
+                                        Profile.Columns.profilePictureFileName.set(to: finalFileName),
                                         Profile.Columns.lastProfilePictureUpdate.set(to: details.timestamp),
                                         using: dependencies
                                     )
@@ -144,7 +151,7 @@ public enum DisplayPictureDownloadJob: JobExecutor {
                                         db,
                                         ClosedGroup.Columns.displayPictureUrl.set(to: url),
                                         ClosedGroup.Columns.displayPictureEncryptionKey.set(to: encryptionKey),
-                                        ClosedGroup.Columns.displayPictureFilename.set(to: fileName),
+                                        ClosedGroup.Columns.displayPictureFilename.set(to: finalFileName),
                                         ClosedGroup.Columns.lastDisplayPictureUpdate.set(to: details.timestamp),
                                         using: dependencies
                                     )
@@ -154,7 +161,7 @@ public enum DisplayPictureDownloadJob: JobExecutor {
                                     .filter(id: OpenGroup.idFor(roomToken: roomToken, server: server))
                                     .updateAllAndConfig(
                                         db,
-                                        OpenGroup.Columns.displayPictureFilename.set(to: fileName),
+                                        OpenGroup.Columns.displayPictureFilename.set(to: finalFileName),
                                         OpenGroup.Columns.lastDisplayPictureUpdate.set(to: details.timestamp),
                                         using: dependencies
                                     )

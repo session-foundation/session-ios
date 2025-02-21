@@ -22,11 +22,15 @@ local clone_submodules = {
 // cmake options for static deps mirror
 local ci_dep_mirror(want_mirror) = (if want_mirror then ' -DLOCAL_MIRROR=https://oxen.rocks/deps ' else '');
 
-local boot_simulator(device_type) = {
+local boot_simulator(device_type="") = {
   name: 'Boot Test Simulator',
   commands: [
     'devname="Test-iPhone-${DRONE_COMMIT:0:9}-${DRONE_BUILD_EVENT}"',
-    'xcrun simctl create "$devname" ' + device_type,
+    (if device_type != "" then
+       'xcrun simctl create "$devname" ' + device_type
+     else
+       'xcrun simctl create "$devname" "$(xcrun simctl list runtimes | grep -Eo \'com\\.apple\\.CoreSimulator\\.SimRuntime\\.iOS-[0-9]+(-[0-9]+)*\' | sort -V | tail -1)"'
+    ),
     'sim_uuid=$(xcrun simctl list devices -je | jq -re \'[.devices[][] | select(.name == "\'$devname\'").udid][0]\')',
     'xcrun simctl boot $sim_uuid',
 
@@ -58,7 +62,7 @@ local sim_delete_cmd = 'if [ -f build/artifacts/sim_uuid ]; then rm -f /Users/$U
       version_info,
       clone_submodules,
 
-      boot_simulator('com.apple.CoreSimulator.SimDeviceType.iPhone-15'),
+      boot_simulator(),
       sim_keepalive,
       {
         name: 'Build and Run Tests',

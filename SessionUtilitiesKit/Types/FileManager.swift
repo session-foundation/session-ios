@@ -45,6 +45,7 @@ public protocol FileManagerType {
     func fileExists(atPath: String) -> Bool
     func fileExists(atPath: String, isDirectory: UnsafeMutablePointer<ObjCBool>?) -> Bool
     func contents(atPath: String) -> Data?
+    func contentsOfDirectory(at url: URL) throws -> [URL]
     func contentsOfDirectory(atPath path: String) throws -> [String]
     
     func createFile(atPath: String, contents: Data?, attributes: [FileAttributeKey: Any]?) -> Bool
@@ -278,6 +279,10 @@ public class SessionFileManager: FileManagerType {
     
     public func contents(atPath: String) -> Data? {
         return fileManager.contents(atPath: atPath)
+    }
+    
+    public func contentsOfDirectory(at url: URL) throws -> [URL] {
+        return try fileManager.contentsOfDirectory(at: url, includingPropertiesForKeys: nil)
     }
     
     public func contentsOfDirectory(atPath path: String) throws -> [String] {

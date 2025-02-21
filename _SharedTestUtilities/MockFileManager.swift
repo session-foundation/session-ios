@@ -54,6 +54,7 @@ class MockFileManager: Mock<FileManagerType>, FileManagerType {
     }
     
     func contents(atPath: String) -> Data? { return mock(args: [atPath]) }
+    func contentsOfDirectory(at url: URL) throws -> [URL] { return mock(args: [url]) }
     func contentsOfDirectory(atPath path: String) throws -> [String] { return mock(args: [path]) }
     
     func createFile(atPath: String, contents: Data?, attributes: [FileAttributeKey : Any]?) -> Bool {

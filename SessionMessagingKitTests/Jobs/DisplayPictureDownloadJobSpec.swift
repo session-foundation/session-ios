@@ -683,7 +683,7 @@ class DisplayPictureDownloadJobSpec: QuickSpec {
                     expect(mockFileManager)
                         .to(call(.exactly(times: 1), matchingParameters: .all) { mockFileManager in
                             mockFileManager.createFile(
-                                atPath: "/test/ProfileAvatars/\(filenameHash).jpg",
+                                atPath: "/test/ProfileAvatars/\(filenameHash).png",
                                 contents: imageData,
                                 attributes: nil
                             )
@@ -694,7 +694,7 @@ class DisplayPictureDownloadJobSpec: QuickSpec {
                 it("adds the image data to the displayPicture cache") {
                     expect(mockDisplayPictureCache)
                         .to(call(.exactly(times: 1), matchingParameters: .all) {
-                            $0.imageData = ["\(filenameHash).jpg": imageData]
+                            $0.imageData = ["\(filenameHash).png": imageData]
                         })
                 }
                 
@@ -815,7 +815,7 @@ class DisplayPictureDownloadJobSpec: QuickSpec {
                                         id: "1234",
                                         name: "test",
                                         profilePictureUrl: "http://oxen.io/100/",
-                                        profilePictureFileName: "\(filenameHash).jpg",
+                                        profilePictureFileName: "\(filenameHash).png",
                                         profileEncryptionKey: encryptionKey,
                                         lastProfilePictureUpdate: 1234567891
                                     )
@@ -843,13 +843,13 @@ class DisplayPictureDownloadJobSpec: QuickSpec {
                                 })
                             expect(mockFileManager).to(call(.exactly(times: 1), matchingParameters: .all) {
                                 $0.createFile(
-                                    atPath: "/test/ProfileAvatars/\(filenameHash).jpg",
+                                    atPath: "/test/ProfileAvatars/\(filenameHash).png",
                                     contents: imageData,
                                     attributes: nil
                                 )
                             })
                             expect(mockDisplayPictureCache).to(call(.exactly(times: 1), matchingParameters: .all) {
-                                $0.imageData = ["\(filenameHash).jpg": imageData]
+                                $0.imageData = ["\(filenameHash).png": imageData]
                             })
                             expect(mockStorage.read { db in try Profile.fetchOne(db) })
                                 .to(equal(
@@ -857,7 +857,7 @@ class DisplayPictureDownloadJobSpec: QuickSpec {
                                         id: "1234",
                                         name: "test",
                                         profilePictureUrl: "http://oxen.io/100/",
-                                        profilePictureFileName: "\(filenameHash).jpg",
+                                        profilePictureFileName: "\(filenameHash).png",
                                         profileEncryptionKey: encryptionKey,
                                         lastProfilePictureUpdate: 1234567891
                                     )
@@ -873,7 +873,7 @@ class DisplayPictureDownloadJobSpec: QuickSpec {
                                     id: "1234",
                                     name: "test",
                                     profilePictureUrl: "http://oxen.io/100/",
-                                    profilePictureFileName: "\(filenameHash).jpg",
+                                    profilePictureFileName: "\(filenameHash).png",
                                     profileEncryptionKey: encryptionKey,
                                     lastProfilePictureUpdate: 1234567891
                                 )
@@ -1049,13 +1049,13 @@ class DisplayPictureDownloadJobSpec: QuickSpec {
                                 })
                             expect(mockFileManager).to(call(.exactly(times: 1), matchingParameters: .all) {
                                 $0.createFile(
-                                    atPath: "/test/ProfileAvatars/\(filenameHash).jpg",
+                                    atPath: "/test/ProfileAvatars/\(filenameHash).png",
                                     contents: imageData,
                                     attributes: nil
                                 )
                             })
                             expect(mockDisplayPictureCache).to(call(.exactly(times: 1), matchingParameters: .all) {
-                                $0.imageData = ["\(filenameHash).jpg": imageData]
+                                $0.imageData = ["\(filenameHash).png": imageData]
                             })
                             expect(mockStorage.read { db in try ClosedGroup.fetchOne(db) })
                                 .to(equal(
@@ -1065,7 +1065,7 @@ class DisplayPictureDownloadJobSpec: QuickSpec {
                                         groupDescription: nil,
                                         formationTimestamp: 1234567890,
                                         displayPictureUrl: "http://oxen.io/100/",
-                                        displayPictureFilename: "\(filenameHash).jpg",
+                                        displayPictureFilename: "\(filenameHash).png",
                                         displayPictureEncryptionKey: encryptionKey,
                                         lastDisplayPictureUpdate: 1234567891,
                                         shouldPoll: true,
@@ -1087,7 +1087,7 @@ class DisplayPictureDownloadJobSpec: QuickSpec {
                                     groupDescription: nil,
                                     formationTimestamp: 1234567890,
                                     displayPictureUrl: "http://oxen.io/100/",
-                                    displayPictureFilename: "\(filenameHash).jpg",
+                                    displayPictureFilename: "\(filenameHash).png",
                                     displayPictureEncryptionKey: encryptionKey,
                                     lastDisplayPictureUpdate: 1234567891,
                                     shouldPoll: true,
@@ -1191,7 +1191,7 @@ class DisplayPictureDownloadJobSpec: QuickSpec {
                                         imageId: "100",
                                         userCount: 1,
                                         infoUpdates: 1,
-                                        displayPictureFilename: "\(filenameHash).jpg",
+                                        displayPictureFilename: "\(filenameHash).png",
                                         lastDisplayPictureUpdate: 1234567891
                                     )
                                 ))
@@ -1215,13 +1215,13 @@ class DisplayPictureDownloadJobSpec: QuickSpec {
                         it("saves the picture") {
                             expect(mockFileManager).to(call(.exactly(times: 1), matchingParameters: .all) {
                                 $0.createFile(
-                                    atPath: "/test/ProfileAvatars/\(filenameHash).jpg",
+                                    atPath: "/test/ProfileAvatars/\(filenameHash).png",
                                     contents: imageData,
                                     attributes: nil
                                 )
                             })
                             expect(mockDisplayPictureCache).to(call(.exactly(times: 1), matchingParameters: .all) {
-                                $0.imageData = ["\(filenameHash).jpg": imageData]
+                                $0.imageData = ["\(filenameHash).png": imageData]
                             })
                             expect(mockStorage.read { db in try OpenGroup.fetchOne(db) })
                                 .to(equal(
@@ -1234,7 +1234,7 @@ class DisplayPictureDownloadJobSpec: QuickSpec {
                                         imageId: "100",
                                         userCount: 1,
                                         infoUpdates: 1,
-                                        displayPictureFilename: "\(filenameHash).jpg",
+                                        displayPictureFilename: "\(filenameHash).png",
                                         lastDisplayPictureUpdate: 1234567891
                                     )
                                 ))
@@ -1254,7 +1254,7 @@ class DisplayPictureDownloadJobSpec: QuickSpec {
                                     imageId: "100",
                                     userCount: 1,
                                     infoUpdates: 1,
-                                    displayPictureFilename: "\(filenameHash).jpg",
+                                    displayPictureFilename: "\(filenameHash).png",
                                     lastDisplayPictureUpdate: 1234567891
                                 )
                             ))

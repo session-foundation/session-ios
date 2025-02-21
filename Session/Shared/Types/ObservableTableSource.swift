@@ -103,14 +103,21 @@ public struct TableObservation<T> {
                         
                         return convertedData
                     }
+                    /// Ignore outputs if the data hasn't changed from the current `tableData` value to avoid needlessly
+                    /// reloading table data
+                    .filter { [weak source] data in data != source?.state.tableData }
                     .eraseToAnyPublisher()
                 
             case (let validObservation as S.TargetObservation, _):
-                // Doing `removeDuplicates` in case the conversion from the original data to [SectionModel]
-                // can result in duplicate output even with some different inputs
+                /// Doing `removeDuplicates` in case the conversion from the original data to `[SectionModel]`
+                /// can result in duplicate output even with some different inputs
                 return validObservation.generatePublisher(source, dependencies)
                     .removeDuplicates()
                     .mapToSessionTableViewData(for: source)
+                    /// Ignore outputs if the data hasn't changed from the current `tableData` value to avoid needlessly
+                    /// reloading table data
+                    .filter { [weak source] data in data != source?.state.tableData }
+                    .eraseToAnyPublisher()
                 
             default: return Fail(error: StorageError.invalidData).eraseToAnyPublisher()
         }
@@ -214,7 +221,7 @@ public enum ObservationBuilder {
                     }
                 )
                 .manualRefreshFrom(source.observableState.forcedPostQueryRefresh)
-                .shareReplay(1) // Share to prevent multiple subscribers resulting in multiple ValueObservations
+                .shareReplay(1) /// Share to prevent multiple subscribers resulting in multiple ValueObservations
                 .eraseToAnyPublisher()
         }
     }
@@ -270,7 +277,7 @@ public enum ObservationBuilder {
                     }
                 )
                 .manualRefreshFrom(source.observableState.forcedPostQueryRefresh)
-                .shareReplay(1) // Share to prevent multiple subscribers resulting in multiple ValueObservations
+                .shareReplay(1) /// Share to prevent multiple subscribers resulting in multiple ValueObservations
                 .eraseToAnyPublisher()
         }
     }

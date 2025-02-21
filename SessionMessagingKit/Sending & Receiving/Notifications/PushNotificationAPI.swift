@@ -498,10 +498,7 @@ public enum PushNotificationAPI {
         
         // If the metadata says that the message was too large then we should show the generic
         // notification (this is a valid case)
-        guard !notification.info.dataTooLong else {
-            SNLog("Ignoring notification due to data being too long")
-            return (nil, notification.info, .successTooLong)
-        }
+        guard !notification.info.dataTooLong else { return (nil, notification.info, .successTooLong) }
         
         // Check that the body we were given is valid and not empty
         guard

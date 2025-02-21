@@ -153,20 +153,21 @@ public class DisplayPictureManager {
         return maybeFileName.map { try? filepath(for: $0) }
     }
     
-    public func generateFilename(for url: String) -> String {
+    /// **Note:** Generally the url we get won't have an extension and we don't want to make assumptions until we have the actual
+    /// image data so generate a name for the file and then determine the extension separately
+    public func generateFilenameWithoutExtension(for url: String) -> String {
         return (dependencies[singleton: .crypto]
             .generate(.hash(message: url.bytes))?
             .toHexString())
             .defaulting(to: UUID().uuidString)
-            .appendingFileExtension("jpg")  // stringlint:ignore
     }
     
-    public func generateFilename() -> String {
+    public func generateFilename(format: ImageFormat = .jpeg) -> String {
         return dependencies[singleton: .crypto]
             .generate(.uuid())
             .defaulting(to: UUID())
             .uuidString
-            .appendingFileExtension("jpg")  // stringlint:ignore
+            .appendingFileExtension(format.fileExtension)
     }
     
     public func filepath(for filename: String) throws -> String {

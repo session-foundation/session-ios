@@ -24,6 +24,7 @@ public enum MessageReceiverError: LocalizedError {
     case invalidConfigMessageHandling
     case requiredThreadNotInConfig
     case outdatedMessage
+    case ignorableMessage
     case duplicatedCall
     case missingRequiredAdminPrivileges
     case deprecatedMessage
@@ -34,7 +35,7 @@ public enum MessageReceiverError: LocalizedError {
                 .invalidMessage, .unknownMessage, .unknownEnvelopeType, .invalidSignature,
                 .noData, .senderBlocked, .noThread, .selfSend, .decryptionFailed,
                 .invalidConfigMessageHandling, .requiredThreadNotInConfig,
-                .outdatedMessage, .missingRequiredAdminPrivileges:
+                .outdatedMessage, .ignorableMessage, .missingRequiredAdminPrivileges:
                 return false
                 
             default: return true
@@ -78,6 +79,7 @@ public enum MessageReceiverError: LocalizedError {
             case .invalidConfigMessageHandling: return "Invalid handling of a config message."
             case .requiredThreadNotInConfig: return "Required thread not in config."
             case .outdatedMessage: return "Message was sent before a config change which would have removed the message."
+            case .ignorableMessage: return "Message should be ignored."
             case .duplicatedCall: return "Duplicate call."
             case .missingRequiredAdminPrivileges: return "Handling this message requires admin privileges which the current user does not have."
             case .deprecatedMessage: return "This message type has been deprecated."
