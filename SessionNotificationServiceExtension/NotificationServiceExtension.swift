@@ -82,23 +82,30 @@ public final class NotificationServiceExtension: UNNotificationServiceExtension 
             (result == .success || result == .legacySuccess),
             let data: Data = maybeData
         else {
-            switch result {
+            switch (result, metadata.namespace.isConfigNamespace) {
                 // If we got an explicit failure, or we got a success but no content then show
                 // the fallback notification
-                case .success, .legacySuccess, .failure:
+                case (.success, false), (.legacySuccess, false), (.failure, false):
                     return self.handleFailure(
                         for: notificationContent,
                         metadata: metadata,
+                        threadVariant: nil,
+                        threadDisplayName: nil,
                         resolution: .errorProcessing(result),
                         runId: runId
                     )
-                    
+                
+                case (.success, _), (.legacySuccess, _), (.failure, _):
+                    return self.completeSilenty(.errorProcessing(result), runId: runId)
+                
                 // Just log if the notification was too long (a ~2k message should be able to fit so
                 // these will most commonly be call or config messages)
-                case .successTooLong: return self.completeSilenty(.ignoreDueToContentSize(metadata), runId: runId)
-                case .failureNoContent: return self.completeSilenty(.errorNoContent(metadata), runId: runId)
-                case .legacyFailure: return self.completeSilenty(.errorNoContentLegacy, runId: runId)
-                case .legacyForceSilent:
+                case (.successTooLong, _):
+                    return self.completeSilenty(.ignoreDueToContentSize(metadata), runId: runId)
+                
+                case (.failureNoContent, _): return self.completeSilenty(.errorNoContent(metadata), runId: runId)
+                case (.legacyFailure, _): return self.completeSilenty(.errorNoContentLegacy, runId: runId)
+                case (.legacyForceSilent, _):
                     return self.completeSilenty(.ignoreDueToNonLegacyGroupLegacyNotification, runId: runId)
             }
         }
@@ -119,6 +126,9 @@ public final class NotificationServiceExtension: UNNotificationServiceExtension 
         // where the completeSilenty() is called before the local notification request
         // is added to notification center
         dependencies[singleton: .storage].write { [weak self, dependencies] db in
+            var processedThreadVariant: SessionThread.Variant?
+            var threadDisplayName: String?
+            
             do {
                 let processedMessage: ProcessedMessage = try Message.processRawReceivedMessageAsNotification(
                     db,
@@ -148,6 +158,8 @@ public final class NotificationServiceExtension: UNNotificationServiceExtension 
                     /// Due to the way the `CallMessage` works we need to custom handle it's behaviour within the notification
                     /// extension, for all other message types we want to just use the standard `MessageReceiver.handle` call
                     case .standard(let threadId, let threadVariant, _, let messageInfo) where messageInfo.message is CallMessage:
+                        processedThreadVariant = threadVariant
+                        
                         guard let callMessage = messageInfo.message as? CallMessage else {
                             throw MessageReceiverError.ignorableMessage
                         }
@@ -241,6 +253,32 @@ public final class NotificationServiceExtension: UNNotificationServiceExtension 
                         )
                         
                     case .standard(let threadId, let threadVariant, let proto, let messageInfo):
+                        processedThreadVariant = threadVariant
+                        threadDisplayName = SessionThread.displayName(
+                            threadId: threadId,
+                            variant: threadVariant,
+                            closedGroupName: (threadVariant != .group && threadVariant != .legacyGroup ? nil :
+                                try? ClosedGroup
+                                    .select(.name)
+                                    .filter(id: threadId)
+                                    .asRequest(of: String.self)
+                                    .fetchOne(db)
+                            ),
+                            openGroupName: (threadVariant != .community ? nil :
+                                try? OpenGroup
+                                    .select(.name)
+                                    .filter(id: threadId)
+                                    .asRequest(of: String.self)
+                                    .fetchOne(db)
+                            ),
+                            isNoteToSelf: (threadId == dependencies[cache: .general].sessionId.hexString),
+                            profile: (threadVariant != .contact ? nil :
+                                try? Profile
+                                    .filter(id: threadId)
+                                    .fetchOne(db)
+                            )
+                        )
+                        
                         try MessageReceiver.handle(
                             db,
                             threadId: threadId,
@@ -288,6 +326,8 @@ public final class NotificationServiceExtension: UNNotificationServiceExtension 
                                 self?.handleFailure(
                                     for: notificationContent,
                                     metadata: metadata,
+                                    threadVariant: processedThreadVariant,
+                                    threadDisplayName: threadDisplayName,
                                     resolution: .errorMessageHandling(msgError),
                                     runId: runId
                                 )
@@ -296,6 +336,8 @@ public final class NotificationServiceExtension: UNNotificationServiceExtension 
                                 self?.handleFailure(
                                     for: notificationContent,
                                     metadata: metadata,
+                                    threadVariant: processedThreadVariant,
+                                    threadDisplayName: threadDisplayName,
                                     resolution: .errorOther(error),
                                     runId: runId
                                 )
@@ -492,6 +534,8 @@ public final class NotificationServiceExtension: UNNotificationServiceExtension 
     private func handleFailure(
         for content: UNMutableNotificationContent,
         metadata: PushNotificationAPI.NotificationMetadata,
+        threadVariant: SessionThread.Variant?,
+        threadDisplayName: String?,
         resolution: NotificationResolution,
         runId: String
     ) {
@@ -504,11 +548,27 @@ public final class NotificationServiceExtension: UNNotificationServiceExtension 
         }
         
         content.title = Constants.app_name
-        content.body = "messageNewYouveGot"
-            .putNumber(1)
-            .localized()
-        let userInfo: [String: Any] = [ NotificationServiceExtension.isFromRemoteKey: true ]
-        content.userInfo = userInfo
+        content.userInfo = [ NotificationServiceExtension.isFromRemoteKey: true ]
+        
+        /// If it's a notification for a group conversation, the notification preferences are right and we have a name for the group
+        /// then we should include it in the notification content
+        let previewType: Preferences.NotificationPreviewType = dependencies[singleton: .storage, key: .preferencesNotificationPreviewType]
+            .defaulting(to: .nameAndPreview)
+        
+        switch (threadVariant, previewType, threadDisplayName) {
+            case (.group, .nameAndPreview, .some(let name)), (.group, .nameNoPreview, .some(let name)),
+                (.legacyGroup, .nameAndPreview, .some(let name)), (.legacyGroup, .nameNoPreview, .some(let name)):
+                content.body = "messageNewYouveGotGroup"
+                    .putNumber(1)
+                    .put(key: "group_name", value: name)
+                    .localized()
+                
+            default:
+                content.body = "messageNewYouveGot"
+                    .putNumber(1)
+                    .localized()
+        }
+        
         contentHandler!(content)
         hasCompleted = true
     }
