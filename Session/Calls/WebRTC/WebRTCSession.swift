@@ -12,6 +12,7 @@ public protocol WebRTCSessionDelegate: AnyObject {
     
     func webRTCIsConnected()
     func isRemoteVideoDidChange(isEnabled: Bool)
+    func sendingIceCandidates()
     func iceCandidateDidSend()
     func iceCandidateDidReceive()
     func dataChannelDidOpen()
@@ -300,6 +301,7 @@ public final class WebRTCSession : NSObject, RTCPeerConnectionDelegate {
     }
     
     private func sendICECandidates() {
+        self.delegate?.sendingIceCandidates()
         let candidates: [RTCIceCandidate] = self.queuedICECandidates
         let uuid: String = self.uuid
         let contactSessionId: String = self.contactSessionId
