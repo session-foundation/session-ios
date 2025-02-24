@@ -461,13 +461,15 @@ public final class WebRTCSession : NSObject, RTCPeerConnectionDelegate {
 }
 
 extension WebRTCSession {
-    public func configureAudioSession(outputAudioPort: AVAudioSession.PortOverride = .none) {
+    public func configureAudioSession() {
         let audioSession = RTCAudioSession.sharedInstance()
         audioSession.lockForConfiguration()
         do {
-            try audioSession.setCategory(AVAudioSession.Category.playAndRecord)
-            try audioSession.setMode(AVAudioSession.Mode.voiceChat)
-            try audioSession.overrideOutputAudioPort(outputAudioPort)
+            try audioSession.setCategory(
+                .playAndRecord,
+                mode: .videoChat,
+                options: [.allowBluetooth, .allowBluetoothA2DP]
+            )
             try audioSession.setActive(true)
         } catch let error {
             SNLog("Couldn't set up WebRTC audio session due to error: \(error)")
