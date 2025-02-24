@@ -4,6 +4,10 @@ import UIKit
 import SessionUIKit
 
 public class BaseVC: UIViewController {
+    public var onViewWillAppear: ((UIViewController) -> Void)?
+    public var onViewWillDisappear: ((UIViewController) -> Void)?
+    public var onViewDidDisappear: ((UIViewController) -> Void)?
+    
     public override var preferredStatusBarStyle: UIStatusBarStyle {
         return ThemeManager.currentTheme.statusBarStyle
     }
@@ -37,6 +41,24 @@ public class BaseVC: UIViewController {
         
         setNeedsStatusBarAppearanceUpdate()
     }
+    
+    public override func viewWillAppear(_ animated: Bool) {
+        super.viewWillAppear(animated)
+        
+        onViewWillAppear?(self)
+    }
+    
+    public override func viewWillDisappear(_ animated: Bool) {
+        super.viewWillDisappear(animated)
+        
+        onViewWillDisappear?(self)
+    }
+    
+    public override func viewDidDisappear(_ animated: Bool) {
+        super.viewDidDisappear(animated)
+        
+        onViewDidDisappear?(self)
+    }
 
     internal func setNavBarTitle(_ title: String, customFontSize: CGFloat? = nil) {
         let container = UIView()
@@ -68,15 +90,5 @@ public class BaseVC: UIViewController {
         headingImageView.set(.height, to: Values.mediumFontSize)
         
         navigationItem.titleView = headingImageView
-    }
-
-    internal func setUpNavBarSessionIcon() {
-        let logoImageView = UIImageView()
-        logoImageView.image = #imageLiteral(resourceName: "SessionGreen32")
-        logoImageView.contentMode = .scaleAspectFit
-        logoImageView.set(.width, to: 32)
-        logoImageView.set(.height, to: 32)
-        
-        navigationItem.titleView = logoImageView
     }
 }

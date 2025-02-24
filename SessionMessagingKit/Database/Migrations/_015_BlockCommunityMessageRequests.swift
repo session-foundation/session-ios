@@ -8,40 +8,70 @@ import SessionUtilitiesKit
 enum _015_BlockCommunityMessageRequests: Migration {
     static let target: TargetMigrations.Identifier = .messagingKit
     static let identifier: String = "BlockCommunityMessageRequests"
-    static let needsConfigSync: Bool = false
     static let minExpectedRunDuration: TimeInterval = 0.01
-    static var requirements: [MigrationRequirement] = [.libSessionStateLoaded]
-    static let fetchedTables: [(TableRecord & FetchableRecord).Type] = [
-        Identity.self, Setting.self
-    ]
-    static let createdOrAlteredTables: [(TableRecord & FetchableRecord).Type] = [Profile.self]
-    static let droppedTables: [(TableRecord & FetchableRecord).Type] = []
+    static let createdTables: [(TableRecord & FetchableRecord).Type] = []
     
     static func migrate(_ db: Database, using dependencies: Dependencies) throws {
         // Add the new 'Profile' properties
-        try db.alter(table: Profile.self) { t in
-            t.add(.blocksCommunityMessageRequests, .boolean)
-            t.add(.lastBlocksCommunityMessageRequests, .integer).defaults(to: 0)
+        try db.alter(table: "profile") { t in
+            t.add(column: "blocksCommunityMessageRequests", .boolean)
+            t.add(column: "lastBlocksCommunityMessageRequests", .integer).defaults(to: 0)
         }
         
         // If the user exists and the 'checkForCommunityMessageRequests' hasn't already been set then default it to "false"
         if
-            Identity.userExists(db),
-            (try Setting.exists(db, id: Setting.BoolKey.checkForCommunityMessageRequests.rawValue)) == false
+            MigrationHelper.userExists(db),
+            let numSettings: Int = try? Int.fetchOne(
+                db,
+                sql: "SELECT COUNT(*) FROM setting WHERE key == 'checkForCommunityMessageRequests'"
+            ),
+            numSettings == 0,
+            let userEd25519SecretKey: Data = MigrationHelper.fetchIdentityValue(db, key: "ed25519SecretKey")
         {
-            let rawBlindedMessageRequestValue: Int32 = try dependencies.caches[.libSession]
-                .config(for: .userProfile, publicKey: getUserHexEncodedPublicKey(db))
-                .wrappedValue
-                .map { conf -> Int32 in try LibSession.rawBlindedMessageRequestValue(in: conf) }
-                .defaulting(to: -1)
+            let userSessionId: SessionId = MigrationHelper.userSessionId(db)
+            let cache: LibSession.Cache = LibSession.Cache(userSessionId: userSessionId, using: dependencies)
+            let configDump: Data? = try? Data.fetchOne(
+                db,
+                sql: """
+                    SELECT data
+                    FROM configDump
+                    WHERE (
+                        variant = 'userProfile' AND
+                        publicKey = ?
+                    )
+                """,
+                arguments: [userSessionId.hexString]
+            )
+            let userProfileConfig: LibSession.Config = try cache.loadState(
+                for: .userProfile,
+                sessionId: userSessionId,
+                userEd25519SecretKey: Array(userEd25519SecretKey),
+                groupEd25519SecretKey: nil,
+                cachedData: configDump
+            )
+            
+            let rawBlindedMessageRequestValue: Int32 = try LibSession.rawBlindedMessageRequestValue(in: userProfileConfig)
             
             // Use the value in the config if we happen to have one, otherwise use the default
-            db[.checkForCommunityMessageRequests] = (rawBlindedMessageRequestValue < 0 ?
+            try db.execute(sql: """
+                DELETE FROM setting
+                WHERE key = 'checkForCommunityMessageRequests'
+            """)
+            
+            var targetValue: Bool = (rawBlindedMessageRequestValue < 0 ?
                 true :
                 (rawBlindedMessageRequestValue > 0)
             )
+            let boolAsData: Data = withUnsafeBytes(of: &targetValue) { Data($0) }
+            try db.execute(
+                sql: """
+                    INSERT INTO setting (key, value)
+                    VALUES ('checkForCommunityMessageRequests', ?)
+                """,
+                arguments: [boolAsData]
+            )
         }
         
-        Storage.update(progress: 1, for: self, in: target) // In case this is the last migration
+        Storage.update(progress: 1, for: self, in: target, using: dependencies)
     }
 }

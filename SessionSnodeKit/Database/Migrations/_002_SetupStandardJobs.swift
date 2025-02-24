@@ -9,29 +9,29 @@ import SessionUtilitiesKit
 enum _002_SetupStandardJobs: Migration {
     static let target: TargetMigrations.Identifier = .snodeKit
     static let identifier: String = "SetupStandardJobs"
-    static let needsConfigSync: Bool = false
     static let minExpectedRunDuration: TimeInterval = 0.1
-    static let fetchedTables: [(TableRecord & FetchableRecord).Type] = []
-    static let createdOrAlteredTables: [(TableRecord & FetchableRecord).Type] = []
-    static let droppedTables: [(TableRecord & FetchableRecord).Type] = []
+    static let createdTables: [(TableRecord & FetchableRecord).Type] = []
     
     static func migrate(_ db: Database, using dependencies: Dependencies) throws {
-        try autoreleasepool {
-            _ = try Job(
-                variant: ._legacy_getSnodePool,
-                behaviour: .recurringOnLaunch,
-                shouldBlock: true
-            ).migrationSafeInserted(db)
-            
-            // Note: We also want this job to run both onLaunch and onActive as we want it to block
-            // 'onLaunch' and 'onActive' doesn't support blocking jobs
-            _ = try Job(
-                variant: ._legacy_getSnodePool,
-                behaviour: .recurringOnActive,
-                shouldSkipLaunchBecomeActive: true
-            ).migrationSafeInserted(db)
-        }
+        // Note: We also want this job to run both onLaunch and onActive as we want it to block
+        // 'onLaunch' and 'onActive' doesn't support blocking jobs
+        try db.execute(sql: """
+            INSERT INTO job (variant, behaviour, shouldBlock, shouldSkipLaunchBecomeActive)
+            VALUES
+                (
+                    \(Job.Variant._legacy_getSnodePool.rawValue),
+                    \(Job.Behaviour.recurringOnLaunch.rawValue),
+                    true,
+                    false
+                ),
+                (
+                    \(Job.Variant._legacy_getSnodePool.rawValue),
+                    \(Job.Behaviour.recurringOnActive.rawValue),
+                    false,
+                    true
+                )
+        """)
         
-        Storage.update(progress: 1, for: self, in: target) // In case this is the last migration
+        Storage.update(progress: 1, for: self, in: target, using: dependencies)
     }
 }

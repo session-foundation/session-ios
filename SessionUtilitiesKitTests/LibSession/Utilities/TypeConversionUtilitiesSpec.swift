@@ -165,7 +165,7 @@ class TypeConversionUtilitiesSpec: QuickSpec {
                 
                 // MARK: ---- returns an empty string when null and not set to return null
                 it("returns an empty string when null and not set to return null") {
-                    var test: TestClass = TestClass()
+                    let test: TestClass = TestClass()
                     let result: String? = test.get(\.testString, nullIfEmpty: false)
                     
                     expect(result).to(equal(""))
@@ -173,7 +173,7 @@ class TypeConversionUtilitiesSpec: QuickSpec {
                 
                 // MARK: ---- returns null when specified and empty
                 it("returns null when specified and empty") {
-                    var test: TestClass = TestClass()
+                    let test: TestClass = TestClass()
                     let result: String? = test.get(\.testString, nullIfEmpty: true)
                     
                     expect(result).to(beNil())
@@ -181,7 +181,7 @@ class TypeConversionUtilitiesSpec: QuickSpec {
                 
                 // MARK: ---- defaults the null if empty flag to false
                 it("defaults the null if empty flag to false") {
-                    var test: TestClass = TestClass()
+                    let test: TestClass = TestClass()
                     let result: String? = test.get(\.testString)
                     
                     expect(result).to(equal(""))

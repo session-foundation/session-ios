@@ -424,8 +424,6 @@ public class ImageEditorCanvasView: UIView {
                 forwardVector = point.subtracting(previousPoint)
             } else {
                 // Middle samples.
-                let previousPoint = points[index - 1]
-                let previousPointForwardVector = point.subtracting(previousPoint)
                 let nextPoint = points[index + 1]
                 let nextPointForwardVector = nextPoint.subtracting(point)
                 forwardVector = previousForwardVector

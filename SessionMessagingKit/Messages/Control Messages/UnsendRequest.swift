@@ -17,8 +17,8 @@ public final class UnsendRequest: ControlMessage {
     
     // MARK: - Validation
     
-    public override var isValid: Bool {
-        guard super.isValid else { return false }
+    public override func isValid(isSending: Bool) -> Bool {
+        guard super.isValid(isSending: isSending) else { return false }
         
         return timestamp != nil && author != nil
     }
@@ -54,7 +54,7 @@ public final class UnsendRequest: ControlMessage {
     
     // MARK: - Proto Conversion
     
-    public override class func fromProto(_ proto: SNProtoContent, sender: String) -> UnsendRequest? {
+    public override class func fromProto(_ proto: SNProtoContent, sender: String, using dependencies: Dependencies) -> UnsendRequest? {
         guard let unsendRequestProto = proto.unsendRequest else { return nil }
         let timestamp = unsendRequestProto.timestamp
         let author = unsendRequestProto.author
@@ -68,6 +68,7 @@ public final class UnsendRequest: ControlMessage {
         }
         let unsendRequestProto = SNProtoUnsendRequest.builder(timestamp: timestamp, author: author)
         let contentProto = SNProtoContent.builder()
+        if let sigTimestampMs = sigTimestampMs { contentProto.setSigTimestamp(sigTimestampMs) }
         do {
             contentProto.setUnsendRequest(try unsendRequestProto.build())
             // DisappearingMessagesConfiguration

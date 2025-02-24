@@ -7,53 +7,63 @@ import SessionUtilitiesKit
 enum _021_ReworkRecipientState: Migration {
     static let target: TargetMigrations.Identifier = .messagingKit
     static let identifier: String = "ReworkRecipientState"
-    static let needsConfigSync: Bool = false
     static let minExpectedRunDuration: TimeInterval = 0.1
-    static var requirements: [MigrationRequirement] = []
-    static let fetchedTables: [(TableRecord & FetchableRecord).Type] = []
-    static let createdOrAlteredTables: [(TableRecord & FetchableRecord).Type] = []
-    static let droppedTables: [(TableRecord & FetchableRecord).Type] = [
-        _001_InitialSetupMigration.LegacyRecipientState.self
-    ]
+    static let createdTables: [(TableRecord & FetchableRecord).Type] = []
     
     static func migrate(_ db: Database, using dependencies: Dependencies) throws {
-        typealias LegacyState = _001_InitialSetupMigration.LegacyRecipientState
-        
         /// First we need to add the new columns to the `Interaction` table
-        try db.alter(table: Interaction.self) { t in
-            t.add(.state, .integer)
+        try db.alter(table: "interaction") { t in
+            t.add(column: "state", .integer)
                 .notNull()
                 .indexed()                                            // Quicker querying
-                .defaults(to: Interaction.State.sending)
-            t.add(.recipientReadTimestampMs, .integer)
-            t.add(.mostRecentFailureText, .text)
+                .defaults(to: Interaction.State.sending.rawValue)
+            t.add(column: "recipientReadTimestampMs", .integer)
+            t.add(column: "mostRecentFailureText", .text)
         }
         
         /// As part of this change we have added two new `State` types: `deleted` and `localOnly` which
         /// will simplify some querying and logic for behaviours which have multiple `Interaction.Variant` cases
-        try Interaction
-            .filter(Interaction.Columns.variant == Interaction.Variant.standardIncomingDeleted)
-            .updateAll(db, Interaction.Columns.state.set(to: Interaction.State.deleted))
-        try Interaction
-            .filter(Interaction.Variant.variantsWhichAreLocalOnly.contains(Interaction.Columns.variant))
-            .updateAll(db, Interaction.Columns.state.set(to: Interaction.State.localOnly))
+        try db.execute(sql: """
+            UPDATE interaction
+            SET state = \(Interaction.State.deleted.rawValue)
+            WHERE variant = \(Interaction.Variant.standardIncomingDeleted.rawValue)
+        """)
+        try db.execute(sql: """
+            UPDATE interaction
+            SET state = \(Interaction.State.localOnly.rawValue)
+            WHERE variant IN (\(Interaction.Variant.variantsWhichAreLocalOnly.map { "\($0.rawValue)" }.joined(separator: ", ")))
+        """)
         
         /// Part of the logic in the `FailedMessageSendsJob` is to update all pending sends to be in the "failed" state but
         /// this migration will run before that gets the chance to so we need to trigger the same transition here to ensure that
-        /// when we move the data from the `LegacyState` across to the `Interaction` it's already in the correct state
-        try LegacyState
-            .filter(LegacyState.Columns.state == LegacyState.State.sending)
-            .updateAll(db, LegacyState.Columns.state.set(to: LegacyState.State.failed))
-        try LegacyState
-            .filter(LegacyState.Columns.state == LegacyState.State.syncing)
-            .updateAll(db, LegacyState.Columns.state.set(to: LegacyState.State.failedToSync))
+        /// when we move the data from the old `recipientState` table across to the `Interaction` it's already in the
+        /// correct state
+        try db.execute(sql: """
+            UPDATE recipientState
+            SET state = 1    -- failed
+            WHERE state = 0  -- sending
+        """)
+        try db.execute(sql: """
+            UPDATE recipientState
+            SET state = 4    -- failedToSync
+            WHERE state = 5  -- syncing
+        """)
         
-        /// In the old logic there would be a `LegacyState` for every participant in a `ClosedGroup` conversation and
+        /// In the old logic there would be a `recipientState` for every participant in a `ClosedGroup` conversation and
         /// there were special rules around how to merge the states for display purposes so we want to replicate that
         /// behaviour here (the default `sending` state will be handled on the column itself so we only need to deal with
         /// other behaviours here)
-        let recipientStates: [LegacyState] = try LegacyState.fetchAll(db)
-            .grouped(by: \.interactionId)
+        let recipientStateInfo: [Row] = try Row
+            .fetchAll(db, sql: """
+                SELECT
+                    interactionId,
+                    recipientId,
+                    state,
+                    readTimestampMs,
+                    mostRecentFailureText
+                FROM recipientState
+            """)
+            .grouped(by: { info -> Int64 in info["interactionId"] })
             .reduce(into: []) { result, next in
                 guard next.value.count > 1 else {
                     result.append(contentsOf: next.value)
@@ -61,83 +71,126 @@ enum _021_ReworkRecipientState: Migration {
                 }
                 
                 // If there is a single "failed" state, consider this message "failed"
-                if let legacyState: LegacyState = next.value.first(where: { $0.state == .failed }) {
-                    result.append(legacyState)
+                if let legacyInfo: Row = next.value.first(where: { $0["state"] == LegacyState.failed.rawValue }) {
+                    result.append(legacyInfo)
                     return
                 }
                 
                 // If there is a single "failedToSync" state, consider this message "failedToSync"
-                if let legacyState: LegacyState = next.value.first(where: { $0.state == .failedToSync }) {
-                    result.append(legacyState)
+                if let legacyInfo: Row = next.value.first(where: { $0["state"] == LegacyState.failedToSync.rawValue }) {
+                    result.append(legacyInfo)
                     return
                 }
                 
                 // There isn't really a simple way to combine other combinations (the query would
                 // pick the smallest, and there was UI logic which would just default to "sent") so
                 // just go with the smallest
-                result.append(next.value.sorted(by: { $0.state.rawValue < $1.state.rawValue })[0])
+                result.append(next.value.sorted(by: { lhs, rhs in
+                    let lhsState: Int = lhs["state"]
+                    let rhsState: Int = rhs["state"]
+                    
+                    return (lhsState < rhsState)
+                })[0])
             }
         
         /// Group the `recipientStates` by each of their properties so we can bulk update their associated
         /// interactions
-        let recipientStatesByState: [LegacyState.State: [LegacyState]] = recipientStates
-            .grouped(by: \.state)
-        let recipientStatesByMostRecentFailureText: [String?: [LegacyState]] = recipientStates
-            .filter { legacyState in legacyState.mostRecentFailureText != nil } // Filter out nulls
-            .filter { legacyState in legacyState.state != .sent } // No need to keep failure text after send
-            .grouped(by: \.mostRecentFailureText)
+        let recipientStatesByState: [Int: [Row]] = recipientStateInfo
+            .grouped(by: { info -> Int in info["state"] })
+        let recipientStatesByMostRecentFailureText: [String?: [Row]] = recipientStateInfo
+            .filter { legacyState in legacyState["mostRecentFailureText"] != nil } // Filter out nulls
+            .filter { legacyState in legacyState["state"] != LegacyState.sent.rawValue } // No need to keep failure text after send
+            .grouped(by: { info -> String in info["mostRecentFailureText"] })
         
         /// Add the `state` and `mostRecentFailureText` values directly to their interactions
-        try recipientStatesByState.forEach { legacyState, states in
-            try Interaction
-                .filter(ids: states.map { $0.interactionId })
-                .updateAll(db, Interaction.Columns.state.set(to: legacyState.interactionState))
+        try recipientStatesByState.forEach { rawLegacyState, states in
+            guard let legacyState: LegacyState = LegacyState(rawValue: rawLegacyState) else { return }
+            
+            try db.execute(sql: """
+                UPDATE interaction
+                SET state = \(legacyState.interactionState.rawValue)
+                WHERE id IN (\(states
+                    .compactMap { $0["interactionId"].map { "\($0)" } }
+                    .joined(separator: ", ")))
+            """)
         }
         try recipientStatesByMostRecentFailureText.forEach { failureText, states in
-            try Interaction
-                .filter(ids: states.map { $0.interactionId })
-                .updateAll(db, Interaction.Columns.mostRecentFailureText.set(to: failureText))
+            guard let failureText: String = failureText else { return }
+            
+            try db.execute(sql: """
+                UPDATE interaction
+                SET mostRecentFailureText = '\(failureText)'
+                WHERE id IN (\(states
+                    .compactMap { $0["interactionId"].map { "\($0)" } }
+                    .joined(separator: ", ")))
+            """)
         }
         
-        /// Any interactions which didn't have a `LegacyState` or a `MessageSendJob` should be considered `sent` (as
-        /// the old UI behaviour was to render any messages without a `LegacyState` as `sent`)
-        let interactionIdsWithMessageSendJobs: Set<Int64> = try Job
-            .filter(Job.Columns.variant == Job.Variant.messageSend)
-            .filter(Job.Columns.interactionId != nil)
-            .select(.interactionId)
-            .asRequest(of: Int64.self)
-            .fetchSet(db)
-        let interactionIdsToExclude: Set<Int64> = Set(recipientStates.map { $0.interactionId })
+        /// Any interactions which didn't have a `recipientState` or a `MessageSendJob` should be considered `sent` (as
+        /// the old UI behaviour was to render any messages without a `recipientState` as `sent`)
+        let interactionIdsWithMessageSendJobs: Set<Int64> = try Int64.fetchSet(db, sql: """
+            SELECT interactionId
+            FROM job
+            WHERE (
+                variant = \(Job.Variant.messageSend.rawValue) AND
+                interactionId IS NOT NULL
+            )
+        """)
+        let interactionIdsToExclude: Set<Int64> = Set(recipientStateInfo
+            .map { info -> Int64 in info["interactionId"] })
             .union(interactionIdsWithMessageSendJobs)
-        try Interaction
-            .filter(!interactionIdsToExclude.contains(Interaction.Columns.id))
-            .updateAll(db, Interaction.Columns.state.set(to: Interaction.State.sent))
+        if !interactionIdsToExclude.isEmpty {
+            try db.execute(sql: """
+                UPDATE interaction
+                SET state = \(Interaction.State.sent.rawValue)
+                WHERE id NOT IN (\(interactionIdsToExclude.map { "\($0)" }.joined(separator: ", ")))
+            """)
+        }
+        else {
+            try db.execute(sql: "UPDATE interaction SET state = \(Interaction.State.sent.rawValue)")
+        }
         
         /// The timestamps are unlikely to have duplicates so we just need to add those individually
-        try recipientStates
-            .filter { $0.readTimestampMs != nil }
+        try recipientStateInfo
+            .filter { $0["readTimestampMs"] != nil }
             .forEach { state in
-                try Interaction
-                    .filter(id: state.interactionId)
-                    .updateAll(db, Interaction.Columns.recipientReadTimestampMs.set(to: state.readTimestampMs))
+                guard
+                    let interactionId: Int64 = state["interactionId"],
+                    let readTimestampMs: Int64 = state["readTimestampMs"]
+                else { return }
+                
+                try db.execute(sql: """
+                    UPDATE interaction
+                    SET recipientReadTimestampMs = \(readTimestampMs)
+                    WHERE id = \(interactionId)
+                """)
             }
         
         /// Finally we can drop the old recipient states table
-        try db.drop(table: _001_InitialSetupMigration.LegacyRecipientState.self)
+        try db.drop(table: "recipientState")
         
-        Storage.update(progress: 1, for: self, in: target) // In case this is the last migration
+        Storage.update(progress: 1, for: self, in: target, using: dependencies)
     }
 }
 
-private extension _001_InitialSetupMigration.LegacyRecipientState.State {
-    var interactionState: Interaction.State {
-        switch self {
-            case .sending: return .sending
-            case .failed: return .failed
-            case .skipped: return .failed    // Have removed the 'skipped' status
-            case .sent: return .sent
-            case .failedToSync: return .failedToSync
-            case .syncing: return .syncing
+private extension _021_ReworkRecipientState {
+    enum LegacyState: Int {
+        case sending
+        case failed
+        case skipped
+        case sent
+        case failedToSync
+        case syncing
+        
+        var interactionState: Interaction.State {
+            switch self {
+                case .sending: return .sending
+                case .failed: return .failed
+                case .skipped: return .failed    // Have removed the 'skipped' status
+                case .sent: return .sent
+                case .failedToSync: return .failedToSync
+                case .syncing: return .syncing
+            }
         }
     }
 }

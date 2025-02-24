@@ -18,7 +18,7 @@ class HelpViewModel: SessionTableViewModel, NavigatableStateHolder, ObservableTa
     
     // MARK: - Initialization
     
-    init(using dependencies: Dependencies = Dependencies()) {
+    init(using dependencies: Dependencies) {
         self.dependencies = dependencies
     }
     
@@ -48,10 +48,12 @@ class HelpViewModel: SessionTableViewModel, NavigatableStateHolder, ObservableTa
                     subtitle: "helpReportABugExportLogsDescription"
                         .put(key: "app_name", value: Constants.app_name)
                         .localized(),
-                    rightAccessory: .highlightingBackgroundLabel(
+                    trailingAccessory: .highlightingBackgroundLabel(
                         title: "helpReportABugExportLogs".localized()
                     ),
-                    onTapView: { HelpViewModel.shareLogs(targetView: $0) }
+                    onTapView: { [dependencies] view in
+                        HelpViewModel.shareLogs(targetView: view, using: dependencies)
+                    }
                 )
             ]
         ),
@@ -63,7 +65,7 @@ class HelpViewModel: SessionTableViewModel, NavigatableStateHolder, ObservableTa
                     title: "helpHelpUsTranslateSession"
                         .put(key: "app_name", value: Constants.app_name)
                         .localized(),
-                    rightAccessory: .icon(
+                    trailingAccessory: .icon(
                         UIImage(systemName: "arrow.up.forward.app")?
                             .withRenderingMode(.alwaysTemplate),
                         size: .small
@@ -84,7 +86,7 @@ class HelpViewModel: SessionTableViewModel, NavigatableStateHolder, ObservableTa
                 SessionCell.Info(
                     id: .feedback,
                     title: "helpWedLoveYourFeedback".localized(),
-                    rightAccessory: .icon(
+                    trailingAccessory: .icon(
                         UIImage(systemName: "arrow.up.forward.app")?
                             .withRenderingMode(.alwaysTemplate),
                         size: .small
@@ -105,7 +107,7 @@ class HelpViewModel: SessionTableViewModel, NavigatableStateHolder, ObservableTa
                 SessionCell.Info(
                     id: .faq,
                     title: "helpFAQ".localized(),
-                    rightAccessory: .icon(
+                    trailingAccessory: .icon(
                         UIImage(systemName: "arrow.up.forward.app")?
                             .withRenderingMode(.alwaysTemplate),
                         size: .small
@@ -126,7 +128,7 @@ class HelpViewModel: SessionTableViewModel, NavigatableStateHolder, ObservableTa
                 SessionCell.Info(
                     id: .support,
                     title: "helpSupport".localized(),
-                    rightAccessory: .icon(
+                    trailingAccessory: .icon(
                         UIImage(systemName: "arrow.up.forward.app")?
                             .withRenderingMode(.alwaysTemplate),
                         size: .small
@@ -149,12 +151,12 @@ class HelpViewModel: SessionTableViewModel, NavigatableStateHolder, ObservableTa
         viewControllerToDismiss: UIViewController? = nil,
         targetView: UIView? = nil,
         animated: Bool = true,
+        using dependencies: Dependencies,
         onShareComplete: (() -> ())? = nil
     ) {
         guard
-            let latestLogFilePath: String = Log.logFilePath(),
-            Singleton.hasAppContext,
-            let viewController: UIViewController = Singleton.appContext.frontmostViewController
+            let latestLogFilePath: String = Log.logFilePath(using: dependencies),
+            let viewController: UIViewController = dependencies[singleton: .appContext].frontMostViewController
         else { return }
         
         #if targetEnvironment(simulator)
@@ -175,6 +177,7 @@ class HelpViewModel: SessionTableViewModel, NavigatableStateHolder, ObservableTa
                             viewControllerToDismiss: viewControllerToDismiss,
                             targetView: targetView,
                             animated: animated,
+                            using: dependencies,
                             onShareComplete: onShareComplete
                         )
                     }
@@ -188,6 +191,7 @@ class HelpViewModel: SessionTableViewModel, NavigatableStateHolder, ObservableTa
             viewControllerToDismiss: viewControllerToDismiss,
             targetView: targetView,
             animated: animated,
+            using: dependencies,
             onShareComplete: onShareComplete
         )
         #endif
@@ -197,15 +201,15 @@ class HelpViewModel: SessionTableViewModel, NavigatableStateHolder, ObservableTa
         viewControllerToDismiss: UIViewController? = nil,
         targetView: UIView? = nil,
         animated: Bool = true,
+        using dependencies: Dependencies,
         onShareComplete: (() -> ())? = nil
     ) {
-        Log.info("[Version] \(SessionApp.versionInfo)")
+        Log.info("[Version] \(dependencies[cache: .appVersion].versionInfo)")
         Log.flush()
         
         guard
-            let latestLogFilePath: String = Log.logFilePath(),
-            Singleton.hasAppContext,
-            let viewController: UIViewController = Singleton.appContext.frontmostViewController
+            let latestLogFilePath: String = Log.logFilePath(using: dependencies),
+            let viewController: UIViewController = dependencies[singleton: .appContext].frontMostViewController
         else { return }
         
         let showShareSheet: () -> () = {
