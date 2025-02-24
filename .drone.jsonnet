@@ -29,7 +29,9 @@ local boot_simulator(device_type="") = {
     (if device_type != "" then
        'xcrun simctl create "$devname" ' + device_type
      else
-       'xcrun simctl create "$devname" "$(xcrun simctl list devicetypes | grep -Eo \'com\\\\.apple\\\\.CoreSimulator\\\\.SimDeviceType\\\\.iPhone[^)]*\' | head -1)" "$(xcrun simctl list runtimes | grep -Eo \'com\\\\.apple\\\\.CoreSimulator\\\\.SimRuntime\\\\.iOS-[0-9]+(-[0-9]+)*\' | sort -V | tail -1)"'
+      'device_type=$(xcrun simctl list devicetypes -j | ' +
+        'jq -r \'.devicetypes | map(select(.productFamily=="iPhone")) | sort_by(.minRuntimeVersion) | .[-1].identifier\' | tail -n1); ' +
+        'xcrun simctl create "$devname" "$device_type"'
     ),
     'sim_uuid=$(xcrun simctl list devices -je | jq -re \'[.devices[][] | select(.name == "\'$devname\'").udid][0]\')',
     'xcrun simctl boot $sim_uuid',
