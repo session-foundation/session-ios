@@ -261,7 +261,6 @@ final class ConversationTitleView: UIView {
         
         // Contact threads also have the call button to compensate for
         let shouldShowCallButton: Bool = (
-            SessionCall.isEnabled &&
             !isNoteToSelf &&
             threadVariant == .contact
         )

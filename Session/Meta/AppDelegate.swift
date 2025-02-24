@@ -269,6 +269,10 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
         guard Singleton.hasAppContext else { return }
         
         Singleton.appContext.clearOldTemporaryDirectories()
+        
+        if Storage.shared[.areCallsEnabled] {
+            Permissions.checkLocalNetworkPermission()
+        }
     }
     
     func applicationWillResignActive(_ application: UIApplication) {
@@ -803,7 +807,8 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
         else { preconditionFailure() }
         
         let callMissedTipsModal: CallMissedTipsModal = CallMissedTipsModal(
-            caller: Profile.displayName(id: callerId)
+            caller: Profile.displayName(id: callerId),
+            presentingViewController: presentingVC
         )
         presentingVC.present(callMissedTipsModal, animated: true, completion: nil)
         

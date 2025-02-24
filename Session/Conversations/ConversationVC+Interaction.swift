@@ -88,7 +88,6 @@ extension ConversationVC:
     // MARK: - Call
     
     @objc func startCall(_ sender: Any?) {
-        guard SessionCall.isEnabled else { return }
         guard viewModel.threadData.threadIsBlocked == false else { return }
         guard Storage.shared[.areCallsEnabled] else {
             let confirmationModal: ConfirmationModal = ConfirmationModal(
@@ -102,7 +101,8 @@ extension ConversationVC:
                         let navController: UINavigationController = StyledNavigationController(
                             rootViewController: SessionTableViewController(
                                 viewModel: PrivacySettingsViewModel(
-                                    shouldShowCloseButton: true
+                                    shouldShowCloseButton: true,
+                                    shouldAutomaticallyShowCallModal: true
                                 )
                             )
                         )
@@ -116,7 +116,39 @@ extension ConversationVC:
             return
         }
         
-        Permissions.requestMicrophonePermissionIfNeeded()
+        guard Permissions.microphone == .granted else {
+            let confirmationModal: ConfirmationModal = ConfirmationModal(
+                info: ConfirmationModal.Info(
+                    title: "Permissions Required",
+                    body: .text("Microphone access is required to make calls and record audio messages. Toggle the \"Microphone\" permission in Settings to continue."),
+                    showCondition: .disabled,
+                    confirmTitle: "sessionSettings".localized(),
+                    onConfirm: { _ in
+                        UIApplication.shared.openSystemSettings()
+                    }
+                )
+            )
+            
+            self.navigationController?.present(confirmationModal, animated: true, completion: nil)
+            return
+        }
+        
+        guard Permissions.localNetwork == .granted else {
+            let confirmationModal: ConfirmationModal = ConfirmationModal(
+                info: ConfirmationModal.Info(
+                    title: "Permissions Required",
+                    body: .text("Local Network access is required to facilitate calls. Toggle the \"Local Network\" permission in Settings to continue."),
+                    showCondition: .disabled,
+                    confirmTitle: "sessionSettings".localized(),
+                    onConfirm: { _ in
+                        UIApplication.shared.openSystemSettings()
+                    }
+                )
+            )
+            
+            self.navigationController?.present(confirmationModal, animated: true, completion: nil)
+            return
+        }
         
         let threadId: String = self.viewModel.threadData.threadId
         
@@ -916,12 +948,13 @@ extension ConversationVC:
                 ),
                 messageInfo.state == .permissionDeniedMicrophone
             else {
-                let callMissedTipsModal: CallMissedTipsModal = CallMissedTipsModal(caller: cellViewModel.authorName)
+                let callMissedTipsModal: CallMissedTipsModal = CallMissedTipsModal(
+                    caller: cellViewModel.authorName,
+                    presentingViewController: self
+                )
                 present(callMissedTipsModal, animated: true, completion: nil)
                 return
             }
-            
-            Permissions.requestMicrophonePermissionIfNeeded(presentingViewController: self)
             return
         }
         

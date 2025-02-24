@@ -12,6 +12,7 @@ public protocol WebRTCSessionDelegate: AnyObject {
     
     func webRTCIsConnected()
     func isRemoteVideoDidChange(isEnabled: Bool)
+    func sendingIceCandidates()
     func iceCandidateDidSend()
     func iceCandidateDidReceive()
     func dataChannelDidOpen()
@@ -300,6 +301,7 @@ public final class WebRTCSession : NSObject, RTCPeerConnectionDelegate {
     }
     
     private func sendICECandidates() {
+        self.delegate?.sendingIceCandidates()
         let candidates: [RTCIceCandidate] = self.queuedICECandidates
         let uuid: String = self.uuid
         let contactSessionId: String = self.contactSessionId
@@ -472,13 +474,15 @@ public final class WebRTCSession : NSObject, RTCPeerConnectionDelegate {
 }
 
 extension WebRTCSession {
-    public func configureAudioSession(outputAudioPort: AVAudioSession.PortOverride = .none) {
+    public func configureAudioSession() {
         let audioSession = RTCAudioSession.sharedInstance()
         audioSession.lockForConfiguration()
         do {
-            try audioSession.setCategory(AVAudioSession.Category.playAndRecord)
-            try audioSession.setMode(AVAudioSession.Mode.voiceChat)
-            try audioSession.overrideOutputAudioPort(outputAudioPort)
+            try audioSession.setCategory(
+                .playAndRecord,
+                mode: .videoChat,
+                options: [.allowBluetooth, .allowBluetoothA2DP]
+            )
             try audioSession.setActive(true)
         } catch let error {
             SNLog("Couldn't set up WebRTC audio session due to error: \(error)")

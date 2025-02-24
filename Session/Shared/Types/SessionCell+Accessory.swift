@@ -415,6 +415,7 @@ extension SessionCell.Accessory {
     public enum DataSource: Hashable, Equatable {
         case boolValue(key: String, value: Bool, oldValue: Bool)
         case dynamicString(() -> String?)
+        case staticBoolValue(Bool)
         
         static func boolValue(_ value: Bool, oldValue: Bool) -> DataSource {
             return .boolValue(key: "", value: value, oldValue: oldValue)
@@ -430,12 +431,14 @@ extension SessionCell.Accessory {
             switch self {
                 case .boolValue(_, let value, _): return value
                 case .dynamicString: return false
+                case .staticBoolValue(let value): return value
             }
         }
         
         public var oldBoolValue: Bool {
             switch self {
                 case .boolValue(_, _, let oldValue): return oldValue
+                case .staticBoolValue(let value): return value
                 default: return false
             }
         }
@@ -457,6 +460,7 @@ extension SessionCell.Accessory {
                     oldValue.hash(into: &hasher)
                     
                 case .dynamicString(let generator): generator().hash(into: &hasher)
+                case .staticBoolValue(let value): value.hash(into: &hasher)
             }
         }
         
@@ -471,6 +475,9 @@ extension SessionCell.Accessory {
                     
                 case (.dynamicString(let lhsGenerator), .dynamicString(let rhsGenerator)):
                     return (lhsGenerator() == rhsGenerator())
+                
+                case (.staticBoolValue(let lhsValue), .staticBoolValue(let rhsValue)):
+                    return (lhsValue == rhsValue)
                     
                 default: return false
             }
