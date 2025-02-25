@@ -1,9 +1,7 @@
 // Copyright © 2025 Rangeproof Pty Ltd. All rights reserved.
 
 import Foundation
-import UIKit.UIImage
 import GRDB
-import SessionSnodeKit
 import SessionUtilitiesKit
 
 enum _023_GroupsExpiredFlag: Migration {

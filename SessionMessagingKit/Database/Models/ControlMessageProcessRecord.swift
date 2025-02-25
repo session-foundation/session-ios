@@ -158,8 +158,9 @@ internal extension ControlMessageProcessRecord {
         using dependencies: Dependencies
     ) {
         switch variant {
-            case .standardOutgoing, .standardIncoming, .standardIncomingDeleted, .standardIncomingDeletedLocally,
-                .standardOutgoingDeleted, .standardOutgoingDeletedLocally, .infoLegacyGroupCreated:
+            case .standardOutgoing, .standardIncoming, ._legacyStandardIncomingDeleted,
+                .standardIncomingDeleted, .standardIncomingDeletedLocally, .standardOutgoingDeleted,
+                .standardOutgoingDeletedLocally, .infoLegacyGroupCreated:
                 return nil
                 
             case .infoLegacyGroupUpdated, .infoLegacyGroupCurrentUserLeft: self.variant = .legacyGroupControlMessage

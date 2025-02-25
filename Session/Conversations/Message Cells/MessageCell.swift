@@ -78,8 +78,9 @@ public class MessageCell: UITableViewCell {
         guard viewModel.cellType != .unreadMarker else { return UnreadMarkerCell.self }
         
         switch viewModel.variant {
-            case .standardOutgoing, .standardIncoming, .standardIncomingDeleted, .standardOutgoingDeleted,
-                .standardIncomingDeletedLocally, .standardOutgoingDeletedLocally:
+            case .standardOutgoing, .standardIncoming, ._legacyStandardIncomingDeleted,
+                .standardIncomingDeleted, .standardOutgoingDeleted, .standardIncomingDeletedLocally,
+                .standardOutgoingDeletedLocally:
                 return VisibleMessageCell.self
                 
             case .infoLegacyGroupCreated, .infoLegacyGroupUpdated, .infoLegacyGroupCurrentUserLeft,

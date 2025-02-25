@@ -889,7 +889,7 @@ class DeveloperSettingsViewModel: SessionTableViewModel, NavigatableStateHolder,
             .sinkUntilComplete()
     }
     
-    private static func updateServiceNetwork(
+    internal static func updateServiceNetwork(
         to updatedNetwork: ServiceNetwork?,
         using dependencies: Dependencies
     ) {
@@ -1431,51 +1431,6 @@ class DeveloperSettingsViewModel: SessionTableViewModel, NavigatableStateHolder,
         documentPickerVC.modalPresentationStyle = .fullScreen
         
         self.transitionToScreen(documentPickerVC, transitionType: .present)
-    }
-}
-
-// MARK: - Automated Test Convenience
-
-extension DeveloperSettingsViewModel {
-    static func processUnitTestEnvVariablesIfNeeded(using dependencies: Dependencies) {
-#if targetEnvironment(simulator)
-        enum EnvironmentVariable: String {
-            case animationsEnabled
-            case showStringKeys
-            
-            case serviceNetwork
-            case forceOffline
-        }
-        
-        ProcessInfo.processInfo.environment.forEach { key, value in
-            guard let variable: EnvironmentVariable = EnvironmentVariable(rawValue: key) else { return }
-            
-            switch variable {
-                case .animationsEnabled:
-                    dependencies.set(feature: .animationsEnabled, to: (value == "true"))
-                    
-                    guard value == "false" else { return }
-                    
-                    UIView.setAnimationsEnabled(false)
-                    
-                case .showStringKeys:
-                    dependencies.set(feature: .showStringKeys, to: (value == "true"))
-                    
-                case .serviceNetwork:
-                    let network: ServiceNetwork
-                    
-                    switch value {
-                        case "testnet": network = .testnet
-                        default: network = .mainnet
-                    }
-                    
-                    DeveloperSettingsViewModel.updateServiceNetwork(to: network, using: dependencies)
-                    
-                case .forceOffline:
-                    dependencies.set(feature: .forceOffline, to: (value == "true"))
-            }
-        }
-#endif
     }
 }
 

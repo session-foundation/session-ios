@@ -73,7 +73,9 @@ public struct Interaction: Codable, Identifiable, Equatable, FetchableRecord, Mu
     }
     
     public enum Variant: Int, Codable, Hashable, DatabaseValueConvertible, CaseIterable {
-        case standardIncoming
+        case _legacyStandardIncomingDeleted = 2 // Had an incorrect index so broke this...
+        
+        case standardIncoming = 0
         case standardOutgoing
         
         // Deleted message variants
@@ -988,7 +990,7 @@ public extension Interaction {
         using dependencies: Dependencies
     ) -> String {
         switch variant {
-            case .standardIncomingDeleted, .standardIncomingDeletedLocally,
+            case ._legacyStandardIncomingDeleted, .standardIncomingDeleted, .standardIncomingDeletedLocally,
                 .standardOutgoingDeleted, .standardOutgoingDeletedLocally:
                 return ""
                 
@@ -1105,7 +1107,8 @@ public extension Interaction.Variant {
                 .infoGroupMembersUpdated:
                 return true
                 
-            case .standardIncoming, .standardOutgoing, .standardIncomingDeleted, .standardIncomingDeletedLocally,
+            case .standardIncoming, .standardOutgoing, ._legacyStandardIncomingDeleted,
+                .standardIncomingDeleted, .standardIncomingDeletedLocally,
                 .standardOutgoingDeleted, .standardOutgoingDeletedLocally:
                 return false
         }
@@ -1151,8 +1154,9 @@ public extension Interaction.Variant {
                 .infoGroupMembersUpdated:
                 return true
                 
-            case .standardIncomingDeleted, .standardIncomingDeletedLocally,
-                .standardOutgoingDeleted, .standardOutgoingDeletedLocally:
+            case ._legacyStandardIncomingDeleted, .standardIncomingDeleted,
+                .standardIncomingDeletedLocally, .standardOutgoingDeleted,
+                .standardOutgoingDeletedLocally:
                 return false
         }
     }
@@ -1162,7 +1166,8 @@ public extension Interaction.Variant {
             case .standardIncoming: return .sent
             case .standardOutgoing: return .sending
                 
-            case .standardIncomingDeleted, .standardIncomingDeletedLocally, .standardOutgoingDeleted,
+            case ._legacyStandardIncomingDeleted, .standardIncomingDeleted,
+                .standardIncomingDeletedLocally, .standardOutgoingDeleted,
                 .standardOutgoingDeletedLocally:
                 return .deleted
             
@@ -1189,8 +1194,8 @@ public extension Interaction.Variant {
                 /// after being read (if we don't do this their expiration timer will start immediately when received)
                 return true
             
-            case .standardOutgoing, .standardIncomingDeleted, .standardIncomingDeletedLocally,
-                .standardOutgoingDeleted, .standardOutgoingDeletedLocally:
+            case .standardOutgoing, ._legacyStandardIncomingDeleted, .standardIncomingDeleted,
+                .standardIncomingDeletedLocally, .standardOutgoingDeleted, .standardOutgoingDeletedLocally:
                 return false
             
             case .infoLegacyGroupCreated, .infoLegacyGroupUpdated, .infoLegacyGroupCurrentUserLeft,
