@@ -38,7 +38,7 @@ class PhotoCaptureViewController: OWSViewController {
         self.dependencies = dependencies
         recordingTimerView = RecordingTimerView(using: dependencies)
         
-        super.init()
+        super.init(nibName: nil, bundle: nil)
     }
     
     required init?(coder: NSCoder) {
