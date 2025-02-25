@@ -25,7 +25,8 @@ public extension FeatureStorage {
     )
     
     static let debugDisappearingMessageDurations: FeatureConfig<Bool> = Dependencies.create(
-        identifier: "debugDisappearingMessageDurations"
+        identifier: "debugDisappearingMessageDurations",
+        defaultOption: true    // TODO: [GROUPS REBUILD] This should default to false
     )
     
     static let updatedDisappearingMessages: FeatureConfig<Bool> = Dependencies.create(

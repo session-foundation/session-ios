@@ -279,14 +279,18 @@ final class NukeDataModal: Modal {
     }
     
     private func deleteAllLocalData() {
-        // Unregister push notifications if needed
+        /// Unregister push notifications if needed
         let isUsingFullAPNs: Bool = dependencies[defaults: .standard, key: .isUsingFullAPNs]
         let maybeDeviceToken: String? = dependencies[defaults: .standard, key: .deviceToken]
         
-        if isUsingFullAPNs, let deviceToken: String = maybeDeviceToken {
-            PushNotificationAPI
-                .unsubscribeAll(token: Data(hex: deviceToken), using: dependencies)
-                .sinkUntilComplete()
+        if isUsingFullAPNs {
+            UIApplication.shared.unregisterForRemoteNotifications()
+            
+            if let deviceToken: String = maybeDeviceToken {
+                PushNotificationAPI
+                    .unsubscribeAll(token: Data(hex: deviceToken), using: dependencies)
+                    .sinkUntilComplete()
+            }
         }
         
         /// Stop and cancel all current jobs (don't want to inadvertantly have a job store data after it's table has already been cleared)
