@@ -245,7 +245,7 @@ struct MessageInfoScreen: View {
                                         threadVariant: .contact,    // Always show the display picture in 'contact' mode
                                         displayPictureFilename: nil,
                                         profile: messageViewModel.profile,
-                                        profileIcon: (messageViewModel.isSenderOpenGroupModerator ? .crown : .none),
+                                        profileIcon: (messageViewModel.isSenderModeratorOrAdmin ? .crown : .none),
                                         using: dependencies
                                     )
                                     
@@ -591,7 +591,7 @@ struct MessageInfoView_Previews: PreviewProvider {
             expiresStartedAtMs: nil,
             expiresInSeconds: nil,
             state: .failed,
-            isSenderOpenGroupModerator: false,
+            isSenderModeratorOrAdmin: false,
             currentUserProfile: Profile.fetchOrCreateCurrentUser(using: dependencies),
             quote: nil,
             quoteAttachment: nil,
