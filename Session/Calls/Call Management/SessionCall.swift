@@ -309,17 +309,13 @@ public final class SessionCall: CurrentCallProtocol, WebRTCSessionDelegate {
         let sessionId: String = self.sessionId
         
         webRTCSession.hangUp()
-        
-        Storage.shared.writeAsync { [weak self] db in
-            try self?.webRTCSession.endCall(db, with: sessionId)
-        }
-        
+        webRTCSession.endCall(with: sessionId).sinkUntilComplete()
         hasEnded = true
     }
     
     func handleCallInitializationFailed() {
         self.endSessionCall()
-        Singleton.callManager.reportCurrentCallEnded(reason: nil)
+        Singleton.callManager.reportCurrentCallEnded(reason: .failed)
     }
     
     // MARK: - Call Message Handling
