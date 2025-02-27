@@ -94,5 +94,9 @@ final class SimplifiedConversationCell: UITableViewCell {
             additionalProfile: cellViewModel.additionalProfile
         )
         displayNameLabel.text = cellViewModel.displayName
+        
+        self.isAccessibilityElement = true
+        self.accessibilityIdentifier = "Contact"
+        self.accessibilityLabel = cellViewModel.displayName
     }
 }
