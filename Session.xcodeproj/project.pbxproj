@@ -707,6 +707,9 @@
 		FD65318B2AA025C500DFEEAA /* TestDependencies.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD6531892AA025C500DFEEAA /* TestDependencies.swift */; };
 		FD65318C2AA025C500DFEEAA /* TestDependencies.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD6531892AA025C500DFEEAA /* TestDependencies.swift */; };
 		FD65318D2AA025C500DFEEAA /* TestDependencies.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD6531892AA025C500DFEEAA /* TestDependencies.swift */; };
+		FD6673F62D7021E700041530 /* SessionUtil in Frameworks */ = {isa = PBXBuildFile; productRef = FD6673F52D7021E700041530 /* SessionUtil */; };
+		FD6673F82D7021F200041530 /* SessionUtil in Frameworks */ = {isa = PBXBuildFile; productRef = FD6673F72D7021F200041530 /* SessionUtil */; };
+		FD6673FA2D7021F800041530 /* SessionUtil in Frameworks */ = {isa = PBXBuildFile; productRef = FD6673F92D7021F800041530 /* SessionUtil */; };
 		FD66CB2A2BF3449B00268FAB /* SessionSnodeKit.xctestplan in Resources */ = {isa = PBXBuildFile; fileRef = FD66CB272BF3449B00268FAB /* SessionSnodeKit.xctestplan */; };
 		FD6A38E92C2A630E00762359 /* CocoaLumberjackSwift in Frameworks */ = {isa = PBXBuildFile; productRef = FD6A38E82C2A630E00762359 /* CocoaLumberjackSwift */; };
 		FD6A38EC2C2A63B500762359 /* KeychainSwift in Frameworks */ = {isa = PBXBuildFile; productRef = FD6A38EB2C2A63B500762359 /* KeychainSwift */; };
@@ -810,9 +813,6 @@
 		FD848B9A28442CE6000E298B /* StorageError.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD848B9928442CE6000E298B /* StorageError.swift */; };
 		FD860CBC2D6E7A9F00BBE29C /* _024_FixBustedInteractionVariant.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD860CBB2D6E7A9400BBE29C /* _024_FixBustedInteractionVariant.swift */; };
 		FD860CBE2D6E7DAA00BBE29C /* DeveloperSettingsViewModel+Testing.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD860CBD2D6E7DA000BBE29C /* DeveloperSettingsViewModel+Testing.swift */; };
-		FD860CC32D6E9A3700BBE29C /* SessionUtil in Frameworks */ = {isa = PBXBuildFile; productRef = FD860CC22D6E9A3700BBE29C /* SessionUtil */; };
-		FD860CC52D6ED26A00BBE29C /* SessionUtil in Frameworks */ = {isa = PBXBuildFile; productRef = FD860CC42D6ED26A00BBE29C /* SessionUtil */; };
-		FD860CC72D6ED2AA00BBE29C /* SessionUtil in Frameworks */ = {isa = PBXBuildFile; productRef = FD860CC62D6ED2AA00BBE29C /* SessionUtil */; };
 		FD860CC92D6ED2ED00BBE29C /* DifferenceKit in Frameworks */ = {isa = PBXBuildFile; productRef = FD860CC82D6ED2ED00BBE29C /* DifferenceKit */; };
 		FD86FDA32BC5020600EC251B /* PrivacyInfo.xcprivacy in Resources */ = {isa = PBXBuildFile; fileRef = FD86FDA22BC5020600EC251B /* PrivacyInfo.xcprivacy */; };
 		FD86FDA42BC51C5400EC251B /* PrivacyInfo.xcprivacy in Resources */ = {isa = PBXBuildFile; fileRef = FD86FDA22BC5020600EC251B /* PrivacyInfo.xcprivacy */; };
@@ -2309,7 +2309,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				C3C2A6C62553896A00C340D1 /* SessionUtilitiesKit.framework in Frameworks */,
-				FD860CC52D6ED26A00BBE29C /* SessionUtil in Frameworks */,
+				FD6673F82D7021F200041530 /* SessionUtil in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -2317,7 +2317,7 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				FD860CC32D6E9A3700BBE29C /* SessionUtil in Frameworks */,
+				FD6673F62D7021E700041530 /* SessionUtil in Frameworks */,
 				FD6A39662C2D21E400762359 /* libwebp in Frameworks */,
 				FD6A38EC2C2A63B500762359 /* KeychainSwift in Frameworks */,
 				FD6A38EF2C2A641200762359 /* DifferenceKit in Frameworks */,
@@ -2332,7 +2332,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				FD9BDE012A5D24EA005F1EBC /* SessionUIKit.framework in Frameworks */,
-				FD860CC72D6ED2AA00BBE29C /* SessionUtil in Frameworks */,
+				FD6673FA2D7021F800041530 /* SessionUtil in Frameworks */,
 				FD2286732C38D43900BC06F7 /* DifferenceKit in Frameworks */,
 				FDC4386C27B4E90300C60D73 /* SessionUtilitiesKit.framework in Frameworks */,
 				C3C2A70B25539E1E00C340D1 /* SessionSnodeKit.framework in Frameworks */,
@@ -4924,7 +4924,7 @@
 			);
 			name = SessionSnodeKit;
 			packageProductDependencies = (
-				FD860CC42D6ED26A00BBE29C /* SessionUtil */,
+				FD6673F72D7021F200041530 /* SessionUtil */,
 			);
 			productName = SessionSnodeKit;
 			productReference = C3C2A59F255385C100C340D1 /* SessionSnodeKit.framework */;
@@ -4954,7 +4954,7 @@
 				FD6A39652C2D21E400762359 /* libwebp */,
 				FD6A396C2C2D284B00762359 /* YYImage */,
 				FD756BEA2D0181D700BD7199 /* GRDB */,
-				FD860CC22D6E9A3700BBE29C /* SessionUtil */,
+				FD6673F52D7021E700041530 /* SessionUtil */,
 			);
 			productName = SessionUtilities;
 			productReference = C3C2A679255388CC00C340D1 /* SessionUtilitiesKit.framework */;
@@ -4978,7 +4978,7 @@
 			packageProductDependencies = (
 				FD6A39122C2A946A00762359 /* SwiftProtobuf */,
 				FD2286722C38D43900BC06F7 /* DifferenceKit */,
-				FD860CC62D6ED2AA00BBE29C /* SessionUtil */,
+				FD6673F92D7021F800041530 /* SessionUtil */,
 			);
 			productName = SessionMessagingKit;
 			productReference = C3C2A6F025539DE700C340D1 /* SessionMessagingKit.framework */;
@@ -5248,7 +5248,7 @@
 				FD6A39672C2D283A00762359 /* XCRemoteSwiftPackageReference "session-ios-yyimage" */,
 				FD6DA9D52D017F480092085A /* XCRemoteSwiftPackageReference "session-grdb-swift" */,
 				FD756BEE2D06686500BD7199 /* XCRemoteSwiftPackageReference "session-lucide" */,
-				FD860CC12D6E9A3700BBE29C /* XCRemoteSwiftPackageReference "libsession-util" */,
+				FD6673F42D7021E700041530 /* XCRemoteSwiftPackageReference "libsession-util-spm" */,
 			);
 			productRefGroup = D221A08A169C9E5E00537ABF /* Products */;
 			projectDirPath = "";
@@ -10169,6 +10169,14 @@
 /* End XCConfigurationList section */
 
 /* Begin XCRemoteSwiftPackageReference section */
+		FD6673F42D7021E700041530 /* XCRemoteSwiftPackageReference "libsession-util-spm" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/session-foundation/libsession-util-spm";
+			requirement = {
+				kind = exactVersion;
+				version = 1.2.0;
+			};
+		};
 		FD6A38E72C2A630E00762359 /* XCRemoteSwiftPackageReference "CocoaLumberjack" */ = {
 			isa = XCRemoteSwiftPackageReference;
 			repositoryURL = "https://github.com/CocoaLumberjack/CocoaLumberjack.git";
@@ -10265,14 +10273,6 @@
 				minimumVersion = 0.468.0;
 			};
 		};
-		FD860CC12D6E9A3700BBE29C /* XCRemoteSwiftPackageReference "libsession-util" */ = {
-			isa = XCRemoteSwiftPackageReference;
-			repositoryURL = "https://github.com/session-foundation/libsession-util";
-			requirement = {
-				branch = "swift-package-manager";
-				kind = branch;
-			};
-		};
 /* End XCRemoteSwiftPackageReference section */
 
 /* Begin XCSwiftPackageProductDependency section */
@@ -10310,6 +10310,21 @@
 			isa = XCSwiftPackageProductDependency;
 			package = FD6A38ED2C2A641200762359 /* XCRemoteSwiftPackageReference "DifferenceKit" */;
 			productName = DifferenceKit;
+		};
+		FD6673F52D7021E700041530 /* SessionUtil */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = FD6673F42D7021E700041530 /* XCRemoteSwiftPackageReference "libsession-util-spm" */;
+			productName = SessionUtil;
+		};
+		FD6673F72D7021F200041530 /* SessionUtil */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = FD6673F42D7021E700041530 /* XCRemoteSwiftPackageReference "libsession-util-spm" */;
+			productName = SessionUtil;
+		};
+		FD6673F92D7021F800041530 /* SessionUtil */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = FD6673F42D7021E700041530 /* XCRemoteSwiftPackageReference "libsession-util-spm" */;
+			productName = SessionUtil;
 		};
 		FD6A38E82C2A630E00762359 /* CocoaLumberjackSwift */ = {
 			isa = XCSwiftPackageProductDependency;
@@ -10421,21 +10436,6 @@
 			isa = XCSwiftPackageProductDependency;
 			package = FD756BEE2D06686500BD7199 /* XCRemoteSwiftPackageReference "session-lucide" */;
 			productName = Lucide;
-		};
-		FD860CC22D6E9A3700BBE29C /* SessionUtil */ = {
-			isa = XCSwiftPackageProductDependency;
-			package = FD860CC12D6E9A3700BBE29C /* XCRemoteSwiftPackageReference "libsession-util" */;
-			productName = SessionUtil;
-		};
-		FD860CC42D6ED26A00BBE29C /* SessionUtil */ = {
-			isa = XCSwiftPackageProductDependency;
-			package = FD860CC12D6E9A3700BBE29C /* XCRemoteSwiftPackageReference "libsession-util" */;
-			productName = SessionUtil;
-		};
-		FD860CC62D6ED2AA00BBE29C /* SessionUtil */ = {
-			isa = XCSwiftPackageProductDependency;
-			package = FD860CC12D6E9A3700BBE29C /* XCRemoteSwiftPackageReference "libsession-util" */;
-			productName = SessionUtil;
 		};
 		FD860CC82D6ED2ED00BBE29C /* DifferenceKit */ = {
 			isa = XCSwiftPackageProductDependency;
