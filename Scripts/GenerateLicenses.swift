@@ -55,8 +55,8 @@ func listDirectories(atPath path: String) -> [String] {
 }
 
 // Function to find and read LICENSE files in each package
-func findLicenses(in packagesPath: String) -> [(package: String, licenseContent: String)] {
-    var licenses: [(package: String, licenseContent: String)] = []
+func findLicenses(in packagesPath: String) -> [(package: String, library: String?, licenseContent: String)] {
+    var licenses: [(package: String, library: String?, licenseContent: String)] = []
     let packages: [String] = listDirectories(atPath: packagesPath)
     
     print("\(packages.count) packages found in \(packagesPath)")
@@ -64,9 +64,27 @@ func findLicenses(in packagesPath: String) -> [(package: String, licenseContent:
     packages.forEach { package in
         let packagePath = "\(packagesPath)/\(package)"
         scanDirectory(atPath: packagePath) { filePath in
-            if filePath.lowercased().contains("license") || filePath.lowercased().contains("copying") {
-                if let licenseContent = try? String(contentsOfFile: filePath, encoding: .utf8) {
-                    licenses.append((package, licenseContent))
+            // Exclude licences for test and doc libs (not included in prod build)
+            guard
+                !filePath.lowercased().contains("test") &&
+                !filePath.lowercased().contains("docs")
+            else { return }
+            
+            let possibleLicenceFiles: [String] = ["license", "copying"]
+            
+            if let licenceFilename: String =  possibleLicenceFiles.first(where: { filePath.lowercased().contains($0) }) {
+                if
+                    let licenseContent = try? String(contentsOfFile: filePath, encoding: .utf8),
+                    !licenseContent.isEmpty
+                {
+                    let licenceLibName: String? = filePath.lowercased()
+                        .split(separator: licenceFilename)
+                        .first?
+                        .split(separator: "/")
+                        .last
+                        .map { String($0) }
+                    
+                    licenses.append((package, licenceLibName, licenseContent))
                 }
             }
         }
@@ -79,8 +97,9 @@ func findPackageDependencyNames(in resolutionFilePath: String) throws -> Set<Str
     struct ResolvedPackages: Codable {
         struct Pin: Codable {
             struct State: Codable {
+                let branch: String?
                 let revision: String
-                let version: String
+                let version: String?
             }
             
             let identity: String
@@ -119,17 +138,25 @@ func scanDirectory(atPath path: String, foundFile: (String) -> Void) {
 }
 
 // Write licenses to a plist file
-func writePlist(licenses: [(package: String, licenseContent: String)], resolvedPackageNames: Set<String>, outputPath: String) {
+func writePlist(licenses: [(package: String, library: String?, licenseContent: String)], resolvedPackageNames: Set<String>, outputPath: String) {
     var plistArray: [[String: String]] = []
-    let finalLicenses: [(package: String, licenseContent: String)] = licenses
+    let finalLicenses: [(title: String, licenseContent: String)] = licenses
         .filter { resolvedPackageNames.contains($0.package.lowercased()) }
-        .sorted(by: { $0.package.lowercased() < $1.package.lowercased() })
+        .map { package, library, content -> (title: String, licenseContent: String) in
+            guard
+                let library: String = library,
+                library.lowercased() != package.lowercased()
+            else { return (package, content) }
+            
+            return ("\(package) - \(library)", content)
+        }
+        .sorted(by: { $0.title.lowercased() < $1.title.lowercased() })
     
     print("\(finalLicenses.count) being written to plist.")
     
     finalLicenses.forEach { license in
         plistArray.append([
-            "Title": license.package,
+            "Title": license.title,
             "License": license.licenseContent
         ])
     }
