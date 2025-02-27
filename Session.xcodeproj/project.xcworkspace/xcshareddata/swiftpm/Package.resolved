@@ -1,5 +1,5 @@
 {
-  "originHash" : "4c95b434de06c87c75c3ef96fa055ec67e885a4a4ad78caafd7925b131995b07",
+  "originHash" : "6c81d32c632fcf1a41b7ce937c17b91821d10394db882b62771c513542a84321",
   "pins" : [
     {
       "identity" : "cocoalumberjack",
@@ -44,6 +44,15 @@
       "state" : {
         "revision" : "5e1b02b6a9dac2a759a1d5dbc175c86bd192a608",
         "version" : "24.0.0"
+      }
+    },
+    {
+      "identity" : "libsession-util",
+      "kind" : "remoteSourceControl",
+      "location" : "https://github.com/session-foundation/libsession-util",
+      "state" : {
+        "branch" : "swift-package-manager",
+        "revision" : "6389d9da4548e0535e5b8a53490ad7e96f0bf038"
       }
     },
     {
