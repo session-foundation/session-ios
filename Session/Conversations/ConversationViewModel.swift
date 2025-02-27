@@ -754,11 +754,21 @@ public class ConversationViewModel: OWSAudioPlayerDelegate, NavigatableStateHold
             body: interaction.body,
             expiresStartedAtMs: interaction.expiresStartedAtMs,
             expiresInSeconds: interaction.expiresInSeconds,
-            isSenderOpenGroupModerator: dependencies[singleton: .openGroupManager].isUserModeratorOrAdmin(
-                publicKey: threadData.currentUserSessionId,
-                for: threadData.openGroupRoomToken,
-                on: threadData.openGroupServer
-            ),
+            isSenderModeratorOrAdmin: {
+                switch threadData.threadVariant {
+                    case .group, .legacyGroup:
+                        return (threadData.currentUserIsClosedGroupAdmin == true)
+                        
+                    case .community:
+                        return dependencies[singleton: .openGroupManager].isUserModeratorOrAdmin(
+                            publicKey: threadData.currentUserSessionId,
+                            for: threadData.openGroupRoomToken,
+                            on: threadData.openGroupServer
+                        )
+                        
+                    default: return false
+                }
+            }(),
             currentUserProfile: currentUserProfile,
             quote: quoteModel.map { model in
                 // Don't care about this optimistic quote (the proper one will be generated in the database)

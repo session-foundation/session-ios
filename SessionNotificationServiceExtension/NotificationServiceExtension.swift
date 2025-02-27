@@ -126,6 +126,7 @@ public final class NotificationServiceExtension: UNNotificationServiceExtension 
         // where the completeSilenty() is called before the local notification request
         // is added to notification center
         dependencies[singleton: .storage].write { [weak self, dependencies] db in
+            var processedThreadId: String?
             var processedThreadVariant: SessionThread.Variant?
             var threadDisplayName: String?
             
@@ -158,6 +159,7 @@ public final class NotificationServiceExtension: UNNotificationServiceExtension 
                     /// Due to the way the `CallMessage` works we need to custom handle it's behaviour within the notification
                     /// extension, for all other message types we want to just use the standard `MessageReceiver.handle` call
                     case .standard(let threadId, let threadVariant, _, let messageInfo) where messageInfo.message is CallMessage:
+                        processedThreadId = threadId
                         processedThreadVariant = threadVariant
                         
                         guard let callMessage = messageInfo.message as? CallMessage else {
@@ -253,6 +255,7 @@ public final class NotificationServiceExtension: UNNotificationServiceExtension 
                         )
                         
                     case .standard(let threadId, let threadVariant, let proto, let messageInfo):
+                        processedThreadId = threadId
                         processedThreadVariant = threadVariant
                         threadDisplayName = SessionThread.displayName(
                             threadId: threadId,
@@ -302,27 +305,52 @@ public final class NotificationServiceExtension: UNNotificationServiceExtension 
                     // Dispatch to the next run loop to ensure we are out of the database write thread before
                     // handling the result (and suspending the database)
                     DispatchQueue.main.async {
-                        switch (error, metadata.namespace.isConfigNamespace) {
-                            case (MessageReceiverError.noGroupKeyPair, _):
+                        switch (error, processedThreadVariant, metadata.namespace.isConfigNamespace) {
+                            case (MessageReceiverError.noGroupKeyPair, _, _):
                                 self?.completeSilenty(.errorLegacyGroupKeysMissing, runId: runId)
 
-                            case (MessageReceiverError.outdatedMessage, _):
+                            case (MessageReceiverError.outdatedMessage, _, _):
                                 self?.completeSilenty(.ignoreDueToOutdatedMessage, runId: runId)
                                 
-                            case (MessageReceiverError.ignorableMessage, _):
+                            case (MessageReceiverError.ignorableMessage, _, _):
                                 self?.completeSilenty(.ignoreDueToRequiresNoNotification, runId: runId)
                                 
-                            case (MessageReceiverError.duplicateMessage, _),
-                                (MessageReceiverError.duplicateControlMessage, _),
-                                (MessageReceiverError.duplicateMessageNewSnode, _):
+                            case (MessageReceiverError.duplicateMessage, _, _),
+                                (MessageReceiverError.duplicateControlMessage, _, _),
+                                (MessageReceiverError.duplicateMessageNewSnode, _, _):
                                 self?.completeSilenty(.ignoreDueToDuplicateMessage, runId: runId)
                                 
                             /// If it was a `decryptionFailed` error, but it was for a config namespace then just fail silently (don't
                             /// want to show the fallback notification in this case)
-                            case (MessageReceiverError.decryptionFailed, true):
+                            case (MessageReceiverError.decryptionFailed, _, true):
                                 self?.completeSilenty(.errorMessageHandling(.decryptionFailed), runId: runId)
                                 
-                            case (let msgError as MessageReceiverError, _):
+                            /// If it was a `decryptionFailed` error for a group conversation and the group doesn't exist or
+                            /// doesn't have auth info (ie. group destroyed or member kicked), then just fail silently (don't want
+                            /// to show the fallback notification in these cases)
+                            case (MessageReceiverError.decryptionFailed, .group, _):
+                                guard
+                                    let threadId: String = processedThreadId,
+                                    let group: ClosedGroup = try? ClosedGroup.fetchOne(db, id: threadId), (
+                                        group.groupIdentityPrivateKey != nil ||
+                                        group.authData != nil
+                                    )
+                                else {
+                                    self?.completeSilenty(.errorMessageHandling(.decryptionFailed), runId: runId)
+                                    return
+                                }
+                                
+                                /// The thread exists and we should have been able to decrypt so show the fallback message
+                                self?.handleFailure(
+                                    for: notificationContent,
+                                    metadata: metadata,
+                                    threadVariant: processedThreadVariant,
+                                    threadDisplayName: threadDisplayName,
+                                    resolution: .errorMessageHandling(.decryptionFailed),
+                                    runId: runId
+                                )
+                                
+                            case (let msgError as MessageReceiverError, _, _):
                                 self?.handleFailure(
                                     for: notificationContent,
                                     metadata: metadata,

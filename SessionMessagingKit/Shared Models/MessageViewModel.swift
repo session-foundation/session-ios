@@ -45,7 +45,7 @@ public struct MessageViewModel: FetchableRecordWithRowId, Decodable, Equatable, 
         case state
         case hasBeenReadByRecipient
         case mostRecentFailureText
-        case isSenderOpenGroupModerator
+        case isSenderModeratorOrAdmin
         case isTypingIndicator
         case profile
         case quote
@@ -129,7 +129,7 @@ public struct MessageViewModel: FetchableRecordWithRowId, Decodable, Equatable, 
     public let state: Interaction.State
     public let hasBeenReadByRecipient: Bool
     public let mostRecentFailureText: String?
-    public let isSenderOpenGroupModerator: Bool
+    public let isSenderModeratorOrAdmin: Bool
     public let isTypingIndicator: Bool?
     public let profile: Profile?
     public let quote: Quote?
@@ -240,7 +240,7 @@ public struct MessageViewModel: FetchableRecordWithRowId, Decodable, Equatable, 
             state: (state ?? self.state),
             hasBeenReadByRecipient: self.hasBeenReadByRecipient,
             mostRecentFailureText: (mostRecentFailureText ?? self.mostRecentFailureText),
-            isSenderOpenGroupModerator: self.isSenderOpenGroupModerator,
+            isSenderModeratorOrAdmin: self.isSenderModeratorOrAdmin,
             isTypingIndicator: self.isTypingIndicator,
             profile: self.profile,
             quote: (quote ?? self.quote),
@@ -302,7 +302,7 @@ public struct MessageViewModel: FetchableRecordWithRowId, Decodable, Equatable, 
             state: self.state,
             hasBeenReadByRecipient: self.hasBeenReadByRecipient,
             mostRecentFailureText: self.mostRecentFailureText,
-            isSenderOpenGroupModerator: self.isSenderOpenGroupModerator,
+            isSenderModeratorOrAdmin: self.isSenderModeratorOrAdmin,
             isTypingIndicator: self.isTypingIndicator,
             profile: self.profile,
             quote: self.quote,
@@ -492,7 +492,7 @@ public struct MessageViewModel: FetchableRecordWithRowId, Decodable, Equatable, 
             state: self.state,
             hasBeenReadByRecipient: self.hasBeenReadByRecipient,
             mostRecentFailureText: self.mostRecentFailureText,
-            isSenderOpenGroupModerator: self.isSenderOpenGroupModerator,
+            isSenderModeratorOrAdmin: self.isSenderModeratorOrAdmin,
             isTypingIndicator: self.isTypingIndicator,
             profile: self.profile,
             quote: self.quote,
@@ -745,7 +745,7 @@ public extension MessageViewModel {
         self.state = .sent
         self.hasBeenReadByRecipient = false
         self.mostRecentFailureText = nil
-        self.isSenderOpenGroupModerator = false
+        self.isSenderModeratorOrAdmin = false
         self.isTypingIndicator = isTypingIndicator
         self.profile = nil
         self.quote = quote
@@ -794,7 +794,7 @@ public extension MessageViewModel {
         expiresStartedAtMs: Double?,
         expiresInSeconds: TimeInterval?,
         state: Interaction.State = .sending,
-        isSenderOpenGroupModerator: Bool,
+        isSenderModeratorOrAdmin: Bool,
         currentUserProfile: Profile,
         quote: Quote?,
         quoteAttachment: Attachment?,
@@ -830,7 +830,7 @@ public extension MessageViewModel {
         self.state = state
         self.hasBeenReadByRecipient = false
         self.mostRecentFailureText = nil
-        self.isSenderOpenGroupModerator = isSenderOpenGroupModerator
+        self.isSenderModeratorOrAdmin = isSenderModeratorOrAdmin
         self.isTypingIndicator = false
         self.profile = currentUserProfile
         self.quote = quote
@@ -985,10 +985,9 @@ public extension MessageViewModel {
                         WHERE (
                             \(groupMember[.groupId]) = \(interaction[.threadId]) AND
                             \(groupMember[.profileId]) = \(interaction[.authorId]) AND
-                            \(SQL("\(thread[.variant]) = \(SessionThread.Variant.community)")) AND
                             \(SQL("\(groupMember[.role]) IN \([GroupMember.Role.moderator, GroupMember.Role.admin])"))
                         )
-                    ) AS \(ViewModel.Columns.isSenderOpenGroupModerator),
+                    ) AS \(ViewModel.Columns.isSenderModeratorOrAdmin),
             
                     \(profile.allColumns),
                     \(quote[.interactionId]),

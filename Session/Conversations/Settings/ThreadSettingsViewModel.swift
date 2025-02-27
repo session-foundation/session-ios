@@ -540,7 +540,7 @@ class ThreadSettingsViewModel: SessionTableViewModel, NavigatableStateHolder, Ob
                             confirmStyle: .danger,
                             cancelStyle: .alert_text
                         ),
-                        onTap: { [dependencies] in
+                        onTap: { [weak self, dependencies] in
                             dependencies[singleton: .storage].write { db in
                                 try SessionThread.deleteOrLeave(
                                     db,
@@ -550,6 +550,8 @@ class ThreadSettingsViewModel: SessionTableViewModel, NavigatableStateHolder, Ob
                                     using: dependencies
                                 )
                             }
+                            
+                            self?.dismissScreen(type: .popToRoot)
                         }
                     )
                 ),
