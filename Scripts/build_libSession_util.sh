@@ -4,7 +4,7 @@
 PATH=${PATH}:/usr/local/bin:/opt/local/bin:/opt/homebrew/bin:/opt/homebrew/opt/m4/bin:/sbin/md5
 required_packages=("cmake" "m4" "pkg-config")
 DERIVED_DATA_PATH=$(echo "${BUILD_DIR}" | sed -n 's/\(.*DerivedData\/[^\/]*\).*/\1/p')
-PRE_BUILT_FRAMEWORK_DIR="${DERIVED_DATA_PATH}/SourcePackages/artifacts/libsession-util/SessionUtil"
+PRE_BUILT_FRAMEWORK_DIR="${DERIVED_DATA_PATH}/SourcePackages/artifacts/libsession-util-spm/SessionUtil"
 FRAMEWORK_DIR="libsession-util.xcframework"
 
 exec 3>&1 # Save original stdout
