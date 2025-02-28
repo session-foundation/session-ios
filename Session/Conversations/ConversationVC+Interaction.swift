@@ -1986,6 +1986,11 @@ extension ConversationVC:
             
                 UIPasteboard.general.setData(data, forPasteboardType: type.identifier)
         }
+        self.viewModel.showToast(
+            text: "copied".localized(),
+            backgroundColor: .toast_background,
+            insect: Values.largeSpacing + (self.inputAccessoryView?.frame.height ?? 0)
+        )
     }
 
     func copySessionID(_ cellViewModel: MessageViewModel) {
@@ -1994,6 +1999,11 @@ extension ConversationVC:
         }
         
         UIPasteboard.general.string = cellViewModel.authorId
+        self.viewModel.showToast(
+            text: "copied".localized(),
+            backgroundColor: .toast_background,
+            insect: Values.largeSpacing + (self.inputAccessoryView?.frame.height ?? 0)
+        )
     }
 
     func delete(_ cellViewModel: MessageViewModel, using dependencies: Dependencies) {
@@ -2354,6 +2364,11 @@ extension ConversationVC:
             }
             
             self?.sendDataExtraction(kind: .mediaSaved(timestamp: UInt64(cellViewModel.timestampMs)))
+            self?.viewModel.showToast(
+                text: "saved".localized(),
+                backgroundColor: .toast_background,
+                insect: Values.largeSpacing + (self?.inputAccessoryView?.frame.height ?? 0)
+            )
         }
     }
 

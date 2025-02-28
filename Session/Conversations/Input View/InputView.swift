@@ -451,6 +451,7 @@ final class InputView: UIView, InputViewButtonDelegate, InputTextViewDelegate, M
         inputTextView.resignFirstResponder()
     }
     
+    @discardableResult
     override func becomeFirstResponder() -> Bool {
         inputTextView.becomeFirstResponder()
     }
