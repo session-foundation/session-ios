@@ -234,7 +234,7 @@ public enum MessageReceiver {
                         
                     case .all, .unknown:
                         Log.warn(.messageReceiver, "Couldn't process message due to invalid namespace.")
-                        throw MessageReceiverError.unknownMessage
+                        throw MessageReceiverError.unknownMessage(nil)
                 }
         }
         
@@ -440,7 +440,7 @@ public enum MessageReceiver {
                     using: dependencies
                 )
             
-            default: throw MessageReceiverError.unknownMessage
+            default: throw MessageReceiverError.unknownMessage(proto)
         }
         
         // Perform any required post-handling logic

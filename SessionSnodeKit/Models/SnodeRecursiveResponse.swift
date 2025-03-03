@@ -7,7 +7,7 @@ public class SnodeRecursiveResponse<T: SnodeSwarmItem>: SnodeResponse {
         case swarm
     }
     
-    internal let swarm: [String: T]
+    public let swarm: [String: T]
     
     // MARK: - Initialization
     

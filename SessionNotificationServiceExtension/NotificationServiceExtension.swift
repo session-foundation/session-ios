@@ -478,10 +478,18 @@ public final class NotificationServiceExtension: UNNotificationServiceExtension 
         switch resolution {
             case .ignoreDueToMainAppRunning: break
             default:
-                silentContent.badge = dependencies[singleton: .storage]
-                    .read { [dependencies] db in try Interaction.fetchAppBadgeUnreadCount(db, using: dependencies) }
-                    .map { NSNumber(value: $0) }
-                    .defaulting(to: NSNumber(value: 0))
+                /// Update the app badge in case the unread count changed (but only if the database is valid and
+                /// not suspended)
+                if
+                    dependencies[singleton: .storage].isValid &&
+                    !dependencies[singleton: .storage].isSuspended
+                {
+                    silentContent.badge = dependencies[singleton: .storage]
+                        .read { [dependencies] db in try Interaction.fetchAppBadgeUnreadCount(db, using: dependencies) }
+                        .map { NSNumber(value: $0) }
+                        .defaulting(to: NSNumber(value: 0))
+                }
+                
                 dependencies[singleton: .storage].suspendDatabaseAccess()
         }
         
@@ -538,9 +546,17 @@ public final class NotificationServiceExtension: UNNotificationServiceExtension 
         let notificationContent = UNMutableNotificationContent()
         notificationContent.userInfo = [ NotificationServiceExtension.isFromRemoteKey : true ]
         notificationContent.title = Constants.app_name
-        notificationContent.badge = (try? Interaction.fetchAppBadgeUnreadCount(db, using: dependencies))
-            .map { NSNumber(value: $0) }
-            .defaulting(to: NSNumber(value: 0))
+        
+        /// Update the app badge in case the unread count changed (but only if the database is valid and
+        /// not suspended)
+        if
+            dependencies[singleton: .storage].isValid &&
+            !dependencies[singleton: .storage].isSuspended
+        {
+            notificationContent.badge = (try? Interaction.fetchAppBadgeUnreadCount(db, using: dependencies))
+                .map { NSNumber(value: $0) }
+                .defaulting(to: NSNumber(value: 0))
+        }
         
         if let sender: String = callMessage.sender {
             let senderDisplayName: String = Profile.displayName(db, id: sender, threadVariant: .contact, using: dependencies)

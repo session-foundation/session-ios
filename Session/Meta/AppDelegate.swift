@@ -381,19 +381,18 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
                         // Ensure we haven't timed out yet
                         guard timer.isCancelled == false else { return }
                         
-                        // Immediately cancel the timer to prevent the timeout being triggered
-                        timer.cancel()
-                        
-                        // Update the unread count badge
-                        let unreadCount: Int = dependencies[singleton: .storage]
-                            .read { db in try Interaction.fetchAppBadgeUnreadCount(db, using: dependencies) }
-                            .defaulting(to: 0)
-                        
-                        DispatchQueue.main.async(using: dependencies) {
+                        /// Update the app badge in case the unread count changed (but only if the database is valid and
+                        /// not suspended)
+                        if
+                            dependencies[singleton: .storage].isValid &&
+                            !dependencies[singleton: .storage].isSuspended
+                        {
+                            let unreadCount: Int = dependencies[singleton: .storage]
+                                .read { db in try Interaction.fetchAppBadgeUnreadCount(db, using: dependencies) }
+                                .defaulting(to: 0)
                             UIApplication.shared.applicationIconBadgeNumber = unreadCount
                         }
                         
-                        // If we are still running in the background then suspend the network & database
                         if dependencies[singleton: .appContext].isInBackground {
                             dependencies.mutate(cache: .libSessionNetwork) { $0.suspendNetworkAccess() }
                             dependencies[singleton: .storage].suspendDatabaseAccess()
@@ -784,7 +783,15 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
             /// On application startup the `Storage.read` can be slightly slow while GRDB spins up it's database
             /// read pools (up to a few seconds), since this read is blocking we want to dispatch it to run async to ensure
             /// we don't block user interaction while it's running
+            ///
+            /// **Note:** Only do this if the database is still valid and not suspended (otherwise we will just reset the badge
+            /// number incorrectly)
             DispatchQueue.global(qos: .default).async {
+                guard
+                    dependencies[singleton: .storage].isValid &&
+                    !dependencies[singleton: .storage].isSuspended
+                else { return }
+                
                 let unreadCount: Int = dependencies[singleton: .storage]
                     .read { db in try Interaction.fetchAppBadgeUnreadCount(db, using: dependencies) }
                     .defaulting(to: 0)
