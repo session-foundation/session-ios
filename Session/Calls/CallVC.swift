@@ -716,7 +716,22 @@ final class CallVC: UIViewController, VideoPreviewDelegate, AVRoutePickerViewDel
             call.isVideoEnabled = false
         }
         else {
-            guard Permissions.requestCameraPermissionIfNeeded() else { return }
+            guard Permissions.requestCameraPermissionIfNeeded() else {
+                let confirmationModal: ConfirmationModal = ConfirmationModal(
+                    info: ConfirmationModal.Info(
+                        title: "permissionsRequired".localized(),
+                        body: .text("Camera access is required to make video calls. Toggle the \"Camera\" permission in Settings to continue."),
+                        showCondition: .disabled,
+                        confirmTitle: "sessionSettings".localized(),
+                        onConfirm: { _ in
+                            UIApplication.shared.openSystemSettings()
+                        }
+                    )
+                )
+                
+                self.navigationController?.present(confirmationModal, animated: true, completion: nil)
+                return
+            }
             let previewVC = VideoPreviewVC()
             previewVC.delegate = self
             present(previewVC, animated: true, completion: nil)

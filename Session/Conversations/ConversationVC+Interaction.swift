@@ -119,7 +119,7 @@ extension ConversationVC:
         guard Permissions.microphone == .granted else {
             let confirmationModal: ConfirmationModal = ConfirmationModal(
                 info: ConfirmationModal.Info(
-                    title: "Permissions Required",
+                    title: "permissionsRequired".localized(),
                     body: .text("Microphone access is required to make calls and record audio messages. Toggle the \"Microphone\" permission in Settings to continue."),
                     showCondition: .disabled,
                     confirmTitle: "sessionSettings".localized(),
@@ -136,7 +136,7 @@ extension ConversationVC:
         guard Permissions.localNetwork == .granted else {
             let confirmationModal: ConfirmationModal = ConfirmationModal(
                 info: ConfirmationModal.Info(
-                    title: "Permissions Required",
+                    title: "permissionsRequired".localized(),
                     body: .text("Local Network access is required to facilitate calls. Toggle the \"Local Network\" permission in Settings to continue."),
                     showCondition: .disabled,
                     confirmTitle: "sessionSettings".localized(),
