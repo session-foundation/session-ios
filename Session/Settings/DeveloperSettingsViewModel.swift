@@ -313,7 +313,6 @@ class DeveloperSettingsViewModel: SessionTableViewModel, NavigatableStateHolder,
                     sourcePath: FileManager.default.appSharedDataDirectoryPath,
                     destinationPath: backupFile,
                     filenamesToExclude: [
-                        ".DS_Store",
                         "\(Storage.dbFileName)-wal",
                         "\(Storage.dbFileName)-shm"
                     ],
