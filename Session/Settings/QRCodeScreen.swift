@@ -32,13 +32,14 @@ struct QRCodeScreen: View {
                 ).frame(maxWidth: .infinity)
                     
                 if tabIndex == 0 {
-                    MyQRCodeScreen()
+                    MyQRCodeScreen(using: dependencies)
                 }
                 else {
                     ScanQRCodeScreen(
                         $accountId,
                         error: $errorString,
-                        continueAction: continueWithAccountId
+                        continueAction: continueWithAccountId,
+                        using: dependencies
                     )
                 }
             }
@@ -51,13 +52,12 @@ struct QRCodeScreen: View {
             errorString = "qrNotAccountId".localized()
         }
         else {
-            SessionApp.presentConversationCreatingIfNeeded(
+            dependencies[singleton: .app].presentConversationCreatingIfNeeded(
                 for: hexEncodedPublicKey,
                 variant: .contact,
                 action: .compose,
                 dismissing: self.host.controller,
-                animated: false,
-                using: dependencies
+                animated: false
             )
         }
     }
@@ -69,12 +69,18 @@ struct QRCodeScreen: View {
 }
 
 struct MyQRCodeScreen: View {
+    let dependencies: Dependencies
+    
+    init(using dependencies: Dependencies) {
+        self.dependencies = dependencies
+    }
+    
     var body: some View{
         VStack(
             spacing: Values.mediumSpacing
         ) {
             QRCodeView(
-                string: getUserHexEncodedPublicKey(),
+                string: dependencies[cache: .general].sessionId.hexString,
                 hasBackground: false,
                 logo: "SessionWhite40", // stringlint:ignore
                 themeStyle: ThemeManager.currentTheme.interfaceStyle
@@ -100,5 +106,5 @@ struct MyQRCodeScreen: View {
 }
 
 #Preview {
-    QRCodeScreen(using: Dependencies())
+    QRCodeScreen(using: Dependencies.createEmpty())
 }

@@ -6,18 +6,23 @@ import GRDB
 import DifferenceKit
 import SessionUIKit
 import SignalUtilitiesKit
+import SessionMessagingKit
 import SessionUtilitiesKit
 
 public class MediaTileViewController: UIViewController, UICollectionViewDataSource, UICollectionViewDelegate, UICollectionViewDelegateFlowLayout {
+    class DynamicallySizedView: UIView {
+        override var intrinsicContentSize: CGSize { CGSize.zero }
+    }
     
     /// This should be larger than one screen size so we don't have to call it multiple times in rapid succession, but not
     /// so large that loading get's really chopping
     static let itemPageSize: Int = Int(11 * itemsPerPortraitRow)
     static let itemsPerPortraitRow: CGFloat = 4
     static let interItemSpacing: CGFloat = 2
-    static let footerBarHeight: CGFloat = 40
+    static let footerBarHeight: CGFloat = 44
     static let loadMoreHeaderHeight: CGFloat = 100
     
+    private let dependencies: Dependencies
     public let viewModel: MediaGalleryViewModel
     private var hasLoadedInitialData: Bool = false
     private var didFinishInitialLayout: Bool = false
@@ -36,9 +41,10 @@ public class MediaTileViewController: UIViewController, UICollectionViewDataSour
     
     // MARK: - Initialization
 
-    init(viewModel: MediaGalleryViewModel) {
+    init(viewModel: MediaGalleryViewModel, using dependencies: Dependencies) {
+        self.dependencies = dependencies
         self.viewModel = viewModel
-        Storage.shared.addObserver(viewModel.pagedDataObserver)
+        dependencies[singleton: .storage].addObserver(viewModel.pagedDataObserver)
 
         super.init(nibName: nil, bundle: nil)
     }
@@ -88,6 +94,15 @@ public class MediaTileViewController: UIViewController, UICollectionViewDataSour
         
         return result
     }()
+    
+    var bottomContainer: UIView = {
+        let result: DynamicallySizedView = DynamicallySizedView()
+        result.clipsToBounds = true
+        result.autoresizingMask = .flexibleHeight
+        result.themeBackgroundColor = .backgroundPrimary
+        
+        return result
+    }()
 
     lazy var footerBar: UIToolbar = {
         let result: UIToolbar = UIToolbar()
@@ -113,6 +128,7 @@ public class MediaTileViewController: UIViewController, UICollectionViewDataSour
             action: #selector(didPressDelete)
         )
         result.themeTintColor = .textPrimary
+        result.isEnabled = false
 
         return result
     }()
@@ -126,7 +142,7 @@ public class MediaTileViewController: UIViewController, UICollectionViewDataSour
 
         // Add a custom back button if this is the only view controller
         if self.navigationController?.viewControllers.first == self {
-            let backButton = UIViewController.createOWSBackButton(target: self, selector: #selector(didPressDismissButton))
+            let backButton = UIViewController.createOWSBackButton(target: self, selector: #selector(didPressDismissButton), using: dependencies)
             self.navigationItem.leftBarButtonItem = backButton
         }
         
@@ -136,14 +152,26 @@ public class MediaTileViewController: UIViewController, UICollectionViewDataSour
             hasCustomBackButton: false
         )
 
-        view.addSubview(self.collectionView)
-        collectionView.pin(to: view)
+        view.addSubview(collectionView)
+        view.addSubview(bottomContainer)
+        bottomContainer.addSubview(footerBar)
         
-        view.addSubview(self.footerBar)
-        footerBar.set(.width, to: .width, of: view)
+        collectionView.pin(.top, to: .top, of: view)
+        collectionView.pin(.leading, to: .leading, of: view)
+        collectionView.pin(.trailing, to: .trailing, of: view)
+        collectionView.pin(.bottom, to: .top, of: bottomContainer)
+        
+        footerBar.pin(.top, to: .top, of: bottomContainer)
+        footerBar.pin(.leading, to: .leading, of: bottomContainer)
+        footerBar.pin(.trailing, to: .trailing, of: bottomContainer)
+        footerBar.pin(.bottom, to: .bottom, of: view.safeAreaLayoutGuide)
+        footerBar.set(.width, to: .width, of: bottomContainer)
         footerBar.set(.height, to: MediaTileViewController.footerBarHeight)
-        footerBarBottomConstraint = footerBar.pin(.bottom, to: .bottom, of: view, withInset: -MediaTileViewController.footerBarHeight)
-
+        
+        bottomContainer.pin(.leading, to: .leading, of: view)
+        bottomContainer.pin(.trailing, to: .trailing, of: view)
+        bottomContainer.pin(.bottom, to: .bottom, of: view)
+        
         self.updateSelectButton(updatedData: self.viewModel.galleryData, inBatchSelectMode: false)
         self.mediaTileViewLayout.invalidateLayout()
         
@@ -310,7 +338,7 @@ public class MediaTileViewController: UIViewController, UICollectionViewDataSour
     ) {
         // Ensure the first load runs without animations (if we don't do this the cells will animate
         // in from a frame of CGRect.zero)
-        guard hasLoadedInitialData else {
+        guard hasLoadedInitialData && viewModel.dependencies[feature: .animationsEnabled] else {
             self.viewModel.updateGalleryData(updatedGalleryData)
             self.updateSelectButton(updatedData: updatedGalleryData, inBatchSelectMode: isInBatchSelectMode)
             
@@ -451,7 +479,8 @@ public class MediaTileViewController: UIViewController, UICollectionViewDataSour
         let cell: PhotoGridViewCell = collectionView.dequeue(type: PhotoGridViewCell.self, for: indexPath)
         cell.configure(
             item: GalleryGridCellItem(
-                galleryItem: section.elements[indexPath.row]
+                galleryItem: section.elements[indexPath.row],
+                using: dependencies
             )
         )
 
@@ -544,7 +573,8 @@ public class MediaTileViewController: UIViewController, UICollectionViewDataSour
                 threadVariant: self.viewModel.threadVariant,
                 interactionId: galleryItem.interactionId,
                 selectedAttachmentId: galleryItem.attachment.id,
-                options: [ .sliderEnabled ]
+                options: [ .sliderEnabled ],
+                using: dependencies
             )
             
             guard let detailViewController: UIViewController = detailViewController else { return }
@@ -631,22 +661,16 @@ public class MediaTileViewController: UIViewController, UICollectionViewDataSour
     }
 
     func updateSelectButton(updatedData: [MediaGalleryViewModel.SectionModel], inBatchSelectMode: Bool) {
-        delegate?.updateSelectButton(updatedData: updatedData, inBatchSelectMode: inBatchSelectMode)
+        delegate?.updateSelectButton(
+            threadVariant: viewModel.threadVariant,
+            updatedData: updatedData,
+            inBatchSelectMode: inBatchSelectMode,
+            using: viewModel.dependencies
+        )
     }
 
     @objc func didTapSelect(_ sender: Any) {
         isInBatchSelectMode = true
-        
-        // show toolbar
-        let view: UIView = self.view
-        UIView.animate(withDuration: 0.1, delay: 0, options: .curveEaseInOut, animations: { [weak self] in
-            self?.footerBarBottomConstraint?.isActive = false
-            self?.footerBarBottomConstraint = self?.footerBar.pin(.bottom, to: .bottom, of: view.safeAreaLayoutGuide)
-            self?.footerBar.superview?.layoutIfNeeded()
-
-            // Ensure toolbar doesn't cover bottom row.
-            self?.collectionView.contentInset.bottom += MediaTileViewController.footerBarHeight
-        }, completion: nil)
     }
 
     @objc func didCancelSelect(_ sender: Any) {
@@ -684,8 +708,8 @@ public class MediaTileViewController: UIViewController, UICollectionViewDataSour
             .putNumber(indexPaths.count)
             .localized()
 
-        let deleteAction = UIAlertAction(title: confirmationTitle, style: .destructive) { [weak self] _ in
-            Storage.shared.writeAsync { db in
+        let deleteAction = UIAlertAction(title: confirmationTitle, style: .destructive) { [weak self, dependencies = viewModel.dependencies] _ in
+            dependencies[singleton: .storage].writeAsync { db in
                 let interactionIds: Set<Int64> = items
                     .map { $0.interactionId }
                     .asSet()
@@ -695,7 +719,7 @@ public class MediaTileViewController: UIViewController, UICollectionViewDataSour
                     .deleteAll(db)
                 
                 // Add the garbage collection job to delete orphaned attachment files
-                JobRunner.add(
+                dependencies[singleton: .jobRunner].add(
                     db,
                     job: Job(
                         variant: .garbageCollection,
@@ -703,7 +727,8 @@ public class MediaTileViewController: UIViewController, UICollectionViewDataSour
                         details: GarbageCollectionJob.Details(
                             typesToCollect: [.orphanedAttachmentFiles]
                         )
-                    )
+                    ),
+                    canStartJob: true
                 )
                 
                 // Delete any interactions which had all of their attachments removed
@@ -838,9 +863,11 @@ private class MediaGalleryStaticHeader: UICollectionViewCell {
 }
 
 class GalleryGridCellItem: PhotoGridItem {
+    private let dependencies: Dependencies
     let galleryItem: MediaGalleryViewModel.Item
 
-    init(galleryItem: MediaGalleryViewModel.Item) {
+    init(galleryItem: MediaGalleryViewModel.Item, using dependencies: Dependencies) {
+        self.dependencies = dependencies
         self.galleryItem = galleryItem
     }
 
@@ -857,7 +884,7 @@ class GalleryGridCellItem: PhotoGridItem {
     }
 
     func asyncThumbnail(completion: @escaping (UIImage?) -> Void) {
-        galleryItem.thumbnailImage(async: completion)
+        galleryItem.thumbnailImage(using: dependencies, async: completion)
     }
 }
 
@@ -874,7 +901,8 @@ extension MediaTileViewController: UIViewControllerTransitioningDelegate {
         guard let focusedIndexPath: IndexPath = self.viewModel.focusedIndexPath else { return nil }
 
         return MediaDismissAnimationController(
-            galleryItem: self.viewModel.galleryData[focusedIndexPath.section].elements[focusedIndexPath.item]
+            galleryItem: self.viewModel.galleryData[focusedIndexPath.section].elements[focusedIndexPath.item],
+            using: dependencies
         )
     }
 
@@ -889,7 +917,8 @@ extension MediaTileViewController: UIViewControllerTransitioningDelegate {
 
         return MediaZoomAnimationController(
             galleryItem: self.viewModel.galleryData[focusedIndexPath.section].elements[focusedIndexPath.item],
-            shouldBounce: false
+            shouldBounce: false,
+            using: dependencies
         )
     }
 }
@@ -898,7 +927,7 @@ extension MediaTileViewController: UIViewControllerTransitioningDelegate {
 
 extension MediaTileViewController: MediaPresentationContextProvider {
     func mediaPresentationContext(mediaItem: Media, in coordinateSpace: UICoordinateSpace) -> MediaPresentationContext? {
-        guard case let .gallery(galleryItem) = mediaItem else { return nil }
+        guard case let .gallery(galleryItem, _) = mediaItem else { return nil }
 
         // Note: According to Apple's docs the 'indexPathsForVisibleRows' method returns an
         // unsorted array which means we can't use it to determine the desired 'visibleCell'
@@ -940,5 +969,10 @@ extension MediaTileViewController: MediaPresentationContextProvider {
 
 public protocol MediaTileViewControllerDelegate: AnyObject {
     func presentdetailViewController(_ detailViewController: UIViewController, animated: Bool)
-    func updateSelectButton(updatedData: [MediaGalleryViewModel.SectionModel], inBatchSelectMode: Bool)
+    func updateSelectButton(
+        threadVariant: SessionThread.Variant,
+        updatedData: [MediaGalleryViewModel.SectionModel],
+        inBatchSelectMode: Bool,
+        using dependencies: Dependencies
+    )
 }

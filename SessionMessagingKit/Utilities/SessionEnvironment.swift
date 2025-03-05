@@ -11,13 +11,6 @@ public class SessionEnvironment {
     public let windowManager: OWSWindowManager
     public var isRequestingPermission: Bool
     
-    // Note: This property is configured after Environment is created.
-    @ThreadSafeObject public var notificationsManager: NotificationsProtocol? = nil
-    
-    public var isComplete: Bool {
-        (notificationsManager != nil)
-    }
-    
     // MARK: - Initialization
     
     public init(
@@ -37,10 +30,6 @@ public class SessionEnvironment {
     
     // MARK: - Functions
     
-    public func setNotificationsManager(to manager: NotificationsProtocol?) {
-        _notificationsManager.set(to: manager)
-    }
-    
     public static func clearSharedForTests() {
         shared = nil
     }
@@ -54,6 +43,4 @@ public class SMKEnvironment: NSObject {
     
     @objc public var audioSession: OWSAudioSession? { SessionEnvironment.shared?.audioSession }
     @objc public var windowManager: OWSWindowManager? { SessionEnvironment.shared?.windowManager }
-    
-    @objc public var isRequestingPermission: Bool { (SessionEnvironment.shared?.isRequestingPermission == true) }
 }

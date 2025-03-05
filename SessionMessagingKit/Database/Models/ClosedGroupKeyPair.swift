@@ -49,10 +49,11 @@ public struct ClosedGroupKeyPair: Codable, Equatable, FetchableRecord, Persistab
         
         // This value has a unique constraint and is used for key de-duping so the formula
         // shouldn't be modified unless all existing keys have their values updated
-        self.threadKeyPairHash = Data(Insecure.MD5
-            .hash(data: threadId.bytes + publicKey.bytes + secretKey.bytes)
-            .makeIterator())
-            .toHexString()
+        self.threadKeyPairHash = ClosedGroupKeyPair.generateHash(
+            threadId: threadId,
+            publicKey: publicKey,
+            secretKey: secretKey
+        )
     }
 }
 
@@ -64,5 +65,16 @@ public extension ClosedGroupKeyPair {
             .filter(Columns.threadId == threadId)
             .order(Columns.receivedTimestamp.desc)
             .fetchOne(db)
+    }
+}
+
+// MARK: - Convenience
+
+public extension ClosedGroupKeyPair {
+    static func generateHash(threadId: String, publicKey: Data, secretKey: Data) -> String {
+        return Data(Insecure.MD5
+            .hash(data: threadId.bytes + publicKey.bytes + secretKey.bytes)
+            .makeIterator())
+            .toHexString()
     }
 }

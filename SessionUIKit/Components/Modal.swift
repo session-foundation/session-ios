@@ -1,7 +1,6 @@
 // Copyright © 2022 Rangeproof Pty Ltd. All rights reserved.
 
 import UIKit
-import SessionUtilitiesKit
 
 open class Modal: UIViewController, UIGestureRecognizerDelegate {
     private static let cornerRadius: CGFloat = 11
@@ -55,7 +54,10 @@ open class Modal: UIViewController, UIGestureRecognizerDelegate {
     }()
     
     public lazy var cancelButton: UIButton = {
-        let result: UIButton = Modal.createButton(title: "cancel".localized(), titleColor: .textPrimary)
+        let result: UIButton = Modal.createButton(
+            title: "cancel".localizedSNUIKit(),
+            titleColor: .textPrimary
+        )
         result.addTarget(self, action: #selector(cancel), for: .touchUpInside)
                 
         return result
@@ -113,7 +115,7 @@ open class Modal: UIViewController, UIGestureRecognizerDelegate {
         containerView.center(.horizontal, in: view)
         contentCenterYConstraint = containerView.center(.vertical, in: view)
         contentTopConstraint = containerView
-            .pin(.top, toMargin: .top, of: view)
+            .pin(.top, toMargin: .top, of: view, withInset: 10)
             .setting(isActive: false)
         
         // Gestures
@@ -126,6 +128,12 @@ open class Modal: UIViewController, UIGestureRecognizerDelegate {
         dimmingView.addGestureRecognizer(tapGestureRecognizer)
         
         populateContentView()
+    }
+    
+    open override func viewDidDisappear(_ animated: Bool) {
+        super.viewDidDisappear(animated)
+        
+        afterClosed?()
     }
     
     /// To be overridden by subclasses.
@@ -165,9 +173,7 @@ open class Modal: UIViewController, UIGestureRecognizerDelegate {
                 }
         }
         
-        targetViewController?.presentingViewController?.dismiss(animated: true) { [weak self] in
-            self?.afterClosed?()
-        }
+        targetViewController?.presentingViewController?.dismiss(animated: true)
     }
     
     // MARK: - UIGestureRecognizerDelegate

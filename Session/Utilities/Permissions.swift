@@ -11,6 +11,7 @@ import SessionMessagingKit
 extension Permissions {
     @discardableResult public static func requestCameraPermissionIfNeeded(
         presentingViewController: UIViewController? = nil,
+        using dependencies: Dependencies,
         onAuthorized: (() -> Void)? = nil
     ) -> Bool {
         switch AVCaptureDevice.authorizationStatus(for: .video) {
@@ -20,8 +21,7 @@ extension Permissions {
             
             case .denied, .restricted:
                 guard
-                    Singleton.hasAppContext,
-                    let presentingViewController: UIViewController = (presentingViewController ?? Singleton.appContext.frontmostViewController)
+                    let presentingViewController: UIViewController = (presentingViewController ?? dependencies[singleton: .appContext].frontMostViewController)
                 else { return false }
                 
                 let confirmationModal: ConfirmationModal = ConfirmationModal(
@@ -55,12 +55,12 @@ extension Permissions {
 
     public static func requestMicrophonePermissionIfNeeded(
         presentingViewController: UIViewController? = nil,
+        using dependencies: Dependencies,
         onNotGranted: (() -> Void)? = nil
     ) {
         let handlePermissionDenied: () -> Void = {
             guard
-                Singleton.hasAppContext,
-                let presentingViewController: UIViewController = (presentingViewController ?? Singleton.appContext.frontmostViewController)
+                let presentingViewController: UIViewController = (presentingViewController ?? dependencies[singleton: .appContext].frontMostViewController)
             else { return }
             onNotGranted?()
             
@@ -92,7 +92,7 @@ extension Permissions {
                 case .undetermined:
                     onNotGranted?()
                     AVAudioApplication.requestRecordPermission { granted in
-                        UserDefaults.sharedLokiProject?[.lastSeenHasMicrophonePermission] = granted
+                        dependencies[defaults: .appGroup, key: .lastSeenHasMicrophonePermission] = granted
                     }
                 default: break
             }
@@ -103,7 +103,7 @@ extension Permissions {
                 case .undetermined:
                     onNotGranted?()
                     AVAudioSession.sharedInstance().requestRecordPermission { granted in
-                        UserDefaults.sharedLokiProject?[.lastSeenHasMicrophonePermission] = granted
+                        dependencies[defaults: .appGroup, key: .lastSeenHasMicrophonePermission] = granted
                     }
                 default: break
             }
@@ -113,6 +113,7 @@ extension Permissions {
     public static func requestLibraryPermissionIfNeeded(
         isSavingMedia: Bool,
         presentingViewController: UIViewController? = nil,
+        using dependencies: Dependencies,
         onAuthorized: @escaping () -> Void
     ) {
         let targetPermission: PHAccessLevel = (isSavingMedia ? .addOnly : .readWrite)
@@ -140,8 +141,7 @@ extension Permissions {
             case .authorized, .limited: onAuthorized()
             case .denied, .restricted:
                 guard
-                    Singleton.hasAppContext,
-                    let presentingViewController: UIViewController = (presentingViewController ?? Singleton.appContext.frontmostViewController)
+                    let presentingViewController: UIViewController = (presentingViewController ?? dependencies[singleton: .appContext].frontMostViewController)
                 else { return }
                 
                 let confirmationModal: ConfirmationModal = ConfirmationModal(

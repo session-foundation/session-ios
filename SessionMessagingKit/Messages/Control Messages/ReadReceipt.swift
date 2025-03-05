@@ -21,8 +21,8 @@ public final class ReadReceipt: ControlMessage {
 
     // MARK: - Validation
     
-    public override var isValid: Bool {
-        guard super.isValid else { return false }
+    public override func isValid(isSending: Bool) -> Bool {
+        guard super.isValid(isSending: isSending) else { return false }
         if let timestamps = timestamps, !timestamps.isEmpty { return true }
         return false
     }
@@ -47,7 +47,7 @@ public final class ReadReceipt: ControlMessage {
 
     // MARK: - Proto Conversion
     
-    public override class func fromProto(_ proto: SNProtoContent, sender: String) -> ReadReceipt? {
+    public override class func fromProto(_ proto: SNProtoContent, sender: String, using dependencies: Dependencies) -> ReadReceipt? {
         guard let receiptProto = proto.receiptMessage, receiptProto.type == .read else { return nil }
         let timestamps = receiptProto.timestamp
         guard !timestamps.isEmpty else { return nil }
@@ -62,6 +62,7 @@ public final class ReadReceipt: ControlMessage {
         let receiptProto = SNProtoReceiptMessage.builder(type: .read)
         receiptProto.setTimestamp(timestamps)
         let contentProto = SNProtoContent.builder()
+        if let sigTimestampMs = sigTimestampMs { contentProto.setSigTimestamp(sigTimestampMs) }
         do {
             contentProto.setReceiptMessage(try receiptProto.build())
             // DisappearingMessagesConfiguration

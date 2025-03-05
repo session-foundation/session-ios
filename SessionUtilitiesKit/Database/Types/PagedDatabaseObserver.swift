@@ -7,6 +7,12 @@ import Combine
 import GRDB
 import DifferenceKit
 
+// MARK: - Log.Category
+
+private extension Log.Category {
+    static let cat: Log.Category = .create("PagedDatabaseObserver", defaultLevel: .info)
+}
+
 // MARK: - PagedDatabaseObserver
 
 /// This type manages observation and paging for the provided dataQuery
@@ -21,6 +27,7 @@ public class PagedDatabaseObserver<ObservedTable, T>: TransactionObserver where 
     
     // MARK: - Variables
     
+    private let dependencies: Dependencies
     private let pagedTableName: String
     private let idColumnName: String
     @ThreadSafe public var pageInfo: PagedData.PageInfo
@@ -59,11 +66,10 @@ public class PagedDatabaseObserver<ObservedTable, T>: TransactionObserver where 
         orderSQL: SQL,
         dataQuery: @escaping ([Int64]) -> any FetchRequest<T>,
         associatedRecords: [ErasedAssociatedRecord] = [],
-        onChangeUnsorted: @escaping ([T], PagedData.PageInfo) -> ()
+        onChangeUnsorted: @escaping ([T], PagedData.PageInfo) -> (),
+        using dependencies: Dependencies
     ) {
-        let associatedTables: Set<String> = associatedRecords.map { $0.databaseTableName }.asSet()
-        assert(!associatedTables.contains(pagedTable.databaseTableName), "The paged table cannot also exist as an associatedRecord")
-        
+        self.dependencies = dependencies
         self.pagedTableName = pagedTable.databaseTableName
         self.idColumnName = idColumn.name
         self.pageInfo = PagedData.PageInfo(pageSize: pageSize)
@@ -138,7 +144,7 @@ public class PagedDatabaseObserver<ObservedTable, T>: TransactionObserver where 
             // Retrieve the pagedRowId for the related value that is
             // getting deleted
             let pagedTableName: String = self.pagedTableName
-            let pagedRowIds: [Int64] = Storage.shared
+            let pagedRowIds: [Int64] = dependencies[singleton: .storage]
                 .read { db in
                     PagedData.pagedRowIdsForRelatedRowIds(
                         db,
@@ -232,8 +238,8 @@ public class PagedDatabaseObserver<ObservedTable, T>: TransactionObserver where 
             .filter { $0.kind == .delete }
         
         // Process and retrieve the updated data
-        let updatedData: UpdatedData = Storage.shared
-            .read { db -> UpdatedData in
+        let updatedData: UpdatedData = dependencies[singleton: .storage]
+            .read { [dependencies] db -> UpdatedData in
                 // If there aren't any direct or related changes then early-out
                 guard !directChanges.isEmpty || !relatedChanges.isEmpty || !relatedDeletions.isEmpty else {
                     return (dataCache, pageInfo, false, getAssociatedDataInfo(db, pageInfo))
@@ -430,8 +436,8 @@ public class PagedDatabaseObserver<ObservedTable, T>: TransactionObserver where 
                     do { return try dataQuery(targetRowIds).fetchAll(db) }
                     catch {
                         // If the database is suspended then don't bother logging (as we already know why)
-                        if !Storage.shared.isSuspended {
-                            Log.error("[PagedDatabaseObserver] Error fetching data during change: \(error)")
+                        if !dependencies[singleton: .storage].isSuspended {
+                            Log.error(.cat, "Error fetching data during change: \(error)")
                         }
                         
                         return []
@@ -505,7 +511,7 @@ public class PagedDatabaseObserver<ObservedTable, T>: TransactionObserver where 
         let orderSQL: SQL = self.orderSQL
         let dataQuery: ([Int64]) -> any FetchRequest<T> = self.dataQuery
         
-        let loadedPage: (data: [T]?, pageInfo: PagedData.PageInfo, failureCallback: (() -> ())?)? = Storage.shared.read { [weak self] db in
+        let loadedPage: (data: [T]?, pageInfo: PagedData.PageInfo, failureCallback: (() -> ())?)? = dependencies[singleton: .storage].read { [weak self] db in
             typealias QueryInfo = (limit: Int, offset: Int, updatedCacheOffset: Int)
             let totalCount: Int = PagedData.totalCount(
                 db,
@@ -743,7 +749,7 @@ public class PagedDatabaseObserver<ObservedTable, T>: TransactionObserver where 
                 }
             }
             catch {
-                SNLog("[PagedDatabaseObserver] Error loading data: \(error)")
+                Log.error(.cat, "Error loading data: \(error)")
                 throw error
             }
 
@@ -1273,6 +1279,7 @@ public class AssociatedRecord<T, PagedType>: ErasedAssociatedRecord where T: Fet
     
     @ThreadSafe fileprivate var dataCache: DataCache<T> = DataCache()
     fileprivate let dataQuery: (SQL?) -> any FetchRequest<T>
+    fileprivate let retrieveRowIdsForReferencedRowIds: (([Int64], DataCache<T>) -> [Int64])?
     fileprivate let associateData: (DataCache<T>, DataCache<PagedType>) -> DataCache<PagedType>
     
     // MARK: - Initialization
@@ -1282,12 +1289,14 @@ public class AssociatedRecord<T, PagedType>: ErasedAssociatedRecord where T: Fet
         observedChanges: [PagedData.ObservedChanges],
         dataQuery: @escaping (SQL?) -> any FetchRequest<T>,
         joinToPagedType: SQL,
+        retrieveRowIdsForReferencedRowIds: (([Int64], DataCache<T>) -> [Int64])? = nil,
         associateData: @escaping (DataCache<T>, DataCache<PagedType>) -> DataCache<PagedType>
     ) {
         self.databaseTableName = trackedAgainst.databaseTableName
         self.observedChanges = observedChanges
         self.dataQuery = dataQuery
         self.joinToPagedType = joinToPagedType
+        self.retrieveRowIdsForReferencedRowIds = retrieveRowIdsForReferencedRowIds
         self.associateData = associateData
     }
     
@@ -1307,15 +1316,18 @@ public class AssociatedRecord<T, PagedType>: ErasedAssociatedRecord where T: Fet
         pageInfo: PagedData.PageInfo
     ) -> Bool {
         // Ignore any changes which aren't relevant to this type
+        let tablesToObserve: Set<String> = [databaseTableName]
+            .appending(contentsOf: observedChanges.map(\.databaseTableName))
+            .asSet()
         let relevantChanges: Set<PagedData.TrackedChange> = changes
-            .filter { $0.tableName == databaseTableName }
+            .filter { tablesToObserve.contains($0.tableName) }
         
         guard !relevantChanges.isEmpty else { return false }
         
         // First remove any items which have been deleted
         let oldCount: Int = self.dataCache.count
         let deletionChanges: [Int64] = relevantChanges
-            .filter { $0.kind == .delete }
+            .filter { $0.kind == .delete && $0.tableName == databaseTableName }
             .map { $0.rowId }
         
         dataCache = dataCache.deleting(rowIds: deletionChanges)
@@ -1323,14 +1335,25 @@ public class AssociatedRecord<T, PagedType>: ErasedAssociatedRecord where T: Fet
         // Get an updated count to avoid locking the dataCache unnecessarily
         let countAfterDeletions: Int = self.dataCache.count
         
-        // If there are no inserted/updated rows then trigger the update callback and stop here
+        // If there are no inserted/updated rows then trigger the update callback and stop here, we
+        // need to also check if the updated row is one that is referenced by this associated data as
+        // that might mean a different data value needs to be updated
+        let pagedChangesRowIds: [Int64] = relevantChanges
+            .filter { $0.tableName == pagedTableName }
+            .map { $0.rowId }
+        let referencedRowIdsToQuery: [Int64]? = retrieveRowIdsForReferencedRowIds?(
+            pagedChangesRowIds,
+            dataCache
+        )
+        // Note: We need to include the 'paged' row ids in here as well because a newly inserted record
+        // could contain a new reference type and we would need to add that to the associated data cache
         let rowIdsToQuery: [Int64] = relevantChanges
             .filter { $0.kind != .delete }
             .map { $0.rowId }
+            .appending(contentsOf: referencedRowIdsToQuery)
         
         guard !rowIdsToQuery.isEmpty else { return (oldCount != countAfterDeletions) }
         
-        // Fetch the indexes of the rowIds so we can determine whether they should be added to the screen
         let pagedRowIds: [Int64] = PagedData.pagedRowIdsForRelatedRowIds(
             db,
             tableName: databaseTableName,
@@ -1405,7 +1428,7 @@ public class AssociatedRecord<T, PagedType>: ErasedAssociatedRecord where T: Fet
             return true
         }
         catch {
-            SNLog("[PagedDatabaseObserver] Error loading associated data: \(error)")
+            Log.error(.cat, "Error loading associated data: \(error)")
             return hasOtherChanges
         }
     }

@@ -103,14 +103,21 @@ public struct TableObservation<T> {
                         
                         return convertedData
                     }
+                    /// Ignore outputs if the data hasn't changed from the current `tableData` value to avoid needlessly
+                    /// reloading table data
+                    .filter { [weak source] data in data != source?.state.tableData }
                     .eraseToAnyPublisher()
                 
             case (let validObservation as S.TargetObservation, _):
-                // Doing `removeDuplicates` in case the conversion from the original data to [SectionModel]
-                // can result in duplicate output even with some different inputs
+                /// Doing `removeDuplicates` in case the conversion from the original data to `[SectionModel]`
+                /// can result in duplicate output even with some different inputs
                 return validObservation.generatePublisher(source, dependencies)
                     .removeDuplicates()
                     .mapToSessionTableViewData(for: source)
+                    /// Ignore outputs if the data hasn't changed from the current `tableData` value to avoid needlessly
+                    /// reloading table data
+                    .filter { [weak source] data in data != source?.state.tableData }
+                    .eraseToAnyPublisher()
                 
             default: return Fail(error: StorageError.invalidData).eraseToAnyPublisher()
         }
@@ -189,11 +196,11 @@ public enum ObservationBuilder {
                                     ///
                                     /// **Note:** The `ValueObservation` **MUST** be started from the main thread
                                     observationCancellable?.cancel()
-                                    observationCancellable = dependencies.storage.start(
+                                    observationCancellable = dependencies[singleton: .storage].start(
                                         ValueObservation
                                             .trackingConstantRegion(fetch)
                                             .removeDuplicates(),
-                                        scheduling: dependencies.scheduler,
+                                        scheduling: dependencies[singleton: .scheduler],
                                         onError: { error in
                                             let log: String = [
                                                 "[\(type(of: viewModel))]",         // stringlint:ignore
@@ -214,7 +221,63 @@ public enum ObservationBuilder {
                     }
                 )
                 .manualRefreshFrom(source.observableState.forcedPostQueryRefresh)
-                .shareReplay(1) // Share to prevent multiple subscribers resulting in multiple ValueObservations
+                .shareReplay(1) /// Share to prevent multiple subscribers resulting in multiple ValueObservations
+                .eraseToAnyPublisher()
+        }
+    }
+    
+    static func databaseObservation<S: ObservableTableSource, T: Equatable>(_ source: S, fetch: @escaping (Database) throws -> [T]) -> TableObservation<[T]> {
+        return TableObservation { viewModel, dependencies in
+            let subject: CurrentValueSubject<[T]?, Error> = CurrentValueSubject(nil)
+            var forcedRefreshCancellable: AnyCancellable?
+            var observationCancellable: DatabaseCancellable?
+            
+            /// In order to force a `ValueObservation` to requery we need to resubscribe to it, as a result we create a
+            /// `CurrentValueSubject` and in the `receiveSubscription` call we start the `ValueObservation` sending
+            /// it's output into the subject
+            ///
+            /// **Note:** We need to use a `CurrentValueSubject` here because the `ValueObservation` could send it's
+            /// first value _before_ the subscription is properly setup, by using a `CurrentValueSubject` the value will be stored
+            /// and emitted once the subscription becomes valid
+            return subject
+                .compactMap { $0 }
+                .handleEvents(
+                    receiveSubscription: { subscription in
+                        forcedRefreshCancellable = source.observableState.forcedRequery
+                            .prepend(())
+                            .sink(
+                                receiveCompletion: { _ in },
+                                receiveValue: { _ in
+                                    /// Cancel any previous observation and create a brand new observation for this refresh
+                                    ///
+                                    /// **Note:** The `ValueObservation` **MUST** be started from the main thread
+                                    observationCancellable?.cancel()
+                                    observationCancellable = dependencies[singleton: .storage].start(
+                                        ValueObservation
+                                            .trackingConstantRegion(fetch)
+                                            .removeDuplicates(),
+                                        scheduling: dependencies[singleton: .scheduler],
+                                        onError: { error in
+                                            let log: String = [
+                                                "[\(type(of: viewModel))]",         // stringlint:ignore
+                                                "Observation failed with error:",   // stringlint:ignore
+                                                "\(error)"                          // stringlint:ignore
+                                            ].joined(separator: " ")
+                                            SNLog(log)
+                                            subject.send(completion: Subscribers.Completion.failure(error))
+                                        },
+                                        onChange: { subject.send($0) }
+                                    )
+                                }
+                            )
+                    },
+                    receiveCancel: {
+                        forcedRefreshCancellable?.cancel()
+                        observationCancellable?.cancel()
+                    }
+                )
+                .manualRefreshFrom(source.observableState.forcedPostQueryRefresh)
+                .shareReplay(1) /// Share to prevent multiple subscribers resulting in multiple ValueObservations
                 .eraseToAnyPublisher()
         }
     }
@@ -236,6 +299,12 @@ public extension TableObservation {
     func map<R>(transform: @escaping (T) -> R) -> TableObservation<R> {
         return TableObservation<R> { viewModel, dependencies in
             self.generatePublisher(viewModel, dependencies).map(transform).eraseToAnyPublisher()
+        }
+    }
+    
+    func compactMap<R>(transform: @escaping (T) -> R?) -> TableObservation<R> {
+        return TableObservation<R> { viewModel, dependencies in
+            self.generatePublisher(viewModel, dependencies).compactMap(transform).eraseToAnyPublisher()
         }
     }
     

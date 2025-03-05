@@ -10,4 +10,15 @@ public enum ImageFormat {
     case jpeg
     case bmp
     case webp
+    
+    public var fileExtension: String {
+        switch self {
+            case .jpeg, .unknown: return "jpg"
+            case .png: return "png"
+            case .gif: return "gif"
+            case .tiff: return "tiff"
+            case .bmp: return "bmp"
+            case .webp: return "webp"
+        }
+    }
 }
