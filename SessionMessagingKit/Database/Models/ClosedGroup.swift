@@ -625,6 +625,28 @@ public extension ClosedGroup {
     }
 }
 
+public extension Collection where Element == (String, Profile?) {
+    func sortedById(userSessionId: SessionId) -> [Element] {
+        return sorted { lhs, rhs in
+            guard lhs.0 != userSessionId.hexString else { return true }
+            guard rhs.0 != userSessionId.hexString else { return false }
+            
+            return (lhs.0 < rhs.0)
+        }
+    }
+}
+
+public extension Collection where Element == String {
+    func sortedById(userSessionId: SessionId) -> [Element] {
+        return sorted { lhs, rhs in
+            guard lhs != userSessionId.hexString else { return true }
+            guard rhs != userSessionId.hexString else { return false }
+            
+            return (lhs < rhs)
+        }
+    }
+}
+
 public extension [ClosedGroup.RemovableGroupData] {
     static var allData: [ClosedGroup.RemovableGroupData] { ClosedGroup.RemovableGroupData.allCases }
     static var noData: [ClosedGroup.RemovableGroupData] { [] }
