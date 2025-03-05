@@ -804,10 +804,6 @@ extension ProjectState {
                                 return
                             }
                             else if explicitStringRange != nil {
-                                if targetLine.contains("LocalizationHelper") {
-                                    Output.error("RAWR not a template chain")
-                                }
-                                
                                 // We didn't find any of the expected functions when looking ahead
                                 // so we can assume it's an unlocalised string
                                 let unlocalizedPhrase = Phrase(

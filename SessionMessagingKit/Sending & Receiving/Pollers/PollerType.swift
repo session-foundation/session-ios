@@ -115,6 +115,21 @@ public extension PollerType {
     
     internal func pollRecursively(_ lastError: Error?) {
         guard isPolling else { return }
+        guard
+            !dependencies[singleton: .storage].isSuspended &&
+            !dependencies[cache: .libSessionNetwork].isSuspended
+        else {
+            let suspendedDependency: String = {
+                guard !dependencies[singleton: .storage].isSuspended else {
+                    return "storage"
+                }
+                
+                return "network"
+            }()
+            Log.warn(.poller, "Stopped \(pollerName) due to \(suspendedDependency) being suspended.")
+            self.stop()
+            return
+        }
         
         self.lastPollStart = dependencies.dateNow.timeIntervalSince1970
         let fallbackPollDelay: TimeInterval = self.nextPollDelay()

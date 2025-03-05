@@ -61,11 +61,21 @@ public enum Log {
         fileprivate var identifier: String { "\(Category.identifierPrefix)\(rawValue)" }
         
         private init(rawValue: String, customPrefix: String, defaultLevel: Log.Level) {
-            self.rawValue = rawValue
-            self.customPrefix = customPrefix
-            self.defaultLevel = defaultLevel
-            
-            AllLoggingCategories.register(category: self)
+            /// If we've already registered this category then assume the original has the correct `defaultLevel` and only
+            /// modify the `customPrefix` value
+            switch AllLoggingCategories.existingCategory(for: rawValue) {
+                case .some(let existingCategory):
+                    self.rawValue = existingCategory.rawValue
+                    self.customPrefix = customPrefix
+                    self.defaultLevel = existingCategory.defaultLevel
+                    
+                case .none:
+                    self.rawValue = rawValue
+                    self.customPrefix = customPrefix
+                    self.defaultLevel = defaultLevel
+                    
+                    AllLoggingCategories.register(category: self)
+            }
         }
         
         fileprivate init?(identifier: String) {
@@ -357,7 +367,6 @@ public class Logger {
     private let dependencies: Dependencies
     private let primaryPrefix: String
     private let forceNSLog: Bool
-    @ThreadSafe private var level: Log.Level
     @ThreadSafeObject private var systemLoggers: [String: SystemLoggerType] = [:]
     fileprivate let fileLogger: DDFileLogger
     @ThreadSafe fileprivate var isSuspended: Bool = true
@@ -365,14 +374,12 @@ public class Logger {
     
     public init(
         primaryPrefix: String,
-        level: Log.Level,
         customDirectory: String? = nil,
         forceNSLog: Bool = false,
         using dependencies: Dependencies
     ) {
         self.dependencies = dependencies
         self.primaryPrefix = primaryPrefix
-        self.level = level
         self.forceNSLog = forceNSLog
         
         switch customDirectory {
@@ -535,7 +542,20 @@ public class Logger {
         function: StaticString,
         line: UInt
     ) {
-        guard level >= self.level else { return }
+        let defaultLogLevel: Log.Level = dependencies[feature: .logLevel(cat: .default)]
+        let lowestCatLevel: Log.Level = categories
+            .reduce(into: [], { result, next in
+                guard dependencies[feature: .logLevel(cat: next)] != .default else {
+                    result.append(defaultLogLevel)
+                    return
+                }
+                
+                result.append(dependencies[feature: .logLevel(cat: next)])
+            })
+            .min()
+            .defaulting(to: defaultLogLevel)
+        
+        guard level >= lowestCatLevel else { return }
         
         // Sort out the prefixes
         let logPrefix: String = {
@@ -727,6 +747,10 @@ public struct AllLoggingCategories: FeatureOption {
         else { return }
         
         _registeredCategoryDefaults.performUpdate { $0.inserting(category) }
+    }
+    
+    fileprivate static func existingCategory(for cat: String) -> Log.Category? {
+        return AllLoggingCategories.registeredCategoryDefaults.first(where: { $0.rawValue == cat })
     }
     
     public func currentValues(using dependencies: Dependencies) -> [Log.Category: Log.Level] {

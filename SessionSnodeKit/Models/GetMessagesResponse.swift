@@ -35,4 +35,12 @@ public class GetMessagesResponse: SnodeResponse {
         
         try super.init(from: decoder)
     }
+    
+    public override func encode(to encoder: any Encoder) throws {
+        var container: KeyedEncodingContainer<CodingKeys> = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(messages, forKey: .messages)
+        try container.encode(more, forKey: .more)
+        
+        try super.encode(to: encoder)
+    }
 }

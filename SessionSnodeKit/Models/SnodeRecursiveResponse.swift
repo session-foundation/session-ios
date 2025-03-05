@@ -28,4 +28,11 @@ public class SnodeRecursiveResponse<T: SnodeSwarmItem>: SnodeResponse {
         
         try super.init(from: decoder)
     }
+    
+    public override func encode(to encoder: any Encoder) throws {
+        var container: KeyedEncodingContainer<CodingKeys> = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(swarm, forKey: .swarm)
+        
+        try super.encode(to: encoder)
+    }
 }

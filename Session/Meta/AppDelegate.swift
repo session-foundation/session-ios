@@ -68,7 +68,7 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
         AppSetup.setupEnvironment(
             additionalMigrationTargets: [DeprecatedUIKitMigrationTarget.self],
             appSpecificBlock: { [dependencies] in
-                Log.setup(with: Logger(primaryPrefix: "Session", level: .info, using: dependencies))
+                Log.setup(with: Logger(primaryPrefix: "Session", using: dependencies))
                 Log.info(.cat, "Setting up environment.")
                 
                 /// Create a proper `NotificationPresenter` and `SessionCallManager` for the main app (defaults to no-op versions)
@@ -797,7 +797,7 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
             // need to handle this behavior for legacy UINotification users anyway, we "allow" all
             // notification options here, and rely on the shared logic in NotificationPresenter to
             // honor notification sound preferences for both modern and legacy users.
-            completionHandler([.badge, .sound])
+            completionHandler([.badge, .banner, .sound])
         }
     }
 

@@ -216,7 +216,12 @@ public final class OpenGroupManager {
         server: String,
         publicKey: String
     ) -> AnyPublisher<Void, Error> {
-        guard successfullyAddedGroup else {
+        // Only bother performing the initial request if the network isn't suspended
+        guard
+            successfullyAddedGroup,
+            !dependencies[singleton: .storage].isSuspended,
+            !dependencies[cache: .libSessionNetwork].isSuspended
+        else {
             return Just(())
                 .setFailureType(to: Error.self)
                 .eraseToAnyPublisher()

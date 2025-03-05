@@ -49,7 +49,6 @@ final class ShareNavController: UINavigationController, ShareViewDelegate {
                 // stringlint:ignore_start
                 Log.setup(with: Logger(
                     primaryPrefix: "SessionShareExtension",
-                    level: .info,
                     customDirectory: "\(dependencies[singleton: .fileManager].appSharedDataDirectoryPath)/Logs/ShareExtension",
                     using: dependencies
                 ))

@@ -565,6 +565,9 @@ open class Storage {
                     let message: String = ((error as? DatabaseError)?.message ?? "Unknown")
                     Log.error(.storage, "Database \(isWrite ? "write" : "read") failed due to error: \(message)")
                 
+                case StorageError.databaseInvalid:
+                    Log.error(.storage, "Database \(isWrite ? "write" : "read") failed as the database is invalid.")
+                
                 case StorageError.databaseSuspended:
                     Log.error(.storage, "Database \(isWrite ? "write" : "read") failed as the database is suspended.")
                     
@@ -593,6 +596,7 @@ open class Storage {
         _ info: CallInfo,
         _ operation: @escaping (Database) throws -> T
     ) throws -> T {
+        guard info.storage?.isValid == true else { throw StorageError.databaseInvalid }
         guard info.storage?.isSuspended == false else { throw StorageError.databaseSuspended }
         
         let timer: TransactionTimer = TransactionTimer.start(
@@ -634,7 +638,7 @@ open class Storage {
         // A serial queue for synchronizing completion updates.
         let syncQueue = DispatchQueue(label: "com.session.performOperation.syncQueue")
         
-        var queryDb: Database?
+        weak var queryDb: Database?
         var didTimeout: Bool = false
         var operationResult: Result<T, Error>?
         let semaphore: DispatchSemaphore? = (info.isAsync ? nil : DispatchSemaphore(value: 0))
@@ -667,6 +671,7 @@ open class Storage {
                 dbWriter.asyncWrite(
                     { db in
                         syncQueue.sync { queryDb = db }
+                        defer { syncQueue.sync { queryDb = nil } }
                         
                         if dependencies[feature: .forceSlowDatabaseQueries] {
                             Thread.sleep(forTimeInterval: 1)
@@ -684,6 +689,7 @@ open class Storage {
                             case .failure(let error): throw error
                             case .success(let db):
                                 syncQueue.sync { queryDb = db }
+                                defer { syncQueue.sync { queryDb = nil } }
                                 
                                 if dependencies[feature: .forceSlowDatabaseQueries] {
                                     Thread.sleep(forTimeInterval: 1)
@@ -717,21 +723,27 @@ open class Storage {
                 semaphoreResult = semaphore.wait(timeout: .now() + .seconds(Storage.transactionDeadlockTimeoutSeconds))
             }
             #else
-            semaphoreResult = semaphore.wait(timeout: .now() + .seconds(Storage.transactionDeadlockTimeoutSeconds))
+            /// This if statement is redundant **but** it means when we get symbolicated crash logs we can distinguish
+            /// between the database threads which are reading and writing
+            if info.isWrite {
+                semaphoreResult = semaphore.wait(timeout: .now() + .seconds(Storage.transactionDeadlockTimeoutSeconds))
+            }
+            else {
+                semaphoreResult = semaphore.wait(timeout: .now() + .seconds(Storage.transactionDeadlockTimeoutSeconds))
+            }
             #endif
             
-            /// If the query timed out then we should interrupt the query (don't want the query thread to remain blocked when we've
+            /// Check if the query timed out in the `syncQueue` to ensure that we don't run into a race condition between handling
+            /// the timeout and handling the query completion
+            ///
+            /// If it did timeout then we should interrupt the query (don't want the query thread to remain blocked when we've
             /// already handled it as a failure)
-            if semaphoreResult == .timedOut {
-                syncQueue.sync {
-                    didTimeout = true
-                    queryDb?.interrupt()
-                }
+            syncQueue.sync {
+                guard semaphoreResult == .timedOut && operationResult == nil else { return }
+                
+                didTimeout = true
+                queryDb?.interrupt()
             }
-            
-            /// Before returning we need to wait for any pending updates on `syncQueue` to be completed to ensure that objects
-            /// don't get incorrectly released while they are still being used
-            syncQueue.sync { }
             
             return logErrorIfNeeded(operationResult ?? .failure(StorageError.transactionDeadlockTimeout))
         }

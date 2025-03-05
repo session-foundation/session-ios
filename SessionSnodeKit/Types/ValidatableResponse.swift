@@ -34,6 +34,8 @@ internal extension ValidatableResponse {
         map validResultMap: [String: ValidationResponse],
         totalResponseCount: Int
     ) throws -> [String: ValidationResponse] {
+        guard totalResponseCount > 0 else { return [:] }
+        
         let numSuccessResponses: Int = validResultMap.count
         let successPercentage: CGFloat = (CGFloat(numSuccessResponses) / CGFloat(totalResponseCount))
         

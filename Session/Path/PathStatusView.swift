@@ -39,6 +39,7 @@ final class PathStatusView: UIView {
         
         super.init(frame: .zero)
         
+        setStatus(to: .unknown) // Default to the unknown status
         setUpViewHierarchy()
         registerObservers()
     }

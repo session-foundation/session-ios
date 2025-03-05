@@ -35,6 +35,13 @@ public final class SendMessagesResponse: SnodeRecursiveResponse<SendMessagesResp
         
         try super.init(from: decoder)
     }
+    
+    public override func encode(to encoder: any Encoder) throws {
+        var container: KeyedEncodingContainer<CodingKeys> = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(hash, forKey: .hash)
+        
+        try super.encode(to: encoder)
+    }
 }
 
 // MARK: - SwarmItem
@@ -58,10 +65,18 @@ public extension SendMessagesResponse {
         required init(from decoder: Decoder) throws {
             let container: KeyedDecodingContainer<CodingKeys> = try decoder.container(keyedBy: CodingKeys.self)
             
-            hash = try? container.decode(String.self, forKey: .hash)
+            hash = try container.decodeIfPresent(String.self, forKey: .hash)
             already = ((try? container.decode(Bool.self, forKey: .already)) ?? false)
             
             try super.init(from: decoder)
+        }
+        
+        public override func encode(to encoder: any Encoder) throws {
+            var container: KeyedEncodingContainer<CodingKeys> = encoder.container(keyedBy: CodingKeys.self)
+            try container.encodeIfPresent(hash, forKey: .hash)
+            try container.encode(already, forKey: .already)
+            
+            try super.encode(to: encoder)
         }
     }
 }

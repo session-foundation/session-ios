@@ -38,11 +38,10 @@ public enum ConfigurationSyncJob: JobExecutor {
         /// the subsequent job while the first one is running in order to prevent multiple configurationSync jobs with the same target
         /// from running at the same time
         ///
-        /// **Note:** The one exception to this rule is when the job has `AdditionalSequenceRequests` because if we don't
-        /// run it immediately then the `AdditionalSequenceRequests` may not get run at all
+        /// **Note:** The one exception to this rule is when the job has `AdditionalTransientData` because if we don't
+        /// run it immediately then the `AdditionalTransientData` may not get run at all
         guard
-            (job.transientData as? AdditionalSequenceRequests)?.beforeSequenceRequests.isEmpty == false ||
-            (job.transientData as? AdditionalSequenceRequests)?.afterSequenceRequests.isEmpty == false ||
+            job.transientData != nil ||
             dependencies[singleton: .jobRunner]
                 .jobInfoFor(state: .running, variant: .configurationSync)
                 .filter({ key, info in
@@ -83,8 +82,7 @@ public enum ConfigurationSyncJob: JobExecutor {
         guard
             !pendingChanges.pushData.isEmpty ||
             !pendingChanges.obsoleteHashes.isEmpty ||
-            (job.transientData as? AdditionalSequenceRequests)?.beforeSequenceRequests.isEmpty == false ||
-            (job.transientData as? AdditionalSequenceRequests)?.afterSequenceRequests.isEmpty == false
+            job.transientData != nil
         else {
             Log.info(.cat, "For \(swarmPublicKey) completed with no pending changes")
             ConfigurationSyncJob.startJobsWaitingOnConfigSync(swarmPublicKey, using: dependencies)
@@ -93,14 +91,14 @@ public enum ConfigurationSyncJob: JobExecutor {
         
         let jobStartTimestamp: TimeInterval = dependencies.dateNow.timeIntervalSince1970
         let messageSendTimestamp: Int64 = dependencies[cache: .snodeAPI].currentOffsetTimestampMs()
-        let additionalSequenceRequests: AdditionalSequenceRequests? = (job.transientData as? AdditionalSequenceRequests)
+        let additionalTransientData: AdditionalTransientData? = (job.transientData as? AdditionalTransientData)
         Log.info(.cat, "For \(swarmPublicKey) started with changes: \(pendingChanges.pushData.count), old hashes: \(pendingChanges.obsoleteHashes.count)")
         
         dependencies[singleton: .storage]
             .readPublisher { db -> Network.PreparedRequest<Network.BatchResponse> in
                 try SnodeAPI.preparedSequence(
                     requests: []
-                        .appending(contentsOf: additionalSequenceRequests?.beforeSequenceRequests)
+                        .appending(contentsOf: additionalTransientData?.beforeSequenceRequests)
                         .appending(
                             contentsOf: try pendingChanges.pushData.map { pushData -> ErasedPreparedRequest in
                                 try SnodeAPI
@@ -135,8 +133,8 @@ public enum ConfigurationSyncJob: JobExecutor {
                                 using: dependencies
                             )
                         }())
-                        .appending(contentsOf: additionalSequenceRequests?.afterSequenceRequests),
-                    requireAllBatchResponses: (additionalSequenceRequests?.requireAllBatchResponses == true),
+                        .appending(contentsOf: additionalTransientData?.afterSequenceRequests),
+                    requireAllBatchResponses: (additionalTransientData?.requireAllBatchResponses == true),
                     swarmPublicKey: swarmPublicKey,
                     snodeRetrievalRetryCount: 0,    // This job has it's own retry mechanism
                     requestAndPathBuildTimeout: Network.defaultTimeout,
@@ -146,13 +144,27 @@ public enum ConfigurationSyncJob: JobExecutor {
             .flatMap { $0.send(using: dependencies) }
             .subscribe(on: scheduler, using: dependencies)
             .receive(on: scheduler, using: dependencies)
-            .map { (_: ResponseInfoType, response: Network.BatchResponse) -> [ConfigDump] in
+            .tryMap { (_: ResponseInfoType, response: Network.BatchResponse) -> [ConfigDump] in
                 /// The number of responses returned might not match the number of changes sent but they will be returned
                 /// in the same order, this means we can just `zip` the two arrays as it will take the smaller of the two and
                 /// correctly align the response to the change (we need to manually remove any `beforeSequenceRequests`
                 /// results through)
                 let responseWithoutBeforeRequests = Array(response
-                    .suffix(from: (job.transientData as? AdditionalSequenceRequests)?.beforeSequenceRequests.count ?? 0))
+                    .suffix(from: additionalTransientData?.beforeSequenceRequests.count ?? 0))
+                
+                /// If we `requireAllRequestsSucceed` then ensure every request returned a 2XX status code and
+                /// was successfully parsed
+                guard
+                    additionalTransientData == nil ||
+                    additionalTransientData?.requireAllRequestsSucceed == false ||
+                    !response
+                        .map({ $0 as? ErasedBatchSubResponse })
+                        .contains(where: { response -> Bool in
+                            (response?.code ?? 0) < 200 ||
+                            (response?.code ?? 0) > 299 ||
+                            response?.failedToParseBody == true
+                        })
+                else { throw NetworkError.invalidResponse }
                 
                 return zip(responseWithoutBeforeRequests, pendingChanges.pushData)
                     .compactMap { (subResponse: Any, pushData: LibSession.PendingChanges.PushData) in
@@ -314,10 +326,34 @@ extension ConfigurationSyncJob {
         public let wasManualTrigger: Bool
     }
     
-    public struct AdditionalSequenceRequests {
+    /// This is additional data which can be passed to the `ConfigurationSyncJob` for a specific run but won't be persistent
+    /// to disk for subsequent runs
+    ///
+    /// **Note:** If none of the values differ from the default then the `init` function will return `nil`
+    public struct AdditionalTransientData {
         public let beforeSequenceRequests: [any ErasedPreparedRequest]
         public let afterSequenceRequests: [any ErasedPreparedRequest]
         public let requireAllBatchResponses: Bool
+        public let requireAllRequestsSucceed: Bool
+        
+        init?(
+            beforeSequenceRequests: [any ErasedPreparedRequest],
+            afterSequenceRequests: [any ErasedPreparedRequest],
+            requireAllBatchResponses: Bool,
+            requireAllRequestsSucceed: Bool
+        ) {
+            guard
+                !beforeSequenceRequests.isEmpty ||
+                !afterSequenceRequests.isEmpty ||
+                requireAllBatchResponses ||
+                requireAllRequestsSucceed
+            else { return nil }
+            
+            self.beforeSequenceRequests = beforeSequenceRequests
+            self.afterSequenceRequests = afterSequenceRequests
+            self.requireAllBatchResponses = requireAllBatchResponses
+            self.requireAllRequestsSucceed = requireAllRequestsSucceed
+        }
     }
 }
 
@@ -375,6 +411,7 @@ public extension ConfigurationSyncJob {
         beforeSequenceRequests: [any ErasedPreparedRequest] = [],
         afterSequenceRequests: [any ErasedPreparedRequest] = [],
         requireAllBatchResponses: Bool = false,
+        requireAllRequestsSucceed: Bool = false,
         using dependencies: Dependencies
     ) -> AnyPublisher<Void, Error> {
         return Deferred {
@@ -385,10 +422,11 @@ public extension ConfigurationSyncJob {
                         behaviour: .recurring,
                         threadId: swarmPublicKey,
                         details: OptionalDetails(wasManualTrigger: true),
-                        transientData: AdditionalSequenceRequests(
+                        transientData: AdditionalTransientData(
                             beforeSequenceRequests: beforeSequenceRequests,
                             afterSequenceRequests: afterSequenceRequests,
-                            requireAllBatchResponses: requireAllBatchResponses
+                            requireAllBatchResponses: requireAllBatchResponses,
+                            requireAllRequestsSucceed: requireAllRequestsSucceed
                         )
                     )
                 else { return resolver(Result.failure(NetworkError.parsingFailed)) }

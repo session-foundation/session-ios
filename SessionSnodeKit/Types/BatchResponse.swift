@@ -98,7 +98,7 @@ public extension Network {
         /// The body of the request; will be plain json if content-type is `application/json`, otherwise it will be base64 encoded data
         public let body: T?
         
-        var erasedBody: Any? { body }
+        public var erasedBody: Any? { body }
         
         /// A flag to indicate that there was a body but it failed to parse
         public let failedToParseBody: Bool
@@ -149,7 +149,7 @@ extension Network.BatchSubResponse: Decodable {
 
 // MARK: - ErasedBatchSubResponse
 
-protocol ErasedBatchSubResponse: ResponseInfoType {
+public protocol ErasedBatchSubResponse: ResponseInfoType {
     var erasedBody: Any? { get }
     var failedToParseBody: Bool { get }
 }

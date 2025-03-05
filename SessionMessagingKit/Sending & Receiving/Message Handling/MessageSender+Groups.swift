@@ -143,7 +143,11 @@ extension MessageSender {
             }
             .flatMap { preparedGroupData -> AnyPublisher<PreparedGroupData, Error> in
                 ConfigurationSyncJob
-                    .run(swarmPublicKey: preparedGroupData.groupSessionId.hexString, using: dependencies)
+                    .run(
+                        swarmPublicKey: preparedGroupData.groupSessionId.hexString,
+                        requireAllRequestsSucceed: true,
+                        using: dependencies
+                    )
                     .flatMap { _ in
                         dependencies[singleton: .storage].writePublisher { db in
                             // Save the successfully created group and add to the user config
@@ -756,6 +760,7 @@ extension MessageSender {
                         swarmPublicKey: sessionId.hexString,
                         beforeSequenceRequests: [unrevokeRequest, maybeSupplementalKeyRequest].compactMap { $0 },
                         requireAllBatchResponses: true,
+                        requireAllRequestsSucceed: true,
                         using: dependencies
                     )
                     .map { _ in memberJobData }
@@ -929,6 +934,7 @@ extension MessageSender {
                         swarmPublicKey: sessionId.hexString,
                         beforeSequenceRequests: [unrevokeRequest, maybeSupplementalKeyRequest].compactMap { $0 },
                         requireAllBatchResponses: true,
+                        requireAllRequestsSucceed: true,
                         using: dependencies
                     )
                     .map { _ in memberJobData }

@@ -49,6 +49,7 @@ class MessageSenderGroupsSpec: QuickSpec {
         @TestState(defaults: .standard, in: dependencies) var mockUserDefaults: MockUserDefaults! = MockUserDefaults(
             initialSetup: { userDefaults in
                 userDefaults.when { $0.string(forKey: .any) }.thenReturn(nil)
+                userDefaults.when { $0.set(.any, forKey: .any) }.thenReturn(())
             }
         )
         @TestState(singleton: .jobRunner, in: dependencies) var mockJobRunner: MockJobRunner! = MockJobRunner(
@@ -235,6 +236,17 @@ class MessageSenderGroupsSpec: QuickSpec {
                     }
                     .thenReturn(())
                 cache
+                    .when {
+                        $0.markingAsPushed(
+                            seqNo: .any,
+                            serverHash: .any,
+                            sentTimestamp: .any,
+                            variant: .any,
+                            swarmPublicKey: .any
+                        )
+                    }
+                    .thenReturn(nil)
+                cache
                     .when { $0.pinnedPriority(.any, threadId: .any, threadVariant: .any) }
                     .thenReturn(LibSession.defaultNewThreadPriority)
                 cache.when { $0.disappearingMessagesConfig(threadId: .any, threadVariant: .any) }
@@ -243,7 +255,12 @@ class MessageSenderGroupsSpec: QuickSpec {
         )
         @TestState(cache: .snodeAPI, in: dependencies) var mockSnodeAPICache: MockSnodeAPICache! = MockSnodeAPICache(
             initialSetup: { cache in
+                cache.when { $0.hardfork }.thenReturn(0)
+                cache.when { $0.hardfork = .any }.thenReturn(())
+                cache.when { $0.softfork }.thenReturn(0)
+                cache.when { $0.softfork = .any }.thenReturn(())
                 cache.when { $0.clockOffsetMs }.thenReturn(0)
+                cache.when { $0.setClockOffsetMs(.any) }.thenReturn(())
                 cache.when { $0.currentOffsetTimestampMs() }.thenReturn(1234567890000)
             }
         )
@@ -268,6 +285,12 @@ class MessageSenderGroupsSpec: QuickSpec {
         describe("a MessageSender dealing with Groups") {
             // MARK: -- when creating a group
             context("when creating a group") {
+                beforeEach {
+                    mockLibSessionCache
+                        .when { try $0.pendingChanges(.any, swarmPubkey: .any) }
+                        .thenReturn(LibSession.PendingChanges())
+                }
+                
                 // MARK: ---- loads the state into the cache
                 it("loads the state into the cache") {
                     MessageSender
@@ -897,383 +920,181 @@ class MessageSenderGroupsSpec: QuickSpec {
                         })
                     }
                 }
+            }
+            
+            // MARK: -- when adding members to a group
+            context("when adding members to a group") {
+                beforeEach {
+                    mockNetwork
+                        .when { $0.send(.any, to: .any, requestTimeout: .any, requestAndPathBuildTimeout: .any) }
+                        .thenReturn(Network.BatchResponse.mockAddMemberConfigSyncResponse)
+                    
+                    // Rekey a couple of times to increase the key generation to 1
+                    var fakeHash1: [CChar] = "fakehash1".cString(using: .utf8)!
+                    var fakeHash2: [CChar] = "fakehash2".cString(using: .utf8)!
+                    var pushResult: UnsafePointer<UInt8>? = nil
+                    var pushResultLen: Int = 0
+                    _ = groups_keys_rekey(groupKeysConf, groupInfoConf, groupMembersConf, &pushResult, &pushResultLen)
+                    _ = groups_keys_load_message(groupKeysConf, &fakeHash1, pushResult, pushResultLen, 1234567890, groupInfoConf, groupMembersConf)
+                    _ = groups_keys_rekey(groupKeysConf, groupInfoConf, groupMembersConf, &pushResult, &pushResultLen)
+                    _ = groups_keys_load_message(groupKeysConf, &fakeHash2, pushResult, pushResultLen, 1234567890, groupInfoConf, groupMembersConf)
+                    
+                    mockStorage.write { db in
+                        try SessionThread.upsert(
+                            db,
+                            id: groupId.hexString,
+                            variant: .group,
+                            values: SessionThread.TargetValues(
+                                creationDateTimestamp: .setTo(1234567890),
+                                shouldBeVisible: .setTo(true)
+                            ),
+                            using: dependencies
+                        )
+                        
+                        try ClosedGroup(
+                            threadId: groupId.hexString,
+                            name: "TestGroup",
+                            formationTimestamp: 1234567890,
+                            shouldPoll: true,
+                            groupIdentityPrivateKey: groupSecretKey,
+                            authData: nil,
+                            invited: false
+                        ).upsert(db)
+                    }
+                }
                 
-                // MARK: -- when adding members to a group
-                context("when adding members to a group") {
+                // MARK: ---- does nothing if the current user is not an admin
+                it("does nothing if the current user is not an admin") {
+                    mockStorage.write { db in
+                        try ClosedGroup
+                            .updateAll(
+                                db,
+                                ClosedGroup.Columns.groupIdentityPrivateKey.set(to: nil)
+                            )
+                    }
+                    
+                    MessageSender.addGroupMembers(
+                        groupSessionId: groupId.hexString,
+                        members: [
+                            ("051111111111111111111111111111111111111111111111111111111111111112", nil)
+                        ],
+                        allowAccessToHistoricMessages: false,
+                        using: dependencies
+                    ).sinkUntilComplete()
+                    
+                    let members: [GroupMember]? = mockStorage.read { db in try GroupMember.fetchAll(db) }
+                    expect(groups_members_size(groupMembersConf)).to(equal(0))
+                    expect(members?.count).to(equal(0))
+                }
+                
+                // MARK: ---- adds the member to the database in the sending state
+                it("adds the member to the database in the sending state") {
+                    MessageSender.addGroupMembers(
+                        groupSessionId: groupId.hexString,
+                        members: [
+                            ("051111111111111111111111111111111111111111111111111111111111111112", nil)
+                        ],
+                        allowAccessToHistoricMessages: false,
+                        using: dependencies
+                    ).sinkUntilComplete()
+                    
+                    let members: [GroupMember]? = mockStorage.read { db in try GroupMember.fetchAll(db) }
+                    expect(members?.count).to(equal(1))
+                    expect(members?.first?.profileId)
+                        .to(equal("051111111111111111111111111111111111111111111111111111111111111112"))
+                    expect(members?.first?.role).to(equal(.standard))
+                    expect(members?.first?.roleStatus).to(equal(.sending))
+                }
+                
+                // MARK: ---- adds the member to GROUP_MEMBERS
+                it("adds the member to GROUP_MEMBERS") {
+                    MessageSender.addGroupMembers(
+                        groupSessionId: groupId.hexString,
+                        members: [
+                            ("051111111111111111111111111111111111111111111111111111111111111112", nil)
+                        ],
+                        allowAccessToHistoricMessages: false,
+                        using: dependencies
+                    ).sinkUntilComplete()
+                    
+                    expect(groups_members_size(groupMembersConf)).to(equal(1))
+                    
+                    let members: Set<GroupMember>? = try? LibSession.extractMembers(
+                        from: groupMembersConf,
+                        groupSessionId: groupId
+                    )
+                    expect(members?.count).to(equal(1))
+                    expect(members?.first?.profileId)
+                        .to(equal("051111111111111111111111111111111111111111111111111111111111111112"))
+                    expect(members?.first?.role).to(equal(.standard))
+                    expect(members?.first?.roleStatus).to(equal(.sending))
+                }
+                
+                // MARK: ---- and granting access to historic messages
+                context("and granting access to historic messages") {
                     beforeEach {
                         mockNetwork
                             .when { $0.send(.any, to: .any, requestTimeout: .any, requestAndPathBuildTimeout: .any) }
-                            .thenReturn(Network.BatchResponse.mockAddMemberConfigSyncResponse)
-                        
-                        // Rekey a couple of times to increase the key generation to 1
-                        var fakeHash1: [CChar] = "fakehash1".cString(using: .utf8)!
-                        var fakeHash2: [CChar] = "fakehash2".cString(using: .utf8)!
-                        var pushResult: UnsafePointer<UInt8>? = nil
-                        var pushResultLen: Int = 0
-                        _ = groups_keys_rekey(groupKeysConf, groupInfoConf, groupMembersConf, &pushResult, &pushResultLen)
-                        _ = groups_keys_load_message(groupKeysConf, &fakeHash1, pushResult, pushResultLen, 1234567890, groupInfoConf, groupMembersConf)
-                        _ = groups_keys_rekey(groupKeysConf, groupInfoConf, groupMembersConf, &pushResult, &pushResultLen)
-                        _ = groups_keys_load_message(groupKeysConf, &fakeHash2, pushResult, pushResultLen, 1234567890, groupInfoConf, groupMembersConf)
-                        
-                        mockStorage.write { db in
-                            try SessionThread.upsert(
-                                db,
-                                id: groupId.hexString,
-                                variant: .group,
-                                values: SessionThread.TargetValues(
-                                    creationDateTimestamp: .setTo(1234567890),
-                                    shouldBeVisible: .setTo(true)
-                                ),
-                                using: dependencies
-                            )
-                            
-                            try ClosedGroup(
-                                threadId: groupId.hexString,
-                                name: "TestGroup",
-                                formationTimestamp: 1234567890,
-                                shouldPoll: true,
-                                groupIdentityPrivateKey: groupSecretKey,
-                                authData: nil,
-                                invited: false
-                            ).upsert(db)
-                        }
+                            .thenReturn(Network.BatchResponse.mockAddMemberHistoricConfigSyncResponse)
                     }
                     
-                    // MARK: ---- does nothing if the current user is not an admin
-                    it("does nothing if the current user is not an admin") {
-                        mockStorage.write { db in
-                            try ClosedGroup
-                                .updateAll(
-                                    db,
-                                    ClosedGroup.Columns.groupIdentityPrivateKey.set(to: nil)
-                                )
-                        }
-                        
-                        MessageSender.addGroupMembers(
-                            groupSessionId: groupId.hexString,
-                            members: [
-                                ("051111111111111111111111111111111111111111111111111111111111111112", nil)
-                            ],
-                            allowAccessToHistoricMessages: false,
+                    // MARK: ---- performs a supplemental key rotation
+                    it("performs a supplemental key rotation") {
+                        let initialKeyRotation: Int = try LibSession.currentGeneration(
+                            groupSessionId: groupId,
                             using: dependencies
-                        ).sinkUntilComplete()
-                        
-                        let members: [GroupMember]? = mockStorage.read { db in try GroupMember.fetchAll(db) }
-                        expect(groups_members_size(groupMembersConf)).to(equal(0))
-                        expect(members?.count).to(equal(0))
-                    }
-                    
-                    // MARK: ---- adds the member to the database in the sending state
-                    it("adds the member to the database in the sending state") {
-                        MessageSender.addGroupMembers(
-                            groupSessionId: groupId.hexString,
-                            members: [
-                                ("051111111111111111111111111111111111111111111111111111111111111112", nil)
-                            ],
-                            allowAccessToHistoricMessages: false,
-                            using: dependencies
-                        ).sinkUntilComplete()
-                        
-                        let members: [GroupMember]? = mockStorage.read { db in try GroupMember.fetchAll(db) }
-                        expect(members?.count).to(equal(1))
-                        expect(members?.first?.profileId)
-                            .to(equal("051111111111111111111111111111111111111111111111111111111111111112"))
-                        expect(members?.first?.role).to(equal(.standard))
-                        expect(members?.first?.roleStatus).to(equal(.sending))
-                    }
-                    
-                    // MARK: ---- adds the member to GROUP_MEMBERS
-                    it("adds the member to GROUP_MEMBERS") {
-                        MessageSender.addGroupMembers(
-                            groupSessionId: groupId.hexString,
-                            members: [
-                                ("051111111111111111111111111111111111111111111111111111111111111112", nil)
-                            ],
-                            allowAccessToHistoricMessages: false,
-                            using: dependencies
-                        ).sinkUntilComplete()
-                        
-                        expect(groups_members_size(groupMembersConf)).to(equal(1))
-                        
-                        let members: Set<GroupMember>? = try? LibSession.extractMembers(
-                            from: groupMembersConf,
-                            groupSessionId: groupId
                         )
-                        expect(members?.count).to(equal(1))
-                        expect(members?.first?.profileId)
-                            .to(equal("051111111111111111111111111111111111111111111111111111111111111112"))
-                        expect(members?.first?.role).to(equal(.standard))
-                        expect(members?.first?.roleStatus).to(equal(.sending))
+                        
+                        MessageSender.addGroupMembers(
+                            groupSessionId: groupId.hexString,
+                            members: [
+                                ("051111111111111111111111111111111111111111111111111111111111111112", nil)
+                            ],
+                            allowAccessToHistoricMessages: true,
+                            using: dependencies
+                        ).sinkUntilComplete()
+                        
+                        // Can't actually detect a supplemental rotation directly but can check that the
+                        // keys generation didn't increase
+                        let result: Int = try LibSession.currentGeneration(
+                            groupSessionId: groupId,
+                            using: dependencies
+                        )
+                        expect(result).to(equal(initialKeyRotation))
                     }
                     
-                    // MARK: ---- and granting access to historic messages
-                    context("and granting access to historic messages") {
-                        beforeEach {
-                            mockNetwork
-                                .when { $0.send(.any, to: .any, requestTimeout: .any, requestAndPathBuildTimeout: .any) }
-                                .thenReturn(Network.BatchResponse.mockAddMemberHistoricConfigSyncResponse)
-                        }
-                        
-                        // MARK: ---- performs a supplemental key rotation
-                        it("performs a supplemental key rotation") {
-                            let initialKeyRotation: Int = try LibSession.currentGeneration(
-                                groupSessionId: groupId,
-                                using: dependencies
-                            )
-                            
-                            MessageSender.addGroupMembers(
-                                groupSessionId: groupId.hexString,
-                                members: [
-                                    ("051111111111111111111111111111111111111111111111111111111111111112", nil)
-                                ],
-                                allowAccessToHistoricMessages: true,
-                                using: dependencies
-                            ).sinkUntilComplete()
-                            
-                            // Can't actually detect a supplemental rotation directly but can check that the
-                            // keys generation didn't increase
-                            let result: Int = try LibSession.currentGeneration(
-                                groupSessionId: groupId,
-                                using: dependencies
-                            )
-                            expect(result).to(equal(initialKeyRotation))
-                        }
-                        
-                        // MARK: ---- includes the supplemental key rotation request in the config sync sequence
-                        it("includes the supplemental key rotation request in the config sync sequence") {
-                            let requestDataString: String = "ZDE6IzI0OhOKDnbpLN3QJVbKzR8mOmjn6gXmeUFdTDE6K" +
-                                "2wxNDA669s6Q2aETGZ5agGXfVVrC8Q9JA4bIoqv5iWyQWjttPhqDK2IZHXGVDZ/Kaz9tEq2Rl" +
-                                "r2B9/neDBUFPtH3haJFN/zkIq1dAIwkgQQ4xJK00zWvZt6HejV1Fy6W9eI1oRJJny0++5+hxp" +
-                                "LPczVOFKOPs+rrB3aUpMsNUnJHOEhW9g6zi/UPjuCWTnnvpxlMTpHaTFlMTp+NjQ6dKi86jZJ" +
-                                "l3oiJEA5h5pBE5oOJHQNvtF8GOcsYwrIFTZKnI7AGkBSu1TxP0xLWwTUzjOGMgmKvlIgkQ6e9" +
-                                "r3JBmU="
-                            let expectedRequest: Network.PreparedRequest<Network.BatchResponse> = try SnodeAPI.preparedSequence(
-                                requests: []
-                                    .appending(try SnodeAPI.preparedUnrevokeSubaccounts(
-                                        subaccountsToUnrevoke: [Array("TestSubAccountToken".data(using: .utf8)!)],
-                                        authMethod: Authentication.groupAdmin(
-                                            groupSessionId: groupId,
-                                            ed25519SecretKey: Array(groupSecretKey)
-                                        ),
-                                        using: dependencies
-                                    ))
-                                    .appending(try SnodeAPI.preparedSendMessage(
-                                        message: SnodeMessage(
-                                            recipient: groupId.hexString,
-                                            data: requestDataString,
-                                            ttl: ConfigDump.Variant.groupKeys.ttl,
-                                            timestampMs: UInt64(1234567890000)
-                                        ),
-                                        in: .configGroupKeys,
-                                        authMethod: Authentication.groupAdmin(
-                                            groupSessionId: groupId,
-                                            ed25519SecretKey: Array(groupSecretKey)
-                                        ),
-                                        using: dependencies
-                                    ))
-                                    .appending(try SnodeAPI.preparedDeleteMessages(
-                                        serverHashes: ["testHash"],
-                                        requireSuccessfulDeletion: false,
-                                        authMethod: Authentication.groupAdmin(
-                                            groupSessionId: groupId,
-                                            ed25519SecretKey: Array(groupSecretKey)
-                                        ),
-                                        using: dependencies
-                                    )),
-                                requireAllBatchResponses: true,
-                                swarmPublicKey: groupId.hexString,
-                                snodeRetrievalRetryCount: 0,    // This job has it's own retry mechanism
-                                requestAndPathBuildTimeout: Network.defaultTimeout,
-                                using: dependencies
-                            )
-                            
-                            MessageSender.addGroupMembers(
-                                groupSessionId: groupId.hexString,
-                                members: [
-                                    ("051111111111111111111111111111111111111111111111111111111111111112", nil)
-                                ],
-                                allowAccessToHistoricMessages: true,
-                                using: dependencies
-                            ).sinkUntilComplete()
-                            
-                            // If there is a pending keys config then merge it to complete the process
-                            var pushResult: UnsafePointer<UInt8>? = nil
-                            var pushResultLen: Int = 0
-                            
-                            if groups_keys_pending_config(groupKeysConf, &pushResult, &pushResultLen) {
-                                // Rekey a couple of times to increase the key generation to 1
-                                var fakeHash3: [CChar] = "fakehash3".cString(using: .utf8)!
-                                _ = groups_keys_load_message(groupKeysConf, &fakeHash3, pushResult, pushResultLen, 1234567890, groupInfoConf, groupMembersConf)
-                            }
-                            
-                            expect(mockNetwork)
-                                .to(call(.exactly(times: 1), matchingParameters: .all) { network in
-                                    network.send(
-                                        expectedRequest.body,
-                                        to: expectedRequest.destination,
-                                        requestTimeout: expectedRequest.requestTimeout,
-                                        requestAndPathBuildTimeout: expectedRequest.requestAndPathBuildTimeout
-                                    )
-                                })
-                        }
-                        
-                        // MARK: ---- schedules member invite jobs
-                        it("schedules member invite jobs") {
-                            MessageSender.addGroupMembers(
-                                groupSessionId: groupId.hexString,
-                                members: [
-                                    ("051111111111111111111111111111111111111111111111111111111111111112", nil)
-                                ],
-                                allowAccessToHistoricMessages: true,
-                                using: dependencies
-                            ).sinkUntilComplete()
-                            
-                            expect(mockJobRunner)
-                                .to(call(.exactly(times: 1), matchingParameters: .all) { jobRunner in
-                                    jobRunner.add(
-                                        .any,
-                                        job: Job(
-                                            variant: .groupInviteMember,
-                                            threadId: groupId.hexString,
-                                            details: try? GroupInviteMemberJob.Details(
-                                                memberSessionIdHexString: "051111111111111111111111111111111111111111111111111111111111111112",
-                                                authInfo: .groupMember(
-                                                    groupSessionId: SessionId(.standard, hex: TestConstants.publicKey),
-                                                    authData: "TestAuthData".data(using: .utf8)!
-                                                )
-                                            )
-                                        ),
-                                        dependantJob: nil,
-                                        canStartJob: true
-                                    )
-                                })
-                        }
-                        
-                        // MARK: ---- adds a member change control message
-                        it("adds a member change control message") {
-                            MessageSender.addGroupMembers(
-                                groupSessionId: groupId.hexString,
-                                members: [
-                                    ("051111111111111111111111111111111111111111111111111111111111111112", nil)
-                                ],
-                                allowAccessToHistoricMessages: true,
-                                using: dependencies
-                            ).sinkUntilComplete()
-                            
-                            let interactions: [Interaction]? = mockStorage.read { db in try Interaction.fetchAll(db) }
-                            expect(interactions?.count).to(equal(1))
-                            expect(interactions?.first?.variant).to(equal(.infoGroupMembersUpdated))
-                            expect(interactions?.first?.body).to(equal(
-                                ClosedGroup.MessageInfo
-                                    .addedUsers(
-                                        hasCurrentUser: false,
-                                        names: ["0511...1112"],
-                                        historyShared: true
-                                    )
-                                    .infoString(using: dependencies)
-                            ))
-                        }
-                        
-                        // MARK: ---- schedules the member change info message sending
-                        it("schedules the member change info message sending") {
-                            MessageSender.addGroupMembers(
-                                groupSessionId: groupId.hexString,
-                                members: [
-                                    ("051111111111111111111111111111111111111111111111111111111111111112", nil)
-                                ],
-                                allowAccessToHistoricMessages: true,
-                                using: dependencies
-                            ).sinkUntilComplete()
-                            
-                            expect(mockJobRunner)
-                                .to(call(.exactly(times: 1), matchingParameters: .all) { jobRunner in
-                                    jobRunner.add(
-                                        .any,
-                                        job: Job(
-                                            variant: .messageSend,
-                                            behaviour: .runOnceAfterConfigSyncIgnoringPermanentFailure,
-                                            threadId: groupId.hexString,
-                                            details: MessageSendJob.Details(
-                                                destination: .closedGroup(groupPublicKey: groupId.hexString),
-                                                message: try GroupUpdateMemberChangeMessage(
-                                                    changeType: .added,
-                                                    memberSessionIds: [
-                                                        "051111111111111111111111111111111111111111111111111111111111111112"
-                                                    ],
-                                                    historyShared: true,
-                                                    sentTimestampMs: UInt64(1234567890000),
-                                                    authMethod: Authentication.groupAdmin(
-                                                        groupSessionId: SessionId(.group, hex: groupId.hexString),
-                                                        ed25519SecretKey: [1, 2, 3]
-                                                    ),
-                                                    using: dependencies
-                                                ),
-                                                requiredConfigSyncVariant: .groupMembers
-                                            )
-                                        ),
-                                        dependantJob: nil,
-                                        canStartJob: false
-                                    )
-                                })
-                        }
-                    }
-                    
-                    // MARK: ---- and not granting access to historic messages
-                    context("and not granting access to historic messages") {
-                        beforeEach {
-                            mockNetwork
-                                .when { $0.send(.any, to: .any, requestTimeout: .any, requestAndPathBuildTimeout: .any) }
-                                .thenReturn(Network.BatchResponse.mockAddMemberConfigSyncResponse)
-                        }
-                        
-                        // MARK: ---- performs a full key rotation
-                        it("performs a full key rotation") {
-                            let initialKeyRotation: Int = try LibSession.currentGeneration(
-                                groupSessionId: groupId,
-                                using: dependencies
-                            )
-                            
-                            MessageSender.addGroupMembers(
-                                groupSessionId: groupId.hexString,
-                                members: [
-                                    ("051111111111111111111111111111111111111111111111111111111111111112", nil)
-                                ],
-                                allowAccessToHistoricMessages: false,
-                                using: dependencies
-                            ).sinkUntilComplete()
-                            
-                            // If there is a pending keys config then merge it to complete the process
-                            var pushResult: UnsafePointer<UInt8>? = nil
-                            var pushResultLen: Int = 0
-                            
-                            if groups_keys_pending_config(groupKeysConf, &pushResult, &pushResultLen) {
-                                // Rekey a couple of times to increase the key generation to 1
-                                var fakeHash3: [CChar] = "fakehash3".cString(using: .utf8)!
-                                _ = groups_keys_load_message(groupKeysConf, &fakeHash3, pushResult, pushResultLen, 1234567890, groupInfoConf, groupMembersConf)
-                            }
-                            
-                            let result: Int = try LibSession.currentGeneration(
-                                groupSessionId: groupId,
-                                using: dependencies
-                            )
-                            expect(result).to(beGreaterThan(initialKeyRotation))
-                        }
-                    }
-                    
-                    // MARK: ---- includes the unrevoke subaccounts as part of the config sync sequence
-                    it("includes the unrevoke subaccounts as part of the config sync sequence") {
+                    // MARK: ---- includes the supplemental key rotation request in the config sync sequence
+                    it("includes the supplemental key rotation request in the config sync sequence") {
+                        let requestDataString: String = "ZDE6IzI0OhOKDnbpLN3QJVbKzR8mOmjn6gXmeUFdTDE6K" +
+                            "2wxNDA669s6Q2aETGZ5agGXfVVrC8Q9JA4bIoqv5iWyQWjttPhqDK2IZHXGVDZ/Kaz9tEq2Rl" +
+                            "r2B9/neDBUFPtH3haJFN/zkIq1dAIwkgQQ4xJK00zWvZt6HejV1Fy6W9eI1oRJJny0++5+hxp" +
+                            "LPczVOFKOPs+rrB3aUpMsNUnJHOEhW9g6zi/UPjuCWTnnvpxlMTpHaTFlMTp+NjQ6dKi86jZJ" +
+                            "l3oiJEA5h5pBE5oOJHQNvtF8GOcsYwrIFTZKnI7AGkBSu1TxP0xLWwTUzjOGMgmKvlIgkQ6e9" +
+                            "r3JBmU="
                         let expectedRequest: Network.PreparedRequest<Network.BatchResponse> = try SnodeAPI.preparedSequence(
                             requests: []
-                                .appending(try SnodeAPI
-                                    .preparedUnrevokeSubaccounts(
-                                        subaccountsToUnrevoke: [Array("TestSubAccountToken".data(using: .utf8)!)],
-                                        authMethod: Authentication.groupAdmin(
-                                            groupSessionId: groupId,
-                                            ed25519SecretKey: Array(groupSecretKey)
-                                        ),
-                                        using: dependencies
-                                    )
-                                )
+                                .appending(try SnodeAPI.preparedUnrevokeSubaccounts(
+                                    subaccountsToUnrevoke: [Array("TestSubAccountToken".data(using: .utf8)!)],
+                                    authMethod: Authentication.groupAdmin(
+                                        groupSessionId: groupId,
+                                        ed25519SecretKey: Array(groupSecretKey)
+                                    ),
+                                    using: dependencies
+                                ))
+                                .appending(try SnodeAPI.preparedSendMessage(
+                                    message: SnodeMessage(
+                                        recipient: groupId.hexString,
+                                        data: requestDataString,
+                                        ttl: ConfigDump.Variant.groupKeys.ttl,
+                                        timestampMs: UInt64(1234567890000)
+                                    ),
+                                    in: .configGroupKeys,
+                                    authMethod: Authentication.groupAdmin(
+                                        groupSessionId: groupId,
+                                        ed25519SecretKey: Array(groupSecretKey)
+                                    ),
+                                    using: dependencies
+                                ))
                                 .appending(try SnodeAPI.preparedDeleteMessages(
                                     serverHashes: ["testHash"],
                                     requireSuccessfulDeletion: false,
@@ -1295,9 +1116,19 @@ class MessageSenderGroupsSpec: QuickSpec {
                             members: [
                                 ("051111111111111111111111111111111111111111111111111111111111111112", nil)
                             ],
-                            allowAccessToHistoricMessages: false,
+                            allowAccessToHistoricMessages: true,
                             using: dependencies
                         ).sinkUntilComplete()
+                        
+                        // If there is a pending keys config then merge it to complete the process
+                        var pushResult: UnsafePointer<UInt8>? = nil
+                        var pushResultLen: Int = 0
+                        
+                        if groups_keys_pending_config(groupKeysConf, &pushResult, &pushResultLen) {
+                            // Rekey a couple of times to increase the key generation to 1
+                            var fakeHash3: [CChar] = "fakehash3".cString(using: .utf8)!
+                            _ = groups_keys_load_message(groupKeysConf, &fakeHash3, pushResult, pushResultLen, 1234567890, groupInfoConf, groupMembersConf)
+                        }
                         
                         expect(mockNetwork)
                             .to(call(.exactly(times: 1), matchingParameters: .all) { network in
@@ -1317,7 +1148,7 @@ class MessageSenderGroupsSpec: QuickSpec {
                             members: [
                                 ("051111111111111111111111111111111111111111111111111111111111111112", nil)
                             ],
-                            allowAccessToHistoricMessages: false,
+                            allowAccessToHistoricMessages: true,
                             using: dependencies
                         ).sinkUntilComplete()
                         
@@ -1349,7 +1180,7 @@ class MessageSenderGroupsSpec: QuickSpec {
                             members: [
                                 ("051111111111111111111111111111111111111111111111111111111111111112", nil)
                             ],
-                            allowAccessToHistoricMessages: false,
+                            allowAccessToHistoricMessages: true,
                             using: dependencies
                         ).sinkUntilComplete()
                         
@@ -1361,7 +1192,7 @@ class MessageSenderGroupsSpec: QuickSpec {
                                 .addedUsers(
                                     hasCurrentUser: false,
                                     names: ["0511...1112"],
-                                    historyShared: false
+                                    historyShared: true
                                 )
                                 .infoString(using: dependencies)
                         ))
@@ -1374,7 +1205,7 @@ class MessageSenderGroupsSpec: QuickSpec {
                             members: [
                                 ("051111111111111111111111111111111111111111111111111111111111111112", nil)
                             ],
-                            allowAccessToHistoricMessages: false,
+                            allowAccessToHistoricMessages: true,
                             using: dependencies
                         ).sinkUntilComplete()
                         
@@ -1393,7 +1224,7 @@ class MessageSenderGroupsSpec: QuickSpec {
                                                 memberSessionIds: [
                                                     "051111111111111111111111111111111111111111111111111111111111111112"
                                                 ],
-                                                historyShared: false,
+                                                historyShared: true,
                                                 sentTimestampMs: UInt64(1234567890000),
                                                 authMethod: Authentication.groupAdmin(
                                                     groupSessionId: SessionId(.group, hex: groupId.hexString),
@@ -1409,6 +1240,198 @@ class MessageSenderGroupsSpec: QuickSpec {
                                 )
                             })
                     }
+                }
+                
+                // MARK: ---- and not granting access to historic messages
+                context("and not granting access to historic messages") {
+                    beforeEach {
+                        mockNetwork
+                            .when { $0.send(.any, to: .any, requestTimeout: .any, requestAndPathBuildTimeout: .any) }
+                            .thenReturn(Network.BatchResponse.mockAddMemberConfigSyncResponse)
+                    }
+                    
+                    // MARK: ---- performs a full key rotation
+                    it("performs a full key rotation") {
+                        let initialKeyRotation: Int = try LibSession.currentGeneration(
+                            groupSessionId: groupId,
+                            using: dependencies
+                        )
+                        
+                        MessageSender.addGroupMembers(
+                            groupSessionId: groupId.hexString,
+                            members: [
+                                ("051111111111111111111111111111111111111111111111111111111111111112", nil)
+                            ],
+                            allowAccessToHistoricMessages: false,
+                            using: dependencies
+                        ).sinkUntilComplete()
+                        
+                        // If there is a pending keys config then merge it to complete the process
+                        var pushResult: UnsafePointer<UInt8>? = nil
+                        var pushResultLen: Int = 0
+                        
+                        if groups_keys_pending_config(groupKeysConf, &pushResult, &pushResultLen) {
+                            // Rekey a couple of times to increase the key generation to 1
+                            var fakeHash3: [CChar] = "fakehash3".cString(using: .utf8)!
+                            _ = groups_keys_load_message(groupKeysConf, &fakeHash3, pushResult, pushResultLen, 1234567890, groupInfoConf, groupMembersConf)
+                        }
+                        
+                        let result: Int = try LibSession.currentGeneration(
+                            groupSessionId: groupId,
+                            using: dependencies
+                        )
+                        expect(result).to(beGreaterThan(initialKeyRotation))
+                    }
+                }
+                
+                // MARK: ---- includes the unrevoke subaccounts as part of the config sync sequence
+                it("includes the unrevoke subaccounts as part of the config sync sequence") {
+                    let expectedRequest: Network.PreparedRequest<Network.BatchResponse> = try SnodeAPI.preparedSequence(
+                        requests: []
+                            .appending(try SnodeAPI
+                                .preparedUnrevokeSubaccounts(
+                                    subaccountsToUnrevoke: [Array("TestSubAccountToken".data(using: .utf8)!)],
+                                    authMethod: Authentication.groupAdmin(
+                                        groupSessionId: groupId,
+                                        ed25519SecretKey: Array(groupSecretKey)
+                                    ),
+                                    using: dependencies
+                                )
+                            )
+                            .appending(try SnodeAPI.preparedDeleteMessages(
+                                serverHashes: ["testHash"],
+                                requireSuccessfulDeletion: false,
+                                authMethod: Authentication.groupAdmin(
+                                    groupSessionId: groupId,
+                                    ed25519SecretKey: Array(groupSecretKey)
+                                ),
+                                using: dependencies
+                            )),
+                        requireAllBatchResponses: true,
+                        swarmPublicKey: groupId.hexString,
+                        snodeRetrievalRetryCount: 0,    // This job has it's own retry mechanism
+                        requestAndPathBuildTimeout: Network.defaultTimeout,
+                        using: dependencies
+                    )
+                    
+                    MessageSender.addGroupMembers(
+                        groupSessionId: groupId.hexString,
+                        members: [
+                            ("051111111111111111111111111111111111111111111111111111111111111112", nil)
+                        ],
+                        allowAccessToHistoricMessages: false,
+                        using: dependencies
+                    ).sinkUntilComplete()
+                    
+                    expect(mockNetwork)
+                        .to(call(.exactly(times: 1), matchingParameters: .all) { network in
+                            network.send(
+                                expectedRequest.body,
+                                to: expectedRequest.destination,
+                                requestTimeout: expectedRequest.requestTimeout,
+                                requestAndPathBuildTimeout: expectedRequest.requestAndPathBuildTimeout
+                            )
+                        })
+                }
+                
+                // MARK: ---- schedules member invite jobs
+                it("schedules member invite jobs") {
+                    MessageSender.addGroupMembers(
+                        groupSessionId: groupId.hexString,
+                        members: [
+                            ("051111111111111111111111111111111111111111111111111111111111111112", nil)
+                        ],
+                        allowAccessToHistoricMessages: false,
+                        using: dependencies
+                    ).sinkUntilComplete()
+                    
+                    expect(mockJobRunner)
+                        .to(call(.exactly(times: 1), matchingParameters: .all) { jobRunner in
+                            jobRunner.add(
+                                .any,
+                                job: Job(
+                                    variant: .groupInviteMember,
+                                    threadId: groupId.hexString,
+                                    details: try? GroupInviteMemberJob.Details(
+                                        memberSessionIdHexString: "051111111111111111111111111111111111111111111111111111111111111112",
+                                        authInfo: .groupMember(
+                                            groupSessionId: SessionId(.standard, hex: TestConstants.publicKey),
+                                            authData: "TestAuthData".data(using: .utf8)!
+                                        )
+                                    )
+                                ),
+                                dependantJob: nil,
+                                canStartJob: true
+                            )
+                        })
+                }
+                
+                // MARK: ---- adds a member change control message
+                it("adds a member change control message") {
+                    MessageSender.addGroupMembers(
+                        groupSessionId: groupId.hexString,
+                        members: [
+                            ("051111111111111111111111111111111111111111111111111111111111111112", nil)
+                        ],
+                        allowAccessToHistoricMessages: false,
+                        using: dependencies
+                    ).sinkUntilComplete()
+                    
+                    let interactions: [Interaction]? = mockStorage.read { db in try Interaction.fetchAll(db) }
+                    expect(interactions?.count).to(equal(1))
+                    expect(interactions?.first?.variant).to(equal(.infoGroupMembersUpdated))
+                    expect(interactions?.first?.body).to(equal(
+                        ClosedGroup.MessageInfo
+                            .addedUsers(
+                                hasCurrentUser: false,
+                                names: ["0511...1112"],
+                                historyShared: false
+                            )
+                            .infoString(using: dependencies)
+                    ))
+                }
+                
+                // MARK: ---- schedules the member change info message sending
+                it("schedules the member change info message sending") {
+                    MessageSender.addGroupMembers(
+                        groupSessionId: groupId.hexString,
+                        members: [
+                            ("051111111111111111111111111111111111111111111111111111111111111112", nil)
+                        ],
+                        allowAccessToHistoricMessages: false,
+                        using: dependencies
+                    ).sinkUntilComplete()
+                    
+                    expect(mockJobRunner)
+                        .to(call(.exactly(times: 1), matchingParameters: .all) { jobRunner in
+                            jobRunner.add(
+                                .any,
+                                job: Job(
+                                    variant: .messageSend,
+                                    behaviour: .runOnceAfterConfigSyncIgnoringPermanentFailure,
+                                    threadId: groupId.hexString,
+                                    details: MessageSendJob.Details(
+                                        destination: .closedGroup(groupPublicKey: groupId.hexString),
+                                        message: try GroupUpdateMemberChangeMessage(
+                                            changeType: .added,
+                                            memberSessionIds: [
+                                                "051111111111111111111111111111111111111111111111111111111111111112"
+                                            ],
+                                            historyShared: false,
+                                            sentTimestampMs: UInt64(1234567890000),
+                                            authMethod: Authentication.groupAdmin(
+                                                groupSessionId: SessionId(.group, hex: groupId.hexString),
+                                                ed25519SecretKey: [1, 2, 3]
+                                            ),
+                                            using: dependencies
+                                        ),
+                                        requiredConfigSyncVariant: .groupMembers
+                                    )
+                                ),
+                                dependantJob: nil,
+                                canStartJob: false
+                            )
+                        })
                 }
             }
         }
@@ -1451,14 +1474,15 @@ extension Network.BatchResponse {
         with: [
             (SnodeAPI.Endpoint.sendMessage, SendMessagesResponse.mockBatchSubResponse()),
             (SnodeAPI.Endpoint.sendMessage, SendMessagesResponse.mockBatchSubResponse()),
-            (SnodeAPI.Endpoint.sendMessage, SendMessagesResponse.mockBatchSubResponse())
+            (SnodeAPI.Endpoint.sendMessage, SendMessagesResponse.mockBatchSubResponse()),
+            (SnodeAPI.Endpoint.deleteMessages, DeleteMessagesResponse.mockBatchSubResponse())
         ]
     )
     
     fileprivate static let mockAddMemberConfigSyncResponse: AnyPublisher<(ResponseInfoType, Data?), Error> = MockNetwork.batchResponseData(
         with: [
             (SnodeAPI.Endpoint.unrevokeSubaccount, UnrevokeSubaccountResponse.mockBatchSubResponse()),
-            (SnodeAPI.Endpoint.sendMessage, DeleteMessagesResponse.mockBatchSubResponse())
+            (SnodeAPI.Endpoint.deleteMessages, DeleteMessagesResponse.mockBatchSubResponse())
         ]
     )
     
@@ -1466,7 +1490,7 @@ extension Network.BatchResponse {
         with: [
             (SnodeAPI.Endpoint.unrevokeSubaccount, UnrevokeSubaccountResponse.mockBatchSubResponse()),
             (SnodeAPI.Endpoint.sendMessage, SendMessagesResponse.mockBatchSubResponse()),
-            (SnodeAPI.Endpoint.sendMessage, DeleteMessagesResponse.mockBatchSubResponse())
+            (SnodeAPI.Endpoint.deleteMessages, DeleteMessagesResponse.mockBatchSubResponse())
         ]
     )
 }

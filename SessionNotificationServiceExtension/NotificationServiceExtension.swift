@@ -394,7 +394,6 @@ public final class NotificationServiceExtension: UNNotificationServiceExtension 
                 // stringlint:ignore_start
                 Log.setup(with: Logger(
                     primaryPrefix: "NotificationServiceExtension",
-                    level: .info,
                     customDirectory: "\(dependencies[singleton: .fileManager].appSharedDataDirectoryPath)/Logs/NotificationExtension",
                     using: dependencies
                 ))

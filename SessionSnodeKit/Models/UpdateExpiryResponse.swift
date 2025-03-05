@@ -36,6 +36,15 @@ public extension UpdateExpiryResponse {
             
             try super.init(from: decoder)
         }
+        
+        public override func encode(to encoder: any Encoder) throws {
+            var container: KeyedEncodingContainer<CodingKeys> = encoder.container(keyedBy: CodingKeys.self)
+            try container.encode(updated, forKey: .updated)
+            try container.encode(unchanged, forKey: .unchanged)
+            try container.encodeIfPresent(expiry, forKey: .expiry)
+            
+            try super.encode(to: encoder)
+        }
     }
 }
 
