@@ -3,7 +3,7 @@
 import Foundation
 import SessionUtilitiesKit
 
-public class DeleteMessagesResponse: SnodeRecursiveResponse<DeleteMessagesResponse.SwarmItem> {}
+public final class DeleteMessagesResponse: SnodeRecursiveResponse<DeleteMessagesResponse.SwarmItem> {}
 
 // MARK: - SwarmItem
 
@@ -23,6 +23,13 @@ public extension DeleteMessagesResponse {
             deleted = ((try? container.decode([String].self, forKey: .deleted)) ?? [])
             
             try super.init(from: decoder)
+        }
+        
+        public override func encode(to encoder: any Encoder) throws {
+            var container: KeyedEncodingContainer<CodingKeys> = encoder.container(keyedBy: CodingKeys.self)
+            try container.encode(deleted, forKey: .deleted)
+            
+            try super.encode(to: encoder)
         }
     }
 }
@@ -50,10 +57,10 @@ extension DeleteMessagesResponse: ValidatableResponse {
                 result[next.key] = false
                 
                 if let reason: String = next.value.reason, let statusCode: Int = next.value.code {
-                    SNLog("Couldn't delete data from: \(next.key) due to error: \(reason) (\(statusCode)).")
+                    Log.warn("Couldn't delete data from: \(next.key) due to error: \(reason) (\(statusCode)).")
                 }
                 else {
-                    SNLog("Couldn't delete data from: \(next.key).")
+                    Log.warn("Couldn't delete data from: \(next.key).")
                 }
                 return
             }
@@ -63,7 +70,7 @@ extension DeleteMessagesResponse: ValidatableResponse {
                 .appending(contentsOf: validationData.joined().bytes)
                 .appending(contentsOf: next.value.deleted.joined().bytes)
             
-            result[next.key] = dependencies.crypto.verify(
+            result[next.key] = dependencies[singleton: .crypto].verify(
                 .signature(
                     message: verificationBytes,
                     publicKey: Data(hex: next.key).bytes,

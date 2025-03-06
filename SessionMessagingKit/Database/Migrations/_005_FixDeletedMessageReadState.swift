@@ -8,21 +8,22 @@ import SessionUtilitiesKit
 enum _005_FixDeletedMessageReadState: Migration {
     static let target: TargetMigrations.Identifier = .messagingKit
     static let identifier: String = "FixDeletedMessageReadState"
-    static let needsConfigSync: Bool = false
     static let minExpectedRunDuration: TimeInterval = 0.01
-    static let fetchedTables: [(TableRecord & FetchableRecord).Type] = []
-    static let createdOrAlteredTables: [(TableRecord & FetchableRecord).Type] = []
-    static let droppedTables: [(TableRecord & FetchableRecord).Type] = []
+    static let createdTables: [(TableRecord & FetchableRecord).Type] = []
     
     static func migrate(_ db: Database, using dependencies: Dependencies) throws {
-        _ = try Interaction
-            .filter(
-                Interaction.Columns.variant == Interaction.Variant.standardIncomingDeleted ||
-                Interaction.Columns.variant == Interaction.Variant.standardOutgoing ||
-                Interaction.Columns.variant == Interaction.Variant.infoDisappearingMessagesUpdate
-            )
-            .updateAll(db, Interaction.Columns.wasRead.set(to: true))
+        try db.execute(
+            sql: """
+                UPDATE interaction
+                SET wasRead = true
+                WHERE variant IN (?, ?, ?)
+            """,
+            arguments: [
+                Interaction.Variant.standardIncomingDeleted.rawValue,
+                Interaction.Variant.standardOutgoing.rawValue,
+                Interaction.Variant.infoDisappearingMessagesUpdate.rawValue
+            ])
         
-        Storage.update(progress: 1, for: self, in: target) // In case this is the last migration
+        Storage.update(progress: 1, for: self, in: target, using: dependencies)
     }
 }

@@ -37,6 +37,13 @@ public extension DeleteAllMessagesResponse {
             
             try super.init(from: decoder)
         }
+        
+        public override func encode(to encoder: any Encoder) throws {
+            var container: KeyedEncodingContainer<CodingKeys> = encoder.container(keyedBy: CodingKeys.self)
+            try container.encode(deleted, forKey: .deleted)
+            
+            try super.encode(to: encoder)
+        }
     }
 }
 
@@ -78,7 +85,7 @@ extension DeleteAllMessagesResponse: ValidatableResponse {
                 .appending(contentsOf: "\(validationData)".data(using: .ascii)?.bytes)
                 .appending(contentsOf: next.value.deleted.joined().bytes)
             
-            result[next.key] = dependencies.crypto.verify(
+            result[next.key] = dependencies[singleton: .crypto].verify(
                 .signature(
                     message: verificationBytes,
                     publicKey: Data(hex: next.key).bytes,

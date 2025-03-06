@@ -6,6 +6,7 @@ import GRDB
 import DifferenceKit
 import SessionUIKit
 import SessionUtilitiesKit
+import SessionMessagingKit
 import SignalUtilitiesKit
 
 protocol SessionViewModelAccessible {
@@ -32,6 +33,25 @@ class SessionTableViewController<ViewModel>: BaseVC, UITableViewDataSource, UITa
     // MARK: - Components
     
     private lazy var titleView: SessionTableViewTitleView = SessionTableViewTitleView()
+    
+    private lazy var contentStackView: UIStackView = {
+        let result: UIStackView = UIStackView(arrangedSubviews: [
+            infoBanner,
+            tableView
+        ])
+        result.axis = .vertical
+        result.alignment = .fill
+        result.distribution = .fill
+        
+        return result
+    }()
+    
+    private lazy var infoBanner: InfoBanner = {
+        let result: InfoBanner = InfoBanner(info: .empty)
+        result.isHidden = true
+        
+        return result
+    }()
     
     private lazy var tableView: UITableView = {
         let result: UITableView = UITableView()
@@ -129,7 +149,7 @@ class SessionTableViewController<ViewModel>: BaseVC, UITableViewDataSource, UITa
         titleView.update(title: self.viewModel.title, subtitle: self.viewModel.subtitle)
         
         view.themeBackgroundColor = .backgroundPrimary
-        view.addSubview(tableView)
+        view.addSubview(contentStackView)
         view.addSubview(initialLoadLabel)
         view.addSubview(emptyStateLabel)
         view.addSubview(fadeView)
@@ -183,7 +203,7 @@ class SessionTableViewController<ViewModel>: BaseVC, UITableViewDataSource, UITa
     }
     
     private func setupLayout() {
-        tableView.pin(to: view)
+        contentStackView.pin(to: view)
         
         initialLoadLabel.pin(.top, to: .top, of: self.view, withInset: Values.massiveSpacing)
         initialLoadLabel.pin(.leading, to: .leading, of: self.view, withInset: Values.mediumSpacing)
@@ -211,7 +231,7 @@ class SessionTableViewController<ViewModel>: BaseVC, UITableViewDataSource, UITa
                 receiveCompletion: { [weak self] result in
                     switch result {
                         case .failure(let error):
-                        let title: String = (self?.viewModel.title ?? "unknown".localized())
+                            let title: String = (self?.viewModel.title ?? "unknown".localized())
                             
                             // If we got an error then try to restart the stream once, otherwise log the error
                             guard self?.dataStreamJustFailed == false else {
@@ -341,6 +361,19 @@ class SessionTableViewController<ViewModel>: BaseVC, UITableViewDataSource, UITa
             }
             .store(in: &disposables)
         
+        viewModel.bannerInfo
+            .receive(on: DispatchQueue.main)
+            .sink { [weak self] info in
+                switch info {
+                    case .some(let info):
+                        self?.infoBanner.update(with: info)
+                        self?.infoBanner.isHidden = false
+                        
+                    case .none: self?.infoBanner.isHidden = true
+                }
+            }
+            .store(in: &disposables)
+        
         viewModel.emptyStateTextPublisher
             .receive(on: DispatchQueue.main)
             .sink { [weak self] text in
@@ -360,7 +393,7 @@ class SessionTableViewController<ViewModel>: BaseVC, UITableViewDataSource, UITa
             .sink { [weak self] buttonInfo in
                 if let buttonInfo: SessionButton.Info = buttonInfo {
                     self?.footerButton.setTitle(buttonInfo.title, for: .normal)
-                    self?.footerButton.setStyle(buttonInfo.style)
+                    self?.footerButton.style = buttonInfo.style
                     self?.footerButton.isEnabled = buttonInfo.isEnabled
                     self?.footerButton.set(.width, greaterThanOrEqualTo: buttonInfo.minWidth)
                     self?.footerButton.accessibilityIdentifier = buttonInfo.accessibility?.identifier
@@ -372,14 +405,18 @@ class SessionTableViewController<ViewModel>: BaseVC, UITableViewDataSource, UITa
                 self?.footerButton.isHidden = (buttonInfo == nil)
                 
                 // If we have a footerButton then we want to manually control the contentInset
+                let window: UIWindow? = UIApplication.shared.keyWindow
                 self?.tableView.contentInsetAdjustmentBehavior = (buttonInfo == nil ? .automatic : .never)
                 self?.tableView.contentInset = UIEdgeInsets(
                     top: 0,
                     left: 0,
-                    bottom: (buttonInfo == nil ?
-                        0 :
-                        Values.footerGradientHeight(window: UIApplication.shared.keyWindow)
-                    ),
+                    bottom: {
+                        switch (buttonInfo, window?.safeAreaInsets.bottom) {
+                            case (.none, 0): return Values.largeSpacing
+                            case (.none, _): return 0
+                            case (.some, _): return Values.footerGradientHeight(window: window)
+                        }
+                    }(),
                     right: 0
                 )
             }
@@ -407,7 +444,7 @@ class SessionTableViewController<ViewModel>: BaseVC, UITableViewDataSource, UITa
         
         switch (cell, info) {
             case (let cell as SessionCell, _):
-                cell.update(with: info)
+                cell.update(with: info, using: viewModel.dependencies)
                 cell.update(
                     isEditing: (self.isEditing || (info.title?.interaction == .alwaysEditing)),
                     becomeFirstResponder: false,
@@ -427,7 +464,7 @@ class SessionTableViewController<ViewModel>: BaseVC, UITableViewDataSource, UITa
             case (let cell as FullConversationCell, let threadInfo as SessionCell.Info<SessionThreadViewModel>):
                 cell.accessibilityIdentifier = info.accessibility?.identifier
                 cell.isAccessibilityElement = (info.accessibility != nil)
-                cell.update(with: threadInfo.id)
+                cell.update(with: threadInfo.id, using: viewModel.dependencies)
                 
             default:
                 SNLog("[SessionTableViewController] Got invalid combination of cellType: \(viewModel.cellType) and tableData: \(SessionCell.Info<TableItem>.self)")
@@ -532,23 +569,56 @@ class SessionTableViewController<ViewModel>: BaseVC, UITableViewDataSource, UITa
                 return nil
             }
             
-            switch (info.leftAccessory, info.rightAccessory) {
-                case (_, .highlightingBackgroundLabel(_, _)):
-                    return (!cell.rightAccessoryView.isHidden ? cell.rightAccessoryView : cell)
+            // Retrieve the last touch location from the cell
+            let touchLocation: UITouch? = cell.lastTouchLocation
+            cell.lastTouchLocation = nil
+            
+            switch (info.leadingAccessory, info.trailingAccessory) {
+                case (_, is SessionCell.AccessoryConfig.HighlightingBackgroundLabel):
+                    return (!cell.trailingAccessoryView.isHidden ? cell.trailingAccessoryView : cell)
                     
-                case (.highlightingBackgroundLabel(_, _), _):
-                    return (!cell.leftAccessoryView.isHidden ? cell.leftAccessoryView : cell)
+                case (is SessionCell.AccessoryConfig.HighlightingBackgroundLabel, _):
+                    return (!cell.leadingAccessoryView.isHidden ? cell.leadingAccessoryView : cell)
+                    
+                case (_, is SessionCell.AccessoryConfig.HighlightingBackgroundLabelAndRadio):
+                    guard let touchLocation: UITouch = touchLocation else { return cell }
+                    
+                    let localPoint: CGPoint = touchLocation.location(in: cell.trailingAccessoryView.highlightingBackgroundLabel)
+                    
+                    guard
+                        !cell.trailingAccessoryView.isHidden &&
+                        cell.trailingAccessoryView.highlightingBackgroundLabel.bounds.contains(localPoint)
+                    else { return (!cell.trailingAccessoryView.isHidden ? cell.trailingAccessoryView : cell) }
+                    
+                    return cell.trailingAccessoryView.highlightingBackgroundLabel
+                    
+                case (is SessionCell.AccessoryConfig.HighlightingBackgroundLabelAndRadio, _):
+                    guard let touchLocation: UITouch = touchLocation else { return cell }
+                    
+                    let localPoint: CGPoint = touchLocation.location(in: cell.trailingAccessoryView.highlightingBackgroundLabel)
+                    
+                    guard
+                        !cell.leadingAccessoryView.isHidden &&
+                        cell.leadingAccessoryView.highlightingBackgroundLabel.bounds.contains(localPoint)
+                    else { return (!cell.leadingAccessoryView.isHidden ? cell.leadingAccessoryView : cell) }
+                    
+                    return cell.leadingAccessoryView.highlightingBackgroundLabel
                 
                 default:
                     return cell
             }
         }()
+        
         let maybeOldSelection: (Int, SessionCell.Info<TableItem>)? = section.elements
             .enumerated()
             .first(where: { index, info in
-                switch (info.leftAccessory, info.rightAccessory) {
-                    case (_, .radio(_, let isSelected, _, _)): return isSelected()
-                    case (.radio(_, let isSelected, _, _), _): return isSelected()
+                switch (info.leadingAccessory, info.trailingAccessory) {
+                    case (_, let accessory as SessionCell.AccessoryConfig.Radio): return accessory.liveIsSelected()
+                    case (let accessory as SessionCell.AccessoryConfig.Radio, _): return accessory.liveIsSelected()
+                    case (_, let accessory as SessionCell.AccessoryConfig.HighlightingBackgroundLabelAndRadio):
+                        return accessory.liveIsSelected()
+                    case (let accessory as SessionCell.AccessoryConfig.HighlightingBackgroundLabelAndRadio, _):
+                        return accessory.liveIsSelected()
                     default: return false
                 }
             })
@@ -595,7 +665,7 @@ class SessionTableViewController<ViewModel>: BaseVC, UITableViewDataSource, UITa
     ) {
         // Try update the existing cell to have a nice animation instead of reloading the cell
         if let existingCell: SessionCell = tableView.cellForRow(at: indexPath) as? SessionCell {
-            existingCell.update(with: info, isManualReload: true)
+            existingCell.update(with: info, isManualReload: true, using: viewModel.dependencies)
         }
         else {
             tableView.reloadRows(at: [indexPath], with: .none)

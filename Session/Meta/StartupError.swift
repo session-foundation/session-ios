@@ -25,7 +25,9 @@ internal enum StartupError: Error, CustomStringConvertible {
     var message: String {
         switch self {
             case .databaseError(StorageError.startupFailed), .databaseError(DatabaseError.SQLITE_LOCKED), .databaseError(StorageError.databaseSuspended), .failedToRestore, .databaseError:
-                return "databaseErrorGeneric".localized()
+                return "databaseErrorGeneric"
+                    .put(key: "app_name", value: Constants.app_name)
+                    .localized()
 
             case .databaseError(StorageError.migrationNoLongerSupported):
                 return "databaseErrorUpdate"
