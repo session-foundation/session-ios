@@ -2006,22 +2006,28 @@ extension ConversationVC:
             
                 UIPasteboard.general.setData(data, forPasteboardType: type.identifier)
         }
-        self.viewModel.showToast(
-            text: "copied".localized(),
-            backgroundColor: .toast_background,
-            insect: Values.largeSpacing + (self.inputAccessoryView?.frame.height ?? 0)
-        )
+        
+        DispatchQueue.main.asyncAfter(deadline: .now() + .milliseconds(Int(ContextMenuVC.dismissDurationPartOne * 1000))) { [weak self] in
+            self?.viewModel.showToast(
+                text: "copied".localized(),
+                backgroundColor: .toast_background,
+                inset: Values.largeSpacing + (self?.inputAccessoryView?.frame.height ?? 0)
+            )
+        }
     }
 
     func copySessionID(_ cellViewModel: MessageViewModel) {
         guard cellViewModel.variant == .standardIncoming else { return }
         
         UIPasteboard.general.string = cellViewModel.authorId
-        self.viewModel.showToast(
-            text: "copied".localized(),
-            backgroundColor: .toast_background,
-            insect: Values.largeSpacing + (self.inputAccessoryView?.frame.height ?? 0)
-        )
+        
+        DispatchQueue.main.asyncAfter(deadline: .now() + .milliseconds(Int(ContextMenuVC.dismissDurationPartOne * 1000))) { [weak self] in
+            self?.viewModel.showToast(
+                text: "copied".localized(),
+                backgroundColor: .toast_background,
+                inset: Values.largeSpacing + (self?.inputAccessoryView?.frame.height ?? 0)
+            )
+        }
     }
 
     func delete(_ cellViewModel: MessageViewModel) {
@@ -2175,11 +2181,14 @@ extension ConversationVC:
             }
             
             self?.sendDataExtraction(kind: .mediaSaved(timestamp: UInt64(cellViewModel.timestampMs)))
-            self?.viewModel.showToast(
-                text: "saved".localized(),
-                backgroundColor: .toast_background,
-                insect: Values.largeSpacing + (self?.inputAccessoryView?.frame.height ?? 0)
-            )
+            
+            DispatchQueue.main.asyncAfter(deadline: .now() + .milliseconds(Int(ContextMenuVC.dismissDurationPartOne * 1000))) { [weak self] in
+                self?.viewModel.showToast(
+                    text: "saved".localized(),
+                    backgroundColor: .toast_background,
+                    inset: Values.largeSpacing + (self?.inputAccessoryView?.frame.height ?? 0)
+                )
+            }
         }
     }
 
