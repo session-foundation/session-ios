@@ -31,6 +31,9 @@ public final class SessionCall: CurrentCallProtocol, WebRTCSessionDelegate {
     let profilePicture: UIImage
     let animatedProfilePicture: YYImage?
     
+    var currentConnectionStep: ConnectionStep
+    var connectionStepsRecord: [Bool]
+    
     // MARK: - Control
     
     lazy public var videoCapturer: RTCVideoCapturer = {
@@ -85,8 +88,8 @@ public final class SessionCall: CurrentCallProtocol, WebRTCSessionDelegate {
         didSet {
             stateDidChange?()
             hasConnectedDidChange?()
-            updateCallDetailedStatus?(
-                mode == .offer ? Constants.call_connection_steps_sender[5] : Constants.call_connection_steps_receiver[4]
+            updateCurrentConnectionStepIfPossible(
+                mode == .offer ? OfferStep.connected : AnswerStep.connected
             )
         }
     }
@@ -161,6 +164,8 @@ public final class SessionCall: CurrentCallProtocol, WebRTCSessionDelegate {
         self.audioMode = .earpiece
         self.webRTCSession = WebRTCSession.current ?? WebRTCSession(for: sessionId, with: uuid, using: dependencies)
         self.isOutgoing = outgoing
+        self.currentConnectionStep = (mode == .offer ? OfferStep.initializing : AnswerStep.receivedOffer)
+        self.connectionStepsRecord = [Bool](repeating: false, count: (mode == .answer ? 5 : 6))
         
         let avatarData: Data? = ProfileManager.profileAvatar(db, id: sessionId)
         self.contactName = Profile.displayName(db, id: sessionId, threadVariant: .contact)
@@ -213,7 +218,7 @@ public final class SessionCall: CurrentCallProtocol, WebRTCSessionDelegate {
             webRTCSession.handleRemoteSDP(sdp, from: sessionId) // This sends an answer message internally
         }
         if mode == .answer {
-            self.updateCallDetailedStatus?(Constants.call_connection_steps_receiver[0])
+            self.updateCurrentConnectionStepIfPossible(AnswerStep.receivedOffer)
         }
     }
     
@@ -255,7 +260,7 @@ public final class SessionCall: CurrentCallProtocol, WebRTCSessionDelegate {
         
         self.callInteractionId = interaction?.id
         
-        self.updateCallDetailedStatus?(Constants.call_connection_steps_sender[0])
+        self.updateCurrentConnectionStepIfPossible(OfferStep.initializing)
         
         try? webRTCSession
             .sendPreOffer(
@@ -268,7 +273,7 @@ public final class SessionCall: CurrentCallProtocol, WebRTCSessionDelegate {
             // Start the timeout timer for the call
             .handleEvents(receiveOutput: { [weak self] _ in self?.setupTimeoutTimer() })
             .flatMap { [weak self] _ in
-                self?.updateCallDetailedStatus?(Constants.call_connection_steps_sender[1])
+                self?.updateCurrentConnectionStepIfPossible(OfferStep.sendingOffer)
                 return webRTCSession
                     .sendOffer(to: thread)
                     .retry(5)
@@ -293,7 +298,7 @@ public final class SessionCall: CurrentCallProtocol, WebRTCSessionDelegate {
         
         if let sdp = remoteSDP {
             SNLog("[Calls] Got remote sdp already")
-            self.updateCallDetailedStatus?(Constants.call_connection_steps_receiver[1])
+            self.updateCurrentConnectionStepIfPossible(AnswerStep.sendingAnswer)
             webRTCSession.handleRemoteSDP(sdp, from: sessionId) // This sends an answer message internally
         }
     }
@@ -430,8 +435,8 @@ public final class SessionCall: CurrentCallProtocol, WebRTCSessionDelegate {
     
     public func sendingIceCandidates() {
         DispatchQueue.main.async {
-            self.updateCallDetailedStatus?(
-                self.mode == .offer ? Constants.call_connection_steps_sender[2] : Constants.call_connection_steps_receiver[2]
+            self.updateCurrentConnectionStepIfPossible(
+                self.mode == .offer ? OfferStep.sendingIceCandidates : AnswerStep.sendingIceCandidates
             )
         }
     }
@@ -439,15 +444,17 @@ public final class SessionCall: CurrentCallProtocol, WebRTCSessionDelegate {
     public func iceCandidateDidSend() {
         if self.mode == .offer {
             DispatchQueue.main.async {
-                self.updateCallDetailedStatus?(Constants.call_connection_steps_sender[3])
+                self.updateCurrentConnectionStepIfPossible(
+                    self.mode == .offer ? OfferStep.waitingForAnswer : AnswerStep.handlingIceCandidates
+                )
             }
         }
     }
     
     public func iceCandidateDidReceive() {
         DispatchQueue.main.async {
-            self.updateCallDetailedStatus?(
-                self.mode == .offer ? Constants.call_connection_steps_sender[4] : Constants.call_connection_steps_receiver[3]
+            self.updateCurrentConnectionStepIfPossible(
+                self.mode == .offer ? OfferStep.handlingIceCandidates : AnswerStep.handlingIceCandidates
             )
         }
     }
@@ -530,5 +537,83 @@ public final class SessionCall: CurrentCallProtocol, WebRTCSessionDelegate {
     public func invalidateTimeoutTimer() {
         timeOutTimer?.invalidate()
         timeOutTimer = nil
+    }
+}
+
+// MARK: - Connection Steps
+
+extension SessionCall {
+    public protocol ConnectionStep {
+        var index: Int { get }
+        var nextStep: ConnectionStep? { get }
+    }
+    
+    public enum OfferStep: ConnectionStep {
+        case initializing
+        case sendingOffer
+        case sendingIceCandidates
+        case waitingForAnswer
+        case handlingIceCandidates
+        case connected
+        
+        public var index: Int {
+            switch self {
+                case .initializing:          return 0
+                case .sendingOffer:          return 1
+                case .sendingIceCandidates:  return 2
+                case .waitingForAnswer:      return 3
+                case .handlingIceCandidates: return 4
+                case .connected:             return 5
+            }
+        }
+        
+        public var nextStep: ConnectionStep? {
+            switch self {
+                case .initializing:          return OfferStep.sendingOffer
+                case .sendingOffer:          return OfferStep.sendingIceCandidates
+                case .sendingIceCandidates:  return OfferStep.waitingForAnswer
+                case .waitingForAnswer:      return OfferStep.handlingIceCandidates
+                case .handlingIceCandidates: return OfferStep.connected
+                case .connected:             return nil
+            }
+        }
+    }
+    
+    public enum AnswerStep: ConnectionStep {
+        case receivedOffer
+        case sendingAnswer
+        case sendingIceCandidates
+        case handlingIceCandidates
+        case connected
+        
+        public var index: Int {
+            switch self {
+                case .receivedOffer:         return 0
+                case .sendingAnswer:         return 1
+                case .sendingIceCandidates:  return 2
+                case .handlingIceCandidates: return 3
+                case .connected:             return 4
+            }
+        }
+        
+        public var nextStep: ConnectionStep? {
+            switch self {
+                case .receivedOffer:         return AnswerStep.sendingAnswer
+                case .sendingAnswer:         return AnswerStep.sendingIceCandidates
+                case .sendingIceCandidates:  return AnswerStep.handlingIceCandidates
+                case .handlingIceCandidates: return AnswerStep.connected
+                case .connected:             return nil
+            }
+        }
+    }
+    
+    internal func updateCurrentConnectionStepIfPossible(_ step: ConnectionStep) {
+        connectionStepsRecord[step.index] = true
+        while let nextStep = currentConnectionStep.nextStep, connectionStepsRecord[nextStep.index] {
+            currentConnectionStep = nextStep
+            updateCallDetailedStatus?(
+                mode == .offer ? Constants.call_connection_steps_sender[currentConnectionStep.index] : Constants.call_connection_steps_receiver[currentConnectionStep.index]
+            )
+        }
     }
 }
