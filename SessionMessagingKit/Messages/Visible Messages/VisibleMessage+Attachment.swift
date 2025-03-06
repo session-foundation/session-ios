@@ -21,7 +21,7 @@ public extension VisibleMessage {
         public var sizeInBytes: UInt?
         public var url: String?
 
-        public var isValid: Bool {
+        public func isValid(isSending: Bool) -> Bool {
             // key and digest can be nil for open group attachments
             contentType != nil && kind != nil && size != nil && sizeInBytes != nil && url != nil
         }
