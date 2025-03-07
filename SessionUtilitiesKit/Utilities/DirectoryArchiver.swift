@@ -77,7 +77,7 @@ public class DirectoryArchiver {
         // Stream-based directory traversal and compression
         let enumerator: FileManager.DirectoryEnumerator? = FileManager.default.enumerator(
             at: sourceUrl,
-            includingPropertiesForKeys: [.isRegularFileKey, .isDirectoryKey]
+            includingPropertiesForKeys: [.isRegularFileKey, .isHiddenKey, .isDirectoryKey]
         )
         let fileUrls: [URL] = (enumerator?.allObjects
             .compactMap { $0 as? URL }
@@ -85,11 +85,14 @@ public class DirectoryArchiver {
                 guard !filenamesToExclude.contains(url.lastPathComponent) else { return false }
                 guard
                     let resourceValues = try? url.resourceValues(
-                        forKeys: [.isRegularFileKey, .isDirectoryKey]
+                        forKeys: [.isRegularFileKey, .isHiddenKey, .isDirectoryKey]
                     )
                 else { return true }
                 
-                return (resourceValues.isRegularFile == true)
+                return (
+                    resourceValues.isRegularFile == true &&
+                    resourceValues.isHidden != true
+                )
             })
             .defaulting(to: [])
         var index: Int = 0
@@ -215,6 +218,7 @@ public class DirectoryArchiver {
         
         var filePaths: [String] = []
         var additionalFilePaths: [String] = []
+        var skippedFilePaths: [String] = []
         var fileAmountProcessed: UInt64 = 0
         progressChanged?(0, Int(expectedFileCount + expectedAdditionalFileCount), 0, encryptedFileSize)
         while inputStream.hasBytesAvailable {
@@ -224,7 +228,7 @@ public class DirectoryArchiver {
             )
             fileAmountProcessed += UInt64(blockSizeBytesRead)
             progressChanged?(
-                (filePaths.count + additionalFilePaths.count),
+                (filePaths.count + skippedFilePaths.count + additionalFilePaths.count),
                 Int(expectedFileCount + expectedAdditionalFileCount),
                 fileAmountProcessed,
                 encryptedFileSize
@@ -274,20 +278,42 @@ public class DirectoryArchiver {
             )
             fileAmountProcessed += encryptedSize
             progressChanged?(
-                (filePaths.count + additionalFilePaths.count),
+                (filePaths.count + skippedFilePaths.count + additionalFilePaths.count),
                 Int(expectedFileCount + expectedAdditionalFileCount),
                 fileAmountProcessed,
                 encryptedFileSize
             )
             
             // Read and decrypt file content
-            guard let outputStream: OutputStream = OutputStream(toFileAtPath: fullPath, append: false) else {
-                Log.error(.cat, "Failed to create output stream")
-                throw ArchiveError.unarchiveFailed
-            }
-            outputStream.open()
-            defer { outputStream.close() }
+            let outputStream: OutputStream?
+            let isHiddenFile: Bool = URL(fileURLWithPath: relativePath).lastPathComponent.starts(with: ".")
+            defer { outputStream?.close() }
             
+            switch isHiddenFile {
+                case true:
+                    // If the file is a hidden file (shouldn't be possible anymore but old backups had this
+                    // issue) then just skip the file - any hidden files are from Apple and seem to fail to
+                    // decrypt causing the entire import to fail
+                    //
+                    // Note: We still need to process the file in order to ensure the inputStream is moved
+                    // the correct amount, otherwise out byte alignment could be off which will result in
+                    // at best a failed import, but more likely a crash due to invalid size data
+                    Log.warn(.cat, "Skipping hidden file to avoid breaking the import: \(relativePath)")
+                    skippedFilePaths.append(fullPath)
+                    outputStream = nil
+                
+                case false:
+                    // It's a valid file so ensure the OutputStream was opened successfully
+                    outputStream = OutputStream(toFileAtPath: fullPath, append: false)
+                    outputStream?.open()
+                    
+                    guard outputStream != nil else {
+                        Log.error(.cat, "Failed to create output stream")
+                        throw ArchiveError.unarchiveFailed
+                    }
+            }
+            
+            // Process the file chunk by chunk
             var remainingFileSize: Int = Int(fileSize)
             while remainingFileSize > 0 {
                 let (chunk, chunkSizeBytesRead, encryptedSize): ([UInt8], Int, UInt32) = try read(
@@ -296,13 +322,13 @@ public class DirectoryArchiver {
                 )
                 
                 // Write to the output
-                outputStream.write(chunk, maxLength: chunk.count)
+                outputStream?.write(chunk, maxLength: chunk.count)
                 remainingFileSize -= chunk.count
                 
                 // Update the progress
                 fileAmountProcessed += UInt64(chunkSizeBytesRead) + UInt64(encryptedSize)
                 progressChanged?(
-                    (filePaths.count + additionalFilePaths.count),
+                    (filePaths.count + skippedFilePaths.count + additionalFilePaths.count),
                     Int(expectedFileCount + expectedAdditionalFileCount),
                     fileAmountProcessed,
                     encryptedFileSize
@@ -310,12 +336,13 @@ public class DirectoryArchiver {
             }
             
             // Store the file path info and update the progress
-            switch isExtraFile {
-                case false: filePaths.append(fullPath)
-                case true: additionalFilePaths.append(fullPath)
+            switch (isExtraFile, isHiddenFile) {
+                case (_, true): break
+                case (false, false): filePaths.append(fullPath)
+                case (true, false): additionalFilePaths.append(fullPath)
             }
             progressChanged?(
-                (filePaths.count + additionalFilePaths.count),
+                (filePaths.count + skippedFilePaths.count + additionalFilePaths.count),
                 Int(expectedFileCount + expectedAdditionalFileCount),
                 fileAmountProcessed,
                 encryptedFileSize
@@ -345,12 +372,12 @@ public class DirectoryArchiver {
             throw ArchiveError.importedFileCountMismatch
         }
         guard
-            filePaths.count == expectedFileCount &&
+            (filePaths.count + skippedFilePaths.count) == expectedFileCount &&
             additionalFilePaths.count == expectedAdditionalFileCount
         else {
-            switch ((filePaths.count == expectedFileCount), additionalFilePaths.count == expectedAdditionalFileCount) {
+            switch (((filePaths.count + skippedFilePaths.count) == expectedFileCount), additionalFilePaths.count == expectedAdditionalFileCount) {
                 case (false, true):
-                    Log.error(.cat, "The number of main files decrypted (\(filePaths.count)) didn't match the expected number of main files (\(expectedFileCount))")
+                    Log.error(.cat, "The number of main files decrypted (\(filePaths.count)) plus skipped files (\(skippedFilePaths.count)) didn't match the expected number of main files (\(expectedFileCount))")
                     
                 case (true, false):
                     Log.error(.cat, "The number of additional files decrypted (\(additionalFilePaths.count)) didn't match the expected number of additional files (\(expectedAdditionalFileCount))")

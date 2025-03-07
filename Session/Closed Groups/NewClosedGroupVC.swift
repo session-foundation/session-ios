@@ -1,6 +1,7 @@
 // Copyright © 2022 Rangeproof Pty Ltd. All rights reserved.
 
 import UIKit
+import Combine
 import GRDB
 import DifferenceKit
 import SessionUIKit
@@ -30,17 +31,33 @@ final class NewClosedGroupVC: BaseVC, UITableViewDataSource, UITableViewDelegate
     
     private let dependencies: Dependencies
     private let contactProfiles: [Profile]
+    private let hideCloseButton: Bool
+    private let prefilledName: String?
     private lazy var data: [ArraySection<Section, Profile>] = [
         ArraySection(model: .contacts, elements: contactProfiles)
     ]
-    private var selectedContacts: Set<String> = []
+    private var selectedProfiles: [String: Profile]
     private var searchText: String = ""
     
     // MARK: - Initialization
     
-    init(using dependencies: Dependencies) {
+    init(
+        hideCloseButton: Bool = false,
+        prefilledName: String? = nil,
+        preselectedProfiles: [Profile] = [],
+        using dependencies: Dependencies
+    ) {
         self.dependencies = dependencies
-        self.contactProfiles = Profile.fetchAllContactProfiles(excludeCurrentUser: true)
+        self.hideCloseButton = hideCloseButton
+        self.prefilledName = prefilledName
+        self.contactProfiles = Profile
+            .fetchAllContactProfiles(excludeCurrentUser: true, using: dependencies)
+            .appending(contentsOf: preselectedProfiles)
+            .asSet()
+            .sorted(by: { lhs, rhs -> Bool in lhs.displayName() < rhs.displayName() })
+        self.selectedProfiles = preselectedProfiles.reduce(into: [:]) { result, next in
+            result[next.id] = next
+        }
         
         super.init(nibName: nil, bundle: nil)
     }
@@ -54,12 +71,37 @@ final class NewClosedGroupVC: BaseVC, UITableViewDataSource, UITableViewDelegate
     private static let textFieldHeight: CGFloat = 50
     private static let searchBarHeight: CGFloat = (36 + (Values.mediumSpacing * 2))
     
+    private let contentStackView: UIStackView = {
+        let result: UIStackView = UIStackView()
+        result.axis = .vertical
+        result.distribution = .fill
+        
+        return result
+    }()
+    
+    private lazy var minVersionBanner: InfoBanner = {
+        let result: InfoBanner = InfoBanner(
+            info: InfoBanner.Info(
+                font: .systemFont(ofSize: Values.verySmallFontSize),
+                message: "groupInviteVersion".localizedFormatted(baseFont: .systemFont(ofSize: Values.verySmallFontSize)),
+                icon: .none,
+                tintColor: .black,
+                backgroundColor: .explicitPrimary(.orange),
+                accessibility: Accessibility(label: "Version warning banner")
+            )
+        )
+        result.isHidden = !dependencies[feature: .updatedGroups]
+        
+        return result
+    }()
+    
     private lazy var nameTextField: TextField = {
         let result = TextField(
             placeholder: "groupNameEnter".localized(),
             usesDefaultHeight: false,
             customHeight: NewClosedGroupVC.textFieldHeight
         )
+        result.text = prefilledName
         result.set(.height, to: NewClosedGroupVC.textFieldHeight)
         result.themeBorderColor = .borderSeparator
         result.layer.cornerRadius = 13
@@ -75,6 +117,7 @@ final class NewClosedGroupVC: BaseVC, UITableViewDataSource, UITableViewDelegate
         result.themeTintColor = .textPrimary
         result.themeBackgroundColor = .clear
         result.delegate = self
+        result.searchTextField.accessibilityIdentifier = "Search contacts field"
         result.set(.height, to: NewClosedGroupVC.searchBarHeight)
 
         return result
@@ -165,11 +208,13 @@ final class NewClosedGroupVC: BaseVC, UITableViewDataSource, UITableViewDelegate
         let customTitleFontSize = Values.largeFontSize
         setNavBarTitle("groupCreate".localized(), customFontSize: customTitleFontSize)
         
-        let closeButton = UIBarButtonItem(image: #imageLiteral(resourceName: "X"), style: .plain, target: self, action: #selector(close))
-        closeButton.themeTintColor = .textPrimary
-        navigationItem.rightBarButtonItem = closeButton
-        navigationItem.leftBarButtonItem?.accessibilityIdentifier = "Cancel"
-        navigationItem.leftBarButtonItem?.isAccessibilityElement = true
+        if !hideCloseButton {
+            let closeButton = UIBarButtonItem(image: #imageLiteral(resourceName: "X"), style: .plain, target: self, action: #selector(close))
+            closeButton.themeTintColor = .textPrimary
+            navigationItem.rightBarButtonItem = closeButton
+            navigationItem.leftBarButtonItem?.accessibilityIdentifier = "Cancel"
+            navigationItem.leftBarButtonItem?.isAccessibilityElement = true
+        }
         
         // Set up content
         setUpViewHierarchy()
@@ -191,11 +236,14 @@ final class NewClosedGroupVC: BaseVC, UITableViewDataSource, UITableViewDelegate
             return
         }
         
-        view.addSubview(tableView)
-        tableView.pin(.top, to: .top, of: view)
-        tableView.pin(.leading, to: .leading, of: view)
-        tableView.pin(.trailing, to: .trailing, of: view)
-        tableView.pin(.bottom, to: .bottom, of: view)
+        view.addSubview(contentStackView)
+        contentStackView.pin(.top, to: .top, of: view)
+        contentStackView.pin(.leading, to: .leading, of: view)
+        contentStackView.pin(.trailing, to: .trailing, of: view)
+        contentStackView.pin(.bottom, to: .bottom, of: view)
+        
+        contentStackView.addArrangedSubview(minVersionBanner)
+        contentStackView.addArrangedSubview(tableView)
         
         view.addSubview(fadeView)
         fadeView.pin(.leading, to: .leading, of: view)
@@ -220,16 +268,15 @@ final class NewClosedGroupVC: BaseVC, UITableViewDataSource, UITableViewDelegate
             with: SessionCell.Info(
                 id: profile,
                 position: Position.with(indexPath.row, count: data[indexPath.section].elements.count),
-                leftAccessory: .profile(id: profile.id, profile: profile),
+                leadingAccessory: .profile(id: profile.id, profile: profile),
                 title: profile.displayName(),
-                rightAccessory: .radio(isSelected: { [weak self] in
-                    self?.selectedContacts.contains(profile.id) == true
-                }),
+                trailingAccessory: .radio(isSelected: (selectedProfiles[profile.id] != nil)),
                 styling: SessionCell.StyleInfo(backgroundStyle: .edgeToEdge),
                 accessibility: Accessibility(
                     identifier: "Contact"
                 )
-            )
+            ),
+            using: dependencies
         )
         
         return cell
@@ -246,13 +293,13 @@ final class NewClosedGroupVC: BaseVC, UITableViewDataSource, UITableViewDelegate
     }
     
     func tableView(_ tableView: UITableView, didSelectRowAt indexPath: IndexPath) {
-        let profileId: String = data[indexPath.section].elements[indexPath.row].id
+        let profile: Profile = data[indexPath.section].elements[indexPath.row]
         
-        if !selectedContacts.contains(profileId) {
-            selectedContacts.insert(profileId)
+        if selectedProfiles[profile.id] == nil {
+            selectedProfiles[profile.id] = profile
         }
         else {
-            selectedContacts.remove(profileId)
+            selectedProfiles.removeValue(forKey: profile.id)
         }
         
         tableView.deselectRow(at: indexPath, animated: true)
@@ -260,7 +307,10 @@ final class NewClosedGroupVC: BaseVC, UITableViewDataSource, UITableViewDelegate
     }
     
     func scrollViewDidScroll(_ scrollView: UIScrollView) {
-        let nameTextFieldCenterY = nameTextField.convert(nameTextField.bounds.center, to: scrollView).y
+        let nameTextFieldCenterY = nameTextField.convert(
+            CGPoint(x: nameTextField.bounds.midX, y: nameTextField.bounds.midY),
+            to: scrollView
+        ).y
         let shouldShowGroupNameInTitle: Bool = (scrollView.contentOffset.y > nameTextFieldCenterY)
         let groupNameLabelVisible: Bool = (crossfadeLabel.alpha >= 1)
         
@@ -332,20 +382,43 @@ final class NewClosedGroupVC: BaseVC, UITableViewDataSource, UITableViewDelegate
         else {
             return showError(title: "groupNameEnterPlease".localized())
         }
-        guard name.utf8CString.count < LibSession.libSessionMaxGroupNameByteLength else {
+        guard !LibSession.isTooLong(groupName: name) else {
             return showError(title: "groupNameEnterShorter".localized())
         }
-        guard selectedContacts.count >= 1 else {
+        guard selectedProfiles.count >= 1 else {
             return showError(title: "groupCreateErrorNoMembers".localized())
         }
-        guard selectedContacts.count < 100 else { // Minus one because we're going to include self later
+        /// Minus one because we're going to include self later
+        guard selectedProfiles.count < (LibSession.sizeMaxGroupMemberCount - 1) else {
             return showError(title: "groupAddMemberMaximum".localized())
         }
-        let selectedContacts = self.selectedContacts
-        let message: String? = (selectedContacts.count > 20 ? "deleteAfterLegacyGroupsGroupCreation".localized() : nil)
-        ModalActivityIndicatorViewController.present(fromViewController: navigationController!, message: message) { [weak self, dependencies] _ in
-            MessageSender
-                .createClosedGroup(name: name, members: selectedContacts)
+        let selectedProfiles: [(String, Profile?)] = self.selectedProfiles
+            .reduce(into: []) { result, next in result.append((next.key, next.value)) }
+        let message: String? = (dependencies[feature: .updatedGroups] || selectedProfiles.count <= 20 ? nil : "deleteAfterLegacyGroupsGroupCreation".localized()
+        )
+
+        ModalActivityIndicatorViewController.present(fromViewController: navigationController!, message: message) { [weak self, dependencies] activityIndicatorViewController in
+            let createPublisher: AnyPublisher<SessionThread, Error> = {
+                switch dependencies[feature: .updatedGroups] {
+                    case true:
+                        return MessageSender.createGroup(
+                            name: name,
+                            description: nil,
+                            displayPictureData: nil,
+                            members: selectedProfiles,
+                            using: dependencies
+                        )
+                        
+                    case false:
+                        return MessageSender.createLegacyClosedGroup(
+                            name: name,
+                            members: selectedProfiles.map { $0.0 }.asSet(),
+                            using: dependencies
+                        )
+                }
+            }()
+            
+            createPublisher
                 .subscribe(on: DispatchQueue.global(qos: .userInitiated))
                 .receive(on: DispatchQueue.main)
                 .sinkUntilComplete(
@@ -368,12 +441,15 @@ final class NewClosedGroupVC: BaseVC, UITableViewDataSource, UITableViewDelegate
                         }
                     },
                     receiveValue: { thread in
-                        SessionApp.presentConversationCreatingIfNeeded(
+                        /// When this is triggered via the "Recreate Group" action for Legacy Groups the screen will have been
+                        /// pushed instead of presented and, as a result, we need to dismiss the `activityIndicatorViewController`
+                        /// and want the transition to be animated in order to behave nicely
+                        dependencies[singleton: .app].presentConversationCreatingIfNeeded(
                             for: thread.id,
                             variant: thread.variant,
-                            dismissing: self?.presentingViewController,
-                            animated: false,
-                            using: dependencies
+                            action: .none,
+                            dismissing: (self?.presentingViewController ?? activityIndicatorViewController),
+                            animated: (self?.presentingViewController == nil)
                         )
                     }
                 )
