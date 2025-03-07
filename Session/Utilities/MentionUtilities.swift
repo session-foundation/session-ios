@@ -115,6 +115,7 @@ public enum MentionUtilities {
                 result.addAttribute(.currentUserMentionBackgroundCornerRadius, value: (8 * sizeDiff), range: mention.range)
                 result.addAttribute(.currentUserMentionBackgroundPadding, value: (3 * sizeDiff), range: mention.range)
                 result.addAttribute(.currentUserMentionBackgroundColor, value: primaryColor.color, range: mention.range)
+                result.addAttribute(.kern, value: (3 * sizeDiff), range: NSRange(location: mention.range.upperBound, length: 1))
             }
             
             switch (location, mention.isCurrentUser, theme.interfaceStyle) {
