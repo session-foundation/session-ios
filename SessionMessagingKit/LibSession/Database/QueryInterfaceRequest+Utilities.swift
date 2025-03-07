@@ -109,17 +109,6 @@ public extension QueryInterfaceRequest where RowDecoder: FetchableRecord & Table
         // Then check if any of the changes could affect the config
         guard LibSession.assignmentsRequireConfigUpdate(assignments) else { return updatedData }
         
-        defer {
-            // If we changed a column that requires a config update then we may as well automatically
-            // enqueue a new config sync job once the transaction completes (but only enqueue it once
-            // per transaction - doing it more than once is pointless)
-            let userPublicKey: String = getUserHexEncodedPublicKey(db)
-            
-            db.afterNextTransactionNestedOnce(dedupeId: LibSession.syncDedupeId(userPublicKey)) { db in
-                ConfigurationSyncJob.enqueue(db, publicKey: userPublicKey)
-            }
-        }
-        
         // Update the config dump state where needed
         switch self {
             case is QueryInterfaceRequest<Contact>:
@@ -130,6 +119,19 @@ public extension QueryInterfaceRequest where RowDecoder: FetchableRecord & Table
                 
             case is QueryInterfaceRequest<SessionThread>:
                 return try LibSession.updatingThreads(db, updatedData, using: dependencies)
+            
+            case is QueryInterfaceRequest<ClosedGroup>:
+                // Group data is stored both in the `USER_GROUPS` config and it's own `GROUP_INFO` config so we
+                // need to update both
+                try LibSession.updatingGroups(db, updatedData, using: dependencies)
+                return try LibSession.updatingGroupInfo(db, updatedData, using: dependencies)
+                
+            case is QueryInterfaceRequest<GroupMember>:
+                return try LibSession.updatingGroupMembers(db, updatedData, using: dependencies)
+                
+            case is QueryInterfaceRequest<DisappearingMessagesConfiguration>:
+                try LibSession.updatingDisappearingConfigsOneToOne(db, updatedData, using: dependencies)
+                return try LibSession.updatingDisappearingConfigsGroups(db, updatedData, using: dependencies)
                 
             default: return updatedData
         }

@@ -37,6 +37,13 @@ public extension UpdateExpiryAllResponse {
             
             try super.init(from: decoder)
         }
+        
+        public override func encode(to encoder: any Encoder) throws {
+            var container: KeyedEncodingContainer<CodingKeys> = encoder.container(keyedBy: CodingKeys.self)
+            try container.encode(updated, forKey: .updated)
+            
+            try super.encode(to: encoder)
+        }
     }
 }
 
@@ -78,7 +85,7 @@ extension UpdateExpiryAllResponse: ValidatableResponse {
                 .appending(contentsOf: "\(validationData)".data(using: .ascii)?.bytes)
                 .appending(contentsOf: next.value.updated.joined().bytes)
             
-            let isValid: Bool = dependencies.crypto.verify(
+            let isValid: Bool = dependencies[singleton: .crypto].verify(
                 .signature(
                     message: verificationBytes,
                     publicKey: Data(hex: next.key).bytes,
