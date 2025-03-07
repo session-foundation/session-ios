@@ -77,7 +77,7 @@ public final class MessageRequestResponse: ControlMessage {
             contentProto.setMessageRequestResponse(try messageRequestResponseProto.build())
             return try contentProto.build()
         } catch {
-            SNLog("Couldn't construct unsend request proto from: \(self).")
+            Log.warn(.messageSender, "Couldn't construct unsend request proto from: \(self).")
             return nil
         }
     }

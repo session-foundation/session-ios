@@ -28,10 +28,10 @@ extension DeleteAllBeforeResponse: ValidatableResponse {
                 result[next.key] = false
                 
                 if let reason: String = next.value.reason, let statusCode: Int = next.value.code {
-                    SNLog("Couldn't delete data from: \(next.key) due to error: \(reason) (\(statusCode)).")
+                    Log.warn(.validator(self), "Couldn't delete data from: \(next.key) due to error: \(reason) (\(statusCode)).")
                 }
                 else {
-                    SNLog("Couldn't delete data from: \(next.key).")
+                    Log.warn(.validator(self), "Couldn't delete data from: \(next.key).")
                 }
                 return
             }

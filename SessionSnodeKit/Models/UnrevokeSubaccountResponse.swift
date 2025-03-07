@@ -26,10 +26,10 @@ extension UnrevokeSubaccountResponse: ValidatableResponse {
                 let encodedSignature: Data = Data(base64Encoded: signatureBase64)
             else {
                 if let reason: String = next.value.reason, let statusCode: Int = next.value.code {
-                    SNLog("Couldn't revoke subaccount from: \(next.key) due to error: \(reason) (\(statusCode)).")
+                    Log.warn(.validator(self), "Couldn't revoke subaccount from: \(next.key) due to error: \(reason) (\(statusCode)).")
                 }
                 else {
-                    SNLog("Couldn't revoke subaccount from: \(next.key).")
+                    Log.warn(.validator(self), "Couldn't revoke subaccount from: \(next.key).")
                 }
                 return
             }

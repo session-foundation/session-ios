@@ -205,13 +205,13 @@ public extension LibSession {
         
         // MARK: - State Management
         
-        public func loadState(_ db: Database) {
+        public func loadState(_ db: Database, requestId: String?) {
             // Ensure we have the ed25519 key and that we haven't already loaded the state before
             // we continue
             guard
                 configStore.isEmpty,
                 let ed25519KeyPair: KeyPair = Identity.fetchUserEd25519KeyPair(db)
-            else { return Log.warn(.libSession, "Ignoring loadState due to existing state") }
+            else { return Log.warn(.libSession, "Ignoring loadState\(requestId.map { " for \($0)" } ?? "") due to existing state") }
             
             // Retrieve the existing dumps from the database
             let existingDumps: [ConfigDump] = ((try? ConfigDump.fetchSet(db)) ?? [])
@@ -258,7 +258,7 @@ public extension LibSession {
                 userSessionId: userSessionId,
                 userEd25519KeyPair: ed25519KeyPair
             )
-            Log.info(.libSession, "Completed loadState")
+            Log.info(.libSession, "Completed loadState\(requestId.map { " for \($0)" } ?? "")")
         }
         
         public func loadDefaultStatesFor(
@@ -894,7 +894,7 @@ public protocol LibSessionCacheType: LibSessionImmutableCacheType, MutableCacheT
     
     // MARK: - State Management
     
-    func loadState(_ db: Database)
+    func loadState(_ db: Database, requestId: String?)
     func loadDefaultStatesFor(
         userConfigVariants: Set<ConfigDump.Variant>,
         groups: [ClosedGroup],
@@ -974,6 +974,10 @@ public extension LibSessionCacheType {
     func withCustomBehaviour(_ behaviour: LibSession.CacheBehaviour, for sessionId: SessionId, change: @escaping () throws -> ()) throws {
         try withCustomBehaviour(behaviour, for: sessionId, variant: nil, change: change)
     }
+    
+    func loadState(_ db: Database) {
+        loadState(db, requestId: nil)
+    }
 }
 
 private final class NoopLibSessionCache: LibSessionCacheType {
@@ -987,7 +991,7 @@ private final class NoopLibSessionCache: LibSessionCacheType {
     
     // MARK: - State Management
     
-    func loadState(_ db: Database) {}
+    func loadState(_ db: Database, requestId: String?) {}
     func loadDefaultStatesFor(
         userConfigVariants: Set<ConfigDump.Variant>,
         groups: [ClosedGroup],

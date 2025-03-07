@@ -498,7 +498,7 @@ public class PagedDatabaseObserver<ObservedTable, T>: TransactionObserver where 
         let currentPageInfo: PagedData.PageInfo = self.pageInfo
         
         if case .initialPageAround(_) = target, currentPageInfo.currentCount > 0 {
-            SNLog("Unable to load initialPageAround if there is already data")
+            Log.warn(.cat, "Unable to load initialPageAround if there is already data")
             return
         }
         

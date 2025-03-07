@@ -11,6 +11,14 @@ import SessionMessagingKit
 import SessionUtilitiesKit
 import SessionUIKit
 
+// MARK: - Log.Category
+
+public extension Log.Category {
+    static let conversation: Log.Category = .create("Conversation", defaultLevel: .info)
+}
+
+// MARK: - ConversationViewModel
+
 public class ConversationViewModel: OWSAudioPlayerDelegate, NavigatableStateHolder {
     public typealias SectionModel = ArraySection<Section, MessageViewModel>
     
@@ -361,7 +369,7 @@ public class ConversationViewModel: OWSAudioPlayerDelegate, NavigatableStateHold
                     }
             }
             .removeDuplicates()
-            .handleEvents(didFail: { SNLog("[ConversationViewModel] Observation failed with error: \($0)") })
+            .handleEvents(didFail: { Log.error(.conversation, "Observation failed with error: \($0)") })
     }
 
     public func updateThreadData(_ updatedData: SessionThreadViewModel) {

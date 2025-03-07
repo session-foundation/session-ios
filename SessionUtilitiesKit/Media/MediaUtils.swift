@@ -3,9 +3,19 @@
 import UIKit
 import AVFoundation
 
+// MARK: - Log.Category
+
+public extension Log.Category {
+    static let media: Log.Category = .create("MediaUtils", defaultLevel: .warn)
+}
+
+// MARK: - MediaError
+
 public enum MediaError: Error {
     case failure(description: String)
 }
+
+// MARK: - MediaUtils
 
 public enum MediaUtils {
     public static var maxFileSizeAnimatedImage: UInt { SNUtilitiesKit.maxFileSize }
@@ -19,7 +29,7 @@ public enum MediaUtils {
     public static let maxVideoDimensions: CGFloat = 3 * 1024
     
     public static func thumbnail(forImageAtPath path: String, maxDimension: CGFloat, type: String, using dependencies: Dependencies) throws -> UIImage {
-        SNLog("thumbnailing image: \(path)")
+        Log.verbose(.media, "Thumbnailing image: \(path)")
 
         guard dependencies[singleton: .fileManager].fileExists(atPath: path) else {
             throw MediaError.failure(description: "Media file missing.")
@@ -37,7 +47,7 @@ public enum MediaUtils {
     }
 
     public static func thumbnail(forVideoAtPath path: String, maxDimension: CGFloat, using dependencies: Dependencies) throws -> UIImage {
-        SNLog("thumbnailing video: \(path)")
+        Log.verbose(.media, "Thumbnailing video: \(path)")
 
         guard isVideoOfValidContentTypeAndSize(path: path, using: dependencies) else {
             throw MediaError.failure(description: "Media file has missing or invalid length.")
@@ -61,7 +71,7 @@ public enum MediaUtils {
 
     public static func isValidVideo(path: String, using dependencies: Dependencies) -> Bool {
         guard isVideoOfValidContentTypeAndSize(path: path, using: dependencies) else {
-            SNLog("Media file has missing or invalid length.")
+            Log.error(.media, "Media file has missing or invalid length.")
             return false
         }
 
@@ -72,21 +82,21 @@ public enum MediaUtils {
 
     private static func isVideoOfValidContentTypeAndSize(path: String, using dependencies: Dependencies) -> Bool {
         guard dependencies[singleton: .fileManager].fileExists(atPath: path) else {
-            SNLog("Media file missing.")
+            Log.error(.media, "Media file missing.")
             return false
         }
         let fileExtension = URL(fileURLWithPath: path).pathExtension
         guard let contentType: String = UTType.sessionMimeType(for: fileExtension) else {
-            SNLog("Media file has unknown content type.")
+            Log.error(.media, "Media file has unknown content type.")
             return false
         }
         guard UTType.isVideo(contentType) else {
-            SNLog("Media file has invalid content type.")
+            Log.error(.media, "Media file has invalid content type.")
             return false
         }
 
         guard let fileSize: UInt64 = dependencies[singleton: .fileManager].fileSize(of: path) else {
-            SNLog("Media file has unknown length.")
+            Log.error(.media, "Media file has unknown length.")
             return false
         }
         return UInt(fileSize) <= SNUtilitiesKit.maxFileSize
@@ -100,11 +110,11 @@ public enum MediaUtils {
             maxTrackSize.height = max(maxTrackSize.height, trackSize.height)
         }
         if maxTrackSize.width < 1.0 || maxTrackSize.height < 1.0 {
-            SNLog("Invalid video size: \(maxTrackSize)")
+            Log.error(.media, "Invalid video size: \(maxTrackSize)")
             return false
         }
         if maxTrackSize.width > maxVideoDimensions || maxTrackSize.height > maxVideoDimensions {
-            SNLog("Invalid video dimensions: \(maxTrackSize)")
+            Log.error(.media, "Invalid video dimensions: \(maxTrackSize)")
             return false
         }
         return true
