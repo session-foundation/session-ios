@@ -107,7 +107,7 @@ final class SAEScreenLockViewController: ScreenLockViewController {
 
         isShowingAuthUI = true
         
-        ScreenLock.shared.tryToUnlockScreenLock(
+        ScreenLock.tryToUnlockScreenLock(
             success: { [weak self] in
                 Log.assertOnMainThread()
                 Log.info("unlock screen lock succeeded.")

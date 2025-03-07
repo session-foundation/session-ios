@@ -97,13 +97,12 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
                 // Note: Intentionally dispatching sync as we want to wait for these to complete before
                 // continuing
                 DispatchQueue.main.sync {
-                    ScreenLockUI.shared.setupWithRootWindow(rootWindow: mainWindow, using: dependencies)
+                    dependencies[singleton: .screenLock].setupWithRootWindow(rootWindow: mainWindow)
                     OWSWindowManager.shared().setup(
                         withRootWindow: mainWindow,
-                        screenBlockingWindow: ScreenLockUI.shared.screenBlockingWindow,
+                        screenBlockingWindow: dependencies[singleton: .screenLock].window,
                         backgroundWindowLevel: .background
                     )
-                    ScreenLockUI.shared.startObserving()
                 }
             },
             migrationProgressChanged: { [weak self] progress, minEstimatedTotalTime in

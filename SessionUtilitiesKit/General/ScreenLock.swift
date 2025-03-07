@@ -1,10 +1,7 @@
-// Copyright © 2022 Rangeproof Pty Ltd. All rights reserved.
+// Copyright © 2025 Rangeproof Pty Ltd. All rights reserved.
 
-import Foundation
-import GRDB
+import UIKit
 import LocalAuthentication
-import SessionMessagingKit
-import SessionUtilitiesKit
 
 // MARK: - Log.Category
 
@@ -14,7 +11,17 @@ public extension Log.Category {
 
 // MARK: - ScreenLock
 
-public class ScreenLock {
+public enum ScreenLock {
+    public static let screenLockTimeoutDefault = (15 * 60)
+    public static let screenLockTimeouts = [
+        1 * 60,
+        5 * 60,
+        15 * 60,
+        30 * 60,
+        1 * 60 * 60,
+        0
+    ]
+    
     public enum ScreenLockError: Error {
         case general(description: String)
     }
@@ -26,18 +33,6 @@ public class ScreenLock {
         case unexpectedFailure(error: String)
     }
 
-    public let screenLockTimeoutDefault = (15 * 60)
-    public let screenLockTimeouts = [
-        1 * 60,
-        5 * 60,
-        15 * 60,
-        30 * 60,
-        1 * 60 * 60,
-        0
-    ]
-    
-    public static let shared: ScreenLock = ScreenLock()
-
     // MARK: - Methods
 
     /// This method should only be called:
@@ -48,7 +43,7 @@ public class ScreenLock {
     ///
     /// * Asynchronously.
     /// * On the main thread.
-    public func tryToUnlockScreenLock(
+    public static func tryToUnlockScreenLock(
         success: @escaping (() -> Void),
         failure: @escaping ((Error) -> Void),
         unexpectedFailure: @escaping ((Error) -> Void),
@@ -57,8 +52,7 @@ public class ScreenLock {
         Log.assertOnMainThread()
 
         tryToVerifyLocalAuthentication(
-            // Description of how and why Signal iOS uses Touch ID/Face ID/Phone Passcode to
-            // unlock 'screen lock'.
+            // Description of how and the app uses Touch ID/Face ID/Phone Passcode to unlock 'screen lock'.
             localizedReason: "authenticateToOpen"
                 .put(key: "app_name", value:  Constants.app_name)
                 .localized()
@@ -93,7 +87,7 @@ public class ScreenLock {
     ///
     /// * Asynchronously.
     /// * On the main thread.
-    private func tryToVerifyLocalAuthentication(
+    private static func tryToVerifyLocalAuthentication(
         localizedReason: String,
         completion completionParam: @escaping ((Outcome) -> Void)
     ) {
@@ -155,7 +149,7 @@ public class ScreenLock {
 
     // MARK: - Outcome
 
-    private func outcomeForLAError(errorParam: Error?, defaultErrorDescription: String) -> Outcome {
+    private static func outcomeForLAError(errorParam: Error?, defaultErrorDescription: String) -> Outcome {
         if let error = errorParam {
             guard let laError = error as? LAError else {
                 return .failure(error: defaultErrorDescription)
@@ -222,7 +216,7 @@ public class ScreenLock {
 
     // MARK: - Context
 
-    private func screenLockContext() -> LAContext {
+    private static func screenLockContext() -> LAContext {
         let context = LAContext()
 
         // Never recycle biometric auth.

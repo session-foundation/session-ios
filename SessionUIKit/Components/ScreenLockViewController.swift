@@ -1,7 +1,6 @@
-// Copyright © 2022 Rangeproof Pty Ltd. All rights reserved.
+// Copyright © 2025 Rangeproof Pty Ltd. All rights reserved.
 
 import UIKit
-import SessionUIKit
 
 open class ScreenLockViewController: UIViewController {
     public enum State {
@@ -36,7 +35,7 @@ open class ScreenLockViewController: UIViewController {
     public lazy var unlockButton: SessionButton = {
         let result: SessionButton = SessionButton(style: .bordered, size: .medium)
         result.translatesAutoresizingMaskIntoConstraints = false
-        result.setTitle("lockAppUnlock".localized(), for: .normal)
+        result.setTitle("lockAppUnlock".localizedSNUIKit(), for: .normal)
         result.addTarget(self, action: #selector(showUnlockUI), for: .touchUpInside)
         result.isHidden = true
         
