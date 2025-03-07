@@ -13,6 +13,7 @@ public protocol WebRTCSessionDelegate: AnyObject {
     
     func webRTCIsConnected()
     func isRemoteVideoDidChange(isEnabled: Bool)
+    func sendingIceCandidates()
     func iceCandidateDidSend()
     func iceCandidateDidReceive()
     func dataChannelDidOpen()
@@ -301,6 +302,7 @@ public final class WebRTCSession : NSObject, RTCPeerConnectionDelegate {
     }
     
     private func sendICECandidates() {
+        self.delegate?.sendingIceCandidates()
         let candidates: [RTCIceCandidate] = self.queuedICECandidates
         let uuid: String = self.uuid
         let contactSessionId: String = self.contactSessionId
@@ -360,38 +362,50 @@ public final class WebRTCSession : NSObject, RTCPeerConnectionDelegate {
             )
     }
     
-    public func endCall(
-        _ db: Database,
-        with sessionId: String
-    ) throws {
-        guard let thread: SessionThread = try SessionThread.fetchOne(db, id: sessionId) else { return }
-        
-        Log.info(.calls, "Sending end call message.")
-        
-        try MessageSender
-            .preparedSend(
-                db,
-                message: CallMessage(
-                    uuid: self.uuid,
-                    kind: .endCall,
-                    sdps: []
-                )
-                .with(try? thread.disappearingMessagesConfiguration
-                    .fetchOne(db)?
-                    .forcedWithDisappearAfterReadIfNeeded()
-                ),
-                to: try Message.Destination.from(db, threadId: thread.id, threadVariant: thread.variant),
-                namespace: try Message.Destination
-                    .from(db, threadId: thread.id, threadVariant: thread.variant)
-                    .defaultNamespace,
-                interactionId: nil,
-                fileIds: [],
-                using: dependencies
+    public func endCall(with sessionId: String) {
+        return dependencies[singleton: .storage]
+            .writePublisher { [dependencies] db -> Network.PreparedRequest<Void> in
+                guard let thread: SessionThread = try SessionThread.fetchOne(db, id: sessionId) else {
+                    throw WebRTCSessionError.noThread
+                }
+                
+                SNLog("[Calls] Sending end call message.")
+                
+                return try MessageSender
+                    .preparedSend(
+                        db,
+                        message: CallMessage(
+                            uuid: self.uuid,
+                            kind: .endCall,
+                            sdps: []
+                        )
+                        .with(try? thread.disappearingMessagesConfiguration
+                            .fetchOne(db)?
+                            .forcedWithDisappearAfterReadIfNeeded()
+                        ),
+                        to: try Message.Destination.from(db, threadId: thread.id, threadVariant: thread.variant),
+                        namespace: try Message.Destination
+                            .from(db, threadId: thread.id, threadVariant: thread.variant)
+                            .defaultNamespace,
+                        interactionId: nil,
+                        fileIds: [],
+                        using: dependencies
+                    )
+            }
+            .subscribe(on: DispatchQueue.global(qos: .userInitiated))
+            .flatMap { [dependencies] preparedRequest in
+                preparedRequest.send(using: dependencies).retry(5)
+            }
+            .sinkUntilComplete(
+                receiveCompletion: { result in
+                    switch result {
+                        case .finished:
+                            SNLog("[Calls] End call message sent")
+                        case .failure(let error):
+                            SNLog("[Calls] Error sending End call message due to error: \(error)")
+                    }
+                }
             )
-            .send(using: dependencies)
-            .subscribe(on: DispatchQueue.global(qos: .userInitiated), using: dependencies)
-            .retry(5)
-            .sinkUntilComplete()
     }
     
     public func dropConnection() {
@@ -462,13 +476,15 @@ public final class WebRTCSession : NSObject, RTCPeerConnectionDelegate {
 }
 
 extension WebRTCSession {
-    public func configureAudioSession(outputAudioPort: AVAudioSession.PortOverride = .none) {
+    public func configureAudioSession() {
         let audioSession = RTCAudioSession.sharedInstance()
         audioSession.lockForConfiguration()
         do {
-            try audioSession.setCategory(AVAudioSession.Category.playAndRecord)
-            try audioSession.setMode(AVAudioSession.Mode.voiceChat)
-            try audioSession.overrideOutputAudioPort(outputAudioPort)
+            try audioSession.setCategory(
+                .playAndRecord,
+                mode: .videoChat,
+                options: [.allowBluetooth, .allowBluetoothA2DP]
+            )
             try audioSession.setActive(true)
         } catch let error {
             Log.error(.calls, "Couldn't set up WebRTC audio session due to error: \(error)")

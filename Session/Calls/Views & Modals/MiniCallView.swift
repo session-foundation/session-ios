@@ -161,7 +161,7 @@ final class MiniCallView: UIView, RTCVideoViewDelegate {
             dependencies[singleton: .callManager].endCall(callVC.call) { [callVC, dependencies] error in
                 if let _ = error {
                     callVC.call.endSessionCall()
-                    dependencies[singleton: .callManager].reportCurrentCallEnded(reason: nil)
+                    dependencies[singleton: .callManager].reportCurrentCallEnded(reason: .failed)
                 }
             }
             return

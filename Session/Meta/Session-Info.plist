@@ -152,5 +152,9 @@
 	</array>
 	<key>UIViewControllerBasedStatusBarAppearance</key>
 	<true/>
+	<key>NSBonjourServices</key>
+	<array>
+		<string>_session_local_network_access_check._tcp</string>
+	</array>
 </dict>
 </plist>
