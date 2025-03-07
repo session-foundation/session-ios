@@ -37,14 +37,14 @@ final class JoinOpenGroupVC: BaseVC, UIPageViewControllerDataSource, UIPageViewC
     }()
 
     private lazy var enterURLVC: EnterURLVC = {
-        let result: EnterURLVC = EnterURLVC()
+        let result: EnterURLVC = EnterURLVC(using: dependencies)
         result.joinOpenGroupVC = self
         
         return result
     }()
 
     private lazy var scanQRCodePlaceholderVC: ScanQRCodePlaceholderVC = {
-        let result: ScanQRCodePlaceholderVC = ScanQRCodePlaceholderVC()
+        let result: ScanQRCodePlaceholderVC = ScanQRCodePlaceholderVC(using: dependencies)
         result.joinOpenGroupVC = self
         
         return result
@@ -68,7 +68,7 @@ final class JoinOpenGroupVC: BaseVC, UIPageViewControllerDataSource, UIPageViewC
     required init?(coder: NSCoder) {
         fatalError("init(coder:) has not been implemented")
     }
-
+    
     // MARK: - Lifecycle
     
     override func viewDidLoad() {
@@ -181,10 +181,16 @@ final class JoinOpenGroupVC: BaseVC, UIPageViewControllerDataSource, UIPageViewC
         joinOpenGroup(roomToken: room, server: server, publicKey: publicKey, shouldOpenCommunity: true, onError: onError)
     }
 
-    fileprivate func joinOpenGroup(roomToken: String, server: String, publicKey: String, shouldOpenCommunity: Bool, onError: (() -> ())?) {
+    fileprivate func joinOpenGroup(
+        roomToken: String,
+        server: String,
+        publicKey: String,
+        shouldOpenCommunity: Bool,
+        onError: (() -> ())?
+    ) {
         guard !isJoining, let navigationController: UINavigationController = navigationController else { return }
         
-        guard OpenGroupManager.shared.hasExistingOpenGroup(
+        guard dependencies[singleton: .openGroupManager].hasExistingOpenGroup(
             roomToken: roomToken,
             server: server,
             publicKey: publicKey
@@ -199,9 +205,9 @@ final class JoinOpenGroupVC: BaseVC, UIPageViewControllerDataSource, UIPageViewC
         isJoining = true
         
         ModalActivityIndicatorViewController.present(fromViewController: navigationController, canCancel: false) { [weak self, dependencies] _ in
-            Storage.shared
+            dependencies[singleton: .storage]
                 .writePublisher { db in
-                    OpenGroupManager.shared.add(
+                    dependencies[singleton: .openGroupManager].add(
                         db,
                         roomToken: roomToken,
                         server: server,
@@ -210,7 +216,8 @@ final class JoinOpenGroupVC: BaseVC, UIPageViewControllerDataSource, UIPageViewC
                     )
                 }
                 .flatMap { successfullyAddedGroup in
-                    OpenGroupManager.shared.performInitialRequestsAfterAdd(
+                    dependencies[singleton: .openGroupManager].performInitialRequestsAfterAdd(
+                        queue: DispatchQueue.global(qos: .userInitiated),
                         successfullyAddedGroup: successfullyAddedGroup,
                         roomToken: roomToken,
                         server: server,
@@ -226,8 +233,8 @@ final class JoinOpenGroupVC: BaseVC, UIPageViewControllerDataSource, UIPageViewC
                                 // If there was a failure then the group will be in invalid state until
                                 // the next launch so remove it (the user will be left on the previous
                                 // screen so can re-trigger the join)
-                                Storage.shared.writeAsync { db in
-                                    OpenGroupManager.shared.delete(
+                                dependencies[singleton: .storage].writeAsync { db in
+                                    try dependencies[singleton: .openGroupManager].delete(
                                         db,
                                         openGroupId: OpenGroup.idFor(roomToken: roomToken, server: server),
                                         skipLibSessionUpdate: false
@@ -248,12 +255,12 @@ final class JoinOpenGroupVC: BaseVC, UIPageViewControllerDataSource, UIPageViewC
                                 self?.presentingViewController?.dismiss(animated: true, completion: nil)
                                 
                                 if shouldOpenCommunity {
-                                    SessionApp.presentConversationCreatingIfNeeded(
+                                    dependencies[singleton: .app].presentConversationCreatingIfNeeded(
                                         for: OpenGroup.idFor(roomToken: roomToken, server: server),
                                         variant: .community,
+                                        action: .none,
                                         dismissing: nil,
-                                        animated: false,
-                                        using: dependencies
+                                        animated: false
                                     )
                                 }
                         }
@@ -283,6 +290,7 @@ final class JoinOpenGroupVC: BaseVC, UIPageViewControllerDataSource, UIPageViewC
 private final class EnterURLVC: UIViewController, UIGestureRecognizerDelegate, OpenGroupSuggestionGridDelegate {
     weak var joinOpenGroupVC: JoinOpenGroupVC?
     
+    private let dependencies: Dependencies
     private var isKeyboardShowing = false
     private var bottomConstraint: NSLayoutConstraint!
     private let bottomMargin: CGFloat = (UIDevice.current.isIPad ? Values.largeSpacing : 0)
@@ -315,7 +323,7 @@ private final class EnterURLVC: UIViewController, UIGestureRecognizerDelegate, O
 
     lazy var suggestionGrid: OpenGroupSuggestionGrid = {
         let maxWidth: CGFloat = (UIScreen.main.bounds.width - Values.largeSpacing * 2)
-        let result: OpenGroupSuggestionGrid = OpenGroupSuggestionGrid(maxWidth: maxWidth)
+        let result: OpenGroupSuggestionGrid = OpenGroupSuggestionGrid(maxWidth: maxWidth, using: dependencies)
         result.delegate = self
         
         return result
@@ -323,7 +331,23 @@ private final class EnterURLVC: UIViewController, UIGestureRecognizerDelegate, O
     
     private var viewWidth: NSLayoutConstraint?
     private var viewHeight: NSLayoutConstraint?
-
+    
+    // MARK: - Initialization
+    
+    init(using dependencies: Dependencies) {
+        self.dependencies = dependencies
+        
+        super.init(nibName: nil, bundle: nil)
+    }
+    
+    required init?(coder: NSCoder) {
+        fatalError("init(coder:) has not been implemented")
+    }
+    
+    deinit {
+        NotificationCenter.default.removeObserver(self)
+    }
+    
     // MARK: - Lifecycle
     
     override func viewDidLoad() {
@@ -391,9 +415,6 @@ private final class EnterURLVC: UIViewController, UIGestureRecognizerDelegate, O
             name: UIResponder.keyboardWillHideNotification,
             object: nil
         )
-    }
-    deinit {
-        NotificationCenter.default.removeObserver(self)
     }
     
     // MARK: - General
@@ -520,10 +541,23 @@ private final class EnterURLVC: UIViewController, UIGestureRecognizerDelegate, O
 }
 
 private final class ScanQRCodePlaceholderVC: UIViewController {
+    private let dependencies: Dependencies
     weak var joinOpenGroupVC: JoinOpenGroupVC?
     
     private var viewWidth: NSLayoutConstraint?
     private var viewHeight: NSLayoutConstraint?
+    
+    // MARK: - Initialization
+
+    init(using dependencies: Dependencies) {
+        self.dependencies = dependencies
+
+        super.init(nibName: nil, bundle: nil)
+    }
+
+    required init?(coder: NSCoder) {
+        fatalError("init(coder:) has not been implemented")
+    }
     
     // MARK: - Lifecycle
 
@@ -579,7 +613,7 @@ private final class ScanQRCodePlaceholderVC: UIViewController {
     }
 
     @objc private func requestCameraAccess() {
-        Permissions.requestCameraPermissionIfNeeded { [weak self] in
+        Permissions.requestCameraPermissionIfNeeded(using: dependencies) { [weak self] in
             self?.joinOpenGroupVC?.handleCameraAccessGranted()
         }
     }

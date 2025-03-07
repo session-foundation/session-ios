@@ -20,7 +20,7 @@ class PrivacySettingsViewModel: SessionTableViewModel, NavigationItemSource, Nav
     
     // MARK: - Initialization
     
-    init(shouldShowCloseButton: Bool = false, shouldAutomaticallyShowCallModal: Bool = false, using dependencies: Dependencies = Dependencies()) {
+    init(shouldShowCloseButton: Bool = false, shouldAutomaticallyShowCallModal: Bool = false, using dependencies: Dependencies) {
         self.dependencies = dependencies
         self.shouldShowCloseButton = shouldShowCloseButton
         self.shouldAutomaticallyShowCallModal = shouldAutomaticallyShowCallModal
@@ -114,12 +114,9 @@ class PrivacySettingsViewModel: SessionTableViewModel, NavigationItemSource, Nav
                             id: .calls,
                             title: "callsVoiceAndVideo".localized(),
                             subtitle: "callsVoiceAndVideoToggleDescription".localized(),
-                            rightAccessory: .toggle(
-                                .boolValue(
-                                    key: .areCallsEnabled,
-                                    value: current.areCallsEnabled,
-                                    oldValue: (previous ?? current).areCallsEnabled
-                                ),
+                            trailingAccessory: .toggle(
+                                current.areCallsEnabled,
+                                oldValue: (previous ?? current).areCallsEnabled,
                                 accessibility: Accessibility(
                                     identifier: "Voice and Video Calls - Switch"
                                 )
@@ -135,13 +132,13 @@ class PrivacySettingsViewModel: SessionTableViewModel, NavigationItemSource, Nav
                                 confirmStyle: .danger,
                                 cancelStyle: .alert_text,
                                 onConfirm: { _ in
-                                    Permissions.requestMicrophonePermissionIfNeeded()
-                                    Permissions.requestCameraPermissionIfNeeded()
-                                    Permissions.requestLocalNetworkPermissionIfNeeded()
+                                    Permissions.requestMicrophonePermissionIfNeeded(using: dependencies)
+                                    Permissions.requestCameraPermissionIfNeeded(using: dependencies)
+                                    Permissions.requestLocalNetworkPermissionIfNeeded(using: dependencies)
                                 }
                             ),
-                            onTap: {
-                                Storage.shared.write { db in
+                            onTap: { [weak self] in
+                                dependencies[singleton: .storage].write { db in
                                     try db.setAndUpdateConfig(
                                         .areCallsEnabled,
                                         to: !db[.areCallsEnabled],
@@ -158,8 +155,9 @@ class PrivacySettingsViewModel: SessionTableViewModel, NavigationItemSource, Nav
                                         id: .microphone,
                                         title: "permissionsMicrophone".localized(),
                                         subtitle: "Allow access to microphone for voice calls and audio messages",
-                                        rightAccessory: .toggle(
-                                            .staticBoolValue((Permissions.microphone == .granted)),
+                                        trailingAccessory: .toggle(
+                                            Permissions.microphone == .granted,
+                                            oldValue: Permissions.microphone == .granted,
                                             accessibility: Accessibility(
                                                 identifier: "Microphone Permission - Switch"
                                             )
@@ -175,8 +173,9 @@ class PrivacySettingsViewModel: SessionTableViewModel, NavigationItemSource, Nav
                                         id: .camera,
                                         title: "contentDescriptionCamera".localized(),
                                         subtitle: "Allow access to camera for video calls",
-                                        rightAccessory: .toggle(
-                                            .staticBoolValue((Permissions.camera == .granted)),
+                                        trailingAccessory: .toggle(
+                                            Permissions.camera == .granted,
+                                            oldValue: Permissions.camera == .granted,
                                             accessibility: Accessibility(
                                                 identifier: "Camera Permission - Switch"
                                             )
@@ -192,8 +191,9 @@ class PrivacySettingsViewModel: SessionTableViewModel, NavigationItemSource, Nav
                                         id: .localNetwork,
                                         title: "Local Network",
                                         subtitle: "Allow access to local network to facilitate voice and video calls",
-                                        rightAccessory: .toggle(
-                                            .staticBoolValue((Permissions.localNetwork == .granted)),
+                                        trailingAccessory: .toggle(
+                                            Permissions.localNetwork(using: dependencies) == .granted,
+                                            oldValue: Permissions.localNetwork(using: dependencies) == .granted,
                                             accessibility: Accessibility(
                                                 identifier: "Local Network Permission - Switch"
                                             )
@@ -218,12 +218,9 @@ class PrivacySettingsViewModel: SessionTableViewModel, NavigationItemSource, Nav
                             subtitle: "lockAppDescriptionIos"
                                 .put(key: "app_name", value: Constants.app_name)
                                 .localized(),
-                            rightAccessory: .toggle(
-                                .boolValue(
-                                    key: .isScreenLockEnabled,
-                                    value: current.isScreenLockEnabled,
-                                    oldValue: (previous ?? current).isScreenLockEnabled
-                                ),
+                            trailingAccessory: .toggle(
+                                current.isScreenLockEnabled,
+                                oldValue: previous?.isScreenLockEnabled,
                                 accessibility: Accessibility(
                                     identifier: "Lock App - Switch"
                                 )
@@ -245,7 +242,7 @@ class PrivacySettingsViewModel: SessionTableViewModel, NavigationItemSource, Nav
                                     return
                                 }
                                 
-                                Storage.shared.write { db in
+                                dependencies[singleton: .storage].write { db in
                                     try db.setAndUpdateConfig(
                                         .isScreenLockEnabled,
                                         to: !db[.isScreenLockEnabled],
@@ -263,18 +260,15 @@ class PrivacySettingsViewModel: SessionTableViewModel, NavigationItemSource, Nav
                             id: .communityMessageRequests,
                             title: "messageRequestsCommunities".localized(),
                             subtitle: "messageRequestsCommunitiesDescription".localized(),
-                            rightAccessory: .toggle(
-                                .boolValue(
-                                    key: .checkForCommunityMessageRequests,
-                                    value: current.checkForCommunityMessageRequests,
-                                    oldValue: (previous ?? current).checkForCommunityMessageRequests
-                                ),
+                            trailingAccessory: .toggle(
+                                current.checkForCommunityMessageRequests,
+                                oldValue: previous?.checkForCommunityMessageRequests,
                                 accessibility: Accessibility(
                                     identifier: "Community Message Requests - Switch"
                                 )
                             ),
                             onTap: { [weak self] in
-                                Storage.shared.write { db in
+                                dependencies[singleton: .storage].write { db in
                                     try db.setAndUpdateConfig(
                                         .checkForCommunityMessageRequests,
                                         to: !db[.checkForCommunityMessageRequests],
@@ -292,18 +286,15 @@ class PrivacySettingsViewModel: SessionTableViewModel, NavigationItemSource, Nav
                             id: .readReceipts,
                             title: "readReceipts".localized(),
                             subtitle: "readReceiptsDescription".localized(),
-                            rightAccessory: .toggle(
-                                .boolValue(
-                                    key: .areReadReceiptsEnabled,
-                                    value: current.areReadReceiptsEnabled,
-                                    oldValue: (previous ?? current).areReadReceiptsEnabled
-                                ),
+                            trailingAccessory: .toggle(
+                                current.areReadReceiptsEnabled,
+                                oldValue: previous?.areReadReceiptsEnabled,
                                 accessibility: Accessibility(
                                     identifier: "Read Receipts - Switch"
                                 )
                             ),
                             onTap: {
-                                Storage.shared.write { db in
+                                dependencies[singleton: .storage].write { db in
                                     try db.setAndUpdateConfig(
                                         .areReadReceiptsEnabled,
                                         to: !db[.areReadReceiptsEnabled],
@@ -356,18 +347,15 @@ class PrivacySettingsViewModel: SessionTableViewModel, NavigationItemSource, Nav
                                     return result
                                 }
                             ),
-                            rightAccessory: .toggle(
-                                .boolValue(
-                                    key: .typingIndicatorsEnabled,
-                                    value: current.typingIndicatorsEnabled,
-                                    oldValue: (previous ?? current).typingIndicatorsEnabled
-                                ),
+                            trailingAccessory: .toggle(
+                                current.typingIndicatorsEnabled,
+                                oldValue: previous?.typingIndicatorsEnabled,
                                 accessibility: Accessibility(
                                     identifier: "Typing Indicators - Switch"
                                 )
                             ),
                             onTap: {
-                                Storage.shared.write { db in
+                                dependencies[singleton: .storage].write { db in
                                     try db.setAndUpdateConfig(
                                         .typingIndicatorsEnabled,
                                         to: !db[.typingIndicatorsEnabled],
@@ -385,18 +373,15 @@ class PrivacySettingsViewModel: SessionTableViewModel, NavigationItemSource, Nav
                             id: .linkPreviews,
                             title: "linkPreviewsSend".localized(),
                             subtitle: "linkPreviewsDescription".localized(),
-                            rightAccessory: .toggle(
-                                .boolValue(
-                                    key: .areLinkPreviewsEnabled,
-                                    value: current.areLinkPreviewsEnabled,
-                                    oldValue: (previous ?? current).areLinkPreviewsEnabled
-                                ),
+                            trailingAccessory: .toggle(
+                                current.areLinkPreviewsEnabled,
+                                oldValue: previous?.areLinkPreviewsEnabled,
                                 accessibility: Accessibility(
                                     identifier: "Send Link Previews - Switch"
                                 )
                             ),
                             onTap: {
-                                Storage.shared.write { db in
+                                dependencies[singleton: .storage].write { db in
                                     try db.setAndUpdateConfig(
                                         .areLinkPreviewsEnabled,
                                         to: !db[.areLinkPreviewsEnabled],
@@ -420,15 +405,15 @@ class PrivacySettingsViewModel: SessionTableViewModel, NavigationItemSource, Nav
                     confirmTitle: "theContinue".localized(),
                     confirmStyle: .danger,
                     cancelStyle: .alert_text,
-                    onConfirm: { _ in
-                        Permissions.requestMicrophonePermissionIfNeeded()
-                        Permissions.requestCameraPermissionIfNeeded()
-                        Permissions.requestLocalNetworkPermissionIfNeeded()
-                        Storage.shared.write { db in
+                    onConfirm: { [dependencies] _ in
+                        Permissions.requestMicrophonePermissionIfNeeded(using: dependencies)
+                        Permissions.requestCameraPermissionIfNeeded(using: dependencies)
+                        Permissions.requestLocalNetworkPermissionIfNeeded(using: dependencies)
+                        dependencies[singleton: .storage].write { db in
                             try db.setAndUpdateConfig(
                                 .areCallsEnabled,
                                 to: !db[.areCallsEnabled],
-                                using: self.dependencies
+                                using: dependencies
                             )
                         }
                     }

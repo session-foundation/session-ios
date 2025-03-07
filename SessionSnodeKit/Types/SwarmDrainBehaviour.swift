@@ -82,4 +82,7 @@ public enum SwarmDrainBehaviour {
 
 public extension ThreadSafeObject where Value == SwarmDrainBehaviour {
     static var alwaysRandom: ThreadSafeObject<SwarmDrainBehaviour> { ThreadSafeObject(.alwaysRandom) }
+    static func limitedReuse(count: UInt) -> ThreadSafeObject<SwarmDrainBehaviour> {
+        return ThreadSafeObject(.limitedReuse(count: count))
+    }
 }

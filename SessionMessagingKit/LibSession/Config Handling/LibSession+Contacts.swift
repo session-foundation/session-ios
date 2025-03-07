@@ -8,9 +8,9 @@ import SessionUtilitiesKit
 // MARK: - Size Restrictions
 
 public extension LibSession {
-    static var libSessionMaxNameByteLength: Int { CONTACT_MAX_NAME_LENGTH }
-    static var libSessionMaxNicknameByteLength: Int { CONTACT_MAX_NAME_LENGTH }
-    static var libSessionMaxProfileUrlByteLength: Int { PROFILE_PIC_MAX_URL_LENGTH }
+    static var sizeMaxNameBytes: Int { CONTACT_MAX_NAME_LENGTH }
+    static var sizeMaxNicknameBytes: Int { CONTACT_MAX_NAME_LENGTH }
+    static var sizeMaxProfileUrlBytes: Int { PROFILE_PIC_MAX_URL_LENGTH }
 }
 
 // MARK: - Contacts Handling
@@ -28,26 +28,27 @@ internal extension LibSession {
         DisappearingMessagesConfiguration.Columns.type,
         DisappearingMessagesConfiguration.Columns.durationSeconds
     ]
-    
-    // MARK: - Incoming Changes
-    
-    static func handleContactsUpdate(
+}
+
+// MARK: - Incoming Changes
+
+internal extension LibSessionCacheType {
+    func handleContactsUpdate(
         _ db: Database,
-        in conf: UnsafeMutablePointer<config_object>?,
-        mergeNeedsDump: Bool,
-        latestConfigSentTimestampMs: Int64,
-        using dependencies: Dependencies
+        in config: LibSession.Config?,
+        serverTimestampMs: Int64
     ) throws {
-        guard mergeNeedsDump else { return }
-        guard let conf: UnsafeMutablePointer<config_object> = conf else { throw LibSessionError.nilConfigObject }
+        guard configNeedsDump(config) else { return }
+        guard case .contacts(let conf) = config else { throw LibSessionError.invalidConfigObject }
         
         // The current users contact data is handled separately so exclude it if it's present (as that's
         // actually a bug)
-        let userPublicKey: String = getUserHexEncodedPublicKey(db)
-        let targetContactData: [String: ContactData] = try extractContacts(
+        let userSessionId: SessionId = dependencies[cache: .general].sessionId
+        let targetContactData: [String: ContactData] = try LibSession.extractContacts(
             from: conf,
-            latestConfigSentTimestampMs: latestConfigSentTimestampMs
-        ).filter { $0.key != userPublicKey }
+            serverTimestampMs: serverTimestampMs,
+            using: dependencies
+        ).filter { $0.key != userSessionId.hexString }
         
         // Since we don't sync 100% of the data stored against the contact and profile objects we
         // need to only update the data we do have to ensure we don't overwrite anything that doesn't
@@ -57,7 +58,7 @@ internal extension LibSession {
                 // Note: We only update the contact and profile records if the data has actually changed
                 // in order to avoid triggering UI updates for every thread on the home screen (the DB
                 // observation system can't differ between update calls which do and don't change anything)
-                let contact: Contact = Contact.fetchOrCreate(db, id: sessionId)
+                let contact: Contact = Contact.fetchOrCreate(db, id: sessionId, using: dependencies)
                 let profile: Profile = Profile.fetchOrCreate(db, id: sessionId)
                 let profileNameShouldBeUpdated: Bool = (
                     !data.profile.name.isEmpty &&
@@ -77,10 +78,10 @@ internal extension LibSession {
                     profile.nickname != data.profile.nickname ||
                     profilePictureShouldBeUpdated
                 {
-                    try profile.save(db)
+                    try profile.upsert(db)
                     try Profile
                         .filter(id: sessionId)
-                        .updateAll( // Handling a config update so don't use `updateAllAndConfig`
+                        .updateAllAndConfig(
                             db,
                             [
                                 (!profileNameShouldBeUpdated ? nil :
@@ -101,7 +102,8 @@ internal extension LibSession {
                                 (!profilePictureShouldBeUpdated ? nil :
                                     Profile.Columns.lastProfilePictureUpdate.set(to: data.profile.lastProfilePictureUpdate)
                                 )
-                            ].compactMap { $0 }
+                            ].compactMap { $0 },
+                            using: dependencies
                         )
                 }
                 
@@ -113,10 +115,10 @@ internal extension LibSession {
                     (contact.isBlocked != data.contact.isBlocked) ||
                     (contact.didApproveMe != data.contact.didApproveMe)
                 {
-                    try contact.save(db)
+                    try contact.upsert(db)
                     try Contact
                         .filter(id: sessionId)
-                        .updateAll( // Handling a config update so don't use `updateAllAndConfig`
+                        .updateAllAndConfig(
                             db,
                             [
                                 (!data.contact.isApproved || contact.isApproved == data.contact.isApproved ? nil :
@@ -128,16 +130,17 @@ internal extension LibSession {
                                 (!data.contact.didApproveMe || contact.didApproveMe == data.contact.didApproveMe ? nil :
                                     Contact.Columns.didApproveMe.set(to: true)
                                 )
-                            ].compactMap { $0 }
+                            ].compactMap { $0 },
+                            using: dependencies
                         )
                 }
                 
                 /// If the contact's `hidden` flag doesn't match the visibility of their conversation then create/delete the
                 /// associated contact conversation accordingly
-                let threadInfo: PriorityVisibilityInfo? = try? SessionThread
+                let threadInfo: LibSession.PriorityVisibilityInfo? = try? SessionThread
                     .filter(id: sessionId)
                     .select(.id, .variant, .pinnedPriority, .shouldBeVisible)
-                    .asRequest(of: PriorityVisibilityInfo.self)
+                    .asRequest(of: LibSession.PriorityVisibilityInfo.self)
                     .fetchOne(db)
                 let threadExists: Bool = (threadInfo != nil)
                 let updatedShouldBeVisible: Bool = LibSession.shouldBeVisible(priority: data.priority)
@@ -145,12 +148,13 @@ internal extension LibSession {
                 switch (updatedShouldBeVisible, threadExists) {
                     /// If we are hiding the conversation then kick the user from it if it's currently open then delete the thread
                     case (false, true):
-                        LibSession.kickFromConversationUIIfNeeded(removedThreadIds: [sessionId])
+                        LibSession.kickFromConversationUIIfNeeded(removedThreadIds: [sessionId], using: dependencies)
                         
                         try SessionThread.deleteOrLeave(
                             db,
                             type: .deleteContactConversationAndMarkHidden,
                             threadId: sessionId,
+                            threadVariant: .contact,
                             using: dependencies
                         )
                     
@@ -169,7 +173,7 @@ internal extension LibSession {
                             id: sessionId,
                             variant: .contact,
                             values: SessionThread.TargetValues(
-                                creationDateTimestamp: data.created,
+                                creationDateTimestamp: .setTo(data.created),
                                 shouldBeVisible: .setTo(updatedShouldBeVisible),
                                 pinnedPriority: .setTo(data.priority),
                                 disappearingMessagesConfig: (disappearingMessagesConfigChanged ?
@@ -188,7 +192,7 @@ internal extension LibSession {
         /// Delete any contact/thread records which aren't in the config message
         let syncedContactIds: [String] = targetContactData
             .map { $0.key }
-            .appending(userPublicKey)
+            .appending(userSessionId.hexString)
         let contactIdsToRemove: [String] = try Contact
             .filter(!syncedContactIds.contains(Contact.Columns.id))
             .select(.id)
@@ -229,7 +233,7 @@ internal extension LibSession {
             .filter { !draftConversationIds.contains($0) }
         
         if !combinedIds.isEmpty {
-            LibSession.kickFromConversationUIIfNeeded(removedThreadIds: combinedIds)
+            LibSession.kickFromConversationUIIfNeeded(removedThreadIds: combinedIds, using: dependencies)
             
             try Contact
                 .filter(ids: combinedIds)
@@ -238,9 +242,10 @@ internal extension LibSession {
             // Also need to remove any 'nickname' values since they are associated to contact data
             try Profile
                 .filter(ids: combinedIds)
-                .updateAll(
+                .updateAllAndConfig(
                     db,
-                    Profile.Columns.nickname.set(to: nil)
+                    Profile.Columns.nickname.set(to: nil),
+                    using: dependencies
                 )
             
             // Delete the one-to-one conversations associated to the contact
@@ -248,6 +253,7 @@ internal extension LibSession {
                 db,
                 type: .deleteContactConversationAndContact,
                 threadIds: combinedIds,
+                threadVariant: .contact,
                 using: dependencies
             )
             
@@ -258,21 +264,24 @@ internal extension LibSession {
             )
         }
     }
-    
-    // MARK: - Outgoing Changes
-    
+}
+
+// MARK: - Outgoing Changes
+
+internal extension LibSession {
     static func upsert(
         contactData: [SyncedContactInfo],
-        in conf: UnsafeMutablePointer<config_object>?
+        in config: Config?,
+        using dependencies: Dependencies
     ) throws {
-        guard conf != nil else { throw LibSessionError.nilConfigObject }
+        guard case .contacts(let conf) = config else { throw LibSessionError.invalidConfigObject }
         
         // The current users contact data doesn't need to sync so exclude it, we also don't want to sync
         // blinded message requests so exclude those as well
-        let userPublicKey: String = getUserHexEncodedPublicKey()
+        let userSessionId: SessionId = dependencies[cache: .general].sessionId
         let targetContacts: [SyncedContactInfo] = contactData
             .filter {
-                $0.id != userPublicKey &&
+                $0.id != userSessionId.hexString &&
                 (try? SessionId(from: $0.id))?.prefix == .standard
             }
         
@@ -297,10 +306,14 @@ internal extension LibSession {
                 }
                 
                 // Assign all properties to match the updated contact (if there is one)
-                if let updatedContact: Contact = info.contact {
-                    contact.approved = updatedContact.isApproved
-                    contact.approved_me = updatedContact.didApproveMe
-                    contact.blocked = updatedContact.isBlocked
+                if
+                    let isApproved: Bool = info.isApproved,
+                    let didApproveMe: Bool = info.didApproveMe,
+                    let isBlocked: Bool = info.isBlocked
+                {
+                    contact.approved = isApproved
+                    contact.approved_me = didApproveMe
+                    contact.blocked = isBlocked
                     
                     // If we were given a `created` timestamp then set it to the min between the current
                     // setting and the value (as long as the current setting isn't `0`)
@@ -315,31 +328,30 @@ internal extension LibSession {
                 
                 // Update the profile data (if there is one - users we have sent a message request to may
                 // not have profile info in certain situations)
-                if let updatedProfile: Profile = info.profile {
+                if let updatedName: String = info.name {
                     let oldAvatarUrl: String? = contact.get(\.profile_pic.url)
                     let oldAvatarKey: Data? = contact.get(\.profile_pic.key)
                     
-                    contact.set(\.name, to: updatedProfile.name)
-                    contact.set(\.nickname, to: updatedProfile.nickname)
-                    contact.set(\.profile_pic.url, to: updatedProfile.profilePictureUrl)
-                    contact.set(\.profile_pic.key, to: updatedProfile.profileEncryptionKey)
+                    contact.set(\.name, to: updatedName)
+                    contact.set(\.nickname, to: info.nickname)
+                    contact.set(\.profile_pic.url, to: info.profilePictureUrl)
+                    contact.set(\.profile_pic.key, to: info.profileEncryptionKey)
                     
-                    // Download the profile picture if needed (this can be triggered within
-                    // database reads/writes so dispatch the download to a separate queue to
-                    // prevent blocking)
+                    // Attempts retrieval of the profile picture (will schedule a download if
+                    // needed via a throttled subscription on another thread to prevent blocking)
                     //
                     // Note: Only trigger the avatar download if we are in the main app (don't
                     // want the extensions to trigger this as it can clog up their networking)
                     if
-                        Singleton.hasAppContext &&
-                        Singleton.appContext.isMainApp && (
-                            oldAvatarUrl != (updatedProfile.profilePictureUrl ?? "") ||
-                            oldAvatarKey != (updatedProfile.profileEncryptionKey ?? Data(repeating: 0, count: ProfileManager.avatarAES256KeyByteLength))
+                        let updatedProfile: Profile = info.profile,
+                        dependencies[singleton: .appContext].isMainApp && (
+                            oldAvatarUrl != (info.profilePictureUrl ?? "") ||
+                            oldAvatarKey != (info.profileEncryptionKey ?? Data(repeating: 0, count: DisplayPictureManager.aes256KeyByteLength))
                         )
                     {
-                        DispatchQueue.global(qos: .background).async {
-                            ProfileManager.downloadAvatar(for: updatedProfile)
-                        }
+                        dependencies[singleton: .displayPictureManager].displayPicture(
+                            owner: .user(updatedProfile)
+                        )
                     }
                     
                     // Store the updated contact (needs to happen before variables go out of scope)
@@ -349,11 +361,11 @@ internal extension LibSession {
                 
                 // Assign all properties to match the updated disappearing messages configuration (if there is one)
                 if
-                    let updatedConfig: DisappearingMessagesConfiguration = info.config,
-                    let exp_mode: CONVO_EXPIRATION_MODE = updatedConfig.type?.toLibSession()
+                    let disappearingInfo: LibSession.DisappearingMessageInfo = info.disappearingMessagesInfo,
+                    let exp_mode: CONVO_EXPIRATION_MODE = disappearingInfo.type?.toLibSession()
                 {
                     contact.exp_mode = exp_mode
-                    contact.exp_seconds = Int32(updatedConfig.durationSeconds)
+                    contact.exp_seconds = Int32(disappearingInfo.durationSeconds)
                 }
                 
                 // Store the updated contact (can't be sure if we made any changes above)
@@ -376,57 +388,57 @@ internal extension LibSession {
         
         // The current users contact data doesn't need to sync so exclude it, we also don't want to sync
         // blinded message requests so exclude those as well
-        let userPublicKey: String = getUserHexEncodedPublicKey(db)
+        let userSessionId: SessionId = dependencies[cache: .general].sessionId
         let targetContacts: [Contact] = updatedContacts
             .filter {
-                $0.id != userPublicKey &&
+                $0.id != userSessionId.hexString &&
                 (try? SessionId(from: $0.id))?.prefix == .standard
             }
         
         // If we only updated the current user contact then no need to continue
         guard !targetContacts.isEmpty else { return updated }
         
-        try LibSession.performAndPushChange(
-            db,
-            for: .contacts,
-            publicKey: userPublicKey,
-            using: dependencies
-        ) { conf in
-            // When inserting new contacts (or contacts with invalid profile data) we want
-            // to add any valid profile information we have so identify if any of the updated
-            // contacts are new/invalid, and if so, fetch any profile data we have for them
-            let newContactIds: [String] = targetContacts
-                .compactMap { contactData -> String? in
-                    var contact: contacts_contact = contacts_contact()
-                    
-                    guard
-                        var cContactId: [CChar] = contactData.id.cString(using: .utf8),
-                        contacts_get(conf, &contact, &cContactId),
-                        contact.get(\.name, nullIfEmpty: true) != nil
-                    else {
-                        LibSessionError.clear(conf)
-                        return contactData.id
+        try dependencies.mutate(cache: .libSession) { cache in
+            try cache.performAndPushChange(db, for: .contacts, sessionId: userSessionId) { config in
+                guard case .contacts(let conf) = config else { throw LibSessionError.invalidConfigObject }
+                
+                // When inserting new contacts (or contacts with invalid profile data) we want
+                // to add any valid profile information we have so identify if any of the updated
+                // contacts are new/invalid, and if so, fetch any profile data we have for them
+                let newContactIds: [String] = targetContacts
+                    .compactMap { contactData -> String? in
+                        var contact: contacts_contact = contacts_contact()
+                        
+                        guard
+                            var cContactId: [CChar] = contactData.id.cString(using: .utf8),
+                            contacts_get(conf, &contact, &cContactId),
+                            contact.get(\.name, nullIfEmpty: true) != nil
+                        else {
+                            LibSessionError.clear(conf)
+                            return contactData.id
+                        }
+                        
+                        return nil
                     }
-                    
-                    return nil
-                }
-            let newProfiles: [String: Profile] = try Profile
-                .fetchAll(db, ids: newContactIds)
-                .reduce(into: [:]) { result, next in result[next.id] = next }
-            
-            // Upsert the updated contact data
-            try LibSession
-                .upsert(
-                    contactData: targetContacts
-                        .map { contact in
-                            SyncedContactInfo(
-                                id: contact.id,
-                                contact: contact,
-                                profile: newProfiles[contact.id]
-                            )
-                        },
-                    in: conf
-                )
+                let newProfiles: [String: Profile] = try Profile
+                    .fetchAll(db, ids: newContactIds)
+                    .reduce(into: [:]) { result, next in result[next.id] = next }
+                
+                // Upsert the updated contact data
+                try LibSession
+                    .upsert(
+                        contactData: targetContacts
+                            .map { contact in
+                                SyncedContactInfo(
+                                    id: contact.id,
+                                    contact: contact,
+                                    profile: newProfiles[contact.id]
+                                )
+                            },
+                        in: config,
+                        using: dependencies
+                    )
+            }
         }
         
         return updated
@@ -454,56 +466,57 @@ internal extension LibSession {
         guard !existingContactIds.isEmpty else { return updated }
         
         // Get the user public key (updating their profile is handled separately)
-        let userPublicKey: String = getUserHexEncodedPublicKey(db)
+        let userSessionId: SessionId = dependencies[cache: .general].sessionId
         let targetProfiles: [Profile] = updatedProfiles
             .filter {
-                $0.id != userPublicKey &&
+                $0.id != userSessionId.hexString &&
                 (try? SessionId(from: $0.id))?.prefix == .standard &&
                 existingContactIds.contains($0.id)
             }
         
         // Update the user profile first (if needed)
-        if let updatedUserProfile: Profile = updatedProfiles.first(where: { $0.id == userPublicKey }) {
-            try LibSession.performAndPushChange(
-                db,
-                for: .userProfile,
-                publicKey: userPublicKey,
-                using: dependencies
-            ) { conf in
-                try LibSession.update(
-                    profile: updatedUserProfile,
-                    in: conf
-                )
+        if let updatedUserProfile: Profile = updatedProfiles.first(where: { $0.id == userSessionId.hexString }) {
+            try dependencies.mutate(cache: .libSession) { cache in
+                try cache.performAndPushChange(db, for: .userProfile, sessionId: userSessionId) { config in
+                    try LibSession.update(
+                        profile: updatedUserProfile,
+                        in: config
+                    )
+                }
             }
         }
         
-        try LibSession.performAndPushChange(
-            db,
-            for: .contacts,
-            publicKey: userPublicKey,
-            using: dependencies
-        ) { conf in
-            try LibSession
-                .upsert(
-                    contactData: targetProfiles
-                        .map { SyncedContactInfo(id: $0.id, profile: $0) },
-                    in: conf
-                )
+        try dependencies.mutate(cache: .libSession) { cache in
+            try cache.performAndPushChange(db, for: .contacts, sessionId: userSessionId) { config in
+                try LibSession
+                    .upsert(
+                        contactData: targetProfiles
+                            .map { SyncedContactInfo(id: $0.id, profile: $0) },
+                        in: config,
+                        using: dependencies
+                    )
+            }
         }
         
         return updated
     }
     
-    static func updatingDisappearingConfigs<T>(
+    @discardableResult static func updatingDisappearingConfigsOneToOne<T>(
         _ db: Database,
         _ updated: [T],
         using dependencies: Dependencies
     ) throws -> [T] {
         guard let updatedDisappearingConfigs: [DisappearingMessagesConfiguration] = updated as? [DisappearingMessagesConfiguration] else { throw StorageError.generic }
         
+        // Filter out any disappearing config changes related to groups
+        let targetUpdatedConfigs: [DisappearingMessagesConfiguration] = updatedDisappearingConfigs
+            .filter { (try? SessionId.Prefix(from: $0.id)) != .group }
+        
+        guard !targetUpdatedConfigs.isEmpty else { return updated }
+        
         // We should only sync disappearing messages configs which are associated to existing contacts
         let existingContactIds: [String] = (try? Contact
-            .filter(ids: updatedDisappearingConfigs.map { $0.id })
+            .filter(ids: targetUpdatedConfigs.map { $0.id })
             .select(.id)
             .asRequest(of: String.self)
             .fetchAll(db))
@@ -514,41 +527,36 @@ internal extension LibSession {
         guard !existingContactIds.isEmpty else { return updated }
         
         // Get the user public key (updating note to self is handled separately)
-        let userPublicKey: String = getUserHexEncodedPublicKey(db)
-        let targetDisappearingConfigs: [DisappearingMessagesConfiguration] = updatedDisappearingConfigs
+        let userSessionId: SessionId = dependencies[cache: .general].sessionId
+        let targetDisappearingConfigs: [DisappearingMessagesConfiguration] = targetUpdatedConfigs
             .filter {
-                $0.id != userPublicKey &&
+                $0.id != userSessionId.hexString &&
                 (try? SessionId(from: $0.id))?.prefix == .standard &&
                 existingContactIds.contains($0.id)
             }
         
         // Update the note to self disappearing messages config first (if needed)
-        if let updatedUserDisappearingConfig: DisappearingMessagesConfiguration = updatedDisappearingConfigs.first(where: { $0.id == userPublicKey }) {
-            try LibSession.performAndPushChange(
-                db,
-                for: .userProfile,
-                publicKey: userPublicKey,
-                using: dependencies
-            ) { conf in
-                try LibSession.updateNoteToSelf(
-                    disappearingMessagesConfig: updatedUserDisappearingConfig,
-                    in: conf
-                )
+        if let updatedUserDisappearingConfig: DisappearingMessagesConfiguration = targetUpdatedConfigs.first(where: { $0.id == userSessionId.hexString }) {
+            try dependencies.mutate(cache: .libSession) { cache in
+                try cache.performAndPushChange(db, for: .userProfile, sessionId: userSessionId) { config in
+                    try LibSession.updateNoteToSelf(
+                        disappearingMessagesConfig: updatedUserDisappearingConfig,
+                        in: config
+                    )
+                }
             }
         }
         
-        try LibSession.performAndPushChange(
-            db,
-            for: .contacts,
-            publicKey: userPublicKey,
-            using: dependencies
-        ) { conf in
-            try LibSession
-                .upsert(
-                    contactData: targetDisappearingConfigs
-                        .map { SyncedContactInfo(id: $0.id, disappearingMessagesConfig: $0) },
-                    in: conf
-                )
+        try dependencies.mutate(cache: .libSession) { cache in
+            try cache.performAndPushChange(db, for: .contacts, sessionId: userSessionId) { config in
+                try LibSession
+                    .upsert(
+                        contactData: targetDisappearingConfigs
+                            .map { SyncedContactInfo(id: $0.id, disappearingMessagesConfig: $0) },
+                        in: config,
+                        using: dependencies
+                    )
+            }
         }
         
         return updated
@@ -563,23 +571,21 @@ public extension LibSession {
         contactIds: [String],
         using dependencies: Dependencies
     ) throws {
-        try LibSession.performAndPushChange(
-            db,
-            for: .contacts,
-            publicKey: getUserHexEncodedPublicKey(db, using: dependencies),
-            using: dependencies
-        ) { conf in
-            // Mark the contacts as hidden
-            try LibSession.upsert(
-                contactData: contactIds
-                    .map {
-                        SyncedContactInfo(
-                            id: $0,
-                            priority: LibSession.hiddenPriority
-                        )
-                    },
-                in: conf
-            )
+        try dependencies.mutate(cache: .libSession) { cache in
+            try cache.performAndPushChange(db, for: .contacts, sessionId: dependencies[cache: .general].sessionId) { config in
+                // Mark the contacts as hidden
+                try LibSession.upsert(
+                    contactData: contactIds
+                        .map {
+                            SyncedContactInfo(
+                                id: $0,
+                                priority: LibSession.hiddenPriority
+                            )
+                        },
+                    in: config,
+                    using: dependencies
+                )
+            }
         }
     }
     
@@ -590,17 +596,16 @@ public extension LibSession {
     ) throws {
         guard !contactIds.isEmpty else { return }
         
-        try LibSession.performAndPushChange(
-            db,
-            for: .contacts,
-            publicKey: getUserHexEncodedPublicKey(db, using: dependencies),
-            using: dependencies
-        ) { conf in
-            contactIds.forEach { sessionId in
-                guard var cSessionId: [CChar] = sessionId.cString(using: .utf8) else { return }
+        try dependencies.mutate(cache: .libSession) { cache in
+            try cache.performAndPushChange(db, for: .contacts, sessionId: dependencies[cache: .general].sessionId) { config in
+                guard case .contacts(let conf) = config else { throw LibSessionError.invalidConfigObject }
                 
-                // Don't care if the contact doesn't exist
-                contacts_erase(conf, &cSessionId)
+                contactIds.forEach { sessionId in
+                    guard var cSessionId: [CChar] = sessionId.cString(using: .utf8) else { return }
+                    
+                    // Don't care if the contact doesn't exist
+                    contacts_erase(conf, &cSessionId)
+                }
             }
         }
     }
@@ -611,39 +616,34 @@ public extension LibSession {
         disappearingMessagesConfig: DisappearingMessagesConfiguration,
         using dependencies: Dependencies
     ) throws {
-        let userPublicKey: String = getUserHexEncodedPublicKey(db)
+        let userSessionId: SessionId = dependencies[cache: .general].sessionId
         
         switch sessionId {
-            case userPublicKey:
-                try LibSession.performAndPushChange(
-                    db,
-                    for: .userProfile,
-                    publicKey: userPublicKey,
-                    using: dependencies
-                ) { conf in
-                    try LibSession.updateNoteToSelf(
-                        disappearingMessagesConfig: disappearingMessagesConfig,
-                        in: conf
-                    )
+            case userSessionId.hexString:
+                try dependencies.mutate(cache: .libSession) { cache in
+                    try cache.performAndPushChange(db, for: .userProfile, sessionId: userSessionId) { config in
+                        try LibSession.updateNoteToSelf(
+                            disappearingMessagesConfig: disappearingMessagesConfig,
+                            in: config
+                        )
+                    }
                 }
                 
             default:
-                try LibSession.performAndPushChange(
-                    db,
-                    for: .contacts,
-                    publicKey: userPublicKey,
-                    using: dependencies
-                ) { conf in
-                    try LibSession
-                        .upsert(
-                            contactData: [
-                                SyncedContactInfo(
-                                    id: sessionId,
-                                    disappearingMessagesConfig: disappearingMessagesConfig
-                                )
-                            ],
-                            in: conf
-                        )
+                try dependencies.mutate(cache: .libSession) { cache in
+                    try cache.performAndPushChange(db, for: .contacts, sessionId: userSessionId) { config in
+                        try LibSession
+                            .upsert(
+                                contactData: [
+                                    SyncedContactInfo(
+                                        id: sessionId,
+                                        disappearingMessagesConfig: disappearingMessagesConfig
+                                    )
+                                ],
+                                in: config,
+                                using: dependencies
+                            )
+                    }
                 }
         }
     }
@@ -654,11 +654,31 @@ public extension LibSession {
 extension LibSession {
     struct SyncedContactInfo {
         let id: String
-        let contact: Contact?
-        let profile: Profile?
-        let config: DisappearingMessagesConfiguration?
+        let isTrusted: Bool?
+        let isApproved: Bool?
+        let isBlocked: Bool?
+        let didApproveMe: Bool?
+        
+        let name: String?
+        let nickname: String?
+        let profilePictureUrl: String?
+        let profileEncryptionKey: Data?
+        
+        let disappearingMessagesInfo: DisappearingMessageInfo?
         let priority: Int32?
         let created: TimeInterval?
+        
+        fileprivate var profile: Profile? {
+            guard let name: String = name else { return nil }
+            
+            return Profile(
+                id: id,
+                name: name,
+                nickname: nickname,
+                profilePictureUrl: profilePictureUrl,
+                profileEncryptionKey: profileEncryptionKey
+            )
+        }
         
         init(
             id: String,
@@ -668,12 +688,73 @@ extension LibSession {
             priority: Int32? = nil,
             created: TimeInterval? = nil
         ) {
+            self.init(
+                id: id,
+                isTrusted: contact?.isTrusted,
+                isApproved: contact?.isApproved,
+                isBlocked: contact?.isBlocked,
+                didApproveMe: contact?.didApproveMe,
+                name: profile?.name,
+                nickname: profile?.nickname,
+                profilePictureUrl: profile?.profilePictureUrl,
+                profileEncryptionKey: profile?.profileEncryptionKey,
+                disappearingMessagesInfo: disappearingMessagesConfig.map {
+                    DisappearingMessageInfo(
+                        isEnabled: $0.isEnabled,
+                        durationSeconds: Int64($0.durationSeconds),
+                        rawType: $0.type?.rawValue
+                    )
+                },
+                priority: priority,
+                created: created
+            )
+        }
+        
+        init(
+            id: String,
+            isTrusted: Bool? = nil,
+            isApproved: Bool? = nil,
+            isBlocked: Bool? = nil,
+            didApproveMe: Bool? = nil,
+            name: String? = nil,
+            nickname: String? = nil,
+            profilePictureUrl: String? = nil,
+            profileEncryptionKey: Data? = nil,
+            disappearingMessagesInfo: DisappearingMessageInfo? = nil,
+            priority: Int32? = nil,
+            created: TimeInterval? = nil
+        ) {
             self.id = id
-            self.contact = contact
-            self.profile = profile
-            self.config = disappearingMessagesConfig
+            self.isTrusted = isTrusted
+            self.isApproved = isApproved
+            self.isBlocked = isBlocked
+            self.didApproveMe = didApproveMe
+            self.name = name
+            self.nickname = nickname
+            self.profilePictureUrl = profilePictureUrl
+            self.profileEncryptionKey = profileEncryptionKey
+            self.disappearingMessagesInfo = disappearingMessagesInfo
             self.priority = priority
             self.created = created
+        }
+    }
+    
+    struct DisappearingMessageInfo {
+        let isEnabled: Bool
+        let durationSeconds: Int64
+        let rawType: Int?
+        
+        var type: DisappearingMessagesConfiguration.DisappearingMessageType? {
+            rawType.map { DisappearingMessagesConfiguration.DisappearingMessageType(rawValue: $0) }
+        }
+        
+        func generateConfig(for threadId: String) -> DisappearingMessagesConfiguration {
+            DisappearingMessagesConfiguration(
+                threadId: threadId,
+                isEnabled: isEnabled,
+                durationSeconds: TimeInterval(durationSeconds),
+                type: rawType.map { DisappearingMessagesConfiguration.DisappearingMessageType(rawValue: $0) }
+            )
         }
     }
 }
@@ -688,19 +769,13 @@ private struct ContactData {
     let created: TimeInterval
 }
 
-// MARK: - ThreadCount
-
-private struct ThreadCount: Codable, FetchableRecord {
-    let id: String
-    let interactionCount: Int
-}
-
 // MARK: - Convenience
 
 private extension LibSession {
     static func extractContacts(
         from conf: UnsafeMutablePointer<config_object>?,
-        latestConfigSentTimestampMs: Int64
+        serverTimestampMs: Int64,
+        using dependencies: Dependencies
     ) throws -> [String: ContactData] {
         var infiniteLoopGuard: Int = 0
         var result: [String: ContactData] = [:]
@@ -715,17 +790,18 @@ private extension LibSession {
                 id: contactId,
                 isApproved: contact.approved,
                 isBlocked: contact.blocked,
-                didApproveMe: contact.approved_me
+                didApproveMe: contact.approved_me,
+                using: dependencies
             )
             let profilePictureUrl: String? = contact.get(\.profile_pic.url, nullIfEmpty: true)
             let profileResult: Profile = Profile(
                 id: contactId,
                 name: contact.get(\.name),
-                lastNameUpdate: (TimeInterval(latestConfigSentTimestampMs) / 1000),
+                lastNameUpdate: (TimeInterval(serverTimestampMs) / 1000),
                 nickname: contact.get(\.nickname, nullIfEmpty: true),
                 profilePictureUrl: profilePictureUrl,
                 profileEncryptionKey: (profilePictureUrl == nil ? nil : contact.get(\.profile_pic.key)),
-                lastProfilePictureUpdate: (TimeInterval(latestConfigSentTimestampMs) / 1000)
+                lastProfilePictureUpdate: (TimeInterval(serverTimestampMs) / 1000)
             )
             let configResult: DisappearingMessagesConfiguration = DisappearingMessagesConfiguration(
                 threadId: contactId,

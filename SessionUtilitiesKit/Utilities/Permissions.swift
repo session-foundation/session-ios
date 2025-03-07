@@ -51,13 +51,8 @@ public enum Permissions {
         }
     }
     
-    public static var localNetwork: Status {
-        let status: Bool? = UserDefaults.sharedLokiProject?[.lastSeenHasLocalNetworkPermission]
-        switch status {
-            case .none:
-                return .unknown
-            case .some(let value):
-                return value ? .granted : .denied
-        }
+    public static func localNetwork(using dependencies: Dependencies) -> Status {
+        let status: Bool = dependencies[defaults:.appGroup, key: .lastSeenHasLocalNetworkPermission]
+        return status ? .granted : .denied
     }
 }

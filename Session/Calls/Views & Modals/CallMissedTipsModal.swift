@@ -2,6 +2,7 @@
 
 import UIKit
 import SessionUIKit
+import SessionUtilitiesKit
 
 final class CallMissedTipsModal: Modal {
     private let caller: String
@@ -72,7 +73,7 @@ final class CallMissedTipsModal: Modal {
     
     // MARK: - Lifecycle
     
-    init(caller: String, presentingViewController: UIViewController?) {
+    init(caller: String, presentingViewController: UIViewController?, using dependencies: Dependencies) {
         self.caller = caller
         
         super.init(
@@ -81,7 +82,8 @@ final class CallMissedTipsModal: Modal {
                     rootViewController: SessionTableViewController(
                         viewModel: PrivacySettingsViewModel(
                             shouldShowCloseButton: true,
-                            shouldAutomaticallyShowCallModal: true
+                            shouldAutomaticallyShowCallModal: true,
+                            using: dependencies
                         )
                     )
                 )

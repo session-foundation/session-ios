@@ -13,6 +13,7 @@ final class CallVC: UIViewController, VideoPreviewDelegate, AVRoutePickerViewDel
     private static let floatingVideoViewWidth: CGFloat = (UIDevice.current.isIPad ? 160 : 80)
     private static let floatingVideoViewHeight: CGFloat = (UIDevice.current.isIPad ? 346: 173)
     
+    private let dependencies: Dependencies
     let call: SessionCall
     var latestKnownAudioOutputDeviceName: String?
     var durationTimer: Timer?
@@ -375,9 +376,12 @@ final class CallVC: UIViewController, VideoPreviewDelegate, AVRoutePickerViewDel
     
     // MARK: - Lifecycle
     
-    init(for call: SessionCall) {
+    init(for call: SessionCall, using dependencies: Dependencies) {
+        self.dependencies = dependencies
         self.call = call
+        
         super.init(nibName: nil, bundle: nil)
+        
         setupStateChangeCallbacks()
         self.modalPresentationStyle = .overFullScreen
         self.modalTransitionStyle = .crossDissolve
@@ -476,7 +480,7 @@ final class CallVC: UIViewController, VideoPreviewDelegate, AVRoutePickerViewDel
         
         _ = call.videoCapturer // Force the lazy var to instantiate
         titleLabel.text = self.call.contactName
-        Singleton.callManager.startCall(call) { [weak self] error in
+        dependencies[singleton: .callManager].startCall(call) { [weak self] error in
             DispatchQueue.main.async {
                 if let _ = error {
                     self?.callInfoLabel.text = "callsErrorStart".localized()
@@ -566,10 +570,7 @@ final class CallVC: UIViewController, VideoPreviewDelegate, AVRoutePickerViewDel
     }
     
     private func addFloatingVideoView() {
-        guard
-            Singleton.hasAppContext,
-            let window: UIWindow = Singleton.appContext.mainWindow
-        else { return }
+        guard let window: UIWindow = dependencies[singleton: .appContext].mainWindow else { return }
         
         window.addSubview(floatingViewContainer)
         floatingViewContainer.pin(.top, to: .top, of: window, withInset: (window.safeAreaInsets.top + Values.veryLargeSpacing))
@@ -633,7 +634,7 @@ final class CallVC: UIViewController, VideoPreviewDelegate, AVRoutePickerViewDel
     }
     
     func handleEndCallMessage() {
-        SNLog("[Calls] Ending call.")
+        Log.info(.calls, "Ending call.")
         self.callInfoLabelStackView.isHidden = false
         self.callDurationLabel.isHidden = true
         self.callInfoLabel.text = "callsEnded".localized()
@@ -657,7 +658,7 @@ final class CallVC: UIViewController, VideoPreviewDelegate, AVRoutePickerViewDel
     }
     
     @objc private func answerCall() {
-        Singleton.callManager.answerCall(call) { [weak self] error in
+        dependencies[singleton: .callManager].answerCall(call) { [weak self] error in
             DispatchQueue.main.async {
                 if let _ = error {
                     self?.callInfoLabel.text = "callsErrorAnswer".localized()
@@ -668,10 +669,10 @@ final class CallVC: UIViewController, VideoPreviewDelegate, AVRoutePickerViewDel
     }
     
     @objc private func endCall() {
-        Singleton.callManager.endCall(call) { [weak self] error in
+        dependencies[singleton: .callManager].endCall(call) { [weak self, dependencies] error in
             if let _ = error {
                 self?.call.endSessionCall()
-                Singleton.callManager.reportCurrentCallEnded(reason: .declinedElsewhere)
+                dependencies[singleton: .callManager].reportCurrentCallEnded(reason: .declinedElsewhere)
             }
             
             Timer.scheduledTimer(withTimeInterval: 1, repeats: false) { [weak self] _ in
@@ -698,7 +699,7 @@ final class CallVC: UIViewController, VideoPreviewDelegate, AVRoutePickerViewDel
         self.conversationVC?.becomeFirstResponder()
         self.conversationVC?.showInputAccessoryView()
         
-        let miniCallView = MiniCallView(from: self)
+        let miniCallView = MiniCallView(from: self, using: dependencies)
         miniCallView.show()
         
         presentingViewController?.dismiss(animated: true, completion: nil)
@@ -716,7 +717,7 @@ final class CallVC: UIViewController, VideoPreviewDelegate, AVRoutePickerViewDel
             call.isVideoEnabled = false
         }
         else {
-            guard Permissions.requestCameraPermissionIfNeeded() else {
+            guard Permissions.requestCameraPermissionIfNeeded(using: dependencies) else {
                 let confirmationModal: ConfirmationModal = ConfirmationModal(
                     info: ConfirmationModal.Info(
                         title: "permissionsRequired".localized(),

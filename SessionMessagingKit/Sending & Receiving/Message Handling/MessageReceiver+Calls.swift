@@ -7,6 +7,14 @@ import WebRTC
 import SessionUtilitiesKit
 import SessionSnodeKit
 
+// MARK: - Log.Category
+
+public extension Log.Category {
+    static let calls: Log.Category = .create("Calls", defaultLevel: .info)
+}
+
+// MARK: - MessageReceiver
+
 extension MessageReceiver {
     public static func handleCallMessage(
         _ db: Database,
@@ -20,35 +28,38 @@ extension MessageReceiver {
         
         switch message.kind {
             case .preOffer: try MessageReceiver.handleNewCallMessage(db, message: message, using: dependencies)
-            case .offer: MessageReceiver.handleOfferCallMessage(db, message: message)
-            case .answer: MessageReceiver.handleAnswerCallMessage(db, message: message)
-            case .provisionalAnswer: break // TODO: Implement
+            case .offer: MessageReceiver.handleOfferCallMessage(db, message: message, using: dependencies)
+            case .answer: MessageReceiver.handleAnswerCallMessage(db, message: message, using: dependencies)
+            case .provisionalAnswer: break // TODO: [CALLS] Implement
                 
             case let .iceCandidates(sdpMLineIndexes, sdpMids):
-                Singleton.callManager.handleICECandidates(
+                dependencies[singleton: .callManager].handleICECandidates(
                     message: message,
                     sdpMLineIndexes: sdpMLineIndexes,
                     sdpMids: sdpMids
                 )
                 
-            case .endCall: MessageReceiver.handleEndCallMessage(db, message: message)
+            case .endCall: MessageReceiver.handleEndCallMessage(db, message: message, using: dependencies)
         }
     }
     
     // MARK: - Specific Handling
     
-    private static func handleNewCallMessage(_ db: Database, message: CallMessage, using dependencies: Dependencies) throws {
-        SNLog("[Calls] Received pre-offer message with uuid: \(message.uuid).")
+    private static func handleNewCallMessage(
+        _ db: Database,
+        message: CallMessage,
+        using dependencies: Dependencies
+    ) throws {
+        Log.info(.calls, "Received pre-offer message with uuid: \(message.uuid).")
         
         // Determine whether the app is active based on the prefs rather than the UIApplication state to avoid
         // requiring main-thread execution
-        let isMainAppActive: Bool = (UserDefaults.sharedLokiProject?[.isMainAppActive]).defaulting(to: false)
+        let isMainAppActive: Bool = dependencies[defaults: .appGroup, key: .isMainAppActive]
         
         // It is enough just ignoring the pre offers, other call messages
         // for this call would be dropped because of no Session call instance
         guard
-            Singleton.hasAppContext,
-            Singleton.appContext.isMainApp,
+            dependencies[singleton: .appContext].isMainApp,
             let sender: String = message.sender,
             (try? Contact
                 .filter(id: sender)
@@ -57,9 +68,9 @@ extension MessageReceiver {
                 .fetchOne(db))
                 .defaulting(to: false)
         else { return }
-        guard let timestamp = message.sentTimestamp, TimestampUtils.isWithinOneMinute(timestampMs: timestamp) else {
+        guard let timestampMs = message.sentTimestampMs, TimestampUtils.isWithinOneMinute(timestampMs: timestampMs) else {
             // Add missed call message for call offer messages from more than one minute
-            SNLog("[Calls] Got an expired call offer message with uuid: \(message.uuid). Sent at \(message.sentTimestamp), now is \(Date().timeIntervalSince1970 * 1000)")
+            Log.info(.calls, "Got an expired call offer message with uuid: \(message.uuid). Sent at \(message.sentTimestampMs ?? 0), now is \(Date().timeIntervalSince1970 * 1000)")
             if let interaction: Interaction = try MessageReceiver.insertCallInfoMessage(db, for: message, state: .missed, using: dependencies) {
                 let thread: SessionThread = try SessionThread.upsert(
                     db,
@@ -70,13 +81,12 @@ extension MessageReceiver {
                 )
                 
                 if !interaction.wasRead {
-                    SessionEnvironment.shared?.notificationsManager?
-                        .notifyUser(
-                            db,
-                            forIncomingCall: interaction,
-                            in: thread,
-                            applicationState: (isMainAppActive ? .active : .background)
-                        )
+                    dependencies[singleton: .notificationsManager].notifyUser(
+                        db,
+                        forIncomingCall: interaction,
+                        in: thread,
+                        applicationState: (isMainAppActive ? .active : .background)
+                    )
                 }
             }
             return
@@ -97,13 +107,12 @@ extension MessageReceiver {
                 )
                 
                 if !interaction.wasRead {
-                    SessionEnvironment.shared?.notificationsManager?
-                        .notifyUser(
-                            db,
-                            forIncomingCall: interaction,
-                            in: thread,
-                            applicationState: (isMainAppActive ? .active : .background)
-                        )
+                    dependencies[singleton: .notificationsManager].notifyUser(
+                        db,
+                        forIncomingCall: interaction,
+                        in: thread,
+                        applicationState: (isMainAppActive ? .active : .background)
+                    )
                 }
                 
                 // Trigger the missed call UI if needed
@@ -117,20 +126,20 @@ extension MessageReceiver {
         }
         
         // Ignore pre offer message after the same call instance has been generated
-        if let currentCall: CurrentCallProtocol = Singleton.callManager.currentCall, currentCall.uuid == message.uuid {
-            SNLog("[MessageReceiver+Calls] Ignoring pre-offer message for call[\(currentCall.uuid)] instance because it is already active.")
+        if let currentCall: CurrentCallProtocol = dependencies[singleton: .callManager].currentCall, currentCall.uuid == message.uuid {
+            Log.info(.calls, "Ignoring pre-offer message for call[\(currentCall.uuid)] instance because it is already active.")
             return
         }
         
-        guard Singleton.callManager.currentCall == nil else {
-            try MessageReceiver.handleIncomingCallOfferInBusyState(db, message: message)
+        guard dependencies[singleton: .callManager].currentCall == nil else {
+            try MessageReceiver.handleIncomingCallOfferInBusyState(db, message: message, using: dependencies)
             return
         }
         
         let interaction: Interaction? = try MessageReceiver.insertCallInfoMessage(db, for: message, using: dependencies)
         
         // Handle UI
-        Singleton.callManager.showCallUIForCall(
+        dependencies[singleton: .callManager].showCallUIForCall(
             caller: sender,
             uuid: message.uuid,
             mode: .answer,
@@ -138,12 +147,12 @@ extension MessageReceiver {
         )
     }
     
-    private static func handleOfferCallMessage(_ db: Database, message: CallMessage) {
-        SNLog("[Calls] Received offer message.")
+    private static func handleOfferCallMessage(_ db: Database, message: CallMessage, using dependencies: Dependencies) {
+        Log.info(.calls, "Received offer message.")
         
         // Ensure we have a call manager before continuing
         guard
-            let currentCall: CurrentCallProtocol = Singleton.callManager.currentCall,
+            let currentCall: CurrentCallProtocol = dependencies[singleton: .callManager].currentCall,
             currentCall.uuid == message.uuid,
             let sdp: String = message.sdps.first
         else { return }
@@ -152,21 +161,25 @@ extension MessageReceiver {
         currentCall.didReceiveRemoteSDP(sdp: sdpDescription)
     }
     
-    private static func handleAnswerCallMessage(_ db: Database, message: CallMessage) {
-        SNLog("[Calls] Received answer message.")
+    private static func handleAnswerCallMessage(
+        _ db: Database,
+        message: CallMessage,
+        using dependencies: Dependencies
+    ) {
+        Log.info(.calls, "Received answer message.")
         
         guard
-            Singleton.callManager.currentWebRTCSessionMatches(callId: message.uuid),
-            var currentCall: CurrentCallProtocol = Singleton.callManager.currentCall,
+            dependencies[singleton: .callManager].currentWebRTCSessionMatches(callId: message.uuid),
+            var currentCall: CurrentCallProtocol = dependencies[singleton: .callManager].currentCall,
             currentCall.uuid == message.uuid,
             let sender: String = message.sender
         else { return }
         
-        guard sender != getUserHexEncodedPublicKey(db) else {
+        guard sender != dependencies[cache: .general].sessionId.hexString else {
             guard !currentCall.hasStartedConnecting else { return }
             
-            Singleton.callManager.dismissAllCallUI()
-            Singleton.callManager.reportCurrentCallEnded(reason: .answeredElsewhere)
+            dependencies[singleton: .callManager].dismissAllCallUI()
+            dependencies[singleton: .callManager].reportCurrentCallEnded(reason: .answeredElsewhere)
             return
         }
         guard let sdp: String = message.sdps.first else { return }
@@ -174,22 +187,26 @@ extension MessageReceiver {
         let sdpDescription: RTCSessionDescription = RTCSessionDescription(type: .answer, sdp: sdp)
         currentCall.hasStartedConnecting = true
         currentCall.didReceiveRemoteSDP(sdp: sdpDescription)
-        Singleton.callManager.handleAnswerMessage(message)
+        dependencies[singleton: .callManager].handleAnswerMessage(message)
     }
     
-    private static func handleEndCallMessage(_ db: Database, message: CallMessage) {
-        SNLog("[Calls] Received end call message.")
+    private static func handleEndCallMessage(
+        _ db: Database,
+        message: CallMessage,
+        using dependencies: Dependencies
+    ) {
+        Log.info(.calls, "Received end call message.")
         
         guard
-            Singleton.callManager.currentWebRTCSessionMatches(callId: message.uuid),
-            let currentCall: CurrentCallProtocol = Singleton.callManager.currentCall,
+            dependencies[singleton: .callManager].currentWebRTCSessionMatches(callId: message.uuid),
+            let currentCall: CurrentCallProtocol = dependencies[singleton: .callManager].currentCall,
             currentCall.uuid == message.uuid,
             let sender: String = message.sender
         else { return }
         
-        Singleton.callManager.dismissAllCallUI()
-        Singleton.callManager.reportCurrentCallEnded(
-            reason: (sender == getUserHexEncodedPublicKey(db) ?
+        dependencies[singleton: .callManager].dismissAllCallUI()
+        dependencies[singleton: .callManager].reportCurrentCallEnded(
+            reason: (sender == dependencies[cache: .general].sessionId.hexString ?
                 .declinedElsewhere :
                 .remoteEnded
             )
@@ -201,22 +218,26 @@ extension MessageReceiver {
     public static func handleIncomingCallOfferInBusyState(
         _ db: Database,
         message: CallMessage,
-        using dependencies: Dependencies = Dependencies()
+        using dependencies: Dependencies
     ) throws {
         let messageInfo: CallMessage.MessageInfo = CallMessage.MessageInfo(state: .missed)
         
         guard
             let caller: String = message.sender,
-            let messageInfoData: Data = try? JSONEncoder().encode(messageInfo),
-            let thread: SessionThread = try SessionThread.fetchOne(db, id: caller),
-            !thread.isMessageRequest(db)
+            let messageInfoData: Data = try? JSONEncoder(using: dependencies).encode(messageInfo),
+            !SessionThread.isMessageRequest(
+                db,
+                threadId: caller,
+                userSessionId: dependencies[cache: .general].sessionId
+            ),
+            let thread: SessionThread = try SessionThread.fetchOne(db, id: caller)
         else { return }
         
-        SNLog("[Calls] Sending end call message because there is an ongoing call.")
+        Log.info(.calls, "Sending end call message because there is an ongoing call.")
         
-        let messageSentTimestamp: Int64 = (
-            message.sentTimestamp.map { Int64($0) } ??
-            SnodeAPI.currentOffsetTimestampMs()
+        let messageSentTimestampMs: Int64 = (
+            message.sentTimestampMs.map { Int64($0) } ??
+            dependencies[cache: .snodeAPI].currentOffsetTimestampMs()
         )
         _ = try Interaction(
             serverHash: message.serverHash,
@@ -226,45 +247,46 @@ extension MessageReceiver {
             authorId: caller,
             variant: .infoCall,
             body: String(data: messageInfoData, encoding: .utf8),
-            timestampMs: messageSentTimestamp,
-            wasRead: LibSession.timestampAlreadyRead(
-                threadId: thread.id,
-                threadVariant: thread.variant,
-                timestampMs: (messageSentTimestamp * 1000),
-                userPublicKey: getUserHexEncodedPublicKey(db),
-                openGroup: nil,
-                using: dependencies
-            ),
+            timestampMs: messageSentTimestampMs,
+            wasRead: dependencies.mutate(cache: .libSession) { cache in
+                cache.timestampAlreadyRead(
+                    threadId: thread.id,
+                    threadVariant: thread.variant,
+                    timestampMs: (messageSentTimestampMs * 1000),
+                    userSessionId: dependencies[cache: .general].sessionId,
+                    openGroup: nil
+                )
+            },
             expiresInSeconds: message.expiresInSeconds,
-            expiresStartedAtMs: message.expiresStartedAtMs
-        )
-        .inserted(db)
-        
-        MessageSender.sendImmediate(
-            data: try MessageSender
-                .preparedSendData(
-                    db,
-                    message: CallMessage(
-                        uuid: message.uuid,
-                        kind: .endCall,
-                        sdps: [],
-                        sentTimestampMs: nil // Explicitly nil as it's a separate message from above
-                    )
-                    .with(try? thread.disappearingMessagesConfiguration
-                        .fetchOne(db)?
-                        .forcedWithDisappearAfterReadIfNeeded()
-                    ),
-                    to: try Message.Destination.from(db, threadId: thread.id, threadVariant: thread.variant),
-                    namespace: try Message.Destination
-                        .from(db, threadId: thread.id, threadVariant: thread.variant)
-                        .defaultNamespace,
-                    interactionId: nil,      // Explicitly nil as it's a separate message from above
-                    using: dependencies
-                ),
+            expiresStartedAtMs: message.expiresStartedAtMs,
             using: dependencies
         )
-        .subscribe(on: DispatchQueue.global(qos: .userInitiated))
-        .sinkUntilComplete()
+        .inserted(db)
+
+        try MessageSender
+            .preparedSend(
+                db,
+                message: CallMessage(
+                    uuid: message.uuid,
+                    kind: .endCall,
+                    sdps: [],
+                    sentTimestampMs: nil // Explicitly nil as it's a separate message from above
+                )
+                .with(try? thread.disappearingMessagesConfiguration
+                    .fetchOne(db)?
+                    .forcedWithDisappearAfterReadIfNeeded()
+                ),
+                to: try Message.Destination.from(db, threadId: thread.id, threadVariant: thread.variant),
+                namespace: try Message.Destination
+                    .from(db, threadId: thread.id, threadVariant: thread.variant)
+                    .defaultNamespace,
+                interactionId: nil,      // Explicitly nil as it's a separate message from above
+                fileIds: [],
+                using: dependencies
+            )
+            .send(using: dependencies)
+            .subscribe(on: DispatchQueue.global(qos: .userInitiated))
+            .sinkUntilComplete()
     }
     
     @discardableResult public static func insertCallInfoMessage(
@@ -283,25 +305,31 @@ extension MessageReceiver {
         
         guard
             let sender: String = message.sender,
-            let thread: SessionThread = try SessionThread.fetchOne(db, id: sender),
-            !thread.isMessageRequest(db)
+            !SessionThread.isMessageRequest(
+                db,
+                threadId: sender,
+                userSessionId: dependencies[cache: .general].sessionId
+            ),
+            let thread: SessionThread = try SessionThread.fetchOne(db, id: sender)
         else { return nil }
         
-        let currentUserPublicKey: String = getUserHexEncodedPublicKey(db)
+        let userSessionId: SessionId = dependencies[cache: .general].sessionId
         let messageInfo: CallMessage.MessageInfo = CallMessage.MessageInfo(
             state: state.defaulting(
-                to: (sender == currentUserPublicKey ?
+                to: (sender == userSessionId.hexString ?
                     .outgoing :
                     .incoming
                 )
             )
         )
         let timestampMs: Int64 = (
-            message.sentTimestamp.map { Int64($0) } ??
-            SnodeAPI.currentOffsetTimestampMs()
+            message.sentTimestampMs.map { Int64($0) } ??
+            dependencies[cache: .snodeAPI].currentOffsetTimestampMs()
         )
         
-        guard let messageInfoData: Data = try? JSONEncoder().encode(messageInfo) else { return nil }
+        guard let messageInfoData: Data = try? JSONEncoder(using: dependencies).encode(messageInfo) else {
+            return nil
+        }
         
         return try Interaction(
             serverHash: message.serverHash,
@@ -312,16 +340,18 @@ extension MessageReceiver {
             variant: .infoCall,
             body: String(data: messageInfoData, encoding: .utf8),
             timestampMs: timestampMs,
-            wasRead: LibSession.timestampAlreadyRead(
-                threadId: thread.id,
-                threadVariant: thread.variant,
-                timestampMs: (timestampMs * 1000),
-                userPublicKey: currentUserPublicKey,
-                openGroup: nil,
-                using: dependencies
-            ),
+            wasRead: dependencies.mutate(cache: .libSession) { cache in
+                cache.timestampAlreadyRead(
+                    threadId: thread.id,
+                    threadVariant: thread.variant,
+                    timestampMs: (timestampMs * 1000),
+                    userSessionId: userSessionId,
+                    openGroup: nil
+                )
+            },
             expiresInSeconds: message.expiresInSeconds,
-            expiresStartedAtMs: message.expiresStartedAtMs
+            expiresStartedAtMs: message.expiresStartedAtMs,
+            using: dependencies
         )
         .inserted(db)
     }
