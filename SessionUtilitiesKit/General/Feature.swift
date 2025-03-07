@@ -5,8 +5,8 @@
 import Foundation
 
 public final class Features {
-    public static let createUpdatedGroupFromDate: Date = Date.distantFuture
-    public static let legacyGroupDepricationDate: Date = Date.distantFuture
+    public static let createUpdatedGroupFromDate: Date = Date(timeIntervalSince1970: 1742421600)
+    public static let legacyGroupDepricationDate: Date = Date(timeIntervalSince1970: 1743631200)
     public static let legacyGroupDepricationUrl: String = "https://getsession.org/groups"
 }
 
@@ -25,8 +25,7 @@ public extension FeatureStorage {
     )
     
     static let debugDisappearingMessageDurations: FeatureConfig<Bool> = Dependencies.create(
-        identifier: "debugDisappearingMessageDurations",
-        defaultOption: true    // TODO: [GROUPS REBUILD] This should default to false
+        identifier: "debugDisappearingMessageDurations"
     )
     
     static let updatedDisappearingMessages: FeatureConfig<Bool> = Dependencies.create(
@@ -43,7 +42,6 @@ public extension FeatureStorage {
     
     static let updatedGroups: FeatureConfig<Bool> = Dependencies.create(
         identifier: "updatedGroups",
-        defaultOption: true,
         automaticChangeBehaviour: Feature<Bool>.ChangeBehaviour(
             value: true,
             condition: .after(timestamp: Features.createUpdatedGroupFromDate.timeIntervalSince1970)
