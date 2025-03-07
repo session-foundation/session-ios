@@ -1,5 +1,6 @@
 // stringlint:disable
 
+import Foundation
 import SessionSnodeKit
 import SessionUtilitiesKit
 
@@ -22,9 +23,26 @@ public enum MessageWrapper {
     }
 
     /// Wraps the given parameters in an `SNProtoEnvelope` and then a `WebSocketProtoWebSocketMessage` to match the desktop application.
-    public static func wrap(type: SNProtoEnvelope.SNProtoEnvelopeType, timestamp: UInt64, senderPublicKey: String, base64EncodedContent: String) throws -> Data {
+    public static func wrap(
+        type: SNProtoEnvelope.SNProtoEnvelopeType,
+        timestampMs: UInt64,
+        senderPublicKey: String = "",   // FIXME: Remove once legacy groups are deprecated
+        content: Data,
+        wrapInWebSocketMessage: Bool = true
+    ) throws -> Data {
         do {
-            let envelope = try createEnvelope(type: type, timestamp: timestamp, senderPublicKey: senderPublicKey, base64EncodedContent: base64EncodedContent)
+            let envelope: SNProtoEnvelope = try createEnvelope(
+                type: type,
+                timestamp: timestampMs,
+                senderPublicKey: senderPublicKey,
+                content: content
+            )
+            
+            // If we don't want to wrap the message within the `WebSocketProtoWebSocketMessage` type
+            // the just serialise and return here
+            guard wrapInWebSocketMessage else { return try envelope.serializedData() }
+            
+            // Otherwise add the additional wrapper
             let webSocketMessage = try createWebSocketMessage(around: envelope)
             return try webSocketMessage.serializedData()
         } catch let error {
@@ -32,16 +50,12 @@ public enum MessageWrapper {
         }
     }
 
-    private static func createEnvelope(type: SNProtoEnvelope.SNProtoEnvelopeType, timestamp: UInt64, senderPublicKey: String, base64EncodedContent: String) throws -> SNProtoEnvelope {
+    private static func createEnvelope(type: SNProtoEnvelope.SNProtoEnvelopeType, timestamp: UInt64, senderPublicKey: String, content: Data) throws -> SNProtoEnvelope {
         do {
             let builder = SNProtoEnvelope.builder(type: type, timestamp: timestamp)
             builder.setSource(senderPublicKey)
             builder.setSourceDevice(1)
-            if let content = Data(base64Encoded: base64EncodedContent, options: .ignoreUnknownCharacters) {
-                builder.setContent(content)
-            } else {
-                throw Error.failedToWrapMessageInEnvelope
-            }
+            builder.setContent(content)
             return try builder.build()
         } catch let error {
             SNLog("Failed to wrap message in envelope: \(error).")
@@ -51,7 +65,7 @@ public enum MessageWrapper {
 
     private static func createWebSocketMessage(around envelope: SNProtoEnvelope) throws -> WebSocketProtoWebSocketMessage {
         do {
-            let requestBuilder = WebSocketProtoWebSocketRequestMessage.builder(verb: "PUT", path: "/api/v1/message", requestID: UInt64.random(in: 1..<UInt64.max))
+            let requestBuilder = WebSocketProtoWebSocketRequestMessage.builder(verb: "", path: "", requestID: 0)
             requestBuilder.setBody(try envelope.serializedData())
             let messageBuilder = WebSocketProtoWebSocketMessage.builder(type: .request)
             messageBuilder.setRequest(try requestBuilder.build())
@@ -63,11 +77,18 @@ public enum MessageWrapper {
     }
 
     /// - Note: `data` shouldn't be base 64 encoded.
-    public static func unwrap(data: Data) throws -> SNProtoEnvelope {
+    public static func unwrap(
+        data: Data,
+        includesWebSocketMessage: Bool = true
+    ) throws -> SNProtoEnvelope {
         do {
-            let webSocketMessage = try WebSocketProtoWebSocketMessage.parseData(data)
-            let envelope = webSocketMessage.request!.body!
-            return try SNProtoEnvelope.parseData(envelope)
+            let envelopeData: Data = try {
+                guard includesWebSocketMessage else { return data }
+                
+                let webSocketMessage = try WebSocketProtoWebSocketMessage.parseData(data)
+                return webSocketMessage.request!.body!
+            }()
+            return try SNProtoEnvelope.parseData(envelopeData)
         } catch let error {
             SNLog("Failed to unwrap data: \(error).")
             throw Error.failedToUnwrapData

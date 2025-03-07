@@ -23,10 +23,24 @@ public extension String {
 
 public extension Array where Element == String {
     init?(pointer: UnsafeMutablePointer<UnsafeMutablePointer<CChar>?>?, count: Int?) {
+        /// If `count` was provided but is `0` then accessing the pointer could crash (as it could be bad memory) so just return an empty array
+        guard let count: Int = count else { return nil }
+        guard count > 0 else {
+            self = []
+            return
+        }
+        
         self.init(pointee: pointer.map { $0.pointee.map { UnsafePointer($0) } }, count: count)
     }
     
     init?(pointer: UnsafeMutablePointer<UnsafePointer<CChar>?>?, count: Int?) {
+        /// If `count` was provided but is `0` then accessing the pointer could crash (as it could be bad memory) so just return an empty array
+        guard let count: Int = count else { return nil }
+        guard count > 0 else {
+            self = []
+            return
+        }
+        
         self.init(pointee: pointer.map { $0.pointee }, count: count)
     }
     
@@ -55,8 +69,7 @@ public extension Array where Element == String {
             let pointee: UnsafePointer<CChar> = pointee
         else { return nil }
         
-        // If we were given a count but it's 0 then trying to access the pointer could
-        // crash (as it could be bad memory) so just return an empty array
+        /// If `count` was provided but is `0` then accessing the pointer could crash (as it could be bad memory) so just return an empty array
         guard count > 0 else {
             self = []
             return

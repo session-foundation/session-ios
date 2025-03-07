@@ -34,35 +34,27 @@ public final class VisibleMessage: Message {
     
     // MARK: - Validation
     
-    public override var isValid: Bool {
-        guard super.isValid else { return false }
-        if !attachmentIds.isEmpty { return true }
+    public override func isValid(isSending: Bool) -> Bool {
+        guard super.isValid(isSending: isSending) else { return false }
+        if !attachmentIds.isEmpty || dataMessageHasAttachments == true { return true }
         if openGroupInvitation != nil { return true }
         if reaction != nil { return true }
         if let text = text?.trimmingCharacters(in: .whitespacesAndNewlines), !text.isEmpty { return true }
         return false
     }
     
-    public func isValidWithDataMessageAttachments() -> Bool {
-        // If the message is valid using the default method, or it has attachmentIds then just use the
-        // default logic, otherwise we want to check
-        guard !isValid || attachmentIds.isEmpty else { return isValid }
-        
-        return (dataMessageHasAttachments == true)
-    }
-    
     // MARK: - Initialization
     
     public init(
         sender: String? = nil,
-        sentTimestamp: UInt64? = nil,
+        sentTimestampMs: UInt64? = nil,
         syncTarget: String? = nil,
         text: String?,
         attachmentIds: [String] = [],
         dataMessageHasAttachments: Bool? = nil,
         quote: VMQuote? = nil,
         linkPreview: VMLinkPreview? = nil,
-        profile: VMProfile? = nil,
+        profile: VMProfile? = nil,   // Added when sending via the `MessageWithProfile` protocol
         openGroupInvitation: VMOpenGroupInvitation? = nil,
         reaction: VMReaction? = nil
     ) {
@@ -77,7 +69,7 @@ public final class VisibleMessage: Message {
         self.reaction = reaction
         
         super.init(
-            sentTimestamp: sentTimestamp,
+            sentTimestampMs: sentTimestampMs,
             sender: sender
         )
     }
@@ -118,7 +110,7 @@ public final class VisibleMessage: Message {
 
     // MARK: - Proto Conversion
     
-    public override class func fromProto(_ proto: SNProtoContent, sender: String) -> VisibleMessage? {
+    public override class func fromProto(_ proto: SNProtoContent, sender: String, using dependencies: Dependencies) -> VisibleMessage? {
         guard let dataMessage = proto.dataMessage else { return nil }
         
         return VisibleMessage(
@@ -136,6 +128,8 @@ public final class VisibleMessage: Message {
 
     public override func toProto(_ db: Database, threadId: String) -> SNProtoContent? {
         let proto = SNProtoContent.builder()
+        if let sigTimestampMs = sigTimestampMs { proto.setSigTimestamp(sigTimestampMs) }
+        
         var attachmentIds = self.attachmentIds
         let dataMessage: SNProtoDataMessage.SNProtoDataMessageBuilder
         
@@ -238,7 +232,7 @@ public extension VisibleMessage {
         
         let visibleMessage: VisibleMessage = VisibleMessage(
             sender: interaction.authorId,
-            sentTimestamp: UInt64(interaction.timestampMs),
+            sentTimestampMs: UInt64(interaction.timestampMs),
             syncTarget: nil,
             text: interaction.body,
             attachmentIds: ((try? interaction.attachments.fetchAll(db)) ?? [])
