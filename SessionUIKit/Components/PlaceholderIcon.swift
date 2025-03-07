@@ -60,7 +60,7 @@ public class PlaceholderIcon {
             .compactMap { word in word.first.map { String($0) } }
             .joined()
         
-        return SNUIKit.placeholderIconCacher(cacheKey: "\(seed)-\(Int(floor(size)))") {
+        return SNUIKit.placeholderIconCacher(cacheKey: "\(seed)-\(initials)-\(Int(floor(size)))") {
             let layer = icon.generateLayer(
                 with: size,
                 text: (initials.count >= 2 ?
