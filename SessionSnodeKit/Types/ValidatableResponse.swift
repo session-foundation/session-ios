@@ -34,6 +34,8 @@ internal extension ValidatableResponse {
         map validResultMap: [String: ValidationResponse],
         totalResponseCount: Int
     ) throws -> [String: ValidationResponse] {
+        guard totalResponseCount > 0 else { return [:] }
+        
         let numSuccessResponses: Int = validResultMap.count
         let successPercentage: CGFloat = (CGFloat(numSuccessResponses) / CGFloat(totalResponseCount))
         
@@ -50,6 +52,14 @@ internal extension ValidatableResponse {
         
         return validResultMap
     }
+    
+    func validateResultMap(swarmPublicKey: String, validationData: ValidationData, using dependencies: Dependencies) throws {
+        _ = try validResultMap(
+            swarmPublicKey: swarmPublicKey,
+            validationData: validationData,
+            using: dependencies
+        )
+    }
 }
 
 internal extension ValidatableResponse where ValidationData == Void {
@@ -58,6 +68,14 @@ internal extension ValidatableResponse where ValidationData == Void {
         using dependencies: Dependencies
     ) throws -> [String: ValidationResponse] {
         return try validResultMap(swarmPublicKey: swarmPublicKey, validationData: (), using: dependencies)
+    }
+    
+    func validateResultMap(swarmPublicKey: String, using dependencies: Dependencies) throws {
+        _ = try validResultMap(
+            swarmPublicKey: swarmPublicKey,
+            validationData: (),
+            using: dependencies
+        )
     }
 }
 
