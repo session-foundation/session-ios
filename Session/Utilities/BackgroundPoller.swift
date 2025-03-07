@@ -18,11 +18,17 @@ public extension Log.Category {
 // MARK: - BackgroundPoller
 
 public final class BackgroundPoller {
+    typealias Pollers = (
+        currentUser: CurrentUserPoller,
+        groups: [GroupPoller],
+        communities: [CommunityPoller]
+    )
+    
     public func poll(using dependencies: Dependencies) -> AnyPublisher<Void, Never> {
         let pollStart: TimeInterval = dependencies.dateNow.timeIntervalSince1970
         
         return dependencies[singleton: .storage]
-            .readPublisher { db -> (Set<String>, Set<String>) in
+            .readPublisher { db -> (Set<String>, Set<String>, [String]) in
                 (
                     try ClosedGroup
                         .select(.threadId)
@@ -46,16 +52,36 @@ public final class BackgroundPoller {
                         )
                         .distinct()
                         .asRequest(of: String.self)
-                        .fetchSet(db)
+                        .fetchSet(db),
+                    try OpenGroup
+                        .select(.roomToken)
+                        .filter(
+                            OpenGroup.Columns.roomToken != "" &&
+                            OpenGroup.Columns.isActive &&
+                            OpenGroup.Columns.pollFailureCount < CommunityPoller.maxRoomFailureCountForBackgroundPoll
+                        )
+                        .distinct()
+                        .asRequest(of: String.self)
+                        .fetchAll(db)
                 )
             }
-            .catch { _ in Just(([], [])).eraseToAnyPublisher() }
+            .catch { _ in Just(([], [], [])).eraseToAnyPublisher() }
             .handleEvents(
-                receiveOutput: { groupIds, servers in
-                    Log.info(.backgroundPoller, "Fetching Users: 1, Groups: \(groupIds.count), Communities: \(servers.count).")
+                receiveOutput: { groupIds, servers, rooms in
+                    Log.info(.backgroundPoller, "Fetching Users: 1, Groups: \(groupIds.count), Communities: \(servers.count) (\(rooms.count) room(s)).")
                 }
             )
-            .map { groupIds, servers -> ([GroupPoller], [CommunityPoller]) in
+            .map { groupIds, servers, _ -> Pollers in
+                let currentUserPoller: CurrentUserPoller = CurrentUserPoller(
+                    pollerName: "Background Main Poller",
+                    pollerQueue: DispatchQueue.main,
+                    pollerDestination: .swarm(dependencies[cache: .general].sessionId.hexString),
+                    pollerDrainBehaviour: .limitedReuse(count: 6),
+                    namespaces: CurrentUserPoller.namespaces,
+                    shouldStoreMessages: true,
+                    logStartAndStopCalls: false,
+                    using: dependencies
+                )
                 let groupPollers: [GroupPoller] = groupIds.map { groupId in
                     GroupPoller(
                         pollerName: "Background Group poller for: \(groupId)",   // stringlint:ignore
@@ -80,16 +106,18 @@ public final class BackgroundPoller {
                     )
                 }
                 
-                return (groupPollers, communityPollers)
+                return (currentUserPoller, groupPollers, communityPollers)
             }
-            .flatMap { groupPollers, communityPollers in
+            .flatMap { currentUserPoller, groupPollers, communityPollers in
+                /// Need to map back to the pollers to ensure they don't get released until after the polling finishes
                 Publishers.MergeMany(
-                    [BackgroundPoller.pollUserMessages(using: dependencies)]
+                    [BackgroundPoller.pollUserMessages(poller: currentUserPoller, using: dependencies)]
                         .appending(contentsOf: BackgroundPoller.poll(pollers: groupPollers, using: dependencies))
                         .appending(contentsOf: BackgroundPoller.poll(pollerInfo: communityPollers, using: dependencies))
                 )
+                .collect()
+                .map { _ in (currentUserPoller, groupPollers, communityPollers) }
             }
-            .collect()
             .map { _ in () }
             .handleEvents(
                 receiveOutput: { _ in
@@ -102,18 +130,9 @@ public final class BackgroundPoller {
     }
     
     private static func pollUserMessages(
+        poller: CurrentUserPoller,
         using dependencies: Dependencies
     ) -> AnyPublisher<Void, Never> {
-        let poller: CurrentUserPoller = CurrentUserPoller(
-            pollerName: "Background Main Poller",
-            pollerQueue: DispatchQueue.main,
-            pollerDestination: .swarm(dependencies[cache: .general].sessionId.hexString),
-            pollerDrainBehaviour: .limitedReuse(count: 6),
-            namespaces: CurrentUserPoller.namespaces,
-            shouldStoreMessages: true,
-            logStartAndStopCalls: false,
-            using: dependencies
-        )
         let pollStart: TimeInterval = dependencies.dateNow.timeIntervalSince1970
         
         return poller
@@ -182,10 +201,10 @@ public final class BackgroundPoller {
             return poller
                 .pollFromBackground()
                 .handleEvents(
-                    receiveOutput: { [pollerName = poller.pollerName] _ in
+                    receiveOutput: { [pollerName = poller.pollerName] _, _, rawMessageCount, _ in
                         let endTime: TimeInterval = dependencies.dateNow.timeIntervalSince1970
                         let duration: TimeUnit = .seconds(endTime - pollStart)
-                        Log.info(.backgroundPoller, "\(pollerName) succeeded after \(duration, unit: .s).")
+                        Log.info(.backgroundPoller, "\(pollerName) received \(rawMessageCount) message(s) succeeded after \(duration, unit: .s).")
                     },
                     receiveCompletion: { [pollerName = poller.pollerName] result in
                         switch result {
