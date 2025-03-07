@@ -183,6 +183,7 @@ class OpenGroupManagerSpec: QuickSpec {
         @TestState(defaults: .standard, in: dependencies) var mockUserDefaults: MockUserDefaults! = MockUserDefaults(
             initialSetup: { defaults in
                 defaults.when { $0.integer(forKey: .any) }.thenReturn(0)
+                defaults.when { $0.set(.any, forKey: .any) }.thenReturn(())
             }
         )
         @TestState(defaults: .appGroup, in: dependencies) var mockAppGroupDefaults: MockUserDefaults! = MockUserDefaults(
@@ -199,7 +200,7 @@ class OpenGroupManagerSpec: QuickSpec {
             initialSetup: { cache in
                 cache.when { $0.pendingChanges }.thenReturn([])
                 cache.when { $0.pendingChanges = .any }.thenReturn(())
-                cache.when { $0.getTimeSinceLastOpen(using: .any) }.thenReturn(0)
+                cache.when { $0.getLastSuccessfulCommunityPollTimestamp() }.thenReturn(0)
                 cache.when { $0.setDefaultRoomInfo(.any) }.thenReturn(())
             }
         )
@@ -237,20 +238,19 @@ class OpenGroupManagerSpec: QuickSpec {
             
             // MARK: -- cache data
             context("cache data") {
-                // MARK: ---- defaults the time since last open to greatestFiniteMagnitude
-                it("defaults the time since last open to greatestFiniteMagnitude") {
+                // MARK: ---- defaults the time since last open to zero
+                it("defaults the time since last open to zero") {
                     mockUserDefaults
                         .when { (defaults: inout any UserDefaultsType) -> Any? in
                             defaults.object(forKey: UserDefaults.DateKey.lastOpen.rawValue)
                         }
                         .thenReturn(nil)
                     
-                    expect(cache.getTimeSinceLastOpen(using: dependencies))
-                        .to(beCloseTo(.greatestFiniteMagnitude))
+                    expect(cache.getLastSuccessfulCommunityPollTimestamp()).to(equal(0))
                 }
                 
-                // MARK: ---- returns the time since the last open
-                it("returns the time since the last open") {
+                // MARK: ---- returns the time since the last poll
+                it("returns the time since the last poll") {
                     mockUserDefaults
                         .when { (defaults: inout any UserDefaultsType) -> Any? in
                             defaults.object(forKey: UserDefaults.DateKey.lastOpen.rawValue)
@@ -258,12 +258,12 @@ class OpenGroupManagerSpec: QuickSpec {
                         .thenReturn(Date(timeIntervalSince1970: 1234567880))
                     dependencies.dateNow = Date(timeIntervalSince1970: 1234567890)
                     
-                    expect(cache.getTimeSinceLastOpen(using: dependencies))
-                        .to(beCloseTo(10))
+                    expect(cache.getLastSuccessfulCommunityPollTimestamp())
+                        .to(equal(1234567880))
                 }
                 
-                // MARK: ---- caches the time since the last open
-                it("caches the time since the last open") {
+                // MARK: ---- caches the time since the last poll in memory
+                it("caches the time since the last poll in memory") {
                     mockUserDefaults
                         .when { (defaults: inout any UserDefaultsType) -> Any? in
                             defaults.object(forKey: UserDefaults.DateKey.lastOpen.rawValue)
@@ -271,8 +271,8 @@ class OpenGroupManagerSpec: QuickSpec {
                         .thenReturn(Date(timeIntervalSince1970: 1234567770))
                     dependencies.dateNow = Date(timeIntervalSince1970: 1234567780)
                     
-                    expect(cache.getTimeSinceLastOpen(using: dependencies))
-                        .to(beCloseTo(10))
+                    expect(cache.getLastSuccessfulCommunityPollTimestamp())
+                        .to(equal(1234567770))
                     
                     mockUserDefaults
                         .when { (defaults: inout any UserDefaultsType) -> Any? in
@@ -281,8 +281,21 @@ class OpenGroupManagerSpec: QuickSpec {
                         .thenReturn(Date(timeIntervalSince1970: 1234567890))
                  
                     // Cached value shouldn't have been updated
-                    expect(cache.getTimeSinceLastOpen(using: dependencies))
-                        .to(beCloseTo(10))
+                    expect(cache.getLastSuccessfulCommunityPollTimestamp())
+                        .to(equal(1234567770))
+                }
+                
+                // MARK: ---- updates the time since the last poll in user defaults
+                it("updates the time since the last poll in user defaults") {
+                    cache.setLastSuccessfulCommunityPollTimestamp(12345)
+                    
+                    expect(mockUserDefaults)
+                        .to(call(matchingParameters: .all) {
+                            $0.set(
+                                Date(timeIntervalSince1970: 12345),
+                                forKey: UserDefaults.DateKey.lastOpen.rawValue
+                            )
+                        })
                 }
             }
             

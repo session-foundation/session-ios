@@ -72,7 +72,7 @@ public protocol PollerType: AnyObject {
         using dependencies: Dependencies
     )
     
-    func startIfNeeded()
+    func startIfNeeded(forceStartInBackground: Bool)
     func stop()
     
     func pollerDidStart()
@@ -84,7 +84,14 @@ public protocol PollerType: AnyObject {
 // MARK: - Default Implementations
 
 public extension PollerType {
-    func startIfNeeded() {
+    func startIfNeeded() { startIfNeeded(forceStartInBackground: false) }
+    
+    func startIfNeeded(forceStartInBackground: Bool) {
+        guard
+            forceStartInBackground ||
+            dependencies[singleton: .appContext].isMainAppAndActive
+        else { return Log.info(.poller, "Ignoring call to start \(pollerName) due to not being active.") }
+        
         pollerQueue.async(using: dependencies) { [weak self, pollerName] in
             guard self?.isPolling != true else { return }
             
