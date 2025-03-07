@@ -9,9 +9,19 @@ import SessionUtilitiesKit
 import SessionMessagingKit
 import SignalUtilitiesKit
 
+// MARK: - Log.Category
+
+private extension Log.Category {
+    static let cat: Log.Category = .create("SessionTableViewController", defaultLevel: .info)
+}
+
+// MARK: - SessionViewModelAccessible
+
 protocol SessionViewModelAccessible {
     var viewModelType: AnyObject.Type { get }
 }
+
+// MARK: - SessionTableViewController
 
 class SessionTableViewController<ViewModel>: BaseVC, UITableViewDataSource, UITableViewDelegate, SessionViewModelAccessible where ViewModel: (SessionTableViewModel & ObservableTableSource) {
     typealias Section = ViewModel.Section
@@ -235,11 +245,11 @@ class SessionTableViewController<ViewModel>: BaseVC, UITableViewDataSource, UITa
                             
                             // If we got an error then try to restart the stream once, otherwise log the error
                             guard self?.dataStreamJustFailed == false else {
-                                SNLog("Unable to recover database stream in '\(title)' settings with error: \(error)")
+                                Log.error(.cat, "Unable to recover database stream in '\(title)' settings with error: \(error)")
                                 return
                             }
                             
-                            SNLog("Atempting recovery for database stream in '\(title)' settings with error: \(error)")
+                            Log.info(.cat, "Atempting recovery for database stream in '\(title)' settings with error: \(error)")
                             self?.dataStreamJustFailed = true
                             self?.startObservingChanges(didReturnFromBackground: didReturnFromBackground)
                             
@@ -467,7 +477,7 @@ class SessionTableViewController<ViewModel>: BaseVC, UITableViewDataSource, UITa
                 cell.update(with: threadInfo.id, using: viewModel.dependencies)
                 
             default:
-                SNLog("[SessionTableViewController] Got invalid combination of cellType: \(viewModel.cellType) and tableData: \(SessionCell.Info<TableItem>.self)")
+                Log.error(.cat, "[SessionTableViewController] Got invalid combination of cellType: \(viewModel.cellType) and tableData: \(SessionCell.Info<TableItem>.self)")
         }
         
         return cell

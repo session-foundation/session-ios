@@ -84,7 +84,7 @@ public final class TypingIndicator: ControlMessage {
 
     public override func toProto(_ db: Database, threadId: String) -> SNProtoContent? {
         guard let timestampMs = sentTimestampMs, let kind = kind else {
-            SNLog("Couldn't construct typing indicator proto from: \(self).")
+            Log.warn(.messageSender, "Couldn't construct typing indicator proto from: \(self).")
             return nil
         }
         let typingIndicatorProto = SNProtoTypingMessage.builder(timestamp: timestampMs, action: kind.toProto())
@@ -94,7 +94,7 @@ public final class TypingIndicator: ControlMessage {
             contentProto.setTypingMessage(try typingIndicatorProto.build())
             return try contentProto.build()
         } catch {
-            SNLog("Couldn't construct typing indicator proto from: \(self).")
+            Log.warn(.messageSender, "Couldn't construct typing indicator proto from: \(self).")
             return nil
         }
     }

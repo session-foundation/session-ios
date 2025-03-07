@@ -6,6 +6,14 @@ import GRDB
 import DifferenceKit
 import SessionUtilitiesKit
 
+// MARK: - Log.Category
+
+private extension Log.Category {
+    static let cat: Log.Category = .create("Preferences.Sound", defaultLevel: .warn)
+}
+
+// MARK: - Preferences
+
 public extension Preferences {
     enum Sound: Int, Codable, DatabaseValueConvertible, EnumIntSetting, Differentiable {
         public static var defaultiOSIncomingRingtone: Sound = .opening
@@ -153,7 +161,7 @@ public extension Preferences {
         
         public func notificationSound(isQuiet: Bool) -> UNNotificationSound {
             guard let filename: String = filename(quiet: isQuiet) else {
-                SNLog("[Preferences.Sound] filename was unexpectedly nil")
+                Log.warn(.cat, "Filename was unexpectedly nil")
                 return UNNotificationSound.default
             }
             

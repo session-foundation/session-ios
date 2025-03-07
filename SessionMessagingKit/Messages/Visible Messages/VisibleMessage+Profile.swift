@@ -69,7 +69,7 @@ public extension VisibleMessage {
                 let dataMessageProtoBuilder = try? toProtoBuilder(),
                 let result = try? dataMessageProtoBuilder.build()
             else {
-                SNLog("Couldn't construct profile proto from: \(self).")
+                Log.warn(.messageSender, "Couldn't construct profile proto from: \(self).")
                 return nil
             }
             
@@ -93,7 +93,7 @@ public extension VisibleMessage {
         
         public func toProto(isApproved: Bool) -> SNProtoMessageRequestResponse? {
             guard let displayName = displayName else {
-                SNLog("Couldn't construct profile proto from: \(self).")
+                Log.warn(.messageSender, "Couldn't construct profile proto from: \(self).")
                 return nil
             }
             let messageRequestResponseProto = SNProtoMessageRequestResponse.builder(
@@ -110,7 +110,7 @@ public extension VisibleMessage {
                 messageRequestResponseProto.setProfile(try profileProto.build())
                 return try messageRequestResponseProto.build()
             } catch {
-                SNLog("Couldn't construct profile proto from: \(self).")
+                Log.warn(.messageSender, "Couldn't construct profile proto from: \(self).")
                 return nil
             }
         }

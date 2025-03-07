@@ -109,7 +109,7 @@ extension MessageReceiver {
                 !ClosedGroupKeyPair
                     .filter(ClosedGroupKeyPair.Columns.threadKeyPairHash == newKeyPair.threadKeyPairHash)
                     .isNotEmpty(db)
-            else { return SNLog("Ignoring outdated NEW legacy group message due to more recent config state") }
+            else { return Log.info(.messageReceiver, "Ignoring outdated NEW legacy group message due to more recent config state") }
             
             try newKeyPair.insert(db)
             return
@@ -298,14 +298,14 @@ extension MessageReceiver {
         let legacyGroupId: String = (explicitGroupPublicKey?.toHexString() ?? threadId)
         
         guard let userKeyPair: KeyPair = Identity.fetchUserKeyPair(db) else {
-            return SNLog("Couldn't find user X25519 key pair.")
+            return Log.error(.messageReceiver, "Couldn't find user X25519 key pair.")
         }
         guard let closedGroup: ClosedGroup = try? ClosedGroup.fetchOne(db, id: legacyGroupId) else {
-            return SNLog("Ignoring closed group encryption key pair for nonexistent group.")
+            return Log.warn(.messageReceiver, "Ignoring closed group encryption key pair for nonexistent group.")
         }
         guard let groupAdmins: [GroupMember] = try? closedGroup.admins.fetchAll(db) else { return }
         guard let sender: String = message.sender, groupAdmins.contains(where: { $0.profileId == sender }) else {
-            return SNLog("Ignoring closed group encryption key pair from non-admin.")
+            return Log.info(.messageReceiver, "Ignoring closed group encryption key pair from non-admin.")
         }
         // Find our wrapper and decrypt it if possible
         let userPublicKey: String = SessionId(.standard, publicKey: userKeyPair.publicKey).hexString
@@ -325,18 +325,14 @@ extension MessageReceiver {
                 )
             ).plaintext
         }
-        catch {
-            return SNLog("Couldn't decrypt closed group encryption key pair.")
-        }
+        catch { return Log.error(.messageReceiver, "Couldn't decrypt closed group encryption key pair.") }
         
         // Parse it
         let proto: SNProtoKeyPair
         do {
             proto = try SNProtoKeyPair.parseData(plaintext)
         }
-        catch {
-            return SNLog("Couldn't parse closed group encryption key pair.")
-        }
+        catch { return Log.error(.messageReceiver, "Couldn't parse closed group encryption key pair.") }
         
         do {
             let keyPair: ClosedGroupKeyPair = ClosedGroupKeyPair(
@@ -357,13 +353,13 @@ extension MessageReceiver {
         }
         catch {
             if case DatabaseError.SQLITE_CONSTRAINT_UNIQUE = error {
-                return SNLog("Ignoring duplicate closed group encryption key pair.")
+                return Log.info(.messageReceiver, "Ignoring duplicate closed group encryption key pair.")
             }
             
             throw error
         }
         
-        SNLog("Received a new closed group encryption key pair.")
+        Log.info(.messageReceiver, "Received a new closed group encryption key pair.")
     }
     
     private static func handleClosedGroupNameChanged(
@@ -542,7 +538,7 @@ extension MessageReceiver {
                     allMembers
                         .filter({ $0.role == .admin })
                         .contains(where: { $0.profileId == sender })
-                else { return SNLog("Ignoring invalid closed group update.") }
+                else { return Log.warn(.messageReceiver, "Ignoring invalid closed group update.") }
                 
                 // Update libSession
                 try? LibSession.update(
@@ -682,7 +678,7 @@ extension MessageReceiver {
     ) throws {
         guard let sender: String = message.sender else { return }
         guard let closedGroup: ClosedGroup = try? ClosedGroup.fetchOne(db, id: threadId) else {
-            return SNLog("Ignoring group update for nonexistent group.")
+            return Log.warn(.messageReceiver, "Ignoring group update for nonexistent group.")
         }
         
         let timestampMs: Int64 = (
@@ -699,14 +695,14 @@ extension MessageReceiver {
                 case .legacyGroup:
                     // Check that the message isn't from before the group was created
                     guard Double(message.sentTimestampMs ?? 0) > closedGroup.formationTimestamp else {
-                        return SNLog("Ignoring legacy group update from before thread was created.")
+                        return Log.warn(.messageReceiver, "Ignoring legacy group update from before thread was created.")
                     }
                     
                     // If these values are missing then we probably won't be able to validly handle the message
                     guard
                         let allMembers: [GroupMember] = try? closedGroup.allMembers.fetchAll(db),
                         allMembers.contains(where: { $0.profileId == sender })
-                    else { return SNLog("Ignoring legacy group update from non-member.") }
+                    else { return Log.warn(.messageReceiver, "Ignoring legacy group update from non-member.") }
                     
                     try legacyGroupChanges(sender, closedGroup, allMembers)
                     

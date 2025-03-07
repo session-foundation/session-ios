@@ -27,14 +27,14 @@ public extension VisibleMessage {
 
         public func toProto() -> SNProtoDataMessageOpenGroupInvitation? {
             guard let url = url, let name = name else {
-                SNLog("Couldn't construct open group invitation proto from: \(self).")
+                Log.warn(.messageSender, "Couldn't construct open group invitation proto from: \(self).")
                 return nil
             }
             let openGroupInvitationProto = SNProtoDataMessageOpenGroupInvitation.builder(url: url, name: name)
             do {
                 return try openGroupInvitationProto.build()
             } catch {
-                SNLog("Couldn't construct open group invitation proto from: \(self).")
+                Log.warn(.messageSender, "Couldn't construct open group invitation proto from: \(self).")
                 return nil
             }
         }

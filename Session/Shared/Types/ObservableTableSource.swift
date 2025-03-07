@@ -6,6 +6,14 @@ import Combine
 import DifferenceKit
 import SessionUtilitiesKit
 
+// MARK: - Log.Category
+
+private extension Log.Category {
+    static func cat(_ viewModel: Any) -> Log.Category {
+        return .create("ObservableTableSource", customSuffix: "-\(type(of: viewModel))", defaultLevel: .warn)
+    }
+}
+
 // MARK: - ObservableTableSource
 
 public protocol ObservableTableSource: AnyObject, SectionedTableData {
@@ -203,11 +211,10 @@ public enum ObservationBuilder {
                                         scheduling: dependencies[singleton: .scheduler],
                                         onError: { error in
                                             let log: String = [
-                                                "[\(type(of: viewModel))]",         // stringlint:ignore
                                                 "Observation failed with error:",   // stringlint:ignore
                                                 "\(error)"                          // stringlint:ignore
                                             ].joined(separator: " ")
-                                            SNLog(log)
+                                            Log.error(.cat(viewModel), log)
                                             subject.send(completion: Subscribers.Completion.failure(error))
                                         },
                                         onChange: { subject.send($0) }
@@ -259,11 +266,10 @@ public enum ObservationBuilder {
                                         scheduling: dependencies[singleton: .scheduler],
                                         onError: { error in
                                             let log: String = [
-                                                "[\(type(of: viewModel))]",         // stringlint:ignore
                                                 "Observation failed with error:",   // stringlint:ignore
                                                 "\(error)"                          // stringlint:ignore
                                             ].joined(separator: " ")
-                                            SNLog(log)
+                                            Log.error(.cat(viewModel), log)
                                             subject.send(completion: Subscribers.Completion.failure(error))
                                         },
                                         onChange: { subject.send($0) }

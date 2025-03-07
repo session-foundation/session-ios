@@ -205,13 +205,13 @@ public extension LibSession {
         
         // MARK: - State Management
         
-        public func loadState(_ db: Database) {
+        public func loadState(_ db: Database, requestId: String?) {
             // Ensure we have the ed25519 key and that we haven't already loaded the state before
             // we continue
             guard
                 configStore.isEmpty,
                 let ed25519KeyPair: KeyPair = Identity.fetchUserEd25519KeyPair(db)
-            else { return Log.warn(.libSession, "Ignoring loadState due to existing state") }
+            else { return Log.warn(.libSession, "Ignoring loadState\(requestId.map { " for \($0)" } ?? "") due to existing state") }
             
             // Retrieve the existing dumps from the database
             let existingDumps: [ConfigDump] = ((try? ConfigDump.fetchSet(db)) ?? [])
@@ -258,7 +258,7 @@ public extension LibSession {
                 userSessionId: userSessionId,
                 userEd25519KeyPair: ed25519KeyPair
             )
-            Log.info(.libSession, "Completed loadState")
+            Log.info(.libSession, "Completed loadState\(requestId.map { " for \($0)" } ?? "")")
         }
         
         public func loadDefaultStatesFor(
@@ -323,8 +323,8 @@ public extension LibSession {
             
             switch (variant, groupEd25519SecretKey) {
                 case (.invalid, _):
-                    throw LibSessionError.unableToCreateConfigObject
-                        .logging("Unable to create \(variant.rawValue) config object")
+                    throw LibSessionError.unableToCreateConfigObject(sessionId.hexString)
+                        .logging("Unable to create \(variant.rawValue) config object for: \(sessionId.hexString)")
                     
                 case (.userProfile, _), (.contacts, _), (.convoInfoVolatile, _), (.userGroups, _):
                     return try (userConfigInitCalls[variant]?(
@@ -334,7 +334,7 @@ public extension LibSession {
                         (cachedDump?.length ?? 0),
                         &error
                     ))
-                    .toConfig(conf, variant: variant, error: error)
+                    .toConfig(conf, variant: variant, error: error, sessionId: sessionId)
                     
                 case (.groupInfo, .some(var adminSecretKey)), (.groupMembers, .some(var adminSecretKey)):
                     var identityPublicKey: [UInt8] = sessionId.publicKey
@@ -347,7 +347,7 @@ public extension LibSession {
                         (cachedDump?.length ?? 0),
                         &error
                     ))
-                    .toConfig(conf, variant: variant, error: error)
+                    .toConfig(conf, variant: variant, error: error, sessionId: sessionId)
                     
                 case (.groupKeys, .some(var adminSecretKey)):
                     var identityPublicKey: [UInt8] = sessionId.publicKey
@@ -356,8 +356,8 @@ public extension LibSession {
                         case .groupInfo(let infoConf) = configStore[sessionId, .groupInfo],
                         case .groupMembers(let membersConf) = configStore[sessionId, .groupMembers]
                     else {
-                        throw LibSessionError.unableToCreateConfigObject
-                            .logging("Unable to create \(variant.rawValue) config object for \(sessionId): Group info and member config states not loaded")
+                        throw LibSessionError.unableToCreateConfigObject(sessionId.hexString)
+                            .logging("Unable to create \(variant.rawValue) config object for \(sessionId), group info \(configStore[sessionId, .groupInfo] != nil ? "loaded" : "not loaded") and member config \(configStore[sessionId, .groupMembers] != nil ? "loaded" : "not loaded")")
                     }
                     
                     return try groups_keys_init(
@@ -371,7 +371,7 @@ public extension LibSession {
                         (cachedDump?.length ?? 0),
                         &error
                     )
-                    .toConfig(keysConf, info: infoConf, members: membersConf, variant: variant, error: error)
+                    .toConfig(keysConf, info: infoConf, members: membersConf, variant: variant, error: error, sessionId: sessionId)
                     
                 // It looks like C doesn't deal will passing pointers to null variables well so we need
                 // to explicitly pass 'nil' for the admin key in this case
@@ -386,7 +386,7 @@ public extension LibSession {
                         (cachedDump?.length ?? 0),
                         &error
                     ))
-                    .toConfig(conf, variant: variant, error: error)
+                    .toConfig(conf, variant: variant, error: error, sessionId: sessionId)
                     
                 // It looks like C doesn't deal will passing pointers to null variables well so we need
                 // to explicitly pass 'nil' for the admin key in this case
@@ -397,8 +397,8 @@ public extension LibSession {
                         case .groupInfo(let infoConf) = configStore[sessionId, .groupInfo],
                         case .groupMembers(let membersConf) = configStore[sessionId, .groupMembers]
                     else {
-                        throw LibSessionError.unableToCreateConfigObject
-                            .logging("Unable to create \(variant.rawValue) config object for \(sessionId): Group info and member config states not loaded")
+                        throw LibSessionError.unableToCreateConfigObject(sessionId.hexString)
+                            .logging("Unable to create \(variant.rawValue) config object for \(sessionId), group info \(configStore[sessionId, .groupInfo] != nil ? "loaded" : "not loaded") and member config \(configStore[sessionId, .groupMembers] != nil ? "loaded" : "not loaded")")
                     }
                     
                     return try groups_keys_init(
@@ -412,7 +412,7 @@ public extension LibSession {
                         (cachedDump?.length ?? 0),
                         &error
                     )
-                    .toConfig(keysConf, info: infoConf, members: membersConf, variant: variant, error: error)
+                    .toConfig(keysConf, info: infoConf, members: membersConf, variant: variant, error: error, sessionId: sessionId)
             }
         }
         
@@ -894,7 +894,7 @@ public protocol LibSessionCacheType: LibSessionImmutableCacheType, MutableCacheT
     
     // MARK: - State Management
     
-    func loadState(_ db: Database)
+    func loadState(_ db: Database, requestId: String?)
     func loadDefaultStatesFor(
         userConfigVariants: Set<ConfigDump.Variant>,
         groups: [ClosedGroup],
@@ -974,6 +974,10 @@ public extension LibSessionCacheType {
     func withCustomBehaviour(_ behaviour: LibSession.CacheBehaviour, for sessionId: SessionId, change: @escaping () throws -> ()) throws {
         try withCustomBehaviour(behaviour, for: sessionId, variant: nil, change: change)
     }
+    
+    func loadState(_ db: Database) {
+        loadState(db, requestId: nil)
+    }
 }
 
 private final class NoopLibSessionCache: LibSessionCacheType {
@@ -987,7 +991,7 @@ private final class NoopLibSessionCache: LibSessionCacheType {
     
     // MARK: - State Management
     
-    func loadState(_ db: Database) {}
+    func loadState(_ db: Database, requestId: String?) {}
     func loadDefaultStatesFor(
         userConfigVariants: Set<ConfigDump.Variant>,
         groups: [ClosedGroup],
@@ -1065,10 +1069,11 @@ private extension Optional where Wrapped == Int32 {
     func toConfig(
         _ maybeConf: UnsafeMutablePointer<config_object>?,
         variant: ConfigDump.Variant,
-        error: [CChar]
+        error: [CChar],
+        sessionId: SessionId
     ) throws -> LibSession.Config {
         guard self == 0, let conf: UnsafeMutablePointer<config_object> = maybeConf else {
-            throw LibSessionError.unableToCreateConfigObject
+            throw LibSessionError.unableToCreateConfigObject(sessionId.hexString)
                 .logging("Unable to create \(variant.rawValue) config object: \(String(cString: error))")
         }
         
@@ -1080,7 +1085,7 @@ private extension Optional where Wrapped == Int32 {
             case .groupInfo: return .groupInfo(conf)
             case .groupMembers: return .groupMembers(conf)
             
-            case .groupKeys, .invalid: throw LibSessionError.unableToCreateConfigObject
+            case .groupKeys, .invalid: throw LibSessionError.unableToCreateConfigObject(sessionId.hexString)
         }
     }
 }
@@ -1091,16 +1096,17 @@ private extension Int32 {
         info: UnsafeMutablePointer<config_object>,
         members: UnsafeMutablePointer<config_object>,
         variant: ConfigDump.Variant,
-        error: [CChar]
+        error: [CChar],
+        sessionId: SessionId
     ) throws -> LibSession.Config {
         guard self == 0, let conf: UnsafeMutablePointer<config_group_keys> = maybeConf else {
-            throw LibSessionError.unableToCreateConfigObject
+            throw LibSessionError.unableToCreateConfigObject(sessionId.hexString)
                 .logging("Unable to create \(variant.rawValue) config object: \(String(cString: error))")
         }
 
         switch variant {
             case .groupKeys: return .groupKeys(conf, info: info, members: members)
-            default: throw LibSessionError.unableToCreateConfigObject
+            default: throw LibSessionError.unableToCreateConfigObject(sessionId.hexString)
         }
     }
 }

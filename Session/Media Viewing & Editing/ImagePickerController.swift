@@ -483,7 +483,7 @@ class ImagePickerGridController: UICollectionViewController, PhotoLibraryDelegat
         }
 
         guard let asset: PHAsset = photoCollectionContents.asset(at: indexPath.item) else {
-            SNLog("Failed to select cell for asset at \(indexPath.item)")
+            Log.error(.media, "Failed to select cell for asset at \(indexPath.item)")
             delegate.imagePicker(self, failedToRetrieveAssetAt: indexPath.item, forCount: photoCollectionContents.assetCount)
             return
         }
@@ -529,7 +529,7 @@ class ImagePickerGridController: UICollectionViewController, PhotoLibraryDelegat
         let cell: PhotoGridViewCell = collectionView.dequeue(type: PhotoGridViewCell.self, for: indexPath)
         
         guard let assetItem: PhotoPickerAssetItem = photoCollectionContents.assetItem(at: indexPath.item, photoMediaSize: photoMediaSize) else {
-            SNLog("Failed to style cell for asset at \(indexPath.item)")
+            Log.error(.media, "Failed to style cell for asset at \(indexPath.item)")
             return cell
         }
          

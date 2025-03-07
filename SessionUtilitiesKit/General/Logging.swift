@@ -55,23 +55,26 @@ public enum Log {
     public struct Category: Hashable {
         public let rawValue: String
         fileprivate let customPrefix: String
+        fileprivate let customSuffix: String
         public let defaultLevel: Log.Level
         
         fileprivate static let identifierPrefix: String = "logLevel-"
         fileprivate var identifier: String { "\(Category.identifierPrefix)\(rawValue)" }
         
-        private init(rawValue: String, customPrefix: String, defaultLevel: Log.Level) {
+        private init(rawValue: String, customPrefix: String, customSuffix: String, defaultLevel: Log.Level) {
             /// If we've already registered this category then assume the original has the correct `defaultLevel` and only
             /// modify the `customPrefix` value
             switch AllLoggingCategories.existingCategory(for: rawValue) {
                 case .some(let existingCategory):
                     self.rawValue = existingCategory.rawValue
                     self.customPrefix = customPrefix
+                    self.customSuffix = customSuffix
                     self.defaultLevel = existingCategory.defaultLevel
                     
                 case .none:
                     self.rawValue = rawValue
                     self.customPrefix = customPrefix
+                    self.customSuffix = customSuffix
                     self.defaultLevel = defaultLevel
                     
                     AllLoggingCategories.register(category: self)
@@ -84,16 +87,27 @@ public enum Log {
             self.init(
                 rawValue: identifier.substring(from: Category.identifierPrefix.count),
                 customPrefix: "",
+                customSuffix: "",
                 defaultLevel: .default
             )
         }
         
-        public init(rawValue: String, customPrefix: String = "") {
-            self.init(rawValue: rawValue, customPrefix: customPrefix, defaultLevel: .default)
+        public init(rawValue: String, customPrefix: String = "", customSuffix: String = "") {
+            self.init(rawValue: rawValue, customPrefix: customPrefix, customSuffix: customSuffix, defaultLevel: .default)
         }
         
-        @discardableResult public static func create(_ rawValue: String, customPrefix: String = "", defaultLevel: Log.Level) -> Log.Category {
-            return Log.Category(rawValue: rawValue, customPrefix: customPrefix, defaultLevel: defaultLevel)
+        @discardableResult public static func create(
+            _ rawValue: String,
+            customPrefix: String = "",
+            customSuffix: String = "",
+            defaultLevel: Log.Level
+        ) -> Log.Category {
+            return Log.Category(
+                rawValue: rawValue,
+                customPrefix: customPrefix,
+                customSuffix: customSuffix,
+                defaultLevel: defaultLevel
+            )
         }
     }
     
@@ -167,6 +181,10 @@ public enum Log {
         DDLog.flushLog()
     }
     
+    public static func reset() {
+        Log._logger.set(to: nil)
+    }
+    
     // MARK: - Log Functions
     
     fileprivate static func empty() {
@@ -187,6 +205,7 @@ public enum Log {
         }
     }
     
+    // FIXME: Would be nice to properly require a category for all logs
     public static func verbose(
         _ msg: String,
         file: StaticString = #file,
@@ -366,7 +385,6 @@ public enum Log {
 public class Logger {
     private let dependencies: Dependencies
     private let primaryPrefix: String
-    private let forceNSLog: Bool
     @ThreadSafeObject private var systemLoggers: [String: SystemLoggerType] = [:]
     fileprivate let fileLogger: DDFileLogger
     @ThreadSafe fileprivate var isSuspended: Bool = true
@@ -375,12 +393,10 @@ public class Logger {
     public init(
         primaryPrefix: String,
         customDirectory: String? = nil,
-        forceNSLog: Bool = false,
         using dependencies: Dependencies
     ) {
         self.dependencies = dependencies
         self.primaryPrefix = primaryPrefix
-        self.forceNSLog = forceNSLog
         
         switch customDirectory {
             case .none: self.fileLogger = DDFileLogger()
@@ -407,6 +423,12 @@ public class Logger {
         // Now that we are setup we should load the extension logs which will then
         // complete the startup process when completed
         self.loadExtensionLogsAndResumeLogging()
+    }
+    
+    deinit {
+        // Need to ensure we remove the `fileLogger` from `DDLog` otherwise we will get duplicate
+        // log entries
+        DDLog.remove(fileLogger)
     }
     
     // MARK: - Functions
@@ -565,7 +587,13 @@ public class Logger {
                 (DispatchQueue.isDBWriteQueue ? "DBWrite" : nil)
             ]
             .compactMap { $0 }
-            .appending(contentsOf: categories.map { "\($0.customPrefix)\($0.rawValue)" })
+            .appending(
+                contentsOf: categories
+                    /// No point doubling up but we want to allow categories which match the `primaryPrefix` so that we
+                    /// have a mechanism for providing a different "default" log level for a specific target
+                    .filter { $0.rawValue != primaryPrefix }
+                    .map { "\($0.customPrefix)\($0.rawValue)\($0.customSuffix)" }
+            )
             .joined(separator: ", ")
             
             return "[\(prefixes)] "
@@ -768,9 +796,4 @@ public struct AllLoggingCategories: FeatureOption {
     
     public var title: String = "AllLoggingCategories"
     public let subtitle: String? = nil
-}
-
-// FIXME: Remove this once everything has been updated to use the new `Log.x()` methods.
-public func SNLog(_ message: String, forceNSLog: Bool = false) {
-    Log.info(message)
 }

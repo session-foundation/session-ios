@@ -72,9 +72,11 @@ public enum CheckForAppUpdatesJob: JobExecutor {
                 },
                 receiveValue: { _, versionInfo in
                     switch versionInfo.prerelease {
-                        case .none: Log.info(.cat, "Latest version: \(versionInfo.version)")
+                        case .none:
+                            Log.info(.cat, "Latest version: \(versionInfo.version) (Current: \(dependencies[cache: .appVersion].versionInfo))")
+                            
                         case .some(let prerelease):
-                            Log.info(.cat, "Latest version: \(versionInfo.version), pre-release version: \(prerelease.version)")
+                            Log.info(.cat, "Latest version: \(versionInfo.version), pre-release version: \(prerelease.version) (Current: \(dependencies[cache: .appVersion].versionInfo))")
                     }
                 }
             )

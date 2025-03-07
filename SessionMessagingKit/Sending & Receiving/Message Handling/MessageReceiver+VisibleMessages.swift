@@ -115,7 +115,7 @@ extension MessageReceiver {
                     )
                     
                 case .group:
-                    SNLog("Ignoring message with invalid sender.")
+                    Log.info(.messageReceiver, "Ignoring message with invalid sender.")
                     throw MessageReceiverError.invalidSender
             }
         }()

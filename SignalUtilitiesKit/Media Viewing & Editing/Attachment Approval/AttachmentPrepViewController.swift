@@ -242,7 +242,7 @@ public class AttachmentPrepViewController: OWSViewController {
     }
 
     @objc public func playButtonTapped() {
-        guard let fileUrl: URL = attachment.dataUrl else { return SNLog("Missing video file") }
+        guard let fileUrl: URL = attachment.dataUrl else { return Log.error(.media, "Missing video file") }
         
         let player: AVPlayer = AVPlayer(url: fileUrl)
         let viewController: AVPlayerViewController = AVPlayerViewController()

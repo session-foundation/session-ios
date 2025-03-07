@@ -187,7 +187,7 @@ public extension Profile {
             return try dataMessageProto.build()
         }
         catch {
-            SNLog("Couldn't construct profile proto from: \(self).")
+            Log.warn(.messageSender, "Couldn't construct profile proto from: \(self).")
             return nil
         }
     }
