@@ -657,23 +657,44 @@ public extension Interaction {
     ) throws -> Set<Int64> {
         guard db[.areReadReceiptsEnabled] == true else { return [] }
         
+        struct InterationRowState: Codable, FetchableRecord {
+            public typealias Columns = CodingKeys
+            public enum CodingKeys: String, CodingKey {
+                case rowId
+                case state
+            }
+            
+            var rowId: Int64
+            var state: Interaction.State
+        }
+        
         // Get the row ids for the interactions which should be updated
-        let rowIds: [Int64] = try Interaction
-            .select(Column.rowID)
+        let interactionInfo: [InterationRowState] = try Interaction
+            .select(Column.rowID.forKey(InterationRowState.Columns.rowId), Interaction.Columns.state)
             .filter(Interaction.Columns.threadId == threadId)
             .filter(timestampMsValues.contains(Columns.timestampMs))
             .filter(Variant.variantsWhichSupportReadReceipts.contains(Columns.variant))
-            .asRequest(of: Int64.self)
+            .asRequest(of: InterationRowState.self)
             .fetchAll(db)
         
-        // If there were no 'rowIds' then no need to run the below queries, all of the timestamps
-        // and for pending read receipts
-        guard !rowIds.isEmpty else { return timestampMsValues.asSet() }
+        // If there were no 'interactionInfo' then no need to run the below queries, all of the
+        // timestamps are for pending read receipts
+        guard !interactionInfo.isEmpty else { return timestampMsValues.asSet() }
+        
+        let allRowIds: Set<Int64> = Set(interactionInfo.map { $0.rowId })
+        let sentInteractionIds: Set<Int64> = interactionInfo
+            .filter { $0.state != .sending }
+            .map { $0.rowId }
+            .asSet()
+        let sendingInteractionInfo: Set<Int64> = interactionInfo
+            .filter { $0.state == .sending }
+            .map { $0.rowId }
+            .asSet()
         
         // Update the 'recipientReadTimestampMs' if it doesn't match (need to do this to prevent
         // the UI update from being triggered for a redundant update)
         try Interaction
-            .filter(rowIds.contains(Column.rowID))
+            .filter(sentInteractionIds.contains(Column.rowID))
             .filter(Interaction.Columns.recipientReadTimestampMs == nil)
             .updateAll(
                 db,
@@ -683,7 +704,7 @@ public extension Interaction {
         // If the message still appeared to be sending then mark it as sent (can also remove the
         // failure text as it's redundant if the message is in the sent state)
         try Interaction
-            .filter(rowIds.contains(Column.rowID))
+            .filter(sendingInteractionInfo.contains(Column.rowID))
             .filter(Interaction.Columns.state == Interaction.State.sending)
             .updateAll(
                 db,
@@ -694,7 +715,7 @@ public extension Interaction {
         // Retrieve the set of timestamps which were updated
         let timestampsUpdated: Set<Int64> = try Interaction
             .select(Columns.timestampMs)
-            .filter(rowIds.contains(Column.rowID))
+            .filter(allRowIds.contains(Column.rowID))
             .filter(timestampMsValues.contains(Columns.timestampMs))
             .filter(Variant.variantsWhichSupportReadReceipts.contains(Columns.variant))
             .asRequest(of: Int64.self)
