@@ -13,12 +13,6 @@ local version_info = {
   ],
 };
 
-// Intentionally doing a depth of 2 as libSession-util has it's own submodules (and libLokinet likely will as well)
-local clone_submodules = {
-  name: 'Clone Submodules',
-  commands: ['git submodule update --init --recursive --depth=2 --jobs=4'],
-};
-
 // cmake options for static deps mirror
 local ci_dep_mirror(want_mirror) = (if want_mirror then ' -DLOCAL_MIRROR=https://oxen.rocks/deps ' else '');
 
@@ -62,7 +56,6 @@ local sim_delete_cmd = 'if [ -f build/artifacts/sim_uuid ]; then rm -f /Users/$U
     trigger: { event: { exclude: ['push'] } },
     steps: [
       version_info,
-      clone_submodules,
 
       boot_simulator(),
       sim_keepalive,
@@ -118,7 +111,6 @@ local sim_delete_cmd = 'if [ -f build/artifacts/sim_uuid ]; then rm -f /Users/$U
     trigger: { event: { exclude: ['pull_request'] } },
     steps: [
       version_info,
-      clone_submodules,
       {
         name: 'Build',
         commands: [
