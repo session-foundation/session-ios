@@ -549,7 +549,6 @@ public extension UIContextualAction {
                                                         backgroundColor: .backgroundSecondary
                                                     )
                                                 }
-                                                throw error
                                             }
                                         }
                                         
