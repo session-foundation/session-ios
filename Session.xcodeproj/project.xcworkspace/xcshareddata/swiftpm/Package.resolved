@@ -1,5 +1,5 @@
 {
-  "originHash" : "4c95b434de06c87c75c3ef96fa055ec67e885a4a4ad78caafd7925b131995b07",
+  "originHash" : "688abd5f50453ed3433c8c6bf57bb60964d1c199902c2bff846544c6691cd18c",
   "pins" : [
     {
       "identity" : "cocoalumberjack",
@@ -44,6 +44,15 @@
       "state" : {
         "revision" : "5e1b02b6a9dac2a759a1d5dbc175c86bd192a608",
         "version" : "24.0.0"
+      }
+    },
+    {
+      "identity" : "libsession-util-spm",
+      "kind" : "remoteSourceControl",
+      "location" : "https://github.com/session-foundation/libsession-util-spm",
+      "state" : {
+        "revision" : "dfa9ad8df694cde779323ffcd9c2426d71eb6bdc",
+        "version" : "1.2.1"
       }
     },
     {
