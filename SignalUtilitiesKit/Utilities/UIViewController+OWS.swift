@@ -7,54 +7,49 @@ import SessionUtilitiesKit
 public extension UIViewController {
     func findFrontMostViewController(ignoringAlerts: Bool) -> UIViewController {
         var visitedViewControllers: [UIViewController] = []
-        
         var viewController: UIViewController = self
         
         while true {
             visitedViewControllers.append(viewController)
             
-            var nextViewController: UIViewController? = viewController.presentedViewController
-            
-            if
-                let topBannerController: TopBannerController = nextViewController as? TopBannerController,
-                !topBannerController.children.isEmpty
-            {
-                nextViewController = (
-                    topBannerController.children[0].presentedViewController ??
-                    topBannerController.children[0]
-                )
+            func shouldSkipController(_ controller: UIViewController) -> Bool {
+                return ignoringAlerts && controller is UIAlertController
             }
             
-            if let nextViewController: UIViewController = nextViewController {
-                if !ignoringAlerts || !(nextViewController is UIAlertController) {
-                    if visitedViewControllers.contains(nextViewController) {
-                        // Cycle detected
-                        return viewController
-                    }
-                    
-                    viewController = nextViewController
-                    continue
-                }
-            }
-            
-            if let navController: UINavigationController = viewController as? UINavigationController {
-                nextViewController = navController.topViewController
+            func tryAdvance(to next: UIViewController) -> Bool {
+                guard !shouldSkipController(next) else { return false }
+                guard !visitedViewControllers.contains(next) else { return false }  // Loop prevention
                 
-                if let nextViewController: UIViewController = nextViewController {
-                    if !ignoringAlerts || !(nextViewController is UIAlertController) {
-                        if visitedViewControllers.contains(nextViewController) {
-                            // Cycle detected
-                            return viewController
-                        }
-                        
-                        viewController = nextViewController
-                        continue
-                    }
-                }
-                
-                break
+                viewController = next
+                return true
             }
             
+            // Check if current viewController is an alert we should ignore
+            guard !shouldSkipController(viewController) else { break }
+            
+            // Handle TopBannerController
+            if let topBanner: TopBannerController = viewController as? TopBannerController, !topBanner.children.isEmpty {
+                let child: UIViewController = topBanner.children[0]
+                let next: UIViewController = (child.presentedViewController ?? child)
+                
+                guard tryAdvance(to: next) else { break }
+                continue
+            }
+            
+            // Handle presented view controller
+            if let presented: UIViewController = viewController.presentedViewController {
+                guard tryAdvance(to: presented) else { break }
+                continue
+            }
+            
+            // Handle navigation controller
+            if let navController = viewController as? UINavigationController,
+               let topViewController = navController.topViewController {
+                guard tryAdvance(to: topViewController) else { break }
+                continue
+            }
+            
+            // No more view controllers to traverse
             break
         }
         
