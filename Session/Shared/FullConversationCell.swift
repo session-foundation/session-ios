@@ -530,7 +530,6 @@ public final class FullConversationCell: UITableViewCell, SwipeActionOptimisticC
     
     public func optimisticUpdate(
         isMuted: Bool?,
-        isBlocked: Bool?,
         isPinned: Bool?,
         hasUnread: Bool?
     ) {
@@ -554,17 +553,6 @@ public final class FullConversationCell: UITableViewCell, SwipeActionOptimisticC
                         .attributedSubstring(from: NSRange(location: FullConversationCell.mutePrefix.count, length: (attrString.length - FullConversationCell.mutePrefix.count)))
                     
                 default: break
-            }
-        }
-        
-        if let isBlocked: Bool = isBlocked {
-            if isBlocked {
-                accentLineView.themeBackgroundColor = .danger
-                accentLineView.alpha = 1
-            }
-            else {
-                accentLineView.themeBackgroundColor = .conversationButton_unreadStripBackground
-                accentLineView.alpha = (!unreadCountView.isHidden || !unreadImageView.isHidden ? 1 : 0)
             }
         }
         

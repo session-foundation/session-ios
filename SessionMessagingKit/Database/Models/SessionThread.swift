@@ -537,6 +537,10 @@ public extension SessionThread {
                 // Remove the contact from the config
                 try LibSession.remove(db, contactIds: Array(remainingThreadIds), using: dependencies)
                 
+                _ = try Contact
+                    .filter(ids: remainingThreadIds)
+                    .deleteAll(db)
+                
                 _ = try SessionThread
                     .filter(ids: remainingThreadIds)
                     .deleteAll(db)
