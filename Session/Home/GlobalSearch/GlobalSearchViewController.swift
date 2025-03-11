@@ -11,7 +11,7 @@ import SignalUtilitiesKit
 class GlobalSearchViewController: BaseVC, LibSessionRespondingViewController, UITableViewDelegate, UITableViewDataSource {
     fileprivate typealias SectionModel = ArraySection<SearchSection, SessionThreadViewModel>
     
-    fileprivate struct SearchResultData {
+    fileprivate struct SearchResultData: Equatable {
         var state: SearchResultsState
         var data: [SectionModel]
     }
@@ -41,7 +41,31 @@ class GlobalSearchViewController: BaseVC, LibSessionRespondingViewController, UI
     // MARK: - Variables
     
     private let dependencies: Dependencies
-    private lazy var defaultSearchResults: SearchResultData = GlobalSearchViewController.getDefaultSearchResults(using: dependencies)
+    private var defaultSearchResults: SearchResultData = SearchResultData(state: .none, data: []) {
+        didSet {
+            guard searchText.isEmpty else { return }
+            
+            /// If we have no search term then the contact list should be showing, so update the results and reload the table
+            self.searchResultSet = defaultSearchResults
+            
+            switch Thread.isMainThread {
+                case true: self.tableView.reloadData()
+                case false: DispatchQueue.main.async { self.tableView.reloadData() }
+            }
+        }
+    }
+    private lazy var defaultSearchResultsObservation = ValueObservation
+        .trackingConstantRegion { [dependencies] db -> [SessionThreadViewModel] in
+            try SessionThreadViewModel
+                .defaultContactsQuery(using: dependencies)
+                .fetchAll(db)
+        }
+        .map { GlobalSearchViewController.processDefaultSearchResults($0) }
+        .removeDuplicates()
+        .handleEvents(didFail: { SNLog("[GlobalSearch] Observation failed with error: \($0)") })
+    private var defaultDataChangeObservable: DatabaseCancellable? {
+        didSet { oldValue?.cancel() }   // Cancel the old observable if there was one
+    }
     
     @ThreadSafeObject private var readConnection: Database? = nil
     private lazy var searchResultSet: SearchResultData = defaultSearchResults
@@ -114,6 +138,18 @@ class GlobalSearchViewController: BaseVC, LibSessionRespondingViewController, UI
         navigationItem.hidesBackButton = true
         setupNavigationBar()
     }
+    
+    override func viewWillAppear(_ animated: Bool) {
+        super.viewWillAppear(animated)
+        
+        defaultDataChangeObservable = dependencies[singleton: .storage].start(
+            defaultSearchResultsObservation,
+            onError:  { _ in },
+            onChange: { [weak self] updatedDefaultResults in
+                self?.defaultSearchResults = updatedDefaultResults
+            }
+        )
+    }
 
     public override func viewDidAppear(_ animated: Bool) {
         super.viewDidAppear(animated)
@@ -122,6 +158,8 @@ class GlobalSearchViewController: BaseVC, LibSessionRespondingViewController, UI
 
     public override func viewWillDisappear(_ animated: Bool) {
         super.viewWillDisappear(animated)
+        
+        self.defaultDataChangeObservable = nil
         
         UIView.performWithoutAnimation {
             searchBar.resignFirstResponder()
@@ -169,68 +207,61 @@ class GlobalSearchViewController: BaseVC, LibSessionRespondingViewController, UI
 
     // MARK: - Update Search Results
     
-    private static func getDefaultSearchResults(using dependencies: Dependencies) -> SearchResultData {
+    private static func processDefaultSearchResults(_ contacts: [SessionThreadViewModel]) -> SearchResultData {
         let nonalphabeticNameTitle: String = "#" // stringlint:ignore
-        let contacts: [SessionThreadViewModel] = dependencies[singleton: .storage].read { [dependencies] db -> [SessionThreadViewModel]? in
-            try SessionThreadViewModel
-                .defaultContactsQuery(using: dependencies)
-                .fetchAll(db)
-        }
-        .defaulting(to: [])
-        .sorted {
-            $0.displayName.lowercased() < $1.displayName.lowercased()
-        }
-        
-        var groupedContacts: [String: SectionModel] = [:]
-        contacts.forEach { contactViewModel in
-            guard !contactViewModel.threadIsNoteToSelf else {
-                groupedContacts[""] = SectionModel(
-                    model: .groupedContacts(title: ""),
-                    elements: [contactViewModel]
-                )
-                return
-            }
-            
-            let displayName = NSMutableString(string: contactViewModel.displayName)
-            CFStringTransform(displayName, nil, kCFStringTransformToLatin, false)
-            CFStringTransform(displayName, nil, kCFStringTransformStripDiacritics, false)
-                
-            let initialCharacter: String = (displayName.length > 0 ? displayName.substring(to: 1) : "")
-            let section: String = initialCharacter.capitalized.isSingleAlphabet ?
-                initialCharacter.capitalized :
-                nonalphabeticNameTitle
-                
-            if groupedContacts[section] == nil {
-                groupedContacts[section] = SectionModel(
-                    model: .groupedContacts(title: section),
-                    elements: []
-                )
-            }
-            groupedContacts[section]?.elements.append(contactViewModel)
-        }
         
         return SearchResultData(
             state: .defaultContacts,
-            data: groupedContacts.values.sorted { sectionModel0, sectionModel1 in
-                let title0: String = {
-                    switch sectionModel0.model {
-                        case .groupedContacts(let title): return title
-                        default: return ""
+            data: contacts
+                .sorted { lhs, rhs in lhs.displayName.lowercased() < rhs.displayName.lowercased() }
+                .reduce(into: [String: SectionModel]()) { result, next in
+                    guard !next.threadIsNoteToSelf else {
+                        result[""] = SectionModel(
+                            model: .groupedContacts(title: ""),
+                            elements: [next]
+                        )
+                        return
                     }
-                }()
-                let title1: String = {
-                    switch sectionModel1.model {
-                        case .groupedContacts(let title): return title
-                        default: return ""
+                    
+                    let displayName = NSMutableString(string: next.displayName)
+                    CFStringTransform(displayName, nil, kCFStringTransformToLatin, false)
+                    CFStringTransform(displayName, nil, kCFStringTransformStripDiacritics, false)
+                        
+                    let initialCharacter: String = (displayName.length > 0 ? displayName.substring(to: 1) : "")
+                    let section: String = (initialCharacter.capitalized.isSingleAlphabet ?
+                        initialCharacter.capitalized :
+                        nonalphabeticNameTitle
+                    )
+                        
+                    if result[section] == nil {
+                        result[section] = SectionModel(
+                            model: .groupedContacts(title: section),
+                            elements: []
+                        )
                     }
-                }()
-                
-                if ![title0, title1].contains(nonalphabeticNameTitle) {
-                    return title0 < title1
+                    result[section]?.elements.append(next)
                 }
-                
-                return title1 == nonalphabeticNameTitle
-            }
+                .values
+                .sorted { sectionModel0, sectionModel1 in
+                    let title0: String = {
+                        switch sectionModel0.model {
+                            case .groupedContacts(let title): return title
+                            default: return ""
+                        }
+                    }()
+                    let title1: String = {
+                        switch sectionModel1.model {
+                            case .groupedContacts(let title): return title
+                            default: return ""
+                        }
+                    }()
+                    
+                    if ![title0, title1].contains(nonalphabeticNameTitle) {
+                        return title0 < title1
+                    }
+                    
+                    return title1 == nonalphabeticNameTitle
+                }
         )
     }
 
@@ -404,16 +435,7 @@ extension GlobalSearchViewController {
                         viewController: self,
                         navigatableStateHolder: nil,
                         using: dependencies
-                    ) { [weak self, dependencies] in
-                        let updatedDefaultResults: SearchResultData = GlobalSearchViewController
-                            .getDefaultSearchResults(using: dependencies)
-                        self?.defaultSearchResults = updatedDefaultResults
-                        self?.searchResultSet = updatedDefaultResults
-                        
-                        DispatchQueue.main.async {
-                            self?.tableView.reloadData()
-                        }
-                    }
+                    )
                 )
         }
     }

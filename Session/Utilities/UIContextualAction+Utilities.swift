@@ -50,8 +50,7 @@ public extension UIContextualAction {
         threadViewModel: SessionThreadViewModel,
         viewController: UIViewController?,
         navigatableStateHolder: NavigatableStateHolder?,
-        using dependencies: Dependencies,
-        onActionSuccess: (() -> ())? = nil
+        using dependencies: Dependencies
     ) -> [UIContextualAction]? {
         guard !actions.isEmpty else { return nil }
         
@@ -114,8 +113,6 @@ public extension UIContextualAction {
                                         
                                     case false: threadViewModel.markAsUnread(using: dependencies)
                                 }
-                                
-                                onActionSuccess?()
                             }
                             completionHandler(true)
                         }
@@ -142,24 +139,15 @@ public extension UIContextualAction {
                                     cancelStyle: .alert_text,
                                     dismissOnConfirm: true,
                                     onConfirm: { _ in
-                                        dependencies[singleton: .storage]
-                                            .writeAsync(
-                                                updates: { db in
-                                                    try SessionThread.deleteOrLeave(
-                                                        db,
-                                                        type: .deleteContactConversationAndMarkHidden,
-                                                        threadId: threadViewModel.threadId,
-                                                        threadVariant: threadViewModel.threadVariant,
-                                                        using: dependencies
-                                                    )
-                                                },
-                                                completion: { result in
-                                                    switch result {
-                                                        case .failure: break
-                                                        case .success: onActionSuccess?()
-                                                    }
-                                                }
+                                        dependencies[singleton: .storage].writeAsync { db in
+                                            try SessionThread.deleteOrLeave(
+                                                db,
+                                                type: .deleteContactConversationAndMarkHidden,
+                                                threadId: threadViewModel.threadId,
+                                                threadVariant: threadViewModel.threadVariant,
+                                                using: dependencies
                                             )
+                                        }
                                         
                                         completionHandler(true)
                                     },
@@ -201,24 +189,15 @@ public extension UIContextualAction {
                                             cancelStyle: .alert_text,
                                             dismissOnConfirm: true,
                                             onConfirm: { _ in
-                                                dependencies[singleton: .storage]
-                                                    .writeAsync(
-                                                        updates: { db in
-                                                            try SessionThread.deleteOrLeave(
-                                                                db,
-                                                                type: .hideContactConversation,
-                                                                threadId: threadViewModel.threadId,
-                                                                threadVariant: threadViewModel.threadVariant,
-                                                                using: dependencies
-                                                            )
-                                                        },
-                                                        completion: { result in
-                                                            switch result {
-                                                                case .failure: break
-                                                                case .success: onActionSuccess?()
-                                                            }
-                                                        }
+                                                dependencies[singleton: .storage].writeAsync { db in
+                                                    try SessionThread.deleteOrLeave(
+                                                        db,
+                                                        type: .hideContactConversation,
+                                                        threadId: threadViewModel.threadId,
+                                                        threadVariant: threadViewModel.threadVariant,
+                                                        using: dependencies
                                                     )
+                                                }
                                                 
                                                 completionHandler(true)
                                             },
@@ -260,25 +239,16 @@ public extension UIContextualAction {
                             
                             // Delay the change to give the cell "unswipe" animation some time to complete
                             DispatchQueue.global(qos: .default).asyncAfter(deadline: .now() + unswipeAnimationDelay) {
-                                dependencies[singleton: .storage]
-                                    .writeAsync(
-                                        updates: { db in
-                                            try SessionThread
-                                                .filter(id: threadViewModel.threadId)
-                                                .updateAllAndConfig(
-                                                    db,
-                                                    SessionThread.Columns.pinnedPriority
-                                                        .set(to: (threadViewModel.threadPinnedPriority == 0 ? 1 : 0)),
-                                                    using: dependencies
-                                                )
-                                        },
-                                        completion: { result in
-                                            switch result {
-                                                case .failure: break
-                                                case .success: onActionSuccess?()
-                                            }
-                                        }
-                                    )
+                                dependencies[singleton: .storage].writeAsync { db in
+                                    try SessionThread
+                                        .filter(id: threadViewModel.threadId)
+                                        .updateAllAndConfig(
+                                            db,
+                                            SessionThread.Columns.pinnedPriority
+                                                .set(to: (threadViewModel.threadPinnedPriority == 0 ? 1 : 0)),
+                                            using: dependencies
+                                        )
+                                }
                             }
                         }
 
@@ -313,34 +283,25 @@ public extension UIContextualAction {
                             
                             // Delay the change to give the cell "unswipe" animation some time to complete
                             DispatchQueue.global(qos: .default).asyncAfter(deadline: .now() + unswipeAnimationDelay) {
-                                dependencies[singleton: .storage]
-                                    .writeAsync(
-                                        updates: { db in
-                                            let currentValue: TimeInterval? = try SessionThread
-                                                .filter(id: threadViewModel.threadId)
-                                                .select(.mutedUntilTimestamp)
-                                                .asRequest(of: TimeInterval.self)
-                                                .fetchOne(db)
-                                            
-                                            try SessionThread
-                                                .filter(id: threadViewModel.threadId)
-                                                .updateAll(
-                                                    db,
-                                                    SessionThread.Columns.mutedUntilTimestamp.set(
-                                                        to: (currentValue == nil ?
-                                                            Date.distantFuture.timeIntervalSince1970 :
-                                                            nil
-                                                        )
-                                                    )
+                                dependencies[singleton: .storage].writeAsync { db in
+                                    let currentValue: TimeInterval? = try SessionThread
+                                        .filter(id: threadViewModel.threadId)
+                                        .select(.mutedUntilTimestamp)
+                                        .asRequest(of: TimeInterval.self)
+                                        .fetchOne(db)
+                                    
+                                    try SessionThread
+                                        .filter(id: threadViewModel.threadId)
+                                        .updateAll(
+                                            db,
+                                            SessionThread.Columns.mutedUntilTimestamp.set(
+                                                to: (currentValue == nil ?
+                                                    Date.distantFuture.timeIntervalSince1970 :
+                                                    nil
                                                 )
-                                        },
-                                        completion: { result in
-                                            switch result {
-                                                case .failure: break
-                                                case .success: onActionSuccess?()
-                                            }
-                                        }
-                                    )
+                                            )
+                                        )
+                                }
                             }
                         }
                         
@@ -455,14 +416,7 @@ public extension UIContextualAction {
                                             }
                                         }
                                         .subscribe(on: DispatchQueue.global(qos: .userInitiated))
-                                        .sinkUntilComplete(
-                                            receiveCompletion: { result in
-                                                switch result {
-                                                    case .failure: break
-                                                    case .finished: onActionSuccess?()
-                                                }
-                                            }
-                                        )
+                                        .sinkUntilComplete()
                                 }
                             }
                                 
@@ -566,47 +520,38 @@ public extension UIContextualAction {
                                             }
                                         }()
                                         
-                                        dependencies[singleton: .storage]
-                                            .writeAsync(
-                                                updates: { db in
-                                                    do {
-                                                        try SessionThread.deleteOrLeave(
-                                                            db,
-                                                            type: deletionType,
-                                                            threadId: threadViewModel.threadId,
-                                                            threadVariant: threadViewModel.threadVariant,
-                                                            using: dependencies
-                                                        )
-                                                    } catch {
-                                                        DispatchQueue.main.async {
-                                                            let toastBody: String = {
-                                                                switch threadViewModel.threadVariant {
-                                                                    case .legacyGroup, .group:
-                                                                        return "groupLeaveErrorFailed"
-                                                                            .put(key: "group_name", value: threadViewModel.displayName)
-                                                                            .localized()
-                                                                        
-                                                                    default:
-                                                                        return "communityLeaveError"
-                                                                            .put(key: "community_name", value: threadViewModel.displayName)
-                                                                            .localized()
-                                                                }
-                                                            }()
-                                                            navigatableStateHolder?.showToast(
-                                                                text: toastBody,
-                                                                backgroundColor: .backgroundSecondary
-                                                            )
+                                        dependencies[singleton: .storage].writeAsync { db in
+                                            do {
+                                                try SessionThread.deleteOrLeave(
+                                                    db,
+                                                    type: deletionType,
+                                                    threadId: threadViewModel.threadId,
+                                                    threadVariant: threadViewModel.threadVariant,
+                                                    using: dependencies
+                                                )
+                                            } catch {
+                                                DispatchQueue.main.async {
+                                                    let toastBody: String = {
+                                                        switch threadViewModel.threadVariant {
+                                                            case .legacyGroup, .group:
+                                                                return "groupLeaveErrorFailed"
+                                                                    .put(key: "group_name", value: threadViewModel.displayName)
+                                                                    .localized()
+                                                                
+                                                            default:
+                                                                return "communityLeaveError"
+                                                                    .put(key: "community_name", value: threadViewModel.displayName)
+                                                                    .localized()
                                                         }
-                                                        throw error
-                                                    }
-                                                },
-                                                completion: { result in
-                                                    switch result {
-                                                        case .failure: break
-                                                        case .success: onActionSuccess?()
-                                                    }
+                                                    }()
+                                                    navigatableStateHolder?.showToast(
+                                                        text: toastBody,
+                                                        backgroundColor: .backgroundSecondary
+                                                    )
                                                 }
-                                            )
+                                                throw error
+                                            }
+                                        }
                                         
                                         completionHandler(true)
                                     },
@@ -704,24 +649,15 @@ public extension UIContextualAction {
                                             }
                                         }()
                                         
-                                        dependencies[singleton: .storage]
-                                            .writeAsync(
-                                                updates: { db in
-                                                    try SessionThread.deleteOrLeave(
-                                                        db,
-                                                        type: deletionType,
-                                                        threadId: threadViewModel.threadId,
-                                                        threadVariant: threadViewModel.threadVariant,
-                                                        using: dependencies
-                                                    )
-                                                },
-                                                completion: { result in
-                                                    switch result {
-                                                        case .failure: break
-                                                        case .success: onActionSuccess?()
-                                                    }
-                                                }
+                                        dependencies[singleton: .storage].writeAsync { db in
+                                            try SessionThread.deleteOrLeave(
+                                                db,
+                                                type: deletionType,
+                                                threadId: threadViewModel.threadId,
+                                                threadVariant: threadViewModel.threadVariant,
+                                                using: dependencies
                                             )
+                                        }
                                         
                                         completionHandler(true)
                                     },
@@ -759,24 +695,15 @@ public extension UIContextualAction {
                                     cancelStyle: .alert_text,
                                     dismissOnConfirm: true,
                                     onConfirm: { _ in
-                                        dependencies[singleton: .storage]
-                                            .writeAsync(
-                                                updates: { db in
-                                                    try SessionThread.deleteOrLeave(
-                                                        db,
-                                                        type: .deleteContactConversationAndContact,
-                                                        threadId: threadViewModel.threadId,
-                                                        threadVariant: threadViewModel.threadVariant,
-                                                        using: dependencies
-                                                    )
-                                                },
-                                                completion: { result in
-                                                    switch result {
-                                                        case .failure: break
-                                                        case .success: onActionSuccess?()
-                                                    }
-                                                }
+                                        dependencies[singleton: .storage].writeAsync { db in
+                                            try SessionThread.deleteOrLeave(
+                                                db,
+                                                type: .deleteContactConversationAndContact,
+                                                threadId: threadViewModel.threadId,
+                                                threadVariant: threadViewModel.threadVariant,
+                                                using: dependencies
                                             )
+                                        }
                                         
                                         completionHandler(true)
                                     },
