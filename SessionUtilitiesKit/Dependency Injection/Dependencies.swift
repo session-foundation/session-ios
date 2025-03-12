@@ -386,14 +386,18 @@ private extension Dependencies {
     
     /// Convenience method to retrieve the existing dependency instance from memory in a thread-safe way
     private func getValue<T>(_ key: String, of variant: DependencyStorage.Key.Variant) -> T? {
-        guard let typedValue: DependencyStorage.Value = storage.instances[variant.key(key)] else { return nil }
-        guard let result: T = typedValue.value(as: T.self) else {
-            /// If there is a value stored for the key, but it's not the right type then something has gone wrong, and we should log
-            Log.critical("Failed to convert stored dependency '\(variant.key(key))' to expected type: \(T.self)")
-            return nil
+        return _storage.performMap { storage in
+            guard let typedValue: DependencyStorage.Value = storage.instances[variant.key(key)] else {
+                return nil
+            }
+            guard let result: T = typedValue.value(as: T.self) else {
+                /// If there is a value stored for the key, but it's not the right type then something has gone wrong, and we should log
+                Log.critical("Failed to convert stored dependency '\(variant.key(key))' to expected type: \(T.self)")
+                return nil
+            }
+            
+            return result
         }
-        
-        return result
     }
     
     /// Convenience method to store a dependency instance in memory in a thread-safe way
