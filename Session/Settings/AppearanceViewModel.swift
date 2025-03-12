@@ -34,7 +34,7 @@ class AppearanceViewModel: SessionTableViewModel, NavigatableStateHolder, Observ
                 case .primaryColor: return "appearancePrimaryColor".localized()
                 case .primaryColorSelection: return nil
                 case .autoDarkMode: return "appearanceAutoDarkMode".localized()
-                case .appIcon: return "App Icon"//.localized()
+                case .appIcon: return "appIcon".localized()
             }
         }
         
@@ -149,7 +149,7 @@ class AppearanceViewModel: SessionTableViewModel, NavigatableStateHolder, Observ
                         SessionCell.Info(
                             id: .darkModeMatchSystemSettings,
                             title: SessionCell.TextInfo(
-                                "Select alternate app icon",//.localized(),
+                                "appIconSelect".localized(),
                                 font: .titleRegular
                             ),
                             trailingAccessory: .icon(.chevronRight),

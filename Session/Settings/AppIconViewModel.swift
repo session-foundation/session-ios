@@ -78,8 +78,8 @@ class AppIconViewModel: SessionTableViewModel, NavigatableStateHolder, Observabl
         
         var title: String? {
             switch self {
-                case .appIcon: return "App Icon"//.localized()
-                case .icon: return "Icon"//.localized()
+                case .appIcon: return "appIcon".localized()
+                case .icon: return "appIconSelectionTitle".localized()
             }
         }
         
@@ -92,7 +92,10 @@ class AppIconViewModel: SessionTableViewModel, NavigatableStateHolder, Observabl
         
         var footer: String? {
             switch self {
-                case .icon: return "Alternate app icon is displayed on home screen and app library. App name will still appear as 'Session'."//.localized()
+                case .icon:
+                    return "appIconDescription"
+                        .put(key: "app_name", value: Constants.app_name)
+                        .localized()
                 default: return nil
             }
         }
@@ -121,7 +124,7 @@ class AppIconViewModel: SessionTableViewModel, NavigatableStateHolder, Observabl
                         SessionCell.Info(
                             id: .appIconUseAlternate,
                             title: SessionCell.TextInfo(
-                                "Use alternate app icon",//.localized(),
+                                "appIconEnableIcon".localized(),
                                 font: .titleRegular
                             ),
                             trailingAccessory: .toggle(
