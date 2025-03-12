@@ -1,5 +1,5 @@
 {
-  "originHash" : "1bac322ec3f74e0d9544c3438528dc9c7674974b70a352ca7939962ab4f249b6",
+  "originHash" : "688abd5f50453ed3433c8c6bf57bb60964d1c199902c2bff846544c6691cd18c",
   "pins" : [
     {
       "identity" : "cocoalumberjack",
@@ -47,6 +47,15 @@
       }
     },
     {
+      "identity" : "libsession-util-spm",
+      "kind" : "remoteSourceControl",
+      "location" : "https://github.com/session-foundation/libsession-util-spm",
+      "state" : {
+        "revision" : "dfa9ad8df694cde779323ffcd9c2426d71eb6bdc",
+        "version" : "1.2.1"
+      }
+    },
+    {
       "identity" : "libwebp-xcode",
       "kind" : "remoteSourceControl",
       "location" : "https://github.com/SDWebImage/libwebp-Xcode.git",
@@ -71,15 +80,6 @@
       "state" : {
         "revision" : "121455c4e630fcb95aaefd7e4257b0c2e3cfe6d5",
         "version" : "5.2.0"
-      }
-    },
-    {
-      "identity" : "punycodeswift",
-      "kind" : "remoteSourceControl",
-      "location" : "https://github.com/gumob/PunycodeSwift.git",
-      "state" : {
-        "revision" : "30a462bdb4398ea835a3585472229e0d74b36ba5",
-        "version" : "3.0.0"
       }
     },
     {
