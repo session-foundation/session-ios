@@ -2006,15 +2006,31 @@ extension ConversationVC:
             
                 UIPasteboard.general.setData(data, forPasteboardType: type.identifier)
         }
+        
+        DispatchQueue.main.asyncAfter(deadline: .now() + .milliseconds(Int(ContextMenuVC.dismissDurationPartOne * 1000))) { [weak self] in
+            self?.viewModel.showToast(
+                text: "copied".localized(),
+                backgroundColor: .toast_background,
+                inset: Values.largeSpacing + (self?.inputAccessoryView?.frame.height ?? 0)
+            )
+        }
     }
 
     func copySessionID(_ cellViewModel: MessageViewModel) {
         guard cellViewModel.variant == .standardIncoming else { return }
         
         UIPasteboard.general.string = cellViewModel.authorId
+        
+        DispatchQueue.main.asyncAfter(deadline: .now() + .milliseconds(Int(ContextMenuVC.dismissDurationPartOne * 1000))) { [weak self] in
+            self?.viewModel.showToast(
+                text: "copied".localized(),
+                backgroundColor: .toast_background,
+                inset: Values.largeSpacing + (self?.inputAccessoryView?.frame.height ?? 0)
+            )
+        }
     }
 
-    func delete(_ cellViewModel: MessageViewModel) {
+    func delete(_ cellViewModel: MessageViewModel, completion: (() -> Void)?) {
         /// Retrieve the deletion actions for the selected message(s) of there are any
         let messagesToDelete: [MessageViewModel] = [cellViewModel]
         
@@ -2103,6 +2119,7 @@ extension ConversationVC:
                         )
                 },
                 afterClosed: { [weak self] in
+                    completion?()
                     self?.becomeFirstResponder()
                 }
             )
@@ -2165,10 +2182,18 @@ extension ConversationVC:
             }
             
             self?.sendDataExtraction(kind: .mediaSaved(timestamp: UInt64(cellViewModel.timestampMs)))
+            
+            DispatchQueue.main.asyncAfter(deadline: .now() + .milliseconds(Int(ContextMenuVC.dismissDurationPartOne * 1000))) { [weak self] in
+                self?.viewModel.showToast(
+                    text: "saved".localized(),
+                    backgroundColor: .toast_background,
+                    inset: Values.largeSpacing + (self?.inputAccessoryView?.frame.height ?? 0)
+                )
+            }
         }
     }
 
-    func ban(_ cellViewModel: MessageViewModel) {
+    func ban(_ cellViewModel: MessageViewModel, completion: (() -> Void)?) {
         guard cellViewModel.threadVariant == .community else { return }
         
         let threadId: String = self.viewModel.threadData.threadId
@@ -2224,13 +2249,16 @@ extension ConversationVC:
                     
                     self?.becomeFirstResponder()
                 },
-                afterClosed: { [weak self] in self?.becomeFirstResponder() }
+                afterClosed: { [weak self] in
+                    completion?()
+                    self?.becomeFirstResponder()
+                }
             )
         )
         self.present(modal, animated: true)
     }
 
-    func banAndDeleteAllMessages(_ cellViewModel: MessageViewModel) {
+    func banAndDeleteAllMessages(_ cellViewModel: MessageViewModel, completion: (() -> Void)?) {
         guard cellViewModel.threadVariant == .community else { return }
         
         let threadId: String = self.viewModel.threadData.threadId
@@ -2286,7 +2314,10 @@ extension ConversationVC:
                     
                     self?.becomeFirstResponder()
                 },
-                afterClosed: { [weak self] in self?.becomeFirstResponder() }
+                afterClosed: { [weak self] in
+                    completion?()
+                    self?.becomeFirstResponder()
+                }
             )
         )
         self.present(modal, animated: true)
