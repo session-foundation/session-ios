@@ -33,6 +33,9 @@ struct MessageInfoScreen: View {
                         messageViewModel: messageViewModel,
                         dependencies: dependencies
                     )
+                    .clipShape(
+                        RoundedRectangle(cornerRadius: Self.cornerRadius)
+                    )
                     .background(
                         RoundedRectangle(cornerRadius: Self.cornerRadius)
                             .fill(
@@ -50,7 +53,6 @@ struct MessageInfoScreen: View {
                     .padding(.top, Values.smallSpacing)
                     .padding(.bottom, Values.verySmallSpacing)
                     .padding(.horizontal, Values.largeSpacing)
-                    
                     
                     if isMessageFailed {
                         let (image, statusText, tintColor) = messageViewModel.state.statusIconInfo(
