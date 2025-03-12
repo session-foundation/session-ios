@@ -2030,7 +2030,7 @@ extension ConversationVC:
         }
     }
 
-    func delete(_ cellViewModel: MessageViewModel) {
+    func delete(_ cellViewModel: MessageViewModel, completion: (() -> Void)?) {
         /// Retrieve the deletion actions for the selected message(s) of there are any
         let messagesToDelete: [MessageViewModel] = [cellViewModel]
         
@@ -2119,6 +2119,7 @@ extension ConversationVC:
                         )
                 },
                 afterClosed: { [weak self] in
+                    completion?()
                     self?.becomeFirstResponder()
                 }
             )
@@ -2192,7 +2193,7 @@ extension ConversationVC:
         }
     }
 
-    func ban(_ cellViewModel: MessageViewModel) {
+    func ban(_ cellViewModel: MessageViewModel, completion: (() -> Void)?) {
         guard cellViewModel.threadVariant == .community else { return }
         
         let threadId: String = self.viewModel.threadData.threadId
@@ -2248,13 +2249,16 @@ extension ConversationVC:
                     
                     self?.becomeFirstResponder()
                 },
-                afterClosed: { [weak self] in self?.becomeFirstResponder() }
+                afterClosed: { [weak self] in
+                    completion?()
+                    self?.becomeFirstResponder()
+                }
             )
         )
         self.present(modal, animated: true)
     }
 
-    func banAndDeleteAllMessages(_ cellViewModel: MessageViewModel) {
+    func banAndDeleteAllMessages(_ cellViewModel: MessageViewModel, completion: (() -> Void)?) {
         guard cellViewModel.threadVariant == .community else { return }
         
         let threadId: String = self.viewModel.threadData.threadId
@@ -2310,7 +2314,10 @@ extension ConversationVC:
                     
                     self?.becomeFirstResponder()
                 },
-                afterClosed: { [weak self] in self?.becomeFirstResponder() }
+                afterClosed: { [weak self] in
+                    completion?()
+                    self?.becomeFirstResponder()
+                }
             )
         )
         self.present(modal, animated: true)

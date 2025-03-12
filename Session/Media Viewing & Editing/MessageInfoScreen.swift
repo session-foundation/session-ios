@@ -312,14 +312,15 @@ struct MessageInfoScreen: View {
                                     let tintColor: ThemeValue = actions[index].themeColor
                                     Button(
                                         action: {
-                                            actions[index].work()
-                                            feedbackMessage = actions[index].feedback
-                                            if actions[index].shouldDismissInfoScreen {
-                                                let deadline: DispatchTime = .now() + (feedbackMessage?.isEmpty == false ? 2 : 0)
-                                                DispatchQueue.main.asyncAfter(deadline: deadline, execute: {
-                                                    dismiss()
-                                                })
+                                            actions[index].work() {
+                                                if actions[index].shouldDismissInfoScreen {
+                                                    let deadline: DispatchTime = .now() + (feedbackMessage?.isEmpty == false ? 2 : 0)
+                                                    DispatchQueue.main.asyncAfter(deadline: deadline, execute: {
+                                                        dismiss()
+                                                    })
+                                                }
                                             }
+                                            feedbackMessage = actions[index].feedback
                                         },
                                         label: {
                                             HStack(spacing: Values.largeSpacing) {

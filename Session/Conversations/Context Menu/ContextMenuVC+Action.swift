@@ -21,7 +21,7 @@ extension ContextMenuVC {
         let actionType: ActionType
         let shouldDismissInfoScreen: Bool
         let accessibilityLabel: String?
-        let work: () -> Void
+        let work: ((() -> Void)?) -> Void
         
         enum ActionType {
             case emoji
@@ -41,7 +41,7 @@ extension ContextMenuVC {
             actionType: ActionType = .generic,
             shouldDismissInfoScreen: Bool = false,
             accessibilityLabel: String? = nil,
-            work: @escaping () -> Void
+            work: @escaping ((() -> Void)?) -> Void
         ) {
             self.icon = icon
             self.title = title
@@ -61,7 +61,7 @@ extension ContextMenuVC {
                 icon: UIImage(named: "ic_info"),
                 title: "info".localized(),
                 accessibilityLabel: "Message info"
-            ) { delegate?.info(cellViewModel) }
+            ) { _ in delegate?.info(cellViewModel) }
         }
 
         static func retry(_ cellViewModel: MessageViewModel, _ delegate: ContextMenuActionDelegate?) -> Action {
@@ -72,7 +72,7 @@ extension ContextMenuVC {
                     "resend".localized()
                 ),
                 accessibilityLabel: (cellViewModel.state == .failedToSync ? "Resync message" : "Resend message")
-            ) { delegate?.retry(cellViewModel) }
+            ) { _ in delegate?.retry(cellViewModel) }
         }
 
         static func reply(_ cellViewModel: MessageViewModel, _ delegate: ContextMenuActionDelegate?) -> Action {
@@ -81,7 +81,7 @@ extension ContextMenuVC {
                 title: "reply".localized(),
                 shouldDismissInfoScreen: true,
                 accessibilityLabel: "Reply to message"
-            ) { delegate?.reply(cellViewModel) }
+            ) { _ in delegate?.reply(cellViewModel) }
         }
 
         static func copy(_ cellViewModel: MessageViewModel, _ delegate: ContextMenuActionDelegate?) -> Action {
@@ -90,7 +90,7 @@ extension ContextMenuVC {
                 title: "copy".localized(),
                 feedback: "copied".localized(),
                 accessibilityLabel: "Copy text"
-            ) { delegate?.copy(cellViewModel) }
+            ) { _ in delegate?.copy(cellViewModel) }
         }
 
         static func copySessionID(_ cellViewModel: MessageViewModel, _ delegate: ContextMenuActionDelegate?) -> Action {
@@ -99,7 +99,7 @@ extension ContextMenuVC {
                 title: "accountIDCopy".localized(),
                 feedback: "copied".localized(),
                 accessibilityLabel: "Copy Session ID"
-            ) { delegate?.copySessionID(cellViewModel) }
+            ) { _ in delegate?.copySessionID(cellViewModel) }
         }
 
         static func delete(_ cellViewModel: MessageViewModel, _ delegate: ContextMenuActionDelegate?) -> Action {
@@ -113,7 +113,7 @@ extension ContextMenuVC {
                 themeColor: .danger,
                 shouldDismissInfoScreen: true,
                 accessibilityLabel: "Delete message"
-            ) { delegate?.delete(cellViewModel) }
+            ) { completion in delegate?.delete(cellViewModel, completion: completion) }
         }
 
         static func save(_ cellViewModel: MessageViewModel, _ delegate: ContextMenuActionDelegate?) -> Action {
@@ -122,7 +122,7 @@ extension ContextMenuVC {
                 title: "save".localized(),
                 feedback: "saved".localized(),
                 accessibilityLabel: "Save attachment"
-            ) { delegate?.save(cellViewModel) }
+            ) { _ in delegate?.save(cellViewModel) }
         }
 
         static func ban(_ cellViewModel: MessageViewModel, _ delegate: ContextMenuActionDelegate?) -> Action {
@@ -131,7 +131,7 @@ extension ContextMenuVC {
                 title: "banUser".localized(),
                 themeColor: .danger,
                 accessibilityLabel: "Ban user"
-            ) { delegate?.ban(cellViewModel) }
+            ) { completion in delegate?.ban(cellViewModel, completion: completion) }
         }
         
         static func banAndDeleteAllMessages(_ cellViewModel: MessageViewModel, _ delegate: ContextMenuActionDelegate?) -> Action {
@@ -141,27 +141,27 @@ extension ContextMenuVC {
                 themeColor: .danger,
                 shouldDismissInfoScreen: true,
                 accessibilityLabel: "Ban user and delete"
-            ) { delegate?.banAndDeleteAllMessages(cellViewModel) }
+            ) { completion in delegate?.banAndDeleteAllMessages(cellViewModel, completion: completion) }
         }
         
         static func react(_ cellViewModel: MessageViewModel, _ emoji: EmojiWithSkinTones, _ delegate: ContextMenuActionDelegate?) -> Action {
             return Action(
                 title: emoji.rawValue,
                 actionType: .emoji
-            ) { delegate?.react(cellViewModel, with: emoji) }
+            ) { _ in delegate?.react(cellViewModel, with: emoji) }
         }
         
         static func emojiPlusButton(_ cellViewModel: MessageViewModel, _ delegate: ContextMenuActionDelegate?) -> Action {
             return Action(
                 actionType: .emojiPlus,
                 accessibilityLabel: "Add emoji"
-            ) { delegate?.showFullEmojiKeyboard(cellViewModel) }
+            ) { _ in delegate?.showFullEmojiKeyboard(cellViewModel) }
         }
         
         static func dismiss(_ delegate: ContextMenuActionDelegate?) -> Action {
             return Action(
                 actionType: .dismiss
-            ) { delegate?.contextMenuDismissed() }
+            ) { _ in delegate?.contextMenuDismissed() }
         }
     }
     
@@ -308,10 +308,10 @@ protocol ContextMenuActionDelegate {
     func reply(_ cellViewModel: MessageViewModel)
     func copy(_ cellViewModel: MessageViewModel)
     func copySessionID(_ cellViewModel: MessageViewModel)
-    func delete(_ cellViewModel: MessageViewModel)
+    func delete(_ cellViewModel: MessageViewModel, completion: (() -> Void)?)
     func save(_ cellViewModel: MessageViewModel)
-    func ban(_ cellViewModel: MessageViewModel)
-    func banAndDeleteAllMessages(_ cellViewModel: MessageViewModel)
+    func ban(_ cellViewModel: MessageViewModel, completion: (() -> Void)?)
+    func banAndDeleteAllMessages(_ cellViewModel: MessageViewModel, completion: (() -> Void)?)
     func react(_ cellViewModel: MessageViewModel, with emoji: EmojiWithSkinTones)
     func showFullEmojiKeyboard(_ cellViewModel: MessageViewModel)
     func contextMenuDismissed()

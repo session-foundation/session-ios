@@ -415,7 +415,7 @@ final class ContextMenuVC: UIViewController {
             },
             completion: { [weak self] _ in
                 self?.dismiss()
-                self?.actions.first(where: { $0.actionType == .dismiss })?.work()
+                self?.actions.first(where: { $0.actionType == .dismiss })?.work(){}
             }
         )
     }
