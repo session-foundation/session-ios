@@ -16,8 +16,12 @@ class MockOGMCache: Mock<OGMCacheType>, OGMCacheType {
         set { mockNoReturn(args: [newValue]) }
     }
     
-    func getTimeSinceLastOpen(using dependencies: Dependencies) -> TimeInterval {
-        return mock(args: [dependencies])
+    func getLastSuccessfulCommunityPollTimestamp() -> TimeInterval {
+        return mock()
+    }
+    
+    func setLastSuccessfulCommunityPollTimestamp(_ timestamp: TimeInterval) {
+        mockNoReturn(args: [timestamp])
     }
     
     func setDefaultRoomInfo(_ info: [OpenGroupManager.DefaultRoomInfo]) {

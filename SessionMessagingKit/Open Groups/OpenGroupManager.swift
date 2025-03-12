@@ -935,7 +935,7 @@ public extension OpenGroupManager {
     class Cache: OGMCacheType {
         private let dependencies: Dependencies
         private let defaultRoomsSubject: CurrentValueSubject<[DefaultRoomInfo], Error> = CurrentValueSubject([])
-        private var _timeSinceLastOpen: TimeInterval?
+        private var _lastSuccessfulCommunityPollTimestamp: TimeInterval?
         public var pendingChanges: [OpenGroupAPI.PendingChange] = []
         
         public var defaultRoomsPublisher: AnyPublisher<[DefaultRoomInfo], Error> {
@@ -961,18 +961,22 @@ public extension OpenGroupManager {
         
         // MARK: - Functions
         
-        public func getTimeSinceLastOpen(using dependencies: Dependencies) -> TimeInterval {
-            if let storedTimeSinceLastOpen: TimeInterval = _timeSinceLastOpen {
-                return storedTimeSinceLastOpen
+        public func getLastSuccessfulCommunityPollTimestamp() -> TimeInterval {
+            if let storedTime: TimeInterval = _lastSuccessfulCommunityPollTimestamp {
+                return storedTime
             }
             
-            guard let lastOpen: Date = dependencies[defaults: .standard, key: .lastOpen] else {
-                _timeSinceLastOpen = .greatestFiniteMagnitude
-                return .greatestFiniteMagnitude
+            guard let lastPoll: Date = dependencies[defaults: .standard, key: .lastOpen] else {
+                return 0
             }
             
-            _timeSinceLastOpen = dependencies.dateNow.timeIntervalSince(lastOpen)
-            return dependencies.dateNow.timeIntervalSince(lastOpen)
+            _lastSuccessfulCommunityPollTimestamp = lastPoll.timeIntervalSince1970
+            return lastPoll.timeIntervalSince1970
+        }
+        
+        public func setLastSuccessfulCommunityPollTimestamp(_ timestamp: TimeInterval) {
+            dependencies[defaults: .standard, key: .lastOpen] = Date(timeIntervalSince1970: timestamp)
+            _lastSuccessfulCommunityPollTimestamp = timestamp
         }
         
         public func setDefaultRoomInfo(_ info: [DefaultRoomInfo]) {
@@ -995,6 +999,7 @@ public protocol OGMCacheType: OGMImmutableCacheType, MutableCacheType {
     
     var pendingChanges: [OpenGroupAPI.PendingChange] { get set }
     
-    func getTimeSinceLastOpen(using dependencies: Dependencies) -> TimeInterval
+    func getLastSuccessfulCommunityPollTimestamp() -> TimeInterval
+    func setLastSuccessfulCommunityPollTimestamp(_ timestamp: TimeInterval)
     func setDefaultRoomInfo(_ info: [OpenGroupManager.DefaultRoomInfo])
 }
