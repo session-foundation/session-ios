@@ -23,7 +23,13 @@ public final class SessionCall: CurrentCallProtocol, WebRTCSessionDelegate {
     var audioMode: AudioMode
     public let webRTCSession: WebRTCSession
     let isOutgoing: Bool
-    var remoteSDP: RTCSessionDescription? = nil
+    var remoteSDP: RTCSessionDescription? = nil {
+        didSet {
+            if hasStartedConnecting, let sdp = remoteSDP {
+                webRTCSession.handleRemoteSDP(sdp, from: sessionId) // This sends an answer message internally
+            }
+        }
+    }
     var callInteractionId: Int64?
     var answerCallAction: CXAnswerCallAction? = nil
     
@@ -214,9 +220,6 @@ public final class SessionCall: CurrentCallProtocol, WebRTCSessionDelegate {
         
         Log.info(.calls, "Did receive remote sdp.")
         remoteSDP = sdp
-        if hasStartedConnecting {
-            webRTCSession.handleRemoteSDP(sdp, from: sessionId) // This sends an answer message internally
-        }
         if mode == .answer {
             self.updateCurrentConnectionStepIfPossible(AnswerStep.receivedOffer)
         }
@@ -296,10 +299,10 @@ public final class SessionCall: CurrentCallProtocol, WebRTCSessionDelegate {
         guard case .answer = mode else { return }
         
         hasStartedConnecting = true
+        self.updateCurrentConnectionStepIfPossible(AnswerStep.sendingAnswer)
         
         if let sdp = remoteSDP {
             SNLog("[Calls] Got remote sdp already")
-            self.updateCurrentConnectionStepIfPossible(AnswerStep.sendingAnswer)
             webRTCSession.handleRemoteSDP(sdp, from: sessionId) // This sends an answer message internally
         }
     }
@@ -615,9 +618,14 @@ extension SessionCall {
         connectionStepsRecord[step.index] = true
         while let nextStep = currentConnectionStep.nextStep, connectionStepsRecord[nextStep.index] {
             currentConnectionStep = nextStep
-            updateCallDetailedStatus?(
-                mode == .offer ? Constants.call_connection_steps_sender[currentConnectionStep.index] : Constants.call_connection_steps_receiver[currentConnectionStep.index]
-            )
+            DispatchQueue.main.async {
+                self.updateCallDetailedStatus?(
+                    self.mode == .offer ?
+                    Constants.call_connection_steps_sender[self.currentConnectionStep.index] :
+                    Constants.call_connection_steps_receiver[self.currentConnectionStep.index]
+                )
+            }
+            
         }
     }
 }
