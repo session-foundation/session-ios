@@ -174,7 +174,7 @@ extension Permissions {
     public static func checkLocalNetworkPermission(using dependencies: Dependencies) {
         Task {
             do {
-                if try await requestLocalNetworkAuthorization() {
+                if try await checkLocalNetworkPermissionWithBonjour() {
                     // Permission is granted, continue to next onboarding step
                     dependencies[defaults: .appGroup, key: .lastSeenHasLocalNetworkPermission] = true
                 } else {
@@ -187,8 +187,8 @@ extension Permissions {
         }
     }
     
-    public static func requestLocalNetworkAuthorization() async throws -> Bool {
-        let type = "_session_local_network_access_check._tcp"
+    public static func checkLocalNetworkPermissionWithBonjour() async throws -> Bool {
+        let type = "_session_local_network_access_check._tcp" // stringlint:ignore
         let queue = DispatchQueue(label: "localNetworkAuthCheck")
 
         let listener = try NWListener(using: NWParameters(tls: .none, tcp: NWProtocolTCP.Options()))
@@ -265,13 +265,13 @@ extension Permissions {
                             resume(with: .failure(error))
                         case let .waiting(error):
                             switch error {
-                            case .dns(DNSServiceErrorType(kDNSServiceErr_PolicyDenied)):
-                                print("Browser permission denied, reporting failure.")
-                                resume(with: .success(false))
-                            default:
-                                print("Browser waiting, stopping. \(error)")
-                                resume(with: .failure(error))
-                            }
+                                case .dns(DNSServiceErrorType(kDNSServiceErr_PolicyDenied)):
+                                    print("Browser permission denied, reporting failure.")
+                                    resume(with: .success(false))
+                                default:
+                                    print("Browser waiting, stopping. \(error)")
+                                    resume(with: .failure(error))
+                                }
                         @unknown default:
                             print("Ignoring unknown browser state: \(String(describing: newState))")
                             return
