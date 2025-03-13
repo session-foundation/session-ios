@@ -1968,12 +1968,12 @@ final class ConversationVC: BaseVC, LibSessionRespondingViewController, Conversa
     func conversationSearchControllerDependencies() -> Dependencies { return viewModel.dependencies }
     func currentVisibleIds() -> [Int64] { return (fullyVisibleCellViewModels() ?? []).map { $0.id } }
     
-    func conversationSearchController(_ conversationSearchController: ConversationSearchController, didUpdateSearchResults results: [Interaction.TimestampInfo]?, searchText: String?) {
+    func conversationSearchController(_ conversationSearchController: ConversationSearchController?, didUpdateSearchResults results: [Interaction.TimestampInfo]?, searchText: String?) {
         viewModel.lastSearchedText = searchText
         tableView.reloadRows(at: tableView.indexPathsForVisibleRows ?? [], with: UITableView.RowAnimation.none)
     }
 
-    func conversationSearchController(_ conversationSearchController: ConversationSearchController, didSelectInteractionInfo interactionInfo: Interaction.TimestampInfo) {
+    func conversationSearchController(_ conversationSearchController: ConversationSearchController?, didSelectInteractionInfo interactionInfo: Interaction.TimestampInfo) {
         scrollToInteractionIfNeeded(with: interactionInfo, focusBehaviour: .highlight)
     }
 
