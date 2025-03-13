@@ -51,65 +51,74 @@ public enum MessageReceiveJob: JobExecutor {
                 }
             }
         
-        dependencies[singleton: .storage].write { db in
-            for (messageInfo, protoContent) in messageData {
-                do {
-                    try MessageReceiver.handle(
-                        db,
-                        threadId: threadId,
-                        threadVariant: messageInfo.threadVariant,
-                        message: messageInfo.message,
-                        serverExpirationTimestamp: messageInfo.serverExpirationTimestamp,
-                        associatedWithProto: protoContent,
-                        using: dependencies
-                    )
-                }
-                catch {
-                    // If the current message is a permanent failure then override it with the
-                    // new error (we want to retry if there is a single non-permanent error)
-                    switch error {
-                        // Ignore duplicate and self-send errors (these will usually be caught during
-                        // parsing but sometimes can get past and conflict at database insertion - eg.
-                        // for open group messages) we also don't bother logging as it results in
-                        // excessive logging which isn't useful)
-                        case DatabaseError.SQLITE_CONSTRAINT_UNIQUE,
-                            DatabaseError.SQLITE_CONSTRAINT,    // Sometimes thrown for UNIQUE
-                            MessageReceiverError.duplicateMessage,
-                            MessageReceiverError.duplicateControlMessage,
-                            MessageReceiverError.selfSend:
-                            break
-                        
-                        case let receiverError as MessageReceiverError where !receiverError.isRetryable:
-                            Log.error(.cat, "Permanently failed message due to error: \(error)")
-                            continue
-                        
-                        default:
-                            Log.error(.cat, "Couldn't receive message due to error: \(error)")
-                            lastError = error
-                            
-                            // We failed to process this message but it is a retryable error
-                            // so add it to the list to re-process
-                            remainingMessagesToProcess.append(messageInfo)
+        dependencies[singleton: .storage].writeAsync(
+            updates: { db -> Error? in
+                for (messageInfo, protoContent) in messageData {
+                    do {
+                        try MessageReceiver.handle(
+                            db,
+                            threadId: threadId,
+                            threadVariant: messageInfo.threadVariant,
+                            message: messageInfo.message,
+                            serverExpirationTimestamp: messageInfo.serverExpirationTimestamp,
+                            associatedWithProto: protoContent,
+                            using: dependencies
+                        )
+                    }
+                    catch {
+                        // If the current message is a permanent failure then override it with the
+                        // new error (we want to retry if there is a single non-permanent error)
+                        switch error {
+                                // Ignore duplicate and self-send errors (these will usually be caught during
+                                // parsing but sometimes can get past and conflict at database insertion - eg.
+                                // for open group messages) we also don't bother logging as it results in
+                                // excessive logging which isn't useful)
+                            case DatabaseError.SQLITE_CONSTRAINT_UNIQUE,
+                                DatabaseError.SQLITE_CONSTRAINT,    // Sometimes thrown for UNIQUE
+                                MessageReceiverError.duplicateMessage,
+                                MessageReceiverError.duplicateControlMessage,
+                                MessageReceiverError.selfSend:
+                                break
+                                
+                            case let receiverError as MessageReceiverError where !receiverError.isRetryable:
+                                Log.error(.cat, "Permanently failed message due to error: \(error)")
+                                continue
+                                
+                            default:
+                                Log.error(.cat, "Couldn't receive message due to error: \(error)")
+                                lastError = error
+                                
+                                // We failed to process this message but it is a retryable error
+                                // so add it to the list to re-process
+                                remainingMessagesToProcess.append(messageInfo)
+                        }
                     }
                 }
+                
+                // If any messages failed to process then we want to update the job to only include
+                // those failed messages
+                guard !remainingMessagesToProcess.isEmpty else { return nil }
+                
+                updatedJob = try job
+                    .with(details: Details(messages: remainingMessagesToProcess))
+                    .defaulting(to: job)
+                    .upserted(db)
+                
+                return lastError
+            },
+            completion: { result in
+                // TODO: [REFACTOR] Need to test this!!!
+                // Handle the result
+                switch result {
+                    case .failure(let error): failure(updatedJob, error, false)
+                    case .success(.some(let error as MessageReceiverError)) where !error.isRetryable:
+                        failure(updatedJob, error, true)
+                        
+                    case .success(.some(let error)): failure(updatedJob, error, false)
+                    case .success: success(updatedJob, false)
+                }
             }
-            
-            // If any messages failed to process then we want to update the job to only include
-            // those failed messages
-            guard !remainingMessagesToProcess.isEmpty else { return }
-            
-            updatedJob = try job
-                .with(details: Details(messages: remainingMessagesToProcess))
-                .defaulting(to: job)
-                .upserted(db)
-        }
-        
-        // Handle the result
-        switch lastError {
-            case let error as MessageReceiverError where !error.isRetryable: failure(updatedJob, error, true)
-            case .some(let error): failure(updatedJob, error, false)
-            case .none: success(updatedJob, false)
-        }
+        )
     }
 }
 

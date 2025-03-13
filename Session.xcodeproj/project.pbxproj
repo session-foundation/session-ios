@@ -10262,7 +10262,7 @@
 			repositoryURL = "https://github.com/session-foundation/session-grdb-swift.git";
 			requirement = {
 				kind = upToNextMajorVersion;
-				minimumVersion = 106.29.3;
+				minimumVersion = 107.3.0;
 			};
 		};
 		FD756BEE2D06686500BD7199 /* XCRemoteSwiftPackageReference "session-lucide" */ = {
