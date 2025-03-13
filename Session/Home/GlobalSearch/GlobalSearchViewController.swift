@@ -1,6 +1,7 @@
 // Copyright © 2022 Rangeproof Pty Ltd. All rights reserved.
 
 import UIKit
+import Combine
 import GRDB
 import DifferenceKit
 import SessionUIKit
@@ -106,7 +107,7 @@ class GlobalSearchViewController: BaseVC, LibSessionRespondingViewController, UI
         )
     }()
     
-    @ThreadSafeObject private var readConnection: Database? = nil
+    @ThreadSafeObject private var currentSearchCancellable: AnyCancellable? = nil
     private lazy var searchResultSet: SearchResultData = defaultSearchResults
     private var termForCurrentSearchResultSet: String = ""
     private var lastSearchText: String?
@@ -256,61 +257,54 @@ class GlobalSearchViewController: BaseVC, LibSessionRespondingViewController, UI
         guard force || lastSearchText != searchText else { return }
 
         lastSearchText = searchText
-
-        DispatchQueue.global(qos: .default).async { [weak self, dependencies] in
-            self?.readConnection?.interrupt()
-            
-            let result: Result<[SectionModel], Error>? = dependencies[singleton: .storage].read { db -> Result<[SectionModel], Error> in
-                self?._readConnection.set(to: db)
+        currentSearchCancellable?.cancel()
+        
+        _currentSearchCancellable.set(to: dependencies[singleton: .storage]
+            .readPublisher { [dependencies] db -> [SectionModel] in
+                let userSessionId: SessionId = dependencies[cache: .general].sessionId
+                let contactsAndGroupsResults: [SessionThreadViewModel] = try SessionThreadViewModel
+                    .contactsAndGroupsQuery(
+                        userSessionId: userSessionId,
+                        pattern: try SessionThreadViewModel.pattern(db, searchTerm: searchText),
+                        searchTerm: searchText
+                    )
+                    .fetchAll(db)
+                Thread.sleep(forTimeInterval: 1)
+                let messageResults: [SessionThreadViewModel] = try SessionThreadViewModel
+                    .messagesQuery(
+                        userSessionId: userSessionId,
+                        pattern: try SessionThreadViewModel.pattern(db, searchTerm: searchText)
+                    )
+                    .fetchAll(db)
                 
-                do {
-                    let userSessionId: SessionId = dependencies[cache: .general].sessionId
-                    let contactsAndGroupsResults: [SessionThreadViewModel] = try SessionThreadViewModel
-                        .contactsAndGroupsQuery(
-                            userSessionId: userSessionId,
-                            pattern: try SessionThreadViewModel.pattern(db, searchTerm: searchText),
-                            searchTerm: searchText
-                        )
-                        .fetchAll(db)
-                    let messageResults: [SessionThreadViewModel] = try SessionThreadViewModel
-                        .messagesQuery(
-                            userSessionId: userSessionId,
-                            pattern: try SessionThreadViewModel.pattern(db, searchTerm: searchText)
-                        )
-                        .fetchAll(db)
-                    
-                    return .success([
-                        ArraySection(model: .contactsAndGroups, elements: contactsAndGroupsResults),
-                        ArraySection(model: .messages, elements: messageResults)
-                    ])
-                }
-                catch {
-                    // Don't log the 'interrupt' error as that's just the user typing too fast
-                    if (error as? DatabaseError)?.resultCode != DatabaseError.SQLITE_INTERRUPT {
-                        SNLog("[GlobalSearch] Failed to find results due to error: \(error)")
+                return [
+                    ArraySection(model: .contactsAndGroups, elements: contactsAndGroupsResults),
+                    ArraySection(model: .messages, elements: messageResults)
+                ]
+            }
+            .subscribe(on: DispatchQueue.global(qos: .default), using: dependencies)
+            .receive(on: DispatchQueue.main, using: dependencies)
+            .sink(
+                receiveCompletion: { result in
+                    /// Cancelling the search results in `receiveCompletion` not getting called so we can just log any
+                    /// errors we get without needing to filter out "cancelled search" cases
+                    switch result {
+                        case .finished: break
+                        case .failure(let error):
+                            SNLog("[GlobalSearch] Failed to find results due to error: \(error)")
                     }
-                    
-                    return .failure(error)
+                },
+                receiveValue: { [weak self] sections in
+                    self?.termForCurrentSearchResultSet = searchText
+                    self?.searchResultSet = SearchResultData(
+                        state: (sections.map { $0.elements.count }.reduce(0, +) > 0) ? .results : .none,
+                        data: sections
+                    )
+                    self?.isLoading = false
+                    self?.tableView.reloadData()
+                    self?.refreshTimer = nil
                 }
-            }
-            self?._readConnection.set(to: nil)
-            
-            DispatchQueue.main.async {
-                switch result {
-                    case .success(let sections):
-                        self?.termForCurrentSearchResultSet = searchText
-                        self?.searchResultSet = SearchResultData(
-                            state: (sections.map { $0.elements.count }.reduce(0, +) > 0) ? .results : .none,
-                            data: sections
-                        )
-                        self?.isLoading = false
-                        self?.tableView.reloadData()
-                        self?.refreshTimer = nil
-                        
-                    default: break
-                }
-            }
-        }
+            ))
     }
     
     @objc func cancel() {

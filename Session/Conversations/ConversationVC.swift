@@ -422,7 +422,10 @@ final class ConversationVC: BaseVC, LibSessionRespondingViewController, Conversa
             using: dependencies
         )
         
-        dependencies[singleton: .storage].addObserver(viewModel.pagedDataObserver)
+        /// Dispatch adding the database observation to a background thread
+        DispatchQueue.global(qos: .userInitiated).async { [weak viewModel] in
+            dependencies[singleton: .storage].addObserver(viewModel?.pagedDataObserver)
+        }
         
         super.init(nibName: nil, bundle: nil)
     }
@@ -704,14 +707,18 @@ final class ConversationVC: BaseVC, LibSessionRespondingViewController, Conversa
                     
                     // Stop observing changes
                     self?.stopObservingChanges()
-                    dependencies[singleton: .storage].removeObserver(self?.viewModel.pagedDataObserver)
+                    DispatchQueue.global(qos: .userInitiated).async {
+                        dependencies[singleton: .storage].removeObserver(self?.viewModel.pagedDataObserver)
+                    }
                     
                     // Swap the observing to the updated thread
                     let newestVisibleMessageId: Int64? = self?.fullyVisibleCellViewModels()?.last?.id
                     self?.viewModel.swapToThread(updatedThreadId: unblindedId, focussedMessageId: newestVisibleMessageId)
                     
-                    // Start observing changes again
-                    dependencies[singleton: .storage].addObserver(self?.viewModel.pagedDataObserver)
+                    /// Start observing changes again (on a background thread)
+                    DispatchQueue.global(qos: .userInitiated).async {
+                        dependencies[singleton: .storage].addObserver(self?.viewModel.pagedDataObserver)
+                    }
                     self?.startObservingChanges()
                     return
                 }
@@ -1961,12 +1968,12 @@ final class ConversationVC: BaseVC, LibSessionRespondingViewController, Conversa
     func conversationSearchControllerDependencies() -> Dependencies { return viewModel.dependencies }
     func currentVisibleIds() -> [Int64] { return (fullyVisibleCellViewModels() ?? []).map { $0.id } }
     
-    func conversationSearchController(_ conversationSearchController: ConversationSearchController, didUpdateSearchResults results: [Interaction.TimestampInfo]?, searchText: String?) {
+    func conversationSearchController(_ conversationSearchController: ConversationSearchController?, didUpdateSearchResults results: [Interaction.TimestampInfo]?, searchText: String?) {
         viewModel.lastSearchedText = searchText
         tableView.reloadRows(at: tableView.indexPathsForVisibleRows ?? [], with: UITableView.RowAnimation.none)
     }
 
-    func conversationSearchController(_ conversationSearchController: ConversationSearchController, didSelectInteractionInfo interactionInfo: Interaction.TimestampInfo) {
+    func conversationSearchController(_ conversationSearchController: ConversationSearchController?, didSelectInteractionInfo interactionInfo: Interaction.TimestampInfo) {
         scrollToInteractionIfNeeded(with: interactionInfo, focusBehaviour: .highlight)
     }
 

@@ -21,12 +21,6 @@ public extension Database {
         return try makeFTS5Pattern(rawPattern: rawPattern, forTable: table.databaseTableName)
     }
     
-    func interrupt() {
-        guard sqliteConnection != nil else { return }
-        
-        sqlite3_interrupt(sqliteConnection)
-    }
-    
     /// This is a custom implementation of the `afterNextTransaction` method which executes the closures within their own
     /// transactions to allow for nesting of 'afterNextTransaction' actions
     ///

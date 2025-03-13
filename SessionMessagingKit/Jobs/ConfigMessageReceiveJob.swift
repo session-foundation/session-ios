@@ -55,11 +55,8 @@ public enum ConfigMessageReceiveJob: JobExecutor {
             return failure(job, JobRunnerError.missingRequiredDetails, true)
         }
         
-        var lastError: Error?
-        
-        dependencies[singleton: .storage].write { db in
-            // Send any SharedConfigMessages to the LibSession to handle it
-            do {
+        dependencies[singleton: .storage].writeAsync(
+            updates: { db in
                 try dependencies.mutate(cache: .libSession) { cache in
                     try cache.handleConfigMessages(
                         db,
@@ -67,19 +64,19 @@ public enum ConfigMessageReceiveJob: JobExecutor {
                         messages: details.messages
                     )
                 }
-            }
-            catch { lastError = error }
-        }
-        
-        // Handle the result
-        switch lastError {
-            case .some(let error):
-                Log.error(.cat, "Couldn't receive config message due to error: \(error)")
-                removeDependencyOnMessageReceiveJobs()
-                failure(job, error, true)
+            },
+            completion: { result in
+                // Handle the result
+                switch result {
+                    case .failure(let error):
+                        Log.error(.cat, "Couldn't receive config message due to error: \(error)")
+                        removeDependencyOnMessageReceiveJobs()
+                        failure(job, error, true)
 
-            case .none: success(job, false)
-        }
+                    case .success: success(job, false)
+                }
+            }
+        )
     }
 }
 

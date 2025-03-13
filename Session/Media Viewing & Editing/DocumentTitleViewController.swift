@@ -34,7 +34,11 @@ public class DocumentTileViewController: UIViewController, UITableViewDelegate, 
     init(viewModel: MediaGalleryViewModel, using dependencies: Dependencies) {
         self.dependencies = dependencies
         self.viewModel = viewModel
-        dependencies[singleton: .storage].addObserver(viewModel.pagedDataObserver)
+        
+        /// Dispatch adding the database observation to a background thread
+        DispatchQueue.global(qos: .userInitiated).async { [weak viewModel] in
+            dependencies[singleton: .storage].addObserver(viewModel?.pagedDataObserver)
+        }
 
         super.init(nibName: nil, bundle: nil)
     }
