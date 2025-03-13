@@ -8,24 +8,20 @@ import SessionUIKit
 import SessionUtilitiesKit
 
 protocol SwipeActionOptimisticCell {
-    func optimisticUpdate(isMuted: Bool?, isBlocked: Bool?, isPinned: Bool?, hasUnread: Bool?)
+    func optimisticUpdate(isMuted: Bool?, isPinned: Bool?, hasUnread: Bool?)
 }
 
 extension SwipeActionOptimisticCell {
     public func optimisticUpdate(isMuted: Bool) {
-        optimisticUpdate(isMuted: isMuted, isBlocked: nil, isPinned: nil, hasUnread: nil)
-    }
-    
-    public func optimisticUpdate(isBlocked: Bool) {
-        optimisticUpdate(isMuted: nil, isBlocked: isBlocked, isPinned: nil, hasUnread: nil)
+        optimisticUpdate(isMuted: isMuted, isPinned: nil, hasUnread: nil)
     }
     
     public func optimisticUpdate(isPinned: Bool) {
-        optimisticUpdate(isMuted: nil, isBlocked: nil, isPinned: isPinned, hasUnread: nil)
+        optimisticUpdate(isMuted: nil, isPinned: isPinned, hasUnread: nil)
     }
     
     public func optimisticUpdate(hasUnread: Bool) {
-        optimisticUpdate(isMuted: nil, isBlocked: nil, isPinned: nil, hasUnread: hasUnread)
+        optimisticUpdate(isMuted: nil, isPinned: nil, hasUnread: hasUnread)
     }
 }
 
@@ -38,6 +34,7 @@ public extension UIContextualAction {
         case block
         case leave
         case delete
+        case deleteContact
         case clear
     }
     
@@ -372,10 +369,6 @@ public extension UIContextualAction {
                             ].compactMap { $0 }
                             
                             let performBlock: (UIViewController?) -> () = { viewController in
-                                (tableView.cellForRow(at: indexPath) as? SwipeActionOptimisticCell)?
-                                    .optimisticUpdate(
-                                        isBlocked: !threadIsBlocked
-                                    )
                                 completionHandler(true)
                                 
                                 // Delay the change to give the cell "unswipe" animation some time to complete
@@ -659,6 +652,52 @@ public extension UIContextualAction {
                                             try SessionThread.deleteOrLeave(
                                                 db,
                                                 type: deletionType,
+                                                threadId: threadViewModel.threadId,
+                                                threadVariant: threadViewModel.threadVariant,
+                                                using: dependencies
+                                            )
+                                        }
+                                        
+                                        completionHandler(true)
+                                    },
+                                    afterClosed: { completionHandler(false) }
+                                )
+                            )
+                            
+                            viewController?.present(confirmationModal, animated: true, completion: nil)
+                        }
+                    
+                    // MARK: -- deleteContact
+                        
+                    case .deleteContact:
+                        return UIContextualAction(
+                            title: "contactDelete".localized(),
+                            icon: Lucide.image(icon: .trash2, size: 24, color: .white),
+                            themeTintColor: .white,
+                            themeBackgroundColor: themeBackgroundColor,
+                            accessibility: Accessibility(identifier: "Delete button"),
+                            side: side,
+                            actionIndex: targetIndex,
+                            indexPath: indexPath,
+                            tableView: tableView
+                        ) { [weak viewController] _, _, completionHandler in
+                            let confirmationModal: ConfirmationModal = ConfirmationModal(
+                                info: ConfirmationModal.Info(
+                                    title: "contactDelete".localized(),
+                                    body: .attributedText(
+                                        "contactDeleteDescription"
+                                            .put(key: "name", value: threadViewModel.displayName)
+                                            .localizedFormatted(baseFont: .boldSystemFont(ofSize: Values.smallFontSize))
+                                    ),
+                                    confirmTitle: "delete".localized(),
+                                    confirmStyle: .danger,
+                                    cancelStyle: .alert_text,
+                                    dismissOnConfirm: true,
+                                    onConfirm: { _ in
+                                        dependencies[singleton: .storage].writeAsync { db in
+                                            try SessionThread.deleteOrLeave(
+                                                db,
+                                                type: .deleteContactConversationAndContact,
                                                 threadId: threadViewModel.threadId,
                                                 threadVariant: threadViewModel.threadVariant,
                                                 using: dependencies
