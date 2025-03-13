@@ -241,11 +241,11 @@ extension Onboarding {
                     /// In order to process the config message we need to create and load a `libSession` cache, but we don't want to load this into
                     /// memory at this stage in case the user cancels the onboarding process part way through
                     let cache: LibSession.Cache = LibSession.Cache(userSessionId: userSessionId, using: dependencies)
-                    cache.loadDefaultStatesFor(
-                        userConfigVariants: [.userProfile],
-                        groups: [],
-                        userSessionId: userSessionId,
-                        userEd25519KeyPair: identity.ed25519KeyPair
+                    cache.loadDefaultStateFor(
+                        variant: .userProfile,
+                        sessionId: userSessionId,
+                        userEd25519KeyPair: identity.ed25519KeyPair,
+                        groupEd25519SecretKey: nil
                     )
                     try cache.unsafeDirectMergeConfigMessage(
                         swarmPublicKey: userSessionId.hexString,
