@@ -109,6 +109,9 @@ public extension UserDefaults.BoolKey {
     
     /// Indicates whether we had the microphone permission the last time the app when to the background
     static let lastSeenHasMicrophonePermission: UserDefaults.BoolKey = "lastSeenHasMicrophonePermission"
+    
+    /// Indicates whether we had the local network permission
+    static let lastSeenHasLocalNetworkPermission: UserDefaults.BoolKey = "lastSeenHasLocalNetworkPermission"
 }
 
 public extension UserDefaults.DateKey {

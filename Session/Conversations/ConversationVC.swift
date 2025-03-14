@@ -1353,7 +1353,6 @@ final class ConversationVC: BaseVC, LibSessionRespondingViewController, Conversa
         }
         else {
             let shouldHaveCallButton: Bool = (
-                SessionCall.isEnabled &&
                 (threadData?.threadVariant ?? initialVariant) == .contact &&
                 (threadData?.threadIsNoteToSelf ?? initialIsNoteToSelf) == false &&
                 (threadData?.threadIsBlocked ?? initialIsBlocked) == false

@@ -24,9 +24,11 @@ extension WebRTCSession {
             else {
                 guard sdp.type == .offer else { return }
                 
-                self?.sendAnswer(to: sessionId)
-                    .retry(5)
-                    .sinkUntilComplete()
+                DispatchQueue.global(qos: .userInitiated).async {
+                    self?.sendAnswer(to: sessionId)
+                        .retry(5)
+                        .sinkUntilComplete()
+                }
             }
         })
     }
