@@ -8,6 +8,14 @@ import SessionMessagingKit
 import SessionUtilitiesKit
 import SignalUtilitiesKit
 
+// MARK: - Log.Category
+
+private extension Log.Category {
+    static let cat: Log.Category = .create("GlobalSearch", defaultLevel: .warn)
+}
+
+// MARK: - GlobalSearchViewController
+
 class GlobalSearchViewController: BaseVC, LibSessionRespondingViewController, UITableViewDelegate, UITableViewDataSource {
     fileprivate typealias SectionModel = ArraySection<SearchSection, SessionThreadViewModel>
     
@@ -287,7 +295,7 @@ class GlobalSearchViewController: BaseVC, LibSessionRespondingViewController, UI
                 catch {
                     // Don't log the 'interrupt' error as that's just the user typing too fast
                     if (error as? DatabaseError)?.resultCode != DatabaseError.SQLITE_INTERRUPT {
-                        SNLog("[GlobalSearch] Failed to find results due to error: \(error)")
+                        Log.error(.cat, "Failed to find results due to error: \(error)")
                     }
                     
                     return .failure(error)

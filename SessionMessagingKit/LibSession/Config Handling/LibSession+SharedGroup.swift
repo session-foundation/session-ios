@@ -29,7 +29,7 @@ internal extension LibSessionCacheType {
         
         guard groupState[.groupKeys] != nil && groupState[.groupInfo] != nil && groupState[.groupMembers] != nil else {
             Log.error(.libSession, "Group config objects were null")
-            throw LibSessionError.unableToCreateConfigObject
+            throw LibSessionError.unableToCreateConfigObject(groupSessionId.hexString)
         }
         
         groupState.forEach { variant, config in
@@ -80,7 +80,7 @@ internal extension LibSession {
         // Extract the conf objects from the state to load in the initial data
         guard case .groupKeys(let groupKeysConf, let groupInfoConf, let groupMembersConf) = groupState[.groupKeys] else {
             Log.error(.libSession, "Group config objects were null")
-            throw LibSessionError.unableToCreateConfigObject
+            throw LibSessionError.unableToCreateConfigObject(groupSessionId.hexString)
         }
         
         // Set the initial values in the confs
@@ -219,7 +219,7 @@ internal extension LibSession {
                     nil,
                     0,
                     &error
-                ).orThrow(error: error)
+                ).orThrow(error: error, groupSessionId: groupSessionId)
                 try groups_members_init(
                     &groupMembersConf,
                     &groupIdentityPublicKey,
@@ -227,7 +227,7 @@ internal extension LibSession {
                     nil,
                     0,
                     &error
-                ).orThrow(error: error)
+                ).orThrow(error: error, groupSessionId: groupSessionId)
                 
                 try groups_keys_init(
                     &groupKeysConf,
@@ -239,7 +239,7 @@ internal extension LibSession {
                     nil,
                     0,
                     &error
-                ).orThrow(error: error)
+                ).orThrow(error: error, groupSessionId: groupSessionId)
                 
             case .none:
                 try groups_info_init(
@@ -249,7 +249,7 @@ internal extension LibSession {
                     nil,
                     0,
                     &error
-                ).orThrow(error: error)
+                ).orThrow(error: error, groupSessionId: groupSessionId)
                 try groups_members_init(
                     &groupMembersConf,
                     &groupIdentityPublicKey,
@@ -257,7 +257,7 @@ internal extension LibSession {
                     nil,
                     0,
                     &error
-                ).orThrow(error: error)
+                ).orThrow(error: error, groupSessionId: groupSessionId)
                 
                 try groups_keys_init(
                     &groupKeysConf,
@@ -269,7 +269,7 @@ internal extension LibSession {
                     nil,
                     0,
                     &error
-                ).orThrow(error: error)
+                ).orThrow(error: error, groupSessionId: groupSessionId)
         }
         
         guard
@@ -278,7 +278,7 @@ internal extension LibSession {
             let membersConf: UnsafeMutablePointer<config_object> = groupMembersConf
         else {
             Log.error(.libSession, "Group config objects were null")
-            throw LibSessionError.unableToCreateConfigObject
+            throw LibSessionError.unableToCreateConfigObject(groupSessionId.hexString)
         }
         
         // Define the config state map and load it into memory
@@ -360,11 +360,11 @@ internal extension LibSessionCacheType {
 }
 
 private extension Int32 {
-    func orThrow(error: [CChar]) throws {
+    func orThrow(error: [CChar], groupSessionId: SessionId) throws {
         guard self != 0 else { return }
         
         Log.error(.libSession, "Unable to create group config objects: \(String(cString: error))")
-        throw LibSessionError.unableToCreateConfigObject
+        throw LibSessionError.unableToCreateConfigObject(groupSessionId.hexString)
     }
 }
 

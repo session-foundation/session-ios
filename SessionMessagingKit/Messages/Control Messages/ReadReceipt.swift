@@ -56,7 +56,7 @@ public final class ReadReceipt: ControlMessage {
 
     public override func toProto(_ db: Database, threadId: String) -> SNProtoContent? {
         guard let timestamps = timestamps else {
-            SNLog("Couldn't construct read receipt proto from: \(self).")
+            Log.warn(.messageSender, "Couldn't construct read receipt proto from: \(self).")
             return nil
         }
         let receiptProto = SNProtoReceiptMessage.builder(type: .read)
@@ -69,7 +69,7 @@ public final class ReadReceipt: ControlMessage {
             setDisappearingMessagesConfigurationIfNeeded(on: contentProto)
             return try contentProto.build()
         } catch {
-            SNLog("Couldn't construct read receipt proto from: \(self).")
+            Log.warn(.messageSender, "Couldn't construct read receipt proto from: \(self).")
             return nil
         }
     }

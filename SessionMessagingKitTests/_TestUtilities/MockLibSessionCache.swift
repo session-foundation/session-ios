@@ -13,7 +13,10 @@ class MockLibSessionCache: Mock<LibSessionCacheType>, LibSessionCacheType {
     
     // MARK: - State Management
     
-    func loadState(_ db: Database) { mockNoReturn(untrackedArgs: [db]) }
+    func loadState(_ db: Database, requestId: String?) {
+        mockNoReturn(args: [requestId], untrackedArgs: [db])
+    }
+    
     func loadDefaultStatesFor(
         userConfigVariants: Set<ConfigDump.Variant>,
         groups: [ClosedGroup],

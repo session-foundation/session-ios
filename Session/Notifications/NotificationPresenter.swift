@@ -137,7 +137,7 @@ public class NotificationPresenter: NSObject, UNUserNotificationCenterDelegate, 
         }
         
         guard notificationBody != nil || notificationTitle != nil else {
-            SNLog("AppNotifications error: No notification content")
+            Log.info("AppNotifications error: No notification content")
             return
         }
         

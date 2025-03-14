@@ -3,6 +3,16 @@
 import Foundation
 import SessionUtilitiesKit
 
+// MARK: - Log.Category
+
+internal extension Log.Category {
+    static func validator(_ response: Any) -> Log.Category {
+        return .create("ResponseValidator", customSuffix: "-\(type(of: response))", defaultLevel: .warn)
+    }
+}
+
+// MARK: - ValidatableResponse
+
 internal protocol ValidatableResponse {
     associatedtype ValidationData
     associatedtype ValidationResponse

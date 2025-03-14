@@ -7,7 +7,7 @@ import SessionUtilitiesKit
 public extension SNProtoEnvelope {
     static func from(_ message: SnodeReceivedMessage) -> SNProtoEnvelope? {
         guard let result = try? MessageWrapper.unwrap(data: message.data) else {
-            SNLog("Failed to unwrap data for message: \(String(reflecting: message)).")
+            Log.error(.messageReceiver, "Failed to unwrap data for message: \(String(reflecting: message)).")
             return nil
         }
         

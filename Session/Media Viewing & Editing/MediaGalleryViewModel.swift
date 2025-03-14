@@ -395,7 +395,7 @@ public class MediaGalleryViewModel {
                     .fetchAll(db)
             }
             .removeDuplicates()
-            .handleEvents(didFail: { SNLog("[MediaGalleryViewModel] Observation failed with error: \($0)") })
+            .handleEvents(didFail: { Log.error(.media, "Gallery observation failed with error: \($0)") })
     }
     
     @discardableResult public func loadAndCacheAlbumData(for interactionId: Int64, in threadId: String) -> [Item] {

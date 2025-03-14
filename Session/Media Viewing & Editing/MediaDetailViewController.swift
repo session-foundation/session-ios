@@ -92,7 +92,7 @@ class MediaDetailViewController: OWSViewController, UIScrollViewDelegate {
                 updateUICallback()
             },
             failure: {
-                SNLog("Could not load media.")
+                Log.error(.media, "Could not load media.")
             }
         )
     }
@@ -175,7 +175,7 @@ class MediaDetailViewController: OWSViewController, UIScrollViewDelegate {
         let viewSize: CGSize = self.scrollView.bounds.size
         
         guard imageSize.width > 0 && imageSize.height > 0 else {
-            SNLog("Invalid image dimensions (\(imageSize.width), \(imageSize.height))")
+            Log.error(.media, "Invalid image dimensions (\(imageSize.width), \(imageSize.height))")
             return
         }
         
@@ -350,7 +350,7 @@ class MediaDetailViewController: OWSViewController, UIScrollViewDelegate {
         guard
             let originalFilePath: String = self.galleryItem.attachment.originalFilePath(using: dependencies),
             dependencies[singleton: .fileManager].fileExists(atPath: originalFilePath)
-        else { return SNLog("Missing video file") }
+        else { return Log.error(.media, "Missing video file") }
         
         let videoUrl: URL = URL(fileURLWithPath: originalFilePath)
         let player: AVPlayer = AVPlayer(url: videoUrl)
