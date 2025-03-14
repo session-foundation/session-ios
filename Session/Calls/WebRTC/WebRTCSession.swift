@@ -109,6 +109,7 @@ public final class WebRTCSession : NSObject, RTCPeerConnectionDelegate {
         self.dependencies = dependencies
         
         super.init()
+        Log.info(.calls, "ICE Severs: \(defaultICEServer?.urls ?? [])")
         
         let mediaStreamTrackIDS = [Self.Constants.media_stream_track_id]
         
