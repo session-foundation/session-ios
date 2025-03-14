@@ -43,7 +43,7 @@ struct RecoveryPasswordScreen: View {
                         
                         VStack(
                             alignment: .leading,
-                            spacing: 0
+                            spacing: 4
                         ) {
                             HStack(
                                 alignment: .center,

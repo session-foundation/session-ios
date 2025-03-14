@@ -35,7 +35,7 @@ struct StartConversationScreen: View {
                                 rootView: NewMessageScreen(using: dependencies)
                             )
                             viewController.setNavBarTitle(title)
-                            viewController.setUpDismissingButton(on: .right)
+                            viewController.setUpNavBarButton(rightItem: .close)
                             self.host.controller?.navigationController?.pushViewController(viewController, animated: true)
                         }
                         .accessibility(
@@ -93,7 +93,7 @@ struct StartConversationScreen: View {
                                 rootView: InviteAFriendScreen(accountId: dependencies[cache: .general].sessionId.hexString)
                             )
                             viewController.setNavBarTitle("sessionInviteAFriend".localized())
-                            viewController.setUpDismissingButton(on: .right)
+                            viewController.setUpNavBarButton(rightItem: .close)
                             self.host.controller?.navigationController?.pushViewController(viewController, animated: true)
                         }
                         .accessibility(
