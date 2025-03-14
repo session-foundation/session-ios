@@ -10,13 +10,13 @@ public class GetMessagesResponse: SnodeResponse {
     
     public class RawMessage: Codable {
         private enum CodingKeys: String, CodingKey {
-            case data
+            case base64EncodedDataString = "data"
             case expiration
             case hash
             case timestampMs = "timestamp"
         }
         
-        public let data: String
+        public let base64EncodedDataString: String
         public let expiration: Int64?
         public let hash: String
         public let timestampMs: Int64
@@ -34,5 +34,13 @@ public class GetMessagesResponse: SnodeResponse {
         more = try container.decode(Bool.self, forKey: .more)
         
         try super.init(from: decoder)
+    }
+    
+    public override func encode(to encoder: any Encoder) throws {
+        var container: KeyedEncodingContainer<CodingKeys> = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(messages, forKey: .messages)
+        try container.encode(more, forKey: .more)
+        
+        try super.encode(to: encoder)
     }
 }

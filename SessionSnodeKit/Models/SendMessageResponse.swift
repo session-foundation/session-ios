@@ -3,7 +3,7 @@
 import Foundation
 import SessionUtilitiesKit
 
-public class SendMessagesResponse: SnodeRecursiveResponse<SendMessagesResponse.SwarmItem> {
+public final class SendMessagesResponse: SnodeRecursiveResponse<SendMessagesResponse.SwarmItem> {
     private enum CodingKeys: String, CodingKey {
         case hash
         case swarm
@@ -13,12 +13,34 @@ public class SendMessagesResponse: SnodeRecursiveResponse<SendMessagesResponse.S
     
     // MARK: - Initialization
     
+    internal init(
+        hash: String,
+        swarm: [String: SwarmItem],
+        hardFork: [Int],
+        timeOffset: Int64
+    ) {
+        self.hash = hash
+        
+        super.init(
+            swarm: swarm,
+            hardFork: hardFork,
+            timeOffset: timeOffset
+        )
+    }
+    
     required init(from decoder: Decoder) throws {
         let container: KeyedDecodingContainer<CodingKeys> = try decoder.container(keyedBy: CodingKeys.self)
         
         hash = try container.decode(String.self, forKey: .hash)
         
         try super.init(from: decoder)
+    }
+    
+    public override func encode(to encoder: any Encoder) throws {
+        var container: KeyedEncodingContainer<CodingKeys> = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(hash, forKey: .hash)
+        
+        try super.encode(to: encoder)
     }
 }
 
@@ -43,10 +65,18 @@ public extension SendMessagesResponse {
         required init(from decoder: Decoder) throws {
             let container: KeyedDecodingContainer<CodingKeys> = try decoder.container(keyedBy: CodingKeys.self)
             
-            hash = try? container.decode(String.self, forKey: .hash)
+            hash = try container.decodeIfPresent(String.self, forKey: .hash)
             already = ((try? container.decode(Bool.self, forKey: .already)) ?? false)
             
             try super.init(from: decoder)
+        }
+        
+        public override func encode(to encoder: any Encoder) throws {
+            var container: KeyedEncodingContainer<CodingKeys> = encoder.container(keyedBy: CodingKeys.self)
+            try container.encodeIfPresent(hash, forKey: .hash)
+            try container.encode(already, forKey: .already)
+            
+            try super.encode(to: encoder)
         }
     }
 }
@@ -86,7 +116,7 @@ extension SendMessagesResponse: ValidatableResponse {
             /// Signature of `hash` signed by the node's ed25519 pubkey
             let verificationBytes: [UInt8] = hash.bytes
             
-            result[next.key] = dependencies.crypto.verify(
+            result[next.key] = dependencies[singleton: .crypto].verify(
                 .signature(
                     message: verificationBytes,
                     publicKey: Data(hex: next.key).bytes,

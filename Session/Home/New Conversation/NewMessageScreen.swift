@@ -44,7 +44,8 @@ struct NewMessageScreen: View {
                     ScanQRCodeScreen(
                         $accountIdOrONS,
                         error: $errorString,
-                        continueAction: continueWithAccountIdFromQRCode
+                        continueAction: continueWithAccountIdFromQRCode,
+                        using: dependencies
                     )
                 }
             }
@@ -87,7 +88,7 @@ struct NewMessageScreen: View {
         ModalActivityIndicatorViewController
             .present(fromViewController: self.host.controller?.navigationController!, canCancel: false) { modalActivityIndicator in
             SnodeAPI
-                .getSessionID(for: accountIdOrONS)
+                .getSessionID(for: accountIdOrONS, using: dependencies)
                 .subscribe(on: DispatchQueue.global(qos: .userInitiated))
                 .receive(on: DispatchQueue.main)
                 .sinkUntilComplete(
@@ -119,13 +120,12 @@ struct NewMessageScreen: View {
     }
     
     private func startNewDM(with sessionId: String) {
-        SessionApp.presentConversationCreatingIfNeeded(
+        dependencies[singleton: .app].presentConversationCreatingIfNeeded(
             for: sessionId,
             variant: .contact,
             action: .compose,
             dismissing: self.host.controller,
-            animated: false,
-            using: dependencies
+            animated: false
         )
     }
 }
@@ -205,5 +205,5 @@ struct EnterAccountIdScreen: View {
 }
 
 #Preview {
-    NewMessageScreen(using: Dependencies())
+    NewMessageScreen(using: Dependencies.createEmpty())
 }

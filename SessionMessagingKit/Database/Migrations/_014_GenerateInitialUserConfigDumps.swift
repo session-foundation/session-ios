@@ -9,214 +9,409 @@ import SessionUtilitiesKit
 enum _014_GenerateInitialUserConfigDumps: Migration {
     static let target: TargetMigrations.Identifier = .messagingKit
     static let identifier: String = "GenerateInitialUserConfigDumps"
-    static let needsConfigSync: Bool = true
     static let minExpectedRunDuration: TimeInterval = 4.0
-    static let fetchedTables: [(TableRecord & FetchableRecord).Type] = [
-        Identity.self, SessionThread.self, Contact.self, Profile.self, ClosedGroup.self,
-        OpenGroup.self, DisappearingMessagesConfiguration.self, GroupMember.self, ConfigDump.self
-    ]
-    static let createdOrAlteredTables: [(TableRecord & FetchableRecord).Type] = []
-    static let droppedTables: [(TableRecord & FetchableRecord).Type] = []
+    static let createdTables: [(TableRecord & FetchableRecord).Type] = []
     
     static func migrate(_ db: Database, using dependencies: Dependencies) throws {
         // If we have no ed25519 key then there is no need to create cached dump data
-        guard let secretKey: [UInt8] = Identity.fetchUserEd25519KeyPair(db)?.secretKey else {
-            Storage.update(progress: 1, for: self, in: target) // In case this is the last migration
+        guard
+            MigrationHelper.userExists(db),
+            let userEd25519SecretKey: Data = MigrationHelper.fetchIdentityValue(db, key: "ed25519SecretKey")
+        else {
+            Storage.update(progress: 1, for: self, in: target, using: dependencies)
             return
         }
         
-        // Create the initial config state
-        let userPublicKey: String = getUserHexEncodedPublicKey(db, using: dependencies)
-        let timestampMs: Int64 = Int64(Date().timeIntervalSince1970 * 1000)
-        
-        LibSession.loadState(db, userPublicKey: userPublicKey, ed25519SecretKey: secretKey, using: dependencies)
+        // Create the initial config state        
+        let userSessionId: SessionId = MigrationHelper.userSessionId(db)
+        let timestampMs: Int64 = Int64(dependencies.dateNow.timeIntervalSince1970 * TimeInterval(1000))
+        let cache: LibSession.Cache = LibSession.Cache(userSessionId: userSessionId, using: dependencies)
         
         // Retrieve all threads (we are going to base the config dump data on the active
         // threads rather than anything else in the database)
-        let allThreads: [String: SessionThread] = try SessionThread
-            .fetchAll(db)
-            .reduce(into: [:]) { result, next in result[next.id] = next }
+        let allThreads: [String: Row] = try Row
+            .fetchAll(
+                db,
+                sql: """
+                    SELECT
+                        id,
+                        variant,
+                        shouldBeVisible,
+                        pinnedPriority,
+                        creationDateTimestamp
+                    FROM thread
+                """
+            )
+            .reduce(into: [:]) { result, next in result[next["id"]] = next }
         
         // MARK: - UserProfile Config Dump
         
-        try dependencies.caches[.libSession]
-            .config(for: .userProfile, publicKey: userPublicKey)
-            .perform { conf in
-                try LibSession.update(
-                    profile: Profile.fetchOrCreateCurrentUser(db, using: dependencies),
-                    in: conf
-                )
-                
-                try LibSession.updateNoteToSelf(
-                    priority: {
-                        guard allThreads[userPublicKey]?.shouldBeVisible == true else { return LibSession.hiddenPriority }
-                        
-                        return Int32(allThreads[userPublicKey]?.pinnedPriority ?? 0)
-                    }(),
-                    in: conf
-                )
-                
-                if config_needs_dump(conf) {
-                    try LibSession
-                        .createDump(
-                            conf: conf,
-                            for: .userProfile,
-                            publicKey: userPublicKey,
-                            timestampMs: timestampMs
-                        )?
-                        .save(db)
+        let userProfileConfig: LibSession.Config = try cache.loadState(
+            for: .userProfile,
+            sessionId: userSessionId,
+            userEd25519SecretKey: Array(userEd25519SecretKey),
+            groupEd25519SecretKey: nil,
+            cachedData: nil
+        )
+        let userProfile: Row? = try? Row.fetchOne(
+            db,
+            sql: """
+                SELECT name, profilePictureUrl, profileEncryptionKey
+                FROM profile
+                WHERE id = ?
+            """,
+            arguments: [userSessionId.hexString]
+        )
+        try LibSession.update(
+            profileInfo: LibSession.ProfileInfo(
+                name: (userProfile?["name"] ?? ""),
+                profilePictureUrl: userProfile?["profilePictureUrl"],
+                profileEncryptionKey: userProfile?["profileEncryptionKey"]
+            ),
+            in: userProfileConfig
+        )
+        
+        try LibSession.updateNoteToSelf(
+            priority: {
+                guard allThreads[userSessionId.hexString]?["shouldBeVisible"] == true else {
+                    return LibSession.hiddenPriority
                 }
-            }
+                
+                let pinnedPriority: Int32? = allThreads[userSessionId.hexString]?["pinnedPriority"]
+                return (pinnedPriority ?? 0)
+            }(),
+            in: userProfileConfig
+        )
+        
+        if cache.configNeedsDump(userProfileConfig), let dumpData: Data = try userProfileConfig.dump() {
+            try db.execute(
+                sql: """
+                    INSERT INTO configDump (variant, publicKey, data, timestampMs)
+                    VALUES ('userProfile', '\(userSessionId.hexString)', ?, \(timestampMs))
+                    ON CONFLICT(variant, publicKey) DO UPDATE SET
+                        data = ?,
+                        timestampMs = \(timestampMs)
+                """,
+                arguments: [dumpData, dumpData]
+            )
+        }
         
         // MARK: - Contact Config Dump
         
-        try dependencies.caches[.libSession]
-            .config(for: .contacts, publicKey: userPublicKey)
-            .perform { conf in
-                // Exclude Note to Self, community, group and outgoing blinded message requests
-                let validContactIds: [String] = allThreads
-                    .values
-                    .filter { thread in
-                        thread.variant == .contact &&
-                        thread.id != userPublicKey &&
-                        (try? SessionId(from: thread.id))?.prefix == .standard
-                    }
-                    .map { $0.id }
-                let contactsData: [ContactInfo] = try Contact
-                    .filter(
-                        Contact.Columns.isBlocked == true ||
-                        validContactIds.contains(Contact.Columns.id)
-                    )
-                    .including(optional: Contact.profile)
-                    .asRequest(of: ContactInfo.self)
-                    .fetchAll(db)
-                let threadIdsNeedingContacts: [String] = validContactIds
-                    .filter { contactId in !contactsData.contains(where: { $0.contact.id == contactId }) }
-                
-                try LibSession.upsert(
-                    contactData: contactsData
-                        .appending(
-                            contentsOf: threadIdsNeedingContacts
-                                .map { contactId in
-                                    ContactInfo(
-                                        contact: Contact.fetchOrCreate(db, id: contactId),
-                                        profile: nil
-                                    )
-                                }
-                        )
-                        .map { data in
-                            LibSession.SyncedContactInfo(
-                                id: data.contact.id,
-                                contact: data.contact,
-                                profile: data.profile,
-                                priority: {
-                                    guard allThreads[data.contact.id]?.shouldBeVisible == true else {
-                                        return LibSession.hiddenPriority
-                                    }
-                                    
-                                    return Int32(allThreads[data.contact.id]?.pinnedPriority ?? 0)
-                                }(),
-                                created: allThreads[data.contact.id]?.creationDateTimestamp
-                            )
-                        },
-                    in: conf
-                )
-                
-                if config_needs_dump(conf) {
-                    try LibSession
-                        .createDump(
-                            conf: conf,
-                            for: .contacts,
-                            publicKey: userPublicKey,
-                            timestampMs: timestampMs
-                        )?
-                        .save(db)
-                }
+        // Exclude Note to Self, community, group and outgoing blinded message requests
+        let contactsConfig: LibSession.Config = try cache.loadState(
+            for: .contacts,
+            sessionId: userSessionId,
+            userEd25519SecretKey: Array(userEd25519SecretKey),
+            groupEd25519SecretKey: nil,
+            cachedData: nil
+        )
+        let validContactIds: [String] = allThreads
+            .values
+            .filter { thread in
+                thread["variant"] == SessionThread.Variant.contact.rawValue &&
+                thread["id"] != userSessionId.hexString &&
+                (try? SessionId(from: thread["id"]))?.prefix == .standard
             }
+            .map { $0["id"] }
+        let contactsData: [Row] = try Row.fetchAll(
+            db,
+            sql: """
+                SELECT
+                    contact.id,
+                    contact.isApproved,
+                    contact.isBlocked,
+                    contact.didApproveMe,
+                    profile.name,
+                    profile.nickname,
+                    profile.profilePictureUrl,
+                    profile.profileEncryptionKey
+                FROM contact
+                LEFT JOIN profile ON profile.id = contact.id 
+                WHERE (
+                    contact.isBlocked = true OR
+                    contact.id IN (\(validContactIds.map { "'\($0)'" }.joined(separator: ", ")))
+                )
+            """
+        )
+        let threadIdsNeedingContacts: [String] = validContactIds
+            .filter { contactId in !contactsData.contains(where: { $0["id"] == contactId }) }
+        
+        try LibSession.upsert(
+            contactData: contactsData
+                .map { row in
+                    let contactId: String = row["id"]
+                    
+                    return LibSession.SyncedContactInfo(
+                        id: contactId,
+                        isApproved: row["isApproved"],
+                        isBlocked: row["isBlocked"],
+                        didApproveMe: row["didApproveMe"],
+                        name: row["name"],
+                        nickname: row["nickname"],
+                        profilePictureUrl: row["profilePictureUrl"],
+                        profileEncryptionKey: row["profileEncryptionKey"],
+                        priority: {
+                            guard allThreads[contactId]?["shouldBeVisible"] == true else {
+                                return -1 // Hidden priority
+                            }
+                            
+                            let pinnedPriority: Int32? = allThreads[contactId]?["pinnedPriority"]
+                            return (pinnedPriority ?? 0)
+                        }(),
+                        created: allThreads[contactId]?["creationDateTimestamp"]
+                    )
+                }
+                .appending(
+                    contentsOf: threadIdsNeedingContacts
+                        .map { contactId in
+                            LibSession.SyncedContactInfo(
+                                id: contactId,
+                                isApproved: false,
+                                isBlocked: false,
+                                didApproveMe: false
+                            )
+                        }
+                ),
+            in: contactsConfig,
+            using: dependencies
+        )
+        
+        if cache.configNeedsDump(contactsConfig), let dumpData: Data = try contactsConfig.dump() {
+            try db.execute(
+                sql: """
+                    INSERT INTO configDump (variant, publicKey, data, timestampMs)
+                    VALUES ('contacts', '\(userSessionId.hexString)', ?, \(timestampMs))
+                    ON CONFLICT(variant, publicKey) DO UPDATE SET
+                        data = ?,
+                        timestampMs = \(timestampMs)
+                """,
+                arguments: [dumpData, dumpData]
+            )
+        }
         
         // MARK: - ConvoInfoVolatile Config Dump
         
-        try dependencies.caches[.libSession]
-            .config(for: .convoInfoVolatile, publicKey: userPublicKey)
-            .perform { conf in
-                let volatileThreadInfo: [LibSession.VolatileThreadInfo] = LibSession.VolatileThreadInfo
-                    .fetchAll(db, ids: Array(allThreads.keys))
-                
-                try LibSession.upsert(
-                    convoInfoVolatileChanges: volatileThreadInfo,
-                    in: conf
+        let convoInfoVolatileConfig: LibSession.Config = try cache.loadState(
+            for: .convoInfoVolatile,
+            sessionId: userSessionId,
+            userEd25519SecretKey: Array(userEd25519SecretKey),
+            groupEd25519SecretKey: nil,
+            cachedData: nil
+        )
+        let volatileThreadInfo: [Row] = try Row.fetchAll(db, sql: """
+            SELECT
+                thread.id,
+                thread.variant,
+                thread.markedAsUnread,
+                interaction.timestampMs,
+                openGroup.server,
+                openGroup.roomToken,
+                openGroup.publicKey
+            FROM thread
+            LEFT JOIN (
+                SELECT interaction.threadId, MAX(interaction.timestampMs) AS timestampMs
+                FROM interaction
+                WHERE (
+                    interaction.wasRead = true AND
+                    -- Note: Due to the complexity of how call messages are handled and the short
+                    -- duration they exist in the swarm, we have decided to exclude trying to
+                    -- include them when syncing the read status of conversations (they are also
+                    -- implemented differently between platforms so including them could be a
+                    -- significant amount of work)
+                    interaction.variant = \(Interaction.Variant.standardIncoming.rawValue)
                 )
-                
-                if config_needs_dump(conf) {
-                    try LibSession
-                        .createDump(
-                            conf: conf,
-                            for: .convoInfoVolatile,
-                            publicKey: userPublicKey,
-                            timestampMs: timestampMs
-                        )?
-                        .save(db)
+                GROUP BY interaction.threadId
+            ) AS interaction ON interaction.threadId = thread.id
+            LEFT JOIN openGroup ON openGroup.threadId = thread.id
+            WHERE thread.id IN (\(allThreads.keys.map { "'\($0)'" }.joined(separator: ", ")))
+            GROUP BY thread.id
+        """)
+        
+        try LibSession.upsert(
+            convoInfoVolatileChanges: volatileThreadInfo.compactMap { info -> LibSession.VolatileThreadInfo? in
+                guard let variant: SessionThread.Variant = SessionThread.Variant(rawValue: info["variant"]) else {
+                    return nil
                 }
-            }
+                
+                var openGroupUrlInfo: LibSession.OpenGroupUrlInfo?
+                
+                if
+                    let server: String = info["server"],
+                    let roomToken: String = info["roomToken"],
+                    let publicKey: String = info["publicKey"]
+                {
+                    openGroupUrlInfo = LibSession.OpenGroupUrlInfo(
+                        threadId: info["id"],
+                        server: server,
+                        roomToken: roomToken,
+                        publicKey: publicKey
+                    )
+                }
+                
+                let markedAsUnread: Bool? = info["markedAsUnread"]
+                let timestampMs: Int64? = info["timestampMs"]
+                
+                return LibSession.VolatileThreadInfo(
+                    threadId: info["id"],
+                    variant: variant,
+                    openGroupUrlInfo: openGroupUrlInfo,
+                    changes: [
+                        .markedAsUnread(markedAsUnread ?? false),
+                        .lastReadTimestampMs(timestampMs ?? 0)
+                    ]
+                )
+            },
+            in: convoInfoVolatileConfig
+        )
+        
+        if cache.configNeedsDump(convoInfoVolatileConfig), let dumpData: Data = try convoInfoVolatileConfig.dump() {
+            try db.execute(
+                sql: """
+                    INSERT INTO configDump (variant, publicKey, data, timestampMs)
+                    VALUES ('convoInfoVolatile', '\(userSessionId.hexString)', ?, \(timestampMs))
+                    ON CONFLICT(variant, publicKey) DO UPDATE SET
+                        data = ?,
+                        timestampMs = \(timestampMs)
+                """,
+                arguments: [dumpData, dumpData]
+            )
+        }
         
         // MARK: - UserGroups Config Dump
         
-        try dependencies.caches[.libSession]
-            .config(for: .userGroups, publicKey: userPublicKey)
-            .perform { conf in
-                let legacyGroupData: [LibSession.LegacyGroupInfo] = try LibSession.LegacyGroupInfo.fetchAll(db)
-                let communityData: [LibSession.OpenGroupUrlInfo] = try LibSession.OpenGroupUrlInfo
-                    .fetchAll(db, ids: Array(allThreads.keys))
-                
-                try LibSession.upsert(
-                    legacyGroups: legacyGroupData,
-                    in: conf
+        let userGroupsConfig: LibSession.Config = try cache.loadState(
+            for: .userGroups,
+            sessionId: userSessionId,
+            userEd25519SecretKey: Array(userEd25519SecretKey),
+            groupEd25519SecretKey: nil,
+            cachedData: nil
+        )
+        let legacyGroupInfo: [Row] = try Row.fetchAll(db, sql: """
+            SELECT
+                closedGroup.threadId,
+                closedGroup.name,
+                closedGroup.formationTimestamp,
+                thread.pinnedPriority,
+                closedGroupKeyPair.publicKey,
+                closedGroupKeyPair.secretKey,
+                closedGroupKeyPair.receivedTimestamp,
+                disappearingMessagesConfiguration.isEnabled,
+                disappearingMessagesConfiguration.durationSeconds
+            FROM closedGroup
+            JOIN thread ON thread.id = closedGroup.threadId
+            LEFT JOIN (
+                SELECT
+                    closedGroupKeyPair.threadId,
+                    closedGroupKeyPair.publicKey,
+                    closedGroupKeyPair.secretKey,
+                    MAX(closedGroupKeyPair.receivedTimestamp) AS receivedTimestamp,
+                    closedGroupKeyPair.threadKeyPairHash
+                FROM closedGroupKeyPair
+                GROUP BY closedGroupKeyPair.threadId
+            ) AS closedGroupKeyPair ON closedGroupKeyPair.threadId = closedGroup.threadId
+            LEFT JOIN disappearingMessagesConfiguration ON disappearingMessagesConfiguration.threadId = closedGroup.threadId
+        """)
+        let legacyGroupIds: [String] = legacyGroupInfo.map { $0["threadId"] }
+        let allLegacyGroupMembers: [Row] = try Row.fetchAll(db, sql: """
+            SELECT groupId, profileId, role
+            FROM groupMember
+            WHERE groupId IN (\(legacyGroupIds.map { "'\($0)'" }.joined(separator: ", ")))
+        """)
+        let groupedLegacyGroupMembers: [String: [LibSession.LegacyGroupMemberInfo]] = allLegacyGroupMembers
+            .reduce(into: [:]) { result, next in
+                let groupId: String = next["groupId"]
+                result[groupId] = (result[groupId] ?? []).appending(
+                    LibSession.LegacyGroupMemberInfo(
+                        profileId: next["profileId"],
+                        rawRole: next["role"]
+                    )
                 )
-                try LibSession.upsert(
-                    communities: communityData
-                        .map { urlInfo in
-                            LibSession.CommunityInfo(
-                                urlInfo: urlInfo,
-                                priority: Int32(allThreads[urlInfo.threadId]?.pinnedPriority ?? 0)
-                            )
-                        },
-                    in: conf
-                )
+            }
+        let communityInfo: [Row] = try Row.fetchAll(db, sql: """
+            SELECT threadId, server, roomToken, publicKey
+            FROM openGroup
+            WHERE threadId IN (\(allThreads.keys.map { "'\($0)'" }.joined(separator: ", ")))
+        """)
+        
+        try LibSession.upsert(
+            legacyGroups: legacyGroupInfo.compactMap { info -> LibSession.LegacyGroupInfo? in
+                let id: String = info["threadId"]
+                var lastKeyPair: LibSession.LastKeyPairInfo?
+                var disappearingInfo: LibSession.DisappearingMessageInfo?
                 
-                if config_needs_dump(conf) {
-                    try LibSession
-                        .createDump(
-                            conf: conf,
-                            for: .userGroups,
-                            publicKey: userPublicKey,
-                            timestampMs: timestampMs
-                        )?
-                        .save(db)
+                if
+                    let publicKey: Data = info["publicKey"],
+                    let secretKey: Data = info["secretKey"],
+                    let receivedTimestamp: TimeInterval = info["receivedTimestamp"]
+                {
+                    lastKeyPair = LibSession.LastKeyPairInfo(
+                        publicKey: publicKey,
+                        secretKey: secretKey,
+                        receivedTimestamp: receivedTimestamp
+                    )
                 }
-        }
                 
-        // MARK: - Threads
+                if
+                    let isEnabled: Bool = info["isEnabled"],
+                    let durationSeconds: Int64 = info["durationSeconds"]
+                {
+                    disappearingInfo = LibSession.DisappearingMessageInfo(
+                        isEnabled: isEnabled,
+                        durationSeconds: durationSeconds,
+                        rawType: nil
+                    )
+                }
+                
+                return LibSession.LegacyGroupInfo(
+                    id: id,
+                    name: info["name"],
+                    lastKeyPair: lastKeyPair,
+                    disappearingMessageInfo: disappearingInfo,
+                    groupMembers: groupedLegacyGroupMembers[id]?.filter {
+                        $0.rawRole == GroupMember.Role.standard.rawValue ||
+                        $0.rawRole == GroupMember.Role.zombie.rawValue
+                    },
+                    groupAdmins: groupedLegacyGroupMembers[id]?.filter {
+                        $0.rawRole == GroupMember.Role.admin.rawValue
+                    },
+                    priority: info["pinnedPriority"],
+                    joinedAt: info["formationTimestamp"]
+                )
+            },
+            in: userGroupsConfig
+        )
+        try LibSession.upsert(
+            communities: communityInfo.compactMap { info in
+                let threadId: String = info["threadId"]
+                let pinnedPriority: Int32? = allThreads[threadId]?["pinnedPriority"]
+                
+                return LibSession.CommunityInfo(
+                    urlInfo: LibSession.OpenGroupUrlInfo(
+                        threadId: threadId,
+                        server: info["server"],
+                        roomToken: info["roomToken"],
+                        publicKey: info["publicKey"]
+                    ),
+                    priority: (pinnedPriority ?? 0)
+                )
+            },
+            in: userGroupsConfig
+        )
         
-        try LibSession.updatingThreads(db, Array(allThreads.values), using: dependencies)
-        
-        // MARK: - Syncing
-        
-        // Enqueue a config sync job to ensure the generated configs get synced
-        db.afterNextTransactionNestedOnce(dedupeId: LibSession.syncDedupeId(userPublicKey)) { db in
-            ConfigurationSyncJob.enqueue(db, publicKey: userPublicKey)
+        if cache.configNeedsDump(userGroupsConfig), let dumpData: Data = try userGroupsConfig.dump() {
+            try db.execute(
+                sql: """
+                    INSERT INTO configDump (variant, publicKey, data, timestampMs)
+                    VALUES ('userGroups', '\(userSessionId.hexString)', ?, \(timestampMs))
+                    ON CONFLICT(variant, publicKey) DO UPDATE SET
+                        data = ?,
+                        timestampMs = \(timestampMs)
+                """,
+                arguments: [dumpData, dumpData]
+            )
         }
         
-        Storage.update(progress: 1, for: self, in: target) // In case this is the last migration
-    }
-    
-    struct ContactInfo: FetchableRecord, Decodable, ColumnExpressible {
-        typealias Columns = CodingKeys
-        enum CodingKeys: String, CodingKey, ColumnExpression, CaseIterable {
-            case contact
-            case profile
-        }
-        
-        let contact: Contact
-        let profile: Profile?
+        Storage.update(progress: 1, for: self, in: target, using: dependencies)
     }
 }

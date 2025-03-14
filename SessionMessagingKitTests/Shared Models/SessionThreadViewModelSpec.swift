@@ -12,21 +12,22 @@ class SessionThreadViewModelSpec: QuickSpec {
     override class func spec() {
         // MARK: Configuration
         
-        @TestState var mockStorage: Storage! = SynchronousStorage(
+        @TestState var dependencies: TestDependencies! = TestDependencies()
+        @TestState(singleton: .storage, in: dependencies) var mockStorage: Storage! = SynchronousStorage(
             customWriter: try! DatabaseQueue(),
+            using: dependencies,
             initialData: { db in
-                try db.create(table: TestMessage.self) { t in
-                    t.column(.body, .text).notNull()
+                try db.create(table: "testMessage") { t in
+                    t.column("body", .text).notNull()
                 }
                 
-                try db.create(virtualTable: TestMessage.fullTextSearchTableName, using: FTS5()) { t in
-                    t.synchronize(withTable: TestMessage.databaseTableName)
+                try db.create(virtualTable: "testMessage_fts", using: FTS5()) { t in
+                    t.synchronize(withTable: "testMessage")
                     t.tokenizer = .porter(wrapping: .unicode61())
                     
-                    t.column(TestMessage.Columns.body.name)
+                    t.column("body")
                 }
-            },
-            using: Dependencies()
+            }
         )
         
         // MARK: - a SessionThreadViewModel
