@@ -356,7 +356,7 @@ public final class HomeVC: BaseVC, LibSessionRespondingViewController, UITableVi
         if
             Identity.userExists(using: viewModel.dependencies),
             let appDelegate: AppDelegate = UIApplication.shared.delegate as? AppDelegate,
-            !viewModel.dependencies[singleton: .appContext].isNotInForeground
+            viewModel.dependencies[singleton: .appContext].isMainAppAndActive
         {
             appDelegate.startPollersIfNeeded()
         }
