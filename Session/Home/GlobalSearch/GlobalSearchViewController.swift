@@ -71,7 +71,7 @@ class GlobalSearchViewController: BaseVC, LibSessionRespondingViewController, UI
         }
         .map { GlobalSearchViewController.processDefaultSearchResults($0) }
         .removeDuplicates()
-        .handleEvents(didFail: { SNLog("[GlobalSearch] Observation failed with error: \($0)") })
+        .handleEvents(didFail: { Log.error(.cat, "Observation failed with error: \($0)") })
     private var defaultDataChangeObservable: DatabaseCancellable? {
         didSet { oldValue?.cancel() }   // Cancel the old observable if there was one
     }
