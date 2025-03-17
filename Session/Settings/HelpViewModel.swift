@@ -8,6 +8,14 @@ import SessionUIKit
 import SessionMessagingKit
 import SessionUtilitiesKit
 
+// MARK: - Log.Category
+
+private extension Log.Category {
+    static let version: Log.Category = .create("Version", defaultLevel: .info)
+}
+
+// MARK: - HelpViewModel
+
 class HelpViewModel: SessionTableViewModel, NavigatableStateHolder, ObservableTableSource {
     typealias TableItem = Section
     
@@ -204,7 +212,7 @@ class HelpViewModel: SessionTableViewModel, NavigatableStateHolder, ObservableTa
         using dependencies: Dependencies,
         onShareComplete: (() -> ())? = nil
     ) {
-        Log.info("[Version] \(dependencies[cache: .appVersion].versionInfo)")
+        Log.info(.version, "\(dependencies[cache: .appVersion].versionInfo)")
         Log.flush()
         
         guard

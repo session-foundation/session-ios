@@ -58,7 +58,7 @@ public enum MessageWrapper {
             builder.setContent(content)
             return try builder.build()
         } catch let error {
-            SNLog("Failed to wrap message in envelope: \(error).")
+            Log.error(.messageSender, "Failed to wrap message in envelope: \(error).")
             throw Error.failedToWrapMessageInEnvelope
         }
     }
@@ -71,7 +71,7 @@ public enum MessageWrapper {
             messageBuilder.setRequest(try requestBuilder.build())
             return try messageBuilder.build()
         } catch let error {
-            SNLog("Failed to wrap envelope in web socket message: \(error).")
+            Log.error(.messageSender, "Failed to wrap envelope in web socket message: \(error).")
             throw Error.failedToWrapEnvelopeInWebSocketMessage
         }
     }
@@ -90,7 +90,7 @@ public enum MessageWrapper {
             }()
             return try SNProtoEnvelope.parseData(envelopeData)
         } catch let error {
-            SNLog("Failed to unwrap data: \(error).")
+            Log.error(.messageSender, "Failed to unwrap data: \(error).")
             throw Error.failedToUnwrapData
         }
     }

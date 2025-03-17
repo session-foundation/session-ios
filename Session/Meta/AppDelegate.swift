@@ -97,13 +97,12 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
                 // Note: Intentionally dispatching sync as we want to wait for these to complete before
                 // continuing
                 DispatchQueue.main.sync {
-                    ScreenLockUI.shared.setupWithRootWindow(rootWindow: mainWindow, using: dependencies)
+                    dependencies[singleton: .screenLock].setupWithRootWindow(rootWindow: mainWindow)
                     OWSWindowManager.shared().setup(
                         withRootWindow: mainWindow,
-                        screenBlockingWindow: ScreenLockUI.shared.screenBlockingWindow,
+                        screenBlockingWindow: dependencies[singleton: .screenLock].window,
                         backgroundWindowLevel: .background
                     )
-                    ScreenLockUI.shared.startObserving()
                 }
             },
             migrationProgressChanged: { [weak self] progress, minEstimatedTotalTime in
@@ -318,26 +317,35 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
     // MARK: - Background Fetching
     
     func application(_ application: UIApplication, performFetchWithCompletionHandler completionHandler: @escaping (UIBackgroundFetchResult) -> Void) {
+        /// It seems like it's possible for this function to be called with an invalid `backgroundTimeRemaining` value
+        /// (`TimeInterval.greatestFiniteMagnitude`) in which case we just want to mark it as a failure
+        ///
+        /// Additionally we want to ensure that our timeout timer has enough time to run so make sure we have at least `5 seconds`
+        /// of background execution (if we don't then the process could incorrectly run longer than it should)
+        guard
+            application.backgroundTimeRemaining < TimeInterval.greatestFiniteMagnitude &&
+            application.backgroundTimeRemaining > 5
+        else { return completionHandler(.failed) }
+        
         Log.appResumedExecution()
         Log.info(.backgroundPoller, "Starting background fetch.")
         dependencies[singleton: .storage].resumeDatabaseAccess()
         dependencies.mutate(cache: .libSessionNetwork) { $0.resumeNetworkAccess() }
         
-        let queue: DispatchQueue = .global(qos: .userInitiated)
+        let queue: DispatchQueue = DispatchQueue(label: "com.session.backgroundPoll")
         let poller: BackgroundPoller = BackgroundPoller()
         var cancellable: AnyCancellable?
         
-        // Background tasks only last for a certain amount of time (which can result in a crash and a
-        // prompt appearing for the user), we want to avoid this and need to make sure to suspend the
-        // database again before the background task ends so we start a timer that expires 1 second
-        // before the background task is due to expire in order to do so
-        let cancelTimer: Timer = Timer.scheduledTimerOnMainThread(
-            withTimeInterval: (application.backgroundTimeRemaining - 5),
-            repeats: false,
-            using: dependencies
-        ) { [poller, dependencies] timer in
-            timer.invalidate()
-            
+        /// Background tasks only last for a certain amount of time (which can result in a crash and a prompt appearing for the user),
+        /// we want to avoid this and need to make sure to suspend the database again before the background task ends so we start
+        /// a timer that expires before the background task is due to expire in order to do so
+        ///
+        /// **Note:** We **MUST** capture both `poller` and `cancellable` strongly in the event handler to ensure neither
+        /// go out of scope until we want them to (we essentually want a retain cycle in this case)
+        let durationRemainingMs: Int = max(1, Int((application.backgroundTimeRemaining - 5) * 1000))
+        let timer: DispatchSourceTimer = DispatchSource.makeTimerSource(queue: queue)
+        timer.schedule(deadline: .now() + .milliseconds(durationRemainingMs))
+        timer.setEventHandler { [poller, dependencies] in
             guard cancellable != nil else { return }
             
             Log.info(.backgroundPoller, "Background poll failed due to manual timeout.")
@@ -352,32 +360,49 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
             _ = poller // Capture poller to ensure it doesn't go out of scope
             completionHandler(.failed)
         }
+        timer.resume()
         
         dependencies[singleton: .appReadiness].runNowOrWhenAppDidBecomeReady { [dependencies, poller] in
-            // If the 'AppReadiness' process takes too long then it's possible for the user to open
-            // the app after this closure is registered but before it's actually triggered - this can
-            // result in the `BackgroundPoller` incorrectly getting called in the foreground, this check
-            // is here to prevent that
+            /// If the 'AppReadiness' process takes too long then it's possible for the user to open the app after this closure is registered
+            /// but before it's actually triggered - this can result in the `BackgroundPoller` incorrectly getting called in the foreground,
+            /// this check is here to prevent that
             guard dependencies[singleton: .appContext].isInBackground else { return }
             
+            /// Kick off the `BackgroundPoller`
+            ///
+            /// **Note:** We **MUST** capture both `poller` and `timer` strongly in the completion handler to ensure neither
+            /// go out of scope until we want them to (we essentually want a retain cycle in this case)
             cancellable = poller
                 .poll(using: dependencies)
                 .subscribe(on: queue, using: dependencies)
-                .receive(on: DispatchQueue.main, using: dependencies)
+                .receive(on: queue, using: dependencies)
                 .sink(
-                    receiveCompletion: { [poller] result in
+                    receiveCompletion: { [timer, poller] result in
                         // Ensure we haven't timed out yet
-                        guard cancelTimer.isValid else { return }
+                        guard timer.isCancelled == false else { return }
                         
+                        // Immediately cancel the timer to prevent the timeout being triggered
+                        timer.cancel()
+                        
+                        // Update the unread count badge
+                        let unreadCount: Int = dependencies[singleton: .storage]
+                            .read { db in try Interaction.fetchAppBadgeUnreadCount(db, using: dependencies) }
+                            .defaulting(to: 0)
+                        
+                        DispatchQueue.main.async(using: dependencies) {
+                            UIApplication.shared.applicationIconBadgeNumber = unreadCount
+                        }
+                        
+                        // If we are still running in the background then suspend the network & database
                         if dependencies[singleton: .appContext].isInBackground {
                             dependencies.mutate(cache: .libSessionNetwork) { $0.suspendNetworkAccess() }
                             dependencies[singleton: .storage].suspendDatabaseAccess()
                             Log.flush()
                         }
                         
-                        cancelTimer.invalidate()
                         _ = poller // Capture poller to ensure it doesn't go out of scope
                         
+                        // Complete the background task
                         switch result {
                             case .failure: completionHandler(.failed)
                             case .finished: completionHandler(.newData)
@@ -850,16 +875,13 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
     
     // MARK: - Polling
     
-    public func startPollersIfNeeded(shouldStartGroupPollers: Bool = true) {
+    public func startPollersIfNeeded() {
         guard dependencies[cache: .onboarding].state == .completed else { return }
         
         /// Start the pollers on a background thread so that any database queries they need to run don't
         /// block the main thread
         DispatchQueue.global(qos: .background).async { [dependencies] in
             dependencies[singleton: .currentUserPoller].startIfNeeded()
-            
-            guard shouldStartGroupPollers else { return }
-            
             dependencies.mutate(cache: .groupPollers) { $0.startAllPollers() }
             dependencies.mutate(cache: .communityPollers) { $0.startAllPollers() }
         }

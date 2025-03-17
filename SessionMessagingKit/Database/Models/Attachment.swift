@@ -476,7 +476,7 @@ extension Attachment {
             return try builder.build()
         }
         catch {
-            SNLog("Couldn't construct attachment proto from: \(self).")
+            Log.warn(.messageSender, "Couldn't construct attachment proto from: \(self).")
             return nil
         }
     }

@@ -415,7 +415,7 @@ extension Network.PreparedRequest: ErasedPreparedRequest {
     public func encodeForBatchRequest(to encoder: Encoder) throws {
         switch batchRequestVariant {
             case .unsupported:
-                SNLog("Attempted to encode unsupported request type \(endpointName) as a batch subrequest")
+                Log.critical("Attempted to encode unsupported request type \(endpointName) as a batch subrequest")
                 
             case .sogs:
                 var container: KeyedEncodingContainer<Network.BatchRequest.Child.CodingKeys> = encoder.container(keyedBy: Network.BatchRequest.Child.CodingKeys.self)
@@ -488,7 +488,7 @@ public extension Network.PreparedRequest {
     /// Due to the way prepared requests work we need to cast between different types and as a result can't avoid potentially
     /// throwing when mapping so the `map` function just calls through to the `tryMap` function, but we have both to make
     /// the interface more consistent for dev use
-    func map<O>(transform: @escaping (ResponseInfoType, R) throws -> O) -> Network.PreparedRequest<O> {
+    func map<O>(transform: @escaping (ResponseInfoType, R) -> O) -> Network.PreparedRequest<O> {
         return tryMap(transform: transform)
     }
     

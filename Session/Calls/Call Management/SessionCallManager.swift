@@ -144,7 +144,7 @@ public final class SessionCallManager: NSObject, CallManagerProtocol {
         }
         
         func handleCallEnded() {
-            SNLog("[Calls] Call ended.")
+            Log.info(.calls, "Call ended.")
             WebRTCSession.current = nil
             dependencies[defaults: .appGroup, key: .isCallOngoing] = false
             dependencies[defaults: .appGroup, key: .lastCallPreOffer] = nil

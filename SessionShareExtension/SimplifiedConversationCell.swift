@@ -96,5 +96,9 @@ final class SimplifiedConversationCell: UITableViewCell {
             using: dependencies
         )
         displayNameLabel.text = cellViewModel.displayName
+        
+        self.isAccessibilityElement = true
+        self.accessibilityIdentifier = "Contact"
+        self.accessibilityLabel = cellViewModel.displayName
     }
 }

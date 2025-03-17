@@ -247,10 +247,10 @@ public final class CommunityPoller: CommunityPollerType & PollerType {
     /// **Note:** The returned messages will have already been processed by the `Poller`, they are only returned
     /// for cases where we need explicit/custom behaviours to occur (eg. Onboarding)
     public func poll(forceSynchronousProcessing: Bool = false) -> AnyPublisher<PollResult, Error> {
-        let timeSinceLastPoll: TimeInterval = (self.lastPollStart > 0 ?
+        let lastSuccessfulPollTimestamp: TimeInterval = (self.lastPollStart > 0 ?
             lastPollStart :
             dependencies.mutate(cache: .openGroupManager) { cache in
-                cache.getTimeSinceLastOpen(using: dependencies)
+                cache.getLastSuccessfulCommunityPollTimestamp()
             }
         )
         
@@ -260,7 +260,7 @@ public final class CommunityPoller: CommunityPollerType & PollerType {
                     db,
                     server: pollerDestination.target,
                     hasPerformedInitialPoll: (pollCount > 0),
-                    timeSinceLastPoll: timeSinceLastPoll,
+                    timeSinceLastPoll: (dependencies.dateNow.timeIntervalSince1970 - lastSuccessfulPollTimestamp),
                     using: dependencies
                 )
             }
@@ -274,8 +274,14 @@ public final class CommunityPoller: CommunityPollerType & PollerType {
                 )
             }
             .handleEvents(
-                receiveOutput: { [weak self] _ in
+                receiveOutput: { [weak self, dependencies] _ in
                     self?.pollCount += 1
+                    
+                    dependencies.mutate(cache: .openGroupManager) { cache in
+                        cache.setLastSuccessfulCommunityPollTimestamp(
+                            dependencies.dateNow.timeIntervalSince1970
+                        )
+                    }
                 }
             )
             .eraseToAnyPublisher()
