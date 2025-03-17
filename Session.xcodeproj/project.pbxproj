@@ -705,12 +705,12 @@
 		FD65318B2AA025C500DFEEAA /* TestDependencies.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD6531892AA025C500DFEEAA /* TestDependencies.swift */; };
 		FD65318C2AA025C500DFEEAA /* TestDependencies.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD6531892AA025C500DFEEAA /* TestDependencies.swift */; };
 		FD65318D2AA025C500DFEEAA /* TestDependencies.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD6531892AA025C500DFEEAA /* TestDependencies.swift */; };
-		FD6673FD2D77F54600041530 /* ScreenLockViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD6673FC2D77F54400041530 /* ScreenLockViewController.swift */; };
-		FD6673FF2D77F9C100041530 /* ScreenLock.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD6673FE2D77F9BE00041530 /* ScreenLock.swift */; };
-		FD6674002D77F9FD00041530 /* ScreenLockWindow.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD52090828B59411006098F6 /* ScreenLockWindow.swift */; };
 		FD6673F62D7021E700041530 /* SessionUtil in Frameworks */ = {isa = PBXBuildFile; productRef = FD6673F52D7021E700041530 /* SessionUtil */; };
 		FD6673F82D7021F200041530 /* SessionUtil in Frameworks */ = {isa = PBXBuildFile; productRef = FD6673F72D7021F200041530 /* SessionUtil */; };
 		FD6673FA2D7021F800041530 /* SessionUtil in Frameworks */ = {isa = PBXBuildFile; productRef = FD6673F92D7021F800041530 /* SessionUtil */; };
+		FD6673FD2D77F54600041530 /* ScreenLockViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD6673FC2D77F54400041530 /* ScreenLockViewController.swift */; };
+		FD6673FF2D77F9C100041530 /* ScreenLock.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD6673FE2D77F9BE00041530 /* ScreenLock.swift */; };
+		FD6674002D77F9FD00041530 /* ScreenLockWindow.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD52090828B59411006098F6 /* ScreenLockWindow.swift */; };
 		FD66CB2A2BF3449B00268FAB /* SessionSnodeKit.xctestplan in Resources */ = {isa = PBXBuildFile; fileRef = FD66CB272BF3449B00268FAB /* SessionSnodeKit.xctestplan */; };
 		FD6A38E92C2A630E00762359 /* CocoaLumberjackSwift in Frameworks */ = {isa = PBXBuildFile; productRef = FD6A38E82C2A630E00762359 /* CocoaLumberjackSwift */; };
 		FD6A38EC2C2A63B500762359 /* KeychainSwift in Frameworks */ = {isa = PBXBuildFile; productRef = FD6A38EB2C2A63B500762359 /* KeychainSwift */; };
@@ -7861,7 +7861,7 @@
 				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
 				CODE_SIGN_IDENTITY = "iPhone Developer";
 				COMPILE_LIB_SESSION = "";
-				CURRENT_PROJECT_VERSION = 557;
+				CURRENT_PROJECT_VERSION = 561;
 				ENABLE_BITCODE = NO;
 				ENABLE_STRICT_OBJC_MSGSEND = YES;
 				ENABLE_TESTABILITY = YES;
@@ -7900,7 +7900,7 @@
 				HEADER_SEARCH_PATHS = "$(BUILT_PRODUCTS_DIR)/include/**";
 				IPHONEOS_DEPLOYMENT_TARGET = 15.6;
 				LIB_SESSION_SOURCE_DIR = "${SRCROOT}/../LibSession-Util";
-				MARKETING_VERSION = 2.9.0;
+				MARKETING_VERSION = 2.9.1;
 				ONLY_ACTIVE_ARCH = YES;
 				OTHER_CFLAGS = "-Werror=protocol";
 				OTHER_SWIFT_FLAGS = "-D DEBUG -Xfrontend -warn-long-expression-type-checking=100";
@@ -7939,7 +7939,7 @@
 				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
 				CODE_SIGN_IDENTITY = "iPhone Distribution";
 				COMPILE_LIB_SESSION = "";
-				CURRENT_PROJECT_VERSION = 557;
+				CURRENT_PROJECT_VERSION = 561;
 				ENABLE_BITCODE = NO;
 				ENABLE_MODULE_VERIFIER = YES;
 				ENABLE_STRICT_OBJC_MSGSEND = YES;
@@ -7974,7 +7974,7 @@
 				HEADER_SEARCH_PATHS = "$(BUILT_PRODUCTS_DIR)/include/**";
 				IPHONEOS_DEPLOYMENT_TARGET = 15.6;
 				LIB_SESSION_SOURCE_DIR = "${SRCROOT}/../LibSession-Util";
-				MARKETING_VERSION = 2.9.0;
+				MARKETING_VERSION = 2.9.1;
 				ONLY_ACTIVE_ARCH = NO;
 				OTHER_CFLAGS = (
 					"-DNS_BLOCK_ASSERTIONS=1",
@@ -8483,7 +8483,7 @@
 				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
 				CODE_SIGN_IDENTITY = "iPhone Developer";
 				COMPILE_LIB_SESSION = YES;
-				CURRENT_PROJECT_VERSION = 488;
+				CURRENT_PROJECT_VERSION = 561;
 				ENABLE_BITCODE = NO;
 				ENABLE_STRICT_OBJC_MSGSEND = YES;
 				ENABLE_TESTABILITY = YES;
@@ -8524,7 +8524,7 @@
 				);
 				IPHONEOS_DEPLOYMENT_TARGET = 15.6;
 				LIB_SESSION_SOURCE_DIR = "${SRCROOT}/../LibSession-Util";
-				MARKETING_VERSION = 2.7.4;
+				MARKETING_VERSION = 2.9.1;
 				ONLY_ACTIVE_ARCH = YES;
 				OTHER_CFLAGS = (
 					"-fobjc-arc-exceptions",
@@ -9151,7 +9151,7 @@
 				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
 				CODE_SIGN_IDENTITY = "iPhone Distribution";
 				COMPILE_LIB_SESSION = YES;
-				CURRENT_PROJECT_VERSION = 488;
+				CURRENT_PROJECT_VERSION = 561;
 				ENABLE_BITCODE = NO;
 				ENABLE_STRICT_OBJC_MSGSEND = YES;
 				GCC_NO_COMMON_BLOCKS = YES;
@@ -9187,7 +9187,7 @@
 				);
 				IPHONEOS_DEPLOYMENT_TARGET = 15.6;
 				LIB_SESSION_SOURCE_DIR = "${SRCROOT}/../LibSession-Util";
-				MARKETING_VERSION = 2.7.4;
+				MARKETING_VERSION = 2.9.1;
 				ONLY_ACTIVE_ARCH = NO;
 				OTHER_CFLAGS = (
 					"-DNS_BLOCK_ASSERTIONS=1",
@@ -10170,8 +10170,8 @@
 			requirement = {
 				kind = upToNextMajorVersion;
 				minimumVersion = 3.0.0;
-            };
-        };
+			};
+		};
 		FD6673F42D7021E700041530 /* XCRemoteSwiftPackageReference "libsession-util-spm" */ = {
 			isa = XCRemoteSwiftPackageReference;
 			repositoryURL = "https://github.com/session-foundation/libsession-util-spm";
@@ -10283,7 +10283,7 @@
 			isa = XCSwiftPackageProductDependency;
 			package = 946F5A712D5DA3AC00A5ADCE /* XCRemoteSwiftPackageReference "PunycodeSwift" */;
 			productName = Punycode;
-        };
+		};
 		FD0150512CA2446D005B08A1 /* Quick */ = {
 			isa = XCSwiftPackageProductDependency;
 			package = FD6A39302C2AD33E00762359 /* XCRemoteSwiftPackageReference "Quick" */;
