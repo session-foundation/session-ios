@@ -335,12 +335,29 @@ public enum Log {
         function: StaticString = #function,
         line: UInt = #line
     ) {
-        guard !Thread.isMainThread else { return }
-        
-        let filename: String = URL(fileURLWithPath: "\(file)").lastPathComponent
-        let formattedMessage: String = "[\(filename):\(line) \(function)] Must be on main thread."
-        custom(.critical, [], formattedMessage, file: file, function: function, line: line)
-        assertionFailure(formattedMessage)
+        switch Thread.isMainThread {
+            case true: return
+            case false:
+                let filename: String = URL(fileURLWithPath: "\(file)").lastPathComponent
+                let formattedMessage: String = "[\(filename):\(line) \(function)] Must be on main thread."
+                custom(.critical, [], formattedMessage, file: file, function: function, line: line)
+                assertionFailure(formattedMessage)
+        }
+    }
+    
+    public static func assertNotOnMainThread(
+        file: StaticString = #file,
+        function: StaticString = #function,
+        line: UInt = #line
+    ) {
+        switch Thread.isMainThread {
+            case false: return
+            case true:
+                let filename: String = URL(fileURLWithPath: "\(file)").lastPathComponent
+                let formattedMessage: String = "[\(filename):\(line) \(function)] Must NOT be on main thread."
+                custom(.critical, [], formattedMessage, file: file, function: function, line: line)
+                assertionFailure(formattedMessage)
+        }
     }
     
     public static func custom(

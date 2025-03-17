@@ -23,6 +23,11 @@ extension MessageSender {
         members: [(String, Profile?)],
         using dependencies: Dependencies
     ) -> AnyPublisher<SessionThread, Error> {
+        let userSessionId: SessionId = dependencies[cache: .general].sessionId
+        let sortedOtherMembers: [(String, Profile?)] = members
+            .filter { id, _ in id != userSessionId.hexString }
+            .sortedById(userSessionId: userSessionId)
+        
         return Just(())
             .setFailureType(to: Error.self)
             .flatMap { _ -> AnyPublisher<DisplayPictureManager.UploadResult?, Error> in
@@ -40,8 +45,6 @@ extension MessageSender {
             }
             .flatMap { (displayPictureInfo: DisplayPictureManager.UploadResult?) -> AnyPublisher<PreparedGroupData, Error> in
                 dependencies[singleton: .storage].writePublisher { db -> PreparedGroupData in
-                    let userSessionId: SessionId = dependencies[cache: .general].sessionId
-                    
                     /// Create and cache the libSession entries
                     let createdInfo: LibSession.CreatedGroupInfo = try LibSession.createGroup(
                         db,
@@ -77,12 +80,10 @@ extension MessageSender {
                         body: ClosedGroup.MessageInfo
                             .addedUsers(
                                 hasCurrentUser: false,
-                                names: members
-                                    .filter { id, _ in id != userSessionId.hexString }
-                                    .map { id, profile in
-                                        profile?.displayName(for: .group) ??
-                                        Profile.truncated(id: id, truncating: .middle)
-                                    },
+                                names: sortedOtherMembers.map { id, profile in
+                                    profile?.displayName(for: .group) ??
+                                    Profile.truncated(id: id, truncating: .middle)
+                                },
                                 historyShared: false
                             )
                             .infoString(using: dependencies),
@@ -101,9 +102,7 @@ extension MessageSender {
                                 destination: .closedGroup(groupPublicKey: createdInfo.group.id),
                                 message: GroupUpdateMemberChangeMessage(
                                     changeType: .added,
-                                    memberSessionIds: members
-                                        .filter { id, _ -> Bool in id != userSessionId.hexString }
-                                        .map { id, _ in id },
+                                    memberSessionIds: sortedOtherMembers.map { id, _ in id },
                                     historyShared: false,
                                     sentTimestampMs: UInt64(createdInfo.group.formationTimestamp * 1000),
                                     authMethod: Authentication.groupAdmin(
@@ -553,7 +552,7 @@ extension MessageSender {
     
     public static func addGroupMembers(
         groupSessionId: String,
-        members: [(id: String, profile: Profile?)],
+        members: [(String, Profile?)],
         allowAccessToHistoricMessages: Bool,
         using dependencies: Dependencies
     ) -> AnyPublisher<Void, Error> {
@@ -568,6 +567,10 @@ extension MessageSender {
             subaccountToken: [UInt8]
         )
         
+        let userSessionId: SessionId = dependencies[cache: .general].sessionId
+        let sortedMembers: [(String, Profile?)] = members
+            .sortedById(userSessionId: userSessionId)
+        
         return dependencies[singleton: .storage]
             .writePublisher { db -> ([MemberJobData], Network.PreparedRequest<Void>, Network.PreparedRequest<Void>?) in
                 guard
@@ -578,7 +581,6 @@ extension MessageSender {
                         .fetchOne(db)
                 else { throw MessageSenderError.invalidClosedGroupUpdate }
                 
-                let userSessionId: SessionId = dependencies[cache: .general].sessionId
                 let changeTimestampMs: Int64 = dependencies[cache: .snodeAPI].currentOffsetTimestampMs()
                 var maybeSupplementalKeyRequest: Network.PreparedRequest<Void>?
                 
@@ -601,7 +603,7 @@ extension MessageSender {
                             let supplementData: Data = try LibSession.keySupplement(
                                 db,
                                 groupSessionId: sessionId,
-                                memberIds: members.map { $0.id }.asSet(),
+                                memberIds: members.map { id, _ in id }.asSet(),
                                 using: dependencies
                             )
                             
@@ -708,13 +710,11 @@ extension MessageSender {
                     variant: .infoGroupMembersUpdated,
                     body: ClosedGroup.MessageInfo
                         .addedUsers(
-                            hasCurrentUser: members.map { $0.id }.contains(userSessionId.hexString),
-                            names: members
-                                .sorted { lhs, rhs in lhs.id == userSessionId.hexString }
-                                .map { id, profile in
-                                    profile?.displayName(for: .group) ??
-                                    Profile.truncated(id: id, truncating: .middle)
-                                },
+                            hasCurrentUser: members.contains { id, _ in id == userSessionId.hexString },
+                            names: sortedMembers.map { id, profile in
+                                profile?.displayName(for: .group) ??
+                                Profile.truncated(id: id, truncating: .middle)
+                            },
                             historyShared: allowAccessToHistoricMessages
                         )
                         .infoString(using: dependencies),
@@ -737,7 +737,7 @@ extension MessageSender {
                             destination: .closedGroup(groupPublicKey: sessionId.hexString),
                             message: GroupUpdateMemberChangeMessage(
                                 changeType: .added,
-                                memberSessionIds: members.map { $0.id },
+                                memberSessionIds: sortedMembers.map { id, _ in id },
                                 historyShared: allowAccessToHistoricMessages,
                                 sentTimestampMs: UInt64(changeTimestampMs),
                                 authMethod: Authentication.groupAdmin(
@@ -979,6 +979,9 @@ extension MessageSender {
             dependencies[cache: .snodeAPI].currentOffsetTimestampMs()
         )
         
+        let userSessionId: SessionId = dependencies[cache: .general].sessionId
+        let sortedMemberIds: [String] = memberIds.sortedById(userSessionId: userSessionId)
+        
         return dependencies[singleton: .storage]
             .writePublisher { db in
                 guard
@@ -1028,7 +1031,6 @@ extension MessageSender {
                 
                 /// Send the member changed message if desired
                 if sendMemberChangedMessage {
-                    let userSessionId: SessionId = dependencies[cache: .general].sessionId
                     let removedMemberProfiles: [String: Profile] = (try? Profile
                         .filter(ids: memberIds)
                         .fetchAll(db))
@@ -1045,12 +1047,10 @@ extension MessageSender {
                         body: ClosedGroup.MessageInfo
                             .removedUsers(
                                 hasCurrentUser: memberIds.contains(userSessionId.hexString),
-                                names: memberIds
-                                    .sorted { lhs, rhs in lhs == userSessionId.hexString }
-                                    .map { id in
-                                        removedMemberProfiles[id]?.displayName(for: .group) ??
-                                        Profile.truncated(id: id, truncating: .middle)
-                                    }
+                                names: sortedMemberIds.map { id in
+                                    removedMemberProfiles[id]?.displayName(for: .group) ??
+                                    Profile.truncated(id: id, truncating: .middle)
+                                }
                             )
                             .infoString(using: dependencies),
                         timestampMs: targetChangeTimestampMs,
@@ -1072,7 +1072,7 @@ extension MessageSender {
                                 destination: .closedGroup(groupPublicKey: sessionId.hexString),
                                 message: GroupUpdateMemberChangeMessage(
                                     changeType: .removed,
-                                    memberSessionIds: Array(memberIds),
+                                    memberSessionIds: sortedMemberIds,
                                     historyShared: false,
                                     sentTimestampMs: UInt64(targetChangeTimestampMs),
                                     authMethod: Authentication.groupAdmin(
@@ -1098,10 +1098,12 @@ extension MessageSender {
     
     public static func promoteGroupMembers(
         groupSessionId: SessionId,
-        members: [(id: String, profile: Profile?)],
+        members: [(String, Profile?)],
         isResend: Bool,
         using dependencies: Dependencies
     ) -> AnyPublisher<Void, Error> {
+        let userSessionId: SessionId = dependencies[cache: .general].sessionId
+        
         return dependencies[singleton: .storage]
             .writePublisher { db -> Set<String> in
                 guard
@@ -1113,7 +1115,7 @@ extension MessageSender {
                 else { throw MessageSenderError.invalidClosedGroupUpdate }
             
                 /// Determine which members actually need to be promoted (rather than just resent promotions)
-                let memberIds: Set<String> = Set(members.map(\.id))
+                let memberIds: Set<String> = Set(members.map { id, _ in id })
                 let memberIdsRequiringPromotions: Set<String> = try GroupMember
                     .select(.profileId)
                     .filter(GroupMember.Columns.groupId == groupSessionId.hexString)
@@ -1121,8 +1123,10 @@ extension MessageSender {
                     .filter(GroupMember.Columns.role == GroupMember.Role.standard)
                     .asRequest(of: String.self)
                     .fetchSet(db)
-                let membersReceivingPromotions: [(id: String, profile: Profile?)] = members
+                let membersReceivingPromotions: [(String, Profile?)] = members
                     .filter { id, _ in memberIdsRequiringPromotions.contains(id) }
+                let sortedMembersReceivingPromotions: [(String, Profile?)] = membersReceivingPromotions
+                    .sortedById(userSessionId: userSessionId)
                 
                 /// Perform the config changes without triggering a config sync (we will do so manually after the process completes)
                 try dependencies.mutate(cache: .libSession) { cache in
@@ -1173,7 +1177,6 @@ extension MessageSender {
                 /// that are getting promotions re-sent to them - we only want to send an admin changed message if there
                 /// is a newly promoted member
                 if !isResend && !membersReceivingPromotions.isEmpty {
-                    let userSessionId: SessionId = dependencies[cache: .general].sessionId
                     let changeTimestampMs: Int64 = dependencies[cache: .snodeAPI].currentOffsetTimestampMs()
                     let disappearingConfig: DisappearingMessagesConfiguration? = try? DisappearingMessagesConfiguration.fetchOne(db, id: groupSessionId.hexString)
                     
@@ -1185,14 +1188,12 @@ extension MessageSender {
                         body: ClosedGroup.MessageInfo
                             .promotedUsers(
                                 hasCurrentUser: membersReceivingPromotions
-                                    .map { $0.id }
+                                    .map { id, _ in id }
                                     .contains(userSessionId.hexString),
-                                names: membersReceivingPromotions
-                                    .sorted { lhs, rhs in lhs.id == userSessionId.hexString }
-                                    .map { id, profile in
-                                        profile?.displayName(for: .group) ??
-                                        Profile.truncated(id: id, truncating: .middle)
-                                    }
+                                names: sortedMembersReceivingPromotions.map { id, profile in
+                                    profile?.displayName(for: .group) ??
+                                    Profile.truncated(id: id, truncating: .middle)
+                                }
                             )
                             .infoString(using: dependencies),
                         timestampMs: changeTimestampMs,
@@ -1214,7 +1215,7 @@ extension MessageSender {
                                 destination: .closedGroup(groupPublicKey: groupSessionId.hexString),
                                 message: GroupUpdateMemberChangeMessage(
                                     changeType: .promoted,
-                                    memberSessionIds: membersReceivingPromotions.map { $0.id },
+                                    memberSessionIds: sortedMembersReceivingPromotions.map { id, _ in id },
                                     historyShared: false,
                                     sentTimestampMs: UInt64(changeTimestampMs),
                                     authMethod: Authentication.groupAdmin(
