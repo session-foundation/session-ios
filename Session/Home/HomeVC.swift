@@ -31,7 +31,10 @@ public final class HomeVC: BaseVC, LibSessionRespondingViewController, UITableVi
     init(using dependencies: Dependencies) {
         self.viewModel = HomeViewModel(using: dependencies)
         
-        dependencies[singleton: .storage].addObserver(viewModel.pagedDataObserver)
+        /// Dispatch adding the database observation to a background thread
+        DispatchQueue.global(qos: .userInitiated).async { [weak viewModel] in
+            dependencies[singleton: .storage].addObserver(viewModel?.pagedDataObserver)
+        }
         
         super.init(nibName: nil, bundle: nil)
     }

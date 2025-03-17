@@ -13,12 +13,6 @@ local version_info = {
   ],
 };
 
-// Intentionally doing a depth of 2 as libSession-util has it's own submodules (and libLokinet likely will as well)
-local clone_submodules = {
-  name: 'Clone Submodules',
-  commands: ['git submodule update --init --recursive --depth=2 --jobs=4'],
-};
-
 // cmake options for static deps mirror
 local ci_dep_mirror(want_mirror) = (if want_mirror then ' -DLOCAL_MIRROR=https://oxen.rocks/deps ' else '');
 
@@ -62,7 +56,6 @@ local sim_delete_cmd = 'if [ -f build/artifacts/sim_uuid ]; then rm -f /Users/$U
     trigger: { event: { exclude: ['push'] } },
     steps: [
       version_info,
-      clone_submodules,
 
       boot_simulator(),
       sim_keepalive,
@@ -72,7 +65,6 @@ local sim_delete_cmd = 'if [ -f build/artifacts/sim_uuid ]; then rm -f /Users/$U
           'NSUnbufferedIO=YES set -o pipefail && xcodebuild test -project Session.xcodeproj -scheme Session -derivedDataPath ./build/derivedData -resultBundlePath ./build/artifacts/testResults.xcresult -parallelizeTargets -destination "platform=iOS Simulator,id=$(<./build/artifacts/sim_uuid)" -parallel-testing-enabled NO -test-timeouts-enabled YES -maximum-test-execution-time-allowance 10 -collect-test-diagnostics never 2>&1 | xcbeautify --is-ci',
         ],
         depends_on: [
-          'Clone Submodules',
           'Boot Test Simulator'
         ],
       },
@@ -118,15 +110,11 @@ local sim_delete_cmd = 'if [ -f build/artifacts/sim_uuid ]; then rm -f /Users/$U
     trigger: { event: { exclude: ['pull_request'] } },
     steps: [
       version_info,
-      clone_submodules,
       {
         name: 'Build',
         commands: [
           'mkdir build',
           'NSUnbufferedIO=YES set -o pipefail && xcodebuild archive -project Session.xcodeproj -scheme Session -derivedDataPath ./build/derivedData -parallelizeTargets -configuration "App_Store_Release" -sdk iphonesimulator -archivePath ./build/Session_sim.xcarchive -destination "generic/platform=iOS Simulator" | xcbeautify --is-ci',
-        ],
-        depends_on: [
-          'Clone Submodules',
         ],
       },
       {
