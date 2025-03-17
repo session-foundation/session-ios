@@ -18,12 +18,15 @@ extension DeveloperSettingsViewModel {
     /// const iOSCapabilities: AppiumXCUITestCapabilities = {
     ///   'appium:processArguments': {
     ///     env: {
-    ///       'serviceNetwork': "testnet",
-    ///       'debugDisappearingMessageDurations': true
+    ///       'serviceNetwork': 'testnet',
+    ///       'animationsEnabled': 'false',
+    ///       'debugDisappearingMessageDurations': 'true'
     ///     }
     ///   }
     /// }
     /// ```
+    ///
+    /// **Note:** All values need to be provided as strings (eg. booleans)
     static func processUnitTestEnvVariablesIfNeeded(using dependencies: Dependencies) {
 #if targetEnvironment(simulator)
         enum EnvironmentVariable: String {
