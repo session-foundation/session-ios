@@ -344,7 +344,7 @@ extension ConversationVC:
         Permissions.requestMicrophonePermissionIfNeeded(using: viewModel.dependencies)
         
         if Permissions.microphone != .granted {
-            SNLog("Proceeding without microphone access. Any recorded video will be silent.")
+            Log.warn(.conversation, "Proceeding without microphone access. Any recorded video will be silent.")
         }
         
         let sendMediaNavController = SendMediaNavigationController.showingCameraFirst(
@@ -1107,7 +1107,7 @@ extension ConversationVC:
                             guard
                                 let originalFilePath: String = mediaView.attachment.originalFilePath(using: viewModel.dependencies),
                                 viewModel.dependencies[singleton: .fileManager].fileExists(atPath: originalFilePath)
-                            else { return SNLog("Missing video file") }
+                            else { return Log.warn(.conversation, "Missing video file") }
                             
                             /// When playing media we need to change the AVAudioSession to 'playback' mode so the device "silent mode"
                             /// doesn't prevent video audio from playing
@@ -2337,7 +2337,7 @@ extension ConversationVC:
             self.audioRecorder = audioRecorder
         }
         catch {
-            SNLog("Couldn't start audio recording due to error: \(error).")
+            Log.error(.conversation, "Couldn't start audio recording due to error: \(error).")
             return cancelVoiceMessageRecording()
         }
         
@@ -2353,7 +2353,7 @@ extension ConversationVC:
         
         
         guard successfullyPrepared && startedRecording else {
-            SNLog(successfullyPrepared ? "Couldn't record audio." : "Couldn't prepare audio recorder.")
+            Log.error(.conversation, (successfullyPrepared ? "Couldn't record audio." : "Couldn't prepare audio recorder."))
             
             // Dispatch to the next run loop to avoid
             DispatchQueue.main.async {
@@ -2412,7 +2412,9 @@ extension ConversationVC:
         let dataSourceOrNil = DataSourcePath(fileUrl: audioRecorder.url, sourceFilename: nil, shouldDeleteOnDeinit: true, using: viewModel.dependencies)
         self.audioRecorder = nil
         
-        guard let dataSource = dataSourceOrNil else { return SNLog("Couldn't load recorded data.") }
+        guard let dataSource = dataSourceOrNil else {
+            return Log.error(.conversation, "Couldn't load recorded data.")
+        }
         
         // Create attachment
         let fileName = ("messageVoice".localized() as NSString)

@@ -64,7 +64,7 @@ public final class ExpirationTimerUpdate: ControlMessage {
             contentProto.setDataMessage(try dataMessageProto.build())
             return try contentProto.build()
         } catch {
-            SNLog("Couldn't construct expiration timer update proto from: \(self).")
+            Log.warn(.messageSender, "Couldn't construct expiration timer update proto from: \(self).")
             return nil
         }
     }

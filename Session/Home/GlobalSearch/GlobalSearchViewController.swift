@@ -9,6 +9,14 @@ import SessionMessagingKit
 import SessionUtilitiesKit
 import SignalUtilitiesKit
 
+// MARK: - Log.Category
+
+private extension Log.Category {
+    static let cat: Log.Category = .create("GlobalSearch", defaultLevel: .warn)
+}
+
+// MARK: - GlobalSearchViewController
+
 class GlobalSearchViewController: BaseVC, LibSessionRespondingViewController, UITableViewDelegate, UITableViewDataSource {
     fileprivate typealias SectionModel = ArraySection<SearchSection, SessionThreadViewModel>
     
@@ -269,7 +277,6 @@ class GlobalSearchViewController: BaseVC, LibSessionRespondingViewController, UI
                         searchTerm: searchText
                     )
                     .fetchAll(db)
-                Thread.sleep(forTimeInterval: 1)
                 let messageResults: [SessionThreadViewModel] = try SessionThreadViewModel
                     .messagesQuery(
                         userSessionId: userSessionId,
@@ -291,7 +298,7 @@ class GlobalSearchViewController: BaseVC, LibSessionRespondingViewController, UI
                     switch result {
                         case .finished: break
                         case .failure(let error):
-                            SNLog("[GlobalSearch] Failed to find results due to error: \(error)")
+                            Log.error(.cat, "Failed to find results due to error: \(error)")
                     }
                 },
                 receiveValue: { [weak self] sections in

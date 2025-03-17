@@ -36,7 +36,7 @@ public extension VisibleMessage {
 
         public func toProto(_ db: Database) -> SNProtoDataMessagePreview? {
             guard let url = url else {
-                SNLog("Couldn't construct link preview proto from: \(self).")
+                Log.warn(.messageSender, "Couldn't construct link preview proto from: \(self).")
                 return nil
             }
             let linkPreviewProto = SNProtoDataMessagePreview.builder(url: url)
@@ -53,7 +53,7 @@ public extension VisibleMessage {
             do {
                 return try linkPreviewProto.build()
             } catch {
-                SNLog("Couldn't construct link preview proto from: \(self).")
+                Log.warn(.messageSender, "Couldn't construct link preview proto from: \(self).")
                 return nil
             }
         }

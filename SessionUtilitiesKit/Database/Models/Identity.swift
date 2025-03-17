@@ -143,7 +143,7 @@ public extension Identity {
             ]
             // stringlint:ignore_stop
 
-            SNLog("Failed to retrieve keys for mnemonic generation (\(dbStates.joined(separator: ", ")))")
+            Log.critical("Failed to retrieve keys for mnemonic generation (\(dbStates.joined(separator: ", ")))")
             throw StorageError.objectNotFound
         }
 

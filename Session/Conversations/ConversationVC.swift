@@ -2146,7 +2146,7 @@ final class ConversationVC: BaseVC, LibSessionRespondingViewController, Conversa
                         return nil
                     
                     default:
-                        SNLog("[ConversationVC] Warning: Processing unhandled cell type when marking as read, this could result in intermittent failures")
+                        Log.warn(.conversation, "Processing unhandled cell type when marking as read, this could result in intermittent failures")
                         return nil
                 }
             })

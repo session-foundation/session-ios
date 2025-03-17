@@ -415,7 +415,7 @@ extension Network.PreparedRequest: ErasedPreparedRequest {
     public func encodeForBatchRequest(to encoder: Encoder) throws {
         switch batchRequestVariant {
             case .unsupported:
-                SNLog("Attempted to encode unsupported request type \(endpointName) as a batch subrequest")
+                Log.critical("Attempted to encode unsupported request type \(endpointName) as a batch subrequest")
                 
             case .sogs:
                 var container: KeyedEncodingContainer<Network.BatchRequest.Child.CodingKeys> = encoder.container(keyedBy: Network.BatchRequest.Child.CodingKeys.self)
