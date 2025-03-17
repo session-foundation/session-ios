@@ -107,7 +107,6 @@ public enum MessageReceiveJob: JobExecutor {
                 return lastError
             },
             completion: { result in
-                // TODO: [REFACTOR] Need to test this!!!
                 // Handle the result
                 switch result {
                     case .failure(let error): failure(updatedJob, error, false)
