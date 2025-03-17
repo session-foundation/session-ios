@@ -367,98 +367,110 @@ public extension UIContextualAction {
                                 (!threadIsContactMessageRequest ? nil : Contact.Columns.didApproveMe.set(to: true)),
                                 (!threadIsContactMessageRequest ? nil : Contact.Columns.isApproved.set(to: false))
                             ].compactMap { $0 }
-                            
-                            let performBlock: (UIViewController?) -> () = { viewController in
-                                completionHandler(true)
-                                
-                                // Delay the change to give the cell "unswipe" animation some time to complete
-                                DispatchQueue.global(qos: .default).asyncAfter(deadline: .now() + unswipeAnimationDelay) {
-                                    dependencies[singleton: .storage]
-                                        .writePublisher { db in
-                                            // Create the contact if it doesn't exist
-                                            switch threadViewModel.threadVariant {
-                                                case .contact:
-                                                    try Contact
-                                                        .fetchOrCreate(db, id: threadViewModel.threadId, using: dependencies)
-                                                        .upsert(db)
-                                                    try Contact
-                                                        .filter(id: threadViewModel.threadId)
-                                                        .updateAllAndConfig(
-                                                            db,
-                                                            contactChanges,
-                                                            using: dependencies
-                                                        )
-                                                    
-                                                case .group:
-                                                    try Contact
-                                                        .fetchOrCreate(db, id: profileInfo.id, using: dependencies)
-                                                        .upsert(db)
-                                                    try Contact
-                                                        .filter(id: profileInfo.id)
-                                                        .updateAllAndConfig(
-                                                            db,
-                                                            contactChanges,
-                                                            using: dependencies
-                                                        )
-                                                    
-                                                default: break
-                                            }
-                                            
-                                            // Blocked message requests should be deleted
-                                            if threadViewModel.threadIsMessageRequest == true {
-                                                try SessionThread.deleteOrLeave(
-                                                    db,
-                                                    type: .deleteContactConversationAndMarkHidden,
-                                                    threadId: threadViewModel.threadId,
-                                                    threadVariant: threadViewModel.threadVariant,
-                                                    using: dependencies
-                                                )
-                                            }
-                                        }
-                                        .subscribe(on: DispatchQueue.global(qos: .userInitiated))
-                                        .sinkUntilComplete()
-                                }
-                            }
-                                
-                            switch threadViewModel.threadIsMessageRequest == true {
-                                case false: performBlock(nil)
-                                case true:
-                                    let nameToUse: String = {
-                                        switch threadViewModel.threadVariant {
-                                            case .group:
-                                                return Profile.displayName(
-                                                    for: .contact,
-                                                    id: profileInfo.id,
-                                                    name: profileInfo.profile?.name,
-                                                    nickname: profileInfo.profile?.nickname,
-                                                    suppressId: false
-                                                )
-                                                
-                                            default: return threadViewModel.displayName
-                                        }
-                                    }()
-                                    
-                                    let confirmationModal: ConfirmationModal = ConfirmationModal(
-                                        info: ConfirmationModal.Info(
-                                            title: "block".localized(),
-                                            body: .attributedText(
-                                                "blockDescription"
-                                                    .put(key: "name", value: nameToUse)
-                                                    .localizedFormatted(baseFont: .systemFont(ofSize: Values.smallFontSize))
-                                            ),
-                                            confirmTitle: "block".localized(),
-                                            confirmStyle: .danger,
-                                            cancelStyle: .alert_text,
-                                            dismissOnConfirm: true,
-                                            onConfirm: { _ in
-                                                performBlock(viewController)
-                                            },
-                                            afterClosed: { completionHandler(false) }
+                            let nameToUse: String = {
+                                switch threadViewModel.threadVariant {
+                                    case .group:
+                                        return Profile.displayName(
+                                            for: .contact,
+                                            id: profileInfo.id,
+                                            name: profileInfo.profile?.name,
+                                            nickname: profileInfo.profile?.nickname,
+                                            suppressId: false
                                         )
-                                    )
-                                    
-                                    viewController?.present(confirmationModal, animated: true, completion: nil)
-                            }
+                                        
+                                    default: return threadViewModel.displayName
+                                }
+                            }()
+                            
+                            let confirmationModal: ConfirmationModal = ConfirmationModal(
+                                info: ConfirmationModal.Info(
+                                    title: (threadIsBlocked ?
+                                        "blockUnblock".localized() :
+                                        "block".localized()
+                                    ),
+                                    body: (threadIsBlocked ?
+                                        .attributedText(
+                                            "blockUnblockName"
+                                                .put(key: "name", value: nameToUse)
+                                                .localizedFormatted(baseFont: ConfirmationModal.explanationFont)
+                                        ) :
+                                        .attributedText(
+                                            "blockDescription"
+                                                .put(key: "name", value: nameToUse)
+                                                .localizedFormatted(baseFont: ConfirmationModal.explanationFont)
+                                        )
+                                    ),
+                                    confirmTitle: (threadIsBlocked ?
+                                        "blockUnblock".localized() :
+                                        "block".localized()
+                                    ),
+                                    confirmStyle: .danger,
+                                    cancelStyle: .alert_text,
+                                    dismissOnConfirm: true,
+                                    onConfirm: { _ in
+                                        completionHandler(true)
+                                        
+                                        // Delay the change to give the cell "unswipe" animation some time to complete
+                                        DispatchQueue.global(qos: .default).asyncAfter(deadline: .now() + unswipeAnimationDelay) {
+                                            dependencies[singleton: .storage]
+                                                .writePublisher { db in
+                                                    // Create the contact if it doesn't exist
+                                                    switch threadViewModel.threadVariant {
+                                                        case .contact:
+                                                            try Contact
+                                                                .fetchOrCreate(
+                                                                    db,
+                                                                    id: threadViewModel.threadId,
+                                                                    using: dependencies
+                                                                )
+                                                                .upsert(db)
+                                                            try Contact
+                                                                .filter(id: threadViewModel.threadId)
+                                                                .updateAllAndConfig(
+                                                                    db,
+                                                                    contactChanges,
+                                                                    using: dependencies
+                                                                )
+                                                            
+                                                        case .group:
+                                                            try Contact
+                                                                .fetchOrCreate(
+                                                                    db,
+                                                                    id: profileInfo.id,
+                                                                    using: dependencies
+                                                                )
+                                                                .upsert(db)
+                                                            try Contact
+                                                                .filter(id: profileInfo.id)
+                                                                .updateAllAndConfig(
+                                                                    db,
+                                                                    contactChanges,
+                                                                    using: dependencies
+                                                                )
+                                                            
+                                                        default: break
+                                                    }
+                                                    
+                                                    // Blocked message requests should be deleted
+                                                    if threadViewModel.threadIsMessageRequest == true {
+                                                        try SessionThread.deleteOrLeave(
+                                                            db,
+                                                            type: .deleteContactConversationAndMarkHidden,
+                                                            threadId: threadViewModel.threadId,
+                                                            threadVariant: threadViewModel.threadVariant,
+                                                            using: dependencies
+                                                        )
+                                                    }
+                                                }
+                                                .subscribe(on: DispatchQueue.global(qos: .userInitiated))
+                                                .sinkUntilComplete()
+                                        }
+                                    },
+                                    afterClosed: { completionHandler(false) }
+                                )
+                            )
+                            
+                            viewController?.present(confirmationModal, animated: true, completion: nil)
                         }
 
                     // MARK: -- leave

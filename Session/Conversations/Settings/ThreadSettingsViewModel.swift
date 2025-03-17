@@ -669,29 +669,20 @@ class ThreadSettingsViewModel: SessionTableViewModel, NavigatableStateHolder, Ob
                             label: "Block"
                         ),
                         confirmationInfo: ConfirmationModal.Info(
-                            title: {
-                                guard threadViewModel.threadIsBlocked == true else {
-                                    return String(
-                                        format: "block".localized(),
-                                        threadViewModel.displayName
-                                    )
-                                }
-                                
-                                return String(
-                                    format: "blockUnblock".localized(),
-                                    threadViewModel.displayName
-                                )
-                            }(),
+                            title: (threadViewModel.threadIsBlocked == true ?
+                                "blockUnblock".localized() :
+                                "block".localized()
+                            ),
                             body: (threadViewModel.threadIsBlocked == true ?
                                 .attributedText(
                                     "blockUnblockName"
                                         .put(key: "name", value: threadViewModel.displayName)
-                                        .localizedFormatted(baseFont: .systemFont(ofSize: Values.smallFontSize))
+                                        .localizedFormatted(baseFont: ConfirmationModal.explanationFont)
                                 ) :
                                 .attributedText(
                                     "blockDescription"
                                         .put(key: "name", value: threadViewModel.displayName)
-                                        .localizedFormatted(baseFont: .systemFont(ofSize: Values.smallFontSize))
+                                        .localizedFormatted(baseFont: ConfirmationModal.explanationFont)
                                 )
                             ),
                             confirmTitle: (threadViewModel.threadIsBlocked == true ?
