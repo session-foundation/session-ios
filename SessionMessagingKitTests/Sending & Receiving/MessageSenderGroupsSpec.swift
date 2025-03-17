@@ -1433,6 +1433,53 @@ class MessageSenderGroupsSpec: QuickSpec {
                             )
                         })
                 }
+                
+                // MARK: ---- sorts the members in the control message deterministically
+                it("sorts the members in the control message deterministically") {
+                    MessageSender.addGroupMembers(
+                        groupSessionId: groupId.hexString,
+                        members: [
+                            ("051234111111111111111111111111111111111111111111111111111111111112", nil),
+                            ("051111111111111111111111111111111111111111111111111111111111111112", nil),
+                            ("05\(TestConstants.publicKey)", nil)
+                        ],
+                        allowAccessToHistoricMessages: false,
+                        using: dependencies
+                    ).sinkUntilComplete()
+                    
+                    expect(mockJobRunner)
+                        .to(call(.exactly(times: 1), matchingParameters: .all) { jobRunner in
+                            jobRunner.add(
+                                .any,
+                                job: Job(
+                                    variant: .messageSend,
+                                    behaviour: .runOnceAfterConfigSyncIgnoringPermanentFailure,
+                                    threadId: groupId.hexString,
+                                    details: MessageSendJob.Details(
+                                        destination: .closedGroup(groupPublicKey: groupId.hexString),
+                                        message: try GroupUpdateMemberChangeMessage(
+                                            changeType: .added,
+                                            memberSessionIds: [
+                                                "05\(TestConstants.publicKey)",
+                                                "051111111111111111111111111111111111111111111111111111111111111112",
+                                                "051234111111111111111111111111111111111111111111111111111111111112"
+                                            ],
+                                            historyShared: false,
+                                            sentTimestampMs: UInt64(1234567890000),
+                                            authMethod: Authentication.groupAdmin(
+                                                groupSessionId: SessionId(.group, hex: groupId.hexString),
+                                                ed25519SecretKey: [1, 2, 3]
+                                            ),
+                                            using: dependencies
+                                        ),
+                                        requiredConfigSyncVariant: .groupMembers
+                                    )
+                                ),
+                                dependantJob: nil,
+                                canStartJob: false
+                            )
+                        })
+                }
             }
         }
     }

@@ -7,6 +7,14 @@ import SignalUtilitiesKit
 import SessionMessagingKit
 import SessionUtilitiesKit
 
+// MARK: - Log.Category
+
+private extension Log.Category {
+    static let cat: Log.Category = .create("HomeViewModel", defaultLevel: .warn)
+}
+
+// MARK: - HomeViewModel
+
 public class HomeViewModel: NavigatableStateHolder {
     public let navigatableState: NavigatableState = NavigatableState()
     
@@ -227,7 +235,7 @@ public class HomeViewModel: NavigatableStateHolder {
             try HomeViewModel.retrieveState(db, using: dependencies)
         }
         .removeDuplicates()
-        .handleEvents(didFail: { SNLog("[HomeViewModel] Observation failed with error: \($0)") })
+        .handleEvents(didFail: { Log.error(.cat, "Observation failed with error: \($0)") })
     
     private static func retrieveState(
         _ db: Database,

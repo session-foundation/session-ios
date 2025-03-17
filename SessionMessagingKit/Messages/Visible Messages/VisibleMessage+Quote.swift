@@ -40,7 +40,7 @@ public extension VisibleMessage {
 
         public func toProto(_ db: Database) -> SNProtoDataMessageQuote? {
             guard let timestamp = timestamp, let publicKey = publicKey else {
-                SNLog("Couldn't construct quote proto from: \(self).")
+                Log.warn(.messageSender, "Couldn't construct quote proto from: \(self).")
                 return nil
             }
             let quoteProto = SNProtoDataMessageQuote.builder(id: timestamp, author: publicKey)
@@ -49,7 +49,7 @@ public extension VisibleMessage {
             do {
                 return try quoteProto.build()
             } catch {
-                SNLog("Couldn't construct quote proto from: \(self).")
+                Log.warn(.messageSender, "Couldn't construct quote proto from: \(self).")
                 return nil
             }
         }
@@ -70,13 +70,13 @@ public extension VisibleMessage {
             quotedAttachmentProto.setContentType(attachment.contentType)
             if let fileName = attachment.sourceFilename { quotedAttachmentProto.setFileName(fileName) }
             guard let attachmentProto = attachment.buildProto() else {
-                return SNLog("Ignoring invalid attachment for quoted message.")
+                return Log.warn(.messageSender, "Ignoring invalid attachment for quoted message.")
             }
             quotedAttachmentProto.setThumbnail(attachmentProto)
             do {
                 try quoteProto.addAttachments(quotedAttachmentProto.build())
             } catch {
-                SNLog("Couldn't construct quoted attachment proto from: \(self).")
+                Log.warn(.messageSender, "Couldn't construct quoted attachment proto from: \(self).")
             }
         }
         

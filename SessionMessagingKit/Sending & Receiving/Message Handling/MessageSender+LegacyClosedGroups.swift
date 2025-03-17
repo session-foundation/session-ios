@@ -319,7 +319,7 @@ extension MessageSender {
                 
                 // Get the group, check preconditions & prepare
                 guard (try? SessionThread.exists(db, id: legacyGroupSessionId)) == true else {
-                    SNLog("Can't update nonexistent closed group.")
+                    Log.warn(.messageSender, "Can't update nonexistent closed group.")
                     throw MessageSenderError.noThread
                 }
                 guard let closedGroup: ClosedGroup = try? ClosedGroup.fetchOne(db, id: legacyGroupSessionId) else {
@@ -555,12 +555,12 @@ extension MessageSender {
         using dependencies: Dependencies
     ) -> AnyPublisher<Void, Error> {
         guard !removedMembers.contains(userSessionId.hexString) else {
-            SNLog("Invalid closed group update.")
+            Log.warn(.messageSender, "Invalid closed group update.")
             return Fail(error: MessageSenderError.invalidClosedGroupUpdate)
                 .eraseToAnyPublisher()
         }
         guard allGroupMembers.contains(where: { $0.role == .admin && $0.profileId == userSessionId.hexString }) else {
-            SNLog("Only an admin can remove members from a group.")
+            Log.warn(.messageSender, "Only an admin can remove members from a group.")
             return Fail(error: MessageSenderError.invalidClosedGroupUpdate)
                 .eraseToAnyPublisher()
         }
@@ -645,7 +645,7 @@ extension MessageSender {
         using dependencies: Dependencies
     ) {
         guard let thread: SessionThread = try? SessionThread.fetchOne(db, id: groupPublicKey) else {
-            return SNLog("Couldn't send key pair for nonexistent closed group.")
+            return Log.warn(.messageSender, "Couldn't send key pair for nonexistent closed group.")
         }
         guard let closedGroup: ClosedGroup = try? thread.closedGroup.fetchOne(db) else {
             return
@@ -654,7 +654,7 @@ extension MessageSender {
             return
         }
         guard allGroupMembers.contains(where: { $0.role == .standard && $0.profileId == publicKey }) else {
-            return SNLog("Refusing to send latest encryption key pair to non-member.")
+            return Log.error(.messageSender, "Refusing to send latest encryption key pair to non-member.")
         }
         
         // Get the latest encryption key pair
@@ -692,7 +692,7 @@ extension MessageSender {
                 )
             )
             
-            SNLog("Sending latest encryption key pair to: \(publicKey).")
+            Log.info(.messageSender, "Sending latest encryption key pair to: \(publicKey).")
             try MessageSender.send(
                 db,
                 message: ClosedGroupControlMessage(

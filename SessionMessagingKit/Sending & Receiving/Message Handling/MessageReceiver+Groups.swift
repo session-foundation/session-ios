@@ -433,7 +433,7 @@ extension MessageReceiver {
             .defaulting(to: [])
             .reduce(into: [:]) { result, next in result[next.id] = next }
         let names: [String] = message.memberSessionIds
-            .sorted { lhs, rhs in lhs == userSessionId.hexString }
+            .sortedById(userSessionId: userSessionId)
             .map { id in
                 profiles[id]?.displayName(for: .group) ??
                 Profile.truncated(id: id, truncating: .middle)

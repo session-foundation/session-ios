@@ -99,7 +99,8 @@ public class PagedDatabaseObserver<ObservedTable, T>: TransactionObserver where 
             .reduce(into: [:]) { (prev: inout [String: Set<String>], next: PagedData.ObservedChanges) in
                 guard !next.columns.isEmpty else { return }
                 
-                prev[next.databaseTableName] = next.columns.asSet()
+                prev[next.databaseTableName] = (prev[next.databaseTableName] ?? [])
+                    .inserting(contentsOf: next.columns.asSet())
             }
         self.observedDeletes = allObservedChanges
             .filter { $0.events.contains(.delete) }
@@ -498,7 +499,7 @@ public class PagedDatabaseObserver<ObservedTable, T>: TransactionObserver where 
         let currentPageInfo: PagedData.PageInfo = self.pageInfo
         
         if case .initialPageAround(_) = target, currentPageInfo.currentCount > 0 {
-            SNLog("Unable to load initialPageAround if there is already data")
+            Log.warn(.cat, "Unable to load initialPageAround if there is already data")
             return
         }
         

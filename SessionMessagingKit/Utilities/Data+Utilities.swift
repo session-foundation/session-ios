@@ -3,6 +3,12 @@
 import Foundation
 import SessionUtilitiesKit
 
+// MARK: - Log.Category
+
+private extension Log.Category {
+    static let cat: Log.Category = .create("Data", defaultLevel: .warn)
+}
+
 // MARK: - Decoding
 
 public extension Data {
@@ -18,7 +24,7 @@ public extension Data {
                 break
             }
             else if bytes[targetIndex] != 0x00 {
-                SNLog("Failed to remove padding, returning unstripped padding");
+                Log.error(.cat, "Failed to remove padding, returning unstripped padding");
                 return self
             }
         }

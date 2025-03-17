@@ -492,7 +492,7 @@ public enum PushNotificationAPI {
             let notification: BencodeResponse<NotificationMetadata> = try? BencodeDecoder(using: dependencies)
                 .decode(BencodeResponse<NotificationMetadata>.self, from: decryptedData)
         else {
-            SNLog("Failed to decrypt or decode notification")
+            Log.error(.cat, "Failed to decrypt or decode notification")
             return (nil, .invalid, .failure)
         }
         
@@ -506,7 +506,7 @@ public enum PushNotificationAPI {
             notification.info.dataLength == notificationData.count,
             !notificationData.isEmpty
         else {
-            SNLog("Get notification data failed")
+            Log.error(.cat, "Get notification data failed")
             return (nil, notification.info, .failureNoContent)
         }
         
