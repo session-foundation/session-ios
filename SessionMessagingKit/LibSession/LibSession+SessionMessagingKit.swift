@@ -213,81 +213,90 @@ public extension LibSession {
                 let ed25519KeyPair: KeyPair = Identity.fetchUserEd25519KeyPair(db)
             else { return Log.warn(.libSession, "Ignoring loadState due to existing state") }
             
-            // Retrieve the existing dumps from the database
-            let existingDumps: [ConfigDump] = ((try? ConfigDump.fetchSet(db)) ?? [])
-                .sorted { lhs, rhs in lhs.variant.loadOrder < rhs.variant.loadOrder }
-            let existingDumpVariants: Set<ConfigDump.Variant> = existingDumps
-                .map { $0.variant }
-                .asSet()
-            let missingRequiredVariants: Set<ConfigDump.Variant> = ConfigDump.Variant.userVariants
-                .subtracting(existingDumpVariants)
-            let groupsByKey: [String: ClosedGroup] = (try? ClosedGroup
+            /// Retrieve the existing dumps from the database
+            typealias ConfigInfo = (sessionId: SessionId, variant: ConfigDump.Variant, dump: ConfigDump?)
+            let existingDumpsByKey: [String: [ConfigDump]] = ((try? ConfigDump.fetchAll(db)) ?? [])
+                .grouped(by: \.sessionId.hexString)
+            var configsToLoad: [ConfigInfo] = []
+            
+            /// Load in the user dumps first (it's possible for a user dump to be missing due to some edge-cases so use
+            /// `ConfigDump.Variant.userVariants` to ensure we will at least load a default state and just assume
+            /// it will be fixed when we eventually poll for it)
+            configsToLoad.append(
+                contentsOf: ConfigDump.Variant.userVariants
+                    .sorted { $0.loadOrder < $1.loadOrder }
+                    .map { variant in
+                        (
+                            userSessionId,
+                            variant,
+                            existingDumpsByKey[userSessionId.hexString]?
+                                .first(where: { $0.variant == variant })
+                        )
+                    }
+            )
+            
+            /// Then load in dumps for groups
+            ///
+            /// Similar to the above it's possible to have a partial group state due to edge-cases where a config could be lost, but also
+            /// immediately after creating a group (eg. when a crash happens at the right time), for these cases we again assume they
+            /// will be solved eventually via polling so still want to load their states into memory (if we don't then we likely wouldn't be
+            /// able to decrypt the poll response and the group would never recover)
+            ///
+            /// **Note:** We exclude groups in the `invited` state as they should only have their state loaded once the invitation
+            /// gets accepted
+            let allGroups: [ClosedGroup] = (try? ClosedGroup
                 .filter(
                     ClosedGroup.Columns.threadId > SessionId.Prefix.group.rawValue &&
                     ClosedGroup.Columns.threadId < SessionId.Prefix.group.endOfRangeString
                 )
-                .fetchAll(db)
-                .reduce(into: [:]) { result, next in result[next.threadId] = next })
-                .defaulting(to: [:])
-            let groupsWithNoDumps: [ClosedGroup] = groupsByKey
-                .values
-                .filter { group in !existingDumps.contains(where: { $0.sessionId.hexString == group.id }) }
-            
-            // Create the config records for each dump
-            existingDumps.forEach { dump in
-                configStore[dump.sessionId, dump.variant] = try? loadState(
-                    for: dump.variant,
-                    sessionId: dump.sessionId,
-                    userEd25519SecretKey: ed25519KeyPair.secretKey,
-                    groupEd25519SecretKey: groupsByKey[dump.sessionId.hexString]?
-                        .groupIdentityPrivateKey
-                        .map { Array($0) },
-                    cachedData: dump.data
+                .filter(ClosedGroup.Columns.invited == false)
+                .fetchAll(db))
+                .defaulting(to: [])
+            let groupsByKey: [String: ClosedGroup] = allGroups
+                .reduce(into: [:]) { result, group in result[group.threadId] = group }
+            allGroups.forEach { group in
+                configsToLoad.append(
+                    contentsOf: ConfigDump.Variant.groupVariants
+                        .sorted { $0.loadOrder < $1.loadOrder }
+                        .map { variant in
+                            (
+                                SessionId(.group, hex: group.threadId),
+                                variant,
+                                existingDumpsByKey[group.threadId]?
+                                    .first(where: { $0.variant == variant })
+                            )
+                        }
                 )
             }
-            
-            /// It's possible for there to not be dumps for all of the configs so we load any missing ones to ensure functionality
-            /// works smoothly
-            ///
-            /// It's also possible for a group to get created but for a dump to not be created (eg. when a crash happens at the right time), to
-            /// handle this we also load the state of any groups which don't have dumps if they aren't in the `invited` state (those in
-            /// the `invited` state will have their state loaded if the invite is accepted)
-            loadDefaultStatesFor(
-                userConfigVariants: missingRequiredVariants,
-                groups: groupsWithNoDumps,
-                userSessionId: userSessionId,
-                userEd25519KeyPair: ed25519KeyPair
-            )
+                                            
+            /// Now that we have fully populated and sorted `configsToLoad` we should load each into memory
+            configsToLoad.forEach { sessionId, variant, dump in
+                configStore[sessionId, variant] = try? loadState(
+                    for: variant,
+                    sessionId: sessionId,
+                    userEd25519SecretKey: ed25519KeyPair.secretKey,
+                    groupEd25519SecretKey: groupsByKey[sessionId.hexString]?
+                        .groupIdentityPrivateKey
+                        .map { Array($0) },
+                    cachedData: dump?.data
+                )
+            }
             Log.info(.libSession, "Completed loadState")
         }
         
-        public func loadDefaultStatesFor(
-            userConfigVariants: Set<ConfigDump.Variant>,
-            groups: [ClosedGroup],
-            userSessionId: SessionId,
-            userEd25519KeyPair: KeyPair
+        public func loadDefaultStateFor(
+            variant: ConfigDump.Variant,
+            sessionId: SessionId,
+            userEd25519KeyPair: KeyPair,
+            groupEd25519SecretKey: [UInt8]?
         ) {
-            /// Create an empty state for the specified user config variants
-            userConfigVariants.forEach { variant in
-                configStore[userSessionId, variant] = try? loadState(
-                    for: variant,
-                    sessionId: userSessionId,
-                    userEd25519SecretKey: userEd25519KeyPair.secretKey,
-                    groupEd25519SecretKey: nil,
-                    cachedData: nil
-                )
-            }
-            
-            /// Create empty group states for the provided groups
-            groups
-                .filter { $0.invited != true }
-                .forEach { group in
-                    _ = try? createAndLoadGroupState(
-                        groupSessionId: SessionId(.group, hex: group.id),
-                        userED25519KeyPair: userEd25519KeyPair,
-                        groupIdentityPrivateKey: group.groupIdentityPrivateKey
-                    )
-                }
+            configStore[sessionId, variant] = try? loadState(
+                for: variant,
+                sessionId: sessionId,
+                userEd25519SecretKey: userEd25519KeyPair.secretKey,
+                groupEd25519SecretKey: groupEd25519SecretKey,
+                cachedData: nil
+            )
         }
         
         internal func loadState(
@@ -895,11 +904,11 @@ public protocol LibSessionCacheType: LibSessionImmutableCacheType, MutableCacheT
     // MARK: - State Management
     
     func loadState(_ db: Database)
-    func loadDefaultStatesFor(
-        userConfigVariants: Set<ConfigDump.Variant>,
-        groups: [ClosedGroup],
-        userSessionId: SessionId,
-        userEd25519KeyPair: KeyPair
+    func loadDefaultStateFor(
+        variant: ConfigDump.Variant,
+        sessionId: SessionId,
+        userEd25519KeyPair: KeyPair,
+        groupEd25519SecretKey: [UInt8]?
     )
     func hasConfig(for variant: ConfigDump.Variant, sessionId: SessionId) -> Bool
     func config(for variant: ConfigDump.Variant, sessionId: SessionId) -> LibSession.Config?
@@ -988,11 +997,11 @@ private final class NoopLibSessionCache: LibSessionCacheType {
     // MARK: - State Management
     
     func loadState(_ db: Database) {}
-    func loadDefaultStatesFor(
-        userConfigVariants: Set<ConfigDump.Variant>,
-        groups: [ClosedGroup],
-        userSessionId: SessionId,
-        userEd25519KeyPair: KeyPair
+    func loadDefaultStateFor(
+        variant: ConfigDump.Variant,
+        sessionId: SessionId,
+        userEd25519KeyPair: KeyPair,
+        groupEd25519SecretKey: [UInt8]?
     ) {}
     func hasConfig(for variant: ConfigDump.Variant, sessionId: SessionId) -> Bool { return false }
     func config(for variant: ConfigDump.Variant, sessionId: SessionId) -> LibSession.Config? { return nil }
