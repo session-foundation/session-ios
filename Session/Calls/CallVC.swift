@@ -130,9 +130,8 @@ final class CallVC: UIViewController, VideoPreviewDelegate, AVRoutePickerViewDel
         return result
     }()
     
-    private lazy var profilePictureView: UIImageView = {
+    public lazy var profilePictureView: UIImageView = {
         let result = UIImageView()
-        result.image = self.call.profilePicture
         result.set(.width, to: CallVC.avatarRadius * 2)
         result.set(.height, to: CallVC.avatarRadius * 2)
         result.layer.cornerRadius = CallVC.avatarRadius
@@ -144,13 +143,11 @@ final class CallVC: UIViewController, VideoPreviewDelegate, AVRoutePickerViewDel
     
     private lazy var animatedImageView: YYAnimatedImageView = {
         let result: YYAnimatedImageView = YYAnimatedImageView()
-        result.image = self.call.animatedProfilePicture
         result.set(.width, to: CallVC.avatarRadius * 2)
         result.set(.height, to: CallVC.avatarRadius * 2)
         result.layer.cornerRadius = CallVC.avatarRadius
         result.layer.masksToBounds = true
         result.contentMode = .scaleAspectFill
-        result.isHidden = (self.call.animatedProfilePicture == nil)
         
         return result
     }()
@@ -382,12 +379,12 @@ final class CallVC: UIViewController, VideoPreviewDelegate, AVRoutePickerViewDel
         
         super.init(nibName: nil, bundle: nil)
         
-        setupStateChangeCallbacks()
+        setUpStateChangeCallbacks()
         self.modalPresentationStyle = .overFullScreen
         self.modalTransitionStyle = .crossDissolve
     }
     
-    func setupStateChangeCallbacks() {
+    func setUpStateChangeCallbacks() {
         self.call.remoteVideoStateDidChange = { isEnabled in
             DispatchQueue.main.async {
                 UIView.animate(withDuration: 0.25) {
@@ -475,6 +472,7 @@ final class CallVC: UIViewController, VideoPreviewDelegate, AVRoutePickerViewDel
         view.themeBackgroundColor = .backgroundPrimary
         
         setUpViewHierarchy()
+        setUpProfilePictureImage()
         
         if shouldRestartCamera { cameraManager.prepare() }
         
@@ -492,7 +490,7 @@ final class CallVC: UIViewController, VideoPreviewDelegate, AVRoutePickerViewDel
                 }
             }
         }
-        setupOrientationMonitoring()
+        setUpOrientationMonitoring()
         NotificationCenter.default.addObserver(self, selector: #selector(audioRouteDidChange), name: AVAudioSession.routeChangeNotification, object: nil)
     }
     
@@ -569,6 +567,33 @@ final class CallVC: UIViewController, VideoPreviewDelegate, AVRoutePickerViewDel
         callDurationLabel.center(in: callInfoLabelContainer)
     }
     
+    func setUpProfilePictureImage() {
+        let avatarData: Data? = dependencies[singleton: .storage].read { [call, dependencies] db in
+             dependencies[singleton: .displayPictureManager].displayPicture(db, id: .user(call.sessionId))
+        }
+        
+        self.profilePictureView.image = avatarData
+            .map { UIImage(data: $0) }
+            .defaulting(to: PlaceholderIcon.generate(seed: call.sessionId, text: call.contactName, size: 300))
+        
+        let maybeAnimatedProfilePicture = avatarData
+            .map { data -> YYImage? in
+                switch data.guessedImageFormat {
+                    case .gif, .webp: return YYImage(data: data)
+                    default: return nil
+                }
+            }
+        
+        if let animatedProfilePicture = maybeAnimatedProfilePicture {
+            self.animatedImageView.image = animatedProfilePicture
+            self.animatedImageView.isHidden = false
+            self.profilePictureView.isHidden = true
+        } else {
+            self.animatedImageView.isHidden = true
+            self.profilePictureView.isHidden = false
+        }
+    }
+    
     private func addFloatingVideoView() {
         guard let window: UIWindow = dependencies[singleton: .appContext].mainWindow else { return }
         
@@ -598,7 +623,7 @@ final class CallVC: UIViewController, VideoPreviewDelegate, AVRoutePickerViewDel
     
     // MARK: - Orientation
 
-    private func setupOrientationMonitoring() {
+    private func setUpOrientationMonitoring() {
         UIDevice.current.beginGeneratingDeviceOrientationNotifications()
         NotificationCenter.default.addObserver(self, selector: #selector(didChangeDeviceOrientation), name: UIDevice.orientationDidChangeNotification, object: UIDevice.current)
     }

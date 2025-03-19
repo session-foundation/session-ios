@@ -202,11 +202,21 @@ public final class SessionCallManager: NSObject, CallManagerProtocol {
     public func showCallUIForCall(caller: String, uuid: String, mode: CallMode, interactionId: Int64?) {
         guard
             let call: SessionCall = dependencies[singleton: .storage].read({ [dependencies] db in
-                SessionCall(db, for: caller, uuid: uuid, mode: mode, using: dependencies)
+                SessionCall(
+                    for: caller,
+                    contactName: Profile.displayName(
+                        db,
+                        id: caller,
+                        threadVariant: .contact,
+                        using: dependencies
+                    ),
+                    uuid: uuid,
+                    mode: mode,
+                    using: dependencies
+                )
             })
         else { return }
         
-        call.callInteractionId = interactionId
         call.reportIncomingCallIfNeeded { [dependencies] error in
             if let error = error {
                 Log.error(.calls, "Failed to report incoming call to CallKit due to error: \(error)")

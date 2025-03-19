@@ -487,13 +487,20 @@ public final class NotificationServiceExtension: UNNotificationServiceExtension 
     ) {
         if Preferences.isCallKitSupported {
             guard let caller: String = callMessage.sender, let timestamp = callMessage.sentTimestampMs else { return }
+            let contactName: String = Profile.displayName(
+                db,
+                id: caller,
+                threadVariant: .contact,
+                using: dependencies
+            )
             
             let reportCall: () -> () = { [weak self, dependencies] in
                 // stringlint:ignore_start
                 let payload: [String: Any] = [
                     "uuid": callMessage.uuid,
                     "caller": caller,
-                    "timestamp": timestamp
+                    "timestamp": timestamp,
+                    "contactName": contactName
                 ]
                 // stringlint:ignore_stop
                 

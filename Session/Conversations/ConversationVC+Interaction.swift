@@ -182,8 +182,8 @@ extension ConversationVC:
             let call: SessionCall = viewModel.dependencies[singleton: .storage]
                 .read({ [dependencies = viewModel.dependencies] db in
                     SessionCall(
-                        db,
                         for: threadId,
+                        contactName: self.viewModel.threadData.displayName,
                         uuid: UUID().uuidString.lowercased(),
                         mode: .offer,
                         outgoing: true,

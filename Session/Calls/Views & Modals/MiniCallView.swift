@@ -135,7 +135,7 @@ final class MiniCallView: UIView, RTCVideoViewDelegate {
         imageView.clipsToBounds = true
         imageView.layer.cornerRadius = 32
         imageView.contentMode = .scaleAspectFill
-        imageView.image = callVC.call.profilePicture
+        imageView.image = callVC.profilePictureView.image
         result.addSubview(imageView)
         imageView.set(.width, to: 64)
         imageView.set(.height, to: 64)
@@ -196,7 +196,7 @@ final class MiniCallView: UIView, RTCVideoViewDelegate {
                 self?.callVC.call.removeRemoteVideoRenderer(remoteVideoView)
             }
             
-            self?.callVC.setupStateChangeCallbacks()
+            self?.callVC.setUpStateChangeCallbacks()
             MiniCallView.current = nil
             self?.removeFromSuperview()
         })

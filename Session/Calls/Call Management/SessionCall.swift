@@ -14,14 +14,18 @@ import SessionSnodeKit
 
 public final class SessionCall: CurrentCallProtocol, WebRTCSessionDelegate {
     private let dependencies: Dependencies
+    public let webRTCSession: WebRTCSession
+    
+    var currentConnectionStep: ConnectionStep
+    var connectionStepsRecord: [Bool]
     
     // MARK: - Metadata Properties
     public let uuid: String
     public let callId: UUID // This is for CallKit
     public let sessionId: String
+    let contactName: String
     let mode: CallMode
     var audioMode: AudioMode
-    public let webRTCSession: WebRTCSession
     let isOutgoing: Bool
     var remoteSDP: RTCSessionDescription? = nil {
         didSet {
@@ -30,16 +34,8 @@ public final class SessionCall: CurrentCallProtocol, WebRTCSessionDelegate {
             }
         }
     }
-    var callInteractionId: Int64?
     var answerCallAction: CXAnswerCallAction? = nil
-    
-    let contactName: String
-    let profilePicture: UIImage
-    let animatedProfilePicture: YYImage?
-    
-    var currentConnectionStep: ConnectionStep
-    var connectionStepsRecord: [Bool]
-    
+
     // MARK: - Control
     
     lazy public var videoCapturer: RTCVideoCapturer = {
@@ -161,9 +157,10 @@ public final class SessionCall: CurrentCallProtocol, WebRTCSessionDelegate {
     
     // MARK: - Initialization
     
-    init(_ db: Database, for sessionId: String, uuid: String, mode: CallMode, outgoing: Bool = false, using dependencies: Dependencies) {
+    init(for sessionId: String, contactName: String, uuid: String, mode: CallMode, outgoing: Bool = false, using dependencies: Dependencies) {
         self.dependencies = dependencies
         self.sessionId = sessionId
+        self.contactName = contactName
         self.uuid = uuid
         self.callId = UUID()
         self.mode = mode
@@ -172,20 +169,6 @@ public final class SessionCall: CurrentCallProtocol, WebRTCSessionDelegate {
         self.isOutgoing = outgoing
         self.currentConnectionStep = (mode == .offer ? OfferStep.initializing : AnswerStep.receivedOffer)
         self.connectionStepsRecord = [Bool](repeating: false, count: (mode == .answer ? 5 : 6))
-        
-        let avatarData: Data? = dependencies[singleton: .displayPictureManager].displayPicture(db, id: .user(sessionId))
-        self.contactName = Profile.displayName(db, id: sessionId, threadVariant: .contact, using: dependencies)
-        self.profilePicture = avatarData
-            .map { UIImage(data: $0) }
-            .defaulting(to: PlaceholderIcon.generate(seed: sessionId, text: self.contactName, size: 300))
-        self.animatedProfilePicture = avatarData
-            .map { data -> YYImage? in
-                switch data.guessedImageFormat {
-                    case .gif, .webp: return YYImage(data: data)
-                    default: return nil
-                }
-            }
-        
         WebRTCSession.current = self.webRTCSession
         self.webRTCSession.delegate = self
         
@@ -262,8 +245,6 @@ public final class SessionCall: CurrentCallProtocol, WebRTCSessionDelegate {
         )
         .inserted(db)
         
-        self.callInteractionId = interaction?.id
-        
         self.updateCurrentConnectionStepIfPossible(OfferStep.initializing)
         
         try? webRTCSession
@@ -330,14 +311,16 @@ public final class SessionCall: CurrentCallProtocol, WebRTCSessionDelegate {
     // MARK: - Call Message Handling
     
     public func updateCallMessage(mode: EndCallMode, using dependencies: Dependencies) {
-        guard let callInteractionId: Int64 = callInteractionId else { return }
-        
         let duration: TimeInterval = self.duration
         let hasStartedConnecting: Bool = self.hasStartedConnecting
         
         dependencies[singleton: .storage].writeAsync(
-            updates: { db in
-                guard let interaction: Interaction = try? Interaction.fetchOne(db, id: callInteractionId) else {
+            updates: { [sessionId, uuid] db in
+                guard let interaction: Interaction = try? Interaction
+                    .filter(Interaction.Columns.threadId == sessionId)
+                    .filter(Interaction.Columns.messageUuid == uuid)
+                    .fetchOne(db)
+                else {
                     return
                 }
                 
