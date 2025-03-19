@@ -296,9 +296,11 @@ public class PushRegistrationManager: NSObject, PKPushRegistryDelegate {
         dependencies[singleton: .jobRunner].appDidBecomeActive()
         
         dependencies[singleton: .appReadiness].runNowOrWhenAppDidBecomeReady {
-            // NOTE: Just start 1-1 poller so that it won't wait for polling group messages
-            (UIApplication.shared.delegate as? AppDelegate)?.startPollersIfNeeded(shouldStartGroupPollers: false)
+            
         }
+        
+        // NOTE: Just start 1-1 poller so that it won't wait for polling group messages
+        dependencies[singleton: .currentUserPoller].startIfNeeded(forceStartInBackground: true)
         
         call.reportIncomingCallIfNeeded { error in
             if let error = error {

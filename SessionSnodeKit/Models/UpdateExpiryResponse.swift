@@ -72,10 +72,10 @@ extension UpdateExpiryResponse: ValidatableResponse {
                 result[next.key] = UpdateExpiryResponseResult(changed: [:], unchanged: [:], didError: true)
                 
                 if let reason: String = next.value.reason, let statusCode: Int = next.value.code {
-                    SNLog("Couldn't update expiry from: \(next.key) due to error: \(reason) (\(statusCode)).")
+                    Log.warn(.validator(self), "Couldn't update expiry from: \(next.key) due to error: \(reason) (\(statusCode)).")
                 }
                 else {
-                    SNLog("Couldn't update expiry from: \(next.key).")
+                    Log.warn(.validator(self), "Couldn't update expiry from: \(next.key).")
                 }
                 return
             }

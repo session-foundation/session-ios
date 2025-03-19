@@ -1,6 +1,7 @@
 // Copyright © 2022 Rangeproof Pty Ltd. All rights reserved.
 
 import UIKit
+import Combine
 import GRDB
 import SignalUtilitiesKit
 import SessionUIKit
@@ -85,31 +86,25 @@ extension ConversationSearchController: UISearchResultsUpdating {
         }
         
         let threadId: String = self.threadId
-        
-        DispatchQueue.global(qos: .default).async { [weak self] in
-            let results: [Interaction.TimestampInfo]? = dependencies[singleton: .storage].read { db -> [Interaction.TimestampInfo] in
-                self?.resultsBar.willStartSearching(readConnection: db)
-                
-                return try Interaction.idsForTermWithin(
+        let searchCancellable: AnyCancellable = dependencies[singleton: .storage]
+            .readPublisher { db -> [Interaction.TimestampInfo] in
+                try Interaction.idsForTermWithin(
                     threadId: threadId,
                     pattern: try SessionThreadViewModel.pattern(db, searchTerm: searchText)
                 )
                 .fetchAll(db)
             }
-            
-            // If we didn't get results back then we most likely interrupted the query so
-            // should ignore the results (if there are no results we would succeed and get
-            // an empty array back)
-            guard let results: [Interaction.TimestampInfo] = results else { return }
-            
-            DispatchQueue.main.async {
-                guard let strongSelf = self else { return }
-                
-                self?.resultsBar.stopLoading()
-                self?.resultsBar.updateResults(results: results, visibleItemIds: self?.delegate?.currentVisibleIds())
-                self?.delegate?.conversationSearchController(strongSelf, didUpdateSearchResults: results, searchText: searchText)
-            }
-        }
+            .subscribe(on: DispatchQueue.global(qos: .default), using: dependencies)
+            .receive(on: DispatchQueue.main, using: dependencies)
+            .sink(
+                receiveCompletion: { _ in },
+                receiveValue: { [weak self] results in
+                    self?.resultsBar.stopLoading()
+                    self?.resultsBar.updateResults(results: results, visibleItemIds: self?.delegate?.currentVisibleIds())
+                    self?.delegate?.conversationSearchController(self, didUpdateSearchResults: results, searchText: searchText)
+                }
+            )
+        self.resultsBar.willStartSearching(searchCancellable: searchCancellable)
     }
 }
 
@@ -138,7 +133,7 @@ protocol SearchResultsBarDelegate: AnyObject {
 public final class SearchResultsBar: UIView {
     @ThreadSafe private var hasResults: Bool = false
     @ThreadSafeObject private var results: [Interaction.TimestampInfo] = []
-    @ThreadSafeObject private var readConnection: Database? = nil
+    @ThreadSafeObject private var currentSearchCancellable: AnyCancellable? = nil
     
     var currentIndex: Int?
     weak var resultsBarDelegate: SearchResultsBarDelegate?
@@ -275,8 +270,7 @@ public final class SearchResultsBar: UIView {
     
     // MARK: - Content
     
-    /// This method will be called within a DB read block
-    func willStartSearching(readConnection: Database) {
+    func willStartSearching(searchCancellable: AnyCancellable) {
         let hasNoExistingResults: Bool = hasResults
         
         DispatchQueue.main.async { [weak self] in
@@ -287,8 +281,8 @@ public final class SearchResultsBar: UIView {
             self?.startLoading()
         }
         
-        self.readConnection?.interrupt()
-        self._readConnection.set(to: readConnection)
+        currentSearchCancellable?.cancel()
+        _currentSearchCancellable.set(to: searchCancellable)
     }
 
     func updateResults(results: [Interaction.TimestampInfo]?, visibleItemIds: [Int64]?) {
@@ -311,7 +305,6 @@ public final class SearchResultsBar: UIView {
             return 0
         }()
 
-        self._readConnection.set(to: nil)
         self._results.performUpdate { _ in (results ?? []) }
         self.hasResults = (results != nil)
 
@@ -366,6 +359,6 @@ public final class SearchResultsBar: UIView {
 public protocol ConversationSearchControllerDelegate: UISearchControllerDelegate {
     func conversationSearchControllerDependencies() -> Dependencies
     func currentVisibleIds() -> [Int64]
-    func conversationSearchController(_ conversationSearchController: ConversationSearchController, didUpdateSearchResults results: [Interaction.TimestampInfo]?, searchText: String?)
-    func conversationSearchController(_ conversationSearchController: ConversationSearchController, didSelectInteractionInfo: Interaction.TimestampInfo)
+    func conversationSearchController(_ conversationSearchController: ConversationSearchController?, didUpdateSearchResults results: [Interaction.TimestampInfo]?, searchText: String?)
+    func conversationSearchController(_ conversationSearchController: ConversationSearchController?, didSelectInteractionInfo: Interaction.TimestampInfo)
 }

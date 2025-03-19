@@ -267,9 +267,9 @@ public final class SessionCall: CurrentCallProtocol, WebRTCSessionDelegate {
                 receiveCompletion: { [weak self] result in
                     switch result {
                         case .finished:
-                            SNLog("[Calls] Offer message sent")
+                            Log.info(.calls, "Offer message sent")
                         case .failure(let error):
-                            SNLog("[Calls] Error initializing call after 5 retries: \(error), ending call...")
+                            Log.error(.calls, "Error initializing call after 5 retries: \(error), ending call...")
                             self?.handleCallInitializationFailed()
                     }
                 }
@@ -283,13 +283,13 @@ public final class SessionCall: CurrentCallProtocol, WebRTCSessionDelegate {
         self.updateCurrentConnectionStepIfPossible(AnswerStep.sendingAnswer)
         
         if let sdp = remoteSDP {
-            SNLog("[Calls] Got remote sdp already")
+            Log.info(.calls, "Got remote sdp already")
             webRTCSession.handleRemoteSDP(sdp, from: sessionId) // This sends an answer message internally
         }
     }
     
     func answerSessionCallInBackground() {
-        SNLog("[Calls] Answering call in background")
+        Log.info(.calls, "Answering call in background")
         self.answerSessionCall()
     }
     

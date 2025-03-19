@@ -370,7 +370,7 @@ public final class WebRTCSession : NSObject, RTCPeerConnectionDelegate {
                     throw WebRTCSessionError.noThread
                 }
                 
-                SNLog("[Calls] Sending end call message.")
+                Log.info(.calls, "Sending end call message.")
                 
                 return try MessageSender
                     .preparedSend(
@@ -401,9 +401,9 @@ public final class WebRTCSession : NSObject, RTCPeerConnectionDelegate {
                 receiveCompletion: { result in
                     switch result {
                         case .finished:
-                            SNLog("[Calls] End call message sent")
+                            Log.info(.calls, "End call message sent")
                         case .failure(let error):
-                            SNLog("[Calls] Error sending End call message due to error: \(error)")
+                            Log.error(.calls, "Error sending End call message due to error: \(error)")
                     }
                 }
             )

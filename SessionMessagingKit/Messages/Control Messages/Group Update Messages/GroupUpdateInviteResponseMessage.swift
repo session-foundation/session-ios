@@ -87,7 +87,7 @@ public final class GroupUpdateInviteResponseMessage: ControlMessage {
             contentProto.setDataMessage(try dataMessage.build())
             return try contentProto.build()
         } catch {
-            SNLog("Couldn't construct data extraction notification proto from: \(self).")
+            Log.warn(.messageSender, "Couldn't construct data extraction notification proto from: \(self).")
             return nil
         }
     }

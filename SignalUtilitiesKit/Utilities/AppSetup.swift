@@ -9,6 +9,7 @@ import SessionUtilitiesKit
 
 public enum AppSetup {
     public static func setupEnvironment(
+        requestId: String? = nil,
         additionalMigrationTargets: [MigratableTarget.Type] = [],
         appSpecificBlock: (() -> ())? = nil,
         migrationProgressChanged: ((CGFloat, TimeInterval) -> ())? = nil,
@@ -37,9 +38,10 @@ public enum AppSetup {
                 proximityMonitoringManager: OWSProximityMonitoringManagerImpl(using: dependencies),
                 windowManager: OWSWindowManager(default: ())
             )
-            appSpecificBlock?()            
+            appSpecificBlock?()
             
             runPostSetupMigrations(
+                requestId: requestId,
                 backgroundTask: backgroundTask,
                 additionalMigrationTargets: additionalMigrationTargets,
                 migrationProgressChanged: migrationProgressChanged,
@@ -53,6 +55,7 @@ public enum AppSetup {
     }
     
     public static func runPostSetupMigrations(
+        requestId: String? = nil,
         backgroundTask: SessionBackgroundTask? = nil,
         additionalMigrationTargets: [MigratableTarget.Type] = [],
         migrationProgressChanged: ((CGFloat, TimeInterval) -> ())? = nil,
@@ -90,7 +93,7 @@ public enum AppSetup {
                         userSessionId: userSessionId,
                         using: dependencies
                     )
-                    cache.loadState(db)
+                    cache.loadState(db, requestId: requestId)
                     dependencies.set(cache: .libSession, to: cache)
                 }
                 

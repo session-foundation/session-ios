@@ -292,7 +292,7 @@ public final class SessionCallManager: NSObject, CallManagerProtocol {
     }
     
     public func cleanUpPreviousCall() {
-        SNLog("[Calls] Clean up calls")
+        Log.info(.calls, "Clean up calls")
         
         WebRTCSession.current?.dropConnection()
         WebRTCSession.current = nil
@@ -301,7 +301,7 @@ public final class SessionCallManager: NSObject, CallManagerProtocol {
         dependencies[defaults: .appGroup, key: .lastCallPreOffer] = nil
         
         if dependencies[singleton: .appContext].isNotInForeground {
-            (UIApplication.shared.delegate as? AppDelegate)?.stopPollers()
+            dependencies[singleton: .currentUserPoller].stop()
             Log.flush()
         }
     }
