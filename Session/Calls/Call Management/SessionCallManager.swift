@@ -230,7 +230,7 @@ public final class SessionCallManager: NSObject, CallManagerProtocol {
                 else { return }
                 
                 if
-                    let conversationVC: ConversationVC = (presentingVC as? TopBannerController)?.wrappedViewController() as? ConversationVC,
+                    let conversationVC: ConversationVC = presentingVC as? ConversationVC,
                     conversationVC.viewModel.threadData.threadId == call.sessionId
                 {
                     let callVC = CallVC(for: call, using: dependencies)
@@ -301,7 +301,9 @@ public final class SessionCallManager: NSObject, CallManagerProtocol {
         dependencies[defaults: .appGroup, key: .lastCallPreOffer] = nil
         
         if dependencies[singleton: .appContext].isNotInForeground {
-            dependencies[singleton: .currentUserPoller].stop()
+            dependencies[singleton: .appReadiness].runNowOrWhenAppDidBecomeReady { [dependencies] in
+                dependencies[singleton: .currentUserPoller].stop()
+            }
             Log.flush()
         }
     }

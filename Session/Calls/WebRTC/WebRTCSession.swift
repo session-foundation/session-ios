@@ -365,7 +365,7 @@ public final class WebRTCSession : NSObject, RTCPeerConnectionDelegate {
     
     public func endCall(with sessionId: String) {
         return dependencies[singleton: .storage]
-            .writePublisher { [dependencies] db -> Network.PreparedRequest<Void> in
+            .writePublisher { [dependencies, uuid] db -> Network.PreparedRequest<Void> in
                 guard let thread: SessionThread = try SessionThread.fetchOne(db, id: sessionId) else {
                     throw WebRTCSessionError.noThread
                 }
@@ -376,7 +376,7 @@ public final class WebRTCSession : NSObject, RTCPeerConnectionDelegate {
                     .preparedSend(
                         db,
                         message: CallMessage(
-                            uuid: self.uuid,
+                            uuid: uuid,
                             kind: .endCall,
                             sdps: []
                         )

@@ -296,10 +296,10 @@ public final class SessionCall: CurrentCallProtocol, WebRTCSessionDelegate {
     func endSessionCall() {
         guard !hasEnded else { return }
         
-        let sessionId: String = self.sessionId
-        
         webRTCSession.hangUp()
-        webRTCSession.endCall(with: sessionId)
+        dependencies[singleton: .appReadiness].runNowOrWhenAppDidBecomeReady { [webRTCSession, sessionId] in
+            webRTCSession.endCall(with: sessionId)
+        }
         hasEnded = true
     }
     
