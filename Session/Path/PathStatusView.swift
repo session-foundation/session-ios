@@ -105,3 +105,60 @@ public extension NetworkStatus {
         }
     }
 }
+
+// MARK: - Info
+
+final class PathStatusViewAccessory: UIView, SessionCell.Accessory.CustomView {
+    struct Info: Equatable, SessionCell.Accessory.CustomViewInfo {
+        typealias View = PathStatusViewAccessory
+    }
+    
+    /// We want the path status to have the same sizing as other list item icons so it needs to be wrapped in
+    /// this contains view
+    public static let size: SessionCell.Accessory.Size = .fixed(
+        width: IconSize.medium.size,
+        height: IconSize.medium.size
+    )
+    
+    static func create(using dependencies: Dependencies) -> PathStatusViewAccessory {
+        return PathStatusViewAccessory(using: dependencies)
+    }
+    
+    private let dependencies: Dependencies
+    
+    // MARK: - Components
+    
+    lazy var pathStatusView: PathStatusView = PathStatusView(size: .large, using: dependencies)
+    
+    // MARK: Initialization
+    
+    init(using dependencies: Dependencies) {
+        self.dependencies = dependencies
+        
+        super.init(frame: .zero)
+        
+        setupUI()
+    }
+    
+    required init?(coder: NSCoder) {
+        fatalError("Use init(theme:) instead")
+    }
+    
+    // MARK: - Layout
+    
+    private func setupUI() {
+        isUserInteractionEnabled = false
+        addSubview(pathStatusView)
+        
+        setupLayout()
+    }
+    
+    private func setupLayout() {
+        pathStatusView.center(in: self)
+    }
+    
+    // MARK: - Content
+    
+    // No need to do anything (theme with auto-update)
+    func update(with info: Info) {}
+}
