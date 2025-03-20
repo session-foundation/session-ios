@@ -321,17 +321,17 @@ extension Permissions {
         presentingViewController: UIViewController? = nil,
         using dependencies: Dependencies
     ) {
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.7) {
             requestMicrophonePermissionIfNeeded(
                 presentingViewController: presentingViewController,
                 using: dependencies,
                 onAuthorized: { _ in
-                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.7) {
                         requestCameraPermissionIfNeeded(
                             presentingViewController: presentingViewController,
                             using: dependencies,
                             onAuthorized: { _ in
-                                DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
+                                DispatchQueue.main.asyncAfter(deadline: .now() + 0.7) {
                                     requestLocalNetworkPermissionIfNeeded(using: dependencies)
                                 }
                             }
