@@ -202,7 +202,7 @@ public final class VisibleMessage: Message {
             proto.setDataMessage(try dataMessage.build())
             return try proto.build()
         } catch {
-            SNLog("Couldn't construct visible message proto from: \(self).")
+            Log.warn(.messageSender, "Couldn't construct visible message proto from: \(self).")
             return nil
         }
     }

@@ -1,5 +1,5 @@
 {
-  "originHash" : "688abd5f50453ed3433c8c6bf57bb60964d1c199902c2bff846544c6691cd18c",
+  "originHash" : "e3fdf2f44acd1f05dab295d0c9e3faf05f5e4461d512be1d5a77af42e0a25e48",
   "pins" : [
     {
       "identity" : "cocoalumberjack",
@@ -83,6 +83,15 @@
       }
     },
     {
+      "identity" : "punycodeswift",
+      "kind" : "remoteSourceControl",
+      "location" : "https://github.com/gumob/PunycodeSwift.git",
+      "state" : {
+        "revision" : "30a462bdb4398ea835a3585472229e0d74b36ba5",
+        "version" : "3.0.0"
+      }
+    },
+    {
       "identity" : "quick",
       "kind" : "remoteSourceControl",
       "location" : "https://github.com/Quick/Quick.git",
@@ -96,8 +105,8 @@
       "kind" : "remoteSourceControl",
       "location" : "https://github.com/session-foundation/session-grdb-swift.git",
       "state" : {
-        "revision" : "b3643613f1e0f392fa41072ee499da93b4c06b67",
-        "version" : "106.29.3"
+        "revision" : "c69f8bf8a7ede8727c20f7c36eeffd3f55598487",
+        "version" : "107.3.0"
       }
     },
     {

@@ -39,8 +39,8 @@ final class PathStatusView: UIView {
         
         super.init(frame: .zero)
         
-        setStatus(to: .unknown) // Default to the unknown status
         setUpViewHierarchy()
+        setStatus(to: .unknown) // Default to the unknown status
         registerObservers()
     }
 
@@ -51,10 +51,23 @@ final class PathStatusView: UIView {
     // MARK: - Layout
     
     private func setUpViewHierarchy() {
-        layer.cornerRadius = (self.size.pointSize / 2)
-        layer.masksToBounds = false
         self.set(.width, to: self.size.pointSize)
         self.set(.height, to: self.size.pointSize)
+        
+        layer.cornerRadius = (self.size.pointSize / 2)
+        layer.masksToBounds = false
+        layer.shadowOffset = CGSize(width: 0, height: 0.8)
+        layer.shadowPath = UIBezierPath(
+            ovalIn: CGRect(
+                origin: CGPoint.zero,
+                size: CGSize(width: self.size.pointSize, height: self.size.pointSize)
+            )
+        ).cgPath
+        
+        ThemeManager.onThemeChange(observer: self) { [weak self] theme, _ in
+            self?.layer.shadowOpacity = (theme.interfaceStyle == .light ? 0.4 : 1)
+            self?.layer.shadowRadius = (self?.size.offset(for: theme.interfaceStyle) ?? 0)
+        }
     }
     
     // MARK: - Functions
@@ -62,7 +75,6 @@ final class PathStatusView: UIView {
     private func registerObservers() {
         /// Register for status updates (will be called immediately with current status)
         dependencies[cache: .libSessionNetwork].networkStatus
-            .subscribe(on: DispatchQueue.global(qos: .background), using: dependencies)
             .receive(on: DispatchQueue.main, using: dependencies)
             .sink(
                 receiveCompletion: { [weak self] _ in
@@ -80,18 +92,6 @@ final class PathStatusView: UIView {
     private func setStatus(to status: NetworkStatus) {
         themeBackgroundColor = status.themeColor
         layer.themeShadowColor = status.themeColor
-        layer.shadowOffset = CGSize(width: 0, height: 0.8)
-        layer.shadowPath = UIBezierPath(
-            ovalIn: CGRect(
-                origin: CGPoint.zero,
-                size: CGSize(width: self.size.pointSize, height: self.size.pointSize)
-            )
-        ).cgPath
-        
-        ThemeManager.onThemeChange(observer: self) { [weak self] theme, _ in
-            self?.layer.shadowOpacity = (theme.interfaceStyle == .light ? 0.4 : 1)
-            self?.layer.shadowRadius = (self?.size.offset(for: theme.interfaceStyle) ?? 0)
-        }
     }
 }
 

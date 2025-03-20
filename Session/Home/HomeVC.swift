@@ -31,7 +31,10 @@ public final class HomeVC: BaseVC, LibSessionRespondingViewController, UITableVi
     init(using dependencies: Dependencies) {
         self.viewModel = HomeViewModel(using: dependencies)
         
-        dependencies[singleton: .storage].addObserver(viewModel.pagedDataObserver)
+        /// Dispatch adding the database observation to a background thread
+        DispatchQueue.global(qos: .userInitiated).async { [weak viewModel] in
+            dependencies[singleton: .storage].addObserver(viewModel?.pagedDataObserver)
+        }
         
         super.init(nibName: nil, bundle: nil)
     }
@@ -353,7 +356,7 @@ public final class HomeVC: BaseVC, LibSessionRespondingViewController, UITableVi
         if
             Identity.userExists(using: viewModel.dependencies),
             let appDelegate: AppDelegate = UIApplication.shared.delegate as? AppDelegate,
-            !viewModel.dependencies[singleton: .appContext].isNotInForeground
+            viewModel.dependencies[singleton: .appContext].isMainAppAndActive
         {
             appDelegate.startPollersIfNeeded()
         }

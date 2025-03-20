@@ -6,7 +6,7 @@ import Foundation
 import SessionUtil
 
 public enum LibSessionError: Error, CustomStringConvertible {
-    case unableToCreateConfigObject
+    case unableToCreateConfigObject(String)
     case invalidConfigObject
     case invalidDataProvided
     case invalidConfigAccess
@@ -117,7 +117,7 @@ public enum LibSessionError: Error, CustomStringConvertible {
     
     public var description: String {
         switch self {
-            case .unableToCreateConfigObject: return "Unable to create config object (LibSessionError.unableToCreateConfigObject)."
+            case .unableToCreateConfigObject(let pubkey): return "Unable to create config object for: \(pubkey) (LibSessionError.unableToCreateConfigObject)."
             case .invalidConfigObject: return "Invalid config object (LibSessionError.invalidConfigObject)."
             case .invalidDataProvided: return "Invalid data provided (LibSessionError.invalidDataProvided)."
             case .invalidConfigAccess: return "Invalid config access (LibSessionError.invalidConfigAccess)."

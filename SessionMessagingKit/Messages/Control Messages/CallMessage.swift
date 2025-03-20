@@ -201,7 +201,7 @@ public final class CallMessage: ControlMessage {
             return try contentProto.build()
         }
         catch {
-            SNLog("Couldn't construct call message proto from: \(self).")
+            Log.warn(.messageSender, "Couldn't construct call message proto from: \(self).")
             return nil
         }
     }

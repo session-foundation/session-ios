@@ -47,7 +47,7 @@ extension MessageReceiver {
                 dependencies[singleton: .typingIndicators].didStopTyping(db, threadId: threadId, direction: .incoming)
             
             default:
-                SNLog("Unknown TypingIndicator Kind ignored")
+                Log.warn(.messageReceiver, "Unknown TypingIndicator Kind ignored")
                 return
         }
     }

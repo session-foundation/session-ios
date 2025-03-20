@@ -141,7 +141,7 @@ internal extension LibSession {
         
         try validChanges.forEach { threadInfo in
             guard var cThreadId: [CChar] = threadInfo.threadId.cString(using: .utf8) else {
-                SNLog("Unable to upsert contact volatile info to LibSession: \(LibSessionError.invalidCConversion)")
+                Log.error(.libSession, "Unable to upsert contact volatile info to LibSession: \(LibSessionError.invalidCConversion)")
                 throw LibSessionError.invalidCConversion
             }
             
@@ -200,7 +200,7 @@ internal extension LibSession {
                         var cRoomToken: [CChar] = threadInfo.openGroupUrlInfo?.roomToken.cString(using: .utf8),
                         var cPubkey: [UInt8] = threadInfo.openGroupUrlInfo.map({ Array(Data(hex: $0.publicKey)) })
                     else {
-                        SNLog("Unable to create community conversation when updating last read timestamp due to missing URL info")
+                        Log.error(.libSession, "Unable to create community conversation when updating last read timestamp due to missing URL info")
                         return
                     }
                     
@@ -747,7 +747,7 @@ public extension LibSession {
                 )
             }
             else {
-                SNLog("Ignoring unknown conversation type when iterating through volatile conversation info update")
+                Log.error(.libSession, "Ignoring unknown conversation type when iterating through volatile conversation info update")
             }
             
             convo_info_volatile_iterator_advance(convoIterator)
