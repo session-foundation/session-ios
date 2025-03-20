@@ -90,6 +90,7 @@ class PrivacySettingsViewModel: SessionTableViewModel, NavigationItemSource, Nav
         let typingIndicatorsEnabled: Bool
         let areLinkPreviewsEnabled: Bool
         let areCallsEnabled: Bool
+        let localNetworkPermission: Bool
     }
     
     let title: String = "sessionPrivacy".localized()
@@ -102,7 +103,8 @@ class PrivacySettingsViewModel: SessionTableViewModel, NavigationItemSource, Nav
                 areReadReceiptsEnabled: db[.areReadReceiptsEnabled],
                 typingIndicatorsEnabled: db[.typingIndicatorsEnabled],
                 areLinkPreviewsEnabled: db[.areLinkPreviewsEnabled],
-                areCallsEnabled: db[.areCallsEnabled]
+                areCallsEnabled: db[.areCallsEnabled],
+                localNetworkPermission: db[.lastSeenHasLocalNetworkPermission]
             )
         }
         .mapWithPrevious { [dependencies] previous, current -> [SectionModel] in
@@ -132,9 +134,7 @@ class PrivacySettingsViewModel: SessionTableViewModel, NavigationItemSource, Nav
                                 confirmStyle: .danger,
                                 cancelStyle: .alert_text,
                                 onConfirm: { _ in
-                                    Permissions.requestMicrophonePermissionIfNeeded(using: dependencies)
-                                    Permissions.requestCameraPermissionIfNeeded(using: dependencies)
-                                    Permissions.requestLocalNetworkPermissionIfNeeded(using: dependencies)
+                                    Permissions.requestPermissionsForCalls(using: dependencies)
                                 }
                             ),
                             onTap: { [weak self] in
@@ -192,8 +192,8 @@ class PrivacySettingsViewModel: SessionTableViewModel, NavigationItemSource, Nav
                                         title: "Local Network",
                                         subtitle: "Allow access to local network to facilitate voice and video calls",
                                         trailingAccessory: .toggle(
-                                            Permissions.localNetwork(using: dependencies) == .granted,
-                                            oldValue: Permissions.localNetwork(using: dependencies) == .granted,
+                                            current.localNetworkPermission,
+                                            oldValue: (previous ?? current).localNetworkPermission,
                                             accessibility: Accessibility(
                                                 identifier: "Local Network Permission - Switch"
                                             )
@@ -406,9 +406,7 @@ class PrivacySettingsViewModel: SessionTableViewModel, NavigationItemSource, Nav
                     confirmStyle: .danger,
                     cancelStyle: .alert_text,
                     onConfirm: { [dependencies] _ in
-                        Permissions.requestMicrophonePermissionIfNeeded(using: dependencies)
-                        Permissions.requestCameraPermissionIfNeeded(using: dependencies)
-                        Permissions.requestLocalNetworkPermissionIfNeeded(using: dependencies)
+                        Permissions.requestPermissionsForCalls(using: dependencies)
                         dependencies[singleton: .storage].write { db in
                             try db.setAndUpdateConfig(
                                 .areCallsEnabled,

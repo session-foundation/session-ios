@@ -50,9 +50,4 @@ public enum Permissions {
                 return .unknown
         }
     }
-    
-    public static func localNetwork(using dependencies: Dependencies) -> Status {
-        let status: Bool = dependencies[defaults:.appGroup, key: .lastSeenHasLocalNetworkPermission]
-        return status ? .granted : .denied
-    }
 }
