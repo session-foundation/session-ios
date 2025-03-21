@@ -154,7 +154,7 @@ class PrivacySettingsViewModel: SessionTableViewModel, NavigationItemSource, Nav
                                     SessionCell.Info(
                                         id: .microphone,
                                         title: "permissionsMicrophone".localized(),
-                                        subtitle: "Allow access to microphone for voice calls and audio messages",
+                                        subtitle: "permissionsMicrophoneDescriptionIos".localized(),
                                         trailingAccessory: .toggle(
                                             Permissions.microphone == .granted,
                                             oldValue: Permissions.microphone == .granted,
@@ -172,7 +172,7 @@ class PrivacySettingsViewModel: SessionTableViewModel, NavigationItemSource, Nav
                                     SessionCell.Info(
                                         id: .camera,
                                         title: "contentDescriptionCamera".localized(),
-                                        subtitle: "Allow access to camera for video calls",
+                                        subtitle: "permissionsCameraDescriptionIos".localized(),
                                         trailingAccessory: .toggle(
                                             Permissions.camera == .granted,
                                             oldValue: Permissions.camera == .granted,
@@ -189,8 +189,8 @@ class PrivacySettingsViewModel: SessionTableViewModel, NavigationItemSource, Nav
                                     ),
                                     SessionCell.Info(
                                         id: .localNetwork,
-                                        title: "Local Network",
-                                        subtitle: "Allow access to local network to facilitate voice and video calls",
+                                        title: "permissionsLocalNetworkIos".localized(),
+                                        subtitle: "permissionsLocalNetworkDescriptionIos".localized(),
                                         trailingAccessory: .toggle(
                                             current.localNetworkPermission,
                                             oldValue: (previous ?? current).localNetworkPermission,

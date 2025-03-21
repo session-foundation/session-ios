@@ -143,7 +143,7 @@ extension ConversationVC:
             let confirmationModal: ConfirmationModal = ConfirmationModal(
                 info: ConfirmationModal.Info(
                     title: "permissionsRequired".localized(),
-                    body: .text("Microphone access is required to make calls and record audio messages. Toggle the \"Microphone\" permission in Settings to continue."),
+                    body: .text("permissionsMicrophoneAccessRequiredCallsIos".localized()),
                     showCondition: .disabled,
                     confirmTitle: "sessionSettings".localized(),
                     onConfirm: { _ in
@@ -160,7 +160,7 @@ extension ConversationVC:
             let confirmationModal: ConfirmationModal = ConfirmationModal(
                 info: ConfirmationModal.Info(
                     title: "permissionsRequired".localized(),
-                    body: .text("Local Network access is required to facilitate calls. Toggle the \"Local Network\" permission in Settings to continue."),
+                    body: .text("permissionsLocalNetworkAccessRequiredCallsIos".localized()),
                     showCondition: .disabled,
                     confirmTitle: "sessionSettings".localized(),
                     onConfirm: { _ in
