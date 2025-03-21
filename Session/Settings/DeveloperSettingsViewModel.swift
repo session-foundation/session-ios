@@ -77,7 +77,6 @@ class DeveloperSettingsViewModel: SessionTableViewModel, NavigatableStateHolder,
         
         case debugDisappearingMessageDurations
         
-        case updatedGroups
         case legacyGroupsDeprecated
         case updatedGroupsDisableAutoApprove
         case updatedGroupsRemoveMessagesOnKick
@@ -115,7 +114,6 @@ class DeveloperSettingsViewModel: SessionTableViewModel, NavigatableStateHolder,
                 
                 case .debugDisappearingMessageDurations: return "debugDisappearingMessageDurations"
                 
-                case .updatedGroups: return "updatedGroups"
                 case .legacyGroupsDeprecated: return "legacyGroupsDeprecated"
                 case .updatedGroupsDisableAutoApprove: return "updatedGroupsDisableAutoApprove"
                 case .updatedGroupsRemoveMessagesOnKick: return "updatedGroupsRemoveMessagesOnKick"
@@ -156,7 +154,6 @@ class DeveloperSettingsViewModel: SessionTableViewModel, NavigatableStateHolder,
                 
                 case .debugDisappearingMessageDurations: result.append(.debugDisappearingMessageDurations); fallthrough
                 
-                case .updatedGroups: result.append(.updatedGroups); fallthrough
                 case .legacyGroupsDeprecated: result.append(.legacyGroupsDeprecated); fallthrough
                 case .updatedGroupsDisableAutoApprove: result.append(.updatedGroupsDisableAutoApprove); fallthrough
                 case .updatedGroupsRemoveMessagesOnKick: result.append(.updatedGroupsRemoveMessagesOnKick); fallthrough
@@ -197,7 +194,6 @@ class DeveloperSettingsViewModel: SessionTableViewModel, NavigatableStateHolder,
         
         let debugDisappearingMessageDurations: Bool
         
-        let updatedGroups: Bool
         let legacyGroupsDeprecated: Bool
         let updatedGroupsDisableAutoApprove: Bool
         let updatedGroupsRemoveMessagesOnKick: Bool
@@ -231,7 +227,6 @@ class DeveloperSettingsViewModel: SessionTableViewModel, NavigatableStateHolder,
                 
                 debugDisappearingMessageDurations: dependencies[feature: .debugDisappearingMessageDurations],
                 
-                updatedGroups: dependencies[feature: .updatedGroups],
                 legacyGroupsDeprecated: dependencies[feature: .legacyGroupsDeprecated],
                 updatedGroupsDisableAutoApprove: dependencies[feature: .updatedGroupsDisableAutoApprove],
                 updatedGroupsRemoveMessagesOnKick: dependencies[feature: .updatedGroupsRemoveMessagesOnKick],
@@ -495,23 +490,6 @@ class DeveloperSettingsViewModel: SessionTableViewModel, NavigatableStateHolder,
         let groups: SectionModel = SectionModel(
             model: .groups,
             elements: [
-                SessionCell.Info(
-                    id: .updatedGroups,
-                    title: "Create Updated Groups",
-                    subtitle: """
-                    Controls whether newly created groups are updated or legacy groups.                    
-                    """,
-                    trailingAccessory: .toggle(
-                        current.updatedGroups,
-                        oldValue: previous?.updatedGroups
-                    ),
-                    onTap: { [weak self] in
-                        self?.updateFlag(
-                            for: .updatedGroups,
-                            to: !current.updatedGroups
-                        )
-                    }
-                ),
                 SessionCell.Info(
                     id: .legacyGroupsDeprecated,
                     title: "Legacy Groups Deprecated",

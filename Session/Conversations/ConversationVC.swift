@@ -250,10 +250,7 @@ final class ConversationVC: BaseVC, LibSessionRespondingViewController, Conversa
                 onTap: { [weak self] in self?.openUrl(Features.legacyGroupDepricationUrl) }
             )
         )
-        result.isHidden = (
-            viewModel.threadData.threadVariant != .legacyGroup ||
-            !viewModel.dependencies[feature: .updatedGroups]
-        )
+        result.isHidden = (viewModel.threadData.threadVariant != .legacyGroup)
         
         return result
     }()
@@ -356,8 +353,7 @@ final class ConversationVC: BaseVC, LibSessionRespondingViewController, Conversa
         let result: UIView = UIView()
         result.isHidden = (
             viewModel.threadData.threadVariant != .legacyGroup ||
-            viewModel.threadData.currentUserIsClosedGroupAdmin != true ||
-            !viewModel.dependencies[feature: .updatedGroups]
+            viewModel.threadData.currentUserIsClosedGroupAdmin != true
         )
         
         return result
@@ -876,10 +872,7 @@ final class ConversationVC: BaseVC, LibSessionRespondingViewController, Conversa
             viewModel.threadData.threadVariant != updatedThreadData.threadVariant ||
             viewModel.threadData.currentUserIsClosedGroupAdmin != updatedThreadData.currentUserIsClosedGroupAdmin
         {
-            legacyGroupsBanner.isHidden = (
-                updatedThreadData.threadVariant != .legacyGroup ||
-                !viewModel.dependencies[feature: .updatedGroups]
-            )
+            legacyGroupsBanner.isHidden = (updatedThreadData.threadVariant != .legacyGroup)
         }
         
         if

@@ -90,7 +90,6 @@ final class NewClosedGroupVC: BaseVC, UITableViewDataSource, UITableViewDelegate
                 accessibility: Accessibility(label: "Version warning banner")
             )
         )
-        result.isHidden = !dependencies[feature: .updatedGroups]
         
         return result
     }()
@@ -395,31 +394,16 @@ final class NewClosedGroupVC: BaseVC, UITableViewDataSource, UITableViewDelegate
         }
         let selectedProfiles: [(String, Profile?)] = self.selectedProfiles
             .reduce(into: []) { result, next in result.append((next.key, next.value)) }
-        let message: String? = (dependencies[feature: .updatedGroups] || selectedProfiles.count <= 20 ? nil : "deleteAfterLegacyGroupsGroupCreation".localized()
-        )
 
-        ModalActivityIndicatorViewController.present(fromViewController: navigationController!, message: message) { [weak self, dependencies] activityIndicatorViewController in
-            let createPublisher: AnyPublisher<SessionThread, Error> = {
-                switch dependencies[feature: .updatedGroups] {
-                    case true:
-                        return MessageSender.createGroup(
-                            name: name,
-                            description: nil,
-                            displayPictureData: nil,
-                            members: selectedProfiles,
-                            using: dependencies
-                        )
-                        
-                    case false:
-                        return MessageSender.createLegacyClosedGroup(
-                            name: name,
-                            members: selectedProfiles.map { $0.0 }.asSet(),
-                            using: dependencies
-                        )
-                }
-            }()
-            
-            createPublisher
+        ModalActivityIndicatorViewController.present(fromViewController: navigationController!) { [weak self, dependencies] activityIndicatorViewController in
+            MessageSender
+                .createGroup(
+                    name: name,
+                    description: nil,
+                    displayPictureData: nil,
+                    members: selectedProfiles,
+                    using: dependencies
+                )
                 .subscribe(on: DispatchQueue.global(qos: .userInitiated))
                 .receive(on: DispatchQueue.main)
                 .sinkUntilComplete(
