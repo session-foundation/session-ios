@@ -135,7 +135,7 @@ public final class SessionCallManager: NSObject, CallManagerProtocol {
         }
     }
     
-    public func reportCurrentCallEnded(reason: CXCallEndedReason?) {
+    public func reportCurrentCallEnded(reason: CXCallEndedReason) {
         guard Thread.isMainThread else {
             DispatchQueue.main.async {
                 self.reportCurrentCallEnded(reason: reason)
@@ -143,41 +143,23 @@ public final class SessionCallManager: NSObject, CallManagerProtocol {
             return
         }
         
-        func handleCallEnded() {
-            Log.info(.calls, "Call ended.")
-            WebRTCSession.current = nil
-            dependencies[defaults: .appGroup, key: .isCallOngoing] = false
-            dependencies[defaults: .appGroup, key: .lastCallPreOffer] = nil
-            
-            if dependencies[singleton: .appContext].isInBackground {
-                (UIApplication.shared.delegate as? AppDelegate)?.stopPollers()
-                Log.flush()
-            }
-        }
-        
         guard let call = currentCall else {
-            handleCallEnded()
-            suspendDatabaseIfCallEndedInBackground()
+            self.cleanUpPreviousCall()
+            self.suspendDatabaseIfCallEndedInBackground()
             return
         }
         
-        if let reason = reason {
-            self.provider?.reportCall(with: call.callId, endedAt: nil, reason: reason)
-            
-            switch (reason) {
-                case .answeredElsewhere: call.updateCallMessage(mode: .answeredElsewhere, using: dependencies)
-                case .unanswered: call.updateCallMessage(mode: .unanswered, using: dependencies)
-                case .declinedElsewhere: call.updateCallMessage(mode: .local, using: dependencies)
-                default: call.updateCallMessage(mode: .remote, using: dependencies)
-            }
-        }
-        else {
-            call.updateCallMessage(mode: .local, using: dependencies)
+        self.provider?.reportCall(with: call.callId, endedAt: nil, reason: reason)
+        
+        switch (reason) {
+            case .answeredElsewhere: call.updateCallMessage(mode: .answeredElsewhere, using: dependencies)
+            case .unanswered: call.updateCallMessage(mode: .unanswered, using: dependencies)
+            case .declinedElsewhere: call.updateCallMessage(mode: .local, using: dependencies)
+            default: call.updateCallMessage(mode: .remote, using: dependencies)
         }
         
-        (call as? SessionCall)?.webRTCSession.dropConnection()
-        self.currentCall = nil
-        handleCallEnded()
+        self.cleanUpPreviousCall()
+        self.suspendDatabaseIfCallEndedInBackground()
     }
     
     public func currentWebRTCSessionMatches(callId: String) -> Bool {
@@ -220,11 +202,21 @@ public final class SessionCallManager: NSObject, CallManagerProtocol {
     public func showCallUIForCall(caller: String, uuid: String, mode: CallMode, interactionId: Int64?) {
         guard
             let call: SessionCall = dependencies[singleton: .storage].read({ [dependencies] db in
-                SessionCall(db, for: caller, uuid: uuid, mode: mode, using: dependencies)
+                SessionCall(
+                    for: caller,
+                    contactName: Profile.displayName(
+                        db,
+                        id: caller,
+                        threadVariant: .contact,
+                        using: dependencies
+                    ),
+                    uuid: uuid,
+                    mode: mode,
+                    using: dependencies
+                )
             })
         else { return }
         
-        call.callInteractionId = interactionId
         call.reportIncomingCallIfNeeded { [dependencies] error in
             if let error = error {
                 Log.error(.calls, "Failed to report incoming call to CallKit due to error: \(error)")
@@ -238,7 +230,7 @@ public final class SessionCallManager: NSObject, CallManagerProtocol {
                 else { return }
                 
                 if
-                    let conversationVC: ConversationVC = (presentingVC as? TopBannerController)?.wrappedViewController() as? ConversationVC,
+                    let conversationVC: ConversationVC = presentingVC as? ConversationVC,
                     conversationVC.viewModel.threadData.threadId == call.sessionId
                 {
                     let callVC = CallVC(for: call, using: dependencies)
@@ -297,5 +289,22 @@ public final class SessionCallManager: NSObject, CallManagerProtocol {
         IncomingCallBanner.current?.dismiss()
         (dependencies[singleton: .appContext].frontMostViewController as? CallVC)?.handleEndCallMessage()
         MiniCallView.current?.dismiss()
+    }
+    
+    public func cleanUpPreviousCall() {
+        Log.info(.calls, "Clean up calls")
+        
+        WebRTCSession.current?.dropConnection()
+        WebRTCSession.current = nil
+        currentCall = nil
+        dependencies[defaults: .appGroup, key: .isCallOngoing] = false
+        dependencies[defaults: .appGroup, key: .lastCallPreOffer] = nil
+        
+        if dependencies[singleton: .appContext].isNotInForeground {
+            dependencies[singleton: .appReadiness].runNowOrWhenAppDidBecomeReady { [dependencies] in
+                dependencies[singleton: .currentUserPoller].stop()
+            }
+            Log.flush()
+        }
     }
 }

@@ -74,7 +74,8 @@ struct ScanQRCodeScreen: View {
     }
     
     private func requestCameraAccess() {
-        Permissions.requestCameraPermissionIfNeeded(using: dependencies) {
+        Permissions.requestCameraPermissionIfNeeded(using: dependencies) { granted in
+            guard granted else { return }
             hasCameraAccess.toggle()
         }
     }

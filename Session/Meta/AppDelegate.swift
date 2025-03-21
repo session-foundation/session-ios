@@ -133,6 +133,9 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
                     }
                 )
                 
+                /// Do a little migration on an educated guess of if the user has been asked for local network permission based on calls permission
+                dependencies[defaults: .standard, key: .hasRequestedLocalNetworkPermission] = dependencies[singleton: .storage, key: .areCallsEnabled]
+                
                 /// Now that the theme settings have been applied we can complete the migrations
                 self?.completePostMigrationSetup(calledFrom: .finishLaunching)
             },
@@ -290,6 +293,10 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
 
         // On every activation, clear old temp directories.
         dependencies[singleton: .fileManager].clearOldTemporaryDirectories()
+        
+        if dependencies[singleton: .storage, key: .areCallsEnabled] && dependencies[defaults: .standard, key: .hasRequestedLocalNetworkPermission] {
+            Permissions.checkLocalNetworkPermission(using: dependencies)
+        }
     }
     
     func applicationWillResignActive(_ application: UIApplication) {
@@ -866,7 +873,9 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
         guard let presentingVC = dependencies[singleton: .appContext].frontMostViewController else { preconditionFailure() }
         
         let callMissedTipsModal: CallMissedTipsModal = CallMissedTipsModal(
-            caller: Profile.displayName(id: callerId, using: dependencies)
+            caller: Profile.displayName(id: callerId, using: dependencies),
+            presentingViewController: presentingVC,
+            using: dependencies
         )
         presentingVC.present(callMissedTipsModal, animated: true, completion: nil)
         

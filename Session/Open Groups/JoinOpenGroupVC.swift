@@ -613,7 +613,8 @@ private final class ScanQRCodePlaceholderVC: UIViewController {
     }
 
     @objc private func requestCameraAccess() {
-        Permissions.requestCameraPermissionIfNeeded(using: dependencies) { [weak self] in
+        Permissions.requestCameraPermissionIfNeeded(using: dependencies) { [weak self] granted in
+            guard granted else { return }
             self?.joinOpenGroupVC?.handleCameraAccessGranted()
         }
     }

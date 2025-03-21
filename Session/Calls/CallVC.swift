@@ -3,11 +3,12 @@
 import UIKit
 import YYImage
 import MediaPlayer
+import AVKit
 import SessionUIKit
 import SessionMessagingKit
 import SessionUtilitiesKit
 
-final class CallVC: UIViewController, VideoPreviewDelegate {
+final class CallVC: UIViewController, VideoPreviewDelegate, AVRoutePickerViewDelegate {
     private static let avatarRadius: CGFloat = (isIPhone6OrSmaller ? 100 : 120)
     private static let floatingVideoViewWidth: CGFloat = (UIDevice.current.isIPad ? 160 : 80)
     private static let floatingVideoViewHeight: CGFloat = (UIDevice.current.isIPad ? 346: 173)
@@ -129,9 +130,8 @@ final class CallVC: UIViewController, VideoPreviewDelegate {
         return result
     }()
     
-    private lazy var profilePictureView: UIImageView = {
+    public lazy var profilePictureView: UIImageView = {
         let result = UIImageView()
-        result.image = self.call.profilePicture
         result.set(.width, to: CallVC.avatarRadius * 2)
         result.set(.height, to: CallVC.avatarRadius * 2)
         result.layer.cornerRadius = CallVC.avatarRadius
@@ -143,13 +143,11 @@ final class CallVC: UIViewController, VideoPreviewDelegate {
     
     private lazy var animatedImageView: YYAnimatedImageView = {
         let result: YYAnimatedImageView = YYAnimatedImageView()
-        result.image = self.call.animatedProfilePicture
         result.set(.width, to: CallVC.avatarRadius * 2)
         result.set(.height, to: CallVC.avatarRadius * 2)
         result.layer.cornerRadius = CallVC.avatarRadius
         result.layer.masksToBounds = true
         result.contentMode = .scaleAspectFill
-        result.isHidden = (self.call.animatedProfilePicture == nil)
         
         return result
     }()
@@ -276,17 +274,40 @@ final class CallVC: UIViewController, VideoPreviewDelegate {
         return result
     }()
     
-    private lazy var volumeView: MPVolumeView = {
-        let result = MPVolumeView()
-        result.showsVolumeSlider = false
-        result.showsRouteButton = true
-        result.setRouteButtonImage(
+    private lazy var routePickerView: AVRoutePickerView = {
+        let result = AVRoutePickerView()
+        result.delegate = self
+        result.alpha = 0
+        result.layer.cornerRadius = 30
+        result.set(.width, to: 60)
+        result.set(.height, to: 60)
+        
+        return result
+    }()
+    
+    private lazy var routePickerButton: UIButton = {
+        let result = UIButton(type: .custom)
+        result.setImage(
             UIImage(named: "Speaker")?
                 .withRenderingMode(.alwaysTemplate),
             for: .normal
         )
         result.themeTintColor = .textPrimary
         result.themeBackgroundColor = .backgroundSecondary
+        result.layer.cornerRadius = 30
+        result.addTarget(self, action: #selector(switchRoute), for: UIControl.Event.touchUpInside)
+        result.set(.width, to: 60)
+        result.set(.height, to: 60)
+        
+        return result
+    }()
+    
+    private lazy var routePickerContainer: UIView = {
+        let result = UIView()
+        result.addSubview(routePickerView)
+        routePickerView.pin(to: result)
+        result.addSubview(routePickerButton)
+        routePickerButton.pin(to: result)
         result.layer.cornerRadius = 30
         result.set(.width, to: 60)
         result.set(.height, to: 60)
@@ -295,7 +316,7 @@ final class CallVC: UIViewController, VideoPreviewDelegate {
     }()
     
     private lazy var operationPanel: UIStackView = {
-        let result = UIStackView(arrangedSubviews: [switchCameraButton, videoButton, switchAudioButton, volumeView])
+        let result = UIStackView(arrangedSubviews: [switchCameraButton, videoButton, switchAudioButton, routePickerContainer])
         result.axis = .horizontal
         result.spacing = Values.veryLargeSpacing
         
@@ -358,12 +379,12 @@ final class CallVC: UIViewController, VideoPreviewDelegate {
         
         super.init(nibName: nil, bundle: nil)
         
-        setupStateChangeCallbacks()
+        setUpStateChangeCallbacks()
         self.modalPresentationStyle = .overFullScreen
         self.modalTransitionStyle = .crossDissolve
     }
     
-    func setupStateChangeCallbacks() {
+    func setUpStateChangeCallbacks() {
         self.call.remoteVideoStateDidChange = { isEnabled in
             DispatchQueue.main.async {
                 UIView.animate(withDuration: 0.25) {
@@ -451,6 +472,7 @@ final class CallVC: UIViewController, VideoPreviewDelegate {
         view.themeBackgroundColor = .backgroundPrimary
         
         setUpViewHierarchy()
+        setUpProfilePictureImage()
         
         if shouldRestartCamera { cameraManager.prepare() }
         
@@ -468,7 +490,7 @@ final class CallVC: UIViewController, VideoPreviewDelegate {
                 }
             }
         }
-        setupOrientationMonitoring()
+        setUpOrientationMonitoring()
         NotificationCenter.default.addObserver(self, selector: #selector(audioRouteDidChange), name: AVAudioSession.routeChangeNotification, object: nil)
     }
     
@@ -545,6 +567,33 @@ final class CallVC: UIViewController, VideoPreviewDelegate {
         callDurationLabel.center(in: callInfoLabelContainer)
     }
     
+    func setUpProfilePictureImage() {
+        let avatarData: Data? = dependencies[singleton: .storage].read { [call, dependencies] db in
+             dependencies[singleton: .displayPictureManager].displayPicture(db, id: .user(call.sessionId))
+        }
+        
+        self.profilePictureView.image = avatarData
+            .map { UIImage(data: $0) }
+            .defaulting(to: PlaceholderIcon.generate(seed: call.sessionId, text: call.contactName, size: 300))
+        
+        let maybeAnimatedProfilePicture = avatarData
+            .map { data -> YYImage? in
+                switch data.guessedImageFormat {
+                    case .gif, .webp: return YYImage(data: data)
+                    default: return nil
+                }
+            }
+        
+        if let animatedProfilePicture = maybeAnimatedProfilePicture {
+            self.animatedImageView.image = animatedProfilePicture
+            self.animatedImageView.isHidden = false
+            self.profilePictureView.isHidden = true
+        } else {
+            self.animatedImageView.isHidden = true
+            self.profilePictureView.isHidden = false
+        }
+    }
+    
     private func addFloatingVideoView() {
         guard let window: UIWindow = dependencies[singleton: .appContext].mainWindow else { return }
         
@@ -574,7 +623,7 @@ final class CallVC: UIViewController, VideoPreviewDelegate {
     
     // MARK: - Orientation
 
-    private func setupOrientationMonitoring() {
+    private func setUpOrientationMonitoring() {
         UIDevice.current.beginGeneratingDeviceOrientationNotifications()
         NotificationCenter.default.addObserver(self, selector: #selector(didChangeDeviceOrientation), name: UIDevice.orientationDidChangeNotification, object: UIDevice.current)
     }
@@ -591,7 +640,7 @@ final class CallVC: UIViewController, VideoPreviewDelegate {
                 self.switchAudioButton.transform = transform
                 self.switchCameraButton.transform = transform
                 self.videoButton.transform = transform
-                self.volumeView.transform = transform
+                self.routePickerContainer.transform = transform
             }
         }
         
@@ -648,7 +697,7 @@ final class CallVC: UIViewController, VideoPreviewDelegate {
         dependencies[singleton: .callManager].endCall(call) { [weak self, dependencies] error in
             if let _ = error {
                 self?.call.endSessionCall()
-                dependencies[singleton: .callManager].reportCurrentCallEnded(reason: nil)
+                dependencies[singleton: .callManager].reportCurrentCallEnded(reason: .declinedElsewhere)
             }
             
             Timer.scheduledTimer(withTimeInterval: 1, repeats: false) { [weak self] _ in
@@ -693,7 +742,22 @@ final class CallVC: UIViewController, VideoPreviewDelegate {
             call.isVideoEnabled = false
         }
         else {
-            guard Permissions.requestCameraPermissionIfNeeded(using: dependencies) else { return }
+            guard Permissions.requestCameraPermissionIfNeeded(using: dependencies) else {
+                let confirmationModal: ConfirmationModal = ConfirmationModal(
+                    info: ConfirmationModal.Info(
+                        title: "permissionsRequired".localized(),
+                        body: .text("Camera access is required to make video calls. Toggle the \"Camera\" permission in Settings to continue."),
+                        showCondition: .disabled,
+                        confirmTitle: "sessionSettings".localized(),
+                        onConfirm: { _ in
+                            UIApplication.shared.openSystemSettings()
+                        }
+                    )
+                )
+                
+                self.navigationController?.present(confirmationModal, animated: true, completion: nil)
+                return
+            }
             let previewVC = VideoPreviewVC()
             previewVC.delegate = self
             present(previewVC, animated: true, completion: nil)
@@ -757,6 +821,17 @@ final class CallVC: UIViewController, VideoPreviewDelegate {
         }
     }
     
+    @objc private func switchRoute() {
+        simulateRoutePickerViewTapping()
+    }
+    
+    private func simulateRoutePickerViewTapping() {
+        guard let routeButton = routePickerView.subviews.first(where: { $0 is UIButton }) as? UIButton else {
+            return
+        }
+        routeButton.sendActions(for: .touchUpInside)
+    }
+    
     @objc private func audioRouteDidChange() {
         let currentSession = AVAudioSession.sharedInstance()
         let currentRoute = currentSession.currentRoute
@@ -768,35 +843,35 @@ final class CallVC: UIViewController, VideoPreviewDelegate {
             switch currentOutput.portType {
                 case .builtInSpeaker:
                     let image = UIImage(named: "Speaker")?.withRenderingMode(.alwaysTemplate)
-                    volumeView.setRouteButtonImage(image, for: .normal)
-                    volumeView.themeTintColor = .backgroundSecondary
-                    volumeView.themeBackgroundColor = .textPrimary
+                    routePickerButton.setImage(image, for: .normal)
+                    routePickerButton.themeTintColor = .backgroundSecondary
+                    routePickerButton.themeBackgroundColor = .textPrimary
                     
                 case .headphones:
                     let image = UIImage(named: "Headsets")?.withRenderingMode(.alwaysTemplate)
-                    volumeView.setRouteButtonImage(image, for: .normal)
-                    volumeView.themeTintColor = .backgroundSecondary
-                    volumeView.themeBackgroundColor = .textPrimary
+                    routePickerButton.setImage(image, for: .normal)
+                    routePickerButton.themeTintColor = .backgroundSecondary
+                    routePickerButton.themeBackgroundColor = .textPrimary
                     
                 case .bluetoothLE: fallthrough
                 case .bluetoothA2DP:
                     let image = UIImage(named: "Bluetooth")?.withRenderingMode(.alwaysTemplate)
-                    volumeView.setRouteButtonImage(image, for: .normal)
-                    volumeView.themeTintColor = .backgroundSecondary
-                    volumeView.themeBackgroundColor = .textPrimary
+                    routePickerButton.setImage(image, for: .normal)
+                    routePickerButton.themeTintColor = .backgroundSecondary
+                    routePickerButton.themeBackgroundColor = .textPrimary
                     
                 case .bluetoothHFP:
                     let image = UIImage(named: "Airpods")?.withRenderingMode(.alwaysTemplate)
-                    volumeView.setRouteButtonImage(image, for: .normal)
-                    volumeView.themeTintColor = .backgroundSecondary
-                    volumeView.themeBackgroundColor = .textPrimary
+                    routePickerButton.setImage(image, for: .normal)
+                    routePickerButton.themeTintColor = .backgroundSecondary
+                    routePickerButton.themeBackgroundColor = .textPrimary
                     
                 case .builtInReceiver: fallthrough
                 default:
                     let image = UIImage(named: "Speaker")?.withRenderingMode(.alwaysTemplate)
-                    volumeView.setRouteButtonImage(image, for: .normal)
-                    volumeView.themeTintColor = .backgroundSecondary
-                    volumeView.themeBackgroundColor = .textPrimary
+                    routePickerButton.setImage(image, for: .normal)
+                    routePickerButton.themeTintColor = .textPrimary
+                    routePickerButton.themeBackgroundColor = .backgroundSecondary
             }
         }
     }
@@ -809,5 +884,15 @@ final class CallVC: UIViewController, VideoPreviewDelegate {
             self.responsePanel.alpha = isHidden ? 1 : 0
             self.callDurationLabel.alpha = isHidden ? 1 : 0
         }
+    }
+    
+    // MARK: - AVRoutePickerViewDelegate
+    
+    func routePickerViewWillBeginPresentingRoutes(_ routePickerView: AVRoutePickerView) {
+        
+    }
+    
+    func routePickerViewDidEndPresentingRoutes(_ routePickerView: AVRoutePickerView) {
+        
     }
 }
