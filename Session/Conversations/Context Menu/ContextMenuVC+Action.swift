@@ -72,7 +72,7 @@ extension ContextMenuVC {
                     "resend".localized()
                 ),
                 accessibilityLabel: (cellViewModel.state == .failedToSync ? "Resync message" : "Resend message")
-            ) { _ in delegate?.retry(cellViewModel) }
+            ) { completion in delegate?.retry(cellViewModel, completion: completion) }
         }
 
         static func reply(_ cellViewModel: MessageViewModel, _ delegate: ContextMenuActionDelegate?) -> Action {
@@ -81,7 +81,7 @@ extension ContextMenuVC {
                 title: "reply".localized(),
                 shouldDismissInfoScreen: true,
                 accessibilityLabel: "Reply to message"
-            ) { _ in delegate?.reply(cellViewModel) }
+            ) { completion in delegate?.reply(cellViewModel, completion: completion) }
         }
 
         static func copy(_ cellViewModel: MessageViewModel, _ delegate: ContextMenuActionDelegate?) -> Action {
@@ -90,7 +90,7 @@ extension ContextMenuVC {
                 title: "copy".localized(),
                 feedback: "copied".localized(),
                 accessibilityLabel: "Copy text"
-            ) { _ in delegate?.copy(cellViewModel) }
+            ) { completion in delegate?.copy(cellViewModel, completion: completion) }
         }
 
         static func copySessionID(_ cellViewModel: MessageViewModel, _ delegate: ContextMenuActionDelegate?) -> Action {
@@ -99,7 +99,7 @@ extension ContextMenuVC {
                 title: "accountIDCopy".localized(),
                 feedback: "copied".localized(),
                 accessibilityLabel: "Copy Session ID"
-            ) { _ in delegate?.copySessionID(cellViewModel) }
+            ) { completion in delegate?.copySessionID(cellViewModel, completion: completion) }
         }
 
         static func delete(_ cellViewModel: MessageViewModel, _ delegate: ContextMenuActionDelegate?) -> Action {
@@ -122,7 +122,7 @@ extension ContextMenuVC {
                 title: "save".localized(),
                 feedback: "saved".localized(),
                 accessibilityLabel: "Save attachment"
-            ) { _ in delegate?.save(cellViewModel) }
+            ) { completion in delegate?.save(cellViewModel, completion: completion) }
         }
 
         static func ban(_ cellViewModel: MessageViewModel, _ delegate: ContextMenuActionDelegate?) -> Action {
@@ -307,12 +307,12 @@ extension ContextMenuVC {
 
 protocol ContextMenuActionDelegate {
     func info(_ cellViewModel: MessageViewModel)
-    func retry(_ cellViewModel: MessageViewModel)
-    func reply(_ cellViewModel: MessageViewModel)
-    func copy(_ cellViewModel: MessageViewModel)
-    func copySessionID(_ cellViewModel: MessageViewModel)
+    func retry(_ cellViewModel: MessageViewModel, completion: (() -> Void)?)
+    func reply(_ cellViewModel: MessageViewModel, completion: (() -> Void)?)
+    func copy(_ cellViewModel: MessageViewModel, completion: (() -> Void)?)
+    func copySessionID(_ cellViewModel: MessageViewModel, completion: (() -> Void)?)
     func delete(_ cellViewModel: MessageViewModel, completion: (() -> Void)?)
-    func save(_ cellViewModel: MessageViewModel)
+    func save(_ cellViewModel: MessageViewModel, completion: (() -> Void)?)
     func ban(_ cellViewModel: MessageViewModel, completion: (() -> Void)?)
     func banAndDeleteAllMessages(_ cellViewModel: MessageViewModel, completion: (() -> Void)?)
     func react(_ cellViewModel: MessageViewModel, with emoji: EmojiWithSkinTones)
