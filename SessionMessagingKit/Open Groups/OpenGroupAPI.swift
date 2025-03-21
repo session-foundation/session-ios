@@ -321,7 +321,7 @@ public enum OpenGroupAPI {
                 using: dependencies
             )
             .signed(db, with: OpenGroupAPI.signRequest, using: dependencies)
-            .map { (info: ResponseInfoType, response: Network.BatchResponseMap<Endpoint>) -> CapabilitiesAndRoomResponse in
+            .tryMap { (info: ResponseInfoType, response: Network.BatchResponseMap<Endpoint>) -> CapabilitiesAndRoomResponse in
                 let maybeCapabilities: Network.BatchSubResponse<Capabilities>? = (response[.capabilities] as? Network.BatchSubResponse<Capabilities>)
                 let maybeRoomResponse: Any? = response.data
                     .first(where: { key, _ in
@@ -372,7 +372,7 @@ public enum OpenGroupAPI {
                 using: dependencies
             )
             .signed(db, with: OpenGroupAPI.signRequest, using: dependencies)
-            .map { (info: ResponseInfoType, response: Network.BatchResponseMap<Endpoint>) -> CapabilitiesAndRoomsResponse in
+            .tryMap { (info: ResponseInfoType, response: Network.BatchResponseMap<Endpoint>) -> CapabilitiesAndRoomsResponse in
                 let maybeCapabilities: Network.BatchSubResponse<Capabilities>? = (response[.capabilities] as? Network.BatchSubResponse<Capabilities>)
                 let maybeRooms: Network.BatchSubResponse<[Room]>? = response.data
                     .first(where: { key, _ in

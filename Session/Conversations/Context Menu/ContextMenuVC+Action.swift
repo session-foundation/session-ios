@@ -262,9 +262,12 @@ extension ContextMenuVC {
             else { return false }
             
             if cellViewModel.threadVariant == .community {
-                return dependencies[singleton: .openGroupManager].doesOpenGroupSupport(
-                    capability: .reactions,
-                    on: cellViewModel.threadOpenGroupServer
+                return (
+                    !forMessageInfoScreen &&
+                    dependencies[singleton: .openGroupManager].doesOpenGroupSupport(
+                        capability: .reactions,
+                        on: cellViewModel.threadOpenGroupServer
+                    )
                 )
             }
             return (threadViewModel.threadIsMessageRequest != true && !forMessageInfoScreen)

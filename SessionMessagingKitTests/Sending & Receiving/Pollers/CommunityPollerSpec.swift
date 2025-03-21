@@ -69,6 +69,11 @@ class CommunityPollerSpec: QuickSpec {
                     )
             }
         )
+        @TestState(singleton: .appContext, in: dependencies) var mockAppContext: MockAppContext! = MockAppContext(
+            initialSetup: { context in
+                context.when { $0.isMainAppAndActive }.thenReturn(false)
+            }
+        )
         @TestState(defaults: .standard, in: dependencies) var mockUserDefaults: MockUserDefaults! = MockUserDefaults()
         @TestState(cache: .general, in: dependencies) var mockGeneralCache: MockGeneralCache! = MockGeneralCache(
             initialSetup: { cache in
@@ -78,7 +83,7 @@ class CommunityPollerSpec: QuickSpec {
         @TestState(cache: .openGroupManager, in: dependencies) var mockOGMCache: MockOGMCache! = MockOGMCache(
             initialSetup: { cache in
                 cache.when { $0.pendingChanges }.thenReturn([])
-                cache.when { $0.getTimeSinceLastOpen(using: .any) }.thenReturn(0)
+                cache.when { $0.getLastSuccessfulCommunityPollTimestamp() }.thenReturn(0)
             }
         )
         @TestState var cache: CommunityPoller.Cache! = CommunityPoller.Cache(using: dependencies)
@@ -87,6 +92,10 @@ class CommunityPollerSpec: QuickSpec {
         describe("a CommunityPollerCache") {
             // MARK: -- when starting polling
             context("when starting polling") {
+                beforeEach {
+                    mockAppContext.when { $0.isMainAppAndActive }.thenReturn(true)
+                }
+                
                 // MARK: ---- creates pollers for all of the communities
                 it("creates pollers for all of the communities") {
                     cache.startAllPollers()

@@ -86,7 +86,7 @@ public extension VisibleMessage {
             do {
                 return try reactionProto.build()
             } catch {
-                SNLog("Couldn't construct quote proto from: \(self).")
+                Log.warn(.messageSender, "Couldn't construct quote proto from: \(self).")
                 return nil
             }
         }

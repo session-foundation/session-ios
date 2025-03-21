@@ -205,89 +205,99 @@ public extension LibSession {
         
         // MARK: - State Management
         
-        public func loadState(_ db: Database) {
+        public func loadState(_ db: Database, requestId: String?) {
             // Ensure we have the ed25519 key and that we haven't already loaded the state before
             // we continue
             guard
                 configStore.isEmpty,
                 let ed25519KeyPair: KeyPair = Identity.fetchUserEd25519KeyPair(db)
-            else { return Log.warn(.libSession, "Ignoring loadState due to existing state") }
+            else { return Log.warn(.libSession, "Ignoring loadState\(requestId.map { " for \($0)" } ?? "") due to existing state") }
             
-            // Retrieve the existing dumps from the database
-            let existingDumps: [ConfigDump] = ((try? ConfigDump.fetchSet(db)) ?? [])
-                .sorted { lhs, rhs in lhs.variant.loadOrder < rhs.variant.loadOrder }
-            let existingDumpVariants: Set<ConfigDump.Variant> = existingDumps
-                .map { $0.variant }
-                .asSet()
-            let missingRequiredVariants: Set<ConfigDump.Variant> = ConfigDump.Variant.userVariants
-                .subtracting(existingDumpVariants)
-            let groupsByKey: [String: ClosedGroup] = (try? ClosedGroup
+            /// Retrieve the existing dumps from the database
+            typealias ConfigInfo = (sessionId: SessionId, variant: ConfigDump.Variant, dump: ConfigDump?)
+            let existingDumpsByKey: [String: [ConfigDump]] = ((try? ConfigDump.fetchAll(db)) ?? [])
+                .grouped(by: \.sessionId.hexString)
+            var configsToLoad: [ConfigInfo] = []
+            
+            /// Load in the user dumps first (it's possible for a user dump to be missing due to some edge-cases so use
+            /// `ConfigDump.Variant.userVariants` to ensure we will at least load a default state and just assume
+            /// it will be fixed when we eventually poll for it)
+            configsToLoad.append(
+                contentsOf: ConfigDump.Variant.userVariants
+                    .sorted { $0.loadOrder < $1.loadOrder }
+                    .map { variant in
+                        (
+                            userSessionId,
+                            variant,
+                            existingDumpsByKey[userSessionId.hexString]?
+                                .first(where: { $0.variant == variant })
+                        )
+                    }
+            )
+            
+            /// Then load in dumps for groups
+            ///
+            /// Similar to the above it's possible to have a partial group state due to edge-cases where a config could be lost, but also
+            /// immediately after creating a group (eg. when a crash happens at the right time), for these cases we again assume they
+            /// will be solved eventually via polling so still want to load their states into memory (if we don't then we likely wouldn't be
+            /// able to decrypt the poll response and the group would never recover)
+            ///
+            /// **Note:** We exclude groups in the `invited` state as they should only have their state loaded once the invitation
+            /// gets accepted
+            let allGroups: [ClosedGroup] = (try? ClosedGroup
                 .filter(
                     ClosedGroup.Columns.threadId > SessionId.Prefix.group.rawValue &&
                     ClosedGroup.Columns.threadId < SessionId.Prefix.group.endOfRangeString
                 )
-                .fetchAll(db)
-                .reduce(into: [:]) { result, next in result[next.threadId] = next })
-                .defaulting(to: [:])
-            let groupsWithNoDumps: [ClosedGroup] = groupsByKey
-                .values
-                .filter { group in !existingDumps.contains(where: { $0.sessionId.hexString == group.id }) }
-            
-            // Create the config records for each dump
-            existingDumps.forEach { dump in
-                configStore[dump.sessionId, dump.variant] = try? loadState(
-                    for: dump.variant,
-                    sessionId: dump.sessionId,
+                .filter(ClosedGroup.Columns.invited == false)
+                .fetchAll(db))
+                .defaulting(to: [])
+            let groupsByKey: [String: ClosedGroup] = allGroups
+                .reduce(into: [:]) { result, group in result[group.threadId] = group }
+            allGroups.forEach { group in
+                configsToLoad.append(
+                    contentsOf: ConfigDump.Variant.groupVariants
+                        .sorted { $0.loadOrder < $1.loadOrder }
+                        .map { variant in
+                            (
+                                SessionId(.group, hex: group.threadId),
+                                variant,
+                                existingDumpsByKey[group.threadId]?
+                                    .first(where: { $0.variant == variant })
+                            )
+                        }
+                )
+            }
+                                            
+            /// Now that we have fully populated and sorted `configsToLoad` we should load each into memory
+            configsToLoad.forEach { sessionId, variant, dump in
+                configStore[sessionId, variant] = try? loadState(
+                    for: variant,
+                    sessionId: sessionId,
                     userEd25519SecretKey: ed25519KeyPair.secretKey,
-                    groupEd25519SecretKey: groupsByKey[dump.sessionId.hexString]?
+                    groupEd25519SecretKey: groupsByKey[sessionId.hexString]?
                         .groupIdentityPrivateKey
                         .map { Array($0) },
-                    cachedData: dump.data
+                    cachedData: dump?.data
                 )
             }
             
-            /// It's possible for there to not be dumps for all of the configs so we load any missing ones to ensure functionality
-            /// works smoothly
-            ///
-            /// It's also possible for a group to get created but for a dump to not be created (eg. when a crash happens at the right time), to
-            /// handle this we also load the state of any groups which don't have dumps if they aren't in the `invited` state (those in
-            /// the `invited` state will have their state loaded if the invite is accepted)
-            loadDefaultStatesFor(
-                userConfigVariants: missingRequiredVariants,
-                groups: groupsWithNoDumps,
-                userSessionId: userSessionId,
-                userEd25519KeyPair: ed25519KeyPair
-            )
-            Log.info(.libSession, "Completed loadState")
+            Log.info(.libSession, "Completed loadState\(requestId.map { " for \($0)" } ?? "")")
         }
         
-        public func loadDefaultStatesFor(
-            userConfigVariants: Set<ConfigDump.Variant>,
-            groups: [ClosedGroup],
-            userSessionId: SessionId,
-            userEd25519KeyPair: KeyPair
+        public func loadDefaultStateFor(
+            variant: ConfigDump.Variant,
+            sessionId: SessionId,
+            userEd25519KeyPair: KeyPair,
+            groupEd25519SecretKey: [UInt8]?
         ) {
-            /// Create an empty state for the specified user config variants
-            userConfigVariants.forEach { variant in
-                configStore[userSessionId, variant] = try? loadState(
-                    for: variant,
-                    sessionId: userSessionId,
-                    userEd25519SecretKey: userEd25519KeyPair.secretKey,
-                    groupEd25519SecretKey: nil,
-                    cachedData: nil
-                )
-            }
-            
-            /// Create empty group states for the provided groups
-            groups
-                .filter { $0.invited != true }
-                .forEach { group in
-                    _ = try? createAndLoadGroupState(
-                        groupSessionId: SessionId(.group, hex: group.id),
-                        userED25519KeyPair: userEd25519KeyPair,
-                        groupIdentityPrivateKey: group.groupIdentityPrivateKey
-                    )
-                }
+            configStore[sessionId, variant] = try? loadState(
+                for: variant,
+                sessionId: sessionId,
+                userEd25519SecretKey: userEd25519KeyPair.secretKey,
+                groupEd25519SecretKey: groupEd25519SecretKey,
+                cachedData: nil
+            )
         }
         
         internal func loadState(
@@ -323,8 +333,8 @@ public extension LibSession {
             
             switch (variant, groupEd25519SecretKey) {
                 case (.invalid, _):
-                    throw LibSessionError.unableToCreateConfigObject
-                        .logging("Unable to create \(variant.rawValue) config object")
+                    throw LibSessionError.unableToCreateConfigObject(sessionId.hexString)
+                        .logging("Unable to create \(variant.rawValue) config object for: \(sessionId.hexString)")
                     
                 case (.userProfile, _), (.contacts, _), (.convoInfoVolatile, _), (.userGroups, _):
                     return try (userConfigInitCalls[variant]?(
@@ -334,7 +344,7 @@ public extension LibSession {
                         (cachedDump?.length ?? 0),
                         &error
                     ))
-                    .toConfig(conf, variant: variant, error: error)
+                    .toConfig(conf, variant: variant, error: error, sessionId: sessionId)
                     
                 case (.groupInfo, .some(var adminSecretKey)), (.groupMembers, .some(var adminSecretKey)):
                     var identityPublicKey: [UInt8] = sessionId.publicKey
@@ -347,7 +357,7 @@ public extension LibSession {
                         (cachedDump?.length ?? 0),
                         &error
                     ))
-                    .toConfig(conf, variant: variant, error: error)
+                    .toConfig(conf, variant: variant, error: error, sessionId: sessionId)
                     
                 case (.groupKeys, .some(var adminSecretKey)):
                     var identityPublicKey: [UInt8] = sessionId.publicKey
@@ -356,8 +366,8 @@ public extension LibSession {
                         case .groupInfo(let infoConf) = configStore[sessionId, .groupInfo],
                         case .groupMembers(let membersConf) = configStore[sessionId, .groupMembers]
                     else {
-                        throw LibSessionError.unableToCreateConfigObject
-                            .logging("Unable to create \(variant.rawValue) config object for \(sessionId): Group info and member config states not loaded")
+                        throw LibSessionError.unableToCreateConfigObject(sessionId.hexString)
+                            .logging("Unable to create \(variant.rawValue) config object for \(sessionId), group info \(configStore[sessionId, .groupInfo] != nil ? "loaded" : "not loaded") and member config \(configStore[sessionId, .groupMembers] != nil ? "loaded" : "not loaded")")
                     }
                     
                     return try groups_keys_init(
@@ -371,7 +381,7 @@ public extension LibSession {
                         (cachedDump?.length ?? 0),
                         &error
                     )
-                    .toConfig(keysConf, info: infoConf, members: membersConf, variant: variant, error: error)
+                    .toConfig(keysConf, info: infoConf, members: membersConf, variant: variant, error: error, sessionId: sessionId)
                     
                 // It looks like C doesn't deal will passing pointers to null variables well so we need
                 // to explicitly pass 'nil' for the admin key in this case
@@ -386,7 +396,7 @@ public extension LibSession {
                         (cachedDump?.length ?? 0),
                         &error
                     ))
-                    .toConfig(conf, variant: variant, error: error)
+                    .toConfig(conf, variant: variant, error: error, sessionId: sessionId)
                     
                 // It looks like C doesn't deal will passing pointers to null variables well so we need
                 // to explicitly pass 'nil' for the admin key in this case
@@ -397,8 +407,8 @@ public extension LibSession {
                         case .groupInfo(let infoConf) = configStore[sessionId, .groupInfo],
                         case .groupMembers(let membersConf) = configStore[sessionId, .groupMembers]
                     else {
-                        throw LibSessionError.unableToCreateConfigObject
-                            .logging("Unable to create \(variant.rawValue) config object for \(sessionId): Group info and member config states not loaded")
+                        throw LibSessionError.unableToCreateConfigObject(sessionId.hexString)
+                            .logging("Unable to create \(variant.rawValue) config object for \(sessionId), group info \(configStore[sessionId, .groupInfo] != nil ? "loaded" : "not loaded") and member config \(configStore[sessionId, .groupMembers] != nil ? "loaded" : "not loaded")")
                     }
                     
                     return try groups_keys_init(
@@ -412,7 +422,7 @@ public extension LibSession {
                         (cachedDump?.length ?? 0),
                         &error
                     )
-                    .toConfig(keysConf, info: infoConf, members: membersConf, variant: variant, error: error)
+                    .toConfig(keysConf, info: infoConf, members: membersConf, variant: variant, error: error, sessionId: sessionId)
             }
         }
         
@@ -894,12 +904,12 @@ public protocol LibSessionCacheType: LibSessionImmutableCacheType, MutableCacheT
     
     // MARK: - State Management
     
-    func loadState(_ db: Database)
-    func loadDefaultStatesFor(
-        userConfigVariants: Set<ConfigDump.Variant>,
-        groups: [ClosedGroup],
-        userSessionId: SessionId,
-        userEd25519KeyPair: KeyPair
+    func loadState(_ db: Database, requestId: String?)
+    func loadDefaultStateFor(
+        variant: ConfigDump.Variant,
+        sessionId: SessionId,
+        userEd25519KeyPair: KeyPair,
+        groupEd25519SecretKey: [UInt8]?
     )
     func hasConfig(for variant: ConfigDump.Variant, sessionId: SessionId) -> Bool
     func config(for variant: ConfigDump.Variant, sessionId: SessionId) -> LibSession.Config?
@@ -974,6 +984,10 @@ public extension LibSessionCacheType {
     func withCustomBehaviour(_ behaviour: LibSession.CacheBehaviour, for sessionId: SessionId, change: @escaping () throws -> ()) throws {
         try withCustomBehaviour(behaviour, for: sessionId, variant: nil, change: change)
     }
+    
+    func loadState(_ db: Database) {
+        loadState(db, requestId: nil)
+    }
 }
 
 private final class NoopLibSessionCache: LibSessionCacheType {
@@ -987,12 +1001,12 @@ private final class NoopLibSessionCache: LibSessionCacheType {
     
     // MARK: - State Management
     
-    func loadState(_ db: Database) {}
-    func loadDefaultStatesFor(
-        userConfigVariants: Set<ConfigDump.Variant>,
-        groups: [ClosedGroup],
-        userSessionId: SessionId,
-        userEd25519KeyPair: KeyPair
+    func loadState(_ db: Database, requestId: String?) {}
+    func loadDefaultStateFor(
+        variant: ConfigDump.Variant,
+        sessionId: SessionId,
+        userEd25519KeyPair: KeyPair,
+        groupEd25519SecretKey: [UInt8]?
     ) {}
     func hasConfig(for variant: ConfigDump.Variant, sessionId: SessionId) -> Bool { return false }
     func config(for variant: ConfigDump.Variant, sessionId: SessionId) -> LibSession.Config? { return nil }
@@ -1065,10 +1079,11 @@ private extension Optional where Wrapped == Int32 {
     func toConfig(
         _ maybeConf: UnsafeMutablePointer<config_object>?,
         variant: ConfigDump.Variant,
-        error: [CChar]
+        error: [CChar],
+        sessionId: SessionId
     ) throws -> LibSession.Config {
         guard self == 0, let conf: UnsafeMutablePointer<config_object> = maybeConf else {
-            throw LibSessionError.unableToCreateConfigObject
+            throw LibSessionError.unableToCreateConfigObject(sessionId.hexString)
                 .logging("Unable to create \(variant.rawValue) config object: \(String(cString: error))")
         }
         
@@ -1080,7 +1095,7 @@ private extension Optional where Wrapped == Int32 {
             case .groupInfo: return .groupInfo(conf)
             case .groupMembers: return .groupMembers(conf)
             
-            case .groupKeys, .invalid: throw LibSessionError.unableToCreateConfigObject
+            case .groupKeys, .invalid: throw LibSessionError.unableToCreateConfigObject(sessionId.hexString)
         }
     }
 }
@@ -1091,16 +1106,17 @@ private extension Int32 {
         info: UnsafeMutablePointer<config_object>,
         members: UnsafeMutablePointer<config_object>,
         variant: ConfigDump.Variant,
-        error: [CChar]
+        error: [CChar],
+        sessionId: SessionId
     ) throws -> LibSession.Config {
         guard self == 0, let conf: UnsafeMutablePointer<config_group_keys> = maybeConf else {
-            throw LibSessionError.unableToCreateConfigObject
+            throw LibSessionError.unableToCreateConfigObject(sessionId.hexString)
                 .logging("Unable to create \(variant.rawValue) config object: \(String(cString: error))")
         }
 
         switch variant {
             case .groupKeys: return .groupKeys(conf, info: info, members: members)
-            default: throw LibSessionError.unableToCreateConfigObject
+            default: throw LibSessionError.unableToCreateConfigObject(sessionId.hexString)
         }
     }
 }

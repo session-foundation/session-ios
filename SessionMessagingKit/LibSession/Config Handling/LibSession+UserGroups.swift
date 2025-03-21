@@ -722,7 +722,7 @@ internal extension LibSession {
                     var cBaseUrl: [CChar] = community.urlInfo.server.cString(using: .utf8),
                     var cRoom: [CChar] = community.urlInfo.roomToken.cString(using: .utf8)
                 else {
-                    SNLog("Unable to upsert community conversation to LibSession: \(LibSessionError.invalidCConversion)")
+                    Log.error(.libSession, "Unable to upsert community conversation to LibSession: \(LibSessionError.invalidCConversion)")
                     throw LibSessionError.invalidCConversion
                 }
                 
