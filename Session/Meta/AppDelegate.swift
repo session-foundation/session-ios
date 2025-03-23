@@ -786,9 +786,6 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
             /// On application startup the `Storage.read` can be slightly slow while GRDB spins up it's database
             /// read pools (up to a few seconds), since this read is blocking we want to dispatch it to run async to ensure
             /// we don't block user interaction while it's running
-            ///
-            /// **Note:** Only do this if the database is still valid and not suspended (otherwise we will just reset the badge
-            /// number incorrectly)
             DispatchQueue.global(qos: .default).async {
                 guard
                     let unreadCount: Int = dependencies[singleton: .storage].read({ db in try
