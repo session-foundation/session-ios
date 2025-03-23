@@ -381,7 +381,10 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
                         // Ensure we haven't timed out yet
                         guard timer.isCancelled == false else { return }
                         
-                        /// Update the app badge in case the unread count changed
+                        // Immediately cancel the timer to prevent the timeout being triggered
+                        timer.cancel()
+                        
+                        // Update the app badge in case the unread count changed
                         if
                             let unreadCount: Int = dependencies[singleton: .storage].read({ db in
                                 try Interaction.fetchAppBadgeUnreadCount(db, using: dependencies)
