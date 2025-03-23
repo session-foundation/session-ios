@@ -313,11 +313,13 @@ struct MessageInfoScreen: View {
                                     Button(
                                         action: {
                                             actions[index].work() {
-                                                if actions[index].shouldDismissInfoScreen {
-                                                    let deadline: DispatchTime = .now() + (feedbackMessage?.isEmpty == false ? 2 : 0)
-                                                    DispatchQueue.main.asyncAfter(deadline: deadline, execute: {
-                                                        dismiss()
-                                                    })
+                                                switch (actions[index].shouldDismissInfoScreen, actions[index].feedback) {
+                                                    case (true, .some):
+                                                        DispatchQueue.main.asyncAfter(deadline: .now() + 2, execute: {
+                                                            dismiss()
+                                                        })
+                                                        
+                                                    default: dismiss()
                                                 }
                                             }
                                             feedbackMessage = actions[index].feedback
