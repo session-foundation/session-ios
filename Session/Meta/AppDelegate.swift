@@ -390,9 +390,13 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
                             let unreadCount: Int = dependencies[singleton: .storage]
                                 .read { db in try Interaction.fetchAppBadgeUnreadCount(db, using: dependencies) }
                                 .defaulting(to: 0)
-                            UIApplication.shared.applicationIconBadgeNumber = unreadCount
+                            
+                            DispatchQueue.main.async(using: dependencies) {
+                                UIApplication.shared.applicationIconBadgeNumber = unreadCount
+                            }
                         }
                         
+                        // If we are still running in the background then suspend the network & database
                         if dependencies[singleton: .appContext].isInBackground {
                             dependencies.mutate(cache: .libSessionNetwork) { $0.suspendNetworkAccess() }
                             dependencies[singleton: .storage].suspendDatabaseAccess()
