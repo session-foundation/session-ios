@@ -478,16 +478,13 @@ public final class NotificationServiceExtension: UNNotificationServiceExtension 
         switch resolution {
             case .ignoreDueToMainAppRunning: break
             default:
-                /// Update the app badge in case the unread count changed (but only if the database is valid and
-                /// not suspended)
+                /// Update the app badge in case the unread count changed
                 if
-                    dependencies[singleton: .storage].isValid &&
-                    !dependencies[singleton: .storage].isSuspended
+                    let unreadCount: Int = dependencies[singleton: .storage].read({ [dependencies] db in
+                        try Interaction.fetchAppBadgeUnreadCount(db, using: dependencies)
+                    })
                 {
-                    silentContent.badge = dependencies[singleton: .storage]
-                        .read { [dependencies] db in try Interaction.fetchAppBadgeUnreadCount(db, using: dependencies) }
-                        .map { NSNumber(value: $0) }
-                        .defaulting(to: NSNumber(value: 0))
+                    silentContent.badge = NSNumber(value: unreadCount)
                 }
                 
                 dependencies[singleton: .storage].suspendDatabaseAccess()
@@ -547,15 +544,9 @@ public final class NotificationServiceExtension: UNNotificationServiceExtension 
         notificationContent.userInfo = [ NotificationServiceExtension.isFromRemoteKey : true ]
         notificationContent.title = Constants.app_name
         
-        /// Update the app badge in case the unread count changed (but only if the database is valid and
-        /// not suspended)
-        if
-            dependencies[singleton: .storage].isValid &&
-            !dependencies[singleton: .storage].isSuspended
-        {
-            notificationContent.badge = (try? Interaction.fetchAppBadgeUnreadCount(db, using: dependencies))
-                .map { NSNumber(value: $0) }
-                .defaulting(to: NSNumber(value: 0))
+        /// Update the app badge in case the unread count changed
+        if let unreadCount: Int = try? Interaction.fetchAppBadgeUnreadCount(db, using: dependencies) {
+            notificationContent.badge = NSNumber(value: unreadCount)
         }
         
         if let sender: String = callMessage.sender {

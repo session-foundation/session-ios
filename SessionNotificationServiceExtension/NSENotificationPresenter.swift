@@ -90,15 +90,9 @@ public class NSENotificationPresenter: NotificationsManagerType {
             .defaulting(to: db[.defaultNotificationSound] ?? Preferences.Sound.defaultNotificationSound)
             .notificationSound(isQuiet: false)
         
-        /// Update the app badge in case the unread count changed (but only if the database is valid and
-        /// not suspended)
-        if
-            dependencies[singleton: .storage].isValid &&
-            !dependencies[singleton: .storage].isSuspended
-        {
-            notificationContent.badge = (try? Interaction.fetchAppBadgeUnreadCount(db, using: dependencies))
-                .map { NSNumber(value: $0) }
-                .defaulting(to: NSNumber(value: 0))
+        /// Update the app badge in case the unread count changed
+        if let unreadCount: Int = try? Interaction.fetchAppBadgeUnreadCount(db, using: dependencies) {
+            notificationContent.badge = NSNumber(value: unreadCount)
         }
         
         // Title & body
@@ -207,15 +201,9 @@ public class NSENotificationPresenter: NotificationsManagerType {
             .defaulting(to: db[.defaultNotificationSound] ?? Preferences.Sound.defaultNotificationSound)
             .notificationSound(isQuiet: false)
         
-        /// Update the app badge in case the unread count changed (but only if the database is valid and
-        /// not suspended)
-        if
-            dependencies[singleton: .storage].isValid &&
-            !dependencies[singleton: .storage].isSuspended
-        {
-            notificationContent.badge = (try? Interaction.fetchAppBadgeUnreadCount(db, using: dependencies))
-                .map { NSNumber(value: $0) }
-                .defaulting(to: NSNumber(value: 0))
+        /// Update the app badge in case the unread count changed
+        if let unreadCount: Int = try? Interaction.fetchAppBadgeUnreadCount(db, using: dependencies) {
+            notificationContent.badge = NSNumber(value: unreadCount)
         }
         
         notificationContent.title = Constants.app_name

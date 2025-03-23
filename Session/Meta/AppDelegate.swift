@@ -381,16 +381,12 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
                         // Ensure we haven't timed out yet
                         guard timer.isCancelled == false else { return }
                         
-                        /// Update the app badge in case the unread count changed (but only if the database is valid and
-                        /// not suspended)
+                        /// Update the app badge in case the unread count changed
                         if
-                            dependencies[singleton: .storage].isValid &&
-                            !dependencies[singleton: .storage].isSuspended
+                            let unreadCount: Int = dependencies[singleton: .storage].read({ db in
+                                try Interaction.fetchAppBadgeUnreadCount(db, using: dependencies)
+                            })
                         {
-                            let unreadCount: Int = dependencies[singleton: .storage]
-                                .read { db in try Interaction.fetchAppBadgeUnreadCount(db, using: dependencies) }
-                                .defaulting(to: 0)
-                            
                             DispatchQueue.main.async(using: dependencies) {
                                 UIApplication.shared.applicationIconBadgeNumber = unreadCount
                             }
@@ -792,13 +788,10 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
             /// number incorrectly)
             DispatchQueue.global(qos: .default).async {
                 guard
-                    dependencies[singleton: .storage].isValid &&
-                    !dependencies[singleton: .storage].isSuspended
+                    let unreadCount: Int = dependencies[singleton: .storage].read({ db in try
+                        Interaction.fetchAppBadgeUnreadCount(db, using: dependencies)
+                    })
                 else { return }
-                
-                let unreadCount: Int = dependencies[singleton: .storage]
-                    .read { db in try Interaction.fetchAppBadgeUnreadCount(db, using: dependencies) }
-                    .defaulting(to: 0)
                 
                 DispatchQueue.main.async(using: dependencies) {
                     UIApplication.shared.applicationIconBadgeNumber = unreadCount
