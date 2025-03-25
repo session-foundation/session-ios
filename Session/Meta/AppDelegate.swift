@@ -322,9 +322,12 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
         ///
         /// Additionally we want to ensure that our timeout timer has enough time to run so make sure we have at least `5 seconds`
         /// of background execution (if we don't then the process could incorrectly run longer than it should)
+        let remainingTime: TimeInterval = application.backgroundTimeRemaining
+        
         guard
-            application.backgroundTimeRemaining < TimeInterval.greatestFiniteMagnitude &&
-            application.backgroundTimeRemaining > 5
+            remainingTime != TimeInterval.nan &&
+            remainingTime < TimeInterval.greatestFiniteMagnitude &&
+            remainingTime > 5
         else { return completionHandler(.failed) }
         
         Log.appResumedExecution()
@@ -342,7 +345,7 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
         ///
         /// **Note:** We **MUST** capture both `poller` and `cancellable` strongly in the event handler to ensure neither
         /// go out of scope until we want them to (we essentually want a retain cycle in this case)
-        let durationRemainingMs: Int = max(1, Int((application.backgroundTimeRemaining - 5) * 1000))
+        let durationRemainingMs: Int = max(1, Int((remainingTime - 5) * 1000))
         let timer: DispatchSourceTimer = DispatchSource.makeTimerSource(queue: queue)
         timer.schedule(deadline: .now() + .milliseconds(durationRemainingMs))
         timer.setEventHandler { [poller, dependencies] in
