@@ -165,9 +165,24 @@ class PrivacySettingsViewModel: SessionTableViewModel, NavigationItemSource, Nav
                                         accessibility: Accessibility(
                                             label: "Grant microphone permission"
                                         ),
-                                        onTap: {
-                                            UIApplication.shared.openSystemSettings()
-                                        }
+                                        confirmationInfo: ConfirmationModal.Info(
+                                            title: (
+                                                current.localNetworkPermission ?
+                                                "permissionChange".localized() :
+                                                "permissionsRequired".localized()
+                                            ),
+                                            body: .text(
+                                                (
+                                                    current.localNetworkPermission ?
+                                                    "permissionsMicrophoneChangeDescriptionIos".localized() :
+                                                    "permissionsMicrophoneAccessRequiredCallsIos".localized()
+                                                )
+                                            ),
+                                            confirmTitle: "sessionSettings".localized(),
+                                            onConfirm: { _ in
+                                                UIApplication.shared.openSystemSettings()
+                                            }
+                                        )
                                     ),
                                     SessionCell.Info(
                                         id: .camera,
@@ -183,9 +198,24 @@ class PrivacySettingsViewModel: SessionTableViewModel, NavigationItemSource, Nav
                                         accessibility: Accessibility(
                                             label: "Grant camera permission"
                                         ),
-                                        onTap: {
-                                            UIApplication.shared.openSystemSettings()
-                                        }
+                                        confirmationInfo: ConfirmationModal.Info(
+                                            title: (
+                                                current.localNetworkPermission ?
+                                                "permissionChange".localized() :
+                                                "permissionsRequired".localized()
+                                            ),
+                                            body: .text(
+                                                (
+                                                    current.localNetworkPermission ?
+                                                    "permissionsCameraChangeDescriptionIos".localized() :
+                                                    "permissionsCameraAccessRequiredCallsIos".localized()
+                                                )
+                                            ),
+                                            confirmTitle: "sessionSettings".localized(),
+                                            onConfirm: { _ in
+                                                UIApplication.shared.openSystemSettings()
+                                            }
+                                        )
                                     ),
                                     SessionCell.Info(
                                         id: .localNetwork,
@@ -201,9 +231,24 @@ class PrivacySettingsViewModel: SessionTableViewModel, NavigationItemSource, Nav
                                         accessibility: Accessibility(
                                             label: "Grant local network permission"
                                         ),
-                                        onTap: {
-                                            UIApplication.shared.openSystemSettings()
-                                        }
+                                        confirmationInfo: ConfirmationModal.Info(
+                                            title: (
+                                                current.localNetworkPermission ?
+                                                "permissionChange".localized() :
+                                                "permissionsRequired".localized()
+                                            ),
+                                            body: .text(
+                                                (
+                                                    current.localNetworkPermission ?
+                                                    "permissionsLocalNetworkChangeDescriptionIos".localized() :
+                                                    "permissionsLocalNetworkAccessRequiredCallsIos".localized()
+                                                )
+                                            ),
+                                            confirmTitle: "sessionSettings".localized(),
+                                            onConfirm: { _ in
+                                                UIApplication.shared.openSystemSettings()
+                                            }
+                                        )
                                     )
                                 ]
                         )

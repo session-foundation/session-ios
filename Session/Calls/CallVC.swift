@@ -746,7 +746,7 @@ final class CallVC: UIViewController, VideoPreviewDelegate, AVRoutePickerViewDel
                 let confirmationModal: ConfirmationModal = ConfirmationModal(
                     info: ConfirmationModal.Info(
                         title: "permissionsRequired".localized(),
-                        body: .text("Camera access is required to make video calls. Toggle the \"Camera\" permission in Settings to continue."),
+                        body: .text("permissionsCameraAccessRequiredCallsIos".localized()),
                         showCondition: .disabled,
                         confirmTitle: "sessionSettings".localized(),
                         onConfirm: { _ in
