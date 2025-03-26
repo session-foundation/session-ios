@@ -12,6 +12,7 @@ final class CallVC: UIViewController, VideoPreviewDelegate, AVRoutePickerViewDel
     private static let avatarRadius: CGFloat = (isIPhone6OrSmaller ? 100 : 120)
     private static let floatingVideoViewWidth: CGFloat = (UIDevice.current.isIPad ? 160 : 80)
     private static let floatingVideoViewHeight: CGFloat = (UIDevice.current.isIPad ? 346: 173)
+    private static let minimizeButtonSize: CGFloat = 60
     
     private let dependencies: Dependencies
     let call: SessionCall
@@ -163,8 +164,8 @@ final class CallVC: UIViewController, VideoPreviewDelegate, AVRoutePickerViewDel
         result.addTarget(self, action: #selector(minimize), for: UIControl.Event.touchUpInside)
         
         result.isHidden = !call.hasConnected
-        result.set(.width, to: 60)
-        result.set(.height, to: 60)
+        result.set(.width, to: Self.minimizeButtonSize)
+        result.set(.height, to: Self.minimizeButtonSize)
         
         return result
     }()
@@ -531,8 +532,8 @@ final class CallVC: UIViewController, VideoPreviewDelegate, AVRoutePickerViewDel
         view.addSubview(titleLabel)
         titleLabel.translatesAutoresizingMaskIntoConstraints = false
         titleLabel.center(.vertical, in: minimizeButton)
-        titleLabel.pin(.leading, to: .leading, of: view, withInset: Values.largeSpacing)
-        titleLabel.pin(.trailing, to: .trailing, of: view, withInset: -Values.largeSpacing)
+        titleLabel.pin(.leading, to: .trailing, of: minimizeButton, withInset: Values.smallSpacing)
+        titleLabel.pin(.trailing, to: .trailing, of: view, withInset: -(Values.smallSpacing + Self.minimizeButtonSize))
         
         // Response Panel
         view.addSubview(responsePanel)
