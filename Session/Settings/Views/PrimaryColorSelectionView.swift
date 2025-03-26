@@ -113,7 +113,7 @@ extension PrimaryColorSelectionView: SessionCell.Accessory.CustomView {
         }
     }
     
-    static func create(using dependencies: Dependencies) -> PrimaryColorSelectionView {
+    static func create(maxContentWidth: CGFloat, using dependencies: Dependencies) -> PrimaryColorSelectionView {
         return PrimaryColorSelectionView()
     }
     

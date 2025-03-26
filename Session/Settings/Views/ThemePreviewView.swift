@@ -87,7 +87,7 @@ extension ThemePreviewView: SessionCell.Accessory.CustomView {
         let theme: Theme
     }
     
-    static func create(using dependencies: Dependencies) -> ThemePreviewView {
+    static func create(maxContentWidth: CGFloat, using dependencies: Dependencies) -> ThemePreviewView {
         return ThemePreviewView()
     }
     

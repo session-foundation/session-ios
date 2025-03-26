@@ -120,7 +120,7 @@ final class PathStatusViewAccessory: UIView, SessionCell.Accessory.CustomView {
         height: IconSize.medium.size
     )
     
-    static func create(using dependencies: Dependencies) -> PathStatusViewAccessory {
+    static func create(maxContentWidth: CGFloat, using dependencies: Dependencies) -> PathStatusViewAccessory {
         return PathStatusViewAccessory(using: dependencies)
     }
     

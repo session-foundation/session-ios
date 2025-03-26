@@ -106,7 +106,7 @@ extension ThemeMessagePreviewView: SessionCell.Accessory.CustomView {
         typealias View = ThemeMessagePreviewView
     }
     
-    static func create(using dependencies: Dependencies) -> ThemeMessagePreviewView {
+    static func create(maxContentWidth: CGFloat, using dependencies: Dependencies) -> ThemeMessagePreviewView {
         return ThemeMessagePreviewView(using: dependencies)
     }
     

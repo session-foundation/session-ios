@@ -697,8 +697,8 @@ public extension SessionCell.AccessoryConfig {
         
         // MARK: - Conformance
         
-        public func createView(using dependencies: Dependencies) -> UIView {
-            return info.createView(using: dependencies)
+        public func createView(maxContentWidth: CGFloat, using dependencies: Dependencies) -> UIView {
+            return info.createView(maxContentWidth: maxContentWidth, using: dependencies)
         }
         
         override public func hash(into hasher: inout Hasher) {
@@ -718,7 +718,7 @@ public extension SessionCell.AccessoryConfig {
     protocol AnyCustom {
         var accessibility: Accessibility? { get }
         
-        func createView(using dependencies: Dependencies) -> UIView
+        func createView(maxContentWidth: CGFloat, using dependencies: Dependencies) -> UIView
     }
 }
 
@@ -738,7 +738,7 @@ public extension SessionCell.Accessory {
         
         static var size: Size { get }
         
-        static func create(using dependencies: Dependencies) -> Self
+        static func create(maxContentWidth: CGFloat, using dependencies: Dependencies) -> Self
         func update(with info: Info)
     }
     
@@ -748,8 +748,8 @@ public extension SessionCell.Accessory {
 }
 
 public extension SessionCell.Accessory.CustomViewInfo {
-    func createView(using dependencies: Dependencies) -> UIView {
-        let view: View = View.create(using: dependencies)
+    func createView(maxContentWidth: CGFloat, using dependencies: Dependencies) -> UIView {
+        let view: View = View.create(maxContentWidth: maxContentWidth, using: dependencies)
         view.update(with: self)
         
         switch View.size {

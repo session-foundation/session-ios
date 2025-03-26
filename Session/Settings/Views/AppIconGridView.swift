@@ -11,13 +11,15 @@ final class AppIconGridView: UIView {
     /// Excluding the default icon
     private var icons: [AppIcon] = AppIcon.allCases.filter { $0 != .session }
     private var onChange: ((AppIcon) -> ())?
+    private let maxContentWidth: CGFloat
     
     // MARK: - Components
     
     lazy var contentViewViewHeightConstraint: NSLayoutConstraint = contentView.heightAnchor
-        .constraint(equalToConstant: IconView.expectedSize)
+        .constraint(equalToConstant: IconView.expectedMinSize)
     private var iconViewTopConstraints: [NSLayoutConstraint] = []
     private var iconViewLeadingConstraints: [NSLayoutConstraint] = []
+    private var iconViewWidthConstraints: [NSLayoutConstraint] = []
     
     private let contentView: UIView = UIView()
     
@@ -27,7 +29,9 @@ final class AppIconGridView: UIView {
     
     // MARK: - Initializtion
     
-    init() {
+    init(maxContentWidth: CGFloat) {
+        self.maxContentWidth = maxContentWidth
+        
         super.init(frame: .zero)
         
         setupUI()
@@ -53,29 +57,68 @@ final class AppIconGridView: UIView {
         iconViews.forEach {
             iconViewTopConstraints.append($0.pin(.top, to: .top, of: contentView))
             iconViewLeadingConstraints.append($0.pin(.leading, to: .leading, of: contentView))
+            iconViewWidthConstraints.append($0.set(.width, to: IconView.minImageSize))
         }
-        
-//        iconViews.last?.pin(.bottom, to: .bottom, of: contentView)
     }
     
-    override var intrinsicContentSize: CGSize {
-        var x: CGFloat = 0
-        let availableWidth = (bounds.width > 0 ? bounds.width : UIScreen.main.bounds.width)
-        let expectedHeight: CGFloat = iconViews.enumerated().reduce(into: 0) { result, next in
-            guard next.offset < iconViews.count - 1 else { return }
+    /// We want the icons to fill the available space in either a 6x1 grid or a 3x2 grid depending on the available width so
+    /// we need to calculate the `targetSize` and `targetSpacing` for the `IconView`
+    private func calculatedSizes(for availableWidth: CGFloat) -> (size: CGFloat, spacing: CGFloat) {
+        let acceptedIconsPerColumn: [CGFloat] = [CGFloat(iconViews.count), 3]
+        let minSpacing: CGFloat = Values.smallSpacing
+        
+        for iconsPerColumn in acceptedIconsPerColumn {
+            let minTotalSpacing: CGFloat = ((iconsPerColumn - 1) * minSpacing)
+            let availableWidthLessSpacing: CGFloat = (availableWidth - minTotalSpacing)
+            let size: CGFloat = floor(availableWidthLessSpacing / iconsPerColumn)
+            let spacing: CGFloat = ((availableWidth - (size * iconsPerColumn)) / (iconsPerColumn - 1))
             
-            x = (x + IconView.expectedSize + Values.smallSpacing)
-            
-            if x + IconView.expectedSize > availableWidth {
-                x = 0
-                result = (result + IconView.expectedSize + Values.smallSpacing)
+            /// If all of the icons would fit and be larger than the expected min size then that's the size we want to use
+            if size >= IconView.expectedMinSize {
+                return (size, spacing)
             }
         }
         
-        return CGSize(
-            width: UIView.noIntrinsicMetric,
-            height: (expectedHeight + IconView.expectedSize)
-        )
+        /// Fallback to the min sizes to prevent a future change resulting in a `0` value
+        return (IconView.expectedMinSize, minSpacing)
+    }
+    
+    private func calculateIconViewFrames() -> [CGRect] {
+        let (targetSize, targetSpacing): (CGFloat, CGFloat) = calculatedSizes(for: maxContentWidth)
+        var nextX: CGFloat = 0
+        var nextY: CGFloat = 0
+        
+        /// We calculate the size based on the position for the next `IconView` so we will end up with an extra `Values.smallSpacing`
+        /// on both dimensions which needs to be removed
+        return iconViews.enumerated().reduce(into: []) { result, next in
+            /// First add the calculated position/size for this element
+            result.append(
+                CGRect(
+                    x: nextX,
+                    y: nextY,
+                    width: targetSize,
+                    height: targetSize
+                )
+            )
+            
+            /// We are at the last element so no need to calculate additional frames
+            guard next.offset < iconViews.count - 1 else { return }
+            
+            /// Calculate the position the next `IconView` should have
+            nextX += (targetSize + targetSpacing)
+            
+            /// If the end of the next icon would go past the `maxContentWidth` then wrap to the next line
+            if nextX + targetSize > maxContentWidth {
+                nextX = 0
+                nextY += (targetSize + targetSpacing)
+            }
+        }
+    }
+    
+    override var intrinsicContentSize: CGSize {
+        return calculateIconViewFrames().reduce(.zero) { result, next -> CGSize in
+            CGSize(width: max(result.width, next.maxX), height: max(result.height, next.maxY))
+        }
     }
     
     override func layoutSubviews() {
@@ -87,31 +130,28 @@ final class AppIconGridView: UIView {
             !iconViewLeadingConstraints.contains(where: { $0.constant > 0 })
         else { return }
         
-        /// We manually layout the `IconView` instances because it's easier than trying to get
-        /// a good "overflow" behaviour doing it manually than using existing UI elements
-        var targetX: CGFloat = 0
-        var targetY: CGFloat = 0
+        /// We manually layout the `IconView` instances because it's easier than trying to get a good "overflow" behaviour doing it
+        /// manually than using existing UI elements
+        let frames: [CGRect] = calculateIconViewFrames()
+        
+        /// Sanity check to avoid an index out of bounds
+        guard
+            iconViews.count == frames.count &&
+            iconViews.count == iconViewTopConstraints.count &&
+            iconViews.count == iconViewLeadingConstraints.count &&
+            iconViews.count == iconViewWidthConstraints.count
+        else { return }
         
         iconViews.enumerated().forEach { index, iconView in
-            iconViewTopConstraints[index].constant = targetY
-            iconViewLeadingConstraints[index].constant = targetX
+            iconViewTopConstraints[index].constant = frames[index].minY
+            iconViewLeadingConstraints[index].constant = frames[index].minX
+            iconViewWidthConstraints[index].constant = frames[index].width
             
             UIView.performWithoutAnimation { iconView.layoutIfNeeded() }
-            
-            /// Only update the target positions if there are more views
-            guard index < iconViews.count - 1 else { return }
-            
-            /// Calculate the X position for the next icon
-            targetX = (targetX + IconView.expectedSize + Values.smallSpacing)
-            
-            /// If there is no more room then overflow to the next line
-            if targetX + IconView.expectedSize > bounds.width {
-                targetX = 0
-                targetY = (targetY + IconView.expectedSize + Values.smallSpacing)
-            }
         }
         
-        contentViewViewHeightConstraint.constant = (targetY + IconView.expectedSize)
+        contentViewViewHeightConstraint.constant = frames
+            .reduce(0) { result, next -> CGFloat in max(result, next.maxY) }
     }
     
     // MARK: - Content
@@ -143,8 +183,8 @@ extension AppIconGridView: SessionCell.Accessory.CustomView {
         }
     }
     
-    static func create(using dependencies: Dependencies) -> AppIconGridView {
-        return AppIconGridView()
+    static func create(maxContentWidth: CGFloat, using dependencies: Dependencies) -> AppIconGridView {
+        return AppIconGridView(maxContentWidth: maxContentWidth)
     }
     
     func update(with info: Info) {
@@ -156,9 +196,9 @@ extension AppIconGridView: SessionCell.Accessory.CustomView {
 
 extension AppIconGridView {
     class IconView: UIView {
-        fileprivate static let imageSize: CGFloat = 85
+        fileprivate static let minImageSize: CGFloat = 85
         fileprivate static let selectionInset: CGFloat = 4
-        fileprivate static var expectedSize: CGFloat = (imageSize + (selectionInset * 2))
+        fileprivate static var expectedMinSize: CGFloat = (minImageSize + (selectionInset * 2))
         
         private let onSelected: () -> ()
         
@@ -189,6 +229,7 @@ extension AppIconGridView {
             result.isUserInteractionEnabled = false
             result.contentMode = .scaleAspectFit
             result.layer.cornerRadius = 16
+            result.clipsToBounds = true
             
             return result
         }()
@@ -227,8 +268,7 @@ extension AppIconGridView {
             selectionBorderView.pin(to: self)
             
             imageView.pin(to: selectionBorderView, withInset: IconView.selectionInset)
-            imageView.set(.width, to: IconView.imageSize)
-            imageView.set(.height, to: IconView.imageSize)
+            imageView.set(.height, to: .width, of: imageView)
         }
         
         // MARK: - Content

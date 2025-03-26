@@ -289,6 +289,7 @@ extension SessionCell {
             with accessory: Accessory?,
             tintColor: ThemeValue,
             isEnabled: Bool,
+            maxContentWidth: CGFloat,
             isManualReload: Bool,
             using dependencies: Dependencies
         ) {
@@ -594,7 +595,10 @@ extension SessionCell {
                 // MARK: -- Custom
                 
                 case let accessory as SessionCell.AccessoryConfig.AnyCustom:
-                    let generatedView: UIView = accessory.createView(using: dependencies)
+                    let generatedView: UIView = accessory.createView(
+                        maxContentWidth: maxContentWidth,
+                        using: dependencies
+                    )
                     generatedView.accessibilityIdentifier = accessory.accessibility?.identifier
                     generatedView.accessibilityLabel = accessory.accessibility?.label
                     addSubview(generatedView)
