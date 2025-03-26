@@ -314,11 +314,11 @@ struct MessageInfoScreen: View {
                                         action: {
                                             actions[index].work() {
                                                 switch (actions[index].shouldDismissInfoScreen, actions[index].feedback) {
+                                                    case (false, _): break
                                                     case (true, .some):
                                                         DispatchQueue.main.asyncAfter(deadline: .now() + 2, execute: {
                                                             dismiss()
                                                         })
-                                                        
                                                     default: dismiss()
                                                 }
                                             }

@@ -2183,7 +2183,15 @@ extension ConversationVC:
                             )
                         }
                     },
-                    completionHandler: { _, _ in }
+                    completionHandler: { _, _ in
+                        DispatchQueue.main.asyncAfter(deadline: .now() + .milliseconds(Int(ContextMenuVC.dismissDurationPartOne * 1000))) { [weak self] in
+                            self?.viewModel.showToast(
+                                text: "saved".localized(),
+                                backgroundColor: .toast_background,
+                                inset: Values.largeSpacing + (self?.inputAccessoryView?.frame.height ?? 0)
+                            )
+                        }
+                    }
                 )
             }
             
@@ -2193,14 +2201,6 @@ extension ConversationVC:
             }
             
             self?.sendDataExtraction(kind: .mediaSaved(timestamp: UInt64(cellViewModel.timestampMs)))
-            
-            DispatchQueue.main.asyncAfter(deadline: .now() + .milliseconds(Int(ContextMenuVC.dismissDurationPartOne * 1000))) { [weak self] in
-                self?.viewModel.showToast(
-                    text: "saved".localized(),
-                    backgroundColor: .toast_background,
-                    inset: Values.largeSpacing + (self?.inputAccessoryView?.frame.height ?? 0)
-                )
-            }
         }
         
         completion?()
