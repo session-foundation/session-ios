@@ -71,7 +71,8 @@ extension MessageSender {
                     try createdInfo.group.insert(db)
                     try createdInfo.members.forEach { try $0.insert(db) }
                     
-                    /// Add a record of the initial invites going out
+                    /// Add a record of the initial invites going out (default to being read as we don't want the creator of the group
+                    /// to see the "Unread Messages" banner above this control message)
                     _ = try? Interaction(
                         threadId: createdInfo.group.id,
                         threadVariant: .group,
@@ -88,6 +89,7 @@ extension MessageSender {
                             )
                             .infoString(using: dependencies),
                         timestampMs: Int64(createdInfo.group.formationTimestamp * 1000),
+                        wasRead: true,
                         using: dependencies
                     ).inserted(db)
                     
