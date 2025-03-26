@@ -1,7 +1,6 @@
 // Copyright © 2022 Rangeproof Pty Ltd. All rights reserved.
 
 import UIKit
-import YYImage
 import Combine
 import CallKit
 import GRDB
@@ -31,7 +30,7 @@ public final class SessionCall: CurrentCallProtocol, WebRTCSessionDelegate {
     
     let contactName: String
     let profilePicture: UIImage
-    let animatedProfilePicture: YYImage?
+    let animatedProfilePictureData: Data?
     
     // MARK: - Control
     
@@ -167,10 +166,10 @@ public final class SessionCall: CurrentCallProtocol, WebRTCSessionDelegate {
         self.profilePicture = avatarData
             .map { UIImage(data: $0) }
             .defaulting(to: PlaceholderIcon.generate(seed: sessionId, text: self.contactName, size: 300))
-        self.animatedProfilePicture = avatarData
-            .map { data -> YYImage? in
+        self.animatedProfilePictureData = avatarData
+            .map { data -> Data? in
                 switch data.guessedImageFormat {
-                    case .gif, .webp: return YYImage(data: data)
+                    case .gif, .webp: return data
                     default: return nil
                 }
             }

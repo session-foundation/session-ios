@@ -1,7 +1,6 @@
 // Copyright © 2022 Rangeproof Pty Ltd. All rights reserved.
 
 import UIKit
-import YYImage
 import SessionUIKit
 import SessionMessagingKit
 import SignalUtilitiesKit
@@ -150,7 +149,7 @@ public class MediaView: UIView {
     }
 
     private func configureForAnimatedImage(attachment: Attachment) {
-        let animatedImageView: YYAnimatedImageView = YYAnimatedImageView()
+        let animatedImageView: AnimatedImageView = AnimatedImageView()
         // We need to specify a contentMode since the size of the image
         // might not match the aspect ratio of the view.
         animatedImageView.contentMode = MediaView.contentMode
@@ -183,18 +182,19 @@ public class MediaView: UIView {
                         return
                     }
                     
-                    applyMediaBlock(YYImage(contentsOfFile: filePath))
+                    applyMediaBlock(filePath as AnyObject)
                 },
-                applyMediaBlock: { media in
+                applyMediaBlock: { filePath in
                     Log.assertOnMainThread()
                     
-                    guard let image: YYImage = media as? YYImage else {
-                        Log.error("[MediaView] Media has unexpected type: \(type(of: media))")
+                    guard let filePath: String = filePath as? String else {
+                        Log.error("[MediaView] Media has unexpected type: \(type(of: filePath))")
                         self?.configure(forError: .invalid)
                         return
                     }
+                    
                     // FIXME: Animated images flicker when reloading the cells (even though they are in the cache)
-                    animatedImageView.image = image
+                    animatedImageView.loadAnimatedImage(from: filePath)
                 },
                 cacheKey: attachment.id
             )

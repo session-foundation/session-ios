@@ -3,7 +3,6 @@
 import UIKit
 import Combine
 import MediaPlayer
-import YYImage
 import NVActivityIndicatorView
 import SessionUIKit
 import SessionMessagingKit
@@ -51,19 +50,23 @@ public class MediaMessageView: UIView {
         
         return nil
     }()
-    private lazy var validAnimatedImage: YYImage? = {
+    private lazy var validAnimatedImageData: Data? = {
         guard
             attachment.isAnimatedImage,
             attachment.isValidImage,
             let dataUrl: URL = attachment.dataUrl,
-            let image: YYImage = YYImage(contentsOfFile: dataUrl.path),
-            image.size.width > 0,
-            image.size.height > 0
-        else {
-            return nil
-        }
+            let imageData: Data = try? Data(contentsOf: dataUrl), (
+                (
+                    attachment.dataType == .gif &&
+                    imageData.hasValidGifSize
+                ) || (
+                    attachment.dataType == .webP &&
+                    imageData.sizeForWebpData != .zero
+                )
+            )
+        else { return nil }
         
-        return image
+        return imageData
     }()
     private lazy var duration: TimeInterval? = attachment.duration()
     private var linkPreviewInfo: (url: String, draft: LinkPreviewDraft?)?
@@ -172,13 +175,13 @@ public class MediaMessageView: UIView {
         return view
     }()
     
-    private lazy var animatedImageView: YYAnimatedImageView = {
-        let view: YYAnimatedImageView = YYAnimatedImageView()
+    private lazy var animatedImageView: AnimatedImageView = {
+        let view: AnimatedImageView = AnimatedImageView()
         view.translatesAutoresizingMaskIntoConstraints = false
         view.isHidden = true
         
-        if let image: YYImage = validAnimatedImage {
-            view.image = image
+        if let imageData: Data = validAnimatedImageData {
+            view.loadAnimatedImage(from: imageData)
         }
         else {
             view.contentMode = .scaleAspectFit
@@ -408,7 +411,7 @@ public class MediaMessageView: UIView {
                 // If we don't have a valid image then use the 'generic' case
             }
             else if attachment.isAnimatedImage {
-                if validAnimatedImage != nil { return nil }
+                if validAnimatedImageData != nil { return nil }
                 
                 // If we don't have a valid image then use the 'generic' case
             }
