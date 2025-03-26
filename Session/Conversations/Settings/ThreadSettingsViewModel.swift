@@ -4,7 +4,6 @@ import Foundation
 import Combine
 import Lucide
 import GRDB
-import YYImage
 import DifferenceKit
 import SessionUIKit
 import SessionMessagingKit
@@ -823,9 +822,9 @@ class ThreadSettingsViewModel: SessionTableViewModel, NavigatableStateHolder, Ob
                     nil :
                     UIImage(data: displayPictureData)
                 ),
-                animatedImage: (format != .gif && format != .webp ?
+                animatedImageData: (format != .gif && format != .webp ?
                     nil :
-                    YYImage(data: displayPictureData)
+                    displayPictureData
                 ),
                 title: threadViewModel.displayName
             )

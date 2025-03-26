@@ -1,9 +1,9 @@
 // Copyright © 2022 Rangeproof Pty Ltd. All rights reserved.
 
-import Foundation
+import UIKit
 import Combine
 import UniformTypeIdentifiers
-import YYImage
+import SessionUIKit
 import SessionSnodeKit
 import SignalUtilitiesKit
 import SessionUtilitiesKit
@@ -37,7 +37,7 @@ class GifPickerCell: UICollectionViewCell {
     var stillAsset: ProxiedContentAsset?
     var animatedAssetRequest: ProxiedContentAssetRequest?
     var animatedAsset: ProxiedContentAsset?
-    var imageView: YYAnimatedImageView?
+    var imageView: AnimatedImageView?
     var activityIndicator: UIActivityIndicatorView?
 
     var isCellSelected: Bool = false {
@@ -206,13 +206,8 @@ class GifPickerCell: UICollectionViewCell {
             clearViewState()
             return
         }
-        guard let image = YYImage(contentsOfFile: asset.filePath) else {
-            Log.error(.giphy, "Cell could not load asset.")
-            clearViewState()
-            return
-        }
         if imageView == nil {
-            let imageView = YYAnimatedImageView()
+            let imageView = AnimatedImageView()
             self.imageView = imageView
             self.contentView.addSubview(imageView)
             imageView.pin(to: contentView)
@@ -222,7 +217,7 @@ class GifPickerCell: UICollectionViewCell {
             clearViewState()
             return
         }
-        imageView.image = image
+        imageView.loadAnimatedImage(from: URL(fileURLWithPath: asset.filePath))
         imageView.accessibilityIdentifier = "gif cell"
         self.themeBackgroundColor = nil
 
