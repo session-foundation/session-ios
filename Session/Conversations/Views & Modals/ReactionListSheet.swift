@@ -468,6 +468,7 @@ extension ReactionListSheet: UITableViewDelegate, UITableViewDataSource {
                 styling: SessionCell.StyleInfo(backgroundStyle: .edgeToEdge),
                 isEnabled: (authorId == self.messageViewModel.currentUserSessionId)
             ),
+            tableSize: tableView.bounds.size,
             using: dependencies
         )
         

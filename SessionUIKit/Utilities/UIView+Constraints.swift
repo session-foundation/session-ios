@@ -144,6 +144,15 @@ public extension Anchorable {
     }
     
     @discardableResult
+    func pin(_ constraineeEdge: UIView.HorizontalEdge, toCenterOf view: UIView, withInset inset: CGFloat = 0) -> NSLayoutConstraint {
+        (self as? UIView)?.translatesAutoresizingMaskIntoConstraints = false
+
+        return anchor(from: constraineeEdge)
+            .constraint(equalTo: view.centerXAnchor, constant: inset)
+            .setting(isActive: true)
+    }
+    
+    @discardableResult
     func pin(_ constraineeEdge: UIView.VerticalEdge, to constrainerEdge: UIView.VerticalEdge, of anchorable: Anchorable, withInset inset: CGFloat = 0) -> NSLayoutConstraint {
         (self as? UIView)?.translatesAutoresizingMaskIntoConstraints = false
         
@@ -176,6 +185,15 @@ public extension Anchorable {
                 lessThanOrEqualTo: anchorable.anchor(from: constrainerEdge),
                 constant: inset
             )
+            .setting(isActive: true)
+    }
+    
+    @discardableResult
+    func pin(_ constraineeEdge: UIView.VerticalEdge, toCenterOf view: UIView, withInset inset: CGFloat = 0) -> NSLayoutConstraint {
+        (self as? UIView)?.translatesAutoresizingMaskIntoConstraints = false
+
+        return anchor(from: constraineeEdge)
+            .constraint(equalTo: view.centerYAnchor, constant: inset)
             .setting(isActive: true)
     }
 }
