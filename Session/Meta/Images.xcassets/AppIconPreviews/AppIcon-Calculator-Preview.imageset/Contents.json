@@ -1,8 +1,19 @@
 {
   "images" : [
     {
-      "filename" : "AppIcon-Calculator-Preview.pdf",
-      "idiom" : "universal"
+      "filename" : "AppIcon-Calculator-Preview.png",
+      "idiom" : "universal",
+      "scale" : "1x"
+    },
+    {
+      "filename" : "AppIcon-Calculator-Preview@2x.png",
+      "idiom" : "universal",
+      "scale" : "2x"
+    },
+    {
+      "filename" : "AppIcon-Calculator-Preview@3x.png",
+      "idiom" : "universal",
+      "scale" : "3x"
     }
   ],
   "info" : {
