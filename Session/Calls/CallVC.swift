@@ -18,7 +18,6 @@ final class CallVC: UIViewController, VideoPreviewDelegate, AVRoutePickerViewDel
     let call: SessionCall
     var latestKnownAudioOutputDeviceName: String?
     var durationTimer: Timer?
-    var duration: Int = 0
     var shouldRestartCamera = true
     weak var conversationVC: ConversationVC? = nil
     
@@ -479,18 +478,28 @@ final class CallVC: UIViewController, VideoPreviewDelegate, AVRoutePickerViewDel
         
         _ = call.videoCapturer // Force the lazy var to instantiate
         titleLabel.text = self.call.contactName
-        dependencies[singleton: .callManager].startCall(call) { [weak self] error in
-            DispatchQueue.main.async {
-                if let _ = error {
-                    self?.callInfoLabel.text = "callsErrorStart".localized()
-                    self?.endCall()
-                }
-                else {
-                    self?.callInfoLabel.text = "callsRinging".localized()
-                    self?.answerButton.isHidden = true
+        if self.call.hasConnected {
+            callDurationLabel.isHidden = false
+            durationTimer?.invalidate()
+            durationTimer = Timer.scheduledTimer(withTimeInterval: 1, repeats: true) { [weak self] _ in
+                self?.updateDuration()
+            }
+        } else {
+            callDurationLabel.isHidden = true
+            dependencies[singleton: .callManager].startCall(call) { [weak self] error in
+                DispatchQueue.main.async {
+                    if let _ = error {
+                        self?.callInfoLabel.text = "callsErrorStart".localized()
+                        self?.endCall()
+                    }
+                    else {
+                        self?.callInfoLabel.text = "callsRinging".localized()
+                        self?.answerButton.isHidden = true
+                    }
                 }
             }
         }
+        
         setUpOrientationMonitoring()
         NotificationCenter.default.addObserver(self, selector: #selector(audioRouteDidChange), name: AVAudioSession.routeChangeNotification, object: nil)
     }
@@ -714,8 +723,9 @@ final class CallVC: UIViewController, VideoPreviewDelegate, AVRoutePickerViewDel
     
     // stringlint:ignore_contents
     @objc private func updateDuration() {
+        guard let connectedDate = call.connectedDate else { return }
+        let duration = Int(Date().timeIntervalSince1970 - connectedDate.timeIntervalSince1970)
         callDurationLabel.text = String(format: "%.2d:%.2d", duration/60, duration%60)
-        duration += 1
     }
     
     // MARK: - Minimize to a floating view
