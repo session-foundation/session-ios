@@ -1293,12 +1293,15 @@ extension ConversationVC:
                     
                     modal.dismiss(animated: true)
                 },
-                onCancel: { [weak self] modal in
+                onCancel: { modal in
                     UIPasteboard.general.string = url.absoluteString
                     
-                    modal.dismiss(animated: true) {
-                        self?.showInputAccessoryView()
-                    }
+                    // Show a `copied` toast
+                    let toastController: ToastController = ToastController(
+                        text: "copied".localized(),
+                        background: .backgroundSecondary
+                    )
+                    toastController.presentToastView(fromBottomOfView: modal.view, inset: Values.largeSpacing)
                 }
             )
         )
