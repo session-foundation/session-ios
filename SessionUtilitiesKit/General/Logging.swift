@@ -664,9 +664,9 @@ private class SystemLogger: SystemLoggerType {
         logger = os.Logger(subsystem: SystemLogger.subsystem, category: category)
     }
 
-#if DEBUG
-    /// When in debug mode log everything publicly to ensure it comes through both the Xcode debugger and the Console.app
     public func log(_ level: Log.Level, _ log: String) {
+#if DEBUG
+        /// When in debug mode log everything publicly to ensure it comes through both the Xcode debugger and the Console.app
         switch level {
             case .off, .default: return
             case .verbose: logger.trace("\(log, privacy: .public)")
@@ -676,8 +676,8 @@ private class SystemLogger: SystemLoggerType {
             case .error: logger.error("\(log, privacy: .public)")
             case .critical: logger.critical("\(log, privacy: .public)")
         }
-    }
 #endif
+    }
 }
 
 // MARK: - Convenience
