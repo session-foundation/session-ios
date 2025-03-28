@@ -190,9 +190,11 @@ public final class SessionCallManager: NSObject, CallManagerProtocol {
         if dependencies[singleton: .appContext].isInBackground {
             // Stop all jobs except for message sending and when completed suspend the database
             dependencies[singleton: .jobRunner].stopAndClearPendingJobs(exceptForVariant: .messageSend) { [dependencies] _ in
-                dependencies.mutate(cache: .libSessionNetwork) { $0.suspendNetworkAccess() }
-                dependencies[singleton: .storage].suspendDatabaseAccess()
-                Log.flush()
+                if self.currentCall?.hasEnded != false  {
+                    dependencies.mutate(cache: .libSessionNetwork) { $0.suspendNetworkAccess() }
+                    dependencies[singleton: .storage].suspendDatabaseAccess()
+                    Log.flush()
+                }
             }
         }
     }

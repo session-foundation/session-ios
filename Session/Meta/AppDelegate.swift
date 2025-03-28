@@ -361,7 +361,7 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
             Log.info(.backgroundPoller, "Background poll failed due to manual timeout.")
             cancellable?.cancel()
             
-            if dependencies[singleton: .appContext].isInBackground {
+            if dependencies[singleton: .appContext].isInBackground && !self.hasCallOngoing() {
                 dependencies.mutate(cache: .libSessionNetwork) { $0.suspendNetworkAccess() }
                 dependencies[singleton: .storage].suspendDatabaseAccess()
                 Log.flush()
@@ -404,7 +404,7 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
                         }
                         
                         // If we are still running in the background then suspend the network & database
-                        if dependencies[singleton: .appContext].isInBackground {
+                        if dependencies[singleton: .appContext].isInBackground && !self.hasCallOngoing() {
                             dependencies.mutate(cache: .libSessionNetwork) { $0.suspendNetworkAccess() }
                             dependencies[singleton: .storage].suspendDatabaseAccess()
                             Log.flush()
