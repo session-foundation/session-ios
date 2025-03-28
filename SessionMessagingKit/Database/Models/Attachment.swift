@@ -875,14 +875,36 @@ extension Attachment {
     }
     
     private func loadThumbnail(with dimensions: UInt, using dependencies: Dependencies, success: @escaping (UIImage, () throws -> Data) -> (), failure: @escaping () -> ()) {
-        guard let width: UInt = self.width, let height: UInt = self.height, width > 1, height > 1 else {
-            failure()
-            return
-        }
+        guard
+            let targetSize: CGSize = {
+                guard
+                    let width: UInt = self.width,
+                    let height: UInt = self.height,
+                    width > 1,
+                    height > 1
+                else {
+                    guard let filePath: String = self.originalFilePath(using: dependencies) else {
+                        return .zero
+                    }
+                    
+                    let fallbackSize: CGSize = Data.imageSize(for: filePath, type: UTType(sessionMimeType: contentType), using: dependencies)
+                    
+                    guard fallbackSize.width > 1 && fallbackSize.height > 1 else {
+                        return .zero
+                    }
+                    
+                    return fallbackSize
+                }
+                
+                return CGSize(width: Int(width), height: Int(height))
+            }(),
+            targetSize.width > 1 &&
+            targetSize.height > 1
+        else { return failure() }
         
         // There's no point in generating a thumbnail if the original is smaller than the
         // thumbnail size
-        if width < dimensions || height < dimensions {
+        if Int(targetSize.width) < dimensions || Int(targetSize.height) < dimensions {
             guard let image: UIImage = originalImage(using: dependencies) else {
                 failure()
                 return

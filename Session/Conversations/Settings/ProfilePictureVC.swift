@@ -1,13 +1,12 @@
 // Copyright © 2022 Rangeproof Pty Ltd. All rights reserved.
 
 import UIKit
-import YYImage
 import SessionUIKit
 
 /// Shown when the user taps a profile picture in the conversation settings.
 final class ProfilePictureVC: BaseVC {
     private let image: UIImage?
-    private let animatedImage: YYImage?
+    private let animatedImageData: Data?
     private let snTitle: String
     
     private var imageSize: CGFloat { (UIScreen.main.bounds.width - (2 * Values.largeSpacing)) }
@@ -21,7 +20,7 @@ final class ProfilePictureVC: BaseVC {
         result.layer.cornerRadius = (imageSize / 2)
         result.isHidden = (
             image != nil ||
-            animatedImage != nil
+            animatedImageData != nil
         )
         result.set(.width, to: imageSize)
         result.set(.height, to: imageSize)
@@ -41,12 +40,13 @@ final class ProfilePictureVC: BaseVC {
         return result
     }()
     
-    private lazy var animatedImageView: YYAnimatedImageView = {
-        let result: YYAnimatedImageView = YYAnimatedImageView(image: animatedImage)
+    private lazy var animatedImageView: AnimatedImageView = {
+        let result: AnimatedImageView = AnimatedImageView()
+        result.loadAnimatedImage(from: animatedImageData)
         result.clipsToBounds = true
         result.contentMode = .scaleAspectFill
         result.layer.cornerRadius = (imageSize / 2)
-        result.isHidden = (animatedImage == nil)
+        result.isHidden = (animatedImageData == nil)
         result.set(.width, to: imageSize)
         result.set(.height, to: imageSize)
         
@@ -55,9 +55,9 @@ final class ProfilePictureVC: BaseVC {
     
     // MARK: - Initialization
     
-    init(image: UIImage?, animatedImage: YYImage?, title: String) {
+    init(image: UIImage?, animatedImageData: Data?, title: String) {
         self.image = image
-        self.animatedImage = animatedImage
+        self.animatedImageData = animatedImageData
         self.snTitle = title
         
         super.init(nibName: nil, bundle: nil)

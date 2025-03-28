@@ -1,7 +1,6 @@
 // Copyright © 2022 Rangeproof Pty Ltd. All rights reserved.
 
 import UIKit
-import YYImage
 import MediaPlayer
 import SessionUIKit
 import SessionMessagingKit
@@ -141,15 +140,15 @@ final class CallVC: UIViewController, VideoPreviewDelegate {
         return result
     }()
     
-    private lazy var animatedImageView: YYAnimatedImageView = {
-        let result: YYAnimatedImageView = YYAnimatedImageView()
-        result.image = self.call.animatedProfilePicture
+    private lazy var animatedImageView: AnimatedImageView = {
+        let result: AnimatedImageView = AnimatedImageView()
+        result.loadAnimatedImage(from: self.call.animatedProfilePictureData)
         result.set(.width, to: CallVC.avatarRadius * 2)
         result.set(.height, to: CallVC.avatarRadius * 2)
         result.layer.cornerRadius = CallVC.avatarRadius
         result.layer.masksToBounds = true
         result.contentMode = .scaleAspectFill
-        result.isHidden = (self.call.animatedProfilePicture == nil)
+        result.isHidden = (self.call.animatedProfilePictureData == nil)
         
         return result
     }()
