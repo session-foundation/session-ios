@@ -273,6 +273,7 @@ public class PushRegistrationManager: NSObject, PKPushRegistryDelegate {
             let uuid: String = payload["uuid"] as? String,
             let caller: String = payload["caller"] as? String,
             let timestampMs: UInt64 = payload["timestamp"] as? UInt64,
+            let contactName: String = payload["contactName"] as? String,
             TimestampUtils.isWithinOneMinute(timestampMs: timestampMs)
         else {
             dependencies[singleton: .callManager].reportFakeCall(info: "Missing payload data") // stringlint:ignore
@@ -282,40 +283,22 @@ public class PushRegistrationManager: NSObject, PKPushRegistryDelegate {
         dependencies[singleton: .storage].resumeDatabaseAccess()
         dependencies.mutate(cache: .libSessionNetwork) { $0.resumeNetworkAccess() }
         
-        let maybeCall: SessionCall? = dependencies[singleton: .storage].write { [dependencies] db -> SessionCall? in
-            do {
-                let call: SessionCall = SessionCall(
-                    db,
-                    for: caller,
-                    uuid: uuid,
-                    mode: .answer,
-                    using: dependencies
-                )
-                
-                let interaction: Interaction? = try Interaction
-                    .filter(Interaction.Columns.threadId == caller)
-                    .filter(Interaction.Columns.messageUuid == uuid)
-                    .fetchOne(db)
-                
-                call.callInteractionId = interaction?.id
-                return call
-            }
-            catch {
-                Log.error(.calls, "Failed to create call due to error: \(error)")
-            }
-            
-            return nil
-        }
+        let call: SessionCall = SessionCall(
+            for: caller,
+            contactName: contactName,
+            uuid: uuid,
+            mode: .answer,
+            using: dependencies
+        )
         
-        guard let call: SessionCall = maybeCall else {
-            dependencies[singleton: .callManager].reportFakeCall(info: "Could not retrieve call from database") // stringlint:ignore
-            return
-        }
+        Log.info(.calls, "Calls created with UUID: \(uuid), caller: \(caller), contactName: \(contactName)")
         
         dependencies[singleton: .jobRunner].appDidBecomeActive()
         
-        // NOTE: Just start 1-1 poller so that it won't wait for polling group messages
-        dependencies[singleton: .currentUserPoller].startIfNeeded(forceStartInBackground: true)
+        dependencies[singleton: .appReadiness].runNowOrWhenAppDidBecomeReady { [dependencies] in
+            // NOTE: Just start 1-1 poller so that it won't wait for polling group messages
+            dependencies[singleton: .currentUserPoller].startIfNeeded(forceStartInBackground: true)
+        }
         
         call.reportIncomingCallIfNeeded { error in
             if let error = error {

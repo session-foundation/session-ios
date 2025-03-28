@@ -147,7 +147,8 @@ class SendMediaNavigationController: UINavigationController {
     }
 
     private func didTapCameraModeButton() {
-        Permissions.requestCameraPermissionIfNeeded(using: dependencies) { [weak self] in
+        Permissions.requestCameraPermissionIfNeeded(using: dependencies) { [weak self] granted in
+            guard granted else { return }
             DispatchQueue.main.async {
                 self?.fadeTo(viewControllers: ((self?.captureViewController).map { [$0] } ?? []))
             }
