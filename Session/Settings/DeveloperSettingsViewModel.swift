@@ -90,6 +90,7 @@ class DeveloperSettingsViewModel: SessionTableViewModel, NavigatableStateHolder,
         case updatedGroupsDeleteBeforeNow
         case updatedGroupsDeleteAttachmentsBeforeNow
         
+        case copyDatabasePath
         case forceSlowDatabaseQueries
         case exportDatabase
         case importDatabase
@@ -128,6 +129,7 @@ class DeveloperSettingsViewModel: SessionTableViewModel, NavigatableStateHolder,
                 case .updatedGroupsDeleteBeforeNow: return "updatedGroupsDeleteBeforeNow"
                 case .updatedGroupsDeleteAttachmentsBeforeNow: return "updatedGroupsDeleteAttachmentsBeforeNow"
                 
+                case .copyDatabasePath: return "copyDatabasePath"
                 case .forceSlowDatabaseQueries: return "forceSlowDatabaseQueries"
                 case .exportDatabase: return "exportDatabase"
                 case .importDatabase: return "importDatabase"
@@ -170,6 +172,7 @@ class DeveloperSettingsViewModel: SessionTableViewModel, NavigatableStateHolder,
                 case .updatedGroupsDeleteBeforeNow: result.append(.updatedGroupsDeleteBeforeNow); fallthrough
                 case .updatedGroupsDeleteAttachmentsBeforeNow: result.append(.updatedGroupsDeleteAttachmentsBeforeNow); fallthrough
                 
+                case .copyDatabasePath: result.append(.copyDatabasePath); fallthrough
                 case .forceSlowDatabaseQueries: result.append(.forceSlowDatabaseQueries); fallthrough
                 case .exportDatabase: result.append(.exportDatabase); fallthrough
                 case .importDatabase: result.append(.importDatabase)
@@ -724,6 +727,17 @@ class DeveloperSettingsViewModel: SessionTableViewModel, NavigatableStateHolder,
             model: .database,
             elements: [
                 SessionCell.Info(
+                    id: .copyDatabasePath,
+                    title: "Copy database path",
+                    subtitle: """
+                    Copies the path to the database file (quick way to access it for the simulator for debugging).
+                    """,
+                    trailingAccessory: .highlightingBackgroundLabel(title: "Copy"),
+                    onTap: { [weak self] in
+                        self?.copyDatabasePath()
+                    }
+                ),
+                SessionCell.Info(
                     id: .forceSlowDatabaseQueries,
                     title: "Force slow database queries",
                     subtitle: """
@@ -794,6 +808,7 @@ class DeveloperSettingsViewModel: SessionTableViewModel, NavigatableStateHolder,
                 case .showStringKeys: updateFlag(for: .showStringKeys, to: nil)
                 
                 case .resetSnodeCache: break    // Not a feature
+                case .copyDatabasePath: break     // Not a feature
                 case .exportDatabase: break     // Not a feature
                 case .importDatabase: break     // Not a feature
                 case .advancedLogging: break    // Not a feature
@@ -1052,6 +1067,15 @@ class DeveloperSettingsViewModel: SessionTableViewModel, NavigatableStateHolder,
                 )
             ),
             transitionType: .present
+        )
+    }
+    
+    private func copyDatabasePath() {
+        UIPasteboard.general.string = Storage.sharedDatabaseDirectoryPath
+        
+        showToast(
+            text: "copied".localized(),
+            backgroundColor: .backgroundSecondary
         )
     }
     
