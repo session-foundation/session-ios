@@ -1,5 +1,5 @@
 {
-  "originHash" : "e3fdf2f44acd1f05dab295d0c9e3faf05f5e4461d512be1d5a77af42e0a25e48",
+  "originHash" : "3976430cfdaea7445596ad6123334158bdc83e4997da535d15a15afc3c7aa091",
   "pins" : [
     {
       "identity" : "cocoalumberjack",
@@ -56,15 +56,6 @@
       }
     },
     {
-      "identity" : "libwebp-xcode",
-      "kind" : "remoteSourceControl",
-      "location" : "https://github.com/SDWebImage/libwebp-Xcode.git",
-      "state" : {
-        "revision" : "b2b1d20a90b14d11f6ef4241da6b81c1d3f171e4",
-        "version" : "1.3.2"
-      }
-    },
-    {
       "identity" : "nimble",
       "kind" : "remoteSourceControl",
       "location" : "https://github.com/Quick/Nimble.git",
@@ -110,21 +101,12 @@
       }
     },
     {
-      "identity" : "session-ios-yyimage",
-      "kind" : "remoteSourceControl",
-      "location" : "https://github.com/session-foundation/session-ios-yyimage",
-      "state" : {
-        "revision" : "14786afd2523f80be304b377f9dbab6b7904bf02",
-        "version" : "1.1.0"
-      }
-    },
-    {
       "identity" : "session-lucide",
       "kind" : "remoteSourceControl",
       "location" : "https://github.com/session-foundation/session-lucide.git",
       "state" : {
-        "revision" : "32fdd138a20e828eea376d01e53efb461cc19ebe",
-        "version" : "0.468.0"
+        "revision" : "af00ad53d714823e07f984aadd7af38bafaae69e",
+        "version" : "0.473.0"
       }
     },
     {

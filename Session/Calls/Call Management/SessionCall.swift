@@ -1,7 +1,6 @@
 // Copyright © 2022 Rangeproof Pty Ltd. All rights reserved.
 
 import UIKit
-import YYImage
 import Combine
 import CallKit
 import GRDB
@@ -35,7 +34,6 @@ public final class SessionCall: CurrentCallProtocol, WebRTCSessionDelegate {
         }
     }
     var answerCallAction: CXAnswerCallAction? = nil
-
     // MARK: - Control
     
     lazy public var videoCapturer: RTCVideoCapturer = {

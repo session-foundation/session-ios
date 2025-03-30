@@ -1,7 +1,6 @@
 // Copyright © 2022 Rangeproof Pty Ltd. All rights reserved.
 
 import UIKit
-import YYImage
 import MediaPlayer
 import AVKit
 import SessionUIKit
@@ -141,8 +140,8 @@ final class CallVC: UIViewController, VideoPreviewDelegate, AVRoutePickerViewDel
         return result
     }()
     
-    private lazy var animatedImageView: YYAnimatedImageView = {
-        let result: YYAnimatedImageView = YYAnimatedImageView()
+    private lazy var animatedImageView: AnimatedImageView = {
+        let result: AnimatedImageView = AnimatedImageView()
         result.set(.width, to: CallVC.avatarRadius * 2)
         result.set(.height, to: CallVC.avatarRadius * 2)
         result.layer.cornerRadius = CallVC.avatarRadius
@@ -587,15 +586,15 @@ final class CallVC: UIViewController, VideoPreviewDelegate, AVRoutePickerViewDel
             .defaulting(to: PlaceholderIcon.generate(seed: call.sessionId, text: call.contactName, size: 300))
         
         let maybeAnimatedProfilePicture = avatarData
-            .map { data -> YYImage? in
+            .map { data -> Data? in
                 switch data.guessedImageFormat {
-                    case .gif, .webp: return YYImage(data: data)
+                    case .gif, .webp: return data
                     default: return nil
                 }
             }
         
         if let animatedProfilePicture = maybeAnimatedProfilePicture {
-            self.animatedImageView.image = animatedProfilePicture
+            self.animatedImageView.loadAnimatedImage(from: animatedProfilePicture)
             self.animatedImageView.isHidden = false
             self.profilePictureView.isHidden = true
         } else {

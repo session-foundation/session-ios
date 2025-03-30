@@ -129,7 +129,18 @@ public extension UTType {
                 case "audio/aac", "audio/x-m4a": self = .mpeg4Audio
                 case "audio/aiff", "audio/x-aiff": self = .aiff
                 
-                default: return nil
+                default:
+                    /// It's possible we were given a UTI instead of a mimeType so try to retrieve the `preferredMIMEType`
+                    /// from the OS by processing the value directly as a `UTType` and direct that back through the
+                    /// `UTType(sessionMimeType:)` to use our desired behaviour
+                    guard
+                        let fallbackType: UTType = UTType(sessionMimeType),
+                        let mimeType: String = fallbackType.preferredMIMEType,
+                        mimeType != sessionMimeType,
+                        let result: UTType = UTType(sessionMimeType: mimeType)
+                    else { return nil }
+                    
+                    self = result
             }
             
             return
