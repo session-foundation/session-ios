@@ -8,22 +8,5 @@ public enum Constants {
     public static let session_download_url: String = "https://getsession.org/download"
     public static let gif: String = "GIF"
     public static let oxen_foundation: String = "Oxen Foundation"
-    
-    // TODO: Remove these when calls are out of beta
-    public static let call_connection_steps_sender: [String] = [
-        "Creating Call 1/6",
-        "Sending Call Offer 2/6",
-        "Sending Connection Candidates 3/6",
-        "Awaiting Recipient Answer... 4/6",
-        "Handling Connection Candidates 5/6",
-        "Call Connected 6/6",
-    ]
-    public static let call_connection_steps_receiver: [String] = [
-        "Received Call Offer 1/5",
-        "Answering Call 2/5",
-        "Sending Connection Candidates 3/5",
-        "Handling Connection Candidates 4/5",
-        "Call Connected 5/5",
-    ]
 }
 

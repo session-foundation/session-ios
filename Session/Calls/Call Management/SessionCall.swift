@@ -529,7 +529,26 @@ public final class SessionCall: CurrentCallProtocol, WebRTCSessionDelegate {
 
 // MARK: - Connection Steps
 
+// TODO: Remove these when calls are out of beta
 extension SessionCall {
+    // stringlint:ignore_contents
+    public static let call_connection_steps_sender: [String] = [
+        "Creating Call 1/6",
+        "Sending Call Offer 2/6",
+        "Sending Connection Candidates 3/6",
+        "Awaiting Recipient Answer... 4/6",
+        "Handling Connection Candidates 5/6",
+        "Call Connected 6/6",
+    ]
+    // stringlint:ignore_contents
+    public static let call_connection_steps_receiver: [String] = [
+        "Received Call Offer 1/5",
+        "Answering Call 2/5",
+        "Sending Connection Candidates 3/5",
+        "Handling Connection Candidates 4/5",
+        "Call Connected 5/5",
+    ]
+    
     public protocol ConnectionStep {
         var index: Int { get }
         var nextStep: ConnectionStep? { get }
@@ -601,8 +620,8 @@ extension SessionCall {
             DispatchQueue.main.async {
                 self.updateCallDetailedStatus?(
                     self.mode == .offer ?
-                    Constants.call_connection_steps_sender[self.currentConnectionStep.index] :
-                    Constants.call_connection_steps_receiver[self.currentConnectionStep.index]
+                    SessionCall.call_connection_steps_sender[self.currentConnectionStep.index] :
+                    SessionCall.call_connection_steps_receiver[self.currentConnectionStep.index]
                 )
             }
             
