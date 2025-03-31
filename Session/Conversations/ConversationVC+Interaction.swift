@@ -186,7 +186,6 @@ extension ConversationVC:
                         contactName: self.viewModel.threadData.displayName,
                         uuid: UUID().uuidString.lowercased(),
                         mode: .offer,
-                        outgoing: true,
                         using: dependencies
                     )
                 })

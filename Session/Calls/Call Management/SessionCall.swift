@@ -25,7 +25,6 @@ public final class SessionCall: CurrentCallProtocol, WebRTCSessionDelegate {
     public let mode: CallMode
     let contactName: String
     var audioMode: AudioMode
-    let isOutgoing: Bool
     var remoteSDP: RTCSessionDescription? = nil {
         didSet {
             if hasStartedConnecting, let sdp = remoteSDP {
@@ -155,7 +154,7 @@ public final class SessionCall: CurrentCallProtocol, WebRTCSessionDelegate {
     
     // MARK: - Initialization
     
-    init(for sessionId: String, contactName: String, uuid: String, mode: CallMode, outgoing: Bool = false, using dependencies: Dependencies) {
+    init(for sessionId: String, contactName: String, uuid: String, mode: CallMode, using dependencies: Dependencies) {
         self.dependencies = dependencies
         self.sessionId = sessionId
         self.contactName = contactName
@@ -164,7 +163,6 @@ public final class SessionCall: CurrentCallProtocol, WebRTCSessionDelegate {
         self.mode = mode
         self.audioMode = .earpiece
         self.webRTCSession = WebRTCSession.current ?? WebRTCSession(for: sessionId, with: uuid, using: dependencies)
-        self.isOutgoing = outgoing
         self.currentConnectionStep = (mode == .offer ? OfferStep.initializing : AnswerStep.receivedOffer)
         self.connectionStepsRecord = [Bool](repeating: false, count: (mode == .answer ? 5 : 6))
         WebRTCSession.current = self.webRTCSession
@@ -466,13 +464,14 @@ public final class SessionCall: CurrentCallProtocol, WebRTCSessionDelegate {
     }
     
     public func reconnectIfNeeded() {
+        guard !self.hasEnded else { return }
         setupTimeoutTimer()
         hasStartedReconnecting?()
-        guard isOutgoing else { return }
         tryToReconnect()
     }
     
     private func tryToReconnect() {
+        guard self.mode == .offer else { return }
         reconnectTimer?.invalidate()
         
         // Register a callback to get the current network status then remove it immediately as we only
