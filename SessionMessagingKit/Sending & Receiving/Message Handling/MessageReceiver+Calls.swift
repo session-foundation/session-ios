@@ -176,7 +176,7 @@ extension MessageReceiver {
         else { return }
         
         guard sender != dependencies[cache: .general].sessionId.hexString else {
-            guard !currentCall.hasStartedConnecting else { return }
+            guard currentCall.mode == .answer && !currentCall.hasStartedConnecting else { return }
             
             dependencies[singleton: .callManager].dismissAllCallUI()
             dependencies[singleton: .callManager].reportCurrentCallEnded(reason: .answeredElsewhere)
@@ -201,6 +201,7 @@ extension MessageReceiver {
             dependencies[singleton: .callManager].currentWebRTCSessionMatches(callId: message.uuid),
             let currentCall: CurrentCallProtocol = dependencies[singleton: .callManager].currentCall,
             currentCall.uuid == message.uuid,
+            !currentCall.hasEnded,
             let sender: String = message.sender
         else { return }
         

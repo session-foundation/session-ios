@@ -22,8 +22,8 @@ public final class SessionCall: CurrentCallProtocol, WebRTCSessionDelegate {
     public let uuid: String
     public let callId: UUID // This is for CallKit
     public let sessionId: String
+    public let mode: CallMode
     let contactName: String
-    let mode: CallMode
     var audioMode: AudioMode
     let isOutgoing: Bool
     var remoteSDP: RTCSessionDescription? = nil {
