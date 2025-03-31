@@ -9,7 +9,7 @@ public enum Constants {
     public static let gif: String = "GIF"
     public static let oxen_foundation: String = "Oxen Foundation"
     
-    // TODO: Localize call connection steps
+    // TODO: Remove these when calls are out of beta
     public static let call_connection_steps_sender: [String] = [
         "Creating Call 1/6",
         "Sending Call Offer 2/6",
