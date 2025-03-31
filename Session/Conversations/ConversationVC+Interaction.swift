@@ -178,19 +178,16 @@ extension ConversationVC:
         guard
             Permissions.microphone == .granted,
             self.viewModel.threadData.threadVariant == .contact,
-            viewModel.dependencies[singleton: .callManager].currentCall == nil,
-            let call: SessionCall = viewModel.dependencies[singleton: .storage]
-                .read({ [dependencies = viewModel.dependencies] db in
-                    SessionCall(
-                        for: threadId,
-                        contactName: self.viewModel.threadData.displayName,
-                        uuid: UUID().uuidString.lowercased(),
-                        mode: .offer,
-                        using: dependencies
-                    )
-                })
+            viewModel.dependencies[singleton: .callManager].currentCall == nil
         else { return }
         
+        let call: SessionCall = SessionCall(
+            for: threadId,
+            contactName: self.viewModel.threadData.displayName,
+            uuid: UUID().uuidString.lowercased(),
+            mode: .offer,
+            using: viewModel.dependencies
+        )
         let callVC = CallVC(for: call, using: viewModel.dependencies)
         callVC.conversationVC = self
         hideInputAccessoryView()
