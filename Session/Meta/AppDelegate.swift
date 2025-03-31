@@ -133,9 +133,13 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
                     }
                 )
                 
-                /// Adding this to prevent new users who only installed Session after this update being asked for local network access on first startup.
-                /// Because the only way we can check the status of local network permission will trigger the system prompt to ask for the permission.
-                /// It won't affect anything after the user has enabled the calls permission and gone through the permission chain after that.
+                /// Adding this to prevent new users being asked for local network permission in the wrong order in the permission chain.
+                /// We need to check the local nework permission status every time the app is activated to refresh the UI in Settings screen.
+                /// And after granting or denying a system permission request will trigger the local nework permission status check in applicationDidBecomeActive(:)
+                /// The only way we can check the status of local network permission will trigger the system prompt to ask for the permission.
+                /// So we need this to keep it the correct order of the permission chain.
+                /// For users who already enabled the calls permission and made calls, the local network permission should already be asked for.
+                /// It won't affect anything.
                 dependencies[defaults: .standard, key: .hasRequestedLocalNetworkPermission] = dependencies[singleton: .storage, key: .areCallsEnabled]
                 
                 /// Now that the theme settings have been applied we can complete the migrations
