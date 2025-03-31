@@ -228,18 +228,18 @@ public final class SessionCallManager: NSObject, CallManagerProtocol {
             DispatchQueue.main.async {
                 guard
                     dependencies[singleton: .appContext].isMainAppAndActive,
-                    let presentingVC: UIViewController = dependencies[singleton: .appContext].frontMostViewController
+                    let currentFrontMostViewController: UIViewController = dependencies[singleton: .appContext].frontMostViewController
                 else { return }
                 
                 if
-                    let conversationVC: ConversationVC = presentingVC as? ConversationVC,
+                    let conversationVC: ConversationVC = currentFrontMostViewController as? ConversationVC,
                     conversationVC.viewModel.threadData.threadId == call.sessionId
                 {
                     let callVC = CallVC(for: call, using: dependencies)
                     callVC.conversationVC = conversationVC
                     conversationVC.resignFirstResponder()
                     conversationVC.hideInputAccessoryView()
-                    presentingVC.present(callVC, animated: true, completion: nil)
+                    currentFrontMostViewController.present(callVC, animated: true, completion: nil)
                 }
                 else if !Preferences.isCallKitSupported {
                     let incomingCallBanner = IncomingCallBanner(for: call, using: dependencies)
