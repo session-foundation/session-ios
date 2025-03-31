@@ -133,7 +133,9 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
                     }
                 )
                 
-                /// Do a little migration on an educated guess of if the user has been asked for local network permission based on calls permission
+                /// Adding this to prevent new users who only installed Session after this update being asked for local network access on first startup.
+                /// Because the only way we can check the status of local network permission will trigger the system prompt to ask for the permission.
+                /// It won't affect anything after the user has enabled the calls permission and gone through the permission chain after that.
                 dependencies[defaults: .standard, key: .hasRequestedLocalNetworkPermission] = dependencies[singleton: .storage, key: .areCallsEnabled]
                 
                 /// Now that the theme settings have been applied we can complete the migrations
