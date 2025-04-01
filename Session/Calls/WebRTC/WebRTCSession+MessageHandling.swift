@@ -27,7 +27,17 @@ extension WebRTCSession {
                 DispatchQueue.global(qos: .userInitiated).async {
                     self?.sendAnswer(to: sessionId)
                         .retry(5)
-                        .sinkUntilComplete()
+                        .sinkUntilComplete(
+                            receiveCompletion: { [weak self] result in
+                                switch result {
+                                    case .finished:
+                                        Log.info(.calls, "Answer message sent")
+                                    case .failure(let error):
+                                        Log.error(.calls, "Error sending answer message  due to error: \(error)")
+                                        self?.delegate?.handleCallFailed()
+                                }
+                            }
+                        )
                 }
             }
         })

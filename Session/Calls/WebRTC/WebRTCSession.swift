@@ -19,6 +19,7 @@ public protocol WebRTCSessionDelegate: AnyObject {
     func dataChannelDidOpen()
     func didReceiveHangUpSignal()
     func reconnectIfNeeded()
+    func handleCallFailed()
 }
 
 /// See https://webrtc.org/getting-started/overview for more information.
@@ -358,6 +359,7 @@ public final class WebRTCSession : NSObject, RTCPeerConnectionDelegate {
                             self?.delegate?.iceCandidateDidSend()
                         case .failure(let error):
                             Log.error(.calls, "Error sending ICE candidates due to error: \(error)")
+                            self?.delegate?.handleCallFailed()
                     }
                 }
             )

@@ -266,7 +266,7 @@ public final class SessionCall: CurrentCallProtocol, WebRTCSessionDelegate {
                             Log.info(.calls, "Offer message sent")
                         case .failure(let error):
                             Log.error(.calls, "Error initializing call after 5 retries: \(error), ending call...")
-                            self?.handleCallInitializationFailed()
+                            self?.handleCallFailed()
                     }
                 }
             )
@@ -299,7 +299,7 @@ public final class SessionCall: CurrentCallProtocol, WebRTCSessionDelegate {
         hasEnded = true
     }
     
-    func handleCallInitializationFailed() {
+    public func handleCallFailed() {
         self.endSessionCall()
         dependencies[singleton: .callManager].reportCurrentCallEnded(reason: .failed)
     }
