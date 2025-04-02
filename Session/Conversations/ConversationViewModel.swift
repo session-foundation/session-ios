@@ -76,16 +76,14 @@ public class ConversationViewModel: OWSAudioPlayerDelegate, NavigatableStateHold
     public lazy var legacyGroupsBannerMessage: NSAttributedString = {
         let localizationKey: String
         
-        switch (dependencies[feature: .legacyGroupsDeprecated], threadData.currentUserIsClosedGroupAdmin == true) {
-            case (false, false): localizationKey = "legacyGroupBeforeDeprecationMember"
-            case (false, true): localizationKey = "legacyGroupBeforeDeprecationAdmin"
-            case (true, false): localizationKey = "legacyGroupAfterDeprecationMember"
-            case (true, true): localizationKey = "legacyGroupAfterDeprecationAdmin"
+        switch threadData.currentUserIsClosedGroupAdmin == true {
+            case false: localizationKey = "legacyGroupAfterDeprecationMember"
+            case true: localizationKey = "legacyGroupAfterDeprecationAdmin"
         }
         
         // FIXME: Strings should be updated in Crowdin to include the {icon}
         return LocalizationHelper(template: localizationKey)
-            .put(key: "date", value: Features.legacyGroupDepricationDate.formattedForBanner)
+            .put(key: "date", value: Date(timeIntervalSince1970: 1743631200).formattedForBanner)
             .localizedFormatted(baseFont: legacyGroupsBannerFont)
             .appending(string: " ")     // Designs have a space before the icon
             .appending(Lucide.Icon.squareArrowUpRight.attributedString(for: legacyGroupsBannerFont))

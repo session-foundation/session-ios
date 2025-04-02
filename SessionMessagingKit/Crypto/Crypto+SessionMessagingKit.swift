@@ -29,11 +29,7 @@ public extension Crypto.Generator {
                 switch destination {
                     case .contact(let publicKey): return Data(SessionId(.standard, hex: publicKey).publicKey)
                     case .syncMessage: return Data(dependencies[cache: .general].sessionId.publicKey)
-                    case .closedGroup(let groupPublicKey):
-                        return try ClosedGroupKeyPair.fetchLatestKeyPair(db, threadId: groupPublicKey)?.publicKey ?? {
-                            throw MessageSenderError.noKeyPair
-                        }()
-
+                    case .closedGroup(let groupPublicKey): throw MessageSenderError.deprecatedLegacyGroup
                     default: throw MessageSenderError.signingFailed
                 }
             }()

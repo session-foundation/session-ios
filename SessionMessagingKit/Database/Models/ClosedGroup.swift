@@ -304,21 +304,6 @@ public extension ClosedGroup {
                     dependencies.mutate(cache: .groupPollers) { $0.stopAndRemovePoller(for: threadId) }
                 }
                 
-                if dataToRemove.contains(.pushNotifications) {
-                    threadVariants
-                        .filter { $0.variant == .legacyGroup }
-                        .forEach { threadIdVariant in
-                            try? PushNotificationAPI
-                                .preparedUnsubscribeFromLegacyGroup(
-                                    legacyGroupId: threadId,
-                                    userSessionId: userSessionId,
-                                    using: dependencies
-                                )
-                                .send(using: dependencies)
-                                .sinkUntilComplete()
-                        }
-                }
-                
                 if dataToRemove.contains(.libSessionState) {
                     /// Wait until after the transaction completes before removing the group state (this is needed as it's possible that
                     /// we are already mutating the `libSessionCache` when this function gets called)

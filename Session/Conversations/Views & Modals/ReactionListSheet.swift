@@ -289,10 +289,8 @@ final class ReactionListSheet: BaseVC {
             
             // Update clear all button visibility
             self.clearAllButton.isHidden = (
-                !shouldShowClearAllButton || (
-                    cellViewModel.threadVariant == .legacyGroup &&
-                    dependencies[feature: .legacyGroupsDeprecated]
-                )
+                !shouldShowClearAllButton ||
+                cellViewModel.threadVariant == .legacyGroup
             )
             
             UIView.performWithoutAnimation {
@@ -441,10 +439,8 @@ extension ReactionListSheet: UITableViewDelegate, UITableViewDataSource {
         let cellViewModel: MessageViewModel.ReactionInfo = self.selectedReactionUserList[indexPath.row]
         let authorId: String = cellViewModel.reaction.authorId
         let canRemoveEmoji: Bool = (
-            authorId == self.messageViewModel.currentUserSessionId && (
-                self.messageViewModel.threadVariant != .legacyGroup ||
-                !dependencies[feature: .legacyGroupsDeprecated]
-            )
+            authorId == self.messageViewModel.currentUserSessionId &&
+            self.messageViewModel.threadVariant != .legacyGroup
         )
         cell.update(
             with: SessionCell.Info(

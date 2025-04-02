@@ -15,8 +15,6 @@ public extension LibSession {
     static var sizeMaxCommunityRoomBytes: Int { COMMUNITY_ROOM_MAX_LENGTH }
  
     static var sizeCommunityPubkeyBytes: Int { 32 }
-    static var sizeLegacyGroupPubkeyBytes: Int { 32 }
-    static var sizeLegacyGroupSecretKeyBytes: Int { 32 }
     static var sizeGroupSecretKeyBytes: Int { 64 }
     static var sizeGroupAuthDataBytes: Int { 100 }
     
@@ -130,208 +128,21 @@ internal extension LibSessionCacheType {
         let existingLegacyGroupIds: Set<String> = Set(existingThreadInfo
             .filter { $0.value.variant == .legacyGroup }
             .keys)
-        let existingLegacyGroups: [String: ClosedGroup] = (try? ClosedGroup
-            .fetchAll(db, ids: existingLegacyGroupIds))
-            .defaulting(to: [])
-            .reduce(into: [:]) { result, next in result[next.id] = next }
-        let existingLegacyGroupMembers: [String: [GroupMember]] = (try? GroupMember
-            .filter(existingLegacyGroupIds.contains(GroupMember.Columns.groupId))
-            .fetchAll(db))
-            .defaulting(to: [])
-            .grouped(by: \.groupId)
         
-        try extractedUserGroups.legacyGroups.forEach { group in
+        extractedUserGroups.legacyGroups.forEach { group in
             guard
-                let name: String = group.name,
-                let lastKeyPair: LibSession.LastKeyPairInfo = group.lastKeyPair
+                existingLegacyGroupIds.contains(group.id),
+                existingThreadInfo[group.id]?.pinnedPriority != group.priority
             else { return }
             
-            let members: [LibSession.LegacyGroupMemberInfo] = (group.groupMembers ?? [])
-            let admins: Set<LibSession.LegacyGroupMemberInfo> = (group.groupAdmins ?? []).asSet()
-            
-            // There were some bugs (somewhere) where the `joinedAt` valid could be in seconds, milliseconds
-            // or even microseconds so we need to try to detect this and convert it to proper seconds (if we don't
-            // have a value then we want it to be at the bottom of the list, so default to `0`)
-            let joinedAt: TimeInterval = {
-                guard let value: Double = group.joinedAt else { return 0 }
-                
-                if value > 9_000_000_000_000 {  // Microseconds
-                    return (value / 1_000_000)
-                } else if value > 9_000_000_000 {  // Milliseconds
-                    return (value / 1000)
-                }
-                
-                return TimeInterval(value)  // Seconds
-            }()
-            
-            if !existingLegacyGroupIds.contains(group.id) {
-                // Add a new group if it doesn't already exist
-                try MessageReceiver.handleNewLegacyClosedGroup(
+            // Update the 'priority' if it changed
+            _ = try? SessionThread
+                .filter(id: group.id)
+                .updateAllAndConfig(
                     db,
-                    legacyGroupSessionId: group.id,
-                    name: name,
-                    encryptionKeyPair: KeyPair(
-                        publicKey: lastKeyPair.publicKey.bytes,
-                        secretKey: lastKeyPair.secretKey.bytes
-                    ),
-                    members: members
-                        .asSet()
-                        // In legacy groups admins should also have 'standard' member entries
-                        .inserting(contentsOf: admins)
-                        .map { $0.profileId },
-                    admins: admins.map { $0.profileId },
-                    expirationTimer: UInt32(group.disappearingMessageInfo?.durationSeconds ?? 0),
-                    formationTimestampMs: UInt64(joinedAt * 1000),
-                    forceApprove: true,
+                    SessionThread.Columns.pinnedPriority.set(to: group.priority),
                     using: dependencies
                 )
-            }
-            else {
-                // Otherwise update the existing group
-                let groupChanges: [ConfigColumnAssignment] = [
-                    (existingLegacyGroups[group.id]?.name == name ? nil :
-                        ClosedGroup.Columns.name.set(to: name)
-                    ),
-                    (existingLegacyGroups[group.id]?.formationTimestamp == TimeInterval(joinedAt) ? nil :
-                        ClosedGroup.Columns.formationTimestamp.set(to: TimeInterval(joinedAt))
-                    )
-                ].compactMap { $0 }
-                
-                // Apply any group changes
-                if !groupChanges.isEmpty {
-                    _ = try? ClosedGroup
-                        .filter(id: group.id)
-                        .updateAllAndConfig(
-                            db,
-                            groupChanges,
-                            using: dependencies
-                        )
-                }
-                
-                // Add the lastKey if it doesn't already exist
-                let lastKeyPairHash: String = ClosedGroupKeyPair.generateHash(
-                    threadId: group.id,
-                    publicKey: lastKeyPair.publicKey,
-                    secretKey: lastKeyPair.secretKey
-                )
-                let keyPairExists: Bool = ClosedGroupKeyPair
-                    .filter(ClosedGroupKeyPair.Columns.threadKeyPairHash == lastKeyPairHash)
-                    .isNotEmpty(db)
-                
-                if !keyPairExists {
-                    try ClosedGroupKeyPair(
-                        threadId: group.id,
-                        publicKey: lastKeyPair.publicKey,
-                        secretKey: lastKeyPair.secretKey,
-                        receivedTimestamp: lastKeyPair.receivedTimestamp
-                    ).insert(db)
-                }
-                
-                // Update the disappearing messages timer
-                let localConfig: DisappearingMessagesConfiguration = try DisappearingMessagesConfiguration
-                    .fetchOne(db, id: group.id)
-                    .defaulting(to: DisappearingMessagesConfiguration.defaultWith(group.id))
-                
-                if let updatedConfig = group.disappearingMessageInfo?.generateConfig(for: group.id), localConfig != updatedConfig {
-                    try updatedConfig
-                        .saved(db)
-                        .clearUnrelatedControlMessages(
-                            db,
-                            threadVariant: .legacyGroup,
-                            using: dependencies
-                        )
-                }
-                
-                // Update the members
-                let updatedMembers: Set<GroupMember> = members
-                    .map { member in
-                        GroupMember(
-                            groupId: group.id,
-                            profileId: member.profileId,
-                            role: .standard,
-                            roleStatus: .accepted,  // Legacy group members don't have role statuses
-                            isHidden: false
-                        )
-                    }
-                    .appending(
-                        contentsOf: admins.map { admin in
-                            GroupMember(
-                                groupId: group.id,
-                                profileId: admin.profileId,
-                                role: .standard,
-                                roleStatus: .accepted,  // Legacy group members don't have role statuses
-                                isHidden: false
-                            )
-                        }
-                    )
-                    .asSet()
-                let updatedAdmins: Set<GroupMember> = admins
-                    .map { member in
-                        GroupMember(
-                            groupId: group.id,
-                            profileId: member.profileId,
-                            role: .admin,
-                            roleStatus: .accepted,  // Legacy group members don't have role statuses
-                            isHidden: false
-                        )
-                    }
-                    .asSet()
-                
-                if
-                    let existingMembers: Set<GroupMember> = existingLegacyGroupMembers[group.id]?
-                        .filter({ $0.role == .standard || $0.role == .zombie })
-                        .asSet(),
-                    existingMembers != updatedMembers
-                {
-                    // Add in any new members and remove any removed members
-                    try updatedMembers.forEach { try $0.upsert(db) }
-                    try existingMembers
-                        .filter { !updatedMembers.contains($0) }
-                        .forEach { member in
-                            try GroupMember
-                                .filter(
-                                    GroupMember.Columns.groupId == group.id &&
-                                    GroupMember.Columns.profileId == member.profileId && (
-                                        GroupMember.Columns.role == GroupMember.Role.standard ||
-                                        GroupMember.Columns.role == GroupMember.Role.zombie
-                                    )
-                                )
-                                .deleteAll(db)
-                        }
-                }
-
-                if
-                    let existingAdmins: Set<GroupMember> = existingLegacyGroupMembers[group.id]?
-                        .filter({ $0.role == .admin })
-                        .asSet(),
-                    existingAdmins != updatedAdmins
-                {
-                    // Add in any new admins and remove any removed admins
-                    try updatedAdmins.forEach { try $0.upsert(db) }
-                    try existingAdmins
-                        .filter { !updatedAdmins.contains($0) }
-                        .forEach { member in
-                            try GroupMember
-                                .filter(
-                                    GroupMember.Columns.groupId == group.id &&
-                                    GroupMember.Columns.profileId == member.profileId &&
-                                    GroupMember.Columns.role == GroupMember.Role.admin
-                                )
-                                .deleteAll(db)
-                        }
-                }
-            }
-            
-            // Make any thread-specific changes if needed
-            if existingThreadInfo[group.id]?.pinnedPriority != group.priority {
-                _ = try? SessionThread
-                    .filter(id: group.id)
-                    .updateAllAndConfig(
-                        db,
-                        SessionThread.Columns.pinnedPriority.set(to: group.priority),
-                        using: dependencies
-                    )
-            }
         }
         
         // Remove any legacy groups which are no longer in the config
@@ -575,80 +386,6 @@ internal extension LibSession {
                     )
                 }
                 
-                // Assign all properties to match the updated group (if there is one)
-                if let updatedName: String = legacyGroup.name {
-                    userGroup.set(\.name, to: updatedName)
-                }
-                
-                if let lastKeyPair: LastKeyPairInfo = legacyGroup.lastKeyPair {
-                    userGroup.set(\.enc_pubkey, to: lastKeyPair.publicKey)
-                    userGroup.set(\.enc_seckey, to: lastKeyPair.secretKey)
-                    userGroup.set(\.have_enc_keys, to: true)
-                }
-                
-                // Assign all properties to match the updated disappearing messages config (if there is one)
-                if let updatedConfig: DisappearingMessageInfo = legacyGroup.disappearingMessageInfo {
-                    userGroup.set(\.disappearing_timer, to: (!updatedConfig.isEnabled ? 0 :
-                        updatedConfig.durationSeconds
-                    ))
-                }
-                
-                // Add/Remove the group members and admins
-                let existingMembers: [String: Bool] = {
-                    guard legacyGroup.groupMembers != nil || legacyGroup.groupAdmins != nil else { return [:] }
-                    
-                    return LibSession.memberInfo(in: userGroup)
-                }()
-                
-                if let groupMembers: [LegacyGroupMemberInfo] = legacyGroup.groupMembers {
-                    // Need to make sure we remove any admins before adding them here otherwise we will
-                    // overwrite the admin permission to be a standard user permission
-                    let memberIds: Set<String> = groupMembers
-                        .map { $0.profileId }
-                        .asSet()
-                        .subtracting(legacyGroup.groupAdmins.defaulting(to: []).map { $0.profileId }.asSet())
-                    let existingMemberIds: Set<String> = Array(existingMembers
-                        .filter { _, isAdmin in !isAdmin }
-                        .keys)
-                        .asSet()
-                    let membersIdsToAdd: Set<String> = memberIds.subtracting(existingMemberIds)
-                    let membersIdsToRemove: Set<String> = existingMemberIds.subtracting(memberIds)
-                    
-                    try membersIdsToAdd.forEach { memberId in
-                        var cProfileId: [CChar] = try memberId.cString(using: .utf8) ?? { throw LibSessionError.invalidCConversion }()
-                        ugroups_legacy_member_add(userGroup, &cProfileId, false)
-                    }
-                    
-                    try membersIdsToRemove.forEach { memberId in
-                        var cProfileId: [CChar] = try memberId.cString(using: .utf8) ?? { throw LibSessionError.invalidCConversion }()
-                        ugroups_legacy_member_remove(userGroup, &cProfileId)
-                    }
-                }
-                
-                if let groupAdmins: [LegacyGroupMemberInfo] = legacyGroup.groupAdmins {
-                    let adminIds: Set<String> = groupAdmins.map { $0.profileId }.asSet()
-                    let existingAdminIds: Set<String> = Array(existingMembers
-                        .filter { _, isAdmin in isAdmin }
-                        .keys)
-                        .asSet()
-                    let adminIdsToAdd: Set<String> = adminIds.subtracting(existingAdminIds)
-                    let adminIdsToRemove: Set<String> = existingAdminIds.subtracting(adminIds)
-                    
-                    try adminIdsToAdd.forEach { adminId in
-                        var cProfileId: [CChar] = try adminId.cString(using: .utf8) ?? { throw LibSessionError.invalidCConversion }()
-                        ugroups_legacy_member_add(userGroup, &cProfileId, true)
-                    }
-                    
-                    try adminIdsToRemove.forEach { adminId in
-                        var cProfileId: [CChar] = try adminId.cString(using: .utf8) ?? { throw LibSessionError.invalidCConversion }()
-                        ugroups_legacy_member_remove(userGroup, &cProfileId)
-                    }
-                }
-                
-                if let joinedAt: Int64 = legacyGroup.joinedAt.map({ Int64($0) }) {
-                    userGroup.set(\.joined_at, to: joinedAt)
-                }
-                
                 // Store the updated group (can't be sure if we made any changes above)
                 userGroup.set(\.priority, to: (legacyGroup.priority ?? userGroup.pointee.priority))
                 
@@ -847,153 +584,6 @@ public extension LibSession {
     }
     
     // MARK: -- Legacy Group Changes
-    
-    static func add(
-        _ db: Database,
-        legacyGroupSessionId: String,
-        name: String,
-        joinedAt: TimeInterval,
-        latestKeyPairPublicKey: Data,
-        latestKeyPairSecretKey: Data,
-        latestKeyPairReceivedTimestamp: TimeInterval,
-        disappearingConfig: DisappearingMessagesConfiguration,
-        members: Set<String>,
-        admins: Set<String>,
-        using dependencies: Dependencies
-    ) throws {
-        try dependencies.mutate(cache: .libSession) { cache in
-            try cache.performAndPushChange(db, for: .userGroups, sessionId: dependencies[cache: .general].sessionId) { config in
-                guard case .userGroups(let conf) = config else { throw LibSessionError.invalidConfigObject }
-                
-                var cGroupId: [CChar] = try legacyGroupSessionId.cString(using: .utf8) ?? { throw LibSessionError.invalidCConversion }()
-                let userGroup: UnsafeMutablePointer<ugroups_legacy_group_info>? = user_groups_get_legacy_group(conf, &cGroupId)
-                
-                // Need to make sure the group doesn't already exist (otherwise we will end up overriding the
-                // content which could revert newer changes since this can be triggered from other 'NEW' messages
-                // coming in from the legacy group swarm)
-                guard userGroup == nil else {
-                    ugroups_legacy_group_free(userGroup)
-                    try LibSessionError.throwIfNeeded(conf)
-                    return
-                }
-                
-                try LibSession.upsert(
-                    legacyGroups: [
-                        LegacyGroupInfo(
-                            id: legacyGroupSessionId,
-                            name: name,
-                            lastKeyPair: LastKeyPairInfo(
-                                publicKey: latestKeyPairPublicKey,
-                                secretKey: latestKeyPairSecretKey,
-                                receivedTimestamp: latestKeyPairReceivedTimestamp
-                            ),
-                            disappearingMessageInfo: DisappearingMessageInfo(
-                                isEnabled: disappearingConfig.isEnabled,
-                                durationSeconds: Int64(floor(disappearingConfig.durationSeconds)),
-                                rawType: disappearingConfig.type?.rawValue
-                            ),
-                            groupMembers: members
-                                .map { memberId in
-                                    LegacyGroupMemberInfo(
-                                        profileId: memberId,
-                                        rawRole: GroupMember.Role.standard.rawValue
-                                    )
-                                },
-                            groupAdmins: admins
-                                .map { memberId in
-                                    LegacyGroupMemberInfo(
-                                        profileId: memberId,
-                                        rawRole: GroupMember.Role.admin.rawValue
-                                    )
-                                },
-                            priority: nil,
-                            joinedAt: joinedAt
-                        )
-                    ],
-                    in: config
-                )
-            }
-        }
-    }
-    
-    static func update(
-        _ db: Database,
-        legacyGroupSessionId: String,
-        name: String? = nil,
-        latestKeyPair: ClosedGroupKeyPair? = nil,
-        disappearingConfig: DisappearingMessagesConfiguration? = nil,
-        members: Set<String>? = nil,
-        admins: Set<String>? = nil,
-        using dependencies: Dependencies
-    ) throws {
-        try dependencies.mutate(cache: .libSession) { cache in
-            try cache.performAndPushChange(db, for: .userGroups, sessionId: dependencies[cache: .general].sessionId) { config in
-                try LibSession.upsert(
-                    legacyGroups: [
-                        LegacyGroupInfo(
-                            id: legacyGroupSessionId,
-                            name: name,
-                            lastKeyPair: latestKeyPair.map {
-                                LastKeyPairInfo(
-                                    publicKey: $0.publicKey,
-                                    secretKey: $0.secretKey,
-                                    receivedTimestamp: $0.receivedTimestamp
-                                )
-                            },
-                            disappearingMessageInfo: disappearingConfig.map {
-                                DisappearingMessageInfo(
-                                    isEnabled: $0.isEnabled,
-                                    durationSeconds: Int64(floor($0.durationSeconds)),
-                                    rawType: $0.type?.rawValue
-                                )
-                            },
-                            groupMembers: members?
-                                .map { memberId in
-                                    LegacyGroupMemberInfo(
-                                        profileId: memberId,
-                                        rawRole: GroupMember.Role.standard.rawValue
-                                    )
-                                },
-                            groupAdmins: admins?
-                                .map { memberId in
-                                    LegacyGroupMemberInfo(
-                                        profileId: memberId,
-                                        rawRole: GroupMember.Role.admin.rawValue
-                                    )
-                                },
-                            priority: nil,
-                            joinedAt: nil
-                        )
-                    ],
-                    in: config
-                )
-            }
-        }
-    }
-    
-    static func batchUpdate(
-        _ db: Database,
-        disappearingConfigs: [DisappearingMessagesConfiguration],
-        using dependencies: Dependencies
-    ) throws {
-        try dependencies.mutate(cache: .libSession) { cache in
-            try cache.performAndPushChange(db, for: .userGroups, sessionId: dependencies[cache: .general].sessionId) { config in
-                try LibSession.upsert(
-                    legacyGroups: disappearingConfigs.map {
-                        LegacyGroupInfo(
-                            id: $0.id,
-                            disappearingMessageInfo: DisappearingMessageInfo(
-                                isEnabled: $0.isEnabled,
-                                durationSeconds: Int64(floor($0.durationSeconds)),
-                                rawType: $0.type?.rawValue
-                            )
-                        )
-                    },
-                    in: config
-                )
-            }
-        }
-    }
     
     static func remove(
         _ db: Database,
@@ -1204,36 +794,7 @@ public extension LibSession {
                 legacyGroups.append(
                     LibSession.LegacyGroupInfo(
                         id: groupId,
-                        name: legacyGroup.get(\.name),
-                        lastKeyPair: LibSession.LastKeyPairInfo(
-                            publicKey: legacyGroup.get(\.enc_pubkey),
-                            secretKey: legacyGroup.get(\.enc_seckey),
-                            receivedTimestamp: (dependencies[cache: .snodeAPI].currentOffsetTimestampMs() / 1000)
-                        ),
-                        disappearingMessageInfo: DisappearingMessageInfo(
-                            isEnabled: (legacyGroup.disappearing_timer > 0),
-                            durationSeconds: legacyGroup.disappearing_timer,
-                            rawType: DisappearingMessagesConfiguration.DisappearingMessageType
-                                .disappearAfterSend.rawValue
-                        ),
-                        groupMembers: members
-                            .filter { _, isAdmin in !isAdmin }
-                            .map { memberId, _ in
-                                LegacyGroupMemberInfo(
-                                    profileId: memberId,
-                                    rawRole: GroupMember.Role.standard.rawValue
-                                )
-                            },
-                        groupAdmins: members
-                            .filter { _, isAdmin in isAdmin }
-                            .map { memberId, _ in
-                                LegacyGroupMemberInfo(
-                                    profileId: memberId,
-                                    rawRole: GroupMember.Role.admin.rawValue
-                                )
-                            },
-                        priority: legacyGroup.priority,
-                        joinedAt: TimeInterval(legacyGroup.joined_at)
+                        priority: legacyGroup.priority
                     )
                 )
             }
@@ -1269,44 +830,15 @@ public extension LibSession {
 public extension LibSession {
     struct LegacyGroupInfo {
         let id: String
-        let name: String?
-        let lastKeyPair: LastKeyPairInfo?
-        let disappearingMessageInfo: LibSession.DisappearingMessageInfo?
-        let groupMembers: [LegacyGroupMemberInfo]?
-        let groupAdmins: [LegacyGroupMemberInfo]?
         let priority: Int32?
-        let joinedAt: TimeInterval?
         
         init(
             id: String,
-            name: String? = nil,
-            lastKeyPair: LastKeyPairInfo? = nil,
-            disappearingMessageInfo: LibSession.DisappearingMessageInfo? = nil,
-            groupMembers: [LegacyGroupMemberInfo]? = nil,
-            groupAdmins: [LegacyGroupMemberInfo]? = nil,
-            priority: Int32? = nil,
-            joinedAt: TimeInterval? = nil
+            priority: Int32? = nil
         ) {
             self.id = id
-            self.name = name
-            self.lastKeyPair = lastKeyPair
-            self.disappearingMessageInfo = disappearingMessageInfo
-            self.groupMembers = groupMembers
-            self.groupAdmins = groupAdmins
             self.priority = priority
-            self.joinedAt = joinedAt
         }
-    }
-    
-    struct LastKeyPairInfo {
-        let publicKey: Data
-        let secretKey: Data
-        let receivedTimestamp: TimeInterval
-    }
-    
-    struct LegacyGroupMemberInfo: Hashable {
-        let profileId: String
-        let rawRole: Int
     }
 }
 
