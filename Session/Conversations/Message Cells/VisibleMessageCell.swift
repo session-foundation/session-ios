@@ -470,7 +470,14 @@ final class VisibleMessageCell: MessageCell, TappableLabelDelegate {
         documentView = nil
         bodyTappableLabel = nil
         
-        // Handle the deleted state first (it's much simpler than the others)
+        /// These variants have no content so do nothing after cleaning up old state
+        guard
+            cellViewModel.cellType != .typingIndicator &&
+            cellViewModel.cellType != .dateHeader &&
+            cellViewModel.cellType != .unreadMarker
+        else { return }
+        
+        /// Handle the deleted state first (it's much simpler than the others)
         guard !cellViewModel.variant.isDeletedMessage else {
             let inset: CGFloat = 12
             let deletedMessageView: DeletedMessageView = DeletedMessageView(
@@ -484,125 +491,223 @@ final class VisibleMessageCell: MessageCell, TappableLabelDelegate {
             return
         }
         
-        // If it's an incoming media message and the thread isn't trusted then show the placeholder view
-        if cellViewModel.cellType != .textOnlyMessage && cellViewModel.variant == .standardIncoming && !cellViewModel.threadIsTrusted {
+        /// The `textOnlyMessage` variant has a slightly different behaviour (as it's the only variant which supports link previews)
+        /// so we handle that case first
+        // FIXME: We should support rendering link previews alongside the other variants (bigger refactor)
+        guard cellViewModel.cellType != .textOnlyMessage else {
+            let inset: CGFloat = 12
+            let maxWidth: CGFloat = (VisibleMessageCell.getMaxWidth(for: cellViewModel) - 2 * inset)
+            
+            if let linkPreview: LinkPreview = cellViewModel.linkPreview {
+                switch linkPreview.variant {
+                    case .standard:
+                        let linkPreviewView: LinkPreviewView = LinkPreviewView(maxWidth: maxWidth)
+                        linkPreviewView.update(
+                            with: LinkPreview.SentState(
+                                linkPreview: linkPreview,
+                                imageAttachment: cellViewModel.linkPreviewAttachment,
+                                using: dependencies
+                            ),
+                            isOutgoing: cellViewModel.variant.isOutgoing,
+                            delegate: self,
+                            cellViewModel: cellViewModel,
+                            bodyLabelTextColor: bodyLabelTextColor,
+                            lastSearchText: lastSearchText,
+                            using: dependencies
+                        )
+                        self.linkPreviewView = linkPreviewView
+                        bubbleView.addSubview(linkPreviewView)
+                        linkPreviewView.pin(to: bubbleView, withInset: 0)
+                        snContentView.addArrangedSubview(bubbleBackgroundView)
+                        self.bodyTappableLabel = linkPreviewView.bodyTappableLabel
+                        
+                    case .openGroupInvitation:
+                        let openGroupInvitationView: OpenGroupInvitationView = OpenGroupInvitationView(
+                            name: (linkPreview.title ?? ""),
+                            url: linkPreview.url,
+                            textColor: bodyLabelTextColor,
+                            isOutgoing: cellViewModel.variant.isOutgoing
+                        )
+                        openGroupInvitationView.isAccessibilityElement = true
+                        openGroupInvitationView.accessibilityIdentifier = "Community invitation"
+                        openGroupInvitationView.accessibilityLabel = cellViewModel.linkPreview?.title
+                        bubbleView.addSubview(openGroupInvitationView)
+                        bubbleView.pin(to: openGroupInvitationView)
+                        snContentView.addArrangedSubview(bubbleBackgroundView)
+                }
+            }
+            else {
+                // Stack view
+                let stackView = UIStackView(arrangedSubviews: [])
+                stackView.axis = .vertical
+                stackView.spacing = 2
+                
+                // Quote view
+                if let quote: Quote = cellViewModel.quote {
+                    let hInset: CGFloat = 2
+                    let quoteView: QuoteView = QuoteView(
+                        for: .regular,
+                        authorId: quote.authorId,
+                        quotedText: quote.body,
+                        threadVariant: cellViewModel.threadVariant,
+                        currentUserSessionId: cellViewModel.currentUserSessionId,
+                        currentUserBlinded15SessionId: cellViewModel.currentUserBlinded15SessionId,
+                        currentUserBlinded25SessionId: cellViewModel.currentUserBlinded25SessionId,
+                        direction: (cellViewModel.variant.isOutgoing ? .outgoing : .incoming),
+                        attachment: cellViewModel.quoteAttachment,
+                        using: dependencies
+                    )
+                    self.quoteView = quoteView
+                    let quoteViewContainer = UIView(wrapping: quoteView, withInsets: UIEdgeInsets(top: 0, leading: hInset, bottom: 0, trailing: hInset))
+                    stackView.addArrangedSubview(quoteViewContainer)
+                }
+                
+                // Body text view
+                let bodyTappableLabel = VisibleMessageCell.getBodyTappableLabel(
+                    for: cellViewModel,
+                    with: maxWidth,
+                    textColor: bodyLabelTextColor,
+                    searchText: lastSearchText,
+                    delegate: self,
+                    using: dependencies
+                )
+                self.bodyTappableLabel = bodyTappableLabel
+                stackView.addArrangedSubview(bodyTappableLabel)
+                
+                // Constraints
+                bubbleView.addSubview(stackView)
+                stackView.pin(to: bubbleView, withInset: inset)
+                stackView.widthAnchor.constraint(lessThanOrEqualToConstant: maxWidth).isActive = true
+                snContentView.addArrangedSubview(bubbleBackgroundView)
+            }
+            return
+        }
+        
+        func addViewWrappingInBubbleIfNeeded(_ targetView: UIView) {
+            switch snContentView.arrangedSubviews.count {
+                case 0:
+                    bubbleView.addSubview(targetView)
+                    targetView.pin(to: bubbleView)
+                    snContentView.addArrangedSubview(bubbleBackgroundView)
+
+                default:
+                    /// Since we already have content we need to wrap the `targetView` in it's own
+                    /// `bubbleView` (as it's likely the existing content is quote content)
+                    let extraBubbleView: UIView = UIView()
+                    extraBubbleView.clipsToBounds = true
+                    extraBubbleView.themeBackgroundColor = (cellViewModel.variant.isIncoming ?
+                        .messageBubble_incomingBackground :
+                        .messageBubble_outgoingBackground
+                    )
+                    extraBubbleView.layer.cornerRadius = VisibleMessageCell.largeCornerRadius
+                    extraBubbleView.layer.maskedCorners = getCornerMask(from: .allCorners)
+                    extraBubbleView.set(.width, greaterThanOrEqualTo: VisibleMessageCell.largeCornerRadius * 2)
+                    
+                    extraBubbleView.addSubview(targetView)
+                    targetView.pin(to: extraBubbleView)
+                    snContentView.addArrangedSubview(extraBubbleView)
+            }
+        }
+        
+        /// Add any quote & body if present
+        let inset: CGFloat = 12
+        let maxWidth: CGFloat = (VisibleMessageCell.getMaxWidth(for: cellViewModel) - 2 * inset)
+        
+        switch (cellViewModel.quote, cellViewModel.body) {
+            /// Both quote and body
+            case (.some(let quote), .some(let body)) where !body.isEmpty:
+                // Stack view
+                let stackView = UIStackView(arrangedSubviews: [])
+                stackView.axis = .vertical
+                stackView.spacing = 2
+                
+                // Quote view
+                let hInset: CGFloat = 2
+                let quoteView: QuoteView = QuoteView(
+                    for: .regular,
+                    authorId: quote.authorId,
+                    quotedText: quote.body,
+                    threadVariant: cellViewModel.threadVariant,
+                    currentUserSessionId: cellViewModel.currentUserSessionId,
+                    currentUserBlinded15SessionId: cellViewModel.currentUserBlinded15SessionId,
+                    currentUserBlinded25SessionId: cellViewModel.currentUserBlinded25SessionId,
+                    direction: (cellViewModel.variant.isOutgoing ? .outgoing : .incoming),
+                    attachment: cellViewModel.quoteAttachment,
+                    using: dependencies
+                )
+                self.quoteView = quoteView
+                let quoteViewContainer = UIView(wrapping: quoteView, withInsets: UIEdgeInsets(top: 0, leading: hInset, bottom: 0, trailing: hInset))
+                stackView.addArrangedSubview(quoteViewContainer)
+                
+                // Body
+                let bodyTappableLabel = VisibleMessageCell.getBodyTappableLabel(
+                    for: cellViewModel,
+                    with: maxWidth,
+                    textColor: bodyLabelTextColor,
+                    searchText: lastSearchText,
+                    delegate: self,
+                    using: dependencies
+                )
+                self.bodyTappableLabel = bodyTappableLabel
+                stackView.addArrangedSubview(bodyTappableLabel)
+                
+                // Constraints
+                bubbleView.addSubview(stackView)
+                stackView.pin(to: bubbleView, withInset: inset)
+                stackView.widthAnchor.constraint(lessThanOrEqualToConstant: maxWidth).isActive = true
+                snContentView.addArrangedSubview(bubbleBackgroundView)
+                
+            /// Just body
+            case (_, .some(let body)) where !body.isEmpty:
+                let bodyTappableLabel = VisibleMessageCell.getBodyTappableLabel(
+                    for: cellViewModel,
+                    with: maxWidth,
+                    textColor: bodyLabelTextColor,
+                    searchText: lastSearchText,
+                    delegate: self,
+                    using: dependencies
+                )
+
+                self.bodyTappableLabel = bodyTappableLabel
+                bubbleView.addSubview(bodyTappableLabel)
+                bodyTappableLabel.pin(to: bubbleView, withInset: inset)
+                snContentView.addArrangedSubview(bubbleBackgroundView)
+            
+            /// Just quote
+            case (.some(let quote), _):
+                let quoteView: QuoteView = QuoteView(
+                    for: .regular,
+                    authorId: quote.authorId,
+                    quotedText: quote.body,
+                    threadVariant: cellViewModel.threadVariant,
+                    currentUserSessionId: cellViewModel.currentUserSessionId,
+                    currentUserBlinded15SessionId: cellViewModel.currentUserBlinded15SessionId,
+                    currentUserBlinded25SessionId: cellViewModel.currentUserBlinded25SessionId,
+                    direction: (cellViewModel.variant.isOutgoing ? .outgoing : .incoming),
+                    attachment: cellViewModel.quoteAttachment,
+                    using: dependencies
+                )
+                self.quoteView = quoteView
+
+                bubbleView.addSubview(quoteView)
+                quoteView.pin(to: bubbleView, withInset: inset)
+                snContentView.addArrangedSubview(bubbleBackgroundView)
+            
+            /// Neither quote or body
+            default: break
+        }
+        
+        /// If it's an incoming media message and the thread isn't trusted then show the placeholder view
+        if cellViewModel.variant == .standardIncoming && !cellViewModel.threadIsTrusted {
             let mediaPlaceholderView = MediaPlaceholderView(cellViewModel: cellViewModel, textColor: bodyLabelTextColor)
-            bubbleView.addSubview(mediaPlaceholderView)
-            mediaPlaceholderView.pin(to: bubbleView)
-            snContentView.addArrangedSubview(bubbleBackgroundView)
+            addViewWrappingInBubbleIfNeeded(mediaPlaceholderView)
             return
         }
 
         switch cellViewModel.cellType {
-            case .typingIndicator, .dateHeader, .unreadMarker: break
-            
-            case .textOnlyMessage:
-                let inset: CGFloat = 12
-                let maxWidth: CGFloat = (VisibleMessageCell.getMaxWidth(for: cellViewModel) - 2 * inset)
-                
-                if let linkPreview: LinkPreview = cellViewModel.linkPreview {
-                    switch linkPreview.variant {
-                        case .standard:
-                            let linkPreviewView: LinkPreviewView = LinkPreviewView(maxWidth: maxWidth)
-                            linkPreviewView.update(
-                                with: LinkPreview.SentState(
-                                    linkPreview: linkPreview,
-                                    imageAttachment: cellViewModel.linkPreviewAttachment,
-                                    using: dependencies
-                                ),
-                                isOutgoing: cellViewModel.variant.isOutgoing,
-                                delegate: self,
-                                cellViewModel: cellViewModel,
-                                bodyLabelTextColor: bodyLabelTextColor,
-                                lastSearchText: lastSearchText,
-                                using: dependencies
-                            )
-                            self.linkPreviewView = linkPreviewView
-                            bubbleView.addSubview(linkPreviewView)
-                            linkPreviewView.pin(to: bubbleView, withInset: 0)
-                            snContentView.addArrangedSubview(bubbleBackgroundView)
-                            self.bodyTappableLabel = linkPreviewView.bodyTappableLabel
-                            
-                        case .openGroupInvitation:
-                            let openGroupInvitationView: OpenGroupInvitationView = OpenGroupInvitationView(
-                                name: (linkPreview.title ?? ""),
-                                url: linkPreview.url,
-                                textColor: bodyLabelTextColor,
-                                isOutgoing: cellViewModel.variant.isOutgoing
-                            )
-                            openGroupInvitationView.isAccessibilityElement = true
-                            openGroupInvitationView.accessibilityIdentifier = "Community invitation"
-                            openGroupInvitationView.accessibilityLabel = cellViewModel.linkPreview?.title
-                            bubbleView.addSubview(openGroupInvitationView)
-                            bubbleView.pin(to: openGroupInvitationView)
-                            snContentView.addArrangedSubview(bubbleBackgroundView)
-                    }
-                }
-                else {
-                    // Stack view
-                    let stackView = UIStackView(arrangedSubviews: [])
-                    stackView.axis = .vertical
-                    stackView.spacing = 2
-                    
-                    // Quote view
-                    if let quote: Quote = cellViewModel.quote {
-                        let hInset: CGFloat = 2
-                        let quoteView: QuoteView = QuoteView(
-                            for: .regular,
-                            authorId: quote.authorId,
-                            quotedText: quote.body,
-                            threadVariant: cellViewModel.threadVariant,
-                            currentUserSessionId: cellViewModel.currentUserSessionId,
-                            currentUserBlinded15SessionId: cellViewModel.currentUserBlinded15SessionId,
-                            currentUserBlinded25SessionId: cellViewModel.currentUserBlinded25SessionId,
-                            direction: (cellViewModel.variant.isOutgoing ? .outgoing : .incoming),
-                            attachment: cellViewModel.quoteAttachment,
-                            using: dependencies
-                        )
-                        self.quoteView = quoteView
-                        let quoteViewContainer = UIView(wrapping: quoteView, withInsets: UIEdgeInsets(top: 0, leading: hInset, bottom: 0, trailing: hInset))
-                        stackView.addArrangedSubview(quoteViewContainer)
-                    }
-                    
-                    // Body text view
-                    let bodyTappableLabel = VisibleMessageCell.getBodyTappableLabel(
-                        for: cellViewModel,
-                        with: maxWidth,
-                        textColor: bodyLabelTextColor,
-                        searchText: lastSearchText,
-                        delegate: self,
-                        using: dependencies
-                    )
-                    self.bodyTappableLabel = bodyTappableLabel
-                    stackView.addArrangedSubview(bodyTappableLabel)
-                    
-                    // Constraints
-                    bubbleView.addSubview(stackView)
-                    stackView.pin(to: bubbleView, withInset: inset)
-                    stackView.widthAnchor.constraint(lessThanOrEqualToConstant: maxWidth).isActive = true
-                    snContentView.addArrangedSubview(bubbleBackgroundView)
-                }
-                
-            case .mediaMessage:
-                // Body text view
-                if let body: String = cellViewModel.body, !body.isEmpty {
-                    let inset: CGFloat = 12
-                    let maxWidth: CGFloat = (VisibleMessageCell.getMaxWidth(for: cellViewModel) - 2 * inset)
-                    let bodyTappableLabel = VisibleMessageCell.getBodyTappableLabel(
-                        for: cellViewModel,
-                        with: maxWidth,
-                        textColor: bodyLabelTextColor,
-                        searchText: lastSearchText,
-                        delegate: self,
-                        using: dependencies
-                    )
+            case .typingIndicator, .dateHeader, .unreadMarker, .textOnlyMessage: break
 
-                    self.bodyTappableLabel = bodyTappableLabel
-                    bubbleView.addSubview(bodyTappableLabel)
-                    bodyTappableLabel.pin(to: bubbleView, withInset: inset)
-                    snContentView.addArrangedSubview(bubbleBackgroundView)
-                }
-                
+            case .mediaMessage:
                 // Album view
                 let maxMessageWidth: CGFloat = VisibleMessageCell.getMaxWidth(for: cellViewModel)
                 let albumView = MediaAlbumView(
@@ -637,52 +742,16 @@ final class VisibleMessageCell: MessageCell, TappableLabelDelegate {
                     playbackRate: (playbackInfo?.playbackRate ?? 1),
                     oldPlaybackRate: (playbackInfo?.oldPlaybackRate ?? 1)
                 )
-            
-                bubbleView.addSubview(voiceMessageView)
-                voiceMessageView.pin(to: bubbleView)
-                snContentView.addArrangedSubview(bubbleBackgroundView)
                 self.voiceMessageView = voiceMessageView
+                addViewWrappingInBubbleIfNeeded(voiceMessageView)
                 
             case .audio, .genericAttachment:
                 guard let attachment: Attachment = cellViewModel.attachments?.first else { preconditionFailure() }
                 
-                let inset: CGFloat = 12
-                let maxWidth = (VisibleMessageCell.getMaxWidth(for: cellViewModel) - 2 * inset)
-                
-                // Stack view
-                let stackView = UIStackView(arrangedSubviews: [])
-                stackView.axis = .vertical
-                stackView.spacing = Values.smallSpacing
-                
                 // Document view
                 let documentView = DocumentView(attachment: attachment, textColor: bodyLabelTextColor)
                 self.documentView = documentView
-                stackView.addArrangedSubview(documentView)
-            
-                // Body text view
-                if let body: String = cellViewModel.body, !body.isEmpty { // delegate should always be set at this point
-                    let bodyContainerView: UIView = UIView()
-                    let bodyTappableLabel = VisibleMessageCell.getBodyTappableLabel(
-                        for: cellViewModel,
-                        with: maxWidth,
-                        textColor: bodyLabelTextColor,
-                        searchText: lastSearchText,
-                        delegate: self,
-                        using: dependencies
-                    )
-                    
-                    self.bodyTappableLabel = bodyTappableLabel
-                    bodyContainerView.addSubview(bodyTappableLabel)
-                    bodyTappableLabel.pin(.top, to: .top, of: bodyContainerView)
-                    bodyTappableLabel.pin(.leading, to: .leading, of: bodyContainerView, withInset: 12)
-                    bodyTappableLabel.pin(.trailing, to: .trailing, of: bodyContainerView, withInset: -12)
-                    bodyTappableLabel.pin(.bottom, to: .bottom, of: bodyContainerView, withInset: -12)
-                    stackView.addArrangedSubview(bodyContainerView)
-                }
-                
-                bubbleView.addSubview(stackView)
-                stackView.pin(to: bubbleView)
-                snContentView.addArrangedSubview(bubbleBackgroundView)
+                addViewWrappingInBubbleIfNeeded(documentView)
         }
     }
     
