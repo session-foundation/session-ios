@@ -159,8 +159,8 @@ public extension GroupPoller {
                             .select(.threadId)
                             .filter(ClosedGroup.Columns.shouldPoll == true)
                             .filter(
-                                GroupMember.Columns.groupId > SessionId.Prefix.group.rawValue &&
-                                GroupMember.Columns.groupId < SessionId.Prefix.group.endOfRangeString
+                                ClosedGroup.Columns.threadId > SessionId.Prefix.group.rawValue &&
+                                ClosedGroup.Columns.threadId < SessionId.Prefix.group.endOfRangeString
                             )
                             .asRequest(of: String.self)
                             .fetchSet(db)
