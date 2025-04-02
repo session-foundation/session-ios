@@ -178,6 +178,16 @@ public extension Dependencies {
             .eraseToAnyPublisher()
     }
     
+    func hasSet<T: FeatureOption>(feature: FeatureConfig<T>) -> Bool {
+        return threadSafeChange(for: feature.identifier, of: .feature) {
+            guard let instance: Feature<T> = getValue(feature.identifier, of: .feature) else {
+                return false
+            }
+            
+            return instance.hasStoredValue(using: self)
+        }
+    }
+    
     func set<T: FeatureOption>(feature: FeatureConfig<T>, to updatedFeature: T?) {
         threadSafeChange(for: feature.identifier, of: .feature) {
             /// Update the cached & in-memory values

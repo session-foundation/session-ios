@@ -2085,6 +2085,7 @@ public extension SessionThreadViewModel {
             FROM \(Contact.self)
             LEFT JOIN \(thread) ON \(thread[.id]) = \(contact[.id])
             LEFT JOIN \(contactProfile) ON \(contactProfile[.id]) = \(contact[.id])
+            WHERE \(contact[.isBlocked]) = false
         """
         
         // Add adapters which will group the various 'Profile' columns so they can be decoded
