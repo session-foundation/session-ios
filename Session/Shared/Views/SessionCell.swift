@@ -323,6 +323,7 @@ public class SessionCell: UITableViewCell {
     
     public func update<ID: Hashable & Differentiable>(
         with info: Info<ID>,
+        tableSize: CGSize,
         isManualReload: Bool = false,
         using dependencies: Dependencies
     ) {
@@ -339,48 +340,7 @@ public class SessionCell: UITableViewCell {
         let leadingFitToEdge: Bool = (info.leadingAccessory?.shouldFitToEdge == true)
         let trailingFitToEdge: Bool = (!leadingFitToEdge && info.trailingAccessory?.shouldFitToEdge == true)
         
-        // Content
-        contentStackView.spacing = (info.styling.customPadding?.interItem ?? Values.mediumSpacing)
-        leadingAccessoryView.update(
-            with: info.leadingAccessory,
-            tintColor: info.styling.tintColor,
-            isEnabled: info.isEnabled,
-            isManualReload: isManualReload,
-            using: dependencies
-        )
-        titleStackView.isHidden = (info.title == nil && info.subtitle == nil)
-        titleLabel.isUserInteractionEnabled = (info.title?.interaction == .copy)
-        titleLabel.font = info.title?.font
-        titleLabel.text = info.title?.text
-        titleLabel.themeTextColor = info.styling.tintColor
-        titleLabel.textAlignment = (info.title?.textAlignment ?? .left)
-        titleLabel.accessibilityIdentifier = info.title?.accessibility?.identifier
-        titleLabel.accessibilityLabel = info.title?.accessibility?.label
-        titleLabel.isHidden = (info.title == nil)
-        titleTextField.text = info.title?.text
-        titleTextField.textAlignment = (info.title?.textAlignment ?? .left)
-        titleTextField.placeholder = info.title?.editingPlaceholder
-        titleTextField.isHidden = (info.title == nil)
-        titleTextField.accessibilityIdentifier = info.title?.accessibility?.identifier
-        titleTextField.accessibilityLabel = info.title?.accessibility?.label
-        subtitleLabel.isUserInteractionEnabled = (info.subtitle?.interaction == .copy)
-        subtitleLabel.font = info.subtitle?.font
-        subtitleLabel.attributedText = info.subtitle.map { subtitle -> NSAttributedString? in
-            NSAttributedString(stringWithHTMLTags: subtitle.text, font: subtitle.font)
-        }
-        subtitleLabel.themeTextColor = info.styling.subtitleTintColor
-        subtitleLabel.textAlignment = (info.subtitle?.textAlignment ?? .left)
-        subtitleLabel.accessibilityIdentifier = info.subtitle?.accessibility?.identifier
-        subtitleLabel.accessibilityLabel = info.subtitle?.accessibility?.label
-        subtitleLabel.isHidden = (info.subtitle == nil)
-        trailingAccessoryView.update(
-            with: info.trailingAccessory,
-            tintColor: info.styling.tintColor,
-            isEnabled: info.isEnabled,
-            isManualReload: isManualReload,
-            using: dependencies
-        )
-        
+        // Layout (do this before setting up the content so we can calculate the expected widths if needed)
         contentStackViewLeadingConstraint.isActive = (info.styling.alignment == .leading)
         contentStackViewTrailingConstraint.isActive = (info.styling.alignment == .leading)
         contentStackViewHorizontalCenterConstraint.constant = ((info.styling.customPadding?.leading ?? 0) + (info.styling.customPadding?.trailing ?? 0))
@@ -557,6 +517,54 @@ public class SessionCell: UITableViewCell {
                     )
                 )
         }
+        
+        // Content
+        let contentStackViewHorizontalInset: CGFloat = (
+            (backgroundLeftConstraint.constant + (-backgroundRightConstraint.constant)) +
+            (contentStackViewLeadingConstraint.constant + (-contentStackViewTrailingConstraint.constant))
+        )
+        contentStackView.spacing = (info.styling.customPadding?.interItem ?? Values.mediumSpacing)
+        leadingAccessoryView.update(
+            with: info.leadingAccessory,
+            tintColor: info.styling.tintColor,
+            isEnabled: info.isEnabled,
+            maxContentWidth: (tableSize.width - contentStackViewHorizontalInset),
+            isManualReload: isManualReload,
+            using: dependencies
+        )
+        titleStackView.isHidden = (info.title == nil && info.subtitle == nil)
+        titleLabel.isUserInteractionEnabled = (info.title?.interaction == .copy)
+        titleLabel.font = info.title?.font
+        titleLabel.text = info.title?.text
+        titleLabel.themeTextColor = info.styling.tintColor
+        titleLabel.textAlignment = (info.title?.textAlignment ?? .left)
+        titleLabel.accessibilityIdentifier = info.title?.accessibility?.identifier
+        titleLabel.accessibilityLabel = info.title?.accessibility?.label
+        titleLabel.isHidden = (info.title == nil)
+        titleTextField.text = info.title?.text
+        titleTextField.textAlignment = (info.title?.textAlignment ?? .left)
+        titleTextField.placeholder = info.title?.editingPlaceholder
+        titleTextField.isHidden = (info.title == nil)
+        titleTextField.accessibilityIdentifier = info.title?.accessibility?.identifier
+        titleTextField.accessibilityLabel = info.title?.accessibility?.label
+        subtitleLabel.isUserInteractionEnabled = (info.subtitle?.interaction == .copy)
+        subtitleLabel.font = info.subtitle?.font
+        subtitleLabel.attributedText = info.subtitle.map { subtitle -> NSAttributedString? in
+            NSAttributedString(stringWithHTMLTags: subtitle.text, font: subtitle.font)
+        }
+        subtitleLabel.themeTextColor = info.styling.subtitleTintColor
+        subtitleLabel.textAlignment = (info.subtitle?.textAlignment ?? .left)
+        subtitleLabel.accessibilityIdentifier = info.subtitle?.accessibility?.identifier
+        subtitleLabel.accessibilityLabel = info.subtitle?.accessibility?.label
+        subtitleLabel.isHidden = (info.subtitle == nil)
+        trailingAccessoryView.update(
+            with: info.trailingAccessory,
+            tintColor: info.styling.tintColor,
+            isEnabled: info.isEnabled,
+            maxContentWidth: (tableSize.width - contentStackViewHorizontalInset),
+            isManualReload: isManualReload,
+            using: dependencies
+        )
     }
     
     public func update(isEditing: Bool, becomeFirstResponder: Bool, animated: Bool) {

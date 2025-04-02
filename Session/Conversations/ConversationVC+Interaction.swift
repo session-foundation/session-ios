@@ -1339,7 +1339,7 @@ extension ConversationVC:
     }
     
     func handleReplyButtonTapped(for cellViewModel: MessageViewModel) {
-        reply(cellViewModel)
+        reply(cellViewModel, completion: nil)
     }
     
     func startThread(
@@ -1913,7 +1913,7 @@ extension ConversationVC:
         }
     }
 
-    func retry(_ cellViewModel: MessageViewModel) {
+    func retry(_ cellViewModel: MessageViewModel, completion: (() -> Void)?) {
         guard cellViewModel.id != MessageViewModel.optimisticUpdateId else {
             guard
                 let optimisticMessageId: UUID = cellViewModel.optimisticMessageId,
@@ -1925,7 +1925,10 @@ extension ConversationVC:
                         title: "theError".localized(),
                         body: .text("shareExtensionDatabaseError".localized()),
                         cancelTitle: "okay".localized(),
-                        cancelStyle: .alert_text
+                        cancelStyle: .alert_text,
+                        afterClosed: {
+                            completion?()
+                        }
                     )
                 )
                 
@@ -1935,6 +1938,7 @@ extension ConversationVC:
             
             // Try to send the optimistic message again
             sendMessage(optimisticData: optimisticMessageData)
+            completion?()
             return
         }
         
@@ -1983,9 +1987,11 @@ extension ConversationVC:
                 using: dependencies
             )
         }
+        
+        completion?()
     }
 
-    func reply(_ cellViewModel: MessageViewModel) {
+    func reply(_ cellViewModel: MessageViewModel, completion: (() -> Void)?) {
         let maybeQuoteDraft: QuotedReplyModel? = QuotedReplyModel.quotedReplyForSending(
             threadId: self.viewModel.threadData.threadId,
             authorId: cellViewModel.authorId,
@@ -2006,9 +2012,10 @@ extension ConversationVC:
             isOutgoing: (cellViewModel.variant == .standardOutgoing)
         )
         _ = snInputView.becomeFirstResponder()
+        completion?()
     }
 
-    func copy(_ cellViewModel: MessageViewModel) {
+    func copy(_ cellViewModel: MessageViewModel, completion: (() -> Void)?) {
         switch cellViewModel.cellType {
             case .typingIndicator, .dateHeader, .unreadMarker: break
             
@@ -2036,15 +2043,35 @@ extension ConversationVC:
             
                 UIPasteboard.general.setData(data, forPasteboardType: type.identifier)
         }
+        
+        DispatchQueue.main.asyncAfter(deadline: .now() + .milliseconds(Int(ContextMenuVC.dismissDurationPartOne * 1000))) { [weak self] in
+            self?.viewModel.showToast(
+                text: "copied".localized(),
+                backgroundColor: .toast_background,
+                inset: Values.largeSpacing + (self?.inputAccessoryView?.frame.height ?? 0)
+            )
+        }
+        
+        completion?()
     }
 
-    func copySessionID(_ cellViewModel: MessageViewModel) {
+    func copySessionID(_ cellViewModel: MessageViewModel, completion: (() -> Void)?) {
         guard cellViewModel.variant == .standardIncoming else { return }
         
         UIPasteboard.general.string = cellViewModel.authorId
+        
+        DispatchQueue.main.asyncAfter(deadline: .now() + .milliseconds(Int(ContextMenuVC.dismissDurationPartOne * 1000))) { [weak self] in
+            self?.viewModel.showToast(
+                text: "copied".localized(),
+                backgroundColor: .toast_background,
+                inset: Values.largeSpacing + (self?.inputAccessoryView?.frame.height ?? 0)
+            )
+        }
+        
+        completion?()
     }
 
-    func delete(_ cellViewModel: MessageViewModel) {
+    func delete(_ cellViewModel: MessageViewModel, completion: (() -> Void)?) {
         /// Retrieve the deletion actions for the selected message(s) of there are any
         let messagesToDelete: [MessageViewModel] = [cellViewModel]
         
@@ -2128,6 +2155,7 @@ extension ConversationVC:
                                                 inset: (self?.inputAccessoryView?.frame.height ?? Values.mediumSpacing) + Values.smallSpacing
                                             )
                                     }
+                                    completion?()
                                 }
                             }
                         )
@@ -2145,7 +2173,7 @@ extension ConversationVC:
         }
     }
 
-    func save(_ cellViewModel: MessageViewModel) {
+    func save(_ cellViewModel: MessageViewModel, completion: (() -> Void)?) {
         guard cellViewModel.cellType == .mediaMessage else { return }
         
         let mediaAttachments: [(Attachment, String)] = (cellViewModel.attachments ?? [])
@@ -2185,7 +2213,15 @@ extension ConversationVC:
                             )
                         }
                     },
-                    completionHandler: { _, _ in }
+                    completionHandler: { _, _ in
+                        DispatchQueue.main.asyncAfter(deadline: .now() + .milliseconds(Int(ContextMenuVC.dismissDurationPartOne * 1000))) { [weak self] in
+                            self?.viewModel.showToast(
+                                text: "saved".localized(),
+                                backgroundColor: .toast_background,
+                                inset: Values.largeSpacing + (self?.inputAccessoryView?.frame.height ?? 0)
+                            )
+                        }
+                    }
                 )
             }
             
@@ -2196,9 +2232,11 @@ extension ConversationVC:
             
             self?.sendDataExtraction(kind: .mediaSaved(timestamp: UInt64(cellViewModel.timestampMs)))
         }
+        
+        completion?()
     }
 
-    func ban(_ cellViewModel: MessageViewModel) {
+    func ban(_ cellViewModel: MessageViewModel, completion: (() -> Void)?) {
         guard cellViewModel.threadVariant == .community else { return }
         
         let threadId: String = self.viewModel.threadData.threadId
@@ -2231,36 +2269,38 @@ extension ConversationVC:
                         .receive(on: DispatchQueue.main, using: dependencies)
                         .sinkUntilComplete(
                             receiveCompletion: { result in
-                                switch result {
-                                    case .finished:
-                                        DispatchQueue.main.async { [weak self] in
+                                DispatchQueue.main.async { [weak self] in
+                                    switch result {
+                                        case .finished:
                                             self?.viewModel.showToast(
                                                 text: "banUserBanned".localized(),
                                                 backgroundColor: .backgroundSecondary,
                                                 inset: (self?.inputAccessoryView?.frame.height ?? Values.mediumSpacing) + Values.smallSpacing
                                             )
-                                        }
-                                    case .failure:
-                                        DispatchQueue.main.async { [weak self] in
+                                        case .failure:
                                             self?.viewModel.showToast(
                                                 text: "banErrorFailed".localized(),
                                                 backgroundColor: .backgroundSecondary,
                                                 inset: (self?.inputAccessoryView?.frame.height ?? Values.mediumSpacing) + Values.smallSpacing
                                             )
-                                        }
+                                    }
+                                    completion?()
                                 }
                             }
                         )
                     
                     self?.becomeFirstResponder()
                 },
-                afterClosed: { [weak self] in self?.becomeFirstResponder() }
+                afterClosed: { [weak self] in
+                    completion?()
+                    self?.becomeFirstResponder()
+                }
             )
         )
         self.present(modal, animated: true)
     }
 
-    func banAndDeleteAllMessages(_ cellViewModel: MessageViewModel) {
+    func banAndDeleteAllMessages(_ cellViewModel: MessageViewModel, completion: (() -> Void)?) {
         guard cellViewModel.threadVariant == .community else { return }
         
         let threadId: String = self.viewModel.threadData.threadId
@@ -2293,30 +2333,31 @@ extension ConversationVC:
                         .receive(on: DispatchQueue.main, using: dependencies)
                         .sinkUntilComplete(
                             receiveCompletion: { result in
-                                switch result {
-                                    case .finished:
-                                        DispatchQueue.main.async { [weak self] in
+                                DispatchQueue.main.async { [weak self] in
+                                    switch result {
+                                        case .finished:
                                             self?.viewModel.showToast(
                                                 text: "banUserBanned".localized(),
                                                 backgroundColor: .backgroundSecondary,
                                                 inset: (self?.inputAccessoryView?.frame.height ?? Values.mediumSpacing) + Values.smallSpacing
                                             )
-                                        }
-                                    case .failure:
-                                        DispatchQueue.main.async { [weak self] in
+                                        case .failure:
                                             self?.viewModel.showToast(
                                                 text: "banErrorFailed".localized(),
                                                 backgroundColor: .backgroundSecondary,
                                                 inset: (self?.inputAccessoryView?.frame.height ?? Values.mediumSpacing) + Values.smallSpacing
                                             )
-                                        }
+                                    }
+                                    completion?()
                                 }
                             }
                         )
                     
                     self?.becomeFirstResponder()
                 },
-                afterClosed: { [weak self] in self?.becomeFirstResponder() }
+                afterClosed: { [weak self] in
+                    self?.becomeFirstResponder()
+                }
             )
         )
         self.present(modal, animated: true)
