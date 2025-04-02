@@ -1362,12 +1362,12 @@ class DeveloperSettingsViewModel: SessionTableViewModel, NavigatableStateHolder,
                     }
                     
                     /// Need to shut everything down before the swap out the data to prevent crashes
-                    LibSession.clearLoggers()
                     dependencies[singleton: .jobRunner].stopAndClearPendingJobs()
                     dependencies.remove(cache: .libSession)
                     dependencies.mutate(cache: .libSessionNetwork) { $0.suspendNetworkAccess() }
                     dependencies[singleton: .storage].suspendDatabaseAccess()
                     try dependencies[singleton: .storage].closeDatabase()
+                    LibSession.clearLoggers()
                     
                     let deleteEnumerator: FileManager.DirectoryEnumerator? = FileManager.default.enumerator(
                         at: URL(
