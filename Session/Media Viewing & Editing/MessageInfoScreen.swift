@@ -391,61 +391,74 @@ struct MessageBubble: View {
     
     var body: some View {
         ZStack {
-            switch messageViewModel.cellType {
-                case .textOnlyMessage:
-                    let maxWidth: CGFloat = (VisibleMessageCell.getMaxWidth(for: messageViewModel) - 2 * Self.inset)
-                    
-                    VStack(
-                        alignment: .leading,
-                        spacing: 0
-                    ) {
-                        if let linkPreview: LinkPreview = messageViewModel.linkPreview {
-                            switch linkPreview.variant {
-                            case .standard:
-                                LinkPreviewView_SwiftUI(
-                                    state: LinkPreview.SentState(
-                                        linkPreview: linkPreview,
-                                        imageAttachment: messageViewModel.linkPreviewAttachment,
-                                        using: dependencies
-                                    ),
-                                    isOutgoing: (messageViewModel.variant == .standardOutgoing),
-                                    maxWidth: maxWidth,
-                                    messageViewModel: messageViewModel,
-                                    bodyLabelTextColor: bodyLabelTextColor,
-                                    lastSearchText: nil
-                                )
-                                
-                            case .openGroupInvitation:
-                                OpenGroupInvitationView_SwiftUI(
-                                    name: (linkPreview.title ?? ""),
-                                    url: linkPreview.url,
-                                    textColor: bodyLabelTextColor,
-                                    isOutgoing: (messageViewModel.variant == .standardOutgoing))
-                            }
-                        }
-                        else {
-                            if let quote = messageViewModel.quote {
-                                QuoteView_SwiftUI(
-                                    info: .init(
-                                        mode: .regular,
-                                        authorId: quote.authorId,
-                                        quotedText: quote.body,
-                                        threadVariant: messageViewModel.threadVariant,
-                                        currentUserSessionId: messageViewModel.currentUserSessionId,
-                                        currentUserBlinded15SessionId: messageViewModel.currentUserBlinded15SessionId,
-                                        currentUserBlinded25SessionId: messageViewModel.currentUserBlinded25SessionId,
-                                        direction: (messageViewModel.variant == .standardOutgoing ? .outgoing : .incoming),
-                                        attachment: messageViewModel.quoteAttachment
-                                    ),
+            let maxWidth: CGFloat = (VisibleMessageCell.getMaxWidth(for: messageViewModel) - 2 * Self.inset)
+            
+            VStack(
+                alignment: .leading,
+                spacing: 0
+            ) {
+                // FIXME: We should support rendering link previews alongside quotes (bigger refactor)
+                if let linkPreview: LinkPreview = messageViewModel.linkPreview {
+                    switch linkPreview.variant {
+                        case .standard:
+                            LinkPreviewView_SwiftUI(
+                                state: LinkPreview.SentState(
+                                    linkPreview: linkPreview,
+                                    imageAttachment: messageViewModel.linkPreviewAttachment,
                                     using: dependencies
-                                )
-                                .fixedSize(horizontal: false, vertical: true)
-                                .padding(.top, Self.inset)
-                                .padding(.horizontal, Self.inset)
-                                .padding(.bottom, -Values.smallSpacing)
-                            }
-                        }
-                        
+                                ),
+                                isOutgoing: (messageViewModel.variant == .standardOutgoing),
+                                maxWidth: maxWidth,
+                                messageViewModel: messageViewModel,
+                                bodyLabelTextColor: bodyLabelTextColor,
+                                lastSearchText: nil
+                            )
+                            
+                        case .openGroupInvitation:
+                            OpenGroupInvitationView_SwiftUI(
+                                name: (linkPreview.title ?? ""),
+                                url: linkPreview.url,
+                                textColor: bodyLabelTextColor,
+                                isOutgoing: (messageViewModel.variant == .standardOutgoing))
+                    }
+                }
+                else {
+                    if let quote = messageViewModel.quote {
+                        QuoteView_SwiftUI(
+                            info: .init(
+                                mode: .regular,
+                                authorId: quote.authorId,
+                                quotedText: quote.body,
+                                threadVariant: messageViewModel.threadVariant,
+                                currentUserSessionId: messageViewModel.currentUserSessionId,
+                                currentUserBlinded15SessionId: messageViewModel.currentUserBlinded15SessionId,
+                                currentUserBlinded25SessionId: messageViewModel.currentUserBlinded25SessionId,
+                                direction: (messageViewModel.variant == .standardOutgoing ? .outgoing : .incoming),
+                                attachment: messageViewModel.quoteAttachment
+                            ),
+                            using: dependencies
+                        )
+                        .fixedSize(horizontal: false, vertical: true)
+                        .padding(.top, Self.inset)
+                        .padding(.horizontal, Self.inset)
+                        .padding(.bottom, -Values.smallSpacing)
+                    }
+                }
+                
+                if let bodyText: NSAttributedString = VisibleMessageCell.getBodyAttributedText(
+                    for: messageViewModel,
+                    theme: ThemeManager.currentTheme,
+                    primaryColor: ThemeManager.primaryColor,
+                    textColor: bodyLabelTextColor,
+                    searchText: nil,
+                    using: dependencies
+                ) {
+                    AttributedText(bodyText)
+                        .padding(.all, Self.inset)
+                }
+                
+                switch messageViewModel.cellType {
+                    case .mediaMessage:
                         if let bodyText: NSAttributedString = VisibleMessageCell.getBodyAttributedText(
                             for: messageViewModel,
                             theme: ThemeManager.currentTheme,
@@ -457,64 +470,52 @@ struct MessageBubble: View {
                             AttributedText(bodyText)
                                 .padding(.all, Self.inset)
                         }
-                    }
-                case .mediaMessage:
-                    if let bodyText: NSAttributedString = VisibleMessageCell.getBodyAttributedText(
-                        for: messageViewModel,
-                        theme: ThemeManager.currentTheme,
-                        primaryColor: ThemeManager.primaryColor,
-                        textColor: bodyLabelTextColor,
-                        searchText: nil,
-                        using: dependencies
-                    ) {
-                        AttributedText(bodyText)
-                            .padding(.all, Self.inset)
-                    }
-                case .voiceMessage:
-                    if let attachment: Attachment = messageViewModel.attachments?.first(where: { $0.isAudio }){
-                        // TODO: Playback Info and check if playing function is needed
-                        VoiceMessageView_SwiftUI(attachment: attachment)
-                    }
-                case .audio, .genericAttachment:
-                    if let attachment: Attachment = messageViewModel.attachments?.first {
-                        VStack(
-                            alignment: .leading,
-                            spacing: Values.smallSpacing
-                        ) {
-                            DocumentView_SwiftUI(
-                                maxWidth: $maxWidth,
-                                attachment: attachment,
-                                textColor: bodyLabelTextColor
-                            )
-                            .modifier(MaxWidthEqualizer.notify)
-                            .frame(
-                                width: maxWidth,
-                                alignment: .leading
-                            )
-                            
-                            if let bodyText: NSAttributedString = VisibleMessageCell.getBodyAttributedText(
-                                for: messageViewModel,
-                                theme: ThemeManager.currentTheme,
-                                primaryColor: ThemeManager.primaryColor,
-                                textColor: bodyLabelTextColor,
-                                searchText: nil,
-                                using: dependencies
+                    case .voiceMessage:
+                        if let attachment: Attachment = messageViewModel.attachments?.first(where: { $0.isAudio }){
+                            // TODO: Playback Info and check if playing function is needed
+                            VoiceMessageView_SwiftUI(attachment: attachment)
+                        }
+                    case .audio, .genericAttachment:
+                        if let attachment: Attachment = messageViewModel.attachments?.first {
+                            VStack(
+                                alignment: .leading,
+                                spacing: Values.smallSpacing
                             ) {
-                                ZStack{
-                                    AttributedText(bodyText)
-                                        .padding(.horizontal, Self.inset)
-                                        .padding(.bottom, Self.inset)
-                                }
+                                DocumentView_SwiftUI(
+                                    maxWidth: $maxWidth,
+                                    attachment: attachment,
+                                    textColor: bodyLabelTextColor
+                                )
                                 .modifier(MaxWidthEqualizer.notify)
                                 .frame(
                                     width: maxWidth,
                                     alignment: .leading
                                 )
+                                
+                                if let bodyText: NSAttributedString = VisibleMessageCell.getBodyAttributedText(
+                                    for: messageViewModel,
+                                    theme: ThemeManager.currentTheme,
+                                    primaryColor: ThemeManager.primaryColor,
+                                    textColor: bodyLabelTextColor,
+                                    searchText: nil,
+                                    using: dependencies
+                                ) {
+                                    ZStack{
+                                        AttributedText(bodyText)
+                                            .padding(.horizontal, Self.inset)
+                                            .padding(.bottom, Self.inset)
+                                    }
+                                    .modifier(MaxWidthEqualizer.notify)
+                                    .frame(
+                                        width: maxWidth,
+                                        alignment: .leading
+                                    )
+                                }
                             }
+                            .modifier(MaxWidthEqualizer(width: $maxWidth))
                         }
-                        .modifier(MaxWidthEqualizer(width: $maxWidth))
-                    }
-                default: EmptyView()
+                    default: EmptyView()
+                }
             }
         }
     }
