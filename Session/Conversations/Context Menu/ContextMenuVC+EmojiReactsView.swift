@@ -48,7 +48,7 @@ extension ContextMenuVC {
         // MARK: - Interaction
         
         @objc private func handleTap() {
-            action.work()
+            action.work() {}
             dismiss()
         }
     }
@@ -106,7 +106,7 @@ extension ContextMenuVC {
             dismiss()
             
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.25, execute: { [weak self] in
-                self?.action?.work()
+                self?.action?.work() {}
             })
         }
     }

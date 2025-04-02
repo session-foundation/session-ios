@@ -341,7 +341,7 @@ class ThreadSettingsViewModelSpec: QuickSpec {
                                 info: ConfirmationModal.Info.Body.InputInfo(
                                     placeholder: "nicknameEnter".localized(),
                                     initialValue: nil,
-                                    accessibility: Accessibility(identifier: "Username")
+                                    accessibility: Accessibility(identifier: "Username input")
                                 ),
                                 onChange: { _ in }
                             )

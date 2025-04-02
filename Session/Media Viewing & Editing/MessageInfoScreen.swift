@@ -10,6 +10,7 @@ struct MessageInfoScreen: View {
     @EnvironmentObject var host: HostWrapper
     
     @State var index = 1
+    @State var feedbackMessage: String? = nil
     
     static private let cornerRadius: CGFloat = 17
     
@@ -36,6 +37,9 @@ struct MessageInfoScreen: View {
                             messageViewModel: messageViewModel,
                             attachmentOnly: false,
                             dependencies: dependencies
+                        )
+                        .clipShape(
+                            RoundedRectangle(cornerRadius: Self.cornerRadius)
                         )
                         .background(
                             RoundedRectangle(cornerRadius: Self.cornerRadius)
@@ -144,6 +148,9 @@ struct MessageInfoScreen: View {
                                         messageViewModel: messageViewModel,
                                         attachmentOnly: true,
                                         dependencies: dependencies
+                                    )
+                                    .clipShape(
+                                        RoundedRectangle(cornerRadius: Self.cornerRadius)
                                     )
                                     .background(
                                         RoundedRectangle(cornerRadius: Self.cornerRadius)
@@ -343,8 +350,17 @@ struct MessageInfoScreen: View {
                                     let tintColor: ThemeValue = actions[index].themeColor
                                     Button(
                                         action: {
-                                            actions[index].work()
-                                            dismiss()
+                                            actions[index].work() {
+                                                switch (actions[index].shouldDismissInfoScreen, actions[index].feedback) {
+                                                    case (false, _): break
+                                                    case (true, .some):
+                                                        DispatchQueue.main.asyncAfter(deadline: .now() + 2, execute: {
+                                                            dismiss()
+                                                        })
+                                                    default: dismiss()
+                                                }
+                                            }
+                                            feedbackMessage = actions[index].feedback
                                         },
                                         label: {
                                             HStack(spacing: Values.largeSpacing) {
@@ -387,6 +403,7 @@ struct MessageInfoScreen: View {
             }
         }
         .backgroundColor(themeColor: .backgroundPrimary)
+        .toastView(message: $feedbackMessage)
     }
     
     private func showMediaFullScreen(attachment: Attachment) {

@@ -73,10 +73,24 @@ final class CallMissedTipsModal: Modal {
     
     // MARK: - Lifecycle
     
-    init(caller: String) {
+    init(caller: String, presentingViewController: UIViewController?, using dependencies: Dependencies) {
         self.caller = caller
         
-        super.init()
+        super.init(
+            afterClosed: {
+                let navController: UINavigationController = StyledNavigationController(
+                    rootViewController: SessionTableViewController(
+                        viewModel: PrivacySettingsViewModel(
+                            shouldShowCloseButton: true,
+                            shouldAutomaticallyShowCallModal: true,
+                            using: dependencies
+                        )
+                    )
+                )
+                navController.modalPresentationStyle = .fullScreen
+                presentingViewController?.present(navController, animated: true, completion: nil)
+            }
+        )
         
         self.modalPresentationStyle = .overFullScreen
         self.modalTransitionStyle = .crossDissolve
@@ -87,7 +101,7 @@ final class CallMissedTipsModal: Modal {
     }
 
     override func populateContentView() {
-        cancelButton.setTitle("okay".localized(), for: .normal)
+        cancelButton.setTitle("sessionSettings".localized(), for: .normal)
         
         contentView.addSubview(mainStackView)
         tipsIconContainerView.addSubview(tipsIconImageView)

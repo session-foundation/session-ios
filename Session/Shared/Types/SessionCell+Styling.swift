@@ -97,6 +97,7 @@ public extension SessionCell {
     enum FontStyle: Hashable, Equatable {
         case title
         case titleLarge
+        case titleRegular
         
         case subtitle
         case subtitleBold
@@ -108,6 +109,7 @@ public extension SessionCell {
             switch self {
                 case .title: return .boldSystemFont(ofSize: 16)
                 case .titleLarge: return .systemFont(ofSize: Values.veryLargeFontSize, weight: .medium)
+                case .titleRegular: return .systemFont(ofSize: 16)
                     
                 case .subtitle: return .systemFont(ofSize: 14)
                 case .subtitleBold: return .boldSystemFont(ofSize: 14)
@@ -164,6 +166,10 @@ public extension SessionCell {
             self.interItem = interItem
         }
     }
+}
+
+public extension Optional where Wrapped == SessionCell.Padding {
+    static let none: SessionCell.Padding = SessionCell.Padding()
 }
 
 // MARK: - ExpressibleByStringLiteral

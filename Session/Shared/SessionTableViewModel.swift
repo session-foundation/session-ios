@@ -26,6 +26,7 @@ protocol SessionTableViewModel: AnyObject, SectionedTableData {
     func canEditRow(at indexPath: IndexPath) -> Bool
     func leadingSwipeActionsConfiguration(forRowAt indexPath: IndexPath, in tableView: UITableView, of viewController: UIViewController) -> UISwipeActionsConfiguration?
     func trailingSwipeActionsConfiguration(forRowAt indexPath: IndexPath, in tableView: UITableView, of viewController: UIViewController) -> UISwipeActionsConfiguration?
+    func onAppear(targetViewController: BaseVC)
 }
 
 extension SessionTableViewModel {
@@ -45,6 +46,7 @@ extension SessionTableViewModel {
     func canEditRow(at indexPath: IndexPath) -> Bool { false }
     func leadingSwipeActionsConfiguration(forRowAt indexPath: IndexPath, in tableView: UITableView, of viewController: UIViewController) -> UISwipeActionsConfiguration? { nil }
     func trailingSwipeActionsConfiguration(forRowAt indexPath: IndexPath, in tableView: UITableView, of viewController: UIViewController) -> UISwipeActionsConfiguration? { nil }
+    func onAppear(targetViewController: BaseVC) { }
 }
 
 // MARK: - SessionTableViewCellType

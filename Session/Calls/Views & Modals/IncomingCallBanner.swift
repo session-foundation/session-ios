@@ -206,7 +206,7 @@ final class IncomingCallBanner: UIView, UIGestureRecognizerDelegate {
         dependencies[singleton: .callManager].endCall(call) { [weak self, dependencies] error in
             if let _ = error {
                 self?.call.endSessionCall()
-                dependencies[singleton: .callManager].reportCurrentCallEnded(reason: nil)
+                dependencies[singleton: .callManager].reportCurrentCallEnded(reason: .declinedElsewhere)
             }
             
             self?.dismiss()

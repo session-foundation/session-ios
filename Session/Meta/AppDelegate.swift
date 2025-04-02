@@ -133,6 +133,15 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
                     }
                 )
                 
+                /// Adding this to prevent new users being asked for local network permission in the wrong order in the permission chain.
+                /// We need to check the local nework permission status every time the app is activated to refresh the UI in Settings screen.
+                /// And after granting or denying a system permission request will trigger the local nework permission status check in applicationDidBecomeActive(:)
+                /// The only way we can check the status of local network permission will trigger the system prompt to ask for the permission.
+                /// So we need this to keep it the correct order of the permission chain.
+                /// For users who already enabled the calls permission and made calls, the local network permission should already be asked for.
+                /// It won't affect anything.
+                dependencies[defaults: .standard, key: .hasRequestedLocalNetworkPermission] = dependencies[singleton: .storage, key: .areCallsEnabled]
+                
                 /// Now that the theme settings have been applied we can complete the migrations
                 self?.completePostMigrationSetup(calledFrom: .finishLaunching)
             },
@@ -290,6 +299,10 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
 
         // On every activation, clear old temp directories.
         dependencies[singleton: .fileManager].clearOldTemporaryDirectories()
+        
+        if dependencies[singleton: .storage, key: .areCallsEnabled] && dependencies[defaults: .standard, key: .hasRequestedLocalNetworkPermission] {
+            Permissions.checkLocalNetworkPermission(using: dependencies)
+        }
     }
     
     func applicationWillResignActive(_ application: UIApplication) {
@@ -354,7 +367,7 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
             Log.info(.backgroundPoller, "Background poll failed due to manual timeout.")
             cancellable?.cancel()
             
-            if dependencies[singleton: .appContext].isInBackground {
+            if dependencies[singleton: .appContext].isInBackground && !self.hasCallOngoing() {
                 dependencies.mutate(cache: .libSessionNetwork) { $0.suspendNetworkAccess() }
                 dependencies[singleton: .storage].suspendDatabaseAccess()
                 Log.flush()
@@ -397,7 +410,7 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
                         }
                         
                         // If we are still running in the background then suspend the network & database
-                        if dependencies[singleton: .appContext].isInBackground {
+                        if dependencies[singleton: .appContext].isInBackground && !self.hasCallOngoing() {
                             dependencies.mutate(cache: .libSessionNetwork) { $0.suspendNetworkAccess() }
                             dependencies[singleton: .storage].suspendDatabaseAccess()
                             Log.flush()
@@ -869,7 +882,9 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
         guard let presentingVC = dependencies[singleton: .appContext].frontMostViewController else { preconditionFailure() }
         
         let callMissedTipsModal: CallMissedTipsModal = CallMissedTipsModal(
-            caller: Profile.displayName(id: callerId, using: dependencies)
+            caller: Profile.displayName(id: callerId, using: dependencies),
+            presentingViewController: presentingVC,
+            using: dependencies
         )
         presentingVC.present(callMissedTipsModal, animated: true, completion: nil)
         

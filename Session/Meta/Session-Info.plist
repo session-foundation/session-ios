@@ -57,6 +57,8 @@
 	<true/>
 	<key>NSAppTransportSecurity</key>
 	<dict>
+		<key>NSAllowsArbitraryLoads</key>
+		<true/>
 		<key>NSAllowsLocalNetworking</key>
 		<true/>
 		<key>NSExceptionDomains</key>
@@ -81,15 +83,13 @@
 				<false/>
 			</dict>
 		</dict>
-		<key>NSAllowsArbitraryLoads</key>
-		<true/>
 	</dict>
 	<key>NSAppleMusicUsageDescription</key>
 	<string>Session needs to use Apple Music to play media attachments.</string>
 	<key>NSCameraUsageDescription</key>
 	<string>Session needs camera access to take pictures and scan QR codes.</string>
 	<key>NSFaceIDUsageDescription</key>
-	<string>Session's Screen Lock feature uses Face ID.</string>
+	<string>Session&apos;s Screen Lock feature uses Face ID.</string>
 	<key>NSHumanReadableCopyright</key>
 	<string>com.loki-project.loki-messenger</string>
 	<key>NSMicrophoneUsageDescription</key>
@@ -98,6 +98,8 @@
 	<string>Session needs access to your library to save photos.</string>
 	<key>NSPhotoLibraryUsageDescription</key>
 	<string>Session needs access to your library to update your avatar and send photos.</string>
+	<key>NSLocalNetworkUsageDescription</key>
+	<string>Session needs access to local network to make voice and video calls.</string>
 	<key>PHPhotoLibraryPreventAutomaticLimitedAccessAlert</key>
 	<true/>
 	<key>UIAppFonts</key>
@@ -152,5 +154,9 @@
 	</array>
 	<key>UIViewControllerBasedStatusBarAppearance</key>
 	<true/>
+	<key>NSBonjourServices</key>
+	<array>
+		<string>_session_local_network_access_check._tcp</string>
+	</array>
 </dict>
 </plist>
