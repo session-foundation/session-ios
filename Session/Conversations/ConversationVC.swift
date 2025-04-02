@@ -227,8 +227,7 @@ final class ConversationVC: BaseVC, LibSessionRespondingViewController, Conversa
                 icon: .close,
                 tintColor: .messageBubble_outgoingText,
                 backgroundColor: .primary,
-                accessibility: Accessibility(label: "Outdated client banner"),
-                labelAccessibility: Accessibility(label: "Outdated client banner text"),
+                labelAccessibility: Accessibility(identifier: "Outdated client banner"),
                 height: 40,
                 onTap: { [weak self] in self?.removeOutdatedClientBanner() }
             )
@@ -246,7 +245,7 @@ final class ConversationVC: BaseVC, LibSessionRespondingViewController, Conversa
                 icon: .none,
                 tintColor: .messageBubble_outgoingText,
                 backgroundColor: .primary,
-                accessibility: Accessibility(label: "Legacy group banner"),
+                labelAccessibility: Accessibility(identifier: "Legacy group banner"),
                 height: nil,
                 onTap: { [weak self] in self?.openUrl(Features.legacyGroupDepricationUrl) }
             )
@@ -268,7 +267,7 @@ final class ConversationVC: BaseVC, LibSessionRespondingViewController, Conversa
                 icon: .none,
                 tintColor: .black,
                 backgroundColor: .explicitPrimary(.orange),
-                accessibility: Accessibility(label: "Expired group banner"),
+                labelAccessibility: Accessibility(identifier: "Expired group banner"),
                 height: nil
             )
         )
