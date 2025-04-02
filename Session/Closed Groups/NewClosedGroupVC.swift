@@ -276,6 +276,7 @@ final class NewClosedGroupVC: BaseVC, UITableViewDataSource, UITableViewDelegate
                     identifier: "Contact"
                 )
             ),
+            tableSize: tableView.bounds.size,
             using: dependencies
         )
         
