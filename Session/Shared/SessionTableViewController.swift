@@ -455,7 +455,7 @@ class SessionTableViewController<ViewModel>: BaseVC, UITableViewDataSource, UITa
         
         switch (cell, info) {
             case (let cell as SessionCell, _):
-                cell.update(with: info, using: viewModel.dependencies)
+                cell.update(with: info, tableSize: tableView.bounds.size, using: viewModel.dependencies)
                 cell.update(
                     isEditing: (self.isEditing || (info.title?.interaction == .alwaysEditing)),
                     becomeFirstResponder: false,
@@ -681,7 +681,12 @@ class SessionTableViewController<ViewModel>: BaseVC, UITableViewDataSource, UITa
     ) {
         // Try update the existing cell to have a nice animation instead of reloading the cell
         if let existingCell: SessionCell = tableView.cellForRow(at: indexPath) as? SessionCell {
-            existingCell.update(with: info, isManualReload: true, using: viewModel.dependencies)
+            existingCell.update(
+                with: info,
+                tableSize: tableView.bounds.size,
+                isManualReload: true,
+                using: viewModel.dependencies
+            )
         }
         else {
             tableView.reloadRows(at: [indexPath], with: .none)

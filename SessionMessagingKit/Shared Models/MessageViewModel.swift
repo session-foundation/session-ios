@@ -349,11 +349,6 @@ public struct MessageViewModel: FetchableRecordWithRowId, Decodable, Equatable, 
             // (the album view)
             guard self.attachments?.count == 1 else { return .mediaMessage }
 
-            // Quote and LinkPreview overload the 'attachments' array and use it for their
-            // own purposes, otherwise check if the attachment is visual media
-            guard self.quote == nil else { return .textOnlyMessage }
-            guard self.linkPreview == nil else { return .textOnlyMessage }
-            
             // Pending audio attachments won't have a duration
             if
                 attachment.isAudio && (
