@@ -13,7 +13,13 @@ public final class FullConversationCell: UITableViewCell, SwipeActionOptimisticC
     
     // MARK: - UI
     
-    private let accentLineView: UIView = UIView()
+    private let accentLineView: UIView = {
+        let result: UIView = UIView()
+        result.themeBackgroundColor = .conversationButton_unreadStripBackground
+        result.alpha = 0
+        
+        return result
+    }()
 
     private lazy var profilePictureView: ProfilePictureView = ProfilePictureView(size: .list)
 
@@ -430,15 +436,7 @@ public final class FullConversationCell: UITableViewCell, SwipeActionOptimisticC
         self.themeBackgroundColor = themeBackgroundColor
         self.selectedBackgroundView?.themeBackgroundColor = .highlighted(themeBackgroundColor)
         
-        if cellViewModel.threadIsBlocked == true {
-            accentLineView.themeBackgroundColor = .danger
-            accentLineView.alpha = 1
-        }
-        else {
-            accentLineView.themeBackgroundColor = .conversationButton_unreadStripBackground
-            accentLineView.alpha = (unreadCount > 0 ? 1 : 0)
-        }
-        
+        accentLineView.alpha = (unreadCount > 0 ? 1 : 0)
         isPinnedIcon.isHidden = (cellViewModel.threadPinnedPriority == 0)
         unreadCountView.isHidden = (unreadCount <= 0)
         unreadImageView.isHidden = (!unreadCountView.isHidden || !threadIsUnread)
@@ -530,7 +528,6 @@ public final class FullConversationCell: UITableViewCell, SwipeActionOptimisticC
     
     public func optimisticUpdate(
         isMuted: Bool?,
-        isBlocked: Bool?,
         isPinned: Bool?,
         hasUnread: Bool?
     ) {
@@ -554,17 +551,6 @@ public final class FullConversationCell: UITableViewCell, SwipeActionOptimisticC
                         .attributedSubstring(from: NSRange(location: FullConversationCell.mutePrefix.count, length: (attrString.length - FullConversationCell.mutePrefix.count)))
                     
                 default: break
-            }
-        }
-        
-        if let isBlocked: Bool = isBlocked {
-            if isBlocked {
-                accentLineView.themeBackgroundColor = .danger
-                accentLineView.alpha = 1
-            }
-            else {
-                accentLineView.themeBackgroundColor = .conversationButton_unreadStripBackground
-                accentLineView.alpha = (!unreadCountView.isHidden || !unreadImageView.isHidden ? 1 : 0)
             }
         }
         

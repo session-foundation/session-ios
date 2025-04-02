@@ -11,6 +11,7 @@ public enum ImageFormat {
     case bmp
     case webp
     
+    // stringlint:ignore_contents
     public var fileExtension: String {
         switch self {
             case .jpeg, .unknown: return "jpg"

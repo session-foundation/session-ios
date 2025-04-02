@@ -163,6 +163,7 @@ REQUIRES_BUILD=0
 if [ "${LIB_SESSION_SOURCE_DIR}" != "${OLD_SOURCE_DIR}" ]; then
   echo "Build is not up-to-date (source dir change) - removing old build and rebuilding"
   rm -rf "${COMPILE_DIR}"
+  mkdir -p "${COMPILE_DIR}"
   REQUIRES_BUILD=1
 elif [ "${NEW_SOURCE_HASH}" != "${OLD_SOURCE_HASH}" ]; then
   echo "Build is not up-to-date (source change) - creating new build"
@@ -234,7 +235,7 @@ if [ "${REQUIRES_BUILD}" == 1 ]; then
   submodule_check=ON
   build_type="Release"
 
-  if [ "$CONFIGURATION" == "Debug" ]; then
+  if [ "$CONFIGURATION" == "Debug" ] || [ "$CONFIGURATION" == "Debug_Compile_LibSession" ]; then
     submodule_check=OFF
     build_type="Debug"
   fi

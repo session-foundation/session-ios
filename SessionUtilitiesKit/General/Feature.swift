@@ -27,14 +27,6 @@ public extension FeatureStorage {
         identifier: "debugDisappearingMessageDurations"
     )
     
-    static let updatedDisappearingMessages: FeatureConfig<Bool> = Dependencies.create(
-        identifier: "updatedDisappearingMessages",
-        automaticChangeBehaviour: Feature<Bool>.ChangeBehaviour(
-            value: true,
-            condition: .after(timestamp: 1710284400)
-        )
-    )
-    
     static let forceSlowDatabaseQueries: FeatureConfig<Bool> = Dependencies.create(
         identifier: "forceSlowDatabaseQueries"
     )
@@ -145,6 +137,10 @@ public struct Feature<T: FeatureOption>: FeatureType {
     }
     
     // MARK: - Functions
+    
+    internal func hasStoredValue(using dependencies: Dependencies) -> Bool {
+        return (dependencies[defaults: .appGroup].object(forKey: identifier) != nil)
+    }
     
     internal func currentValue(using dependencies: Dependencies) -> T {
         let maybeSelectedOption: T? = {

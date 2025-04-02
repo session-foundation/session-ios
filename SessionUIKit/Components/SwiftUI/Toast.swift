@@ -2,6 +2,7 @@
 
 import SwiftUI
 import Combine
+import NaturalLanguage
 
 public struct ToastModifier: ViewModifier {
     @Binding var message: String?
@@ -34,7 +35,17 @@ public struct ToastModifier: ViewModifier {
         }
   
         workItem = task
-        DispatchQueue.main.asyncAfter(deadline: .now() + 5, execute: task)
+        
+        let duration: TimeInterval = {
+            guard let message: String = message else { return 1.5 }
+            
+            let tokenizer = NLTokenizer(unit: .word)
+            tokenizer.string = message
+            let wordCount = tokenizer.tokens(for: message.startIndex..<message.endIndex).count
+            return min(1.5 + Double(wordCount - 1) * 0.1 , 5)
+        }()
+        
+        DispatchQueue.main.asyncAfter(deadline: .now() + duration, execute: task)
     }
   
     private func dismissToast() {
@@ -61,24 +72,18 @@ public struct ToastView_SwiftUI: View {
         VStack(
             spacing: 0
         ) {
-            ZStack {
-                Capsule()
-                    .foregroundColor(themeColor: .toast_background)
-                
-                Text(message)
-                    .font(.system(size: Values.verySmallFontSize))
-                    .foregroundColor(themeColor: .textPrimary)
-                    .multilineTextAlignment(.center)
-                    .frame(maxWidth: .infinity)
-                    .padding(.horizontal, Values.mediumSpacing)
-            }
-            .frame(
-                width: Self.width,
-                height: Self.height
-            )
+            Text(message)
+                .font(.system(size: Values.mediumFontSize))
+                .foregroundColor(themeColor: .textPrimary)
+                .multilineTextAlignment(.center)
+                .padding(.horizontal, Values.largeSpacing)
+                .frame(height: Self.height)
+                .background(
+                    Capsule()
+                        .foregroundColor(themeColor: .toast_background)
+                )
         }
         .frame(
-            maxWidth: .infinity,
             maxHeight: .infinity,
             alignment: .bottom
         )

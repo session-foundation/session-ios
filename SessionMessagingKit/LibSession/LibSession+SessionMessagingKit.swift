@@ -608,15 +608,8 @@ public extension LibSession {
                     // Only generate the push data if we need to do a push
                     guard config.needsPush else { return }
                     
-                    guard let data: PendingChanges.PushData = config.push(variant: info.variant) else {
-                        throw LibSessionError(
-                            config,
-                            fallbackError: .unableToGeneratePushData,
-                            logMessage: "Failed to generate push data for \(info.variant) config data, size: \(config.countDescription), error"
-                        )
-                    }
-                    
-                    result.append(data: data)
+                    // Try to generate the push data (will throw if there is an error)
+                    try result.append(data: config.push(variant: info.variant))
                 }
         }
         

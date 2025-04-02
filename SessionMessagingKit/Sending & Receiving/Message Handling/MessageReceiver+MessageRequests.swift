@@ -131,6 +131,12 @@ extension MessageReceiver {
         }
         
         // Update the `didApproveMe` state of the sender
+        let senderHadAlreadyApprovedMe: Bool = (try? Contact
+            .select(.didApproveMe)
+            .filter(id: senderId)
+            .asRequest(of: Bool.self)
+            .fetchOne(db))
+            .defaulting(to: false)
         try updateContactApprovalStatusIfNeeded(
             db,
             senderSessionId: senderId,
@@ -154,23 +160,29 @@ extension MessageReceiver {
             )
         }
         
-        // Notify the user of their approval (Note: This will always appear in the un-blinded thread)
-        //
-        // Note: We want to do this last as it'll mean the un-blinded thread gets updated and the
-        // contact approval status will have been updated at this point (which will mean the
-        // `isMessageRequest` will return correctly after this is saved)
-        _ = try Interaction(
-            serverHash: message.serverHash,
-            threadId: unblindedThread.id,
-            threadVariant: unblindedThread.variant,
-            authorId: senderId,
-            variant: .infoMessageRequestAccepted,
-            timestampMs: (
-                message.sentTimestampMs.map { Int64($0) } ??
-                dependencies[cache: .snodeAPI].currentOffsetTimestampMs()
-            ),
-            using: dependencies
-        ).inserted(db)
+        /// Notify the user of their approval
+        ///
+        /// We want to do this last as it'll mean the un-blinded thread gets updated and the contact approval status will have been
+        /// updated at this point (which will mean the `isMessageRequest` will return correctly after this is saved)
+        ///
+        /// **Notes:**
+        /// - We only want to add the control message if the sender hadn't already approved the current user (this is to prevent spam
+        ///   if the sender deletes and re-accepts message requests from the current user)
+        /// - This will always appear in the un-blinded thread
+        if !senderHadAlreadyApprovedMe {
+            _ = try Interaction(
+                serverHash: message.serverHash,
+                threadId: unblindedThread.id,
+                threadVariant: unblindedThread.variant,
+                authorId: senderId,
+                variant: .infoMessageRequestAccepted,
+                timestampMs: (
+                    message.sentTimestampMs.map { Int64($0) } ??
+                    dependencies[cache: .snodeAPI].currentOffsetTimestampMs()
+                ),
+                using: dependencies
+            ).inserted(db)
+        }
     }
     
     internal static func updateContactApprovalStatusIfNeeded(

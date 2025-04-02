@@ -124,12 +124,22 @@ public extension LibSession {
         
         // MARK: - Functions
         
-        func push(variant: ConfigDump.Variant) -> PendingChanges.PushData? {
+        func push(variant: ConfigDump.Variant) throws -> PendingChanges.PushData? {
             switch self {
                 case .userProfile(let conf), .contacts(let conf),
                     .convoInfoVolatile(let conf), .userGroups(let conf),
                     .groupInfo(let conf), .groupMembers(let conf):
-                    let cPushData: UnsafeMutablePointer<config_push_data> = config_push(conf)
+                    /// The `config_push` function implicitly unwraps it's value but can throw internally so call it in a guard
+                    /// statement to prevent the implicit unwrap from causing a crash (ideally it would return a standard optional
+                    /// so the compiler would warn us but it's not that straight forward when dealing with C)
+                    guard let cPushData: UnsafeMutablePointer<config_push_data> = config_push(conf) else {
+                        throw LibSessionError(
+                            self,
+                            fallbackError: .unableToGeneratePushData,
+                            logMessage: "Failed to generate push data for \(variant) config data, size: \(countDescription), error"
+                        )
+                    }
+                    
                     let pushData: Data = Data(
                         bytes: cPushData.pointee.config,
                         count: cPushData.pointee.config_len
