@@ -453,7 +453,7 @@ class SettingsViewModel: SessionTableViewModel, NavigationItemSource, Navigatabl
                             placeholder: "displayNameEnter".localized(),
                             initialValue: current,
                             accessibility: Accessibility(
-                                identifier: "Username"
+                                identifier: "Username input"
                             )
                         ),
                         onChange: { [weak self] updatedName in self?.updatedName = updatedName }

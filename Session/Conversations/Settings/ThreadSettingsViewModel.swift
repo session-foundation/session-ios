@@ -660,7 +660,7 @@ class ThreadSettingsViewModel: SessionTableViewModel, NavigatableStateHolder, Ob
                             threadViewModel.threadIsBlocked == true,
                             oldValue: (previous?.threadViewModel?.threadIsBlocked == true),
                             accessibility: Accessibility(
-                                identifier: "Block This User - Switch"
+                                identifier: "Block - Switch"
                             )
                         ),
                         accessibility: Accessibility(
@@ -1120,7 +1120,7 @@ class ThreadSettingsViewModel: SessionTableViewModel, NavigatableStateHolder, Ob
                             placeholder: "nicknameEnter".localized(),
                             initialValue: current,
                             accessibility: Accessibility(
-                                identifier: "Username"
+                                identifier: "Username input"
                             )
                         ),
                         onChange: { [weak self] updatedName in self?.updatedName = updatedName }
