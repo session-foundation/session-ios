@@ -89,6 +89,7 @@ class DeveloperSettingsViewModel: SessionTableViewModel, NavigatableStateHolder,
         case updatedGroupsDeleteBeforeNow
         case updatedGroupsDeleteAttachmentsBeforeNow
         
+        case copyDatabasePath
         case forceSlowDatabaseQueries
         case exportDatabase
         case importDatabase
@@ -126,6 +127,7 @@ class DeveloperSettingsViewModel: SessionTableViewModel, NavigatableStateHolder,
                 case .updatedGroupsDeleteBeforeNow: return "updatedGroupsDeleteBeforeNow"
                 case .updatedGroupsDeleteAttachmentsBeforeNow: return "updatedGroupsDeleteAttachmentsBeforeNow"
                 
+                case .copyDatabasePath: return "copyDatabasePath"
                 case .forceSlowDatabaseQueries: return "forceSlowDatabaseQueries"
                 case .exportDatabase: return "exportDatabase"
                 case .importDatabase: return "importDatabase"
@@ -167,6 +169,7 @@ class DeveloperSettingsViewModel: SessionTableViewModel, NavigatableStateHolder,
                 case .updatedGroupsDeleteBeforeNow: result.append(.updatedGroupsDeleteBeforeNow); fallthrough
                 case .updatedGroupsDeleteAttachmentsBeforeNow: result.append(.updatedGroupsDeleteAttachmentsBeforeNow); fallthrough
                 
+                case .copyDatabasePath: result.append(.copyDatabasePath); fallthrough
                 case .forceSlowDatabaseQueries: result.append(.forceSlowDatabaseQueries); fallthrough
                 case .exportDatabase: result.append(.exportDatabase); fallthrough
                 case .importDatabase: result.append(.importDatabase)
@@ -702,6 +705,17 @@ class DeveloperSettingsViewModel: SessionTableViewModel, NavigatableStateHolder,
             model: .database,
             elements: [
                 SessionCell.Info(
+                    id: .copyDatabasePath,
+                    title: "Copy database path",
+                    subtitle: """
+                    Copies the path to the database file (quick way to access it for the simulator for debugging).
+                    """,
+                    trailingAccessory: .highlightingBackgroundLabel(title: "Copy"),
+                    onTap: { [weak self] in
+                        self?.copyDatabasePath()
+                    }
+                ),
+                SessionCell.Info(
                     id: .forceSlowDatabaseQueries,
                     title: "Force slow database queries",
                     subtitle: """
@@ -779,6 +793,7 @@ class DeveloperSettingsViewModel: SessionTableViewModel, NavigatableStateHolder,
                     updateFlag(for: .showStringKeys, to: nil)
                 
                 case .resetSnodeCache: break    // Not a feature
+                case .copyDatabasePath: break     // Not a feature
                 case .exportDatabase: break     // Not a feature
                 case .importDatabase: break     // Not a feature
                 case .advancedLogging: break    // Not a feature
@@ -1100,6 +1115,15 @@ class DeveloperSettingsViewModel: SessionTableViewModel, NavigatableStateHolder,
         )
     }
     
+    private func copyDatabasePath() {
+        UIPasteboard.general.string = Storage.sharedDatabaseDirectoryPath
+        
+        showToast(
+            text: "copied".localized(),
+            backgroundColor: .backgroundSecondary
+        )
+    }
+    
     // MARK: - Export and Import
     
     private func exportDatabase(_ targetView: UIView?) {
@@ -1383,12 +1407,12 @@ class DeveloperSettingsViewModel: SessionTableViewModel, NavigatableStateHolder,
                     }
                     
                     /// Need to shut everything down before the swap out the data to prevent crashes
-                    LibSession.clearLoggers()
                     dependencies[singleton: .jobRunner].stopAndClearPendingJobs()
                     dependencies.remove(cache: .libSession)
                     dependencies.mutate(cache: .libSessionNetwork) { $0.suspendNetworkAccess() }
                     dependencies[singleton: .storage].suspendDatabaseAccess()
                     try dependencies[singleton: .storage].closeDatabase()
+                    LibSession.clearLoggers()
                     
                     let deleteEnumerator: FileManager.DirectoryEnumerator? = FileManager.default.enumerator(
                         at: URL(
