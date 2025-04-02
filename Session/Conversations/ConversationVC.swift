@@ -290,15 +290,16 @@ final class ConversationVC: BaseVC, LibSessionRespondingViewController, Conversa
     private lazy var emptyStateLabelContainer: UIView = {
         let result: UIView = UIView()
         result.addSubview(emptyStateLabel)
+        emptyStateLabel.pin(.top, to: .top, of: result)
         emptyStateLabel.pin(.leading, to: .leading, of: result, withInset: Values.largeSpacing)
         emptyStateLabel.pin(.trailing, to: .trailing, of: result, withInset: -Values.largeSpacing)
+        emptyStateLabel.pin(.bottom, to: .bottom, of: result)
         
         return result
     }()
     
     private lazy var emptyStateLabel: UILabel = {
         let result: UILabel = UILabel()
-        result.isAccessibilityElement = true
         result.accessibilityIdentifier = "Control message"
         result.translatesAutoresizingMaskIntoConstraints = false
         result.font = .systemFont(ofSize: Values.verySmallFontSize)
@@ -942,7 +943,7 @@ final class ConversationVC: BaseVC, LibSessionRespondingViewController, Conversa
                 self.viewModel.updateInteractionData(updatedData)
                 
                 // Update the empty state
-                self.emptyStateLabel.isHidden = hasMessages
+                self.emptyStateLabelContainer.isHidden = hasMessages
                 
                 UIView.performWithoutAnimation {
                     self.tableView.reloadData()
@@ -954,7 +955,7 @@ final class ConversationVC: BaseVC, LibSessionRespondingViewController, Conversa
         }
         
         // Update the empty state
-        self.emptyStateLabel.isHidden = hasMessages
+        self.emptyStateLabelContainer.isHidden = hasMessages
         
         // Update the ReactionListSheet (if one exists)
         if let messageUpdates: [MessageViewModel] = updatedData.first(where: { $0.model == .messages })?.elements {
