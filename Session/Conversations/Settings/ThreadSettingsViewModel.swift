@@ -538,7 +538,6 @@ class ThreadSettingsViewModel: SessionTableViewModel, NavigatableStateHolder, Ob
                             ),
                             confirmTitle: "leave".localized(),
                             confirmStyle: .danger,
-                            confirmAccessibility: Accessibility(identifier: "Confirm leave"),
                             cancelStyle: .alert_text
                         ),
                         onTap: { [weak self, dependencies] in
