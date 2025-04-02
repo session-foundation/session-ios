@@ -515,18 +515,6 @@ struct MessageBubble: View {
                 }
                 else {
                     switch messageViewModel.cellType {
-                        case .mediaMessage:
-                            if let bodyText: NSAttributedString = VisibleMessageCell.getBodyAttributedText(
-                                for: messageViewModel,
-                                theme: ThemeManager.currentTheme,
-                                primaryColor: ThemeManager.primaryColor,
-                                textColor: bodyLabelTextColor,
-                                searchText: nil,
-                                using: dependencies
-                            ) {
-                                AttributedText(bodyText)
-                                    .padding(.all, Self.inset)
-                            }
                         case .voiceMessage:
                             if let attachment: Attachment = messageViewModel.attachments?.first(where: { $0.isAudio }){
                                 // TODO: Playback Info and check if playing function is needed
@@ -534,42 +522,16 @@ struct MessageBubble: View {
                             }
                         case .audio, .genericAttachment:
                             if let attachment: Attachment = messageViewModel.attachments?.first {
-                                VStack(
-                                    alignment: .leading,
-                                    spacing: Values.smallSpacing
-                                ) {
-                                    DocumentView_SwiftUI(
-                                        maxWidth: $maxWidth,
-                                        attachment: attachment,
-                                        textColor: bodyLabelTextColor
-                                    )
-                                    .modifier(MaxWidthEqualizer.notify)
-                                    .frame(
-                                        width: maxWidth,
-                                        alignment: .leading
-                                    )
-                                    
-                                    if let bodyText: NSAttributedString = VisibleMessageCell.getBodyAttributedText(
-                                        for: messageViewModel,
-                                        theme: ThemeManager.currentTheme,
-                                        primaryColor: ThemeManager.primaryColor,
-                                        textColor: bodyLabelTextColor,
-                                        searchText: nil,
-                                        using: dependencies
-                                    ) {
-                                        ZStack{
-                                            AttributedText(bodyText)
-                                                .padding(.horizontal, Self.inset)
-                                                .padding(.bottom, Self.inset)
-                                        }
-                                        .modifier(MaxWidthEqualizer.notify)
-                                        .frame(
-                                            width: maxWidth,
-                                            alignment: .leading
-                                        )
-                                    }
-                                }
-                                .modifier(MaxWidthEqualizer(width: $maxWidth))
+                                DocumentView_SwiftUI(
+                                    maxWidth: $maxWidth,
+                                    attachment: attachment,
+                                    textColor: bodyLabelTextColor
+                                )
+                                .modifier(MaxWidthEqualizer.notify)
+                                .frame(
+                                    width: maxWidth,
+                                    alignment: .leading
+                                )
                             }
                         default: EmptyView()
                     }
