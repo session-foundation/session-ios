@@ -110,7 +110,6 @@ extension ConversationVC:
     // MARK: - Call
     
     @objc func startCall(_ sender: Any?) {
-        guard SessionCall.isEnabled else { return }
         guard viewModel.threadData.threadIsBlocked == false else { return }
         guard viewModel.dependencies[singleton: .storage, key: .areCallsEnabled] else {
             let confirmationModal: ConfirmationModal = ConfirmationModal(
@@ -125,6 +124,7 @@ extension ConversationVC:
                             rootViewController: SessionTableViewController(
                                 viewModel: PrivacySettingsViewModel(
                                     shouldShowCloseButton: true,
+                                    shouldAutomaticallyShowCallModal: true,
                                     using: dependencies
                                 )
                             )
@@ -139,27 +139,55 @@ extension ConversationVC:
             return
         }
         
-        Permissions.requestMicrophonePermissionIfNeeded(using: viewModel.dependencies)
+        guard Permissions.microphone == .granted else {
+            let confirmationModal: ConfirmationModal = ConfirmationModal(
+                info: ConfirmationModal.Info(
+                    title: "permissionsRequired".localized(),
+                    body: .text("permissionsMicrophoneAccessRequiredCallsIos".localized()),
+                    showCondition: .disabled,
+                    confirmTitle: "sessionSettings".localized(),
+                    onConfirm: { _ in
+                        UIApplication.shared.openSystemSettings()
+                    }
+                )
+            )
+            
+            self.navigationController?.present(confirmationModal, animated: true, completion: nil)
+            return
+        }
+        
+        guard Permissions.localNetwork(using: viewModel.dependencies) == .granted else {
+            let confirmationModal: ConfirmationModal = ConfirmationModal(
+                info: ConfirmationModal.Info(
+                    title: "permissionsRequired".localized(),
+                    body: .text("permissionsLocalNetworkAccessRequiredCallsIos".localized()),
+                    showCondition: .disabled,
+                    confirmTitle: "sessionSettings".localized(),
+                    onConfirm: { _ in
+                        UIApplication.shared.openSystemSettings()
+                    }
+                )
+            )
+            
+            self.navigationController?.present(confirmationModal, animated: true, completion: nil)
+            return
+        }
         
         let threadId: String = self.viewModel.threadData.threadId
         
         guard
             Permissions.microphone == .granted,
             self.viewModel.threadData.threadVariant == .contact,
-            viewModel.dependencies[singleton: .callManager].currentCall == nil,
-            let call: SessionCall = viewModel.dependencies[singleton: .storage]
-                .read({ [dependencies = viewModel.dependencies] db in
-                    SessionCall(
-                        db,
-                        for: threadId,
-                        uuid: UUID().uuidString.lowercased(),
-                        mode: .offer,
-                        outgoing: true,
-                        using: dependencies
-                    )
-                })
+            viewModel.dependencies[singleton: .callManager].currentCall == nil
         else { return }
         
+        let call: SessionCall = SessionCall(
+            for: threadId,
+            contactName: self.viewModel.threadData.displayName,
+            uuid: UUID().uuidString.lowercased(),
+            mode: .offer,
+            using: viewModel.dependencies
+        )
         let callVC = CallVC(for: call, using: viewModel.dependencies)
         callVC.conversationVC = self
         hideInputAccessoryView()
@@ -943,12 +971,14 @@ extension ConversationVC:
                 ),
                 messageInfo.state == .permissionDeniedMicrophone
             else {
-                let callMissedTipsModal: CallMissedTipsModal = CallMissedTipsModal(caller: cellViewModel.authorName)
+                let callMissedTipsModal: CallMissedTipsModal = CallMissedTipsModal(
+                    caller: cellViewModel.authorName,
+                    presentingViewController: self,
+                    using: viewModel.dependencies
+                )
                 present(callMissedTipsModal, animated: true, completion: nil)
                 return
             }
-            
-            Permissions.requestMicrophonePermissionIfNeeded(presentingViewController: self, using: viewModel.dependencies)
             return
         }
         

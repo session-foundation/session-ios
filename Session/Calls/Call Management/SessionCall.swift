@@ -12,26 +12,27 @@ import SessionUtilitiesKit
 import SessionSnodeKit
 
 public final class SessionCall: CurrentCallProtocol, WebRTCSessionDelegate {
-    @objc static let isEnabled = true
-    
     private let dependencies: Dependencies
+    public let webRTCSession: WebRTCSession
+    
+    var currentConnectionStep: ConnectionStep
+    var connectionStepsRecord: [Bool]
     
     // MARK: - Metadata Properties
     public let uuid: String
     public let callId: UUID // This is for CallKit
     public let sessionId: String
-    let mode: CallMode
-    var audioMode: AudioMode
-    public let webRTCSession: WebRTCSession
-    let isOutgoing: Bool
-    var remoteSDP: RTCSessionDescription? = nil
-    var callInteractionId: Int64?
-    var answerCallAction: CXAnswerCallAction? = nil
-    
+    public let mode: CallMode
     let contactName: String
-    let profilePicture: UIImage
-    let animatedProfilePictureData: Data?
-    
+    var audioMode: AudioMode
+    var remoteSDP: RTCSessionDescription? = nil {
+        didSet {
+            if hasStartedConnecting, let sdp = remoteSDP {
+                webRTCSession.handleRemoteSDP(sdp, from: sessionId) // This sends an answer message internally
+            }
+        }
+    }
+    var answerCallAction: CXAnswerCallAction? = nil
     // MARK: - Control
     
     lazy public var videoCapturer: RTCVideoCapturer = {
@@ -86,7 +87,9 @@ public final class SessionCall: CurrentCallProtocol, WebRTCSessionDelegate {
         didSet {
             stateDidChange?()
             hasConnectedDidChange?()
-            updateCallDetailedStatus?("Call Connected")
+            updateCurrentConnectionStepIfPossible(
+                mode == .offer ? OfferStep.connected : AnswerStep.connected
+            )
         }
     }
 
@@ -151,29 +154,17 @@ public final class SessionCall: CurrentCallProtocol, WebRTCSessionDelegate {
     
     // MARK: - Initialization
     
-    init(_ db: Database, for sessionId: String, uuid: String, mode: CallMode, outgoing: Bool = false, using dependencies: Dependencies) {
+    init(for sessionId: String, contactName: String, uuid: String, mode: CallMode, using dependencies: Dependencies) {
         self.dependencies = dependencies
         self.sessionId = sessionId
+        self.contactName = contactName
         self.uuid = uuid
         self.callId = UUID()
         self.mode = mode
         self.audioMode = .earpiece
         self.webRTCSession = WebRTCSession.current ?? WebRTCSession(for: sessionId, with: uuid, using: dependencies)
-        self.isOutgoing = outgoing
-        
-        let avatarData: Data? = dependencies[singleton: .displayPictureManager].displayPicture(db, id: .user(sessionId))
-        self.contactName = Profile.displayName(db, id: sessionId, threadVariant: .contact, using: dependencies)
-        self.profilePicture = avatarData
-            .map { UIImage(data: $0) }
-            .defaulting(to: PlaceholderIcon.generate(seed: sessionId, text: self.contactName, size: 300))
-        self.animatedProfilePictureData = avatarData
-            .map { data -> Data? in
-                switch data.guessedImageFormat {
-                    case .gif, .webp: return data
-                    default: return nil
-                }
-            }
-        
+        self.currentConnectionStep = (mode == .offer ? OfferStep.initializing : AnswerStep.receivedOffer)
+        self.connectionStepsRecord = [Bool](repeating: false, count: (mode == .answer ? 5 : 6))
         WebRTCSession.current = self.webRTCSession
         self.webRTCSession.delegate = self
         
@@ -208,8 +199,8 @@ public final class SessionCall: CurrentCallProtocol, WebRTCSessionDelegate {
         
         Log.info(.calls, "Did receive remote sdp.")
         remoteSDP = sdp
-        if hasStartedConnecting {
-            webRTCSession.handleRemoteSDP(sdp, from: sessionId) // This sends an answer message internally
+        if mode == .answer {
+            self.updateCurrentConnectionStepIfPossible(AnswerStep.receivedOffer)
         }
     }
     
@@ -250,9 +241,7 @@ public final class SessionCall: CurrentCallProtocol, WebRTCSessionDelegate {
         )
         .inserted(db)
         
-        self.callInteractionId = interaction?.id
-        
-        self.updateCallDetailedStatus?("Creating Call")
+        self.updateCurrentConnectionStepIfPossible(OfferStep.initializing)
         
         try? webRTCSession
             .sendPreOffer(
@@ -265,7 +254,7 @@ public final class SessionCall: CurrentCallProtocol, WebRTCSessionDelegate {
             // Start the timeout timer for the call
             .handleEvents(receiveOutput: { [weak self] _ in self?.setupTimeoutTimer() })
             .flatMap { [weak self] _ in
-                self?.updateCallDetailedStatus?("Sending Call Offer")
+                self?.updateCurrentConnectionStepIfPossible(OfferStep.sendingOffer)
                 return webRTCSession
                     .sendOffer(to: thread)
                     .retry(5)
@@ -275,7 +264,6 @@ public final class SessionCall: CurrentCallProtocol, WebRTCSessionDelegate {
                     switch result {
                         case .finished:
                             Log.info(.calls, "Offer message sent")
-                            self?.updateCallDetailedStatus?("Sending Connection Candidates")
                         case .failure(let error):
                             Log.error(.calls, "Error initializing call after 5 retries: \(error), ending call...")
                             self?.handleCallInitializationFailed()
@@ -288,10 +276,10 @@ public final class SessionCall: CurrentCallProtocol, WebRTCSessionDelegate {
         guard case .answer = mode else { return }
         
         hasStartedConnecting = true
+        self.updateCurrentConnectionStepIfPossible(AnswerStep.sendingAnswer)
         
         if let sdp = remoteSDP {
             Log.info(.calls, "Got remote sdp already")
-            self.updateCallDetailedStatus?("Answering Call")
             webRTCSession.handleRemoteSDP(sdp, from: sessionId) // This sends an answer message internally
         }
     }
@@ -304,33 +292,31 @@ public final class SessionCall: CurrentCallProtocol, WebRTCSessionDelegate {
     func endSessionCall() {
         guard !hasEnded else { return }
         
-        let sessionId: String = self.sessionId
-        
         webRTCSession.hangUp()
-        
-        dependencies[singleton: .storage].writeAsync { [weak self] db in
-            try self?.webRTCSession.endCall(db, with: sessionId)
+        dependencies[singleton: .appReadiness].runNowOrWhenAppDidBecomeReady { [webRTCSession, sessionId] in
+            webRTCSession.endCall(with: sessionId)
         }
-        
         hasEnded = true
     }
     
     func handleCallInitializationFailed() {
         self.endSessionCall()
-        dependencies[singleton: .callManager].reportCurrentCallEnded(reason: nil)
+        dependencies[singleton: .callManager].reportCurrentCallEnded(reason: .failed)
     }
     
     // MARK: - Call Message Handling
     
     public func updateCallMessage(mode: EndCallMode, using dependencies: Dependencies) {
-        guard let callInteractionId: Int64 = callInteractionId else { return }
-        
         let duration: TimeInterval = self.duration
         let hasStartedConnecting: Bool = self.hasStartedConnecting
         
         dependencies[singleton: .storage].writeAsync(
-            updates: { db in
-                guard let interaction: Interaction = try? Interaction.fetchOne(db, id: callInteractionId) else {
+            updates: { [sessionId, uuid] db in
+                guard let interaction: Interaction = try? Interaction
+                    .filter(Interaction.Columns.threadId == sessionId)
+                    .filter(Interaction.Columns.messageUuid == uuid)
+                    .fetchOne(db)
+                else {
                     return
                 }
                 
@@ -431,15 +417,29 @@ public final class SessionCall: CurrentCallProtocol, WebRTCSessionDelegate {
         isRemoteVideoEnabled = isEnabled
     }
     
-    public func iceCandidateDidSend() {
+    public func sendingIceCandidates() {
         DispatchQueue.main.async {
-            self.updateCallDetailedStatus?("Awaiting Recipient Answer...")
+            self.updateCurrentConnectionStepIfPossible(
+                self.mode == .offer ? OfferStep.sendingIceCandidates : AnswerStep.sendingIceCandidates
+            )
+        }
+    }
+    
+    public func iceCandidateDidSend() {
+        if self.mode == .offer {
+            DispatchQueue.main.async {
+                self.updateCurrentConnectionStepIfPossible(
+                    self.mode == .offer ? OfferStep.waitingForAnswer : AnswerStep.handlingIceCandidates
+                )
+            }
         }
     }
     
     public func iceCandidateDidReceive() {
         DispatchQueue.main.async {
-            self.updateCallDetailedStatus?("Handling Connection Candidates")
+            self.updateCurrentConnectionStepIfPossible(
+                self.mode == .offer ? OfferStep.handlingIceCandidates : AnswerStep.handlingIceCandidates
+            )
         }
     }
     
@@ -464,13 +464,14 @@ public final class SessionCall: CurrentCallProtocol, WebRTCSessionDelegate {
     }
     
     public func reconnectIfNeeded() {
+        guard !self.hasEnded else { return }
         setupTimeoutTimer()
         hasStartedReconnecting?()
-        guard isOutgoing else { return }
         tryToReconnect()
     }
     
     private func tryToReconnect() {
+        guard self.mode == .offer else { return }
         reconnectTimer?.invalidate()
         
         // Register a callback to get the current network status then remove it immediately as we only
@@ -523,5 +524,107 @@ public final class SessionCall: CurrentCallProtocol, WebRTCSessionDelegate {
     public func invalidateTimeoutTimer() {
         timeOutTimer?.invalidate()
         timeOutTimer = nil
+    }
+}
+
+// MARK: - Connection Steps
+
+// TODO: Remove these when calls are out of beta
+extension SessionCall {
+    // stringlint:ignore_contents
+    public static let call_connection_steps_sender: [String] = [
+        "Creating Call 1/6",
+        "Sending Call Offer 2/6",
+        "Sending Connection Candidates 3/6",
+        "Awaiting Recipient Answer... 4/6",
+        "Handling Connection Candidates 5/6",
+        "Call Connected 6/6",
+    ]
+    // stringlint:ignore_contents
+    public static let call_connection_steps_receiver: [String] = [
+        "Received Call Offer 1/5",
+        "Answering Call 2/5",
+        "Sending Connection Candidates 3/5",
+        "Handling Connection Candidates 4/5",
+        "Call Connected 5/5",
+    ]
+    
+    public protocol ConnectionStep {
+        var index: Int { get }
+        var nextStep: ConnectionStep? { get }
+    }
+    
+    public enum OfferStep: ConnectionStep {
+        case initializing
+        case sendingOffer
+        case sendingIceCandidates
+        case waitingForAnswer
+        case handlingIceCandidates
+        case connected
+        
+        public var index: Int {
+            switch self {
+                case .initializing:          return 0
+                case .sendingOffer:          return 1
+                case .sendingIceCandidates:  return 2
+                case .waitingForAnswer:      return 3
+                case .handlingIceCandidates: return 4
+                case .connected:             return 5
+            }
+        }
+        
+        public var nextStep: ConnectionStep? {
+            switch self {
+                case .initializing:          return OfferStep.sendingOffer
+                case .sendingOffer:          return OfferStep.sendingIceCandidates
+                case .sendingIceCandidates:  return OfferStep.waitingForAnswer
+                case .waitingForAnswer:      return OfferStep.handlingIceCandidates
+                case .handlingIceCandidates: return OfferStep.connected
+                case .connected:             return nil
+            }
+        }
+    }
+    
+    public enum AnswerStep: ConnectionStep {
+        case receivedOffer
+        case sendingAnswer
+        case sendingIceCandidates
+        case handlingIceCandidates
+        case connected
+        
+        public var index: Int {
+            switch self {
+                case .receivedOffer:         return 0
+                case .sendingAnswer:         return 1
+                case .sendingIceCandidates:  return 2
+                case .handlingIceCandidates: return 3
+                case .connected:             return 4
+            }
+        }
+        
+        public var nextStep: ConnectionStep? {
+            switch self {
+                case .receivedOffer:         return AnswerStep.sendingAnswer
+                case .sendingAnswer:         return AnswerStep.sendingIceCandidates
+                case .sendingIceCandidates:  return AnswerStep.handlingIceCandidates
+                case .handlingIceCandidates: return AnswerStep.connected
+                case .connected:             return nil
+            }
+        }
+    }
+    
+    internal func updateCurrentConnectionStepIfPossible(_ step: ConnectionStep) {
+        connectionStepsRecord[step.index] = true
+        while let nextStep = currentConnectionStep.nextStep, connectionStepsRecord[nextStep.index] {
+            currentConnectionStep = nextStep
+            DispatchQueue.main.async {
+                self.updateCallDetailedStatus?(
+                    self.mode == .offer ?
+                    SessionCall.call_connection_steps_sender[self.currentConnectionStep.index] :
+                    SessionCall.call_connection_steps_receiver[self.currentConnectionStep.index]
+                )
+            }
+            
+        }
     }
 }

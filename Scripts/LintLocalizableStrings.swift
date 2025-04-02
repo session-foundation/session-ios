@@ -40,7 +40,8 @@ extension ProjectState {
         "cameraGrantAccessDescription",
         "permissionsAppleMusic",
         "permissionsStorageSave",
-        "permissionsMicrophoneAccessRequiredIos"
+        "permissionsMicrophoneAccessRequiredIos",
+        "permissionsLocalNetworkAccessRequiredIos"
     ]
     static let permissionStringsMap: [String: String] = [
         "permissionsStorageSend": "NSPhotoLibraryUsageDescription",
@@ -48,7 +49,8 @@ extension ProjectState {
         "cameraGrantAccessDescription": "NSCameraUsageDescription",
         "permissionsAppleMusic": "NSAppleMusicUsageDescription",
         "permissionsStorageSave": "NSPhotoLibraryAddUsageDescription",
-        "permissionsMicrophoneAccessRequiredIos": "NSMicrophoneUsageDescription"
+        "permissionsMicrophoneAccessRequiredIos": "NSMicrophoneUsageDescription",
+        "permissionsLocalNetworkAccessRequiredIos": "NSLocalNetworkUsageDescription"
     ]
     static let validSourceSuffixes: Set<String> = [".swift", ".m"]
     static let excludedPaths: Set<String> = [
@@ -318,7 +320,8 @@ enum ScriptAction: String {
                 ProjectState.permissionStrings.forEach { key in
                     guard let nsKey: String = ProjectState.permissionStringsMap[key] else { return }
                     if
-                        let stringsData: Data = try? JSONSerialization.data(withJSONObject: (projectState.localizationFile.strings[key] as! JSON), options: [ .fragmentsAllowed ]),
+                        let json = projectState.localizationFile.strings[key] as? JSON,
+                        let stringsData: Data = try? JSONSerialization.data(withJSONObject: json, options: [ .fragmentsAllowed ]),
                         let stringsJSONString: String = String(data: stringsData, encoding: .utf8)
                     {
                         let updatedStringsJSONString = stringsJSONString.replacingOccurrences(of: "{app_name}", with: "Session")
