@@ -534,8 +534,17 @@ public extension SessionThread {
                 try LibSession.hide(db, contactIds: Array(remainingThreadIds), using: dependencies)
                 
             case .deleteContactConversationAndContact:
-                // Remove the contact from the config
+                // Remove the contact from the config (also need to clear the nickname since that's
+                // custom data for this contact)
                 try LibSession.remove(db, contactIds: Array(remainingThreadIds), using: dependencies)
+                
+                _ = try Profile
+                    .filter(ids: remainingThreadIds)
+                    .updateAll(db, Profile.Columns.nickname.set(to: nil))
+                
+                _ = try Contact
+                    .filter(ids: remainingThreadIds)
+                    .deleteAll(db)
                 
                 _ = try SessionThread
                     .filter(ids: remainingThreadIds)
