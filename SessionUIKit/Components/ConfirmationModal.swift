@@ -407,7 +407,7 @@ public class ConfirmationModal: Modal, UITextFieldDelegate, UITextViewDelegate {
                 imageViewTapGestureRecognizer.isEnabled = true
         }
         
-        confirmButton.accessibilityIdentifier = info.confirmTitle
+        confirmButton.accessibilityIdentifier = (info.confirmAccessibility?.identifier ?? info.confirmTitle)
         confirmButton.isAccessibilityElement = true
         confirmButton.setTitle(info.confirmTitle, for: .normal)
         confirmButton.setThemeTitleColor(info.confirmStyle, for: .normal)
@@ -415,7 +415,7 @@ public class ConfirmationModal: Modal, UITextFieldDelegate, UITextViewDelegate {
         confirmButton.isHidden = (info.confirmTitle == nil)
         confirmButton.isEnabled = info.confirmEnabled.isValid(with: info)
         
-        cancelButton.accessibilityIdentifier = info.cancelTitle
+        cancelButton.accessibilityIdentifier = (info.cancelAccessibility?.identifier ?? info.cancelTitle)
         cancelButton.isAccessibilityElement = true
         cancelButton.setTitle(info.cancelTitle, for: .normal)
         cancelButton.setThemeTitleColor(info.cancelStyle, for: .normal)
@@ -579,9 +579,11 @@ public extension ConfirmationModal {
         internal let confirmTitle: String?
         let confirmStyle: ThemeValue
         let confirmEnabled: ButtonValidator
+        let confirmAccessibility: Accessibility?
         internal let cancelTitle: String
         let cancelStyle: ThemeValue
         let cancelEnabled: ButtonValidator
+        let cancelAccessibility: Accessibility?
         let hasCloseButton: Bool
         let dismissOnConfirm: Bool
         let dismissType: Modal.DismissType
@@ -598,9 +600,11 @@ public extension ConfirmationModal {
             confirmTitle: String? = nil,
             confirmStyle: ThemeValue = .alert_text,
             confirmEnabled: ButtonValidator = true,
+            confirmAccessibility: Accessibility? = nil,
             cancelTitle: String = SNUIKit.localizedString(for: "cancel"),
             cancelStyle: ThemeValue = .danger,
             cancelEnabled: ButtonValidator = true,
+            cancelAccessibility: Accessibility? = nil,
             hasCloseButton: Bool = false,
             dismissOnConfirm: Bool = true,
             dismissType: Modal.DismissType = .recursive,
@@ -614,9 +618,11 @@ public extension ConfirmationModal {
             self.confirmTitle = confirmTitle
             self.confirmStyle = confirmStyle
             self.confirmEnabled = confirmEnabled
+            self.confirmAccessibility = confirmAccessibility
             self.cancelTitle = cancelTitle
             self.cancelStyle = cancelStyle
             self.cancelEnabled = cancelEnabled
+            self.cancelAccessibility = cancelAccessibility
             self.hasCloseButton = hasCloseButton
             self.dismissOnConfirm = dismissOnConfirm
             self.dismissType = dismissType
@@ -640,9 +646,11 @@ public extension ConfirmationModal {
                 confirmTitle: self.confirmTitle,
                 confirmStyle: self.confirmStyle,
                 confirmEnabled: self.confirmEnabled,
+                confirmAccessibility: self.confirmAccessibility,
                 cancelTitle: self.cancelTitle,
                 cancelStyle: self.cancelStyle,
                 cancelEnabled: self.cancelEnabled,
+                cancelAccessibility: self.cancelAccessibility,
                 hasCloseButton: self.hasCloseButton,
                 dismissOnConfirm: self.dismissOnConfirm,
                 dismissType: self.dismissType,
@@ -662,9 +670,11 @@ public extension ConfirmationModal {
                 lhs.confirmTitle == rhs.confirmTitle &&
                 lhs.confirmStyle == rhs.confirmStyle &&
                 lhs.confirmEnabled.isValid(with: lhs) == rhs.confirmEnabled.isValid(with: rhs) &&
+                lhs.confirmAccessibility == rhs.confirmAccessibility &&
                 lhs.cancelTitle == rhs.cancelTitle &&
                 lhs.cancelStyle == rhs.cancelStyle &&
                 lhs.cancelEnabled.isValid(with: lhs) == rhs.cancelEnabled.isValid(with: rhs) &&
+                lhs.cancelAccessibility == rhs.cancelAccessibility &&
                 lhs.hasCloseButton == rhs.hasCloseButton &&
                 lhs.dismissOnConfirm == rhs.dismissOnConfirm &&
                 lhs.dismissType == rhs.dismissType
@@ -678,9 +688,11 @@ public extension ConfirmationModal {
             confirmTitle.hash(into: &hasher)
             confirmStyle.hash(into: &hasher)
             confirmEnabled.isValid(with: self).hash(into: &hasher)
+            confirmAccessibility?.hash(into: &hasher)
             cancelTitle.hash(into: &hasher)
             cancelStyle.hash(into: &hasher)
             cancelEnabled.isValid(with: self).hash(into: &hasher)
+            cancelAccessibility?.hash(into: &hasher)
             hasCloseButton.hash(into: &hasher)
             dismissOnConfirm.hash(into: &hasher)
             dismissType.hash(into: &hasher)
