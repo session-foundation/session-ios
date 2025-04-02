@@ -52,6 +52,7 @@ public struct Job: Codable, Equatable, Hashable, Identifiable, FetchableRecord, 
         case _legacy_getSnodePool = 1
         case _legacy_buildPaths = 3009
         case _legacy_getSwarm = 3010
+        case _legacy_notifyPushServer = 2001
         
         /// This is a recurring job that handles the removal of disappearing messages and is triggered
         /// at the timestamp of the next disappearing message
@@ -86,13 +87,9 @@ public struct Job: Codable, Equatable, Hashable, Identifiable, FetchableRecord, 
         /// latest device push tokens
         case syncPushTokens = 2000
         
-        /// This is a job that runs once whenever a message is sent to notify the push notification server
-        /// about the message
-        case notifyPushServer
-        
         /// This is a job that runs once at most every 3 seconds per thread whenever a message is marked as read
         /// (if read receipts are enabled) to notify other members in a conversation that their message was read
-        case sendReadReceipts
+        case sendReadReceipts = 2002
         
         /// This is a job that runs once whenever a message is received to attempt to decode and properly
         /// process the message
