@@ -440,10 +440,6 @@
 		FD0E353C2AB9880B006A81F7 /* AppVersion.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD0E353A2AB98773006A81F7 /* AppVersion.swift */; };
 		FD10AF0C2AF32B9A007709E5 /* SessionListViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD10AF0B2AF32B9A007709E5 /* SessionListViewModel.swift */; };
 		FD10AF122AF85D11007709E5 /* Feature+ServiceNetwork.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD10AF112AF85D11007709E5 /* Feature+ServiceNetwork.swift */; };
-		FD11E2292CA4D12C001BAF58 /* YYImage in Frameworks */ = {isa = PBXBuildFile; productRef = FD6A395B2C2D10C700762359 /* YYImage */; };
-		FD11E22A2CA4D12C001BAF58 /* YYImage in Frameworks */ = {isa = PBXBuildFile; productRef = FD6A394E2C2D060C00762359 /* YYImage */; };
-		FD11E22B2CA4D12C001BAF58 /* YYImage in Frameworks */ = {isa = PBXBuildFile; productRef = FD6A395B2C2D10C700762359 /* YYImage */; };
-		FD11E22C2CA4D12C001BAF58 /* YYImage in Frameworks */ = {isa = PBXBuildFile; productRef = FD6A39682C2D283A00762359 /* YYImage */; };
 		FD11E22D2CA4D12C001BAF58 /* DifferenceKit in Frameworks */ = {isa = PBXBuildFile; productRef = FD2286782C38D4FF00BC06F7 /* DifferenceKit */; };
 		FD11E22E2CA4D12C001BAF58 /* WebRTC in Frameworks */ = {isa = PBXBuildFile; productRef = FDEF57292C3CF50B00131302 /* WebRTC */; };
 		FD12A83D2AD63BCC00EEBA0D /* EditableState.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD12A83C2AD63BCC00EEBA0D /* EditableState.swift */; };
@@ -724,10 +720,6 @@
 		FD6A393B2C2AD3A300762359 /* Nimble in Frameworks */ = {isa = PBXBuildFile; productRef = FD6A393A2C2AD3A300762359 /* Nimble */; };
 		FD6A393D2C2AD3AC00762359 /* Nimble in Frameworks */ = {isa = PBXBuildFile; productRef = FD6A393C2C2AD3AC00762359 /* Nimble */; };
 		FD6A39412C2AD3B600762359 /* Nimble in Frameworks */ = {isa = PBXBuildFile; productRef = FD6A39402C2AD3B600762359 /* Nimble */; };
-		FD6A39662C2D21E400762359 /* libwebp in Frameworks */ = {isa = PBXBuildFile; productRef = FD6A39652C2D21E400762359 /* libwebp */; };
-		FD6A396B2C2D284500762359 /* YYImage in Frameworks */ = {isa = PBXBuildFile; productRef = FD6A396A2C2D284500762359 /* YYImage */; };
-		FD6A396D2C2D284B00762359 /* YYImage in Frameworks */ = {isa = PBXBuildFile; productRef = FD6A396C2C2D284B00762359 /* YYImage */; };
-		FD6A396F2C2E3D4400762359 /* YYImage in Frameworks */ = {isa = PBXBuildFile; productRef = FD6A396E2C2E3D4400762359 /* YYImage */; };
 		FD6A7A6D2818C61500035AC1 /* _002_SetupStandardJobs.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD6A7A6C2818C61500035AC1 /* _002_SetupStandardJobs.swift */; };
 		FD6C67242CF6E72E00B350A7 /* NoopSessionCallManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD6C67232CF6E72900B350A7 /* NoopSessionCallManager.swift */; };
 		FD6D9CF92CA152B300F706A8 /* Session+SNUIKit.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDE754BB2C9B9A8E002A2623 /* Session+SNUIKit.swift */; };
@@ -839,6 +831,7 @@
 		FD9DD2712A72516D00ECB68E /* TestExtensions.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD9DD2702A72516D00ECB68E /* TestExtensions.swift */; };
 		FD9DD2722A72516D00ECB68E /* TestExtensions.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD9DD2702A72516D00ECB68E /* TestExtensions.swift */; };
 		FD9DD2732A72516D00ECB68E /* TestExtensions.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD9DD2702A72516D00ECB68E /* TestExtensions.swift */; };
+		FDA335F52D91157A007E0EB6 /* AnimatedImageView.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDA335F42D911576007E0EB6 /* AnimatedImageView.swift */; };
 		FDAA16762AC28A3B00DDBF77 /* UserDefaultsType.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDAA16752AC28A3B00DDBF77 /* UserDefaultsType.swift */; };
 		FDAA167B2AC28E2F00DDBF77 /* SnodeRequestSpec.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDAA167A2AC28E2F00DDBF77 /* SnodeRequestSpec.swift */; };
 		FDAA167D2AC528A200DDBF77 /* Preferences+Sound.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDAA167C2AC528A200DDBF77 /* Preferences+Sound.swift */; };
@@ -2018,6 +2011,7 @@
 		FD99D0912D10F5EB005D2E15 /* ThreadSafeSpec.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ThreadSafeSpec.swift; sourceTree = "<group>"; };
 		FD9AECA42AAA9609009B3406 /* NotificationResolution.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NotificationResolution.swift; sourceTree = "<group>"; };
 		FD9DD2702A72516D00ECB68E /* TestExtensions.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TestExtensions.swift; sourceTree = "<group>"; };
+		FDA335F42D911576007E0EB6 /* AnimatedImageView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AnimatedImageView.swift; sourceTree = "<group>"; };
 		FDAA16752AC28A3B00DDBF77 /* UserDefaultsType.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UserDefaultsType.swift; sourceTree = "<group>"; };
 		FDAA167A2AC28E2F00DDBF77 /* SnodeRequestSpec.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SnodeRequestSpec.swift; sourceTree = "<group>"; };
 		FDAA167C2AC528A200DDBF77 /* Preferences+Sound.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Preferences+Sound.swift"; sourceTree = "<group>"; };
@@ -2286,7 +2280,6 @@
 			buildActionMask = 2147483647;
 			files = (
 				FD756BF22D06687800BD7199 /* Lucide in Frameworks */,
-				FD6A396B2C2D284500762359 /* YYImage in Frameworks */,
 				FD2286712C38D43000BC06F7 /* DifferenceKit in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -2295,7 +2288,6 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				FD6A396F2C2E3D4400762359 /* YYImage in Frameworks */,
 				C38EF48A255B7E3F007E1867 /* SessionUIKit.framework in Frameworks */,
 				FD6A39222C2AA91D00762359 /* NVActivityIndicatorView in Frameworks */,
 				FD22866F2C38D42300BC06F7 /* DifferenceKit in Frameworks */,
@@ -2320,10 +2312,8 @@
 			buildActionMask = 2147483647;
 			files = (
 				FD6673F62D7021E700041530 /* SessionUtil in Frameworks */,
-				FD6A39662C2D21E400762359 /* libwebp in Frameworks */,
 				FD6A38EC2C2A63B500762359 /* KeychainSwift in Frameworks */,
 				FD6A38EF2C2A641200762359 /* DifferenceKit in Frameworks */,
-				FD6A396D2C2D284B00762359 /* YYImage in Frameworks */,
 				FD756BEB2D0181D700BD7199 /* GRDB in Frameworks */,
 				FD6A38E92C2A630E00762359 /* CocoaLumberjackSwift in Frameworks */,
 			);
@@ -2348,10 +2338,6 @@
 			files = (
 				FD11E22E2CA4D12C001BAF58 /* WebRTC in Frameworks */,
 				FD11E22D2CA4D12C001BAF58 /* DifferenceKit in Frameworks */,
-				FD11E22C2CA4D12C001BAF58 /* YYImage in Frameworks */,
-				FD11E22B2CA4D12C001BAF58 /* YYImage in Frameworks */,
-				FD11E22A2CA4D12C001BAF58 /* YYImage in Frameworks */,
-				FD11E2292CA4D12C001BAF58 /* YYImage in Frameworks */,
 				B8FF8DAE25C0D00F004D1F22 /* SessionMessagingKit.framework in Frameworks */,
 				B8FF8DAF25C0D00F004D1F22 /* SessionUtilitiesKit.framework in Frameworks */,
 				FDB6A87C2AD75B7F002D4F96 /* PhotosUI.framework in Frameworks */,
@@ -3101,6 +3087,7 @@
 			isa = PBXGroup;
 			children = (
 				942256932C23F8DD00C0FDBF /* SwiftUI */,
+				FDA335F42D911576007E0EB6 /* AnimatedImageView.swift */,
 				B8B5BCEB2394D869003823C9 /* SessionButton.swift */,
 				FD52090228B4680F006098F6 /* RadioButton.swift */,
 				B8BB82B02390C37000BA5194 /* SearchBar.swift */,
@@ -4869,7 +4856,6 @@
 			);
 			name = SessionUIKit;
 			packageProductDependencies = (
-				FD6A396A2C2D284500762359 /* YYImage */,
 				FD2286702C38D43000BC06F7 /* DifferenceKit */,
 				FD756BF12D06687800BD7199 /* Lucide */,
 			);
@@ -4893,7 +4879,6 @@
 			name = SignalUtilitiesKit;
 			packageProductDependencies = (
 				FD6A39212C2AA91D00762359 /* NVActivityIndicatorView */,
-				FD6A396E2C2E3D4400762359 /* YYImage */,
 				FD22866E2C38D42300BC06F7 /* DifferenceKit */,
 			);
 			productName = SignalUtilitiesKit;
@@ -4945,8 +4930,6 @@
 				FD6A38E82C2A630E00762359 /* CocoaLumberjackSwift */,
 				FD6A38EB2C2A63B500762359 /* KeychainSwift */,
 				FD6A38EE2C2A641200762359 /* DifferenceKit */,
-				FD6A39652C2D21E400762359 /* libwebp */,
-				FD6A396C2C2D284B00762359 /* YYImage */,
 				FD756BEA2D0181D700BD7199 /* GRDB */,
 				FD6673F52D7021E700041530 /* SessionUtil */,
 			);
@@ -5008,10 +4991,6 @@
 			);
 			name = Session;
 			packageProductDependencies = (
-				FD6A395B2C2D10C700762359 /* YYImage */,
-				FD6A394E2C2D060C00762359 /* YYImage */,
-				FD6A395B2C2D10C700762359 /* YYImage */,
-				FD6A39682C2D283A00762359 /* YYImage */,
 				FD2286782C38D4FF00BC06F7 /* DifferenceKit */,
 				FDEF57292C3CF50B00131302 /* WebRTC */,
 				FD6DA9CE2D015B440092085A /* Lucide */,
@@ -5238,8 +5217,6 @@
 				FD6A39202C2AA91D00762359 /* XCRemoteSwiftPackageReference "NVActivityIndicatorView" */,
 				FD6A39302C2AD33E00762359 /* XCRemoteSwiftPackageReference "Quick" */,
 				FD6A39392C2AD3A300762359 /* XCRemoteSwiftPackageReference "Nimble" */,
-				FD6A39642C2D21E400762359 /* XCRemoteSwiftPackageReference "libwebp-Xcode" */,
-				FD6A39672C2D283A00762359 /* XCRemoteSwiftPackageReference "session-ios-yyimage" */,
 				FD6DA9D52D017F480092085A /* XCRemoteSwiftPackageReference "session-grdb-swift" */,
 				FD756BEE2D06686500BD7199 /* XCRemoteSwiftPackageReference "session-lucide" */,
 				946F5A712D5DA3AC00A5ADCE /* XCRemoteSwiftPackageReference "PunycodeSwift" */,
@@ -5801,6 +5778,7 @@
 				C331FFB92558FA8D00070591 /* UIView+Constraints.swift in Sources */,
 				FD0B77B029B69A65009169BA /* TopBannerController.swift in Sources */,
 				94E9BC0D2C7BFBDA006984EA /* Localization+Style.swift in Sources */,
+				FDA335F52D91157A007E0EB6 /* AnimatedImageView.swift in Sources */,
 				FD37E9F628A5F106003AE748 /* Configuration.swift in Sources */,
 				FD2272E62C351378004D8A6C /* SUIKImageFormat.swift in Sources */,
 				7BF8D1FB2A70AF57005F1D6E /* SwiftUI+Theme.swift in Sources */,
@@ -10244,22 +10222,6 @@
 				version = 13.3.0;
 			};
 		};
-		FD6A39642C2D21E400762359 /* XCRemoteSwiftPackageReference "libwebp-Xcode" */ = {
-			isa = XCRemoteSwiftPackageReference;
-			repositoryURL = "https://github.com/SDWebImage/libwebp-Xcode.git";
-			requirement = {
-				kind = upToNextMajorVersion;
-				minimumVersion = 1.3.2;
-			};
-		};
-		FD6A39672C2D283A00762359 /* XCRemoteSwiftPackageReference "session-ios-yyimage" */ = {
-			isa = XCRemoteSwiftPackageReference;
-			repositoryURL = "https://github.com/session-foundation/session-ios-yyimage";
-			requirement = {
-				kind = upToNextMajorVersion;
-				minimumVersion = 1.1.0;
-			};
-		};
 		FD6DA9D52D017F480092085A /* XCRemoteSwiftPackageReference "session-grdb-swift" */ = {
 			isa = XCRemoteSwiftPackageReference;
 			repositoryURL = "https://github.com/session-foundation/session-grdb-swift.git";
@@ -10388,39 +10350,6 @@
 			isa = XCSwiftPackageProductDependency;
 			package = FD6A39392C2AD3A300762359 /* XCRemoteSwiftPackageReference "Nimble" */;
 			productName = Nimble;
-		};
-		FD6A394E2C2D060C00762359 /* YYImage */ = {
-			isa = XCSwiftPackageProductDependency;
-			productName = YYImage;
-		};
-		FD6A395B2C2D10C700762359 /* YYImage */ = {
-			isa = XCSwiftPackageProductDependency;
-			productName = YYImage;
-		};
-		FD6A39652C2D21E400762359 /* libwebp */ = {
-			isa = XCSwiftPackageProductDependency;
-			package = FD6A39642C2D21E400762359 /* XCRemoteSwiftPackageReference "libwebp-Xcode" */;
-			productName = libwebp;
-		};
-		FD6A39682C2D283A00762359 /* YYImage */ = {
-			isa = XCSwiftPackageProductDependency;
-			package = FD6A39672C2D283A00762359 /* XCRemoteSwiftPackageReference "session-ios-yyimage" */;
-			productName = YYImage;
-		};
-		FD6A396A2C2D284500762359 /* YYImage */ = {
-			isa = XCSwiftPackageProductDependency;
-			package = FD6A39672C2D283A00762359 /* XCRemoteSwiftPackageReference "session-ios-yyimage" */;
-			productName = YYImage;
-		};
-		FD6A396C2C2D284B00762359 /* YYImage */ = {
-			isa = XCSwiftPackageProductDependency;
-			package = FD6A39672C2D283A00762359 /* XCRemoteSwiftPackageReference "session-ios-yyimage" */;
-			productName = YYImage;
-		};
-		FD6A396E2C2E3D4400762359 /* YYImage */ = {
-			isa = XCSwiftPackageProductDependency;
-			package = FD6A39672C2D283A00762359 /* XCRemoteSwiftPackageReference "session-ios-yyimage" */;
-			productName = YYImage;
 		};
 		FD6DA9CE2D015B440092085A /* Lucide */ = {
 			isa = XCSwiftPackageProductDependency;

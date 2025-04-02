@@ -2,7 +2,6 @@
 
 import UIKit
 import Combine
-import YYImage
 
 public final class ProfilePictureView: UIView {
     public struct Info {
@@ -203,8 +202,8 @@ public final class ProfilePictureView: UIView {
         return result
     }()
     
-    private lazy var animatedImageView: YYAnimatedImageView = {
-        let result: YYAnimatedImageView = YYAnimatedImageView()
+    private lazy var animatedImageView: AnimatedImageView = {
+        let result: AnimatedImageView = AnimatedImageView()
         result.translatesAutoresizingMaskIntoConstraints = false
         result.contentMode = .scaleAspectFill
         result.isHidden = true
@@ -234,8 +233,8 @@ public final class ProfilePictureView: UIView {
         return result
     }()
     
-    private lazy var additionalAnimatedImageView: YYAnimatedImageView = {
-        let result: YYAnimatedImageView = YYAnimatedImageView()
+    private lazy var additionalAnimatedImageView: AnimatedImageView = {
+        let result: AnimatedImageView = AnimatedImageView()
         result.translatesAutoresizingMaskIntoConstraints = false
         result.contentMode = .scaleAspectFill
         result.isHidden = true
@@ -502,9 +501,12 @@ public final class ProfilePictureView: UIView {
         // Populate the main imageView
         switch (info.imageData, info.imageData?.suiKitGuessedImageFormat) {
             case (.some(let data), .gif), (.some(let data), .webp):
-                animatedImageView.image = YYImage(data: data)
+                imageView.image = nil
+                animatedImageView.loadAnimatedImage(from: data)
                 
             case (.some(let data), _):
+                animatedImageView.image = nil
+                
                 switch info.renderingMode {
                     case .automatic: imageView.image = UIImage(data: data)
                     default:
@@ -557,7 +559,7 @@ public final class ProfilePictureView: UIView {
         // Set the additional image content and reposition the image views correctly
         switch (additionalInfo.imageData, additionalInfo.imageData?.suiKitGuessedImageFormat) {
             case (.some(let data), .gif), (.some(let data), .webp):
-                additionalAnimatedImageView.image = YYImage(data: data)
+                additionalAnimatedImageView.loadAnimatedImage(from: data)
                 
             case (.some(let data), _):
                 switch additionalInfo.renderingMode {
