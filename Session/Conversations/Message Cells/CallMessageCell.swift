@@ -23,6 +23,8 @@ final class CallMessageCell: MessageCell {
     private lazy var iconImageViewHeightConstraint: NSLayoutConstraint = iconImageView.set(.height, to: 0)
     private lazy var infoImageViewWidthConstraint: NSLayoutConstraint = infoImageView.set(.width, to: 0)
     private lazy var infoImageViewHeightConstraint: NSLayoutConstraint = infoImageView.set(.height, to: 0)
+    private lazy var failureImageViewWidthConstraint: NSLayoutConstraint = failureImageView.set(.width, to: 0)
+    private lazy var failureImageViewHeightConstraint: NSLayoutConstraint = failureImageView.set(.height, to: 0)
     
     private lazy var iconImageView: UIImageView = UIImageView()
     private lazy var infoImageView: UIImageView = {
@@ -31,6 +33,16 @@ final class CallMessageCell: MessageCell {
                 .withRenderingMode(.alwaysTemplate)
         )
         result.themeTintColor = .textPrimary
+        
+        return result
+    }()
+    
+    private lazy var failureImageView: UIImageView = {
+        let result: UIImageView = UIImageView(
+            image: UIImage(named: "warning")?
+                .withRenderingMode(.alwaysTemplate)
+        )
+        result.themeTintColor = .danger
         
         return result
     }()
@@ -84,6 +96,10 @@ final class CallMessageCell: MessageCell {
         result.addSubview(infoImageView)
         infoImageView.center(.vertical, in: result)
         infoImageView.pin(.right, to: .right, of: result, withInset: -CallMessageCell.inset)
+        
+        result.addSubview(failureImageView)
+        failureImageView.center(.vertical, in: result)
+        failureImageView.pin(.right, to: .right, of: result, withInset: -CallMessageCell.inset)
         
         return result
     }()
@@ -177,6 +193,11 @@ final class CallMessageCell: MessageCell {
         infoImageViewWidthConstraint.constant = (shouldShowInfoIcon ? CallMessageCell.iconSize : 0)
         infoImageViewHeightConstraint.constant = (shouldShowInfoIcon ? CallMessageCell.iconSize : 0)
         
+        let shouldShowErrorIcon: Bool = (cellViewModel.mostRecentFailureText?.isEmpty == false && !shouldShowInfoIcon)
+        failureImageViewWidthConstraint.constant = (shouldShowErrorIcon ? CallMessageCell.iconSize : 0)
+        failureImageViewHeightConstraint.constant = (shouldShowErrorIcon ? CallMessageCell.iconSize : 0)
+            
+        
         label.text = cellViewModel.body
         
         // Timer
@@ -227,7 +248,7 @@ final class CallMessageCell: MessageCell {
             )
         else { return }
         
-        // Should only be tappable if the info icon is visible
+        // Should only be tappable if the info icon is visible, or there is failure text
         guard
             (
                 messageInfo.state == .permissionDenied &&
@@ -235,6 +256,8 @@ final class CallMessageCell: MessageCell {
             ) || (
                 messageInfo.state == .permissionDeniedMicrophone &&
                 Permissions.microphone != .granted
+            ) || (
+                cellViewModel.mostRecentFailureText != nil
             )
         else { return }
         

@@ -34,7 +34,7 @@ extension WebRTCSession {
                                         Log.info(.calls, "Answer message sent")
                                     case .failure(let error):
                                         Log.error(.calls, "Error sending answer message  due to error: \(error)")
-                                        self?.delegate?.handleCallFailed()
+                                        self?.delegate?.handleCallFailed(reason: "Failed to send Answer")
                                 }
                             }
                         )
