@@ -400,13 +400,15 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
                         // Immediately cancel the timer to prevent the timeout being triggered
                         timer.cancel()
                         
-                        // Update the unread count badge
-                        let unreadCount: Int = dependencies[singleton: .storage]
-                            .read { db in try Interaction.fetchAppBadgeUnreadCount(db, using: dependencies) }
-                            .defaulting(to: 0)
-                        
-                        DispatchQueue.main.async(using: dependencies) {
-                            UIApplication.shared.applicationIconBadgeNumber = unreadCount
+                        // Update the app badge in case the unread count changed
+                        if
+                            let unreadCount: Int = dependencies[singleton: .storage].read({ db in
+                                try Interaction.fetchAppBadgeUnreadCount(db, using: dependencies)
+                            })
+                        {
+                            DispatchQueue.main.async(using: dependencies) {
+                                UIApplication.shared.applicationIconBadgeNumber = unreadCount
+                            }
                         }
                         
                         // If we are still running in the background then suspend the network & database
@@ -801,9 +803,11 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
             /// read pools (up to a few seconds), since this read is blocking we want to dispatch it to run async to ensure
             /// we don't block user interaction while it's running
             DispatchQueue.global(qos: .default).async {
-                let unreadCount: Int = dependencies[singleton: .storage]
-                    .read { db in try Interaction.fetchAppBadgeUnreadCount(db, using: dependencies) }
-                    .defaulting(to: 0)
+                guard
+                    let unreadCount: Int = dependencies[singleton: .storage].read({ db in try
+                        Interaction.fetchAppBadgeUnreadCount(db, using: dependencies)
+                    })
+                else { return }
                 
                 DispatchQueue.main.async(using: dependencies) {
                     UIApplication.shared.applicationIconBadgeNumber = unreadCount
