@@ -196,7 +196,6 @@ final class CallMessageCell: MessageCell {
         let shouldShowErrorIcon: Bool = (cellViewModel.mostRecentFailureText?.isEmpty == false && !shouldShowInfoIcon)
         failureImageViewWidthConstraint.constant = (shouldShowErrorIcon ? CallMessageCell.iconSize : 0)
         failureImageViewHeightConstraint.constant = (shouldShowErrorIcon ? CallMessageCell.iconSize : 0)
-            
         
         label.text = cellViewModel.body
         

@@ -883,6 +883,7 @@ extension ConversationVC:
             }
             return
         }
+        guard viewModel.dependencies[singleton: .appContext].frontMostViewController === self else { return }
         UIView.animate(withDuration: 0.25, animations: {
             self.inputAccessoryView?.isHidden = false
             self.inputAccessoryView?.alpha = 1
