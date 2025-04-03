@@ -50,7 +50,7 @@ extension MessageReceiver {
         message: CallMessage,
         using dependencies: Dependencies
     ) throws {
-        Log.info(.calls, "Received pre-offer message.")
+        Log.info(.calls, "Received pre-offer message with uuid: \(message.uuid).")
         
         // Determine whether the app is active based on the prefs rather than the UIApplication state to avoid
         // requiring main-thread execution
@@ -70,6 +70,7 @@ extension MessageReceiver {
         else { return }
         guard let timestampMs = message.sentTimestampMs, TimestampUtils.isWithinOneMinute(timestampMs: timestampMs) else {
             // Add missed call message for call offer messages from more than one minute
+            Log.info(.calls, "Got an expired call offer message with uuid: \(message.uuid). Sent at \(message.sentTimestampMs ?? 0), now is \(Date().timeIntervalSince1970 * 1000)")
             if let interaction: Interaction = try MessageReceiver.insertCallInfoMessage(db, for: message, state: .missed, using: dependencies) {
                 let thread: SessionThread = try SessionThread.upsert(
                     db,
@@ -175,7 +176,7 @@ extension MessageReceiver {
         else { return }
         
         guard sender != dependencies[cache: .general].sessionId.hexString else {
-            guard !currentCall.hasStartedConnecting else { return }
+            guard currentCall.mode == .answer && !currentCall.hasStartedConnecting else { return }
             
             dependencies[singleton: .callManager].dismissAllCallUI()
             dependencies[singleton: .callManager].reportCurrentCallEnded(reason: .answeredElsewhere)
@@ -200,6 +201,7 @@ extension MessageReceiver {
             dependencies[singleton: .callManager].currentWebRTCSessionMatches(callId: message.uuid),
             let currentCall: CurrentCallProtocol = dependencies[singleton: .callManager].currentCall,
             currentCall.uuid == message.uuid,
+            !currentCall.hasEnded,
             let sender: String = message.sender
         else { return }
         

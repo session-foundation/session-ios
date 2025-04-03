@@ -934,25 +934,23 @@ public class ConversationViewModel: OWSAudioPlayerDelegate, NavigatableStateHold
     // MARK: - Functions
     
     public func updateDraft(to draft: String) {
-        let threadId: String = self.threadId
-        let currentDraft: String = dependencies[singleton: .storage]
-            .read { db in
+        /// Kick off an async process to save the `draft` message to the conversation (don't want to block the UI while doing this,
+        /// worst case the `draft` just won't be saved)
+        dependencies[singleton: .storage]
+            .readPublisher { [threadId] db in
                 try SessionThread
                     .select(.messageDraft)
                     .filter(id: threadId)
                     .asRequest(of: String.self)
                     .fetchOne(db)
             }
-            .defaulting(to: "")
-        
-        // Only write the updated draft to the database if it's changed (avoid unnecessary writes)
-        guard draft != currentDraft else { return }
-        
-        dependencies[singleton: .storage].writeAsync { db in
-            try SessionThread
-                .filter(id: threadId)
-                .updateAll(db, SessionThread.Columns.messageDraft.set(to: draft))
-        }
+            .filter { existingDraft -> Bool in draft != existingDraft }
+            .flatMapStorageWritePublisher(using: dependencies) { [threadId] db, _ in
+                try SessionThread
+                    .filter(id: threadId)
+                    .updateAll(db, SessionThread.Columns.messageDraft.set(to: draft))
+            }
+            .sinkUntilComplete()
     }
     
     /// This method indicates whether the client should try to mark the thread or it's messages as read (it's an optimisation for fully read

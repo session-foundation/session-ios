@@ -139,7 +139,6 @@ public class SessionApp: SessionAppType {
     
     public func resetData(onReset: (() -> ())) {
         homeViewController = nil
-        LibSession.clearLoggers()
         dependencies.remove(cache: .libSession)
         dependencies.mutate(cache: .libSessionNetwork) {
             $0.clearSnodeCache()
@@ -152,6 +151,7 @@ public class SessionApp: SessionAppType {
         try? dependencies[singleton: .keychain].removeAll()
         
         onReset()
+        LibSession.clearLoggers()
         Log.info("Data Reset Complete.")
         Log.flush()
         

@@ -75,7 +75,6 @@ class DeveloperSettingsViewModel: SessionTableViewModel, NavigatableStateHolder,
         case resetSnodeCache
         case pushNotificationService
         
-        case updatedDisappearingMessages
         case debugDisappearingMessageDurations
         
         case updatedGroups
@@ -90,6 +89,7 @@ class DeveloperSettingsViewModel: SessionTableViewModel, NavigatableStateHolder,
         case updatedGroupsDeleteBeforeNow
         case updatedGroupsDeleteAttachmentsBeforeNow
         
+        case copyDatabasePath
         case forceSlowDatabaseQueries
         case exportDatabase
         case importDatabase
@@ -113,7 +113,6 @@ class DeveloperSettingsViewModel: SessionTableViewModel, NavigatableStateHolder,
                 case .resetSnodeCache: return "resetSnodeCache"
                 case .pushNotificationService: return "pushNotificationService"
                 
-                case .updatedDisappearingMessages: return "updatedDisappearingMessages"
                 case .debugDisappearingMessageDurations: return "debugDisappearingMessageDurations"
                 
                 case .updatedGroups: return "updatedGroups"
@@ -128,6 +127,7 @@ class DeveloperSettingsViewModel: SessionTableViewModel, NavigatableStateHolder,
                 case .updatedGroupsDeleteBeforeNow: return "updatedGroupsDeleteBeforeNow"
                 case .updatedGroupsDeleteAttachmentsBeforeNow: return "updatedGroupsDeleteAttachmentsBeforeNow"
                 
+                case .copyDatabasePath: return "copyDatabasePath"
                 case .forceSlowDatabaseQueries: return "forceSlowDatabaseQueries"
                 case .exportDatabase: return "exportDatabase"
                 case .importDatabase: return "importDatabase"
@@ -154,7 +154,6 @@ class DeveloperSettingsViewModel: SessionTableViewModel, NavigatableStateHolder,
                 case .resetSnodeCache: result.append(.resetSnodeCache); fallthrough
                 case .pushNotificationService: result.append(.pushNotificationService); fallthrough
                 
-                case .updatedDisappearingMessages: result.append(.updatedDisappearingMessages); fallthrough
                 case .debugDisappearingMessageDurations: result.append(.debugDisappearingMessageDurations); fallthrough
                 
                 case .updatedGroups: result.append(.updatedGroups); fallthrough
@@ -170,6 +169,7 @@ class DeveloperSettingsViewModel: SessionTableViewModel, NavigatableStateHolder,
                 case .updatedGroupsDeleteBeforeNow: result.append(.updatedGroupsDeleteBeforeNow); fallthrough
                 case .updatedGroupsDeleteAttachmentsBeforeNow: result.append(.updatedGroupsDeleteAttachmentsBeforeNow); fallthrough
                 
+                case .copyDatabasePath: result.append(.copyDatabasePath); fallthrough
                 case .forceSlowDatabaseQueries: result.append(.forceSlowDatabaseQueries); fallthrough
                 case .exportDatabase: result.append(.exportDatabase); fallthrough
                 case .importDatabase: result.append(.importDatabase)
@@ -196,7 +196,6 @@ class DeveloperSettingsViewModel: SessionTableViewModel, NavigatableStateHolder,
         let pushNotificationService: PushNotificationAPI.Service
         
         let debugDisappearingMessageDurations: Bool
-        let updatedDisappearingMessages: Bool
         
         let updatedGroups: Bool
         let legacyGroupsDeprecated: Bool
@@ -231,7 +230,6 @@ class DeveloperSettingsViewModel: SessionTableViewModel, NavigatableStateHolder,
                 pushNotificationService: dependencies[feature: .pushNotificationService],
                 
                 debugDisappearingMessageDurations: dependencies[feature: .debugDisappearingMessageDurations],
-                updatedDisappearingMessages: dependencies[feature: .updatedDisappearingMessages],
                 
                 updatedGroups: dependencies[feature: .updatedGroups],
                 legacyGroupsDeprecated: dependencies[feature: .legacyGroupsDeprecated],
@@ -491,23 +489,6 @@ class DeveloperSettingsViewModel: SessionTableViewModel, NavigatableStateHolder,
                             to: !current.debugDisappearingMessageDurations
                         )
                     }
-                ),
-                SessionCell.Info(
-                    id: .updatedDisappearingMessages,
-                    title: "Use Updated Disappearing Messages",
-                    subtitle: """
-                    Controls whether legacy or updated disappearing messages should be used.
-                    """,
-                    trailingAccessory: .toggle(
-                        current.updatedDisappearingMessages,
-                        oldValue: previous?.updatedDisappearingMessages
-                    ),
-                    onTap: { [weak self] in
-                        self?.updateFlag(
-                            for: .updatedDisappearingMessages,
-                            to: !current.updatedDisappearingMessages
-                        )
-                    }
                 )
             ]
         )
@@ -724,6 +705,17 @@ class DeveloperSettingsViewModel: SessionTableViewModel, NavigatableStateHolder,
             model: .database,
             elements: [
                 SessionCell.Info(
+                    id: .copyDatabasePath,
+                    title: "Copy database path",
+                    subtitle: """
+                    Copies the path to the database file (quick way to access it for the simulator for debugging).
+                    """,
+                    trailingAccessory: .highlightingBackgroundLabel(title: "Copy"),
+                    onTap: { [weak self] in
+                        self?.copyDatabasePath()
+                    }
+                ),
+                SessionCell.Info(
                     id: .forceSlowDatabaseQueries,
                     title: "Force slow database queries",
                     subtitle: """
@@ -790,40 +782,108 @@ class DeveloperSettingsViewModel: SessionTableViewModel, NavigatableStateHolder,
         TableItem.allCases.forEach { item in
             switch item {
                 case .developerMode: break      // Not a feature
-                case .animationsEnabled: updateFlag(for: .animationsEnabled, to: nil)
-                case .showStringKeys: updateFlag(for: .showStringKeys, to: nil)
+                case .animationsEnabled:
+                    guard dependencies.hasSet(feature: .animationsEnabled) else { return }
+                    
+                    updateFlag(for: .animationsEnabled, to: nil)
+                    
+                case .showStringKeys:
+                    guard dependencies.hasSet(feature: .showStringKeys) else { return }
+                    
+                    updateFlag(for: .showStringKeys, to: nil)
                 
                 case .resetSnodeCache: break    // Not a feature
+                case .copyDatabasePath: break     // Not a feature
                 case .exportDatabase: break     // Not a feature
                 case .importDatabase: break     // Not a feature
                 case .advancedLogging: break    // Not a feature
                     
-                case .defaultLogLevel: updateDefaulLogLevel(to: nil)
-                case .loggingCategory: resetLoggingCategories()
+                case .defaultLogLevel: updateDefaulLogLevel(to: nil)    // Always reset
+                case .loggingCategory: resetLoggingCategories()         // Always reset
                 
-                case .serviceNetwork: updateServiceNetwork(to: nil)
-                case .forceOffline: updateFlag(for: .forceOffline, to: nil)
-                case .pushNotificationService: updatePushNotificationService(to: nil)
+                case .serviceNetwork:
+                    guard dependencies.hasSet(feature: .serviceNetwork) else { return }
+                    
+                    updateServiceNetwork(to: nil)
+                    
+                case .forceOffline:
+                    guard dependencies.hasSet(feature: .forceOffline) else { return }
+                    
+                    updateFlag(for: .forceOffline, to: nil)
+                    
+                case .pushNotificationService:
+                    guard dependencies.hasSet(feature: .pushNotificationService) else { return }
+                    
+                    updatePushNotificationService(to: nil)
                     
                 case .debugDisappearingMessageDurations:
+                    guard dependencies.hasSet(feature: .debugDisappearingMessageDurations) else { return }
+                    
                     updateFlag(for: .debugDisappearingMessageDurations, to: nil)
-                case .updatedDisappearingMessages: updateFlag(for: .updatedDisappearingMessages, to: nil)
+
+                case .updatedGroups:
+                    guard dependencies.hasSet(feature: .updatedGroups) else { return }
+
+                    updateFlag(for: .updatedGroups, to: nil)
+                
+                case .legacyGroupsDeprecated:
+                    guard dependencies.hasSet(feature: .legacyGroupsDeprecated) else { return }
                     
-                case .updatedGroups: updateFlag(for: .updatedGroups, to: nil)
-                case .legacyGroupsDeprecated: updateLegacyGroupsDeprecated(to: nil)
-                case .updatedGroupsDisableAutoApprove: updateFlag(for: .updatedGroupsDisableAutoApprove, to: nil)
-                case .updatedGroupsRemoveMessagesOnKick: updateFlag(for: .updatedGroupsRemoveMessagesOnKick, to: nil)
+                    updateLegacyGroupsDeprecated(to: nil)
+                    
+                case .updatedGroupsDisableAutoApprove:
+                    guard dependencies.hasSet(feature: .updatedGroupsDisableAutoApprove) else { return }
+                    
+                    updateFlag(for: .updatedGroupsDisableAutoApprove, to: nil)
+                    
+                case .updatedGroupsRemoveMessagesOnKick:
+                    guard dependencies.hasSet(feature: .updatedGroupsRemoveMessagesOnKick) else { return }
+                    
+                    updateFlag(for: .updatedGroupsRemoveMessagesOnKick, to: nil)
+
                 case .updatedGroupsAllowHistoricAccessOnInvite:
-                    updateFlag(for: .updatedGroupsAllowHistoricAccessOnInvite, to: nil)
-                case .updatedGroupsAllowDisplayPicture: updateFlag(for: .updatedGroupsAllowDisplayPicture, to: nil)
-                case .updatedGroupsAllowDescriptionEditing:
-                    updateFlag(for: .updatedGroupsAllowDescriptionEditing, to: nil)
-                case .updatedGroupsAllowPromotions: updateFlag(for: .updatedGroupsAllowPromotions, to: nil)
-                case .updatedGroupsAllowInviteById: updateFlag(for: .updatedGroupsAllowInviteById, to: nil)
-                case .updatedGroupsDeleteBeforeNow: updateFlag(for: .updatedGroupsDeleteBeforeNow, to: nil)
-                case .updatedGroupsDeleteAttachmentsBeforeNow: updateFlag(for: .updatedGroupsDeleteAttachmentsBeforeNow, to: nil)
+                    guard dependencies.hasSet(feature: .updatedGroupsAllowHistoricAccessOnInvite) else {
+                        return
+                    }
                     
-                case .forceSlowDatabaseQueries: updateFlag(for: .forceSlowDatabaseQueries, to: nil)
+                    updateFlag(for: .updatedGroupsAllowHistoricAccessOnInvite, to: nil)
+                    
+                case .updatedGroupsAllowDisplayPicture:
+                    guard dependencies.hasSet(feature: .updatedGroupsAllowDisplayPicture) else { return }
+                    
+                    updateFlag(for: .updatedGroupsAllowDisplayPicture, to: nil)
+                    
+                case .updatedGroupsAllowDescriptionEditing:
+                    guard dependencies.hasSet(feature: .updatedGroupsAllowDescriptionEditing) else { return }
+                    
+                    updateFlag(for: .updatedGroupsAllowDescriptionEditing, to: nil)
+                    
+                case .updatedGroupsAllowPromotions:
+                    guard dependencies.hasSet(feature: .updatedGroupsAllowPromotions) else { return }
+                    
+                    updateFlag(for: .updatedGroupsAllowPromotions, to: nil)
+                    
+                case .updatedGroupsAllowInviteById:
+                    guard dependencies.hasSet(feature: .updatedGroupsAllowInviteById) else { return }
+                    
+                    updateFlag(for: .updatedGroupsAllowInviteById, to: nil)
+                    
+                case .updatedGroupsDeleteBeforeNow:
+                    guard dependencies.hasSet(feature: .updatedGroupsDeleteBeforeNow) else { return }
+                    
+                    updateFlag(for: .updatedGroupsDeleteBeforeNow, to: nil)
+                    
+                case .updatedGroupsDeleteAttachmentsBeforeNow:
+                    guard dependencies.hasSet(feature: .updatedGroupsDeleteAttachmentsBeforeNow) else {
+                        return
+                    }
+                    
+                    updateFlag(for: .updatedGroupsDeleteAttachmentsBeforeNow, to: nil)
+                    
+                case .forceSlowDatabaseQueries:
+                    guard dependencies.hasSet(feature: .forceSlowDatabaseQueries) else { return }
+                    
+                    updateFlag(for: .forceSlowDatabaseQueries, to: nil)
             }
         }
         
@@ -1052,6 +1112,15 @@ class DeveloperSettingsViewModel: SessionTableViewModel, NavigatableStateHolder,
                 )
             ),
             transitionType: .present
+        )
+    }
+    
+    private func copyDatabasePath() {
+        UIPasteboard.general.string = Storage.sharedDatabaseDirectoryPath
+        
+        showToast(
+            text: "copied".localized(),
+            backgroundColor: .backgroundSecondary
         )
     }
     
@@ -1338,12 +1407,12 @@ class DeveloperSettingsViewModel: SessionTableViewModel, NavigatableStateHolder,
                     }
                     
                     /// Need to shut everything down before the swap out the data to prevent crashes
-                    LibSession.clearLoggers()
                     dependencies[singleton: .jobRunner].stopAndClearPendingJobs()
                     dependencies.remove(cache: .libSession)
                     dependencies.mutate(cache: .libSessionNetwork) { $0.suspendNetworkAccess() }
                     dependencies[singleton: .storage].suspendDatabaseAccess()
                     try dependencies[singleton: .storage].closeDatabase()
+                    LibSession.clearLoggers()
                     
                     let deleteEnumerator: FileManager.DirectoryEnumerator? = FileManager.default.enumerator(
                         at: URL(

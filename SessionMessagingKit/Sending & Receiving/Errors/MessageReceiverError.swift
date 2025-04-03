@@ -4,13 +4,13 @@
 
 import Foundation
 
-public enum MessageReceiverError: LocalizedError {
+public enum MessageReceiverError: Error, CustomStringConvertible {
     case duplicateMessage
     case duplicateMessageNewSnode
     case duplicateControlMessage
     case invalidMessage
     case invalidSender
-    case unknownMessage
+    case unknownMessage(SNProtoContent?)
     case unknownEnvelopeType
     case noUserX25519KeyPair
     case noUserED25519KeyPair
@@ -55,14 +55,49 @@ public enum MessageReceiverError: LocalizedError {
         }
     }
 
-    public var errorDescription: String? {
+    public var description: String {
         switch self {
             case .duplicateMessage: return "Duplicate message."
             case .duplicateMessageNewSnode: return "Duplicate message from different service node."
             case .duplicateControlMessage: return "Duplicate control message."
             case .invalidMessage: return "Invalid message."
             case .invalidSender: return "Invalid sender."
-            case .unknownMessage: return "Unknown message type."
+            case .unknownMessage(let content):
+                switch content {
+                    case .none: return "Unknown message type (no content)."
+                    case .some(let content):
+                        let protoInfo: [(String, Bool)] = [
+                            ("hasDataMessage", (content.dataMessage != nil)),
+                            ("hasProfile", (content.dataMessage?.profile != nil)),
+                            ("hasBody", (content.dataMessage?.hasBody == true)),
+                            ("hasAttachments", (content.dataMessage?.attachments.isEmpty == false)),
+                            ("hasReaction", (content.dataMessage?.reaction != nil)),
+                            ("hasQuote", (content.dataMessage?.quote != nil)),
+                            ("hasLinkPreview", (content.dataMessage?.preview != nil)),
+                            ("hasOpenGroupInvitation", (content.dataMessage?.openGroupInvitation != nil)),
+                            ("hasLegacyGroupControlMessage", (content.dataMessage?.closedGroupControlMessage != nil)),
+                            ("hasGroupV2ControlMessage", (content.dataMessage?.groupUpdateMessage != nil)),
+                            ("hasTimestamp", (content.dataMessage?.hasTimestamp == true)),
+                            ("hasSyncTarget", (content.dataMessage?.hasSyncTarget == true)),
+                            ("hasBlocksCommunityMessageRequests", (content.dataMessage?.hasBlocksCommunityMessageRequests == true)),
+                            ("hasCallMessage", (content.callMessage != nil)),
+                            ("hasReceiptMessage", (content.receiptMessage != nil)),
+                            ("hasTypingMessage", (content.typingMessage != nil)),
+                            ("hasDataExtractionMessage", (content.dataExtractionNotification != nil)),
+                            ("hasUnsendRequest", (content.unsendRequest != nil)),
+                            ("hasMessageRequestResponse", (content.messageRequestResponse != nil)),
+                            ("hasExpirationTimer", (content.hasExpirationTimer == true)),
+                            ("hasExpirationType", (content.hasExpirationType == true)),
+                            ("hasSigTimestamp", (content.hasSigTimestamp == true))
+                        ]
+                        
+                        let protoInfoString: String = protoInfo
+                            .filter { _, val in val }
+                            .map { name, _ in name }
+                            .joined(separator: ", ")
+                        return "Unknown message type (\(protoInfoString))."
+                }
+                
             case .unknownEnvelopeType: return "Unknown envelope type."
             case .noUserX25519KeyPair: return "Couldn't find user X25519 key pair."
             case .noUserED25519KeyPair: return "Couldn't find user ED25519 key pair."

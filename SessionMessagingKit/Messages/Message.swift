@@ -354,7 +354,7 @@ public extension Message {
                 return variant.messageType.fromProto(proto, sender: sender, using: dependencies)
             }
         
-        return try decodedMessage ?? { throw MessageReceiverError.unknownMessage }()
+        return try decodedMessage ?? { throw MessageReceiverError.unknownMessage(proto) }()
     }
     
     static func requiresExistingConversation(message: Message, threadVariant: SessionThread.Variant) -> Bool {

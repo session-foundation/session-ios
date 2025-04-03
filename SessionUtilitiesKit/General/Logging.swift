@@ -663,17 +663,20 @@ private class SystemLogger: SystemLoggerType {
     init(category: String) {
         logger = os.Logger(subsystem: SystemLogger.subsystem, category: category)
     }
-    
+
     public func log(_ level: Log.Level, _ log: String) {
+#if DEBUG
+        /// When in debug mode log everything publicly to ensure it comes through both the Xcode debugger and the Console.app
         switch level {
             case .off, .default: return
-            case .verbose: logger.trace("\(log)")
-            case .debug: logger.debug("\(log)")
-            case .info: logger.info("\(log)")
-            case .warn: logger.warning("\(log)")
-            case .error: logger.error("\(log)")
-            case .critical: logger.critical("\(log)")
+            case .verbose: logger.trace("\(log, privacy: .public)")
+            case .debug: logger.debug("\(log, privacy: .public)")
+            case .info: logger.info("\(log, privacy: .public)")
+            case .warn: logger.warning("\(log, privacy: .public)")
+            case .error: logger.error("\(log, privacy: .public)")
+            case .critical: logger.critical("\(log, privacy: .public)")
         }
+#endif
     }
 }
 

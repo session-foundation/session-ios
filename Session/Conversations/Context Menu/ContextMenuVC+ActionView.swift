@@ -161,7 +161,7 @@ extension ContextMenuVC {
         }
         
         @objc private func handleTap() {
-            action.work()
+            action.work() {}
             dismissWithTimerInvalidationIfNeeded()
         }
         

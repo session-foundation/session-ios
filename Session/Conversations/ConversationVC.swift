@@ -227,8 +227,7 @@ final class ConversationVC: BaseVC, LibSessionRespondingViewController, Conversa
                 icon: .close,
                 tintColor: .messageBubble_outgoingText,
                 backgroundColor: .primary,
-                accessibility: Accessibility(label: "Outdated client banner"),
-                labelAccessibility: Accessibility(label: "Outdated client banner text"),
+                labelAccessibility: Accessibility(identifier: "Outdated client banner"),
                 height: 40,
                 onTap: { [weak self] in self?.removeOutdatedClientBanner() }
             )
@@ -246,7 +245,7 @@ final class ConversationVC: BaseVC, LibSessionRespondingViewController, Conversa
                 icon: .none,
                 tintColor: .messageBubble_outgoingText,
                 backgroundColor: .primary,
-                accessibility: Accessibility(label: "Legacy group banner"),
+                labelAccessibility: Accessibility(identifier: "Legacy group banner"),
                 height: nil,
                 onTap: { [weak self] in self?.openUrl(Features.legacyGroupDepricationUrl) }
             )
@@ -268,7 +267,7 @@ final class ConversationVC: BaseVC, LibSessionRespondingViewController, Conversa
                 icon: .none,
                 tintColor: .black,
                 backgroundColor: .explicitPrimary(.orange),
-                accessibility: Accessibility(label: "Expired group banner"),
+                labelAccessibility: Accessibility(identifier: "Expired group banner"),
                 height: nil
             )
         )
@@ -290,15 +289,16 @@ final class ConversationVC: BaseVC, LibSessionRespondingViewController, Conversa
     private lazy var emptyStateLabelContainer: UIView = {
         let result: UIView = UIView()
         result.addSubview(emptyStateLabel)
+        emptyStateLabel.pin(.top, to: .top, of: result)
         emptyStateLabel.pin(.leading, to: .leading, of: result, withInset: Values.largeSpacing)
         emptyStateLabel.pin(.trailing, to: .trailing, of: result, withInset: -Values.largeSpacing)
+        emptyStateLabel.pin(.bottom, to: .bottom, of: result)
         
         return result
     }()
     
     private lazy var emptyStateLabel: UILabel = {
         let result: UILabel = UILabel()
-        result.isAccessibilityElement = true
         result.accessibilityIdentifier = "Control message"
         result.translatesAutoresizingMaskIntoConstraints = false
         result.font = .systemFont(ofSize: Values.verySmallFontSize)
@@ -942,7 +942,7 @@ final class ConversationVC: BaseVC, LibSessionRespondingViewController, Conversa
                 self.viewModel.updateInteractionData(updatedData)
                 
                 // Update the empty state
-                self.emptyStateLabel.isHidden = hasMessages
+                self.emptyStateLabelContainer.isHidden = hasMessages
                 
                 UIView.performWithoutAnimation {
                     self.tableView.reloadData()
@@ -954,7 +954,7 @@ final class ConversationVC: BaseVC, LibSessionRespondingViewController, Conversa
         }
         
         // Update the empty state
-        self.emptyStateLabel.isHidden = hasMessages
+        self.emptyStateLabelContainer.isHidden = hasMessages
         
         // Update the ReactionListSheet (if one exists)
         if let messageUpdates: [MessageViewModel] = updatedData.first(where: { $0.model == .messages })?.elements {
@@ -1360,7 +1360,6 @@ final class ConversationVC: BaseVC, LibSessionRespondingViewController, Conversa
         }
         else {
             let shouldHaveCallButton: Bool = (
-                SessionCall.isEnabled &&
                 (threadData?.threadVariant ?? initialVariant) == .contact &&
                 (threadData?.threadIsNoteToSelf ?? initialIsNoteToSelf) == false &&
                 (threadData?.threadIsBlocked ?? initialIsBlocked) == false

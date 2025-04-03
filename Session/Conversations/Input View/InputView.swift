@@ -303,22 +303,28 @@ final class InputView: UIView, InputViewButtonDelegate, InputTextViewDelegate, M
         // Suggest that the user enable link previews if they haven't already and we haven't
         // told them about link previews yet
         let text = inputTextView.text!
-        let areLinkPreviewsEnabled: Bool = dependencies[singleton: .storage, key: .areLinkPreviewsEnabled]
-        
-        if
-            !LinkPreview.allPreviewUrls(forMessageBodyText: text).isEmpty &&
-            !areLinkPreviewsEnabled &&
-            !dependencies[defaults: .standard, key: .hasSeenLinkPreviewSuggestion]
-        {
-            delegate?.showLinkPreviewSuggestionModal()
-            dependencies[defaults: .standard, key: .hasSeenLinkPreviewSuggestion] = true
-            return
+        DispatchQueue.global(qos: .userInitiated).async { [weak self, dependencies] in
+            let areLinkPreviewsEnabled: Bool = dependencies[singleton: .storage, key: .areLinkPreviewsEnabled]
+            
+            if
+                !LinkPreview.allPreviewUrls(forMessageBodyText: text).isEmpty &&
+                !areLinkPreviewsEnabled &&
+                !dependencies[defaults: .standard, key: .hasSeenLinkPreviewSuggestion]
+            {
+                DispatchQueue.main.async {
+                    self?.delegate?.showLinkPreviewSuggestionModal()
+                }
+                dependencies[defaults: .standard, key: .hasSeenLinkPreviewSuggestion] = true
+                return
+            }
+            // Check that link previews are enabled
+            guard areLinkPreviewsEnabled else { return }
+            
+            // Proceed
+            DispatchQueue.main.async {
+                self?.autoGenerateLinkPreview()
+            }
         }
-        // Check that link previews are enabled
-        guard areLinkPreviewsEnabled else { return }
-        
-        // Proceed
-        autoGenerateLinkPreview()
     }
 
     func autoGenerateLinkPreview() {
@@ -473,6 +479,7 @@ final class InputView: UIView, InputViewButtonDelegate, InputTextViewDelegate, M
         inputTextView.resignFirstResponder()
     }
     
+    @discardableResult
     override func becomeFirstResponder() -> Bool {
         inputTextView.becomeFirstResponder()
     }

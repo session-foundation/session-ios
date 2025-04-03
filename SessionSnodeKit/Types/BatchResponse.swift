@@ -150,6 +150,7 @@ extension Network.BatchSubResponse: Decodable {
 // MARK: - ErasedBatchSubResponse
 
 public protocol ErasedBatchSubResponse: ResponseInfoType {
+    var code: Int { get }
     var erasedBody: Any? { get }
     var failedToParseBody: Bool { get }
 }

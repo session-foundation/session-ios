@@ -16,12 +16,14 @@ class PrivacySettingsViewModel: SessionTableViewModel, NavigationItemSource, Nav
     public let state: TableDataState<Section, TableItem> = TableDataState()
     public let observableState: ObservableTableSourceState<Section, TableItem> = ObservableTableSourceState()
     private let shouldShowCloseButton: Bool
+    private let shouldAutomaticallyShowCallModal: Bool
     
     // MARK: - Initialization
     
-    init(shouldShowCloseButton: Bool = false, using dependencies: Dependencies) {
+    init(shouldShowCloseButton: Bool = false, shouldAutomaticallyShowCallModal: Bool = false, using dependencies: Dependencies) {
         self.dependencies = dependencies
         self.shouldShowCloseButton = shouldShowCloseButton
+        self.shouldAutomaticallyShowCallModal = shouldAutomaticallyShowCallModal
     }
     
     // MARK: - Config
@@ -53,13 +55,16 @@ class PrivacySettingsViewModel: SessionTableViewModel, NavigationItemSource, Nav
     }
     
     public enum TableItem: Differentiable {
+        case calls
+        case microphone
+        case camera
+        case localNetwork
         case screenLock
         case communityMessageRequests
         case screenshotNotifications
         case readReceipts
         case typingIndicators
         case linkPreviews
-        case calls
     }
     
     // MARK: - Navigation
@@ -85,6 +90,7 @@ class PrivacySettingsViewModel: SessionTableViewModel, NavigationItemSource, Nav
         let typingIndicatorsEnabled: Bool
         let areLinkPreviewsEnabled: Bool
         let areCallsEnabled: Bool
+        let localNetworkPermission: Bool
     }
     
     let title: String = "sessionPrivacy".localized()
@@ -97,11 +103,157 @@ class PrivacySettingsViewModel: SessionTableViewModel, NavigationItemSource, Nav
                 areReadReceiptsEnabled: db[.areReadReceiptsEnabled],
                 typingIndicatorsEnabled: db[.typingIndicatorsEnabled],
                 areLinkPreviewsEnabled: db[.areLinkPreviewsEnabled],
-                areCallsEnabled: db[.areCallsEnabled]
+                areCallsEnabled: db[.areCallsEnabled],
+                localNetworkPermission: db[.lastSeenHasLocalNetworkPermission]
             )
         }
         .mapWithPrevious { [dependencies] previous, current -> [SectionModel] in
             return [
+                SectionModel(
+                    model: .calls,
+                    elements: [
+                        SessionCell.Info(
+                            id: .calls,
+                            title: "callsVoiceAndVideo".localized(),
+                            subtitle: "callsVoiceAndVideoToggleDescription".localized(),
+                            trailingAccessory: .toggle(
+                                current.areCallsEnabled,
+                                oldValue: (previous ?? current).areCallsEnabled,
+                                accessibility: Accessibility(
+                                    identifier: "Voice and Video Calls - Switch"
+                                )
+                            ),
+                            accessibility: Accessibility(
+                                label: "Allow voice and video calls"
+                            ),
+                            confirmationInfo: ConfirmationModal.Info(
+                                title: "callsVoiceAndVideoBeta".localized(),
+                                body: .text("callsVoiceAndVideoModalDescription".localized()),
+                                showCondition: .disabled,
+                                confirmTitle: "theContinue".localized(),
+                                confirmStyle: .danger,
+                                cancelStyle: .alert_text,
+                                onConfirm: { _ in
+                                    Permissions.requestPermissionsForCalls(using: dependencies)
+                                }
+                            ),
+                            onTap: { [weak self] in
+                                dependencies[singleton: .storage].write { db in
+                                    try db.setAndUpdateConfig(
+                                        .areCallsEnabled,
+                                        to: !db[.areCallsEnabled],
+                                        using: dependencies
+                                    )
+                                }
+                            }
+                        )
+                    ].appending(
+                        contentsOf: (
+                            !current.areCallsEnabled ? nil :
+                                [
+                                    SessionCell.Info(
+                                        id: .microphone,
+                                        title: "permissionsMicrophone".localized(),
+                                        subtitle: "permissionsMicrophoneDescriptionIos".localized(),
+                                        trailingAccessory: .toggle(
+                                            Permissions.microphone == .granted,
+                                            oldValue: Permissions.microphone == .granted,
+                                            accessibility: Accessibility(
+                                                identifier: "Microphone Permission - Switch"
+                                            )
+                                        ),
+                                        accessibility: Accessibility(
+                                            label: "Grant microphone permission"
+                                        ),
+                                        confirmationInfo: ConfirmationModal.Info(
+                                            title: (
+                                                current.localNetworkPermission ?
+                                                "permissionChange".localized() :
+                                                "permissionsRequired".localized()
+                                            ),
+                                            body: .text(
+                                                (
+                                                    current.localNetworkPermission ?
+                                                    "permissionsMicrophoneChangeDescriptionIos".localized() :
+                                                    "permissionsMicrophoneAccessRequiredCallsIos".localized()
+                                                )
+                                            ),
+                                            confirmTitle: "sessionSettings".localized(),
+                                            onConfirm: { _ in
+                                                UIApplication.shared.openSystemSettings()
+                                            }
+                                        )
+                                    ),
+                                    SessionCell.Info(
+                                        id: .camera,
+                                        title: "contentDescriptionCamera".localized(),
+                                        subtitle: "permissionsCameraDescriptionIos".localized(),
+                                        trailingAccessory: .toggle(
+                                            Permissions.camera == .granted,
+                                            oldValue: Permissions.camera == .granted,
+                                            accessibility: Accessibility(
+                                                identifier: "Camera Permission - Switch"
+                                            )
+                                        ),
+                                        accessibility: Accessibility(
+                                            label: "Grant camera permission"
+                                        ),
+                                        confirmationInfo: ConfirmationModal.Info(
+                                            title: (
+                                                current.localNetworkPermission ?
+                                                "permissionChange".localized() :
+                                                "permissionsRequired".localized()
+                                            ),
+                                            body: .text(
+                                                (
+                                                    current.localNetworkPermission ?
+                                                    "permissionsCameraChangeDescriptionIos".localized() :
+                                                    "permissionsCameraAccessRequiredCallsIos".localized()
+                                                )
+                                            ),
+                                            confirmTitle: "sessionSettings".localized(),
+                                            onConfirm: { _ in
+                                                UIApplication.shared.openSystemSettings()
+                                            }
+                                        )
+                                    ),
+                                    SessionCell.Info(
+                                        id: .localNetwork,
+                                        title: "permissionsLocalNetworkIos".localized(),
+                                        subtitle: "permissionsLocalNetworkDescriptionIos".localized(),
+                                        trailingAccessory: .toggle(
+                                            current.localNetworkPermission,
+                                            oldValue: (previous ?? current).localNetworkPermission,
+                                            accessibility: Accessibility(
+                                                identifier: "Local Network Permission - Switch"
+                                            )
+                                        ),
+                                        accessibility: Accessibility(
+                                            label: "Grant local network permission"
+                                        ),
+                                        confirmationInfo: ConfirmationModal.Info(
+                                            title: (
+                                                current.localNetworkPermission ?
+                                                "permissionChange".localized() :
+                                                "permissionsRequired".localized()
+                                            ),
+                                            body: .text(
+                                                (
+                                                    current.localNetworkPermission ?
+                                                    "permissionsLocalNetworkChangeDescriptionIos".localized() :
+                                                    "permissionsLocalNetworkAccessRequiredCallsIos".localized()
+                                                )
+                                            ),
+                                            confirmTitle: "sessionSettings".localized(),
+                                            onConfirm: { _ in
+                                                UIApplication.shared.openSystemSettings()
+                                            }
+                                        )
+                                    )
+                                ]
+                        )
+                    )
+                ),
                 SectionModel(
                     model: .screenSecurity,
                     elements: [
@@ -284,45 +436,33 @@ class PrivacySettingsViewModel: SessionTableViewModel, NavigationItemSource, Nav
                             }
                         )
                     ]
-                ),
-                SectionModel(
-                    model: .calls,
-                    elements: [
-                        SessionCell.Info(
-                            id: .calls,
-                            title: "callsVoiceAndVideo".localized(),
-                            subtitle: "callsVoiceAndVideoToggleDescription".localized(),
-                            trailingAccessory: .toggle(
-                                current.areCallsEnabled,
-                                oldValue: previous?.areCallsEnabled,
-                                accessibility: Accessibility(
-                                    identifier: "Voice and Video Calls - Switch"
-                                )
-                            ),
-                            accessibility: Accessibility(
-                                label: "Allow voice and video calls"
-                            ),
-                            confirmationInfo: ConfirmationModal.Info(
-                                title: "callsVoiceAndVideoBeta".localized(),
-                                body: .text("callsVoiceAndVideoModalDescription".localized()),
-                                showCondition: .disabled,
-                                confirmTitle: "theContinue".localized(),
-                                confirmStyle: .danger,
-                                cancelStyle: .alert_text,
-                                onConfirm: { _ in Permissions.requestMicrophonePermissionIfNeeded(using: dependencies) }
-                            ),
-                            onTap: {
-                                dependencies[singleton: .storage].write { db in
-                                    try db.setAndUpdateConfig(
-                                        .areCallsEnabled,
-                                        to: !db[.areCallsEnabled],
-                                        using: dependencies
-                                    )
-                                }
-                            }
-                        )
-                    ]
                 )
             ]
         }
+    
+    func onAppear(targetViewController: BaseVC) {
+        if self.shouldAutomaticallyShowCallModal {
+            let confirmationModal: ConfirmationModal = ConfirmationModal(
+                info: ConfirmationModal.Info(
+                    title: "callsVoiceAndVideoBeta".localized(),
+                    body: .text("callsVoiceAndVideoModalDescription".localized()),
+                    showCondition: .disabled,
+                    confirmTitle: "theContinue".localized(),
+                    confirmStyle: .danger,
+                    cancelStyle: .alert_text,
+                    onConfirm: { [dependencies] _ in
+                        Permissions.requestPermissionsForCalls(using: dependencies)
+                        dependencies[singleton: .storage].write { db in
+                            try db.setAndUpdateConfig(
+                                .areCallsEnabled,
+                                to: !db[.areCallsEnabled],
+                                using: dependencies
+                            )
+                        }
+                    }
+                )
+            )
+            targetViewController.present(confirmationModal, animated: true, completion: nil)
+        }
+    }
 }

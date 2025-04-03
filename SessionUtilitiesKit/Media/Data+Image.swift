@@ -3,7 +3,6 @@
 import UIKit
 import ImageIO
 import UniformTypeIdentifiers
-import libwebp
 
 public extension Data {
     private struct ImageDimensions {
@@ -83,26 +82,37 @@ public extension Data {
     }
     
     var sizeForWebpData: CGSize {
-        withUnsafeBytes { (unsafeBytes: UnsafeRawBufferPointer) -> CGSize in
-            guard let bytes: UnsafePointer<UInt8> = unsafeBytes.bindMemory(to: UInt8.self).baseAddress else {
-                return .zero
-            }
-            
-            var webPData: WebPData = WebPData()
-            webPData.bytes = bytes
-            webPData.size = unsafeBytes.count
-            
-            guard let demuxer: OpaquePointer = WebPDemux(&webPData) else { return .zero }
-            
-            let canvasWidth: UInt32 = WebPDemuxGetI(demuxer, WEBP_FF_CANVAS_WIDTH)
-            let canvasHeight: UInt32 = WebPDemuxGetI(demuxer, WEBP_FF_CANVAS_HEIGHT)
-            let frameCount: UInt32 = WebPDemuxGetI(demuxer, WEBP_FF_FRAME_COUNT)
-            WebPDemuxDelete(demuxer)
-            
-            guard canvasWidth > 0 && canvasHeight > 0 && frameCount > 0 else { return .zero }
-            
-            return CGSize(width: Int(canvasWidth), height: Int(canvasHeight))
+        guard let source: CGImageSource = CGImageSourceCreateWithData(self as CFData, nil) else {
+            return .zero
         }
+        
+        // Check if there's at least one image
+        let count: Int = CGImageSourceGetCount(source)
+        guard count > 0 else {
+            return .zero
+        }
+        
+        // Get properties of the first frame
+        guard let properties: [CFString: Any] = CGImageSourceCopyPropertiesAtIndex(source, 0, nil) as? [CFString: Any] else {
+            return .zero
+        }
+        
+        // Try to get dimensions from properties
+        if
+            let width: Int = properties[kCGImagePropertyPixelWidth] as? Int,
+            let height: Int = properties[kCGImagePropertyPixelHeight] as? Int,
+            width > 0,
+            height > 0
+        {
+            return CGSize(width: width, height: height)
+        }
+        
+        // If we can't get dimensions from properties, try creating an image
+        if let image: CGImage = CGImageSourceCreateImageAtIndex(source, 0, nil) {
+            return CGSize(width: image.width, height: image.height)
+        }
+        
+        return .zero
     }
     
     // MARK: - Initialization

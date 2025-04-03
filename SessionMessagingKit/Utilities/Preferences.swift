@@ -76,6 +76,10 @@ public extension Setting.BoolKey {
     /// Controls whether developer mode is enabled (this displays a section within the Settings screen which allows manual control of feature flags
     /// and system settings for better debugging)
     static let developerModeEnabled: Setting.BoolKey = "developerModeEnabled"
+    
+    /// There is no native api to get local network permission, so we need to modify the state and store in database to update UI accordingly.
+    /// Remove this in the future if Apple provides native api
+    static let lastSeenHasLocalNetworkPermission: Setting.BoolKey = "lastSeenHasLocalNetworkPermission"
 }
 
 // stringlint:ignore_contents

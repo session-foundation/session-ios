@@ -58,7 +58,7 @@ open class Storage {
     /// take a long time then we should probably be handling it asynchronously rather than a synchronous way)
     private static let transactionDeadlockTimeoutSeconds: Int = 5
     
-    private static var sharedDatabaseDirectoryPath: String { "\(SessionFileManager.nonInjectedAppSharedDataDirectoryPath)/database" }
+    public static var sharedDatabaseDirectoryPath: String { "\(SessionFileManager.nonInjectedAppSharedDataDirectoryPath)/database" }
     private static var databasePath: String { "\(Storage.sharedDatabaseDirectoryPath)/\(Storage.dbFileName)" }
     private static var databasePathShm: String { "\(Storage.sharedDatabaseDirectoryPath)/\(Storage.dbFileName)-shm" }
     private static var databasePathWal: String { "\(Storage.sharedDatabaseDirectoryPath)/\(Storage.dbFileName)-wal" }
@@ -578,7 +578,10 @@ open class Storage {
             switch error {
                 case DatabaseError.SQLITE_ABORT, DatabaseError.SQLITE_INTERRUPT, DatabaseError.SQLITE_ERROR:
                     let message: String = ((error as? DatabaseError)?.message ?? "Unknown")
-                    Log.error(.storage, "Database \(action) failed due to error: \(message) - [ \(info.callInfo) ]")
+                    Log.error(.storage, "Database \(action) failed due to error: \(message)")
+                    
+                case StorageError.databaseInvalid:
+                    Log.error(.storage, "Database \(action) failed as the database is invalid.")
                 
                 case StorageError.databaseInvalid:
                     Log.error(.storage, "Database \(action) failed as the database is invalid - [ \(info.callInfo) ]")

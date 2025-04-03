@@ -78,7 +78,7 @@ extension SessionCallManager: CXProviderDelegate {
         guard let call: SessionCall = (self.currentCall as? SessionCall) else { return }
         
         call.webRTCSession.audioSessionDidActivate(audioSession)
-        if call.isOutgoing && !call.hasConnected { CallRingTonePlayer.shared.startPlayingRingTone() }
+        if call.mode == .offer && !call.hasConnected { CallRingTonePlayer.shared.startPlayingRingTone() }
     }
     
     public func provider(_ provider: CXProvider, didDeactivate audioSession: AVAudioSession) {
