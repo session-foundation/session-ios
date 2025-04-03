@@ -520,7 +520,7 @@ public final class SessionCall: CurrentCallProtocol, WebRTCSessionDelegate {
             self?.didTimeout = true
             
             dependencies[singleton: .callManager].endCall(self) { error in
-                self?.timeOutTimer = nil
+                self?.invalidateTimeoutTimer()
             }
         }
     }
@@ -626,14 +626,19 @@ extension SessionCall {
         connectionStepsRecord[step.index] = true
         while let nextStep = currentConnectionStep.nextStep, connectionStepsRecord[nextStep.index] {
             currentConnectionStep = nextStep
-            DispatchQueue.main.async {
+            DispatchQueue.main.async { [dependencies] in
+                guard
+                    dependencies[singleton: .appContext].isMainAppAndActive &&
+                    dependencies[singleton: .appContext].frontMostViewController is CallVC
+                else {
+                    return
+                }
                 self.updateCallDetailedStatus?(
                     self.mode == .offer ?
                     SessionCall.call_connection_steps_sender[self.currentConnectionStep.index] :
                     SessionCall.call_connection_steps_receiver[self.currentConnectionStep.index]
                 )
             }
-            
         }
     }
 }

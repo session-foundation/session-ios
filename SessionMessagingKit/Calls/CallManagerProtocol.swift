@@ -28,7 +28,7 @@ public protocol CallManagerProtocol {
     func answerCall(_ call: CurrentCallProtocol?, completion: ((Error?) -> Void)?)
     func endCall(_ call: CurrentCallProtocol?, completion: ((Error?) -> Void)?)
     
-    func showCallUIForCall(caller: String, uuid: String, mode: CallMode, interactionId: Int64?)
+    func showCallUIForCall(caller: String, uuid: String, mode: CallMode)
     func handleICECandidates(message: CallMessage, sdpMLineIndexes: [UInt32], sdpMids: [String])
     func handleAnswerMessage(_ message: CallMessage)
     

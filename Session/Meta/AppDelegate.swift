@@ -967,13 +967,12 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
             return
         }
         
-        // FIXME: Handle more gracefully
-        guard let presentingVC = dependencies[singleton: .appContext].frontMostViewController else { preconditionFailure() }
+        guard let currentFrontMostViewController: UIViewController = dependencies[singleton: .appContext].frontMostViewController else { preconditionFailure() }
         
         let callVC: CallVC = CallVC(for: call, using: dependencies)
         
         if
-            let conversationVC: ConversationVC = (presentingVC as? TopBannerController)?.wrappedViewController() as? ConversationVC,
+            let conversationVC: ConversationVC = currentFrontMostViewController as? ConversationVC,
             conversationVC.viewModel.threadData.threadId == call.sessionId
         {
             callVC.conversationVC = conversationVC
@@ -981,7 +980,7 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
             conversationVC.hideInputAccessoryView()
         }
         
-        presentingVC.present(callVC, animated: true, completion: nil)
+        currentFrontMostViewController.present(callVC, animated: true, completion: nil)
     }
 }
 
