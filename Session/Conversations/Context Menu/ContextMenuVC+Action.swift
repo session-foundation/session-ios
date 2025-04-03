@@ -167,10 +167,7 @@ extension ContextMenuVC {
     
     static func viewModelCanReply(_ cellViewModel: MessageViewModel, using dependencies: Dependencies) -> Bool {
         return (
-            (
-                cellViewModel.threadVariant != .legacyGroup ||
-                !dependencies[feature: .legacyGroupsDeprecated]
-            ) && (
+            cellViewModel.threadVariant != .legacyGroup && (
                 cellViewModel.variant == .standardIncoming || (
                     cellViewModel.variant == .standardOutgoing &&
                     cellViewModel.state != .failed &&
@@ -202,10 +199,7 @@ extension ContextMenuVC {
         }
         
         let canRetry: Bool = (
-            (
-                cellViewModel.threadVariant != .legacyGroup ||
-                !dependencies[feature: .legacyGroupsDeprecated]
-            ) &&
+            cellViewModel.threadVariant != .legacyGroup &&
             cellViewModel.variant == .standardOutgoing && (
                 cellViewModel.state == .failed || (
                     cellViewModel.threadVariant == .contact &&
@@ -256,10 +250,7 @@ extension ContextMenuVC {
             )
         )
         let shouldShowEmojiActions: Bool = {
-            guard
-                cellViewModel.threadVariant != .legacyGroup ||
-                !dependencies[feature: .legacyGroupsDeprecated]
-            else { return false }
+            guard cellViewModel.threadVariant != .legacyGroup else { return false }
             
             if cellViewModel.threadVariant == .community {
                 return (

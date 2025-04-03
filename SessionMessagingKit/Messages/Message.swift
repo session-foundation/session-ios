@@ -733,22 +733,6 @@ public extension Message {
         
         switch processedMessage {
             case .standard(let threadId, let threadVariant, _, let messageInfo):
-                /// **Note:** We want to immediately handle any `ClosedGroupControlMessage` with the kind `encryptionKeyPair` as
-                /// we need the keyPair in storage in order to be able to parse and messages which were signed with the new key (also no need to add
-                /// these as jobs as they will be fully handled in here)
-                if
-                    let controlMessage = messageInfo.message as? ClosedGroupControlMessage,
-                    case .encryptionKeyPair = controlMessage.kind
-                {
-                    try MessageReceiver.handleLegacyClosedGroupControlMessage(
-                        db,
-                        threadId: threadId,
-                        threadVariant: threadVariant,
-                        message: controlMessage,
-                        using: dependencies
-                    )
-                }
-                
                 // Prevent ControlMessages from being handled multiple times if not supported
                 do {
                     try ControlMessageProcessRecord(

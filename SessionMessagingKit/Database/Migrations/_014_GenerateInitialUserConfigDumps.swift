@@ -318,69 +318,12 @@ enum _014_GenerateInitialUserConfigDumps: Migration {
             FROM groupMember
             WHERE groupId IN (\(legacyGroupIds.map { "'\($0)'" }.joined(separator: ", ")))
         """)
-        let groupedLegacyGroupMembers: [String: [LibSession.LegacyGroupMemberInfo]] = allLegacyGroupMembers
-            .reduce(into: [:]) { result, next in
-                let groupId: String = next["groupId"]
-                result[groupId] = (result[groupId] ?? []).appending(
-                    LibSession.LegacyGroupMemberInfo(
-                        profileId: next["profileId"],
-                        rawRole: next["role"]
-                    )
-                )
-            }
         let communityInfo: [Row] = try Row.fetchAll(db, sql: """
             SELECT threadId, server, roomToken, publicKey
             FROM openGroup
             WHERE threadId IN (\(allThreads.keys.map { "'\($0)'" }.joined(separator: ", ")))
         """)
         
-        try LibSession.upsert(
-            legacyGroups: legacyGroupInfo.compactMap { info -> LibSession.LegacyGroupInfo? in
-                let id: String = info["threadId"]
-                var lastKeyPair: LibSession.LastKeyPairInfo?
-                var disappearingInfo: LibSession.DisappearingMessageInfo?
-                
-                if
-                    let publicKey: Data = info["publicKey"],
-                    let secretKey: Data = info["secretKey"],
-                    let receivedTimestamp: TimeInterval = info["receivedTimestamp"]
-                {
-                    lastKeyPair = LibSession.LastKeyPairInfo(
-                        publicKey: publicKey,
-                        secretKey: secretKey,
-                        receivedTimestamp: receivedTimestamp
-                    )
-                }
-                
-                if
-                    let isEnabled: Bool = info["isEnabled"],
-                    let durationSeconds: Int64 = info["durationSeconds"]
-                {
-                    disappearingInfo = LibSession.DisappearingMessageInfo(
-                        isEnabled: isEnabled,
-                        durationSeconds: durationSeconds,
-                        rawType: nil
-                    )
-                }
-                
-                return LibSession.LegacyGroupInfo(
-                    id: id,
-                    name: info["name"],
-                    lastKeyPair: lastKeyPair,
-                    disappearingMessageInfo: disappearingInfo,
-                    groupMembers: groupedLegacyGroupMembers[id]?.filter {
-                        $0.rawRole == GroupMember.Role.standard.rawValue ||
-                        $0.rawRole == GroupMember.Role.zombie.rawValue
-                    },
-                    groupAdmins: groupedLegacyGroupMembers[id]?.filter {
-                        $0.rawRole == GroupMember.Role.admin.rawValue
-                    },
-                    priority: info["pinnedPriority"],
-                    joinedAt: info["formationTimestamp"]
-                )
-            },
-            in: userGroupsConfig
-        )
         try LibSession.upsert(
             communities: communityInfo.compactMap { info in
                 let threadId: String = info["threadId"]

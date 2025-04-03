@@ -21,6 +21,7 @@ public enum MessageSenderError: Error, CustomStringConvertible, Equatable {
     case noKeyPair
     case invalidClosedGroupUpdate
     case invalidConfigMessageHandling
+    case deprecatedLegacyGroup
     
     case other(Log.Category?, String, Error)
 
@@ -51,6 +52,7 @@ public enum MessageSenderError: Error, CustomStringConvertible, Equatable {
             case .noKeyPair: return "Couldn't find a private key associated with the given group public key (MessageSenderError.noKeyPair)."
             case .invalidClosedGroupUpdate: return "Invalid group update (MessageSenderError.invalidClosedGroupUpdate)."
             case .invalidConfigMessageHandling: return "Invalid handling of a config message (MessageSenderError.invalidConfigMessageHandling)."
+            case .deprecatedLegacyGroup: return "Tried to send a message for a deprecated legacy group (MessageSenderError.deprecatedLegacyGroup)."
             case .other(_, _, let error): return "\(error)"
         }
     }
@@ -68,6 +70,7 @@ public enum MessageSenderError: Error, CustomStringConvertible, Equatable {
             case (.noThread, .noThread): return true
             case (.noKeyPair, .noKeyPair): return true
             case (.invalidClosedGroupUpdate, .invalidClosedGroupUpdate): return true
+            case (.deprecatedLegacyGroup, .deprecatedLegacyGroup): return true
             case (.blindingFailed, .blindingFailed): return true
             
             case (.other(_, let lhsDescription, let lhsError), .other(_, let rhsDescription, let rhsError)):

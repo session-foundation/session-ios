@@ -17,8 +17,7 @@ extension MessageReceiver {
     ) throws {
         guard proto.hasExpirationType || proto.hasExpirationTimer else { return }
         guard
-            threadVariant != .community,
-            threadVariant != .group,    // Handled via the GROUP_INFO config instead
+            threadVariant == .contact,    // Groups are handled via the GROUP_INFO config instead
             let sender: String = message.sender,
             let timestampMs: UInt64 = message.sentTimestampMs
         else { return }
@@ -38,53 +37,23 @@ extension MessageReceiver {
             type: disappearingType
         )
         
-        // Contacts & legacy closed groups need to update the SessionUtil
-        switch threadVariant {
-            case .legacyGroup:
-                // Only change the config when it is changed from the admin
-                if
-                    localConfig != updatedConfig &&
-                    GroupMember
-                        .filter(GroupMember.Columns.groupId == threadId)
-                        .filter(GroupMember.Columns.profileId == sender)
-                        .filter(GroupMember.Columns.role == GroupMember.Role.admin)
-                        .isNotEmpty(db)
-                {
-                    _ = try updatedConfig.upsert(db)
-                    
-                    try LibSession
-                        .update(
-                            db,
-                            legacyGroupSessionId: threadId,
-                            disappearingConfig: updatedConfig,
-                            using: dependencies
-                        )
-                }
-                fallthrough // Fallthrough to insert the control message
-                
-            case .contact:
-                // Handle Note to Self:
-                // We sync disappearing messages config through shared config message only.
-                // If the updated config from this message is different from local config,
-                // this control message should already be removed.
-                if threadId == dependencies[cache: .general].sessionId.hexString && updatedConfig != localConfig {
-                    return
-                }
-                
-                _ = try updatedConfig.insertControlMessage(
-                    db,
-                    threadVariant: threadVariant,
-                    authorId: sender,
-                    timestampMs: Int64(timestampMs),
-                    serverHash: message.serverHash,
-                    serverExpirationTimestamp: serverExpirationTimestamp,
-                    using: dependencies
-                )
-            
-            // For updated groups we want to only rely on the `GROUP_INFO` config message to
-            // control the disappearing messages setting
-            case .group, .community: break
+        // Handle Note to Self:
+        // We sync disappearing messages config through shared config message only.
+        // If the updated config from this message is different from local config,
+        // this control message should already be removed.
+        if threadId == dependencies[cache: .general].sessionId.hexString && updatedConfig != localConfig {
+            return
         }
+        
+        _ = try updatedConfig.insertControlMessage(
+            db,
+            threadVariant: threadVariant,
+            authorId: sender,
+            timestampMs: Int64(timestampMs),
+            serverHash: message.serverHash,
+            serverExpirationTimestamp: serverExpirationTimestamp,
+            using: dependencies
+        )
     }
     
     public static func updateContactDisappearingMessagesVersionIfNeeded(
