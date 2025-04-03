@@ -478,10 +478,15 @@ public final class NotificationServiceExtension: UNNotificationServiceExtension 
         switch resolution {
             case .ignoreDueToMainAppRunning: break
             default:
-                silentContent.badge = dependencies[singleton: .storage]
-                    .read { [dependencies] db in try Interaction.fetchAppBadgeUnreadCount(db, using: dependencies) }
-                    .map { NSNumber(value: $0) }
-                    .defaulting(to: NSNumber(value: 0))
+                /// Update the app badge in case the unread count changed
+                if
+                    let unreadCount: Int = dependencies[singleton: .storage].read({ [dependencies] db in
+                        try Interaction.fetchAppBadgeUnreadCount(db, using: dependencies)
+                    })
+                {
+                    silentContent.badge = NSNumber(value: unreadCount)
+                }
+                
                 dependencies[singleton: .storage].suspendDatabaseAccess()
         }
         
@@ -545,9 +550,11 @@ public final class NotificationServiceExtension: UNNotificationServiceExtension 
         let notificationContent = UNMutableNotificationContent()
         notificationContent.userInfo = [ NotificationServiceExtension.isFromRemoteKey : true ]
         notificationContent.title = Constants.app_name
-        notificationContent.badge = (try? Interaction.fetchAppBadgeUnreadCount(db, using: dependencies))
-            .map { NSNumber(value: $0) }
-            .defaulting(to: NSNumber(value: 0))
+        
+        /// Update the app badge in case the unread count changed
+        if let unreadCount: Int = try? Interaction.fetchAppBadgeUnreadCount(db, using: dependencies) {
+            notificationContent.badge = NSNumber(value: unreadCount)
+        }
         
         if let sender: String = callMessage.sender {
             let senderDisplayName: String = Profile.displayName(db, id: sender, threadVariant: .contact, using: dependencies)

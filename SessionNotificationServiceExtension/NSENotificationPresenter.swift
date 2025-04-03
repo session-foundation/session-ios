@@ -89,9 +89,11 @@ public class NSENotificationPresenter: NotificationsManagerType {
         notificationContent.sound = thread.notificationSound
             .defaulting(to: db[.defaultNotificationSound] ?? Preferences.Sound.defaultNotificationSound)
             .notificationSound(isQuiet: false)
-        notificationContent.badge = (try? Interaction.fetchAppBadgeUnreadCount(db, using: dependencies))
-            .map { NSNumber(value: $0) }
-            .defaulting(to: NSNumber(value: 0))
+        
+        /// Update the app badge in case the unread count changed
+        if let unreadCount: Int = try? Interaction.fetchAppBadgeUnreadCount(db, using: dependencies) {
+            notificationContent.badge = NSNumber(value: unreadCount)
+        }
         
         // Title & body
         let previewType: Preferences.NotificationPreviewType = db[.preferencesNotificationPreviewType]
@@ -198,9 +200,11 @@ public class NSENotificationPresenter: NotificationsManagerType {
         notificationContent.sound = thread.notificationSound
             .defaulting(to: db[.defaultNotificationSound] ?? Preferences.Sound.defaultNotificationSound)
             .notificationSound(isQuiet: false)
-        notificationContent.badge = (try? Interaction.fetchAppBadgeUnreadCount(db, using: dependencies))
-            .map { NSNumber(value: $0) }
-            .defaulting(to: NSNumber(value: 0))
+        
+        /// Update the app badge in case the unread count changed
+        if let unreadCount: Int = try? Interaction.fetchAppBadgeUnreadCount(db, using: dependencies) {
+            notificationContent.badge = NSNumber(value: unreadCount)
+        }
         
         notificationContent.title = Constants.app_name
         notificationContent.body = ""

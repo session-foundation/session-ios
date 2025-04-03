@@ -578,7 +578,10 @@ open class Storage {
             switch error {
                 case DatabaseError.SQLITE_ABORT, DatabaseError.SQLITE_INTERRUPT, DatabaseError.SQLITE_ERROR:
                     let message: String = ((error as? DatabaseError)?.message ?? "Unknown")
-                    Log.error(.storage, "Database \(action) failed due to error: \(message) - [ \(info.callInfo) ]")
+                    Log.error(.storage, "Database \(action) failed due to error: \(message)")
+                    
+                case StorageError.databaseInvalid:
+                    Log.error(.storage, "Database \(action) failed as the database is invalid.")
                 
                 case StorageError.databaseInvalid:
                     Log.error(.storage, "Database \(action) failed as the database is invalid - [ \(info.callInfo) ]")
