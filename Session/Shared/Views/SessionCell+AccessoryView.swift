@@ -1,6 +1,7 @@
 // Copyright © 2022 Rangeproof Pty Ltd. All rights reserved.
 
 import UIKit
+import Lucide
 import SessionUIKit
 import SessionMessagingKit
 import SessionUtilitiesKit
@@ -288,6 +289,7 @@ extension SessionCell {
             with accessory: Accessory?,
             tintColor: ThemeValue,
             isEnabled: Bool,
+            maxContentWidth: CGFloat,
             isManualReload: Bool,
             using dependencies: Dependencies
         ) {
@@ -301,10 +303,19 @@ extension SessionCell {
                 case let accessory as SessionCell.AccessoryConfig.Icon:
                     imageView.accessibilityIdentifier = accessory.accessibility?.identifier
                     imageView.accessibilityLabel = accessory.accessibility?.label
-                    imageView.image = accessory.image
                     imageView.themeTintColor = (accessory.customTint ?? tintColor)
                     imageView.contentMode = (accessory.shouldFill ? .scaleAspectFill : .scaleAspectFit)
                     imageView.isHidden = false
+                    
+                    switch (accessory.icon, accessory.image) {
+                        case (.some(let icon), _):
+                            imageView.image = Lucide
+                                .image(icon: icon, size: accessory.iconSize.size)?
+                                .withRenderingMode(.alwaysTemplate)
+                            
+                        case (.none, .some(let image)): imageView.image = image
+                        case (.none, .none): imageView.image = nil
+                    }
                     
                     switch accessory.iconSize {
                         case .fit:
@@ -581,9 +592,13 @@ extension SessionCell {
                     minWidthConstraint.isActive = true
                     buttonConstraints.forEach { $0.isActive = true }
                     
-                // MARK: -- CustomView
-                case let accessory as SessionCell.AccessoryConfig.CustomView:
-                    let generatedView: UIView = accessory.viewGenerator()
+                // MARK: -- Custom
+                
+                case let accessory as SessionCell.AccessoryConfig.AnyCustom:
+                    let generatedView: UIView = accessory.createView(
+                        maxContentWidth: maxContentWidth,
+                        using: dependencies
+                    )
                     generatedView.accessibilityIdentifier = accessory.accessibility?.identifier
                     generatedView.accessibilityLabel = accessory.accessibility?.label
                     addSubview(generatedView)
