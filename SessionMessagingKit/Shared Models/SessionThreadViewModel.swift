@@ -459,30 +459,39 @@ public extension SessionThreadViewModel {
     static let invalidId: String = "INVALID_THREAD_ID"
     static let messageRequestsSectionId: String = "MESSAGE_REQUESTS_SECTION_INVALID_THREAD_ID"
     
-    // Note: This init method is only used system-created cells or empty states
     init(
         threadId: String,
         threadVariant: SessionThread.Variant? = nil,
+        threadCreationDateTimestamp: TimeInterval = 0,
         threadIsNoteToSelf: Bool = false,
         threadIsMessageRequest: Bool? = nil,
+        threadPinnedPriority: Int32 = 0,
         threadIsBlocked: Bool? = nil,
+        displayPictureFilename: String? = nil,
         contactProfile: Profile? = nil,
+        closedGroupProfileFront: Profile? = nil,
+        closedGroupProfileBack: Profile? = nil,
+        closedGroupProfileBackFallback: Profile? = nil,
         closedGroupAdminProfile: Profile? = nil,
+        closedGroupName: String? = nil,
         closedGroupExpired: Bool? = nil,
         currentUserIsClosedGroupMember: Bool? = nil,
         currentUserIsClosedGroupAdmin: Bool? = nil,
+        openGroupName: String? = nil,
         openGroupPermissions: OpenGroup.Permissions? = nil,
         threadWasMarkedUnread: Bool? = nil,
         unreadCount: UInt = 0,
         hasUnreadMessagesOfAnyKind: Bool = false,
         threadCanWrite: Bool = true,
         disappearingMessagesConfiguration: DisappearingMessagesConfiguration? = nil,
+        wasKickedFromGroup: Bool = false,
+        groupIsDestroyed: Bool = false,
         using dependencies: Dependencies
     ) {
         self.rowId = -1
         self.threadId = threadId
         self.threadVariant = (threadVariant ?? .contact)
-        self.threadCreationDateTimestamp = 0
+        self.threadCreationDateTimestamp = threadCreationDateTimestamp
         self.threadMemberNames = nil
         
         self.threadIsNoteToSelf = threadIsNoteToSelf
@@ -490,7 +499,7 @@ public extension SessionThreadViewModel {
         self.threadIsMessageRequest = threadIsMessageRequest
         self.threadRequiresApproval = false
         self.threadShouldBeVisible = false
-        self.threadPinnedPriority = 0
+        self.threadPinnedPriority = threadPinnedPriority
         self.threadIsBlocked = threadIsBlocked
         self.threadMutedUntilTimestamp = nil
         self.threadOnlyNotifyForMentions = nil
@@ -509,19 +518,19 @@ public extension SessionThreadViewModel {
         self.disappearingMessagesConfiguration = disappearingMessagesConfiguration
         
         self.contactLastKnownClientVersion = nil
-        self.displayPictureFilename = nil
+        self.displayPictureFilename = displayPictureFilename
         self.contactProfile = contactProfile
-        self.closedGroupProfileFront = nil
-        self.closedGroupProfileBack = nil
-        self.closedGroupProfileBackFallback = nil
+        self.closedGroupProfileFront = closedGroupProfileFront
+        self.closedGroupProfileBack = closedGroupProfileBack
+        self.closedGroupProfileBackFallback = closedGroupProfileBackFallback
         self.closedGroupAdminProfile = closedGroupAdminProfile
-        self.closedGroupName = nil
+        self.closedGroupName = closedGroupName
         self.closedGroupDescription = nil
         self.closedGroupUserCount = nil
         self.closedGroupExpired = closedGroupExpired
         self.currentUserIsClosedGroupMember = currentUserIsClosedGroupMember
         self.currentUserIsClosedGroupAdmin = currentUserIsClosedGroupAdmin
-        self.openGroupName = nil
+        self.openGroupName = openGroupName
         self.openGroupDescription = nil
         self.openGroupServer = nil
         self.openGroupRoomToken = nil
@@ -548,8 +557,8 @@ public extension SessionThreadViewModel {
         self.currentUserBlinded15SessionId = nil
         self.currentUserBlinded25SessionId = nil
         self.recentReactionEmoji = nil
-        self.wasKickedFromGroup = false
-        self.groupIsDestroyed = false
+        self.wasKickedFromGroup = wasKickedFromGroup
+        self.groupIsDestroyed = groupIsDestroyed
     }
 }
 

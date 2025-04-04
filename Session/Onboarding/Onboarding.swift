@@ -244,7 +244,7 @@ extension Onboarding {
                     cache.loadDefaultStateFor(
                         variant: .userProfile,
                         sessionId: userSessionId,
-                        userEd25519KeyPair: identity.ed25519KeyPair,
+                        userEd25519SecretKey: identity.ed25519KeyPair.secretKey,
                         groupEd25519SecretKey: nil
                     )
                     try cache.unsafeDirectMergeConfigMessage(
@@ -383,10 +383,6 @@ extension Onboarding {
                         )
                     }
                     
-                    /// Now that the onboarding process is completed we can enable the Share and Notification extensions (prior to
-                    /// this point the account is in an invalid state so there is no point enabling them)
-                    db[.isReadyForAppExtensions] = true
-                    
                     /// Now that everything is saved we should update the `Onboarding.Cache` `state` to be `completed` (we do
                     /// this within the db write query because then `updateAllAndConfig` below will trigger a config sync which is
                     /// dependant on this `state` being updated)
@@ -406,6 +402,13 @@ extension Onboarding {
                             )
                     }
                 }
+                
+                /// Now that the onboarding process is completed we can store the `UserMetadata` for the Share and Notification
+                /// extensions (prior to this point the account is in an invalid state so they can't be used)
+                dependencies[singleton: .extensionHelper].saveUserMetadata(
+                    sessionId: userSessionId,
+                    ed25519SecretKey: ed25519KeyPair.secretKey
+                )
                 
                 /// Store whether the user wants to use APNS
                 dependencies[defaults: .standard, key: .isUsingFullAPNs] = useAPNS

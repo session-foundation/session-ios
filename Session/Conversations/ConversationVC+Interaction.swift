@@ -1850,7 +1850,8 @@ extension ConversationVC:
                                 successfullyAddedGroup: successfullyAddedGroup,
                                 roomToken: room,
                                 server: server,
-                                publicKey: publicKey
+                                publicKey: publicKey,
+                                joinedAt: TimeInterval(dependencies[cache: .snodeAPI].currentOffsetTimestampMs() / 1000)
                             )
                         }
                         .subscribe(on: DispatchQueue.global(qos: .userInitiated))

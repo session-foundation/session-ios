@@ -13,7 +13,8 @@ import SessionUtilitiesKit
 
 final class ThreadPickerVC: UIViewController, UITableViewDataSource, UITableViewDelegate, AttachmentApprovalViewControllerDelegate, ThemedNavigation {
     private let viewModel: ThreadPickerViewModel
-    private var dataChangeObservable: DatabaseCancellable? {
+    private let hasUserMetadata: Bool
+    private var dataChangeObservable: AnyCancellable? {
         didSet { oldValue?.cancel() }   // Cancel the old observable if there was one
     }
     private var hasLoadedInitialData: Bool = false
@@ -23,8 +24,9 @@ final class ThreadPickerVC: UIViewController, UITableViewDataSource, UITableView
     
     // MARK: - Intialization
     
-    init(using dependencies: Dependencies) {
-        viewModel = ThreadPickerViewModel(using: dependencies)
+    init(hasUserMetadata: Bool, using dependencies: Dependencies) {
+        self.viewModel = ThreadPickerViewModel(using: dependencies)
+        self.hasUserMetadata = hasUserMetadata
         
         super.init(nibName: nil, bundle: nil)
     }
@@ -50,18 +52,6 @@ final class ThreadPickerVC: UIViewController, UITableViewDataSource, UITableView
         return titleLabel
     }()
     
-    private lazy var databaseErrorLabel: UILabel = {
-        let result: UILabel = UILabel()
-        result.font = .systemFont(ofSize: Values.mediumFontSize)
-        result.text = "shareExtensionDatabaseError".localized()
-        result.textAlignment = .center
-        result.themeTextColor = .textPrimary
-        result.numberOfLines = 0
-        result.isHidden = true
-        
-        return result
-    }()
-    
     private lazy var noAccountErrorLabel: UILabel = {
         let result: UILabel = UILabel()
         result.font = .systemFont(ofSize: Values.mediumFontSize)
@@ -71,21 +61,22 @@ final class ThreadPickerVC: UIViewController, UITableViewDataSource, UITableView
         result.textAlignment = .center
         result.themeTextColor = .textPrimary
         result.numberOfLines = 0
-        result.isHidden = true
+        result.isHidden = hasUserMetadata
         
         return result
     }()
 
     private lazy var tableView: UITableView = {
-        let tableView: UITableView = UITableView()
-        tableView.themeBackgroundColor = .backgroundPrimary
-        tableView.separatorStyle = .none
-        tableView.register(view: SimplifiedConversationCell.self)
-        tableView.showsVerticalScrollIndicator = false
-        tableView.dataSource = self
-        tableView.delegate = self
+        let result: UITableView = UITableView()
+        result.themeBackgroundColor = .backgroundPrimary
+        result.separatorStyle = .none
+        result.register(view: SimplifiedConversationCell.self)
+        result.showsVerticalScrollIndicator = false
+        result.dataSource = self
+        result.delegate = self
+        result.isHidden = !hasUserMetadata
         
-        return tableView
+        return result
     }()
     
     // MARK: - Lifecycle
@@ -98,7 +89,6 @@ final class ThreadPickerVC: UIViewController, UITableViewDataSource, UITableView
         
         view.themeBackgroundColor = .backgroundPrimary
         view.addSubview(tableView)
-        view.addSubview(databaseErrorLabel)
         view.addSubview(noAccountErrorLabel)
         
         setupLayout()
@@ -151,10 +141,6 @@ final class ThreadPickerVC: UIViewController, UITableViewDataSource, UITableView
     private func setupLayout() {
         tableView.pin(to: view)
         
-        databaseErrorLabel.pin(.top, to: .top, of: view, withInset: Values.massiveSpacing)
-        databaseErrorLabel.pin(.leading, to: .leading, of: view, withInset: Values.veryLargeSpacing)
-        databaseErrorLabel.pin(.trailing, to: .trailing, of: view, withInset: -Values.veryLargeSpacing)
-        
         noAccountErrorLabel.pin(.top, to: .top, of: view, withInset: Values.massiveSpacing)
         noAccountErrorLabel.pin(.leading, to: .leading, of: view, withInset: Values.veryLargeSpacing)
         noAccountErrorLabel.pin(.trailing, to: .trailing, of: view, withInset: -Values.veryLargeSpacing)
@@ -165,45 +151,42 @@ final class ThreadPickerVC: UIViewController, UITableViewDataSource, UITableView
     private func startObservingChanges() {
         guard dataChangeObservable == nil else { return }
         
-        noAccountErrorLabel.isHidden = viewModel.dependencies[singleton: .storage, key: .isReadyForAppExtensions]
-        tableView.isHidden = !viewModel.dependencies[singleton: .storage, key: .isReadyForAppExtensions]
+        tableView.isHidden = !noAccountErrorLabel.isHidden
         
-        guard viewModel.dependencies[singleton: .storage, key: .isReadyForAppExtensions] else { return }
+        guard hasUserMetadata else { return }
         
         // Start observing for data changes
-        dataChangeObservable = self.viewModel.dependencies[singleton: .storage].start(
-            viewModel.observableViewData,
-            onError:  { [weak self, dependencies = self.viewModel.dependencies] _ in
-                self?.databaseErrorLabel.isHidden = dependencies[singleton: .storage].isValid
-            },
-            onChange: { [weak self] viewData in
-                // The defaul scheduler emits changes on the main thread
-                self?.handleUpdates(viewData)
-            }
-        )
+        dataChangeObservable = self.viewModel.observableViewData
+            .subscribe(on: DispatchQueue.global(qos: .userInitiated), using: self.viewModel.dependencies)
+            .receive(on: DispatchQueue.main, using: self.viewModel.dependencies)
+            .sink(
+                receiveCompletion: { _ in },
+                receiveValue: { [weak self] updatedData, changeset in
+                    // Ensure the first load runs without animations (if we don't do this the cells
+                    // will animate in from a frame of CGRect.zero)
+                    guard self?.hasLoadedInitialData == true else {
+                        self?.viewModel.updateData(updatedData)
+                        
+                        UIView.performWithoutAnimation {
+                            self?.tableView.reloadData()
+                        }
+                        return
+                    }
+                    
+                    // Reload the table content (animate changes after the first load)
+                    self?.tableView.reload(
+                        using: changeset,
+                        with: .automatic,
+                        interrupt: { $0.changeCount > 100 }    // Prevent too many changes from causing performance issues
+                    ) { [weak self] updatedData in
+                        self?.viewModel.updateData(updatedData)
+                    }
+                }
+            )
     }
     
     private func stopObservingChanges() {
         dataChangeObservable = nil
-    }
-    
-    private func handleUpdates(_ updatedViewData: [SessionThreadViewModel]) {
-        // Ensure the first load runs without animations (if we don't do this the cells will animate
-        // in from a frame of CGRect.zero)
-        guard hasLoadedInitialData else {
-            hasLoadedInitialData = true
-            UIView.performWithoutAnimation { handleUpdates(updatedViewData) }
-            return
-        }
-        
-        // Reload the table content (animate changes after the first load)
-        tableView.reload(
-            using: StagedChangeset(source: viewModel.viewData, target: updatedViewData),
-            with: .automatic,
-            interrupt: { $0.changeCount > 100 }    // Prevent too many changes from causing performance issues
-        ) { [weak self] updatedData in
-            self?.viewModel.updateData(updatedData)
-        }
     }
     
     // MARK: - UITableViewDataSource

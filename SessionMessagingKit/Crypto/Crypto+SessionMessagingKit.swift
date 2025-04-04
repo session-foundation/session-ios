@@ -37,32 +37,65 @@ public extension Crypto.Generator {
                     default: throw MessageSenderError.signingFailed
                 }
             }()
-
-            var cPlaintext: [UInt8] = Array(plaintext)
-            var cEd25519SecretKey: [UInt8] = ed25519KeyPair.secretKey
-            var cDestinationPubKey: [UInt8] = Array(destinationX25519PublicKey)
-            var maybeCiphertext: UnsafeMutablePointer<UInt8>? = nil
-            var ciphertextLen: Int = 0
-
-            guard
-                cEd25519SecretKey.count == 64,
-                cDestinationPubKey.count == 32,
-                session_encrypt_for_recipient_deterministic(
-                    &cPlaintext,
-                    cPlaintext.count,
-                    &cEd25519SecretKey,
-                    &cDestinationPubKey,
-                    &maybeCiphertext,
-                    &ciphertextLen
-                ),
-                ciphertextLen > 0,
-                let ciphertext: Data = maybeCiphertext.map({ Data(bytes: $0, count: ciphertextLen) })
-            else { throw MessageSenderError.encryptionFailed }
-
-            maybeCiphertext?.deallocate()
-
-            return ciphertext
+            
+            return try ciphertextWithSessionProtocol(
+                plaintext: plaintext,
+                destinationX25519PublicKey: Array(destinationX25519PublicKey),
+                ed25519SecretKey: ed25519KeyPair.secretKey,
+                using: dependencies
+            )
         }
+    }
+    
+    static func ciphertextWithSessionProtocol(
+        plaintext: Data,
+        destinationX25519PublicKey: [UInt8],
+        ed25519SecretKey: [UInt8],
+        using dependencies: Dependencies
+    ) -> Crypto.Generator<Data> {
+        return Crypto.Generator(
+            id: "ciphertextWithSessionProtocol",
+            args: [plaintext, destinationX25519PublicKey, ed25519SecretKey]
+        ) {
+            return try ciphertextWithSessionProtocol(
+                plaintext: plaintext,
+                destinationX25519PublicKey: destinationX25519PublicKey,
+                ed25519SecretKey: ed25519SecretKey,
+                using: dependencies
+            )
+        }
+    }
+    
+    private static func ciphertextWithSessionProtocol(
+        plaintext: Data,
+        destinationX25519PublicKey: [UInt8],
+        ed25519SecretKey: [UInt8],
+        using dependencies: Dependencies
+    ) throws -> Data {
+        var cPlaintext: [UInt8] = Array(plaintext)
+        var cEd25519SecretKey: [UInt8] = ed25519SecretKey
+        var cDestinationPubKey: [UInt8] = Array(destinationX25519PublicKey)
+        var maybeCiphertext: UnsafeMutablePointer<UInt8>? = nil
+        var ciphertextLen: Int = 0
+
+        guard
+            cEd25519SecretKey.count == 64,
+            cDestinationPubKey.count == 32,
+            session_encrypt_for_recipient_deterministic(
+                &cPlaintext,
+                cPlaintext.count,
+                &cEd25519SecretKey,
+                &cDestinationPubKey,
+                &maybeCiphertext,
+                &ciphertextLen
+            ),
+            ciphertextLen > 0,
+            let ciphertext: Data = maybeCiphertext.map({ Data(bytes: $0, count: ciphertextLen) })
+        else { throw MessageSenderError.encryptionFailed }
+
+        maybeCiphertext?.deallocate()
+
+        return ciphertext
     }
 
     static func ciphertextWithMultiEncrypt(
@@ -108,6 +141,35 @@ public extension Crypto.Generator {
             return try encryptedData ?? { throw MessageSenderError.encryptionFailed }()
         }
     }
+
+    static func ciphertextWithXChaCha20(plaintext: Data, encKey: [UInt8]) -> Crypto.Generator<Data> {
+        return Crypto.Generator(
+            id: "ciphertextWithXChaCha20",
+            args: [plaintext, encKey]
+        ) {
+            var cPlaintext: [UInt8] = Array(plaintext)
+            var cEncKey: [UInt8] = encKey
+            var maybeCiphertext: UnsafeMutablePointer<UInt8>? = nil
+            var ciphertextLen: Int = 0
+
+            guard
+                cEncKey.count == 32,
+                session_encrypt_xchacha20(
+                    &cPlaintext,
+                    cPlaintext.count,
+                    &cEncKey,
+                    &maybeCiphertext,
+                    &ciphertextLen
+                ),
+                ciphertextLen > 0,
+                let ciphertext: Data = maybeCiphertext.map({ Data(bytes: $0, count: ciphertextLen) })
+            else { throw MessageSenderError.encryptionFailed }
+
+            maybeCiphertext?.deallocate()
+
+            return ciphertext
+        }
+    }
 }
 
 // MARK: - Decryption
@@ -125,31 +187,60 @@ public extension Crypto.Generator {
             let ed25519KeyPair: KeyPair = try Identity.fetchUserEd25519KeyPair(db) ?? {
                 throw MessageSenderError.noUserED25519KeyPair
             }()
-
-            var cCiphertext: [UInt8] = Array(ciphertext)
-            var cEd25519SecretKey: [UInt8] = ed25519KeyPair.secretKey
-            var cSenderSessionId: [CChar] = [CChar](repeating: 0, count: 67)
-            var maybePlaintext: UnsafeMutablePointer<UInt8>? = nil
-            var plaintextLen: Int = 0
-
-            guard
-                cEd25519SecretKey.count == 64,
-                session_decrypt_incoming(
-                    &cCiphertext,
-                    cCiphertext.count,
-                    &cEd25519SecretKey,
-                    &cSenderSessionId,
-                    &maybePlaintext,
-                    &plaintextLen
-                ),
-                plaintextLen > 0,
-                let plaintext: Data = maybePlaintext.map({ Data(bytes: $0, count: plaintextLen) })
-            else { throw MessageReceiverError.decryptionFailed }
-
-            maybePlaintext?.deallocate()
-
-            return (plaintext, String(cString: cSenderSessionId))
+            
+            return try plaintextWithSessionProtocol(
+                ciphertext: ciphertext,
+                ed25519SecretKey: ed25519KeyPair.secretKey,
+                using: dependencies
+            )
         }
+    }
+    
+    static func plaintextWithSessionProtocol(
+        ciphertext: Data,
+        ed25519SecretKey: [UInt8],
+        using dependencies: Dependencies
+    ) -> Crypto.Generator<(plaintext: Data, senderSessionIdHex: String)> {
+        return Crypto.Generator(
+            id: "plaintextWithSessionProtocol",
+            args: [ciphertext, ed25519SecretKey]
+        ) {
+            try plaintextWithSessionProtocol(
+                ciphertext: ciphertext,
+                ed25519SecretKey: ed25519SecretKey,
+                using: dependencies
+            )
+        }
+    }
+    
+    private static func plaintextWithSessionProtocol(
+        ciphertext: Data,
+        ed25519SecretKey: [UInt8],
+        using dependencies: Dependencies
+    ) throws -> (plaintext: Data, senderSessionIdHex: String) {
+        var cCiphertext: [UInt8] = Array(ciphertext)
+        var cEd25519SecretKey: [UInt8] = ed25519SecretKey
+        var cSenderSessionId: [CChar] = [CChar](repeating: 0, count: 67)
+        var maybePlaintext: UnsafeMutablePointer<UInt8>? = nil
+        var plaintextLen: Int = 0
+
+        guard
+            cEd25519SecretKey.count == 64,
+            session_decrypt_incoming(
+                &cCiphertext,
+                cCiphertext.count,
+                &cEd25519SecretKey,
+                &cSenderSessionId,
+                &maybePlaintext,
+                &plaintextLen
+            ),
+            plaintextLen > 0,
+            let plaintext: Data = maybePlaintext.map({ Data(bytes: $0, count: plaintextLen) })
+        else { throw MessageReceiverError.decryptionFailed }
+
+        maybePlaintext?.deallocate()
+
+        return (plaintext, String(cString: cSenderSessionId))
     }
 
     static func plaintextWithSessionProtocolLegacyGroup(
@@ -328,6 +419,35 @@ public extension Crypto.Generator {
             else { throw CryptoError.failedToGenerateOutput }
 
             return decryptedData
+        }
+    }
+    
+    static func plaintextWithXChaCha20(ciphertext: Data, encKey: [UInt8]) -> Crypto.Generator<Data> {
+        return Crypto.Generator(
+            id: "plaintextWithXChaCha20",
+            args: [ciphertext, encKey]
+        ) {
+            var cCiphertext: [UInt8] = Array(ciphertext)
+            var cEncKey: [UInt8] = encKey
+            var maybePlaintext: UnsafeMutablePointer<UInt8>? = nil
+            var plaintextLen: Int = 0
+
+            guard
+                cEncKey.count == 32,
+                session_decrypt_xchacha20(
+                    &cCiphertext,
+                    cCiphertext.count,
+                    &cEncKey,
+                    &maybePlaintext,
+                    &plaintextLen
+                ),
+                plaintextLen > 0,
+                let plaintext: Data = maybePlaintext.map({ Data(bytes: $0, count: plaintextLen) })
+            else { throw MessageReceiverError.decryptionFailed }
+
+            maybePlaintext?.deallocate()
+
+            return plaintext
         }
     }
 }

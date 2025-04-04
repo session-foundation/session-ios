@@ -239,7 +239,10 @@ public enum ConfigurationSyncJob: JobExecutor {
                     // Lastly we need to save the updated dumps to the database
                     let updatedJob: Job? = dependencies[singleton: .storage].write { db in
                         // Save the updated dumps to the database
-                        try configDumps.forEach { try $0.upsert(db) }
+                        try configDumps.forEach { dump in
+                            try dump.upsert(db)
+                            Task { dependencies[singleton: .extensionHelper].replicate(dump: dump) }
+                        }
                         
                         // When we complete the 'ConfigurationSync' job we want to immediately schedule
                         // another one with a 'nextRunTimestamp' set to the 'maxRunFrequency' value to

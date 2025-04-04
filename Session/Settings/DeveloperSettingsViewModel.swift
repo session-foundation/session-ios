@@ -1116,7 +1116,7 @@ class DeveloperSettingsViewModel: SessionTableViewModel, NavigatableStateHolder,
     }
     
     private func copyDatabasePath() {
-        UIPasteboard.general.string = Storage.sharedDatabaseDirectoryPath
+        UIPasteboard.general.string = Storage.databaseDirectoryPath
         
         showToast(
             text: "copied".localized(),

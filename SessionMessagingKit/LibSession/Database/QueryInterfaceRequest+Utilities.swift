@@ -126,6 +126,9 @@ public extension QueryInterfaceRequest where RowDecoder: FetchableRecord & Table
                 try LibSession.updatingGroups(db, updatedData, using: dependencies)
                 return try LibSession.updatingGroupInfo(db, updatedData, using: dependencies)
                 
+            case is QueryInterfaceRequest<OpenGroup>:
+                return try LibSession.updatingCommunities(db, updatedData, using: dependencies)
+                
             case is QueryInterfaceRequest<GroupMember>:
                 return try LibSession.updatingGroupMembers(db, updatedData, using: dependencies)
                 

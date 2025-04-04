@@ -140,10 +140,12 @@ internal extension LibSession {
                         try cache.performAndPushChange(db, for: .userGroups, sessionId: userSessionId) { config in
                             try LibSession.upsert(
                                 communities: threads
-                                    .compactMap { thread -> CommunityInfo? in
+                                    .compactMap { thread -> CommunityUpdateInfo? in
                                         urlInfo[thread.id].map { urlInfo in
-                                            CommunityInfo(
-                                                urlInfo: urlInfo,
+                                            CommunityUpdateInfo(
+                                                server: urlInfo.server,
+                                                roomToken: urlInfo.roomToken,
+                                                publicKey: urlInfo.publicKey,
                                                 priority: thread.pinnedPriority
                                                     .map { Int32($0 == 0 ? LibSession.visiblePriority : max($0, 1)) }
                                                     .defaulting(to: LibSession.visiblePriority)

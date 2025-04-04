@@ -1,6 +1,7 @@
 // Copyright © 2022 Rangeproof Pty Ltd. All rights reserved.
 
 import Foundation
+import Combine
 import GRDB
 import SessionSnodeKit
 import SessionUtil
@@ -196,6 +197,28 @@ public extension LibSession {
         public let userSessionId: SessionId
         public var isEmpty: Bool { configStore.isEmpty }
         
+        /// Store the conversation data extracted from the config messages in a `CurrentValueSubject` so all subscribers can
+        /// share the same data
+        ///
+        /// **Note:** To avoid wasting memory this value will be cleared while there are no remaining subscribers and will be
+        /// repopulated when it previous had no subscribers
+        private let _conversations: CurrentValueSubject<[SessionThreadViewModel], Never> = CurrentValueSubject([])
+        private var activeSubscriptionsToConversations: Int = 0
+        public var conversations: AnyPublisher<[SessionThreadViewModel], Never> {
+            _conversations
+                .handleEvents(
+                    receiveSubscription: { [weak self] _ in
+                        self?.activeSubscriptionsToConversations += 1
+                        self?.updateConversationDataIfNeeded(initialQuery: true)
+                    },
+                    receiveCompletion: { [weak self] _ in
+                        // TODO: [DATABASE REFACTOR] Need to test this logic
+                        self?.activeSubscriptionsToConversations -= 1
+                    }
+                )
+                .eraseToAnyPublisher()
+        }
+        
         // MARK: - Initialization
         
         public init(userSessionId: SessionId, using dependencies: Dependencies) {
@@ -288,13 +311,13 @@ public extension LibSession {
         public func loadDefaultStateFor(
             variant: ConfigDump.Variant,
             sessionId: SessionId,
-            userEd25519KeyPair: KeyPair,
+            userEd25519SecretKey: [UInt8],
             groupEd25519SecretKey: [UInt8]?
         ) {
             configStore[sessionId, variant] = try? loadState(
                 for: variant,
                 sessionId: sessionId,
-                userEd25519SecretKey: userEd25519KeyPair.secretKey,
+                userEd25519SecretKey: userEd25519SecretKey,
                 groupEd25519SecretKey: groupEd25519SecretKey,
                 cachedData: nil
             )
@@ -544,12 +567,14 @@ public extension LibSession {
 
                 // Only create a config dump if we need to
                 if configNeedsDump(config) {
-                    try createDump(
+                    let dump: ConfigDump? = try createDump(
                         config: config,
                         for: variant,
                         sessionId: sessionId,
                         timestampMs: dependencies[cache: .snodeAPI].currentOffsetTimestampMs()
-                    )?.upsert(db)
+                    )
+                    try dump?.upsert(db)
+                    Task { dependencies[singleton: .extensionHelper].replicate(dump: dump) }
                 }
             }
             catch {
@@ -754,12 +779,19 @@ public extension LibSession {
                             return
                         }
                         
-                        try createDump(
+                        let dump: ConfigDump? = try createDump(
                             config: config,
                             for: variant,
                             sessionId: sessionId,
                             timestampMs: latestServerTimestampMs
-                        )?.upsert(db)
+                        )
+                        try dump?.upsert(db)
+                        Task { dependencies[singleton: .extensionHelper].replicate(dump: dump) }
+                        
+                        // Update the data stored in `_conversations` (if needed), we _should_ only
+                        // need to do this if we needed to do a config dump as otherwise there shouldn't
+                        // have been any changes
+                        updateConversationDataIfNeeded()
                     }
                     catch {
                         Log.error(.libSession, "Failed to process merge of \(variant) config data")
@@ -875,6 +907,142 @@ public extension LibSession {
             
             return config.isAdmin()
         }
+        
+        /// This function extracts conversation data from the `configStore` and stores it in `_conversations`
+        ///
+        /// **Note:** This will only update the data if we have active `conversation` subscriptions
+        private func updateConversationDataIfNeeded(initialQuery: Bool = false) {
+            guard initialQuery || activeSubscriptionsToConversations == 1 else { return }
+            
+            // FIXME: This is pretty inefficient so might need to be reworked (unless we source directly from libSession before we need to do so)
+            do {
+                let userSessionId: SessionId = dependencies[cache: .general].sessionId
+                
+                guard
+                    case .userProfile(let userProfile) = configStore[userSessionId, .userProfile],
+                    case .contacts(let contactsConf) = configStore[userSessionId, .contacts],
+                    case .userGroups(let userGroupsConf) = configStore[userSessionId, .userGroups],
+                    case .convoInfoVolatile(let convoInfoVolatileConf) = configStore[userSessionId, .convoInfoVolatile]
+                else { throw LibSessionError.missingUserConfig }
+
+                /// Extract main conversation data from configs
+                let contacts: [String: LibSession.ContactData] = try LibSession.extractContacts(
+                    from: contactsConf,
+                    serverTimestampMs: 0,
+                    using: dependencies
+                )
+                let extractedUserGroups: LibSession.ExtractedUserGroups = try LibSession.extractUserGroups(
+                    from: userGroupsConf,
+                    using: dependencies
+                )
+                
+                /// Construct conversation data
+                var conversations: [SessionThreadViewModel] = []
+                
+                /// Note to self conversation
+                conversations.append(
+                    SessionThreadViewModel(
+                        threadId: userSessionId.hexString,
+                        threadVariant: .contact,
+                        threadCreationDateTimestamp: 0,
+                        threadIsNoteToSelf: true,
+                        threadIsMessageRequest: false,
+                        threadPinnedPriority: user_profile_get_nts_priority(userProfile),
+                        threadIsBlocked: false,
+//                            displayPictureFilename: "",   // TODO: [DATABASE REFACTOR] Need to add this
+                        using: dependencies
+                    )
+                )
+                
+                /// Contact conversations (1-to-1)
+                conversations.append(contentsOf: contacts.values.map { contactData -> SessionThreadViewModel in
+                    SessionThreadViewModel(
+                        threadId: contactData.contact.id,
+                        threadVariant: .contact,
+                        threadCreationDateTimestamp: contactData.created,
+                        threadIsMessageRequest: !contactData.contact.isApproved,
+                        threadPinnedPriority: contactData.priority,
+                        threadIsBlocked: contactData.contact.isBlocked,
+//                            displayPictureFilename: "",   // TODO: [DATABASE REFACTOR] Need to add this
+                        contactProfile: contactData.profile,
+                        using: dependencies
+                    )
+                })
+                
+                /// Community conversations
+                conversations.append(contentsOf: extractedUserGroups.communities.map { community -> SessionThreadViewModel in
+                    SessionThreadViewModel(
+                        threadId: community.threadId,
+                        threadVariant: .community,
+                        threadCreationDateTimestamp: community.joinedAt,
+                        threadIsMessageRequest: false,
+                        threadPinnedPriority: community.priority,
+                        threadIsBlocked: false,
+//                            displayPictureFilename: "",   // TODO: [DATABASE REFACTOR] Need to add this
+                        openGroupName: community.name,
+                        openGroupPermissions: community.permissions,
+                        using: dependencies
+                    )
+                })
+                
+                /// Group conversations
+                conversations.append(contentsOf: extractedUserGroups.groups.map { group -> SessionThreadViewModel in
+                    // TODO: [DATABASE REFACTOR] Source the group name from groupInfo if present (instead of userGroups)
+                    
+                    // TODO: [DATABASE REFACTOR] Need to get group member info
+                        // TODO: [DATABASE REFACTOR] Whether the current user is a member
+                        // TODO: [DATABASE REFACTOR] Member profile info
+                        // TODO: [DATABASE REFACTOR] Custom display pic
+                    
+                    SessionThreadViewModel(
+                        threadId: group.groupSessionId,
+                        threadVariant: .group,
+                        threadCreationDateTimestamp: group.joinedAt,
+                        threadIsMessageRequest: group.invited,
+                        threadPinnedPriority: group.priority,
+                        threadIsBlocked: false,
+//                            displayPictureFilename: "",   // TODO: [DATABASE REFACTOR] Need to add these
+//                            closedGroupProfileFront: Profile? = nil,
+//                            closedGroupProfileBack: Profile? = nil,
+//                            closedGroupProfileBackFallback: Profile? = nil,
+//                            closedGroupAdminProfile: Profile? = nil,
+                        closedGroupName: group.name,
+//                            currentUserIsClosedGroupMember: Bool? = nil,
+                        currentUserIsClosedGroupAdmin: (group.groupIdentityPrivateKey != nil),
+//                            threadCanWrite: (openGroupPermissions?.contains(.write) ?? false),
+                        wasKickedFromGroup: group.wasKickedFromGroup,
+                        groupIsDestroyed: group.wasGroupDestroyed,
+                        using: dependencies
+                    )
+                })
+                
+                /// Generate final conversation state and sort
+                let finalConversations: [SessionThreadViewModel] = conversations
+                    .map { conversation -> SessionThreadViewModel in
+                        conversation.populatingPostQueryData(
+                            // TODO: [DATABASE REFACTOR] Need to generate these blinded ids without db access (store the capabilities in libSession as well?)
+                            currentUserBlinded15SessionIdForThisThread: nil,
+                            currentUserBlinded25SessionIdForThisThread: nil,
+                            wasKickedFromGroup: (conversation.wasKickedFromGroup == true),
+                            groupIsDestroyed: (conversation.groupIsDestroyed == true),
+                            threadCanWrite: conversation.determineInitialCanWriteFlag(using: dependencies),
+                            using: dependencies
+                        )
+                    }
+                    .sorted { lhs, rhs -> Bool in
+                        // TODO: [DATABASE REFACTOR] Update sorting to be based on 'active_at'
+                        guard lhs.lastInteractionDate == rhs.lastInteractionDate else {
+                            return lhs.lastInteractionDate < rhs.lastInteractionDate
+                        }
+                        
+                        // TODO: [DATABASE REFACTOR] Decide on the desired fallback behaviour for collisions
+                        return lhs.displayName < rhs.displayName
+                    }
+                
+                _conversations.send(finalConversations)
+            }
+            catch { Log.error(.libSession, "Unable to upate config conversation data due error: \(error)") }
+        }
     }
 }
 
@@ -884,6 +1052,7 @@ public extension LibSession {
 public protocol LibSessionImmutableCacheType: ImmutableCacheType {
     var userSessionId: SessionId { get }
     var isEmpty: Bool { get }
+    var conversations: AnyPublisher<[SessionThreadViewModel], Never> { get }
     
     func hasConfig(for variant: ConfigDump.Variant, sessionId: SessionId) -> Bool
 }
@@ -901,7 +1070,7 @@ public protocol LibSessionCacheType: LibSessionImmutableCacheType, MutableCacheT
     func loadDefaultStateFor(
         variant: ConfigDump.Variant,
         sessionId: SessionId,
-        userEd25519KeyPair: KeyPair,
+        userEd25519SecretKey: [UInt8],
         groupEd25519SecretKey: [UInt8]?
     )
     func hasConfig(for variant: ConfigDump.Variant, sessionId: SessionId) -> Bool
@@ -987,6 +1156,7 @@ private final class NoopLibSessionCache: LibSessionCacheType {
     let dependencies: Dependencies
     let userSessionId: SessionId = .invalid
     let isEmpty: Bool = true
+    var conversations: AnyPublisher<[SessionThreadViewModel], Never> { Just([]).eraseToAnyPublisher() }
     
     init(using dependencies: Dependencies) {
         self.dependencies = dependencies
@@ -998,7 +1168,7 @@ private final class NoopLibSessionCache: LibSessionCacheType {
     func loadDefaultStateFor(
         variant: ConfigDump.Variant,
         sessionId: SessionId,
-        userEd25519KeyPair: KeyPair,
+        userEd25519SecretKey: [UInt8],
         groupEd25519SecretKey: [UInt8]?
     ) {}
     func hasConfig(for variant: ConfigDump.Variant, sessionId: SessionId) -> Bool { return false }

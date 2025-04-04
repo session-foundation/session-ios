@@ -214,7 +214,8 @@ public final class OpenGroupManager {
         successfullyAddedGroup: Bool,
         roomToken: String,
         server: String,
-        publicKey: String
+        publicKey: String,
+        joinedAt: TimeInterval
     ) -> AnyPublisher<Void, Error> {
         // Only bother performing the initial request if the network isn't suspended
         guard
@@ -253,6 +254,8 @@ public final class OpenGroupManager {
                     server: server,
                     rootToken: roomToken,
                     publicKey: publicKey,
+                    name: response.value.room.data.name,
+                    joinedAt: joinedAt,
                     using: dependencies
                 )
                 
