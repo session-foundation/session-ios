@@ -6,7 +6,7 @@ import Foundation
 // All Observer methods will be invoked from the main thread.
 @objc
 public protocol ShareViewDelegate: AnyObject {
-    func shareViewWasUnlocked()
+    func shareViewWasUnlocked(hasUserMetadata: Bool)
     func shareViewWasCompleted()
     func shareViewWasCancelled()
     func shareViewFailed(error: Error)

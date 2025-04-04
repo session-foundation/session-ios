@@ -9,11 +9,14 @@ final class SAEScreenLockViewController: ScreenLockViewController {
     private var hasShownAuthUIOnce: Bool = false
     private var isShowingAuthUI: Bool = false
     
+    private let hasUserMetadata: Bool
     private weak var shareViewDelegate: ShareViewDelegate?
     
     // MARK: - Initialization
     
-    init(shareViewDelegate: ShareViewDelegate) {
+    init(hasUserMetadata: Bool, shareViewDelegate: ShareViewDelegate) {
+        self.hasUserMetadata = hasUserMetadata
+        
         super.init()
         
         self.onUnlockPressed = { [weak self] in self?.unlockButtonWasTapped() }
@@ -108,12 +111,12 @@ final class SAEScreenLockViewController: ScreenLockViewController {
         isShowingAuthUI = true
         
         ScreenLock.tryToUnlockScreenLock(
-            success: { [weak self] in
+            success: { [weak self, hasUserMetadata] in
                 Log.assertOnMainThread()
                 Log.info("unlock screen lock succeeded.")
                 
                 self?.isShowingAuthUI = false
-                self?.shareViewDelegate?.shareViewWasUnlocked()
+                self?.shareViewDelegate?.shareViewWasUnlocked(hasUserMetadata: hasUserMetadata)
             },
             failure: { [weak self] error in
                 Log.assertOnMainThread()

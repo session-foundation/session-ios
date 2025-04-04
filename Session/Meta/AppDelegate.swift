@@ -278,12 +278,14 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
         dependencies[defaults: .appGroup, key: .isMainAppActive] = true
         
         // FIXME: Seems like there are some discrepancies between the expectations of how the iOS lifecycle methods work, we should look into them and ensure the code behaves as expected (in this case there were situations where these two wouldn't get called when returning from the background)
-        dependencies[singleton: .storage].resumeDatabaseAccess()
-        dependencies.mutate(cache: .libSessionNetwork) { $0.resumeNetworkAccess() }
-        
-        ensureRootViewController(calledFrom: .didBecomeActive)
+        dependencies[singleton: .appReadiness].runNowOrWhenAppDidBecomeReady { [weak self, dependencies] in
+            /// Don't access `storage` until the application is ready to avoid creating an empty database before the `ExtensionHelper`
+            /// migration has completed
+            dependencies[singleton: .storage].resumeDatabaseAccess()
+            dependencies.mutate(cache: .libSessionNetwork) { $0.resumeNetworkAccess() }
+            
+            self?.ensureRootViewController(calledFrom: .didBecomeActive)
 
-        dependencies[singleton: .appReadiness].runNowOrWhenAppDidBecomeReady { [weak self] in
             self?.handleActivation()
             
             /// Clear all notifications whenever we become active once the app is ready
@@ -295,14 +297,16 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
             DispatchQueue.main.async {
                 self?.clearAllNotificationsAndRestoreBadgeCount()
             }
+            
+            /// Don't access `storage` until the application is ready to avoid creating an empty database before the `ExtensionHelper`
+            /// migration has completed
+            if dependencies[singleton: .storage, key: .areCallsEnabled] && dependencies[defaults: .standard, key: .hasRequestedLocalNetworkPermission] {
+                Permissions.checkLocalNetworkPermission(using: dependencies)
+            }
         }
 
         // On every activation, clear old temp directories.
         dependencies[singleton: .fileManager].clearOldTemporaryDirectories()
-        
-        if dependencies[singleton: .storage, key: .areCallsEnabled] && dependencies[defaults: .standard, key: .hasRequestedLocalNetworkPermission] {
-            Permissions.checkLocalNetworkPermission(using: dependencies)
-        }
     }
     
     func applicationWillResignActive(_ application: UIApplication) {

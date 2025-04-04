@@ -58,10 +58,10 @@ open class Storage {
     /// take a long time then we should probably be handling it asynchronously rather than a synchronous way)
     private static let transactionDeadlockTimeoutSeconds: Int = 5
     
-    public static var sharedDatabaseDirectoryPath: String { "\(SessionFileManager.nonInjectedAppSharedDataDirectoryPath)/database" }
-    private static var databasePath: String { "\(Storage.sharedDatabaseDirectoryPath)/\(Storage.dbFileName)" }
-    private static var databasePathShm: String { "\(Storage.sharedDatabaseDirectoryPath)/\(Storage.dbFileName)-shm" }
-    private static var databasePathWal: String { "\(Storage.sharedDatabaseDirectoryPath)/\(Storage.dbFileName)-wal" }
+    public static var databaseDirectoryPath: String { "\(SessionFileManager.documentDirectoryPath)/database" }
+    private static var databasePath: String { "\(Storage.databaseDirectoryPath)/\(Storage.dbFileName)" }
+    private static var databasePathShm: String { "\(Storage.databaseDirectoryPath)/\(Storage.dbFileName)-shm" }
+    private static var databasePathWal: String { "\(Storage.databaseDirectoryPath)/\(Storage.dbFileName)-wal" }
     
     private let dependencies: Dependencies
     fileprivate var dbWriter: DatabaseWriter?
@@ -97,19 +97,31 @@ open class Storage {
     
     // MARK: - Initialization
     
-    public init(customWriter: DatabaseWriter? = nil, using dependencies: Dependencies) {
+    public static func createInvalid(with error: Error, using dependencies: Dependencies) -> Storage {
+        let result: Storage = Storage(using: dependencies)
+        result.isValid = false
+        result.startupError = error
+        
+        return result
+    }
+    
+    private init(using dependencies: Dependencies) {
         self.dependencies = dependencies
+    }
+    
+    public convenience init(customWriter: DatabaseWriter? = nil, using dependencies: Dependencies) {
+        self.init(using: dependencies)
         
         configureDatabase(customWriter: customWriter)
     }
     
-    public init(
+    public convenience init(
         testAccessTo databasePath: String,
         encryptedKeyPath: String,
         encryptedKeyPassword: String,
         using dependencies: Dependencies
     ) throws {
-        self.dependencies = dependencies
+        self.init(using: dependencies)
         
         try testAccess(
             databasePath: databasePath,
@@ -121,8 +133,8 @@ open class Storage {
     private func configureDatabase(customWriter: DatabaseWriter? = nil) {
         // Create the database directory if needed and ensure it's protection level is set before attempting to
         // create the database KeySpec or the database itself
-        try? dependencies[singleton: .fileManager].ensureDirectoryExists(at: Storage.sharedDatabaseDirectoryPath)
-        try? dependencies[singleton: .fileManager].protectFileOrFolder(at: Storage.sharedDatabaseDirectoryPath)
+        try? dependencies[singleton: .fileManager].ensureDirectoryExists(at: Storage.databaseDirectoryPath)
+        try? dependencies[singleton: .fileManager].protectFileOrFolder(at: Storage.databaseDirectoryPath)
         
         // If a custom writer was provided then use that (for unit testing)
         guard customWriter == nil else {
@@ -139,7 +151,13 @@ open class Storage {
         /// **Note:** If we fail to get/generate the keySpec then don't bother continuing to setup the Database as it'll just be invalid,
         /// in this case the App/Extensions will have logic that checks the `isValid` flag of the database
         do {
-            var tmpKeySpec: Data = try getOrGenerateDatabaseKeySpec()
+            var tmpKeySpec: Data = try dependencies[singleton: .keychain].getOrGenerateEncryptionKey(
+                forKey: .dbCipherKeySpec,
+                length: Storage.SQLCipherKeySpecLength,
+                cat: .storage,
+                legacyKey: "GRDBDatabaseCipherKeySpec",
+                legacyService: "TSKeyChainService"
+            )
             tmpKeySpec.resetBytes(in: 0..<tmpKeySpec.count)
         }
         catch { return }
@@ -152,7 +170,13 @@ open class Storage {
 
         /// Load in the SQLCipher keys
         config.prepareDatabase { [weak self] db in
-            var keySpec: Data = try self?.getOrGenerateDatabaseKeySpec() ?? { throw StorageError.invalidKeySpec }()
+            var keySpec: Data = try self?.dependencies[singleton: .keychain].getOrGenerateEncryptionKey(
+                forKey: .dbCipherKeySpec,
+                length: Storage.SQLCipherKeySpecLength,
+                cat: .storage,
+                legacyKey: "GRDBDatabaseCipherKeySpec",
+                legacyService: "TSKeyChainService"
+            ) ?? { throw KeychainStorageError.keySpecInvalid }()
             defer { keySpec.resetBytes(in: 0..<keySpec.count) } // Reset content immediately after use
             
             // Use a raw key spec, where the 96 hexadecimal digits are provided
@@ -160,7 +184,7 @@ open class Storage {
             // using explicit BLOB syntax, e.g.:
             //
             // x'98483C6EB40B6C31A448C22A66DED3B5E5E8D5119CAC8327B655C8B5C483648101010101010101010101010101010101'
-            keySpec = try (keySpec.toHexString().data(using: .utf8) ?? { throw StorageError.invalidKeySpec }())
+            keySpec = try (keySpec.toHexString().data(using: .utf8) ?? { throw KeychainStorageError.keySpecInvalid }())
             keySpec.insert(contentsOf: [120, 39], at: 0)    // "x'" prefix
             keySpec.append(39)                              // "'" suffix
             
@@ -178,7 +202,7 @@ open class Storage {
         do {
             do {
                 dbWriter = try DatabasePool(
-                    path: "\(Storage.sharedDatabaseDirectoryPath)/\(Storage.dbFileName)",
+                    path: "\(Storage.databaseDirectoryPath)/\(Storage.dbFileName)",
                     configuration: config
                 )
             }
@@ -195,7 +219,7 @@ open class Storage {
                         
                         // Try to initialise the dbWriter again (hoping the above resolves the lock)
                         dbWriter = try DatabasePool(
-                            path: "\(Storage.sharedDatabaseDirectoryPath)/\(Storage.dbFileName)",
+                            path: "\(Storage.databaseDirectoryPath)/\(Storage.dbFileName)",
                             configuration: config
                         )
                         
@@ -412,65 +436,6 @@ open class Storage {
             toKey: .dbCipherKeySpec
         )
         return try dependencies[singleton: .keychain].data(forKey: .dbCipherKeySpec)
-    }
-    
-    private func getOrGenerateDatabaseKeySpec() throws -> Data {
-        do {
-            var keySpec: Data = try getDatabaseCipherKeySpec()
-            defer { keySpec.resetBytes(in: 0..<keySpec.count) }
-            
-            guard keySpec.count == Storage.SQLCipherKeySpecLength else { throw StorageError.invalidKeySpec }
-            
-            return keySpec
-        }
-        catch {
-            switch (error, (error as? KeychainStorageError)?.code) {
-                case (StorageError.invalidKeySpec, _):
-                    // For these cases it means either the keySpec or the keychain has become corrupt so in order to
-                    // get back to a "known good state" and behave like a new install we need to reset the storage
-                    // and regenerate the key
-                    if !SNUtilitiesKit.isRunningTests {
-                        // Try to reset app by deleting database.
-                        resetAllStorage()
-                    }
-                    fallthrough
-                
-                case (_, errSecItemNotFound):
-                    // No keySpec was found so we need to generate a new one
-                    do {
-                        var keySpec: Data = try dependencies[singleton: .crypto].tryGenerate(.randomBytes(Storage.SQLCipherKeySpecLength))
-                        defer { keySpec.resetBytes(in: 0..<keySpec.count) } // Reset content immediately after use
-                        
-                        try dependencies[singleton: .keychain].set(data: keySpec, forKey: .dbCipherKeySpec)
-                        return keySpec
-                    }
-                    catch {
-                        Log.error(.storage, "Setting keychain value failed with error: \(error)")
-                        Thread.sleep(forTimeInterval: 15)    // Sleep to allow any background behaviours to complete
-                        throw StorageError.keySpecCreationFailed
-                    }
-                    
-                default:
-                    // Because we use kSecAttrAccessibleAfterFirstUnlockThisDeviceOnly, the keychain will be inaccessible
-                    // after device restart until device is unlocked for the first time. If the app receives a push
-                    // notification, we won't be able to access the keychain to process that notification, so we should
-                    // just terminate by throwing an uncaught exception
-                    if dependencies[singleton: .appContext].isMainApp || dependencies[singleton: .appContext].isInBackground {
-                        let appState: UIApplication.State = dependencies[singleton: .appContext].reportedApplicationState
-                        Log.error(.storage, "CipherKeySpec inaccessible. New install or no unlock since device restart?, ApplicationState: \(appState.name)")
-                        
-                        // In this case we should have already detected the situation earlier and exited
-                        // gracefully (in the app delegate) using isDatabasePasswordAccessible(using:), but we
-                        // want to stop the app running here anyway
-                        Thread.sleep(forTimeInterval: 5)    // Sleep to allow any background behaviours to complete
-                        throw StorageError.keySpecInaccessible
-                    }
-                    
-                    Log.error(.storage, "CipherKeySpec inaccessible; not main app.")
-                    Thread.sleep(forTimeInterval: 5)    // Sleep to allow any background behaviours to complete
-                    throw StorageError.keySpecInaccessible
-            }
-        }
     }
     
     // MARK: - File Management
@@ -1077,7 +1042,7 @@ public extension Storage {
             var keySpec: Data = try self?.decryptSecureExportedKey(
                 path: encryptedKeyPath,
                 password: encryptedKeyPassword
-            ) ?? { throw StorageError.invalidKeySpec }()
+            ) ?? { throw KeychainStorageError.keySpecInvalid }()
             defer { keySpec.resetBytes(in: 0..<keySpec.count) } // Reset content immediately after use
             
             // Use a raw key spec, where the 96 hexadecimal digits are provided
@@ -1085,7 +1050,7 @@ public extension Storage {
             // using explicit BLOB syntax, e.g.:
             //
             // x'98483C6EB40B6C31A448C22A66DED3B5E5E8D5119CAC8327B655C8B5C483648101010101010101010101010101010101'
-            keySpec = try (keySpec.toHexString().data(using: .utf8) ?? { throw StorageError.invalidKeySpec }())
+            keySpec = try (keySpec.toHexString().data(using: .utf8) ?? { throw KeychainStorageError.keySpecInvalid }())
             keySpec.insert(contentsOf: [120, 39], at: 0)    // "x'" prefix
             keySpec.append(39)                              // "'" suffix
             
@@ -1105,7 +1070,13 @@ public extension Storage {
     }
     
     func secureExportKey(password: String) throws -> String {
-        var keySpec: Data = try getOrGenerateDatabaseKeySpec()
+        var keySpec: Data = try dependencies[singleton: .keychain].getOrGenerateEncryptionKey(
+            forKey: .dbCipherKeySpec,
+            length: Storage.SQLCipherKeySpecLength,
+            cat: .storage,
+            legacyKey: "GRDBDatabaseCipherKeySpec",
+            legacyService: "TSKeyChainService"
+        )
         defer { keySpec.resetBytes(in: 0..<keySpec.count) } // Reset content immediately after use
         
         guard var passwordData: Data = password.data(using: .utf8) else { throw StorageError.generic }

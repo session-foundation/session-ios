@@ -20,6 +20,7 @@ public enum LibSessionError: Error, CustomStringConvertible {
     case invalidCConversion
     case unableToGeneratePushData
     case attemptedToModifyGroupWithoutAdminKey
+    case missingUserConfig
     
     case libSessionError(String)
     
@@ -132,6 +133,7 @@ public enum LibSessionError: Error, CustomStringConvertible {
             case .unableToGeneratePushData: return "Unable to generate push data (LibSessionError.unableToGeneratePushData)."
             case .attemptedToModifyGroupWithoutAdminKey:
                 return "Attempted to modify group without admin key (LibSessionError.attemptedToModifyGroupWithoutAdminKey)."
+            case .missingUserConfig: return "Missing user config (LibSessionError.missingUserConfig)."
             
             case .libSessionError(let error): return "\(error)"
         }

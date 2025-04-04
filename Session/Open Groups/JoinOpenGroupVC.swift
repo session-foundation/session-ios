@@ -221,7 +221,8 @@ final class JoinOpenGroupVC: BaseVC, UIPageViewControllerDataSource, UIPageViewC
                         successfullyAddedGroup: successfullyAddedGroup,
                         roomToken: roomToken,
                         server: server,
-                        publicKey: publicKey
+                        publicKey: publicKey,
+                        joinedAt: TimeInterval(dependencies[cache: .snodeAPI].currentOffsetTimestampMs() / 1000)
                     )
                 }
                 .subscribe(on: DispatchQueue.global(qos: .userInitiated))

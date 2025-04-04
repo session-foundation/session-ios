@@ -53,6 +53,8 @@ public protocol FileManagerType {
     func createDirectory(atPath: String, withIntermediateDirectories: Bool, attributes: [FileAttributeKey: Any]?) throws
     func copyItem(atPath: String, toPath: String) throws
     func copyItem(at fromUrl: URL, to toUrl: URL) throws
+    func moveItem(atPath: String, toPath: String) throws
+    func moveItem(at fromUrl: URL, to toUrl: URL) throws
     func removeItem(atPath: String) throws
     
     func attributesOfItem(atPath path: String) throws -> [FileAttributeKey: Any]
@@ -106,6 +108,10 @@ public extension FileManagerType {
 public extension SessionFileManager {
     static var cachesDirectoryPath: String {
         return NSSearchPathForDirectoriesInDomains(.cachesDirectory, .userDomainMask, true)[0]
+    }
+    
+    static var documentDirectoryPath: String {
+        return NSSearchPathForDirectoriesInDomains(.documentDirectory, .userDomainMask, true)[0]
     }
     
     static var nonInjectedAppSharedDataDirectoryPath: String {
@@ -310,15 +316,23 @@ public class SessionFileManager: FileManagerType {
     }
     
     public func copyItem(atPath: String, toPath: String) throws {
-        return try fileManager.copyItem(atPath: atPath, toPath: toPath)
+        try fileManager.copyItem(atPath: atPath, toPath: toPath)
     }
     
     public func copyItem(at fromUrl: URL, to toUrl: URL) throws {
-        return try fileManager.copyItem(at: fromUrl, to: toUrl)
+        try fileManager.copyItem(at: fromUrl, to: toUrl)
+    }
+    
+    public func moveItem(atPath: String, toPath: String) throws {
+        try fileManager.moveItem(atPath: atPath, toPath: toPath)
+    }
+    
+    public func moveItem(at fromUrl: URL, to toUrl: URL) throws {
+        try fileManager.moveItem(at: fromUrl, to: toUrl)
     }
     
     public func removeItem(atPath: String) throws {
-        return try fileManager.removeItem(atPath: atPath)
+        try fileManager.removeItem(atPath: atPath)
     }
     
     public func attributesOfItem(atPath path: String) throws -> [FileAttributeKey: Any] {
