@@ -116,7 +116,7 @@ class BatchRequestSpec: QuickSpec {
                     
                     let requestData: Data? = try? JSONEncoder().encode(request)
                     let requestJson: [[String: Any]]? = requestData
-                        .map { try? JSONSerialization.jsonObject(with: $0) as? [[String: Any]] }
+                        .map { (try? JSONSerialization.jsonObject(with: $0)) as? [[String: Any]] }
                     expect(requestJson?.first?["path"] as? String).to(equal("/endpoint1"))
                     expect(requestJson?.first?["method"] as? String).to(equal("GET"))
                     expect(requestJson?.first?["b64"] as? String).to(equal("testBody"))

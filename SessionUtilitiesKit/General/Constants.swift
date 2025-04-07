@@ -9,4 +9,3 @@ public enum Constants {
     public static let gif: String = "GIF"
     public static let oxen_foundation: String = "Oxen Foundation"
 }
-

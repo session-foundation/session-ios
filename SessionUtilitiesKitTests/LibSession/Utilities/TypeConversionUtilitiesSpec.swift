@@ -304,70 +304,50 @@ class TypeConversionUtilitiesSpec: QuickSpec {
             context("when initialised with a 2D C array") {
                 // MARK: ---- returns the correct array
                 it("returns the correct array") {
-                    var test: [CChar] = (
-                        "Test1".cString(using: .utf8)! +
-                        "Test2".cString(using: .utf8)! +
-                        "Test3AndExtra".cString(using: .utf8)!
-                    )
-                    let result = test.withUnsafeMutableBufferPointer { ptr in
-                        var mutablePtr = UnsafePointer(ptr.baseAddress)
-                        
-                        return [String](pointer: &mutablePtr, count: 3)
-                    }
+                    var test: [String] = ["Test1", "Test2", "Test3AndExtra"]
                     
+                    let result = try! test.withUnsafeCStrArray { ptr in
+                        return [String](cStringArray: ptr.baseAddress, count: 3)
+                    }
                     expect(result).to(equal(["Test1", "Test2", "Test3AndExtra"]))
                 }
                 
                 // MARK: ---- returns an empty array if given one
                 it("returns an empty array if given one") {
-                    var test = [CChar]()
-                    let result = test.withUnsafeMutableBufferPointer { ptr in
-                        var mutablePtr = UnsafePointer(ptr.baseAddress)
-                        
-                        return [String](pointer: &mutablePtr, count: 0)
+                    var test: [String] = []
+                    
+                    let result = try! test.withUnsafeCStrArray { ptr in
+                        return [String](cStringArray: ptr.baseAddress, count: 0)
                     }
-
                     expect(result).to(equal([]))
                 }
 
                 // MARK: ---- handles empty strings without issues
                 it("handles empty strings without issues") {
-                    var test: [CChar] = (
-                        "Test1".cString(using: .utf8)! +
-                        "".cString(using: .utf8)! +
-                        "Test2".cString(using: .utf8)!
-                    )
-                    let result = test.withUnsafeMutableBufferPointer { ptr in
-                        var mutablePtr = UnsafePointer(ptr.baseAddress)
-                        
-                        return [String](pointer: &mutablePtr, count: 3)
+                    var test: [String] = ["Test1", "", "Test2"]
+                    
+                    let result = try! test.withUnsafeCStrArray { ptr in
+                        return [String](cStringArray: ptr.baseAddress, count: 3)
                     }
-
                     expect(result).to(equal(["Test1", "", "Test2"]))
                 }
                 
                 // MARK: ---- returns null when given a null pointer
                 it("returns null when given a null pointer") {
-                    expect([String](pointee: nil, count: 5)).to(beNil())
+                    expect([String](
+                        cStringArray: Optional<UnsafePointer<UnsafePointer<CChar>?>>.none,
+                        count: 5)
+                    ).to(beNil())
                 }
                 
                 // MARK: ---- returns null when given a null count
                 it("returns null when given a null count") {
-                    var test: [CChar] = "Test1".cString(using: .utf8)!
-                    let result = test.withUnsafeMutableBufferPointer { ptr in
-                        var mutablePtr = UnsafeMutablePointer(ptr.baseAddress)
-                        
-                        return [String](pointer: &mutablePtr, count: nil)
+                    var test: [String] = ["Test1"]
+                    
+                    let result = try! test.withUnsafeCStrArray { ptr in
+                        return [String](cStringArray: ptr.baseAddress, count: nil)
                     }
-
                     expect(result).to(beNil())
-                }
-                
-                // MARK: ---- returns the default value if given null values
-                it("returns the default value if given null values") {
-                    let ptr: UnsafeMutablePointer<UnsafePointer<CChar>?>? = nil
-                    expect([String](pointer: ptr, count: 5, defaultValue: ["Test"]))
-                        .to(equal(["Test"]))
                 }
             }
         }

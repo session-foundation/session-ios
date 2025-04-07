@@ -561,14 +561,9 @@ extension ConversationVC:
             self?.scrollToBottom(isAnimated: false)
         }
 
-        // Note: 'shouldBeVisible' is set to true the first time a thread is saved so we can
-        // use it to determine if the user is creating a new thread and update the 'isApproved'
-        // flags appropriately
-        let oldThreadShouldBeVisible: Bool = (self.viewModel.threadData.threadShouldBeVisible == true)
-        let sentTimestampMs: Int64 = viewModel.dependencies[cache: .snodeAPI].currentOffsetTimestampMs()
-
         // Optimistically insert the outgoing message (this will trigger a UI update)
         self.viewModel.sentMessageBeforeUpdate = true
+        let sentTimestampMs: Int64 = viewModel.dependencies[cache: .snodeAPI].currentOffsetTimestampMs()
         let optimisticData: ConversationViewModel.OptimisticMessageData = self.viewModel.optimisticallyAppendOutgoingMessage(
             text: processedText,
             sentTimestampMs: sentTimestampMs,
@@ -581,7 +576,8 @@ extension ConversationVC:
         approveMessageRequestIfNeeded(
             for: self.viewModel.threadData.threadId,
             threadVariant: self.viewModel.threadData.threadVariant,
-            isNewThread: !oldThreadShouldBeVisible,
+            displayName: self.viewModel.threadData.displayName,
+            isDraft: (self.viewModel.threadData.threadIsDraft == true),
             timestampMs: (sentTimestampMs - 1)  // Set 1ms earlier as this is used for sorting
         ).sinkUntilComplete(
             receiveCompletion: { [weak self] _ in
@@ -2590,7 +2586,8 @@ extension ConversationVC {
     fileprivate func approveMessageRequestIfNeeded(
         for threadId: String,
         threadVariant: SessionThread.Variant,
-        isNewThread: Bool,
+        displayName: String,
+        isDraft: Bool,
         timestampMs: Int64
     ) -> AnyPublisher<Void, Never> {
         let updateNavigationBackStack: () -> Void = {
@@ -2624,11 +2621,11 @@ extension ConversationVC {
                 else { return Just(()).eraseToAnyPublisher() }
                 
                 return viewModel.dependencies[singleton: .storage]
-                    .writePublisher { [displayName = self.viewModel.threadData.displayName, dependencies = viewModel.dependencies] db in
-                        // If we aren't creating a new thread (ie. sending a message request) then send a
-                        // messageRequestResponse back to the sender (this allows the sender to know that
-                        // they have been approved and can now use this contact in closed groups)
-                        if !isNewThread {
+                    .writePublisher { [dependencies = viewModel.dependencies] db in
+                        /// If this isn't a draft thread (ie. sending a message request) then send a `messageRequestResponse`
+                        /// back to the sender (this allows the sender to know that they have been approved and can now use this
+                        /// contact in closed groups)
+                        if !isDraft {
                             _ = try? Interaction(
                                 threadId: threadId,
                                 threadVariant: threadVariant,
@@ -2662,7 +2659,7 @@ extension ConversationVC {
                                 db,
                                 Contact.Columns.isApproved.set(to: true),
                                 Contact.Columns.didApproveMe
-                                    .set(to: contact.didApproveMe || !isNewThread),
+                                    .set(to: contact.didApproveMe || !isDraft),
                                 using: dependencies
                             )
                     }
@@ -2687,8 +2684,8 @@ extension ConversationVC {
                 
                 return viewModel.dependencies[singleton: .storage]
                     .writePublisher { [dependencies = viewModel.dependencies] db in
-                        /// Remove any existing `infoGroupInfoInvited` interactions from the group (don't want to have a duplicate one from
-                        /// inside the group history)
+                        /// Remove any existing `infoGroupInfoInvited` interactions from the group (don't want to have a
+                        /// duplicate one from inside the group history)
                         _ = try Interaction
                             .filter(Interaction.Columns.threadId == group.id)
                             .filter(Interaction.Columns.variant == Interaction.Variant.infoGroupInfoInvited)
@@ -2705,10 +2702,10 @@ extension ConversationVC {
                             isHidden: false
                         ).upsert(db)
                         
-                        /// If we aren't creating a new thread (ie. sending a message request) and the user is not an admin
-                        /// then schedule sending a `GroupUpdateInviteResponseMessage` to the group (this allows
-                        /// other members to know that the user has joined the group)
-                        if !isNewThread && group.groupIdentityPrivateKey == nil {
+                        /// If this isn't a draft thread (ie. sending a message request) and the user is not an admin then schedule
+                        /// sending a `GroupUpdateInviteResponseMessage` to the group (this allows other members to
+                        /// know that the user has joined the group)
+                        if !isDraft && group.groupIdentityPrivateKey == nil {
                             try MessageSender.send(
                                 db,
                                 message: GroupUpdateInviteResponseMessage(
@@ -2747,7 +2744,8 @@ extension ConversationVC {
         approveMessageRequestIfNeeded(
             for: self.viewModel.threadData.threadId,
             threadVariant: self.viewModel.threadData.threadVariant,
-            isNewThread: false,
+            displayName: self.viewModel.threadData.displayName,
+            isDraft: (self.viewModel.threadData.threadIsDraft == true),
             timestampMs: viewModel.dependencies[cache: .snodeAPI].currentOffsetTimestampMs()
         ).sinkUntilComplete()
     }
