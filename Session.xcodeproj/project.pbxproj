@@ -7810,7 +7810,7 @@
 				CODE_SIGN_IDENTITY = "iPhone Developer";
 				COMPILE_LIB_SESSION = "";
 				COPY_PHASE_STRIP = NO;
-				CURRENT_PROJECT_VERSION = 567;
+				CURRENT_PROJECT_VERSION = 569;
 				ENABLE_BITCODE = NO;
 				ENABLE_STRICT_OBJC_MSGSEND = YES;
 				ENABLE_TESTABILITY = YES;
@@ -7890,7 +7890,7 @@
 				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
 				CODE_SIGN_IDENTITY = "iPhone Distribution";
 				COMPILE_LIB_SESSION = "";
-				CURRENT_PROJECT_VERSION = 567;
+				CURRENT_PROJECT_VERSION = 569;
 				ENABLE_BITCODE = NO;
 				ENABLE_MODULE_VERIFIER = YES;
 				ENABLE_STRICT_OBJC_MSGSEND = YES;
@@ -8075,6 +8075,7 @@
 				GENERATE_INFOPLIST_FILE = YES;
 				PRODUCT_BUNDLE_IDENTIFIER = io.oxen.SessionSnodeKitTests;
 				PRODUCT_NAME = SessionSnodeKitTests;
+				SWIFT_VERSION = 5.0;
 			};
 			name = Debug;
 		};
@@ -8085,6 +8086,7 @@
 				GENERATE_INFOPLIST_FILE = YES;
 				PRODUCT_BUNDLE_IDENTIFIER = io.oxen.SessionSnodeKitTests;
 				PRODUCT_NAME = SessionSnodeKitTests;
+				SWIFT_VERSION = 5.0;
 			};
 			name = App_Store_Release;
 		};
@@ -8279,14 +8281,20 @@
 		FD860CBF2D6E981900BBE29C /* Debug_Compile_LibSession */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				GENERATE_INFOPLIST_FILE = YES;
+				PRODUCT_BUNDLE_IDENTIFIER = io.oxen.SessionSnodeKitTests;
 				PRODUCT_NAME = SessionSnodeKitTests;
+				SWIFT_VERSION = 5.0;
 			};
 			name = Debug_Compile_LibSession;
 		};
 		FD860CC02D6E981900BBE29C /* App_Store_Release_Compile_LibSession */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				GENERATE_INFOPLIST_FILE = YES;
+				PRODUCT_BUNDLE_IDENTIFIER = io.oxen.SessionSnodeKitTests;
 				PRODUCT_NAME = SessionSnodeKitTests;
+				SWIFT_VERSION = 5.0;
 			};
 			name = App_Store_Release_Compile_LibSession;
 		};
@@ -8413,7 +8421,7 @@
 				CODE_SIGN_IDENTITY = "iPhone Developer";
 				COMPILE_LIB_SESSION = YES;
 				COPY_PHASE_STRIP = NO;
-				CURRENT_PROJECT_VERSION = 567;
+				CURRENT_PROJECT_VERSION = 569;
 				ENABLE_BITCODE = NO;
 				ENABLE_STRICT_OBJC_MSGSEND = YES;
 				ENABLE_TESTABILITY = YES;
@@ -9051,7 +9059,7 @@
 				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
 				CODE_SIGN_IDENTITY = "iPhone Distribution";
 				COMPILE_LIB_SESSION = YES;
-				CURRENT_PROJECT_VERSION = 567;
+				CURRENT_PROJECT_VERSION = 569;
 				ENABLE_BITCODE = NO;
 				ENABLE_STRICT_OBJC_MSGSEND = YES;
 				GCC_NO_COMMON_BLOCKS = YES;

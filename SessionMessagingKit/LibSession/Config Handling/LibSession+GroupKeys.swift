@@ -107,33 +107,27 @@ internal extension LibSession {
                 throw LibSessionError.invalidConfigObject
             }
             
-            var cMemberIds: [UnsafePointer<CChar>?] = ( try? (memberIds
-                .map { id in id.cString(using: .utf8) }
-                .unsafeCopyCStringArray()))
-            .defaulting(to: [])
-            
-            defer { cMemberIds.forEach { $0?.deallocate() } }
-            
-            // Performing a `key_supplement` returns the supplemental key changes, since our state doesn't care
-            // about the `GROUP_KEYS` needed for other members this change won't result in the `GROUP_KEYS` config
-            // going into a pending state or the `ConfigurationSyncJob` getting triggered so return the data so that
-            // the caller can push it directly
-            var cSupplementData: UnsafeMutablePointer<UInt8>!
-            var cSupplementDataLen: Int = 0
-            
-            guard
-                groups_keys_key_supplement(conf, &cMemberIds, cMemberIds.count, &cSupplementData, &cSupplementDataLen),
-                let cSupplementData: UnsafeMutablePointer<UInt8> = cSupplementData
-            else { throw LibSessionError.failedToKeySupplementGroup }
-            
-            // Must deallocate on success
-            let supplementData: Data = Data(
-                bytes: cSupplementData,
-                count: cSupplementDataLen
-            )
-            cSupplementData.deallocate()
-            
-            return supplementData
+            return try memberIds.withUnsafeCStrArray { cMemberIds in
+                /// Performing a `key_supplement` returns the supplemental key changes, since our state doesn't care about the
+                /// `GROUP_KEYS` needed for other members this change won't result in the `GROUP_KEYS` config going into a pending
+                /// state or the `ConfigurationSyncJob` getting triggered so return the data so that the caller can push it directly
+                var cSupplementData: UnsafeMutablePointer<UInt8>!
+                var cSupplementDataLen: Int = 0
+                
+                guard
+                    groups_keys_key_supplement(conf, cMemberIds.baseAddress, cMemberIds.count, &cSupplementData, &cSupplementDataLen),
+                    let cSupplementData: UnsafeMutablePointer<UInt8> = cSupplementData
+                else { throw LibSessionError.failedToKeySupplementGroup }
+                
+                // Must deallocate on success
+                let supplementData: Data = Data(
+                    bytes: cSupplementData,
+                    count: cSupplementDataLen
+                )
+                cSupplementData.deallocate()
+                
+                return supplementData
+            }
         }
     }
     
