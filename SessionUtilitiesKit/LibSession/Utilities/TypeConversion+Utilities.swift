@@ -21,68 +21,37 @@ public extension String {
 // MARK: - Array
 
 public extension Array where Element == String {
-    init?(pointer: UnsafeMutablePointer<UnsafeMutablePointer<CChar>?>?, count: Int?) {
+    init?(cStringArray: UnsafePointer<UnsafePointer<CChar>?>?, count: Int?) {
         /// If `count` was provided but is `0` then accessing the pointer could crash (as it could be bad memory) so just return an empty array
-        guard let count: Int = count else { return nil }
-        guard count > 0 else {
-            self = []
-            return
-        }
-        
-        self.init(pointee: pointer.map { $0.pointee.map { UnsafePointer($0) } }, count: count)
-    }
-    
-    init?(pointer: UnsafeMutablePointer<UnsafePointer<CChar>?>?, count: Int?) {
-        /// If `count` was provided but is `0` then accessing the pointer could crash (as it could be bad memory) so just return an empty array
-        guard let count: Int = count else { return nil }
-        guard count > 0 else {
-            self = []
-            return
-        }
-        
-        self.init(pointee: pointer.map { $0.pointee }, count: count)
-    }
-    
-    init(
-        pointer: UnsafeMutablePointer<UnsafeMutablePointer<CChar>?>?,
-        count: Int?,
-        defaultValue: [String]
-    ) {
-        self = ([String](pointer: pointer, count: count) ?? defaultValue)
-    }
-    
-    init(
-        pointer: UnsafeMutablePointer<UnsafePointer<CChar>?>?,
-        count: Int?,
-        defaultValue: [String]
-    ) {
-        self = ([String](pointer: pointer, count: count) ?? defaultValue)
-    }
-    
-    init?(
-        pointee: UnsafePointer<CChar>?,
-        count: Int?
-    ) {
         guard
-            let count: Int = count,
-            let pointee: UnsafePointer<CChar> = pointee
+            let cStringArray: UnsafePointer<UnsafePointer<CChar>?> = cStringArray,
+            let count: Int = count
         else { return nil }
         
-        /// If `count` was provided but is `0` then accessing the pointer could crash (as it could be bad memory) so just return an empty array
-        guard count > 0 else {
-            self = []
-            return
-        }
+        self.init()
+        self.reserveCapacity(count)
         
-        self = (0..<count).reduce(into: []) { result, index in
-            /// We need to calculate the start position of each of the hashes in memory which will
-            /// be at the end of the previous hash plus one (due to the null termination character
-            /// which isn't included in Swift strings so isn't included in `count`)
-            let prevLength: Int = (result.isEmpty ? 0 :
-                result.map { ($0.count + 1) }.reduce(0, +)
-            )
-            
-            result.append(String(cString: pointee.advanced(by: prevLength)))
+        for i in 0..<count {
+            if let cStringPtr: UnsafePointer<CChar> = cStringArray[i] {
+                self.append(String(cString: cStringPtr))
+            }
+        }
+    }
+    
+    init?(cStringArray: UnsafeMutablePointer<UnsafeMutablePointer<CChar>?>?, count: Int?) {
+        /// If `count` was provided but is `0` then accessing the pointer could crash (as it could be bad memory) so just return an empty array
+        guard
+            let cStringArray: UnsafeMutablePointer<UnsafeMutablePointer<CChar>?> = cStringArray,
+            let count: Int = count
+        else { return nil }
+        
+        self.init()
+        self.reserveCapacity(count)
+        
+        for i in 0..<count {
+            if let cStringPtr: UnsafeMutablePointer<CChar> = cStringArray[i] {
+                self.append(String(cString: cStringPtr))
+            }
         }
     }
 }

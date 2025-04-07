@@ -253,13 +253,12 @@ class LibSessionNetwork: NetworkType {
                         throw NetworkError.invalidPreparedRequest
                     
                     case .snode(let snode, let swarmPublicKey):
-                        let cSwarmPublicKey: UnsafePointer<CChar>? = try swarmPublicKey.map {
+                        let cSwarmPublicKey: [CChar]? = try swarmPublicKey.map {
                             _ = try SessionId(from: $0)
                             
                             // Quick way to drop '05' prefix if present
-                            return $0.suffix(64).cString(using: .utf8)?.unsafeCopy()
-                        }
-                        wrapper.addUnsafePointerToCleanup(cSwarmPublicKey)
+                            return $0.suffix(64).cString(using: .utf8)
+                        }.flatMap { $0 }
                         
                         network_send_onion_request_to_snode_destination(
                             network,
@@ -279,56 +278,62 @@ class LibSessionNetwork: NetworkType {
                         )
                     
                     case .server:
-                        network_send_onion_request_to_server_destination(
-                            network,
-                            try wrapper.cServerDestination(destination),
-                            cPayloadBytes,
-                            cPayloadBytes.count,
-                            Int64(floor(requestTimeout * 1000)),
-                            Int64(floor((requestAndPathBuildTimeout ?? 0) * 1000)),
-                            { success, timeout, statusCode, cHeaders, cHeaderVals, headerLen, dataPtr, dataLen, ctx in
-                                let headers: [String: String] = CallbackWrapper<Output>
-                                    .headers(cHeaders, cHeaderVals, headerLen)
-                                let data: Data? = dataPtr.map { Data(bytes: $0, count: dataLen) }
-                                CallbackWrapper<Output>.run(ctx, (success, timeout, Int(statusCode), headers, data))
-                            },
-                            wrapper.unsafePointer()
-                        )
+                        try destination.withUnsafePointer { cServerDestination in
+                            network_send_onion_request_to_server_destination(
+                                network,
+                                cServerDestination,
+                                cPayloadBytes,
+                                cPayloadBytes.count,
+                                Int64(floor(requestTimeout * 1000)),
+                                Int64(floor((requestAndPathBuildTimeout ?? 0) * 1000)),
+                                { success, timeout, statusCode, cHeaders, cHeaderVals, headerLen, dataPtr, dataLen, ctx in
+                                    let headers: [String: String] = CallbackWrapper<Output>
+                                        .headers(cHeaders, cHeaderVals, headerLen)
+                                    let data: Data? = dataPtr.map { Data(bytes: $0, count: dataLen) }
+                                    CallbackWrapper<Output>.run(ctx, (success, timeout, Int(statusCode), headers, data))
+                                },
+                                wrapper.unsafePointer()
+                            )
+                        }
                     
                     case .serverUpload(_, let fileName):
                         guard !cPayloadBytes.isEmpty else { throw NetworkError.invalidPreparedRequest }
                         
-                        network_upload_to_server(
-                            network,
-                            try wrapper.cServerDestination(destination),
-                            cPayloadBytes,
-                            cPayloadBytes.count,
-                            fileName?.cString(using: .utf8),
-                            Int64(floor(requestTimeout * 1000)),
-                            Int64(floor((requestAndPathBuildTimeout ?? 0) * 1000)),
-                            { success, timeout, statusCode, cHeaders, cHeaderVals, headerLen, dataPtr, dataLen, ctx in
-                                let headers: [String: String] = CallbackWrapper<Output>
-                                    .headers(cHeaders, cHeaderVals, headerLen)
-                                let data: Data? = dataPtr.map { Data(bytes: $0, count: dataLen) }
-                                CallbackWrapper<Output>.run(ctx, (success, timeout, Int(statusCode), headers, data))
-                            },
-                            wrapper.unsafePointer()
-                        )
+                        try destination.withUnsafePointer { cServerDestination in
+                            network_upload_to_server(
+                                network,
+                                cServerDestination,
+                                cPayloadBytes,
+                                cPayloadBytes.count,
+                                fileName?.cString(using: .utf8),
+                                Int64(floor(requestTimeout * 1000)),
+                                Int64(floor((requestAndPathBuildTimeout ?? 0) * 1000)),
+                                { success, timeout, statusCode, cHeaders, cHeaderVals, headerLen, dataPtr, dataLen, ctx in
+                                    let headers: [String: String] = CallbackWrapper<Output>
+                                        .headers(cHeaders, cHeaderVals, headerLen)
+                                    let data: Data? = dataPtr.map { Data(bytes: $0, count: dataLen) }
+                                    CallbackWrapper<Output>.run(ctx, (success, timeout, Int(statusCode), headers, data))
+                                },
+                                wrapper.unsafePointer()
+                            )
+                        }
                     
                     case .serverDownload:
-                        network_download_from_server(
-                            network,
-                            try wrapper.cServerDestination(destination),
-                            Int64(floor(requestTimeout * 1000)),
-                            Int64(floor((requestAndPathBuildTimeout ?? 0) * 1000)),
-                            { success, timeout, statusCode, cHeaders, cHeaderVals, headerLen, dataPtr, dataLen, ctx in
-                                let headers: [String: String] = CallbackWrapper<Output>
-                                    .headers(cHeaders, cHeaderVals, headerLen)
-                                let data: Data? = dataPtr.map { Data(bytes: $0, count: dataLen) }
-                                CallbackWrapper<Output>.run(ctx, (success, timeout, Int(statusCode), headers, data))
-                            },
-                            wrapper.unsafePointer()
-                        )
+                        try destination.withUnsafePointer { cServerDestination in
+                            network_download_from_server(
+                                network,
+                                cServerDestination,
+                                Int64(floor(requestTimeout * 1000)),
+                                Int64(floor((requestAndPathBuildTimeout ?? 0) * 1000)),
+                                { success, timeout, statusCode, cHeaders, cHeaderVals, headerLen, dataPtr, dataLen, ctx in
+                                    let headers: [String: String] = CallbackWrapper<Output>
+                                        .headers(cHeaders, cHeaderVals, headerLen)
+                                    let data: Data? = dataPtr.map { Data(bytes: $0, count: dataLen) }
+                                    CallbackWrapper<Output>.run(ctx, (success, timeout, Int(statusCode), headers, data))
+                                },
+                                wrapper.unsafePointer()
+                            )
+                        }
                     
                     case .cached(let success, let timeout, let statusCode, let headers, let data):
                         wrapper.run((success, timeout, statusCode, headers, data))
@@ -406,13 +411,6 @@ class LibSessionNetwork: NetworkType {
 private extension LibSessionNetwork {
     class CallbackWrapper<Output> {
         public let resultPublisher: CurrentValueSubject<Output?, Error> = CurrentValueSubject(nil)
-        private var pointersToDeallocate: [UnsafeRawPointer?] = []
-        
-        // MARK: - Initialization
-        
-        deinit {
-            pointersToDeallocate.forEach { $0?.deallocate() }
-        }
         
         // MARK: - Functions
         
@@ -429,10 +427,6 @@ private extension LibSessionNetwork {
         }
         
         public func unsafePointer() -> UnsafeMutableRawPointer { Unmanaged.passRetained(self).toOpaque() }
-        
-        public func addUnsafePointerToCleanup<T>(_ pointer: UnsafePointer<T>?) {
-            pointersToDeallocate.append(UnsafeRawPointer(pointer))
-        }
         
         public func run(_ output: Output) {
             resultPublisher.send(output)
@@ -554,32 +548,21 @@ extension network_service_node: @retroactive CAccessible, @retroactive CMutable 
 
 // MARK: - Convenience
 
-private extension LibSessionNetwork.CallbackWrapper {
-    static func headers(
-        _ cHeaders: UnsafeMutablePointer<UnsafePointer<CChar>?>?,
-        _ cHeaderVals: UnsafeMutablePointer<UnsafePointer<CChar>?>?,
-        _ count: Int
-    ) -> [String: String] {
-        let headers: [String] = [String](pointer: cHeaders, count: count, defaultValue: [])
-        let headerVals: [String] = [String](pointer: cHeaderVals, count: count, defaultValue: [])
-        
-        return zip(headers, headerVals)
-            .reduce(into: [:]) { result, next in result[next.0] = next.1 }
-    }
-    
-    func cServerDestination(_ destination: Network.Destination) throws -> network_server_destination {
+private extension Network.Destination {
+    func withUnsafePointer<Result>(_ body: (network_server_destination) throws -> Result) throws -> Result {
         let method: HTTPMethod
         let url: URL
         let headers: [HTTPHeader: String]?
         let x25519PublicKey: String
         
-        switch destination {
+        switch self {
             case .snode, .randomSnode, .randomSnodeLatestNetworkTimeTarget, .cached: throw NetworkError.invalidPreparedRequest
             case .server(let info), .serverUpload(let info, _), .serverDownload(let info):
                 method = info.method
                 url = try info.url
                 headers = info.headers
-                x25519PublicKey = info.x25519PublicKey
+                x25519PublicKey = String(info.x25519PublicKey
+                    .suffix(64)) // Quick way to drop '05' prefix if present
         }
         
         guard let host: String = url.host else { throw NetworkError.invalidURL }
@@ -587,75 +570,56 @@ private extension LibSessionNetwork.CallbackWrapper {
             throw LibSessionError.invalidCConversion
         }
         
-        let headerInfo: [(key: String, value: String)]? = headers?.map { ($0.key, $0.value) }
-        
-        // Handle the more complicated type conversions first
-        let cHeaderKeysContent: [UnsafePointer<CChar>?] = (try? ((headerInfo ?? [])
-            .map { $0.key.cString(using: .utf8) }
-            .unsafeCopyCStringArray()))
-            .defaulting(to: [])
-        let cHeaderValuesContent: [UnsafePointer<CChar>?] = (try? ((headerInfo ?? [])
-            .map { $0.value.cString(using: .utf8) }
-            .unsafeCopyCStringArray()))
-            .defaulting(to: [])
-        
-        guard
-            cHeaderKeysContent.count == cHeaderValuesContent.count,
-            cHeaderKeysContent.allSatisfy({ $0 != nil }),
-            cHeaderValuesContent.allSatisfy({ $0 != nil })
-        else {
-            cHeaderKeysContent.forEach { $0?.deallocate() }
-            cHeaderValuesContent.forEach { $0?.deallocate() }
-            throw LibSessionError.invalidCConversion
-        }
-        
-        // Convert the other types
         let targetScheme: String = (url.scheme ?? "https")
-        let cMethod: UnsafePointer<CChar>? = method.rawValue
-            .cString(using: .utf8)?
-            .unsafeCopy()
-        let cTargetScheme: UnsafePointer<CChar>? = targetScheme
-            .cString(using: .utf8)?
-            .unsafeCopy()
-        let cHost: UnsafePointer<CChar>? = host
-            .cString(using: .utf8)?
-            .unsafeCopy()
-        let cEndpoint: UnsafePointer<CChar>? = url.path
-            .appending(url.query.map { value in "?\(value)" })
-            .cString(using: .utf8)?
-            .unsafeCopy()
-        let cX25519Pubkey: UnsafePointer<CChar>? = x25519PublicKey
-            .suffix(64) // Quick way to drop '05' prefix if present
-            .cString(using: .utf8)?
-            .unsafeCopy()
-        let cHeaderKeys: UnsafeMutablePointer<UnsafePointer<CChar>?>? = cHeaderKeysContent
-            .unsafeCopy()
-        let cHeaderValues: UnsafeMutablePointer<UnsafePointer<CChar>?>? = cHeaderValuesContent
-            .unsafeCopy()
-        let cServerDestination = network_server_destination(
-            method: cMethod,
-            protocol: cTargetScheme,
-            host: cHost,
-            endpoint: cEndpoint,
-            port: UInt16(url.port ?? (targetScheme == "https" ? 443 : 80)),
-            x25519_pubkey: cX25519Pubkey,
-            headers: cHeaderKeys,
-            header_values: cHeaderValues,
-            headers_size: (headerInfo ?? []).count
-        )
+        let endpoint: String = url.path
+            .appending(url.query.map { value in "?\(value)" } ?? "")
+        let port: UInt16 = UInt16(url.port ?? (targetScheme == "https" ? 443 : 80))
+        let headerKeys: [String] = (headers?.map { $0.key } ?? [])
+        let headerValues: [String] = (headers?.map { $0.value } ?? [])
+        let headersSize = headerKeys.count
         
-        // Add a cleanup callback to deallocate the header arrays
-        self.addUnsafePointerToCleanup(cMethod)
-        self.addUnsafePointerToCleanup(cTargetScheme)
-        self.addUnsafePointerToCleanup(cHost)
-        self.addUnsafePointerToCleanup(cEndpoint)
-        self.addUnsafePointerToCleanup(cX25519Pubkey)
-        cHeaderKeysContent.forEach { self.addUnsafePointerToCleanup($0) }
-        cHeaderValuesContent.forEach { self.addUnsafePointerToCleanup($0) }
-        self.addUnsafePointerToCleanup(cHeaderKeys)
-        self.addUnsafePointerToCleanup(cHeaderValues)
+        // Use scoped closure to avoid manual memory management (crazy nesting but it ends up safer)
+        return try method.rawValue.withCString { cMethodPtr in
+            try targetScheme.withCString { cTargetSchemePtr in
+                try host.withCString { cHostPtr in
+                    try endpoint.withCString { cEndpointPtr in
+                        try x25519PublicKey.withCString { cX25519PubkeyPtr in
+                            try headerKeys.withUnsafeCStrArray { headerKeysPtr in
+                                try headerValues.withUnsafeCStrArray { headerValuesPtr in
+                                    let cServerDest = network_server_destination(
+                                        method: cMethodPtr,
+                                        protocol: cTargetSchemePtr,
+                                        host: cHostPtr,
+                                        endpoint: cEndpointPtr,
+                                        port: port,
+                                        x25519_pubkey: cX25519PubkeyPtr,
+                                        headers: headerKeysPtr.baseAddress,
+                                        header_values: headerValuesPtr.baseAddress,
+                                        headers_size: headersSize
+                                    )
+                                    
+                                    return try body(cServerDest)
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+private extension LibSessionNetwork.CallbackWrapper {
+    static func headers(
+        _ cHeaders: UnsafePointer<UnsafePointer<CChar>?>?,
+        _ cHeaderVals: UnsafePointer<UnsafePointer<CChar>?>?,
+        _ count: Int
+    ) -> [String: String] {
+        let headers: [String] = ([String](cStringArray: cHeaders, count: count) ?? [])
+        let headerVals: [String] = ([String](cStringArray: cHeaderVals, count: count) ?? [])
         
-        return cServerDestination
+        return zip(headers, headerVals)
+            .reduce(into: [:]) { result, next in result[next.0] = next.1 }
     }
 }
 
