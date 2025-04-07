@@ -76,36 +76,35 @@ public extension Crypto.Generator {
             args: [messages, recipients, ed25519PrivateKey, domain]
         ) {
             var outLen: Int = 0
-            var cMessages: [UnsafePointer<UInt8>?] = (try? (messages
-                .map { message -> [UInt8] in Array(message) }
-                .unsafeCopyUInt8Array()))
-                .defaulting(to: [])
-            var messageSizes: [Int] = messages.map { $0.count }
-            var cRecipients: [UnsafePointer<UInt8>?] = (try? (recipients
-                .map { recipient -> [UInt8] in recipient.publicKey }
-                .unsafeCopyUInt8Array()))
-                .defaulting(to: [])
-            var secretKey: [UInt8] = ed25519PrivateKey
-            var cDomain: [CChar] = try domain.cString(using: .utf8) ?? { throw LibSessionError.invalidCConversion }()
-            let cEncryptedDataPtr: UnsafeMutablePointer<UInt8>? = session_encrypt_for_multiple_simple_ed25519(
-                &outLen,
-                &cMessages,
-                &messageSizes,
-                messages.count,
-                &cRecipients,
-                recipients.count,
-                &secretKey,
-                &cDomain,
-                nil,
-                0
-            )
+            return try messages.map { Array($0) }.withUnsafeUInt8CArray { cMessages in
+                try recipients.map { Array($0.publicKey) }.withUnsafeUInt8CArray { cRecipients in
+                    var messageSizes: [Int] = messages.map { $0.count }
+                    var secretKey: [UInt8] = ed25519PrivateKey
+                    var cDomain: [CChar] = try domain.cString(using: .utf8) ?? {
+                        throw LibSessionError.invalidCConversion
+                    }()
+                    
+                    let cEncryptedDataPtr: UnsafeMutablePointer<UInt8>? = session_encrypt_for_multiple_simple_ed25519(
+                        &outLen,
+                        cMessages.baseAddress,
+                        &messageSizes,
+                        messages.count,
+                        cRecipients.baseAddress,
+                        recipients.count,
+                        &secretKey,
+                        &cDomain,
+                        nil,
+                        0
+                    )
 
-            let encryptedData: Data? = cEncryptedDataPtr.map { Data(bytes: $0, count: outLen) }
-            cMessages.forEach { $0?.deallocate() }
-            cRecipients.forEach { $0?.deallocate() }
-            cEncryptedDataPtr?.deallocate()
+                    let encryptedData: Data? = cEncryptedDataPtr.map { Data(bytes: $0, count: outLen) }
+                    cMessages.forEach { $0?.deallocate() }
+                    cRecipients.forEach { $0?.deallocate() }
+                    cEncryptedDataPtr?.deallocate()
 
-            return try encryptedData ?? { throw MessageSenderError.encryptionFailed }()
+                    return try encryptedData ?? { throw MessageSenderError.encryptionFailed }()
+                }
+            }
         }
     }
 }

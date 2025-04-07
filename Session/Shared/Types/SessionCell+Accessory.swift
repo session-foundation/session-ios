@@ -2,6 +2,7 @@
 
 import UIKit
 import GRDB
+import Lucide
 import SessionUIKit
 import SessionMessagingKit
 import SessionUtilitiesKit
@@ -31,6 +32,23 @@ public extension SessionCell {
 
 public extension SessionCell.Accessory {
     static func icon(
+        _ icon: Lucide.Icon,
+        size: IconSize = .medium,
+        customTint: ThemeValue? = nil,
+        shouldFill: Bool = false,
+        accessibility: Accessibility? = nil
+    ) -> SessionCell.Accessory {
+        return SessionCell.AccessoryConfig.Icon(
+            icon: icon,
+            image: nil,
+            iconSize: size,
+            customTint: customTint,
+            shouldFill: shouldFill,
+            accessibility: accessibility
+        )
+    }
+    
+    static func icon(
         _ image: UIImage?,
         size: IconSize = .medium,
         customTint: ThemeValue? = nil,
@@ -38,6 +56,7 @@ public extension SessionCell.Accessory {
         accessibility: Accessibility? = nil
     ) -> SessionCell.Accessory {
         return SessionCell.AccessoryConfig.Icon(
+            icon: nil,
             image: image,
             iconSize: size,
             customTint: customTint,
@@ -180,14 +199,12 @@ public extension SessionCell.Accessory {
         )
     }
     
-    static func customView(
-        uniqueId: AnyHashable,
-        accessibility: Accessibility? = nil,
-        viewGenerator: @escaping () -> UIView
+    static func custom<T: SessionCell.Accessory.CustomViewInfo>(
+        info: T,
+        accessibility: Accessibility? = nil
     ) -> SessionCell.Accessory {
-        return SessionCell.AccessoryConfig.CustomView(
-            uniqueId: uniqueId,
-            viewGenerator: viewGenerator,
+        return SessionCell.AccessoryConfig.Custom(
+            info: info,
             accessibility: accessibility
         )
     }
@@ -199,18 +216,21 @@ public extension SessionCell.AccessoryConfig {
     // MARK: - Icon
     
     class Icon: SessionCell.Accessory {
+        public let icon: Lucide.Icon?
         public let image: UIImage?
         public let iconSize: IconSize
         public let customTint: ThemeValue?
         public let shouldFill: Bool
         
         fileprivate init(
+            icon: Lucide.Icon?,
             image: UIImage?,
             iconSize: IconSize,
             customTint: ThemeValue?,
             shouldFill: Bool,
             accessibility: Accessibility?
         ) {
+            self.icon = icon
             self.image = image
             self.iconSize = iconSize
             self.customTint = customTint
@@ -222,6 +242,7 @@ public extension SessionCell.AccessoryConfig {
         // MARK: - Conformance
         
         override public func hash(into hasher: inout Hasher) {
+            icon.hash(into: &hasher)
             image.hash(into: &hasher)
             iconSize.hash(into: &hasher)
             customTint.hash(into: &hasher)
@@ -233,6 +254,7 @@ public extension SessionCell.AccessoryConfig {
             guard let rhs: Icon = other as? Icon else { return false }
             
             return (
+                icon == rhs.icon &&
                 image == rhs.image &&
                 iconSize == rhs.iconSize &&
                 customTint == rhs.customTint &&
@@ -661,34 +683,88 @@ public extension SessionCell.AccessoryConfig {
         }
     }
     
-    class CustomView: SessionCell.Accessory {
-        public let uniqueId: AnyHashable
-        public let viewGenerator: () -> UIView
+    class Custom<T: SessionCell.Accessory.CustomViewInfo>: SessionCell.Accessory, AnyCustom {
+        public let info: T
         
         fileprivate init(
-            uniqueId: AnyHashable,
-            viewGenerator: @escaping () -> UIView,
+            info: T,
             accessibility: Accessibility?
         ) {
-            self.uniqueId = uniqueId
-            self.viewGenerator = viewGenerator
+            self.info = info
             
             super.init(accessibility: accessibility)
         }
         
         // MARK: - Conformance
         
+        public func createView(maxContentWidth: CGFloat, using dependencies: Dependencies) -> UIView {
+            return info.createView(maxContentWidth: maxContentWidth, using: dependencies)
+        }
+        
         override public func hash(into hasher: inout Hasher) {
-            uniqueId.hash(into: &hasher)
+            info.hash(into: &hasher)
             accessibility.hash(into: &hasher)
         }
         
         override fileprivate func isEqual(to other: SessionCell.Accessory) -> Bool {
             return (
-                other is CustomView &&
-                uniqueId == (other as? CustomView)?.uniqueId &&
-                accessibility == (other as? CustomView)?.accessibility
+                other is Custom &&
+                info == (other as? Custom)?.info &&
+                accessibility == (other as? Custom)?.accessibility
             )
         }
+    }
+    
+    protocol AnyCustom {
+        var accessibility: Accessibility? { get }
+        
+        func createView(maxContentWidth: CGFloat, using dependencies: Dependencies) -> UIView
+    }
+}
+
+// MARK: - SessionCell.Accessory.CustomView
+
+public extension SessionCell.Accessory {
+    enum Size {
+        case fixed(width: CGFloat, height: CGFloat)
+        case fillWidth(height: CGFloat)
+        case fillWidthWrapHeight
+    }
+}
+
+public extension SessionCell.Accessory {
+    protocol CustomView: UIView {
+        associatedtype Info
+        
+        static var size: Size { get }
+        
+        static func create(maxContentWidth: CGFloat, using dependencies: Dependencies) -> Self
+        func update(with info: Info)
+    }
+    
+    protocol CustomViewInfo: Equatable, Hashable {
+        associatedtype View: CustomView where View.Info == Self
+    }
+}
+
+public extension SessionCell.Accessory.CustomViewInfo {
+    func createView(maxContentWidth: CGFloat, using dependencies: Dependencies) -> UIView {
+        let view: View = View.create(maxContentWidth: maxContentWidth, using: dependencies)
+        view.update(with: self)
+        
+        switch View.size {
+            case .fixed(let width, let height):
+                view.set(.width, to: width)
+                view.set(.height, to: height)
+                
+            case .fillWidth(let height):
+                view.set(.height, to: height)
+                
+            case .fillWidthWrapHeight:
+                view.setContentHugging(.vertical, to: .required)
+                view.setCompressionResistance(.vertical, to: .required)
+        }
+        
+        return view
     }
 }

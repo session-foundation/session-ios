@@ -2,81 +2,65 @@
 
 import Foundation
 
-extension Collection {
-    public subscript(ifValid index: Index) -> Iterator.Element? {
-        return self.indices.contains(index) ? self[index] : nil
-    }
-}
-
-public extension Collection {
-    /// This creates an UnsafeMutableBufferPointer to access data in memory directly. This result pointer provides no automated
-    /// memory management so after use you are responsible for handling the life cycle and need to call `deallocate()`.
-    func unsafeCopy() -> UnsafeMutableBufferPointer<Element> {
-        let copy = UnsafeMutableBufferPointer<Element>.allocate(capacity: self.underestimatedCount)
-        _ = copy.initialize(from: self)
-        return copy
-    }
-    
-    /// This creates an UnsafePointer to access data in memory directly. This result pointer provides no automated
-    /// memory management so after use you are responsible for handling the life cycle and need to call `deallocate()`.
-    func unsafeCopy() -> UnsafePointer<Element>? {
-        let copy = UnsafeMutableBufferPointer<Element>.allocate(capacity: self.underestimatedCount)
-        _ = copy.initialize(from: self)
-        return UnsafePointer(copy.baseAddress)
-    }
-    
-    /// This creates an UnsafePointer to access data in memory directly. This result pointer provides no automated
-    /// memory management so after use you are responsible for handling the life cycle and need to call `deallocate()`.
-    func unsafeCopy() -> UnsafeMutablePointer<Element>? {
-        let copy = UnsafeMutableBufferPointer<Element>.allocate(capacity: self.underestimatedCount)
-        _ = copy.initialize(from: self)
-        return UnsafeMutablePointer(copy.baseAddress)
-    }
-}
-
-public extension Collection where Element == [CChar]? {
-    /// This creates an array of UnsafePointer types to access data of the C strings in memory. This array provides no automated
-    /// memory management of it's children so after use you are responsible for handling the life cycle of the child elements and
-    /// need to call `deallocate()` on each child.
-    func unsafeCopyCStringArray() throws -> [UnsafePointer<CChar>?] {
-        return try self.map { value in
-            guard let value: [CChar] = value else { return nil }
+public extension Collection where Element == String {
+    func withUnsafeCStrArray<R>(
+        _ body: (UnsafeBufferPointer<UnsafePointer<CChar>?>) throws -> R
+    ) throws -> R {
+        let cCharArrays: [[CChar]] = try map { swiftStr in
+            guard let cChars = swiftStr.cString(using: .utf8) else {
+                throw LibSessionError.invalidCConversion
+            }
             
-            let copy = UnsafeMutableBufferPointer<CChar>.allocate(capacity: value.underestimatedCount)
-            var remaining: (unwritten: Array<CChar>.Iterator, index: Int) = copy.initialize(from: value)
-            guard remaining.unwritten.next() == nil else { throw LibSessionError.invalidCConversion }
-            
-            return UnsafePointer(copy.baseAddress)
+            return cChars
         }
+        
+        func getPointers(
+            remainingArrays: ArraySlice<[CChar]>,
+            collectedPointers: [UnsafePointer<CChar>?]
+        ) throws -> R {
+            guard let currentArray = remainingArrays.first else {
+                return try collectedPointers.withUnsafeBufferPointer { collectedPointersBuffer in
+                    try body(collectedPointersBuffer)
+                }
+            }
+            
+            return try currentArray.withUnsafeBufferPointer { currentBufferPtr in
+                try getPointers(
+                    remainingArrays: remainingArrays.dropFirst(),
+                    collectedPointers: collectedPointers + [currentBufferPtr.baseAddress]
+                )
+            }
+        }
+        
+        return try getPointers(remainingArrays: ArraySlice(cCharArrays), collectedPointers: [])
     }
 }
 
-public extension Collection where Element == [CChar] {
-    /// This creates an array of UnsafePointer types to access data of the C strings in memory. This array provides no automated
-    /// memory management of it's children so after use you are responsible for handling the life cycle of the child elements and
-    /// need to call `deallocate()` on each child.
-    func unsafeCopyCStringArray() throws -> [UnsafePointer<CChar>?] {
-        return try self.map { value in
-            let copy = UnsafeMutableBufferPointer<CChar>.allocate(capacity: value.underestimatedCount)
-            var remaining: (unwritten: Array<CChar>.Iterator, index: Int) = copy.initialize(from: value)
-            guard remaining.unwritten.next() == nil else { throw LibSessionError.invalidCConversion }
-            
-            return UnsafePointer(copy.baseAddress)
+public extension Collection where Element == [UInt8]? {
+    func withUnsafeUInt8CArray<R>(
+        _ body: (UnsafeBufferPointer<UnsafePointer<UInt8>?>) throws -> R
+    ) throws -> R {
+        func processNext<I: IteratorProtocol>(
+            iterator: inout I,
+            collectedPointers: [UnsafePointer<UInt8>?]
+        ) throws -> R where I.Element == Element {
+            if let optionalElement: [UInt8]? = iterator.next() {
+                if let array: [UInt8] = optionalElement {
+                     return try array.withUnsafeBufferPointer { bufferPtr in
+                        try processNext(iterator: &iterator, collectedPointers: collectedPointers + [bufferPtr.baseAddress])
+                    }
+                }
+                
+                // It's a nil element in the input collection, add a nil pointer and recurse
+                return try processNext(iterator: &iterator, collectedPointers: collectedPointers + [nil])
+            } else {
+                return try collectedPointers.withUnsafeBufferPointer { pointersBuffer in
+                    try body(pointersBuffer)
+                }
+            }
         }
-    }
-}
 
-public extension Collection where Element == [UInt8] {
-    /// This creates an array of UnsafePointer types to access data of the C strings in memory. This array provides no automated
-    /// memory management of it's children so after use you are responsible for handling the life cycle of the child elements and
-    /// need to call `deallocate()` on each child.
-    func unsafeCopyUInt8Array() throws -> [UnsafePointer<UInt8>?] {
-        return try self.map { value in
-            let copy = UnsafeMutableBufferPointer<UInt8>.allocate(capacity: value.underestimatedCount)
-            var remaining: (unwritten: Array<UInt8>.Iterator, index: Int) = copy.initialize(from: value)
-            guard remaining.unwritten.next() == nil else { throw LibSessionError.invalidCConversion }
-            
-            return UnsafePointer(copy.baseAddress)
-        }
+        var iterator = makeIterator()
+        return try processNext(iterator: &iterator, collectedPointers: [])
     }
 }

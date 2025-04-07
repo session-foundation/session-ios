@@ -3,7 +3,6 @@
 import UIKit
 import AVKit
 import AVFoundation
-import YYImage
 import SessionUIKit
 import SignalUtilitiesKit
 import SessionMessagingKit
@@ -132,8 +131,8 @@ class MediaDetailViewController: OWSViewController, UIScrollViewDelegate {
     }
     
     public func parentDidAppear() {
-        if mediaView is YYAnimatedImageView {
-            (mediaView as? YYAnimatedImageView)?.startAnimating()
+        if mediaView is AnimatedImageView {
+            (mediaView as? AnimatedImageView)?.startAnimating()
         }
             
         if self.galleryItem.attachment.isVideo {
@@ -160,7 +159,6 @@ class MediaDetailViewController: OWSViewController, UIScrollViewDelegate {
         let maybeImageSize: CGSize? = {
             switch self.mediaView {
                 case let imageView as UIImageView: return (imageView.image?.size ?? .zero)
-                case let imageView as YYAnimatedImageView: return (imageView.image?.size ?? .zero)
                 default: return nil
             }
         }()
@@ -204,9 +202,9 @@ class MediaDetailViewController: OWSViewController, UIScrollViewDelegate {
         
         if self.galleryItem.attachment.isAnimated {
             if self.galleryItem.attachment.isValid, let originalFilePath: String = self.galleryItem.attachment.originalFilePath(using: dependencies) {
-                let animatedView: YYAnimatedImageView = YYAnimatedImageView()
-                animatedView.autoPlayAnimatedImage = false
-                animatedView.image = YYImage(contentsOfFile: originalFilePath)
+                let animatedView: AnimatedImageView = AnimatedImageView()
+                animatedView.loadAnimatedImage(from: originalFilePath)
+                animatedView.startAnimating()
                 self.mediaView = animatedView
             }
             else {

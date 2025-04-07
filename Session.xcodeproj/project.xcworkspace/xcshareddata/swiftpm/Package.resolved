@@ -1,5 +1,5 @@
 {
-  "originHash" : "e3fdf2f44acd1f05dab295d0c9e3faf05f5e4461d512be1d5a77af42e0a25e48",
+  "originHash" : "3976430cfdaea7445596ad6123334158bdc83e4997da535d15a15afc3c7aa091",
   "pins" : [
     {
       "identity" : "cocoalumberjack",
@@ -51,17 +51,8 @@
       "kind" : "remoteSourceControl",
       "location" : "https://github.com/session-foundation/libsession-util-spm",
       "state" : {
-        "revision" : "dfa9ad8df694cde779323ffcd9c2426d71eb6bdc",
-        "version" : "1.2.1"
-      }
-    },
-    {
-      "identity" : "libwebp-xcode",
-      "kind" : "remoteSourceControl",
-      "location" : "https://github.com/SDWebImage/libwebp-Xcode.git",
-      "state" : {
-        "revision" : "0d60654eeefd5d7d2bef3835804892c40225e8b2",
-        "version" : "1.5.0"
+        "revision" : "7c6665ffe8a458f57aa3cf9115873c7be9efe7cb",
+        "version" : "1.3.1"
       }
     },
     {
@@ -107,15 +98,6 @@
       "state" : {
         "revision" : "c69f8bf8a7ede8727c20f7c36eeffd3f55598487",
         "version" : "107.3.0"
-      }
-    },
-    {
-      "identity" : "session-ios-yyimage",
-      "kind" : "remoteSourceControl",
-      "location" : "https://github.com/session-foundation/session-ios-yyimage",
-      "state" : {
-        "revision" : "14786afd2523f80be304b377f9dbab6b7904bf02",
-        "version" : "1.1.0"
       }
     },
     {

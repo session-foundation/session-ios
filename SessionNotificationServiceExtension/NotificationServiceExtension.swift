@@ -478,10 +478,15 @@ public final class NotificationServiceExtension: UNNotificationServiceExtension 
         switch resolution {
             case .ignoreDueToMainAppRunning: break
             default:
-                silentContent.badge = dependencies[singleton: .storage]
-                    .read { [dependencies] db in try Interaction.fetchAppBadgeUnreadCount(db, using: dependencies) }
-                    .map { NSNumber(value: $0) }
-                    .defaulting(to: NSNumber(value: 0))
+                /// Update the app badge in case the unread count changed
+                if
+                    let unreadCount: Int = dependencies[singleton: .storage].read({ [dependencies] db in
+                        try Interaction.fetchAppBadgeUnreadCount(db, using: dependencies)
+                    })
+                {
+                    silentContent.badge = NSNumber(value: unreadCount)
+                }
+                
                 dependencies[singleton: .storage].suspendDatabaseAccess()
         }
         
@@ -498,15 +503,22 @@ public final class NotificationServiceExtension: UNNotificationServiceExtension 
         for callMessage: CallMessage,
         requestId: String
     ) {
-        if #available(iOSApplicationExtension 14.5, *), Preferences.isCallKitSupported {
+        if Preferences.isCallKitSupported {
             guard let caller: String = callMessage.sender, let timestamp = callMessage.sentTimestampMs else { return }
+            let contactName: String = Profile.displayName(
+                db,
+                id: caller,
+                threadVariant: .contact,
+                using: dependencies
+            )
             
             let reportCall: () -> () = { [weak self, dependencies] in
                 // stringlint:ignore_start
                 let payload: [String: Any] = [
                     "uuid": callMessage.uuid,
                     "caller": caller,
-                    "timestamp": timestamp
+                    "timestamp": timestamp,
+                    "contactName": contactName
                 ]
                 // stringlint:ignore_stop
                 
@@ -538,9 +550,11 @@ public final class NotificationServiceExtension: UNNotificationServiceExtension 
         let notificationContent = UNMutableNotificationContent()
         notificationContent.userInfo = [ NotificationServiceExtension.isFromRemoteKey : true ]
         notificationContent.title = Constants.app_name
-        notificationContent.badge = (try? Interaction.fetchAppBadgeUnreadCount(db, using: dependencies))
-            .map { NSNumber(value: $0) }
-            .defaulting(to: NSNumber(value: 0))
+        
+        /// Update the app badge in case the unread count changed
+        if let unreadCount: Int = try? Interaction.fetchAppBadgeUnreadCount(db, using: dependencies) {
+            notificationContent.badge = NSNumber(value: unreadCount)
+        }
         
         if let sender: String = callMessage.sender {
             let senderDisplayName: String = Profile.displayName(db, id: sender, threadVariant: .contact, using: dependencies)

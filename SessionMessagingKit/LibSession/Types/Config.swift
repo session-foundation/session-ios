@@ -216,10 +216,9 @@ public extension LibSession {
                     }
                     
                     let result: [String] = [String](
-                        pointer: hashList.pointee.value,
-                        count: hashList.pointee.len,
-                        defaultValue: []
-                    )
+                        cStringArray: hashList.pointee.value,
+                        count: hashList.pointee.len
+                    ).defaulting(to: [])
                     hashList.deallocate()
                     
                     return result
@@ -230,10 +229,9 @@ public extension LibSession {
                     }
                     
                     let result: [String] = [String](
-                        pointer: hashList.pointee.value,
-                        count: hashList.pointee.len,
-                        defaultValue: []
-                    )
+                        cStringArray: hashList.pointee.value,
+                        count: hashList.pointee.len
+                    ).defaulting(to: [])
                     hashList.deallocate()
                     
                     return result
@@ -251,10 +249,9 @@ public extension LibSession {
                     }
                     
                     let result: [String] = [String](
-                        pointer: hashList.pointee.value,
-                        count: hashList.pointee.len,
-                        defaultValue: []
-                    )
+                        cStringArray: hashList.pointee.value,
+                        count: hashList.pointee.len
+                    ).defaulting(to: [])
                     hashList.deallocate()
                     
                     return result
@@ -266,63 +263,40 @@ public extension LibSession {
                 case .userProfile(let conf), .contacts(let conf),
                     .convoInfoVolatile(let conf), .userGroups(let conf),
                     .groupInfo(let conf), .groupMembers(let conf):
-                    var mergeHashes: [UnsafePointer<CChar>?] = (try? (messages
-                        .compactMap { message in message.serverHash.cString(using: .utf8) }
-                        .unsafeCopyCStringArray()))
-                        .defaulting(to: [])
-                    var mergeData: [UnsafePointer<UInt8>?] = (try? (messages
-                        .map { message -> [UInt8] in Array(message.data) }
-                        .unsafeCopyUInt8Array()))
-                        .defaulting(to: [])
-                    defer {
-                        mergeHashes.forEach { $0?.deallocate() }
-                        mergeData.forEach { $0?.deallocate() }
-                    }
-                    
-                    guard
-                        mergeHashes.count == messages.count,
-                        mergeData.count == messages.count,
-                        mergeHashes.allSatisfy({ $0 != nil }),
-                        mergeData.allSatisfy({ $0 != nil })
-                    else {
-                        Log.error(.libSession, "Failed to correctly allocate merge data")
-                        return nil
-                    }
-                    
-                    var mergeSize: [size_t] = messages.map { size_t($0.data.count) }
-                    let mergedHashesPtr: UnsafeMutablePointer<config_string_list>? = config_merge(
-                        conf,
-                        &mergeHashes,
-                        &mergeData,
-                        &mergeSize,
-                        messages.count
-                    )
-                    
-                    // If we got an error then throw it
-                    try LibSessionError.throwIfNeeded(conf)
-                    
-                    // Get the list of hashes from the config (to determine which were successful)
-                    let mergedHashes: [String] = mergedHashesPtr
-                        .map { ptr in
-                            [String](
-                                pointer: ptr.pointee.value,
-                                count: ptr.pointee.len,
-                                defaultValue: []
+                    return try messages.map { $0.serverHash }.withUnsafeCStrArray { cMergehashes in
+                        try messages.map { Array($0.data) }.withUnsafeUInt8CArray { cMergeData in
+                            var mergeSize: [size_t] = messages.map { size_t($0.data.count) }
+                            let mergedHashesPtr: UnsafeMutablePointer<config_string_list>? = config_merge(
+                                conf,
+                                cMergehashes.baseAddress,
+                                cMergeData.baseAddress,
+                                &mergeSize,
+                                messages.count
                             )
+                            
+                            // If we got an error then throw it
+                            try LibSessionError.throwIfNeeded(conf)
+                            
+                            // Get the list of hashes from the config (to determine which were successful)
+                            let mergedHashes: [String] = mergedHashesPtr
+                                .map { ptr in
+                                    [String](cStringArray: ptr.pointee.value, count: ptr.pointee.len)
+                                        .defaulting(to: [])
+                                }
+                                .defaulting(to: [])
+                            mergedHashesPtr?.deallocate()
+                            
+                            if mergedHashes.count != messages.count {
+                                Log.warn(.libSession, "Unable to merge \(messages[0].namespace) messages (\(mergedHashes.count)/\(messages.count))")
+                            }
+                            
+                            return messages
+                                .filter { mergedHashes.contains($0.serverHash) }
+                                .map { $0.serverTimestampMs }
+                                .sorted()
+                                .last
                         }
-                        .defaulting(to: [])
-                    mergedHashesPtr?.deallocate()
-                    
-                    if mergedHashes.count != messages.count {
-                        Log.warn(.libSession, "Unable to merge \(messages[0].namespace) messages (\(mergedHashes.count)/\(messages.count))")
                     }
-                    
-                    return messages
-                        .filter { mergedHashes.contains($0.serverHash) }
-                        .map { $0.serverTimestampMs }
-                        .sorted()
-                        .last
-                    
                     
                 case .groupKeys(let conf, let infoConf, let membersConf):
                     let successfulMergeTimestamps: [Int64] = try messages
