@@ -14,13 +14,21 @@ public extension Crypto.Generator {
     
     static func randomBytes(_ count: Int) -> Crypto.Generator<Data> {
         return Crypto.Generator(id: "randomBytes_Data", args: [count]) { () -> Data in
-            Data(bytes: session_random(count), count: count)
+            let ptr: UnsafeMutablePointer<UInt8> = session_random(count)
+            let result: Data = Data(bytes: ptr, count: count)
+            free(ptr)
+            
+            return result
         }
     }
     
     static func randomBytes(_ count: Int) -> Crypto.Generator<[UInt8]> {
         return Crypto.Generator(id: "randomBytes_[UInt8]", args: [count]) { () -> [UInt8] in
-            Array(Data(bytes: session_random(count), count: count))
+            let ptr: UnsafeMutablePointer<UInt8> = session_random(count)
+            let result: Data = Data(bytes: ptr, count: count)
+            free(ptr)
+            
+            return Array(result)
         }
     }
 }

@@ -49,7 +49,7 @@ class LibSessionNetwork: NetworkType {
         
         return dependencies
             .mutate(cache: .libSessionNetwork) { $0.getOrCreateNetwork() }
-            .tryMapCallbackWrapper(type: Output.self) { wrapper, network in
+            .tryMapCallbackContext(type: Output.self) { ctx, network in
                 let sessionId: SessionId = try SessionId(from: swarmPublicKey)
                 
                 guard let cSwarmPublicKey: [CChar] = sessionId.publicKeyString.cString(using: .utf8) else {
@@ -65,7 +65,7 @@ class LibSessionNetwork: NetworkType {
                     var nodes: Set<LibSession.Snode> = []
                     (0..<swarmSize).forEach { index in nodes.insert(LibSession.Snode(cSwarm[index])) }
                     CallbackWrapper<Output>.run(ctx, .success(nodes))
-                }, wrapper.unsafePointer());
+                }, ctx);
             }
             .tryMap { result in try result.successOrThrow() }
             .eraseToAnyPublisher()
@@ -76,7 +76,7 @@ class LibSessionNetwork: NetworkType {
         
         return dependencies
             .mutate(cache: .libSessionNetwork) { $0.getOrCreateNetwork() }
-            .tryMapCallbackWrapper(type: Output.self) { wrapper, network in
+            .tryMapCallbackContext(type: Output.self) { ctx, network in
                 network_get_random_nodes(network, UInt16(count), { nodesPtr, nodesSize, ctx in
                     guard
                         nodesSize > 0,
@@ -86,7 +86,7 @@ class LibSessionNetwork: NetworkType {
                     var nodes: Set<LibSession.Snode> = []
                     (0..<nodesSize).forEach { index in nodes.insert(LibSession.Snode(cSwarm[index])) }
                     CallbackWrapper<Output>.run(ctx, .success(nodes))
-                }, wrapper.unsafePointer());
+                }, ctx);
             }
             .tryMap { result in
                 switch result {
@@ -184,7 +184,7 @@ class LibSessionNetwork: NetworkType {
         
         return dependencies
             .mutate(cache: .libSessionNetwork) { $0.getOrCreateNetwork() }
-            .tryMapCallbackWrapper(type: Output.self) { wrapper, network in
+            .tryMapCallbackContext(type: Output.self) { ctx, network in
                 guard ed25519SecretKey.count == 64 else { throw LibSessionError.invalidCConversion }
                 
                 var cEd25519SecretKey: [UInt8] = Array(ed25519SecretKey)
@@ -201,7 +201,7 @@ class LibSessionNetwork: NetworkType {
                         let data: Data? = dataPtr.map { Data(bytes: $0, count: dataLen) }
                         CallbackWrapper<Output>.run(ctx, (success, timeout, Int(statusCode), headers, data))
                     },
-                    wrapper.unsafePointer()
+                    ctx
                 )
             }
             .tryMap { [dependencies] success, timeout, statusCode, headers, maybeData -> (any ResponseInfoType, AppVersionResponse) in
@@ -229,7 +229,7 @@ class LibSessionNetwork: NetworkType {
         
         return dependencies
             .mutate(cache: .libSessionNetwork) { $0.getOrCreateNetwork() }
-            .tryMapCallbackWrapper(type: Output.self) { wrapper, network in
+            .tryMapCallbackContext(type: Output.self) { ctx, network in
                 // Prepare the parameters
                 let cPayloadBytes: [UInt8]
                 
@@ -274,7 +274,7 @@ class LibSessionNetwork: NetworkType {
                                 let data: Data? = dataPtr.map { Data(bytes: $0, count: dataLen) }
                                 CallbackWrapper<Output>.run(ctx, (success, timeout, Int(statusCode), headers, data))
                             },
-                            wrapper.unsafePointer()
+                            ctx
                         )
                     
                     case .server:
@@ -292,7 +292,7 @@ class LibSessionNetwork: NetworkType {
                                     let data: Data? = dataPtr.map { Data(bytes: $0, count: dataLen) }
                                     CallbackWrapper<Output>.run(ctx, (success, timeout, Int(statusCode), headers, data))
                                 },
-                                wrapper.unsafePointer()
+                                ctx
                             )
                         }
                     
@@ -314,7 +314,7 @@ class LibSessionNetwork: NetworkType {
                                     let data: Data? = dataPtr.map { Data(bytes: $0, count: dataLen) }
                                     CallbackWrapper<Output>.run(ctx, (success, timeout, Int(statusCode), headers, data))
                                 },
-                                wrapper.unsafePointer()
+                                ctx
                             )
                         }
                     
@@ -331,12 +331,12 @@ class LibSessionNetwork: NetworkType {
                                     let data: Data? = dataPtr.map { Data(bytes: $0, count: dataLen) }
                                     CallbackWrapper<Output>.run(ctx, (success, timeout, Int(statusCode), headers, data))
                                 },
-                                wrapper.unsafePointer()
+                                ctx
                             )
                         }
                     
                     case .cached(let success, let timeout, let statusCode, let headers, let data):
-                        wrapper.run((success, timeout, statusCode, headers, data))
+                        CallbackWrapper<Output>.run(ctx, (success, timeout, statusCode, headers, data))
                 }
             }
             .tryMap { [dependencies] success, timeout, statusCode, headers, data -> (any ResponseInfoType, Data?) in
@@ -410,7 +410,11 @@ class LibSessionNetwork: NetworkType {
 
 private extension LibSessionNetwork {
     class CallbackWrapper<Output> {
-        public let resultPublisher: CurrentValueSubject<Output?, Error> = CurrentValueSubject(nil)
+        public let promise: (Result<Output, Error>) -> Void
+        
+        init(promise: @escaping (Result<Output, Error>) -> Void) {
+            self.promise = promise
+        }
         
         // MARK: - Functions
         
@@ -422,14 +426,14 @@ private extension LibSessionNetwork {
             /// Dispatch async so we don't block libSession's internals with Swift logic (which can block other requests)
             let wrapper: CallbackWrapper<Output> = Unmanaged<CallbackWrapper<Output>>.fromOpaque(ctx).takeRetainedValue()
             DispatchQueue.global(qos: .default).async { [wrapper] in
-                wrapper.resultPublisher.send(output)
+                wrapper.promise(.success(output))
             }
         }
         
         public func unsafePointer() -> UnsafeMutableRawPointer { Unmanaged.passRetained(self).toOpaque() }
         
         public func run(_ output: Output) {
-            resultPublisher.send(output)
+            promise(.success(output))
         }
     }
 }
@@ -437,21 +441,26 @@ private extension LibSessionNetwork {
 // MARK: - Publisher Convenience
 
 fileprivate extension Publisher {
-    func tryMapCallbackWrapper<T>(
+    func tryMapCallbackContext<T>(
         maxPublishers: Subscribers.Demand = .unlimited,
         type: T.Type,
-        _ transform: @escaping (LibSessionNetwork.CallbackWrapper<T>, Self.Output) throws -> Void
+        _ transform: @escaping (UnsafeMutableRawPointer, Self.Output) throws -> Void
     ) -> AnyPublisher<T, Error> {
-        let wrapper: LibSessionNetwork.CallbackWrapper<T> = LibSessionNetwork.CallbackWrapper()
-        
         return self
-            .tryMap { value -> Void in try transform(wrapper, value) }
-            .flatMap { _ in
-                wrapper
-                    .resultPublisher
-                    .compactMap { $0 }
-                    .first()
-                    .eraseToAnyPublisher()
+            .mapError { _ in NetworkError.unknown }
+            .flatMap { value -> Future<T, Error> in
+                Future<T, Error> { promise in
+                    let wrapper: LibSessionNetwork.CallbackWrapper<T> = LibSessionNetwork.CallbackWrapper(
+                        promise: promise
+                    )
+                    let ctx: UnsafeMutableRawPointer = wrapper.unsafePointer()
+                    
+                    do { try transform(ctx, value) }
+                    catch {
+                        Unmanaged<LibSessionNetwork.CallbackWrapper<T>>.fromOpaque(ctx).release()
+                        promise(.failure(error))
+                    }
+                }
             }
             .eraseToAnyPublisher()
     }
@@ -788,12 +797,12 @@ public extension LibSession {
                                 
                                 // Need to free the nodes within the path as we are the owner
                                 cPaths.forEach { cPath in
-                                    cPath.nodes.deallocate()
+                                    free(UnsafeMutableRawPointer(mutating: cPath.nodes))
                                 }
                             }
                             
                             // Need to free the cPathsPtr as we are the owner
-                            pathsPtr?.deallocate()
+                            free(UnsafeMutableRawPointer(mutating: pathsPtr))
                             
                             // Dispatch async so we don't hold up the libSession thread that triggered the update
                             // or have a reentrancy issue with the mutable cache

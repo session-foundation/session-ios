@@ -151,7 +151,7 @@ public extension Crypto.Generator {
                 guard didDecrypt else { throw MessageReceiverError.decryptionFailed }
                 
                 // We need to manually free 'maybePlaintext' upon a successful decryption
-                defer { maybePlaintext?.deallocate() }
+                defer { free(UnsafeMutableRawPointer(mutating: maybePlaintext)) }
                 
                 guard
                     plaintextLen > 0,
