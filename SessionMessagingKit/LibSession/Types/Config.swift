@@ -145,7 +145,7 @@ public extension LibSession {
                         count: cPushData.pointee.config_len
                     )
                     let seqNo: Int64 = cPushData.pointee.seqno
-                    cPushData.deallocate()
+                    free(UnsafeMutableRawPointer(mutating: cPushData))
                     
                     return PendingChanges.PushData(
                         data: pushData,
@@ -201,7 +201,7 @@ public extension LibSession {
             guard let dumpResult: UnsafeMutablePointer<UInt8> = dumpResult else { return nil }
             
             let dumpData: Data = Data(bytes: dumpResult, count: dumpResultLen)
-            dumpResult.deallocate()
+            free(UnsafeMutableRawPointer(mutating: dumpResult))
             
             return dumpData
         }
@@ -219,7 +219,7 @@ public extension LibSession {
                         cStringArray: hashList.pointee.value,
                         count: hashList.pointee.len
                     ).defaulting(to: [])
-                    hashList.deallocate()
+                    free(UnsafeMutableRawPointer(mutating: hashList))
                     
                     return result
                     
@@ -232,7 +232,7 @@ public extension LibSession {
                         cStringArray: hashList.pointee.value,
                         count: hashList.pointee.len
                     ).defaulting(to: [])
-                    hashList.deallocate()
+                    free(UnsafeMutableRawPointer(mutating: hashList))
                     
                     return result
             }
@@ -252,7 +252,7 @@ public extension LibSession {
                         cStringArray: hashList.pointee.value,
                         count: hashList.pointee.len
                     ).defaulting(to: [])
-                    hashList.deallocate()
+                    free(UnsafeMutableRawPointer(mutating: hashList))
                     
                     return result
             }
@@ -284,7 +284,7 @@ public extension LibSession {
                                         .defaulting(to: [])
                                 }
                                 .defaulting(to: [])
-                            mergedHashesPtr?.deallocate()
+                            free(UnsafeMutableRawPointer(mutating: mergedHashesPtr))
                             
                             if mergedHashes.count != messages.count {
                                 Log.warn(.libSession, "Unable to merge \(messages[0].namespace) messages (\(mergedHashes.count)/\(messages.count))")
