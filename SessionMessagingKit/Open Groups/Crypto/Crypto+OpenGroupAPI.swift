@@ -195,7 +195,7 @@ public extension Crypto.Generator {
                 let ciphertext: Data = maybeCiphertext.map({ Data(bytes: $0, count: ciphertextLen) })
             else { throw MessageSenderError.encryptionFailed }
 
-            maybeCiphertext?.deallocate()
+            free(UnsafeMutableRawPointer(mutating: maybeCiphertext))
 
             return ciphertext
         }
@@ -244,7 +244,7 @@ public extension Crypto.Generator {
                 let plaintext: Data = maybePlaintext.map({ Data(bytes: $0, count: plaintextLen) })
             else { throw MessageReceiverError.decryptionFailed }
 
-            maybePlaintext?.deallocate()
+            free(UnsafeMutableRawPointer(mutating: maybePlaintext))
 
             return (plaintext, String(cString: cSenderSessionId))
         }

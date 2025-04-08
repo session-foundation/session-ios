@@ -119,12 +119,12 @@ internal extension LibSession {
                     let cSupplementData: UnsafeMutablePointer<UInt8> = cSupplementData
                 else { throw LibSessionError.failedToKeySupplementGroup }
                 
-                // Must deallocate on success
+                // Must free on success
                 let supplementData: Data = Data(
                     bytes: cSupplementData,
                     count: cSupplementDataLen
                 )
-                cSupplementData.deallocate()
+                free(UnsafeMutableRawPointer(mutating: cSupplementData))
                 
                 return supplementData
             }

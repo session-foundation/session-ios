@@ -177,7 +177,7 @@ fileprivate extension LibSessionUtilSpec {
                     expect(config_needs_dump(conf)).to(beTrue())
                     
                     expect {
-                        config_push(conf)?.deallocate()
+                        free(UnsafeMutableRawPointer(mutating: config_push(conf)))
                         try LibSessionError.throwIfNeeded(conf)
                     }
                     .to(throwError(LibSessionError.libSessionError("Config data is too large.")))
@@ -292,7 +292,7 @@ fileprivate extension LibSessionUtilSpec {
                 
                 let pushData1: UnsafeMutablePointer<config_push_data> = config_push(conf)
                 expect(pushData1.pointee.seqno).to(equal(0))
-                pushData1.deallocate()
+                free(UnsafeMutableRawPointer(mutating: pushData1))
                 
                 // Update the contact data
                 contact2.set(\.name, to: "Joe")
@@ -341,7 +341,7 @@ fileprivate extension LibSessionUtilSpec {
                 config_confirm_pushed(conf, pushData2.pointee.seqno, &cFakeHash1)
                 expect(config_needs_push(conf)).to(beFalse())
                 expect(config_needs_dump(conf)).to(beTrue())
-                pushData2.deallocate()
+                free(UnsafeMutableRawPointer(mutating: pushData2))
                 
                 // NB: Not going to check encrypted data and decryption here because that's general (not
                 // specific to contacts) and is covered already in the user profile tests.
@@ -352,14 +352,14 @@ fileprivate extension LibSessionUtilSpec {
                 var error2: [CChar] = [CChar](repeating: 0, count: 256)
                 var conf2: UnsafeMutablePointer<config_object>? = nil
                 expect(contacts_init(&conf2, &userEdSK, dump1, dump1Len, &error2)).to(equal(0))
-                dump1?.deallocate()
+                free(UnsafeMutableRawPointer(mutating: dump1))
                 
                 expect(config_needs_push(conf2)).to(beFalse())
                 expect(config_needs_dump(conf2)).to(beFalse())
                 
                 let pushData3: UnsafeMutablePointer<config_push_data> = config_push(conf2)
                 expect(pushData3.pointee.seqno).to(equal(1))
-                pushData3.deallocate()
+                free(UnsafeMutableRawPointer(mutating: pushData3))
                 
                 // Because we just called dump() above, to load up contacts2
                 expect(config_needs_dump(conf)).to(beFalse())
@@ -398,22 +398,21 @@ fileprivate extension LibSessionUtilSpec {
                 // Check the merging
                 let fakeHash2: String = "fakehash2"
                 var cFakeHash2: [CChar] = fakeHash2.cString(using: .utf8)!
-                var mergeHashes: [UnsafePointer<CChar>?] = ((try? [cFakeHash2].unsafeCopyCStringArray()) ?? [])
-                var mergeData: [UnsafePointer<UInt8>?] = [UnsafePointer(pushData4.pointee.config)]
-                var mergeSize: [Int] = [pushData4.pointee.config_len]
-                let mergedHashes: UnsafeMutablePointer<config_string_list>? = config_merge(conf, &mergeHashes, &mergeData, &mergeSize, 1)
-                expect([String](cStringArray: mergedHashes?.pointee.value, count: mergedHashes?.pointee.len))
-                    .to(equal(["fakehash2"]))
-                config_confirm_pushed(conf2, pushData4.pointee.seqno, &cFakeHash2)
-                mergeHashes.forEach { $0?.deallocate() }
-                mergedHashes?.deallocate()
-                pushData4.deallocate()
+                try? [fakeHash2].withUnsafeCStrArray { mergeHashes in
+                    var mergeData: [UnsafePointer<UInt8>?] = [UnsafePointer(pushData4.pointee.config)]
+                    var mergeSize: [Int] = [pushData4.pointee.config_len]
+                    let mergedHashes: UnsafeMutablePointer<config_string_list>? = config_merge(conf, mergeHashes.baseAddress, &mergeData, &mergeSize, 1)
+                    expect([String](cStringArray: mergedHashes?.pointee.value, count: mergedHashes?.pointee.len))
+                        .to(equal(["fakehash2"]))
+                    config_confirm_pushed(conf2, pushData4.pointee.seqno, &cFakeHash2)
+                }
+                free(UnsafeMutableRawPointer(mutating: pushData4))
                 
                 expect(config_needs_push(conf)).to(beFalse())
                 
                 let pushData5: UnsafeMutablePointer<config_push_data> = config_push(conf)
                 expect(pushData5.pointee.seqno).to(equal(2))
-                pushData5.deallocate()
+                free(UnsafeMutableRawPointer(mutating: pushData5))
                 
                 // Iterate through and make sure we got everything we expected
                 var sessionIds: [String] = []
@@ -477,27 +476,25 @@ fileprivate extension LibSessionUtilSpec {
                 config_confirm_pushed(conf, pushData6.pointee.seqno, &cFakeHash3a)
                 config_confirm_pushed(conf2, pushData7.pointee.seqno, &cFakeHash3b)
                 
-                var mergeHashes2: [UnsafePointer<CChar>?] = ((try? [cFakeHash3b].unsafeCopyCStringArray()) ?? [])
-                var mergeData2: [UnsafePointer<UInt8>?] = [UnsafePointer(pushData7.pointee.config)]
-                var mergeSize2: [Int] = [pushData7.pointee.config_len]
-                let mergedHashes2: UnsafeMutablePointer<config_string_list>? = config_merge(conf, &mergeHashes2, &mergeData2, &mergeSize2, 1)
-                expect([String](cStringArray: mergedHashes2?.pointee.value, count: mergedHashes2?.pointee.len))
-                    .to(equal(["fakehash3b"]))
+                try? [fakeHash3b].withUnsafeCStrArray { mergeHashes2 in
+                    var mergeData2: [UnsafePointer<UInt8>?] = [UnsafePointer(pushData7.pointee.config)]
+                    var mergeSize2: [Int] = [pushData7.pointee.config_len]
+                    let mergedHashes2: UnsafeMutablePointer<config_string_list>? = config_merge(conf, mergeHashes2.baseAddress, &mergeData2, &mergeSize2, 1)
+                    expect([String](cStringArray: mergedHashes2?.pointee.value, count: mergedHashes2?.pointee.len))
+                        .to(equal(["fakehash3b"]))
+                }
                 expect(config_needs_push(conf)).to(beTrue())
-                mergeHashes2.forEach { $0?.deallocate() }
-                mergedHashes2?.deallocate()
-                pushData7.deallocate()
+                free(UnsafeMutableRawPointer(mutating: pushData7))
                 
-                var mergeHashes3: [UnsafePointer<CChar>?] = ((try? [cFakeHash3a].unsafeCopyCStringArray()) ?? [])
-                var mergeData3: [UnsafePointer<UInt8>?] = [UnsafePointer(pushData6.pointee.config)]
-                var mergeSize3: [Int] = [pushData6.pointee.config_len]
-                let mergedHashes3: UnsafeMutablePointer<config_string_list>? = config_merge(conf2, &mergeHashes3, &mergeData3, &mergeSize3, 1)
-                expect([String](cStringArray: mergedHashes3?.pointee.value, count: mergedHashes3?.pointee.len))
-                    .to(equal(["fakehash3a"]))
+                try? [fakeHash3a].withUnsafeCStrArray { mergeHashes3 in
+                    var mergeData3: [UnsafePointer<UInt8>?] = [UnsafePointer(pushData6.pointee.config)]
+                    var mergeSize3: [Int] = [pushData6.pointee.config_len]
+                    let mergedHashes3: UnsafeMutablePointer<config_string_list>? = config_merge(conf2, mergeHashes3.baseAddress, &mergeData3, &mergeSize3, 1)
+                    expect([String](cStringArray: mergedHashes3?.pointee.value, count: mergedHashes3?.pointee.len))
+                        .to(equal(["fakehash3a"]))
+                }
                 expect(config_needs_push(conf2)).to(beTrue())
-                mergeHashes3.forEach { $0?.deallocate() }
-                mergedHashes3?.deallocate()
-                pushData6.deallocate()
+                free(UnsafeMutableRawPointer(mutating: pushData6))
                 
                 let pushData8: UnsafeMutablePointer<config_push_data> = config_push(conf)
                 expect(pushData8.pointee.seqno).to(equal(4))
@@ -517,8 +514,8 @@ fileprivate extension LibSessionUtilSpec {
                 var cFakeHash4: [CChar] = fakeHash4.cString(using: .utf8)!
                 config_confirm_pushed(conf, pushData8.pointee.seqno, &cFakeHash4)
                 config_confirm_pushed(conf2, pushData9.pointee.seqno, &cFakeHash4)
-                pushData8.deallocate()
-                pushData9.deallocate()
+                free(UnsafeMutableRawPointer(mutating: pushData8))
+                free(UnsafeMutableRawPointer(mutating: pushData9))
                 
                 expect(config_needs_push(conf)).to(beFalse())
                 expect(config_needs_push(conf2)).to(beFalse())
@@ -680,13 +677,13 @@ fileprivate extension LibSessionUtilSpec {
                 // (in a real client we'd now store this to disk)
                 
                 expect(config_needs_dump(conf)).to(beFalse())
-                dump1?.deallocate()
+                free(UnsafeMutableRawPointer(mutating: dump1))
                 
                 // So now imagine we got back confirmation from the swarm that the push has been stored:
                 let fakeHash1: String = "fakehash1"
                 var cFakeHash1: [CChar] = fakeHash1.cString(using: .utf8)!
                 config_confirm_pushed(conf, pushData2.pointee.seqno, &cFakeHash1)
-                pushData2.deallocate()
+                free(UnsafeMutableRawPointer(mutating: pushData2))
                 
                 expect(config_needs_push(conf)).to(beFalse())
                 expect(config_needs_dump(conf)).to(beTrue()) // The confirmation changes state, so this makes us need a dump
@@ -694,7 +691,7 @@ fileprivate extension LibSessionUtilSpec {
                 var dump2: UnsafeMutablePointer<UInt8>? = nil
                 var dump2Len: Int = 0
                 config_dump(conf, &dump2, &dump2Len)
-                dump2?.deallocate()
+                free(UnsafeMutableRawPointer(mutating: dump2))
                 expect(config_needs_dump(conf)).to(beFalse())
                 
                 // Now we're going to set up a second, competing config object (in the real world this would be
@@ -708,15 +705,14 @@ fileprivate extension LibSessionUtilSpec {
                 
                 // Now imagine we just pulled down the `exp_push1` string from the swarm; we merge it into
                 // conf2:
-                var mergeHashes: [UnsafePointer<CChar>?] = ((try? [cFakeHash1].unsafeCopyCStringArray()) ?? [])
-                var mergeData: [UnsafePointer<UInt8>?] = ((try? [expPush1Encrypted].unsafeCopyUInt8Array()) ?? [])
-                var mergeSize: [Int] = [expPush1Encrypted.count]
-                let mergedHashes: UnsafeMutablePointer<config_string_list>? = config_merge(conf2, &mergeHashes, &mergeData, &mergeSize, 1)
-                expect([String](cStringArray: mergedHashes?.pointee.value, count: mergedHashes?.pointee.len))
-                    .to(equal(["fakehash1"]))
-                mergeHashes.forEach { $0?.deallocate() }
-                mergeData.forEach { $0?.deallocate() }
-                mergedHashes?.deallocate()
+                try? [fakeHash1].withUnsafeCStrArray { mergeHashes in
+                    try? [expPush1Encrypted].withUnsafeUInt8CArray { mergeData in
+                        var mergeSize: [Int] = [expPush1Encrypted.count]
+                        let mergedHashes: UnsafeMutablePointer<config_string_list>? = config_merge(conf2, mergeHashes.baseAddress, mergeData.baseAddress, &mergeSize, 1)
+                        expect([String](cStringArray: mergedHashes?.pointee.value, count: mergedHashes?.pointee.len))
+                            .to(equal(["fakehash1"]))
+                    }
+                }
                 
                 // Our state has changed, so we need to dump:
                 expect(config_needs_dump(conf2)).to(beTrue())
@@ -724,7 +720,7 @@ fileprivate extension LibSessionUtilSpec {
                 var dump3Len: Int = 0
                 config_dump(conf2, &dump3, &dump3Len)
                 // (store in db)
-                dump3?.deallocate()
+                free(UnsafeMutableRawPointer(mutating: dump3))
                 expect(config_needs_dump(conf2)).to(beFalse())
                 
                 // We *don't* need to push: even though we updated, all we did is update to the merged data (and
@@ -777,8 +773,8 @@ fileprivate extension LibSessionUtilSpec {
                 var dump5Len: Int = 0
                 config_dump(conf2, &dump5, &dump5Len);
                 // (store in db)
-                dump4?.deallocate()
-                dump5?.deallocate()
+                free(UnsafeMutableRawPointer(mutating: dump4))
+                free(UnsafeMutableRawPointer(mutating: dump5))
                 
                 // Since we set different things, we're going to get back different serialized data to be
                 // pushed:
@@ -791,25 +787,23 @@ fileprivate extension LibSessionUtilSpec {
                 
                 // Feed the new config into each other.  (This array could hold multiple configs if we pulled
                 // down more than one).
-                var mergeHashes2: [UnsafePointer<CChar>?] = ((try? [cFakeHash2].unsafeCopyCStringArray()) ?? [])
-                var mergeData2: [UnsafePointer<UInt8>?] = [UnsafePointer(pushData3.pointee.config)]
-                var mergeSize2: [Int] = [pushData3.pointee.config_len]
-                let mergedHashes2: UnsafeMutablePointer<config_string_list>? = config_merge(conf2, &mergeHashes2, &mergeData2, &mergeSize2, 1)
-                expect([String](cStringArray: mergedHashes2?.pointee.value, count: mergedHashes2?.pointee.len))
-                    .to(equal(["fakehash2"]))
-                mergeHashes2.forEach { $0?.deallocate() }
-                mergedHashes2?.deallocate()
-                pushData3.deallocate()
+                try? [fakeHash2].withUnsafeCStrArray { mergeHashes2 in
+                    var mergeData2: [UnsafePointer<UInt8>?] = [UnsafePointer(pushData3.pointee.config)]
+                    var mergeSize2: [Int] = [pushData3.pointee.config_len]
+                    let mergedHashes2: UnsafeMutablePointer<config_string_list>? = config_merge(conf2, mergeHashes2.baseAddress, &mergeData2, &mergeSize2, 1)
+                    expect([String](cStringArray: mergedHashes2?.pointee.value, count: mergedHashes2?.pointee.len))
+                        .to(equal(["fakehash2"]))
+                }
+                free(UnsafeMutableRawPointer(mutating: pushData3))
                 
-                var mergeHashes3: [UnsafePointer<CChar>?] = ((try? [cFakeHash3].unsafeCopyCStringArray()) ?? [])
-                var mergeData3: [UnsafePointer<UInt8>?] = [UnsafePointer(pushData4.pointee.config)]
-                var mergeSize3: [Int] = [pushData4.pointee.config_len]
-                let mergedHashes3: UnsafeMutablePointer<config_string_list>? = config_merge(conf, &mergeHashes3, &mergeData3, &mergeSize3, 1)
-                expect([String](cStringArray: mergedHashes3?.pointee.value, count: mergedHashes3?.pointee.len))
-                    .to(equal(["fakehash3"]))
-                mergeHashes3.forEach { $0?.deallocate() }
-                mergedHashes3?.deallocate()
-                pushData4.deallocate()
+                try? [fakeHash3].withUnsafeCStrArray { mergeHashes3 in
+                    var mergeData3: [UnsafePointer<UInt8>?] = [UnsafePointer(pushData4.pointee.config)]
+                    var mergeSize3: [Int] = [pushData4.pointee.config_len]
+                    let mergedHashes3: UnsafeMutablePointer<config_string_list>? = config_merge(conf, mergeHashes3.baseAddress, &mergeData3, &mergeSize3, 1)
+                    expect([String](cStringArray: mergedHashes3?.pointee.value, count: mergedHashes3?.pointee.len))
+                        .to(equal(["fakehash3"]))
+                }
+                free(UnsafeMutableRawPointer(mutating: pushData4))
                 
                 // Now after the merge we *will* want to push from both client, since both will have generated a
                 // merge conflict update (with seqno = 3).
@@ -849,8 +843,8 @@ fileprivate extension LibSessionUtilSpec {
                 var cFakeHash5: [CChar] = fakeHash5.cString(using: .utf8)!
                 config_confirm_pushed(conf, pushData5.pointee.seqno, &cFakeHash4)
                 config_confirm_pushed(conf2, pushData6.pointee.seqno, &cFakeHash5)
-                pushData5.deallocate()
-                pushData6.deallocate()
+                free(UnsafeMutableRawPointer(mutating: pushData5))
+                free(UnsafeMutableRawPointer(mutating: pushData6))
                 
                 var dump6: UnsafeMutablePointer<UInt8>? = nil
                 var dump6Len: Int = 0
@@ -859,8 +853,8 @@ fileprivate extension LibSessionUtilSpec {
                 var dump7Len: Int = 0
                 config_dump(conf2, &dump7, &dump7Len);
                 // (store in db)
-                dump6?.deallocate()
-                dump7?.deallocate()
+                free(UnsafeMutableRawPointer(mutating: dump6))
+                free(UnsafeMutableRawPointer(mutating: dump7))
                 
                 expect(config_needs_dump(conf)).to(beFalse())
                 expect(config_needs_dump(conf2)).to(beFalse())
@@ -869,8 +863,8 @@ fileprivate extension LibSessionUtilSpec {
                 
                 // Wouldn't do this in a normal session but doing it here to properly clean up
                 // after the test
-                conf?.deallocate()
-                conf2?.deallocate()
+                free(UnsafeMutableRawPointer(mutating: conf))
+                free(UnsafeMutableRawPointer(mutating: conf2))
             }
         }
     }
@@ -968,7 +962,7 @@ fileprivate extension LibSessionUtilSpec {
                 config_confirm_pushed(conf, pushData1.pointee.seqno, &cFakeHash1)
                 expect(config_needs_dump(conf)).to(beTrue())
                 expect(config_needs_push(conf)).to(beFalse())
-                pushData1.deallocate()
+                free(UnsafeMutableRawPointer(mutating: pushData1))
                 
                 var dump1: UnsafeMutablePointer<UInt8>? = nil
                 var dump1Len: Int = 0
@@ -977,7 +971,7 @@ fileprivate extension LibSessionUtilSpec {
                 var error2: [CChar] = [CChar](repeating: 0, count: 256)
                 var conf2: UnsafeMutablePointer<config_object>? = nil
                 expect(convo_info_volatile_init(&conf2, &userEdSK, dump1, dump1Len, &error2)).to(equal(0))
-                dump1?.deallocate()
+                free(UnsafeMutableRawPointer(mutating: dump1))
                 
                 expect(config_needs_dump(conf2)).to(beFalse())
                 expect(config_needs_push(conf2)).to(beFalse())
@@ -1017,16 +1011,15 @@ fileprivate extension LibSessionUtilSpec {
                 // Check the merging
                 let fakeHash2: String = "fakehash2"
                 var cFakeHash2: [CChar] = fakeHash2.cString(using: .utf8)!
-                var mergeHashes: [UnsafePointer<CChar>?] = ((try? [cFakeHash2].unsafeCopyCStringArray()) ?? [])
-                var mergeData: [UnsafePointer<UInt8>?] = [UnsafePointer(pushData2.pointee.config)]
-                var mergeSize: [Int] = [pushData2.pointee.config_len]
-                let mergedHashes: UnsafeMutablePointer<config_string_list>? = config_merge(conf, &mergeHashes, &mergeData, &mergeSize, 1)
-                expect([String](cStringArray: mergedHashes?.pointee.value, count: mergedHashes?.pointee.len))
-                    .to(equal(["fakehash2"]))
-                config_confirm_pushed(conf, pushData2.pointee.seqno, &cFakeHash2)
-                mergeHashes.forEach { $0?.deallocate() }
-                mergedHashes?.deallocate()
-                pushData2.deallocate()
+                try? [fakeHash2].withUnsafeCStrArray { mergeHashes in
+                    var mergeData: [UnsafePointer<UInt8>?] = [UnsafePointer(pushData2.pointee.config)]
+                    var mergeSize: [Int] = [pushData2.pointee.config_len]
+                    let mergedHashes: UnsafeMutablePointer<config_string_list>? = config_merge(conf, mergeHashes.baseAddress, &mergeData, &mergeSize, 1)
+                    expect([String](cStringArray: mergedHashes?.pointee.value, count: mergedHashes?.pointee.len))
+                        .to(equal(["fakehash2"]))
+                    config_confirm_pushed(conf, pushData2.pointee.seqno, &cFakeHash2)
+                }
+                free(UnsafeMutableRawPointer(mutating: pushData2))
                 
                 expect(config_needs_push(conf)).to(beFalse())
                 
@@ -1191,7 +1184,7 @@ fileprivate extension LibSessionUtilSpec {
                 expect([String](cStringArray: pushData1.pointee.obsolete, count: pushData1.pointee.obsolete_len))
                     .to(beEmpty())
                 expect(pushData1.pointee.config_len).to(equal(432))
-                pushData1.deallocate()
+                free(UnsafeMutableRawPointer(mutating: pushData1))
                 
                 let users: [String] = [
                     "050000000000000000000000000000000000000000000000000000000000000000",
@@ -1303,7 +1296,7 @@ fileprivate extension LibSessionUtilSpec {
                 var error2: [CChar] = [CChar](repeating: 0, count: 256)
                 var conf2: UnsafeMutablePointer<config_object>? = nil
                 expect(user_groups_init(&conf2, &userEdSK, dump1, dump1Len, &error2)).to(equal(0))
-                dump1?.deallocate()
+                free(UnsafeMutableRawPointer(mutating: dump1))
                 
                 expect(config_needs_dump(conf)).to(beFalse())  // Because we just called dump() above, to load up conf2
                 expect(config_needs_push(conf)).to(beFalse())
@@ -1312,12 +1305,12 @@ fileprivate extension LibSessionUtilSpec {
                 expect(pushData3.pointee.seqno).to(equal(1))
                 expect([String](cStringArray: pushData3.pointee.obsolete, count: pushData3.pointee.obsolete_len))
                     .to(beEmpty())
-                pushData3.deallocate()
+                free(UnsafeMutableRawPointer(mutating: pushData3))
                 
                 let currentHashes1: UnsafeMutablePointer<config_string_list>? = config_current_hashes(conf)
                 expect([String](cStringArray: currentHashes1?.pointee.value, count: currentHashes1?.pointee.len))
                     .to(equal(["fakehash1"]))
-                currentHashes1?.deallocate()
+                free(UnsafeMutableRawPointer(mutating: currentHashes1))
                 
                 expect(config_needs_push(conf2)).to(beFalse())
                 expect(config_needs_dump(conf2)).to(beFalse())
@@ -1327,12 +1320,12 @@ fileprivate extension LibSessionUtilSpec {
                 expect(config_needs_dump(conf2)).to(beFalse())
                 expect([String](cStringArray: pushData4.pointee.obsolete, count: pushData4.pointee.obsolete_len))
                     .to(beEmpty())
-                pushData4.deallocate()
+                free(UnsafeMutableRawPointer(mutating: pushData4))
                 
                 let currentHashes2: UnsafeMutablePointer<config_string_list>? = config_current_hashes(conf2)
                 expect([String](cStringArray: currentHashes2?.pointee.value, count: currentHashes2?.pointee.len))
                     .to(equal(["fakehash1"]))
-                currentHashes2?.deallocate()
+                free(UnsafeMutableRawPointer(mutating: currentHashes2))
                 
                 expect(user_groups_size(conf2)).to(equal(2))
                 expect(user_groups_size_communities(conf2)).to(equal(1))
@@ -1375,7 +1368,7 @@ fileprivate extension LibSessionUtilSpec {
                 let pushData5: UnsafeMutablePointer<config_push_data> = config_push(conf2)
                 expect(pushData5.pointee.seqno).to(equal(1))
                 expect(config_needs_dump(conf2)).to(beFalse())
-                pushData5.deallocate()
+                free(UnsafeMutableRawPointer(mutating: pushData5))
                 
                 for targetConf in [conf, conf2] {
                     // Iterate through and make sure we got everything we expected
@@ -1427,7 +1420,7 @@ fileprivate extension LibSessionUtilSpec {
                 let pushData6: UnsafeMutablePointer<config_push_data> = config_push(conf2)
                 expect(pushData6.pointee.seqno).to(equal(1))
                 expect(config_needs_dump(conf2)).to(beFalse())
-                pushData6.deallocate()
+                free(UnsafeMutableRawPointer(mutating: pushData6))
                 
                 community2.set(\.room, to: "sudokuRoom")  // Change capitalization
                 user_groups_set_community(conf2, &community2)
@@ -1446,7 +1439,7 @@ fileprivate extension LibSessionUtilSpec {
                 let currentHashes3: UnsafeMutablePointer<config_string_list>? = config_current_hashes(conf2)
                 expect([String](cStringArray: currentHashes3?.pointee.value, count: currentHashes3?.pointee.len))
                     .to(equal([fakeHash2]))
-                currentHashes3?.deallocate()
+                free(UnsafeMutableRawPointer(mutating: currentHashes3))
                 
                 var dump2: UnsafeMutablePointer<UInt8>? = nil
                 var dump2Len: Int = 0
@@ -1460,15 +1453,14 @@ fileprivate extension LibSessionUtilSpec {
                 config_confirm_pushed(conf2, pushData8.pointee.seqno, &cFakeHash2)
                 expect(config_needs_dump(conf2)).to(beFalse())
                 
-                var mergeHashes1: [UnsafePointer<CChar>?] = ((try? [cFakeHash2].unsafeCopyCStringArray()) ?? [])
-                var mergeData1: [UnsafePointer<UInt8>?] = [UnsafePointer(pushData8.pointee.config)]
-                var mergeSize1: [Int] = [pushData8.pointee.config_len]
-                let mergedHashes1: UnsafeMutablePointer<config_string_list>? = config_merge(conf, &mergeHashes1, &mergeData1, &mergeSize1, 1)
-                expect([String](cStringArray: mergedHashes1?.pointee.value, count: mergedHashes1?.pointee.len))
-                    .to(equal(["fakehash2"]))
-                mergeHashes1.forEach { $0?.deallocate() }
-                mergedHashes1?.deallocate()
-                pushData8.deallocate()
+                try? [fakeHash2].withUnsafeCStrArray { mergeHashes1 in
+                    var mergeData1: [UnsafePointer<UInt8>?] = [UnsafePointer(pushData8.pointee.config)]
+                    var mergeSize1: [Int] = [pushData8.pointee.config_len]
+                    let mergedHashes1: UnsafeMutablePointer<config_string_list>? = config_merge(conf, mergeHashes1.baseAddress, &mergeData1, &mergeSize1, 1)
+                    expect([String](cStringArray: mergedHashes1?.pointee.value, count: mergedHashes1?.pointee.len))
+                        .to(equal(["fakehash2"]))
+                }
+                free(UnsafeMutableRawPointer(mutating: pushData8))
                 
                 var cCommunity3BaseUrl: [CChar] = "http://example.org:5678".cString(using: .utf8)!
                 var cCommunity3Room: [CChar] = "SudokuRoom".cString(using: .utf8)!
@@ -1493,7 +1485,7 @@ fileprivate extension LibSessionUtilSpec {
                 let pushData9: UnsafeMutablePointer<config_push_data> = config_push(conf2)
                 expect(pushData9.pointee.seqno).to(equal(2))
                 expect(config_needs_dump(conf2)).to(beFalse())
-                pushData9.deallocate()
+                free(UnsafeMutableRawPointer(mutating: pushData9))
                 
                 user_groups_set_free_legacy_group(conf2, legacyGroup5)
                 expect(config_needs_push(conf2)).to(beTrue())
@@ -1515,16 +1507,15 @@ fileprivate extension LibSessionUtilSpec {
                 let currentHashes4: UnsafeMutablePointer<config_string_list>? = config_current_hashes(conf2)
                 expect([String](cStringArray: currentHashes4?.pointee.value, count: currentHashes4?.pointee.len))
                     .to(equal([fakeHash3]))
-                currentHashes4?.deallocate()
+                free(UnsafeMutableRawPointer(mutating: currentHashes4))
                 
-                var mergeHashes2: [UnsafePointer<CChar>?] = ((try? [cFakeHash3].unsafeCopyCStringArray()) ?? [])
-                var mergeData2: [UnsafePointer<UInt8>?] = [UnsafePointer(pushData10.pointee.config)]
-                var mergeSize2: [Int] = [pushData10.pointee.config_len]
-                let mergedHashes2: UnsafeMutablePointer<config_string_list>? = config_merge(conf, &mergeHashes2, &mergeData2, &mergeSize2, 1)
-                expect([String](cStringArray: mergedHashes2?.pointee.value, count: mergedHashes2?.pointee.len))
-                    .to(equal(["fakehash3"]))
-                mergeHashes2.forEach { $0?.deallocate() }
-                mergedHashes2?.deallocate()
+                try? [fakeHash3].withUnsafeCStrArray { mergeHashes2 in
+                    var mergeData2: [UnsafePointer<UInt8>?] = [UnsafePointer(pushData10.pointee.config)]
+                    var mergeSize2: [Int] = [pushData10.pointee.config_len]
+                    let mergedHashes2: UnsafeMutablePointer<config_string_list>? = config_merge(conf, mergeHashes2.baseAddress, &mergeData2, &mergeSize2, 1)
+                    expect([String](cStringArray: mergedHashes2?.pointee.value, count: mergedHashes2?.pointee.len))
+                        .to(equal(["fakehash3"]))
+                }
                 
                 expect(user_groups_size(conf)).to(equal(1))
                 expect(user_groups_size_communities(conf)).to(equal(0))
@@ -1566,41 +1557,40 @@ fileprivate extension LibSessionUtilSpec {
                 let cFakeHash11: [CChar] = fakeHash11.cString(using: .utf8)!
                 let fakeHash12: String = "fakehash12"
                 let cFakeHash12: [CChar] = fakeHash12.cString(using: .utf8)!
-                var mergeHashes3: [UnsafePointer<CChar>?] = ((try? [cFakeHash10, cFakeHash11, cFakeHash12, cFakeHash4].unsafeCopyCStringArray()) ?? [])
-                var mergeData3: [UnsafePointer<UInt8>?] = [
-                    UnsafePointer(pushData10.pointee.config),
-                    UnsafePointer(pushData2.pointee.config),
-                    UnsafePointer(pushData7.pointee.config),
-                    UnsafePointer(pushData11.pointee.config)
-                ]
-                var mergeSize3: [Int] = [
-                    pushData10.pointee.config_len,
-                    pushData2.pointee.config_len,
-                    pushData7.pointee.config_len,
-                    pushData11.pointee.config_len
-                ]
-                let mergedHashes3: UnsafeMutablePointer<config_string_list>? = config_merge(conf2, &mergeHashes3, &mergeData3, &mergeSize3, 4)
-                expect([String](cStringArray: mergedHashes3?.pointee.value, count: mergedHashes3?.pointee.len))
-                    .to(equal(["fakehash10", "fakehash11", "fakehash12", "fakehash4"]))
-                expect(config_needs_dump(conf2)).to(beTrue())
-                expect(config_needs_push(conf2)).to(beFalse())
-                mergeHashes3.forEach { $0?.deallocate() }
-                mergedHashes3?.deallocate()
-                pushData2.deallocate()
-                pushData7.deallocate()
-                pushData10.deallocate()
-                pushData11.deallocate()
+                try? [fakeHash10, fakeHash11, fakeHash12, fakeHash4].withUnsafeCStrArray { mergeHashes3 in
+                    var mergeData3: [UnsafePointer<UInt8>?] = [
+                        UnsafePointer(pushData10.pointee.config),
+                        UnsafePointer(pushData2.pointee.config),
+                        UnsafePointer(pushData7.pointee.config),
+                        UnsafePointer(pushData11.pointee.config)
+                    ]
+                    var mergeSize3: [Int] = [
+                        pushData10.pointee.config_len,
+                        pushData2.pointee.config_len,
+                        pushData7.pointee.config_len,
+                        pushData11.pointee.config_len
+                    ]
+                    let mergedHashes3: UnsafeMutablePointer<config_string_list>? = config_merge(conf2, mergeHashes3.baseAddress, &mergeData3, &mergeSize3, 4)
+                    expect([String](cStringArray: mergedHashes3?.pointee.value, count: mergedHashes3?.pointee.len))
+                        .to(equal(["fakehash10", "fakehash11", "fakehash12", "fakehash4"]))
+                    expect(config_needs_dump(conf2)).to(beTrue())
+                    expect(config_needs_push(conf2)).to(beFalse())
+                }
+                free(UnsafeMutableRawPointer(mutating: pushData2))
+                free(UnsafeMutableRawPointer(mutating: pushData7))
+                free(UnsafeMutableRawPointer(mutating: pushData10))
+                free(UnsafeMutableRawPointer(mutating: pushData11))
                 
                 let currentHashes5: UnsafeMutablePointer<config_string_list>? = config_current_hashes(conf2)
                 expect([String](cStringArray: currentHashes5?.pointee.value, count: currentHashes5?.pointee.len))
                     .to(equal([fakeHash4]))
-                currentHashes5?.deallocate()
+                free(UnsafeMutableRawPointer(mutating: currentHashes5))
                 
                 let pushData12: UnsafeMutablePointer<config_push_data> = config_push(conf2)
                 expect(pushData12.pointee.seqno).to(equal(4))
                 expect([String](cStringArray: pushData12.pointee.obsolete, count: pushData12.pointee.obsolete_len))
                     .to(equal([fakeHash11, fakeHash12, fakeHash10, fakeHash3]))
-                pushData12.deallocate()
+                free(UnsafeMutableRawPointer(mutating: pushData12))
                 
                 for targetConf in [conf, conf2] {
                     // Iterate through and make sure we got everything we expected
@@ -1712,16 +1702,15 @@ fileprivate extension LibSessionUtilSpec {
                 expect(config_needs_push(conf)).to(beFalse())
                 expect(config_needs_dump(conf)).to(beTrue())
                 
-                var mergeHashes1: [UnsafePointer<CChar>?] = try! [cFakeHash1].unsafeCopyCStringArray()
-                var mergeData1: [UnsafePointer<UInt8>?] = [UnsafePointer(pushData1.pointee.config)]
-                var mergeSize1: [Int] = [pushData1.pointee.config_len]
-                let mergedHashes1: UnsafeMutablePointer<config_string_list>? = config_merge(conf2, &mergeHashes1, &mergeData1, &mergeSize1, 1)
-                expect([String](cStringArray: mergedHashes1?.pointee.value, count: mergedHashes1?.pointee.len))
-                    .to(equal(["fakehash1"]))
-                expect(config_needs_push(conf2)).to(beFalse())
-                mergeHashes1.forEach { $0?.deallocate() }
-                mergedHashes1?.deallocate()
-                pushData1.deallocate()
+                try? [fakeHash1].withUnsafeCStrArray { mergeHashes1 in
+                    var mergeData1: [UnsafePointer<UInt8>?] = [UnsafePointer(pushData1.pointee.config)]
+                    var mergeSize1: [Int] = [pushData1.pointee.config_len]
+                    let mergedHashes1: UnsafeMutablePointer<config_string_list>? = config_merge(conf2, mergeHashes1.baseAddress, &mergeData1, &mergeSize1, 1)
+                    expect([String](cStringArray: mergedHashes1?.pointee.value, count: mergedHashes1?.pointee.len))
+                        .to(equal(["fakehash1"]))
+                    expect(config_needs_push(conf2)).to(beFalse())
+                }
+                free(UnsafeMutableRawPointer(mutating: pushData1))
                 
                 let namePtr: UnsafePointer<CChar>? = groups_info_get_name(conf2)
                 let descPtr: UnsafePointer<CChar>? = groups_info_get_description(conf2)
@@ -1757,14 +1746,13 @@ fileprivate extension LibSessionUtilSpec {
                 var cFakeHash2: [CChar] = fakeHash2.cString(using: .utf8)!
                 config_confirm_pushed(conf2, pushData2.pointee.seqno, &cFakeHash2)
 
-                var mergeHashes2: [UnsafePointer<CChar>?] = try! [cFakeHash2].unsafeCopyCStringArray()
-                var mergeData2: [UnsafePointer<UInt8>?] = [UnsafePointer(pushData2.pointee.config)]
-                var mergeSize2: [Int] = [pushData2.pointee.config_len]
-                let mergedHashes2: UnsafeMutablePointer<config_string_list>? = config_merge(conf, &mergeHashes2, &mergeData2, &mergeSize2, 1)
-                expect([String](cStringArray: mergedHashes2?.pointee.value, count: mergedHashes2?.pointee.len))
-                    .to(equal(["fakehash2"]))
-                mergeHashes2.forEach { $0?.deallocate() }
-                mergedHashes2?.deallocate()
+                try? [fakeHash2].withUnsafeCStrArray { mergeHashes2 in
+                    var mergeData2: [UnsafePointer<UInt8>?] = [UnsafePointer(pushData2.pointee.config)]
+                    var mergeSize2: [Int] = [pushData2.pointee.config_len]
+                    let mergedHashes2: UnsafeMutablePointer<config_string_list>? = config_merge(conf, mergeHashes2.baseAddress, &mergeData2, &mergeSize2, 1)
+                    expect([String](cStringArray: mergedHashes2?.pointee.value, count: mergedHashes2?.pointee.len))
+                        .to(equal(["fakehash2"]))
+                }
                 
                 expect(groups_info_set_name(conf, "Better name!")).to(equal(0))
                 expect(groups_info_set_description(conf, "Test New Name Really long abcdefghijklmnopqrstuvwxyzabcdefghijklmnopqrstuvwxyzabcdefghijklmnopqrstuvwxyz")).to(equal(0))
@@ -1795,15 +1783,14 @@ fileprivate extension LibSessionUtilSpec {
                 var cFakeHash3: [CChar] = fakeHash3.cString(using: .utf8)!
                 config_confirm_pushed(conf, pushData3.pointee.seqno, &cFakeHash3)
                 
-                var mergeHashes3: [UnsafePointer<CChar>?] = try! [cFakeHash3].unsafeCopyCStringArray()
-                var mergeData3: [UnsafePointer<UInt8>?] = [UnsafePointer(pushData3.pointee.config)]
-                var mergeSize3: [Int] = [pushData3.pointee.config_len]
-                let mergedHashes3: UnsafeMutablePointer<config_string_list>? = config_merge(conf2, &mergeHashes3, &mergeData3, &mergeSize3, 1)
-                expect([String](cStringArray: mergedHashes3?.pointee.value, count: mergedHashes3?.pointee.len))
-                    .to(equal(["fakehash3"]))
-                mergeHashes3.forEach { $0?.deallocate() }
-                mergedHashes3?.deallocate()
-                pushData3.deallocate()
+                try? [fakeHash3].withUnsafeCStrArray { mergeHashes3 in
+                    var mergeData3: [UnsafePointer<UInt8>?] = [UnsafePointer(pushData3.pointee.config)]
+                    var mergeSize3: [Int] = [pushData3.pointee.config_len]
+                    let mergedHashes3: UnsafeMutablePointer<config_string_list>? = config_merge(conf2, mergeHashes3.baseAddress, &mergeData3, &mergeSize3, 1)
+                    expect([String](cStringArray: mergedHashes3?.pointee.value, count: mergedHashes3?.pointee.len))
+                        .to(equal(["fakehash3"]))
+                }
+                free(UnsafeMutableRawPointer(mutating: pushData3))
                 
                 let namePtr3: UnsafePointer<CChar>? = groups_info_get_name(conf2)
                 let descPtr3: UnsafePointer<CChar>? = groups_info_get_description(conf2)
@@ -2064,16 +2051,15 @@ fileprivate extension LibSessionUtilSpec {
                 expect(config_needs_push(conf)).to(beFalse())
                 expect(config_needs_dump(conf)).to(beTrue())
                 
-                var mergeHashes1: [UnsafePointer<CChar>?] = try! [cFakeHash1].unsafeCopyCStringArray()
-                var mergeData1: [UnsafePointer<UInt8>?] = [UnsafePointer(pushData1.pointee.config)]
-                var mergeSize1: [Int] = [pushData1.pointee.config_len]
-                let mergedHashes1: UnsafeMutablePointer<config_string_list>? = config_merge(conf2, &mergeHashes1, &mergeData1, &mergeSize1, 1)
-                expect([String](cStringArray: mergedHashes1?.pointee.value, count: mergedHashes1?.pointee.len))
-                    .to(equal(["fakehash1"]))
-                expect(config_needs_push(conf2)).to(beFalse())
-                mergeHashes1.forEach { $0?.deallocate() }
-                mergedHashes1?.deallocate()
-                pushData1.deallocate()
+                try? [fakeHash1].withUnsafeCStrArray { mergeHashes1 in
+                    var mergeData1: [UnsafePointer<UInt8>?] = [UnsafePointer(pushData1.pointee.config)]
+                    var mergeSize1: [Int] = [pushData1.pointee.config_len]
+                    let mergedHashes1: UnsafeMutablePointer<config_string_list>? = config_merge(conf2, mergeHashes1.baseAddress, &mergeData1, &mergeSize1, 1)
+                    expect([String](cStringArray: mergedHashes1?.pointee.value, count: mergedHashes1?.pointee.len))
+                        .to(equal(["fakehash1"]))
+                    expect(config_needs_push(conf2)).to(beFalse())
+                }
+                free(UnsafeMutableRawPointer(mutating: pushData1))
                 
                 expect(groups_members_size(conf2)).to(equal(25))
                 
@@ -2171,14 +2157,13 @@ fileprivate extension LibSessionUtilSpec {
                 var cFakeHash2: [CChar] = fakeHash2.cString(using: .utf8)!
                 config_confirm_pushed(conf2, pushData2.pointee.seqno, &cFakeHash2)
                 
-                var mergeHashes2: [UnsafePointer<CChar>?] = try! [cFakeHash2].unsafeCopyCStringArray()
-                var mergeData2: [UnsafePointer<UInt8>?] = [UnsafePointer(pushData2.pointee.config)]
-                var mergeSize2: [Int] = [pushData2.pointee.config_len]
-                let mergedHashes2: UnsafeMutablePointer<config_string_list>? = config_merge(conf, &mergeHashes2, &mergeData2, &mergeSize2, 1)
-                expect([String](cStringArray: mergedHashes2?.pointee.value, count: mergedHashes2?.pointee.len))
-                    .to(equal(["fakehash2"]))
-                mergeHashes2.forEach { $0?.deallocate() }
-                mergedHashes2?.deallocate()
+                try? [fakeHash2].withUnsafeCStrArray { mergeHashes2 in
+                    var mergeData2: [UnsafePointer<UInt8>?] = [UnsafePointer(pushData2.pointee.config)]
+                    var mergeSize2: [Int] = [pushData2.pointee.config_len]
+                    let mergedHashes2: UnsafeMutablePointer<config_string_list>? = config_merge(conf, mergeHashes2.baseAddress, &mergeData2, &mergeSize2, 1)
+                    expect([String](cStringArray: mergedHashes2?.pointee.value, count: mergedHashes2?.pointee.len))
+                        .to(equal(["fakehash2"]))
+                }
                 
                 var cSessionId2: [CChar] = sids[23].cString(using: .utf8)!
                 var member2: config_group_member = config_group_member()
@@ -2344,14 +2329,13 @@ fileprivate extension LibSessionUtilSpec {
                 var cFakeHash3: [CChar] = fakeHash3.cString(using: .utf8)!
                 config_confirm_pushed(conf, pushData3.pointee.seqno, &cFakeHash3)
                 
-                var mergeHashes3: [UnsafePointer<CChar>?] = try! [cFakeHash3].unsafeCopyCStringArray()
-                var mergeData3: [UnsafePointer<UInt8>?] = [UnsafePointer(pushData3.pointee.config)]
-                var mergeSize3: [Int] = [pushData3.pointee.config_len]
-                let mergedHashes3: UnsafeMutablePointer<config_string_list>? = config_merge(conf2, &mergeHashes3, &mergeData3, &mergeSize3, 1)
-                expect([String](cStringArray: mergedHashes3?.pointee.value, count: mergedHashes3?.pointee.len))
-                    .to(equal(["fakehash3"]))
-                mergeHashes3.forEach { $0?.deallocate() }
-                mergedHashes3?.deallocate()
+                try? [fakeHash3].withUnsafeCStrArray { mergeHashes3 in
+                    var mergeData3: [UnsafePointer<UInt8>?] = [UnsafePointer(pushData3.pointee.config)]
+                    var mergeSize3: [Int] = [pushData3.pointee.config_len]
+                    let mergedHashes3: UnsafeMutablePointer<config_string_list>? = config_merge(conf2, mergeHashes3.baseAddress, &mergeData3, &mergeSize3, 1)
+                    expect([String](cStringArray: mergedHashes3?.pointee.value, count: mergedHashes3?.pointee.len))
+                        .to(equal(["fakehash3"]))
+                }
 
                 expect(groups_members_size(conf2)).to(equal(48))    // 18 deleted earlier
                 
@@ -2539,7 +2523,7 @@ fileprivate extension LibSessionUtilSpec {
         groups_keys_dump(keysConf, &dumpResult, &dumpResultLen)
 
         let dumpData: Data = Data(bytes: dumpResult!, count: dumpResultLen)
-        dumpResult?.deallocate()
+        free(UnsafeMutableRawPointer(mutating: dumpResult))
         return dumpData.toHexString()
     }
     
@@ -2665,7 +2649,7 @@ private extension LibSessionUtilSpec {
                 guard let result: UnsafeMutablePointer<config_push_data> = config_push(conf) else { return true }
                 
                 // We successfully generated the config push and didn't hit the limit
-                result.deallocate()
+                free(UnsafeMutableRawPointer(mutating: result))
                 
             case 50...100:
                 // Between 50 and 100 records of the expected limit only check every `10` records
@@ -2673,7 +2657,7 @@ private extension LibSessionUtilSpec {
                     guard let result: UnsafeMutablePointer<config_push_data> = config_push(conf) else { return true }
                     
                     // We successfully generated the config push and didn't hit the limit
-                    result.deallocate()
+                    free(UnsafeMutableRawPointer(mutating: result))
                 }
                 
             case 100...200:
@@ -2682,7 +2666,7 @@ private extension LibSessionUtilSpec {
                     guard let result: UnsafeMutablePointer<config_push_data> = config_push(conf) else { return true }
                     
                     // We successfully generated the config push and didn't hit the limit
-                    result.deallocate()
+                    free(UnsafeMutableRawPointer(mutating: result))
                 }
             
             default:
@@ -2691,59 +2675,12 @@ private extension LibSessionUtilSpec {
                     guard let result: UnsafeMutablePointer<config_push_data> = config_push(conf) else { return true }
                     
                     // We successfully generated the config push and didn't hit the limit
-                    result.deallocate()
+                    free(UnsafeMutableRawPointer(mutating: result))
                 }
         }
         
         // Increment the number of records
         numRecords += 1
         return false
-    }
-}
-
-private extension Collection where Element == [CChar]? {
-    /// This creates an array of UnsafePointer types to access data of the C strings in memory. This array provides no automated
-    /// memory management of it's children so after use you are responsible for handling the life cycle of the child elements and
-    /// need to call `deallocate()` on each child.
-    func unsafeCopyCStringArray() throws -> [UnsafePointer<CChar>?] {
-        return try self.map { value in
-            guard let value: [CChar] = value else { return nil }
-            
-            let copy = UnsafeMutableBufferPointer<CChar>.allocate(capacity: value.underestimatedCount)
-            var remaining: (unwritten: Array<CChar>.Iterator, index: Int) = copy.initialize(from: value)
-            guard remaining.unwritten.next() == nil else { throw LibSessionError.invalidCConversion }
-            
-            return UnsafePointer(copy.baseAddress)
-        }
-    }
-}
-
-private extension Collection where Element == [CChar] {
-    /// This creates an array of UnsafePointer types to access data of the C strings in memory. This array provides no automated
-    /// memory management of it's children so after use you are responsible for handling the life cycle of the child elements and
-    /// need to call `deallocate()` on each child.
-    func unsafeCopyCStringArray() throws -> [UnsafePointer<CChar>?] {
-        return try self.map { value in
-            let copy = UnsafeMutableBufferPointer<CChar>.allocate(capacity: value.underestimatedCount)
-            var remaining: (unwritten: Array<CChar>.Iterator, index: Int) = copy.initialize(from: value)
-            guard remaining.unwritten.next() == nil else { throw LibSessionError.invalidCConversion }
-            
-            return UnsafePointer(copy.baseAddress)
-        }
-    }
-}
-
-private extension Collection where Element == [UInt8] {
-    /// This creates an array of UnsafePointer types to access data of the C strings in memory. This array provides no automated
-    /// memory management of it's children so after use you are responsible for handling the life cycle of the child elements and
-    /// need to call `deallocate()` on each child.
-    func unsafeCopyUInt8Array() throws -> [UnsafePointer<UInt8>?] {
-        return try self.map { value in
-            let copy = UnsafeMutableBufferPointer<UInt8>.allocate(capacity: value.underestimatedCount)
-            var remaining: (unwritten: Array<UInt8>.Iterator, index: Int) = copy.initialize(from: value)
-            guard remaining.unwritten.next() == nil else { throw LibSessionError.invalidCConversion }
-            
-            return UnsafePointer(copy.baseAddress)
-        }
     }
 }
