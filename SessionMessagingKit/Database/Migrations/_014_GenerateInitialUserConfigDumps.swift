@@ -386,13 +386,10 @@ enum _014_GenerateInitialUserConfigDumps: Migration {
                 let threadId: String = info["threadId"]
                 let pinnedPriority: Int32? = allThreads[threadId]?["pinnedPriority"]
                 
-                return LibSession.CommunityInfo(
-                    urlInfo: LibSession.OpenGroupUrlInfo(
-                        threadId: threadId,
-                        server: info["server"],
-                        roomToken: info["roomToken"],
-                        publicKey: info["publicKey"]
-                    ),
+                return LibSession.CommunityUpdateInfo(
+                    server: info["server"],
+                    roomToken: info["roomToken"],
+                    publicKey: info["publicKey"],
                     priority: (pinnedPriority ?? 0)
                 )
             },

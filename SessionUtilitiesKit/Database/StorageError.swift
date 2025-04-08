@@ -9,11 +9,9 @@ public enum StorageError: Error {
     case startupFailed
     case migrationFailed
     case migrationNoLongerSupported
-    case invalidKeySpec
-    case keySpecCreationFailed
-    case keySpecInaccessible
     case decodingFailed
     case invalidQueryResult
+    case fileMigrationFailed
     
     /// This error is thrown when a synchronous operation takes longer than `Storage.transactionDeadlockTimeoutSeconds`,
     /// the assumption being that if we know an operation is going to take a long time then we should probably be handling it asynchronously

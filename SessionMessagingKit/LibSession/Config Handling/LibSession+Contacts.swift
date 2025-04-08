@@ -44,7 +44,7 @@ internal extension LibSessionCacheType {
         // The current users contact data is handled separately so exclude it if it's present (as that's
         // actually a bug)
         let userSessionId: SessionId = dependencies[cache: .general].sessionId
-        let targetContactData: [String: ContactData] = try LibSession.extractContacts(
+        let targetContactData: [String: LibSession.ContactData] = try LibSession.extractContacts(
             from: conf,
             serverTimestampMs: serverTimestampMs,
             using: dependencies
@@ -761,18 +761,20 @@ extension LibSession {
 
 // MARK: - ContactData
 
-private struct ContactData {
-    let contact: Contact
-    let profile: Profile
-    let config: DisappearingMessagesConfiguration
-    let priority: Int32
-    let created: TimeInterval
+extension LibSession {
+    internal struct ContactData {
+        let contact: Contact
+        let profile: Profile
+        let config: DisappearingMessagesConfiguration
+        let priority: Int32
+        let created: TimeInterval
+    }
 }
 
 // MARK: - Convenience
 
-private extension LibSession {
-    static func extractContacts(
+extension LibSession {
+    internal static func extractContacts(
         from conf: UnsafeMutablePointer<config_object>?,
         serverTimestampMs: Int64,
         using dependencies: Dependencies

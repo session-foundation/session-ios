@@ -36,60 +36,83 @@ final class ShareNavController: UINavigationController, ShareViewDelegate {
         /// to override it results in the share context crashing so ensure it doesn't exist first)
         if !dependencies[singleton: .appContext].isValid {
             dependencies.set(singleton: .appContext, to: ShareAppExtensionContext(rootViewController: self, using: dependencies))
-            Dependencies.setIsRTLRetriever(requiresMainThread: false) { ShareAppExtensionContext.determineDeviceRTL() }
+            Dependencies.setIsRTLRetriever(requiresMainThread: false) {
+                ShareAppExtensionContext.determineDeviceRTL()
+            }
         }
 
         guard !SNUtilitiesKit.isRunningTests else { return }
         
+        // stringlint:ignore_start
+        Log.setup(with: Logger(
+            primaryPrefix: "SessionShareExtension",
+            customDirectory: "\(dependencies[singleton: .fileManager].appSharedDataDirectoryPath)/Logs/ShareExtension",
+            using: dependencies
+        ))
+        LibSession.setupLogger(using: dependencies)
+        // stringlint:ignore_stop
+        
+        /// Setup Version Info and Network
         dependencies.warmCache(cache: .appVersion)
-
-        AppSetup.setupEnvironment(
-            additionalMigrationTargets: [DeprecatedUIKitMigrationTarget.self],
-            appSpecificBlock: { [dependencies] in
-                // stringlint:ignore_start
-                Log.setup(with: Logger(
-                    primaryPrefix: "SessionShareExtension",
-                    customDirectory: "\(dependencies[singleton: .fileManager].appSharedDataDirectoryPath)/Logs/ShareExtension",
-                    using: dependencies
-                ))
-                // stringlint:ignore_stop
-                
-                // Setup LibSession
-                LibSession.setupLogger(using: dependencies)
-                dependencies.warmCache(cache: .libSessionNetwork)
-                
-                // Configure the different targets
-                SNUtilitiesKit.configure(
-                    networkMaxFileSize: Network.maxFileSize,
-                    localizedFormatted: { helper, font in SAESNUIKitConfig.localizedFormatted(helper, font) },
-                    localizedDeformatted: { helper in SAESNUIKitConfig.localizedDeformatted(helper) },
-                    using: dependencies
-                )
-                SNMessagingKit.configure(using: dependencies)
-            },
-            migrationsCompletion: { [weak self, dependencies] result in
-                switch result {
-                    case .failure: Log.error("Failed to complete migrations")
-                    case .success:
-                        DispatchQueue.main.async {
-                            /// Because the `SessionUIKit` target doesn't depend on the `SessionUtilitiesKit` dependency (it shouldn't
-                            /// need to since it should just be UI) but since the theme settings are stored in the database we need to pass these through
-                            /// to `SessionUIKit` and expose a mechanism to save updated settings - this is done here (once the migrations complete)
-                            SNUIKit.configure(
-                                with: SAESNUIKitConfig(using: dependencies),
-                                themeSettings: dependencies[singleton: .storage].read { db -> ThemeSettings in
-                                    (db[.theme], db[.themePrimaryColor], db[.themeMatchSystemDayNightCycle])
-                                }
-                            )
-                            
-                            self?.versionMigrationsDidComplete()
-                        }
-                }
-            },
+        dependencies.warmCache(cache: .libSessionNetwork)
+        
+        /// Configure the different targets
+        SNUtilitiesKit.configure(
+            networkMaxFileSize: Network.maxFileSize,
+            localizedFormatted: { helper, font in SAESNUIKitConfig.localizedFormatted(helper, font) },
+            localizedDeformatted: { helper in SAESNUIKitConfig.localizedDeformatted(helper) },
             using: dependencies
         )
+        SNMessagingKit.configure(using: dependencies)
+        
+        /// Because the `SessionUIKit` target doesn't depend on the `SessionUtilitiesKit` dependency (it shouldn't
+        /// need to since it should just be UI) but since the theme settings are stored in the database we need to pass these through
+        /// to `SessionUIKit` and expose a mechanism to save updated settings - this is done here (once the migrations complete)
+        SNUIKit.configure(
+            with: SAESNUIKitConfig(using: dependencies),
+            themeSettings: dependencies[singleton: .storage].read { db -> ThemeSettings in
+                (db[.theme], db[.themePrimaryColor], db[.themeMatchSystemDayNightCycle])
+            }
+        )
+        
+        let maybeUserMetadata: ExtensionHelper.UserMetadata? = dependencies[singleton: .extensionHelper]
+            .loadUserMetadata()
+        
+        /// If we have `UserMetadata` then load the users `libSession` state
+        if let userMetadata: ExtensionHelper.UserMetadata = maybeUserMetadata {
+            /// Cache the users session id so we don't need to fetch it from the database every time
+            dependencies.mutate(cache: .general) {
+                $0.setCachedSessionId(sessionId: userMetadata.sessionId)
+            }
+            
+            /// Load the `libSession` state into memory
+            let cache: LibSession.Cache = LibSession.Cache(
+                userSessionId: userMetadata.sessionId,
+                using: dependencies
+            )
+            dependencies[singleton: .extensionHelper].loadConfigState(
+                into: cache,
+                for: userMetadata.sessionId,
+                userSessionId: userMetadata.sessionId,
+                userEd25519SecretKey: userMetadata.ed25519SecretKey
+            )
+            dependencies.set(cache: .libSession, to: cache)
+        }
+        
+        /// If the `appReadiness` wasn't marked as ready then do so now
+        ///
+        /// **Note:** that this does much more than set a flag; it will also run all deferred blocks.
+        if !dependencies[singleton: .appReadiness].isAppReady {
+            // TODO: [DATABASE REFACTOR] Is this needed? (this is a synchronous process so far)
+            dependencies[singleton: .appReadiness].setAppReady()
+            dependencies.mutate(cache: .appVersion) { $0.saeLaunchDidComplete() }
+        }
 
         // We don't need to use "screen protection" in the SAE.
+        /// Show the main app content now that everything is loaded
+        showMainContent(hasUserMetadata: maybeUserMetadata != nil)
+
+        /// We don't need to use "screen protection" in the SAE.
         NotificationCenter.default.addObserver(
             self,
             selector: #selector(applicationDidEnterBackground),
@@ -106,40 +129,6 @@ final class ShareNavController: UINavigationController, ShareViewDelegate {
         ThemeManager.traitCollectionDidChange(previousTraitCollection)
     }
 
-    func versionMigrationsDidComplete() {
-        Log.assertOnMainThread()
-
-        /// Now that the migrations are completed schedule config syncs for **all** configs that have pending changes to
-        /// ensure that any pending local state gets pushed and any jobs waiting for a successful config sync are run
-        ///
-        /// **Note:** We only want to do this if the app is active and ready for app extensions to run
-        if dependencies[singleton: .appContext].isAppForegroundAndActive && dependencies[singleton: .storage, key: .isReadyForAppExtensions] {
-            dependencies[singleton: .storage].writeAsync { [dependencies] db in
-                dependencies.mutate(cache: .libSession) { $0.syncAllPendingChanges(db) }
-            }
-        }
-
-        checkIsAppReady(migrationsCompleted: true)
-    }
-
-    func checkIsAppReady(migrationsCompleted: Bool) {
-        Log.assertOnMainThread()
-
-        // If something went wrong during startup then show the UI still (it has custom UI for
-        // this case) but don't mark the app as ready or trigger the 'launchDidComplete' logic
-        guard
-            migrationsCompleted,
-            dependencies[singleton: .storage].isValid,
-            !dependencies[singleton: .appReadiness].isAppReady
-        else { return showLockScreenOrMainContent() }
-
-        // Note that this does much more than set a flag;
-        // it will also run all deferred blocks.
-        dependencies[singleton: .appReadiness].setAppReady()
-        dependencies.mutate(cache: .appVersion) { $0.saeLaunchDidComplete() }
-
-        showLockScreenOrMainContent()
-    }
     
     override func viewDidLoad() {
         super.viewDidLoad()
@@ -172,22 +161,25 @@ final class ShareNavController: UINavigationController, ShareViewDelegate {
     
     // MARK: - Updating
     
-    private func showLockScreenOrMainContent() {
+    private func showLockScreenOrMainContent(hasUserMetadata: Bool) {
         if dependencies[singleton: .storage, key: .isScreenLockEnabled] {
-            showLockScreen()
+            showLockScreen(hasUserMetadata: hasUserMetadata)
         }
         else {
-            showMainContent()
+            showMainContent(hasUserMetadata: hasUserMetadata)
         }
     }
     
-    private func showLockScreen() {
-        let screenLockVC = SAEScreenLockViewController(shareViewDelegate: self)
+    private func showLockScreen(hasUserMetadata: Bool) {
+        let screenLockVC = SAEScreenLockViewController(
+            hasUserMetadata: hasUserMetadata,
+            shareViewDelegate: self
+        )
         setViewControllers([ screenLockVC ], animated: false)
     }
     
-    private func showMainContent() {
-        let threadPickerVC: ThreadPickerVC = ThreadPickerVC(using: dependencies)
+    private func showMainContent(hasUserMetadata: Bool) {
+        let threadPickerVC: ThreadPickerVC = ThreadPickerVC(hasUserMetadata: hasUserMetadata, using: dependencies)
         threadPickerVC.shareNavController = self
         
         setViewControllers([ threadPickerVC ], animated: false)
@@ -208,8 +200,8 @@ final class ShareNavController: UINavigationController, ShareViewDelegate {
         ShareNavController.attachmentPrepPublisher = publisher
     }
     
-    func shareViewWasUnlocked() {
-        showMainContent()
+    func shareViewWasUnlocked(hasUserMetadata: Bool) {
+        showMainContent(hasUserMetadata: hasUserMetadata)
     }
     
     func shareViewWasCompleted() {

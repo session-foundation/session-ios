@@ -74,9 +74,9 @@ internal extension LibSessionCacheType {
         extractedUserGroups.communities.forEach { community in
             let successfullyAddedGroup: Bool = dependencies[singleton: .openGroupManager].add(
                 db,
-                roomToken: community.data.roomToken,
-                server: community.data.server,
-                publicKey: community.data.publicKey,
+                roomToken: community.roomToken,
+                server: community.server,
+                publicKey: community.publicKey,
                 forceVisible: true
             )
             
@@ -85,9 +85,10 @@ internal extension LibSessionCacheType {
                     dependencies[singleton: .openGroupManager].performInitialRequestsAfterAdd(
                         queue: DispatchQueue.global(qos: .userInitiated),
                         successfullyAddedGroup: successfullyAddedGroup,
-                        roomToken: community.data.roomToken,
-                        server: community.data.server,
-                        publicKey: community.data.publicKey
+                        roomToken: community.roomToken,
+                        server: community.server,
+                        publicKey: community.publicKey,
+                        joinedAt: community.joinedAt
                     )
                     .subscribe(on: DispatchQueue.global(qos: .userInitiated))
                     .sinkUntilComplete()
@@ -96,9 +97,9 @@ internal extension LibSessionCacheType {
             
             // Set the priority if it's changed (new communities will have already been inserted at
             // this stage)
-            if existingThreadInfo[community.data.threadId]?.pinnedPriority != community.priority {
+            if existingThreadInfo[community.threadId]?.pinnedPriority != community.priority {
                 _ = try? SessionThread
-                    .filter(id: community.data.threadId)
+                    .filter(id: community.threadId)
                     .updateAllAndConfig(
                         db,
                         SessionThread.Columns.pinnedPriority.set(to: community.priority),
@@ -111,7 +112,7 @@ internal extension LibSessionCacheType {
         let communityIdsToRemove: Set<String> = Set(existingThreadInfo
             .filter { $0.value.variant == .community }
             .keys)
-            .subtracting(extractedUserGroups.communities.map { $0.data.threadId })
+            .subtracting(extractedUserGroups.communities.map { $0.threadId })
         
         if !communityIdsToRemove.isEmpty {
             LibSession.kickFromConversationUIIfNeeded(removedThreadIds: Array(communityIdsToRemove), using: dependencies)
@@ -710,7 +711,7 @@ internal extension LibSession {
     }
     
     static func upsert(
-        communities: [CommunityInfo],
+        communities: [CommunityUpdateInfo],
         in config: Config?
     ) throws {
         guard case .userGroups(let conf) = config else { throw LibSessionError.invalidConfigObject }
@@ -719,14 +720,14 @@ internal extension LibSession {
         try communities
             .forEach { community in
                 guard
-                    var cBaseUrl: [CChar] = community.urlInfo.server.cString(using: .utf8),
-                    var cRoom: [CChar] = community.urlInfo.roomToken.cString(using: .utf8)
+                    var cBaseUrl: [CChar] = community.server.cString(using: .utf8),
+                    var cRoom: [CChar] = community.roomToken.cString(using: .utf8)
                 else {
                     Log.error(.libSession, "Unable to upsert community conversation to LibSession: \(LibSessionError.invalidCConversion)")
                     throw LibSessionError.invalidCConversion
                 }
                 
-                var cPubkey: [UInt8] = Array(Data(hex: community.urlInfo.publicKey))
+                var cPubkey: [UInt8] = Array(Data(hex: community.publicKey))
                 var userCommunity: ugroups_community_info = ugroups_community_info()
                 
                 guard user_groups_get_or_construct_community(conf, &userCommunity, &cBaseUrl, &cRoom, &cPubkey) else {
@@ -739,6 +740,16 @@ internal extension LibSession {
                     )
                 }
                 
+                /// Assign the communtiy name
+                if let name: String = community.name {
+                    // TODO: [DATABASE REFACTOR] Need to save the 'name' on the community (shouldn't be synced though, will need to be nullable)
+//                    userCommunity.set(\.name, to: name)
+                }
+                
+                // TODO: [DATABASE REFACTOR] Need to save the 'permissions' on the community (shouldn't be synced though, will need to be nullable)
+
+                // Store the updated group (can't be sure if we made any changes above)
+                userCommunity.joined_at = (community.joinedAt.map { Int64($0) } ?? userCommunity.joined_at)
                 userCommunity.priority = (community.priority ?? userCommunity.priority)
                 user_groups_set_community(conf, &userCommunity)
             }
@@ -779,6 +790,37 @@ internal extension LibSession {
         
         return updated
     }
+    
+    @discardableResult static func updatingCommunities<T>(
+        _ db: Database,
+        _ updated: [T],
+        using dependencies: Dependencies
+    ) throws -> [T] {
+        guard let updatedCommunities: [OpenGroup] = updated as? [OpenGroup] else { throw StorageError.generic }
+        
+        // Exclude legacy groups as they aren't managed via SessionUtil
+        let userSessionId: SessionId = dependencies[cache: .general].sessionId
+        
+        // Apply the changes
+        try dependencies.mutate(cache: .libSession) { cache in
+            try cache.performAndPushChange(db, for: .userGroups, sessionId: userSessionId) { config in
+                try upsert(
+                    communities: updatedCommunities.map { community -> CommunityUpdateInfo in
+                        CommunityUpdateInfo(
+                            server: community.server,
+                            roomToken: community.roomToken,
+                            publicKey: community.publicKey,
+                            name: community.name,
+                            permissions: community.permissions
+                        )
+                    },
+                    in: config
+                )
+            }
+        }
+        
+        return updated
+    }
 }
 
 // MARK: - External Outgoing Changes
@@ -792,19 +834,20 @@ public extension LibSession {
         server: String,
         rootToken: String,
         publicKey: String,
+        name: String?,
+        joinedAt: TimeInterval,
         using dependencies: Dependencies
     ) throws {
         try dependencies.mutate(cache: .libSession) { cache in
             try cache.performAndPushChange(db, for: .userGroups, sessionId: dependencies[cache: .general].sessionId) { config in
                 try LibSession.upsert(
                     communities: [
-                        CommunityInfo(
-                            urlInfo: OpenGroupUrlInfo(
-                                threadId: OpenGroup.idFor(roomToken: rootToken, server: server),
-                                server: server,
-                                roomToken: rootToken,
-                                publicKey: publicKey
-                            )
+                        CommunityUpdateInfo(
+                            server: server,
+                            roomToken: rootToken,
+                            publicKey: publicKey,
+                            name: name,
+                            joinedAt: joinedAt
                         )
                     ],
                     in: config
@@ -1160,7 +1203,7 @@ public extension LibSession {
 
 public extension LibSession {
     typealias ExtractedUserGroups = (
-        communities: [PrioritisedData<LibSession.OpenGroupUrlInfo>],
+        communities: [LibSession.CommunityInfo],
         legacyGroups: [LibSession.LegacyGroupInfo],
         groups: [LibSession.GroupInfo]
     )
@@ -1170,7 +1213,7 @@ public extension LibSession {
         using dependencies: Dependencies
     ) throws -> ExtractedUserGroups {
         var infiniteLoopGuard: Int = 0
-        var communities: [PrioritisedData<LibSession.OpenGroupUrlInfo>] = []
+        var communities: [LibSession.CommunityInfo] = []
         var legacyGroups: [LibSession.LegacyGroupInfo] = []
         var groups: [LibSession.GroupInfo] = []
         var community: ugroups_community_info = ugroups_community_info()
@@ -1186,14 +1229,15 @@ public extension LibSession {
                 let roomToken: String = community.get(\.room)
                 
                 communities.append(
-                    PrioritisedData(
-                        data: LibSession.OpenGroupUrlInfo(
-                            threadId: OpenGroup.idFor(roomToken: roomToken, server: server),
-                            server: server,
-                            roomToken: roomToken,
-                            publicKey: community.getHex(\.pubkey)
-                        ),
-                        priority: community.priority
+                    LibSession.CommunityInfo(
+                        server: server,
+                        roomToken: roomToken,
+                        publicKey: community.getHex(\.pubkey),
+                        // TODO: [DATABASE REFACTOR] Need to expose the 'name' on the community (shouldn't be synced though, will need to be nullable)
+                        name: "TESTOG",//community.get(\.name, nullIfEmpty: true),
+                        priority: community.priority,
+                        joinedAt: TimeInterval(community.get(\.joined_at)),
+                        permissions: nil    // TODO: [DATABASE REFACTOR] Need to expose these and store them
                     )
                 )
             }
@@ -1362,17 +1406,64 @@ public extension LibSession {
 
 // MARK: - CommunityInfo
 
-extension LibSession {
+public extension LibSession {
     struct CommunityInfo {
-        let urlInfo: OpenGroupUrlInfo
-        let priority: Int32?
+        let threadId: String
+        let server: String
+        let roomToken: String
+        let publicKey: String
+        let name: String?
+        let joinedAt: TimeInterval
+        let priority: Int32
+        let permissions: OpenGroup.Permissions?
         
         init(
-            urlInfo: OpenGroupUrlInfo,
-            priority: Int32? = nil
+            server: String,
+            roomToken: String,
+            publicKey: String,
+            name: String?,
+            priority: Int32,
+            joinedAt: TimeInterval,
+            permissions: OpenGroup.Permissions?
         ) {
-            self.urlInfo = urlInfo
+            self.threadId = OpenGroup.idFor(roomToken: roomToken, server: server)
+            self.server = server
+            self.roomToken = roomToken
+            self.publicKey = publicKey
+            self.name = name
             self.priority = priority
+            self.joinedAt = joinedAt
+            self.permissions = permissions
+        }
+    }
+    
+    struct CommunityUpdateInfo {
+        let threadId: String
+        let server: String
+        let roomToken: String
+        let publicKey: String
+        let name: String?
+        let priority: Int32?
+        let joinedAt: TimeInterval?
+        let permissions: OpenGroup.Permissions?
+        
+        init(
+            server: String,
+            roomToken: String,
+            publicKey: String,
+            name: String? = nil,
+            priority: Int32? = nil,
+            joinedAt: TimeInterval? = nil,
+            permissions: OpenGroup.Permissions? = nil
+        ) {
+            self.threadId = OpenGroup.idFor(roomToken: roomToken, server: server)
+            self.server = server
+            self.roomToken = roomToken
+            self.publicKey = publicKey
+            self.name = name
+            self.priority = priority
+            self.joinedAt = joinedAt
+            self.permissions = permissions
         }
     }
 }

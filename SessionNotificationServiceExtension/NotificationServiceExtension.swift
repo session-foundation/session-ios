@@ -47,16 +47,24 @@ public final class NotificationServiceExtension: UNNotificationServiceExtension 
         /// notifications causing issues with new notifications
         self.dependencies = Dependencies.createEmpty()
         
-        // It's technically possible for 'completeSilently' to be called twice due to the NSE timeout so
+        /// It's technically possible for 'completeSilently' to be called twice due to the NSE timeout so
         self.hasCompleted = false
         
-        // Abort if the main app is running
+        /// Abort if the main app is running
         guard !dependencies[defaults: .appGroup, key: .isMainAppActive] else {
             return self.completeSilenty(.ignoreDueToMainAppRunning, requestId: request.identifier)
         }
         
         guard let notificationContent = request.content.mutableCopy() as? UNMutableNotificationContent else {
             return self.completeSilenty(.ignoreDueToNoContentFromApple, requestId: request.identifier)
+        }
+        
+        /// We should never receive a non-voip notification on an app that doesn't support app extensions since we have to inform the
+        /// service we wanted these, so in theory this path should never occur. However, the service does have our push token so it is
+        /// possible that could change in the future. If it does, do nothing and don't disturb the user. Messages will be processed when
+        /// they open the app.
+        guard let metadata: ExtensionHelper.UserMetadata = dependencies[singleton: .extensionHelper].loadUserMetadata() else {
+            return self.completeSilenty(.errorNotReadyForExtensions, requestId: request.identifier)
         }
         
         Log.info(.cat, "didReceive called with requestId: \(request.identifier).")
@@ -70,7 +78,7 @@ public final class NotificationServiceExtension: UNNotificationServiceExtension 
         }
         
         /// Actually perform the setup
-        self.performSetup(requestId: request.identifier) { [weak self] in
+        self.performSetup(metadata: metadata, requestId: request.identifier) { [weak self] in
             self?.handleNotification(notificationContent, requestId: request.identifier)
         }
     }
@@ -387,70 +395,34 @@ public final class NotificationServiceExtension: UNNotificationServiceExtension 
 
     // MARK: Setup
 
-    private func performSetup(requestId: String, completion: @escaping () -> Void) {
+    private func performSetup(metadata: ExtensionHelper.UserMetadata, requestId: String, completion: @escaping () -> Void) {
         Log.info(.cat, "Performing setup for requestId: \(requestId).")
 
+        // stringlint:ignore_start
+        Log.setup(with: Logger(
+            primaryPrefix: "NotificationServiceExtension",
+            customDirectory: "\(dependencies[singleton: .fileManager].appSharedDataDirectoryPath)/Logs/NotificationExtension",
+            using: dependencies
+        ))
+        LibSession.setupLogger(using: dependencies)
+        // stringlint:ignore_stop
+        
+        /// Setup Version Info and Network
         dependencies.warmCache(cache: .appVersion)
-
-        AppSetup.setupEnvironment(
-            requestId: requestId,
-            appSpecificBlock: { [dependencies] in
-                // stringlint:ignore_start
-                Log.setup(with: Logger(
-                    primaryPrefix: "NotificationServiceExtension",
-                    customDirectory: "\(dependencies[singleton: .fileManager].appSharedDataDirectoryPath)/Logs/NotificationExtension",
-                    using: dependencies
-                ))
-                // stringlint:ignore_stop
-                
-                /// The `NotificationServiceExtension` needs custom behaviours for it's notification presenter so set it up here
-                dependencies.set(singleton: .notificationsManager, to: NSENotificationPresenter(using: dependencies))
-                
-                // Setup LibSession
-                LibSession.setupLogger(using: dependencies)
-                
-                // Configure the different targets
-                SNUtilitiesKit.configure(
-                    networkMaxFileSize: Network.maxFileSize,
-                    localizedFormatted: { helper, font in NSAttributedString() },
-                    localizedDeformatted: { helper in NSENotificationPresenter.localizedDeformatted(helper) },
-                    using: dependencies
-                )
-                SNMessagingKit.configure(using: dependencies)
-            },
-            migrationsCompletion: { [weak self, dependencies] result in
-                switch result {
-                    case .failure(let error): self?.completeSilenty(.errorDatabaseMigrations(error), requestId: requestId)
-                    case .success:
-                        DispatchQueue.main.async {
-                            // Ensure storage is actually valid
-                            guard dependencies[singleton: .storage].isValid else {
-                                self?.completeSilenty(.errorDatabaseInvalid, requestId: requestId)
-                                return
-                            }
-                            
-                            // We should never receive a non-voip notification on an app that doesn't support
-                            // app extensions since we have to inform the service we wanted these, so in theory
-                            // this path should never occur. However, the service does have our push token
-                            // so it is possible that could change in the future. If it does, do nothing
-                            // and don't disturb the user. Messages will be processed when they open the app.
-                            guard dependencies[singleton: .storage, key: .isReadyForAppExtensions] else {
-                                self?.completeSilenty(.errorNotReadyForExtensions, requestId: requestId)
-                                return
-                            }
-                            
-                            // If the app wasn't ready then mark it as ready now
-                            if !dependencies[singleton: .appReadiness].isAppReady {
-                                // Note that this does much more than set a flag; it will also run all deferred blocks.
-                                dependencies[singleton: .appReadiness].setAppReady()
-                            }
-
-                            completion()
-                        }
-                }
-            },
+        
+        /// Configure the different targets
+        SNUtilitiesKit.configure(
+            networkMaxFileSize: Network.maxFileSize,
+            localizedFormatted: { helper, font in NSAttributedString() },
+            localizedDeformatted: { helper in NSENotificationPresenter.localizedDeformatted(helper) },
             using: dependencies
         )
+        SNMessagingKit.configure(using: dependencies)
+        
+        /// The `NotificationServiceExtension` needs custom behaviours for it's notification presenter so set it up here
+        dependencies.set(singleton: .notificationsManager, to: NSENotificationPresenter(using: dependencies))
+        
+        // TODO: [DATABASE REFACTOR] Need to load in the relevant config states
     }
     
     // MARK: Handle completion
