@@ -297,8 +297,8 @@ public final class NotificationServiceExtension: UNNotificationServiceExtension 
                 }
                 
                 db.afterNextTransaction(
-                    onCommit: { _ in self?.completeSilenty(.success(metadata), requestId: requestId) },
-                    onRollback: { _ in self?.completeSilenty(.errorTransactionFailure, requestId: requestId) }
+                    onCommit: { [weak self] _ in self?.completeSilenty(.success(metadata), requestId: requestId) },
+                    onRollback: { [weak self] _ in self?.completeSilenty(.errorTransactionFailure, requestId: requestId) }
                 )
             }
             catch {

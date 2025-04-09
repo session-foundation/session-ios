@@ -647,6 +647,7 @@ final class ConversationVC: BaseVC, LibSessionRespondingViewController, Conversa
         guard viewModel.dependencies[singleton: .appContext].isAppForegroundAndActive else { return }
         /// Need to dispatch to the next run loop to prevent a possible crash caused by the database resuming mid-query
         DispatchQueue.main.async { [weak self] in
+            Log.info(.conversation, "Start observing changes")
             self?.startObservingChanges(didReturnFromBackground: true)
         }
         
@@ -664,6 +665,7 @@ final class ConversationVC: BaseVC, LibSessionRespondingViewController, Conversa
     
     @objc func applicationDidResignActive(_ notification: Notification) {
         stopObservingChanges()
+        Log.info(.conversation, "Stop observing changes")
     }
     
     // MARK: - Updating

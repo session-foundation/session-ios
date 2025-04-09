@@ -385,6 +385,7 @@ public final class HomeVC: BaseVC, LibSessionRespondingViewController, UITableVi
     }
     
     @objc func applicationDidBecomeActive(_ notification: Notification) {
+        guard viewModel.dependencies[singleton: .appContext].isAppForegroundAndActive else { return }
         /// Need to dispatch to the next run loop to prevent a possible crash caused by the database resuming mid-query
         DispatchQueue.main.async { [weak self] in
             self?.startObservingChanges(didReturnFromBackground: true)
