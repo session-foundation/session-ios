@@ -229,7 +229,7 @@ open class Storage {
                     if result.count <= index {
                         result.append([])
                     }
-
+                    
                     result[index] = (result[index] + [(next.identifier, migrationSet)])
                 }
             }
@@ -434,7 +434,7 @@ open class Storage {
                         resetAllStorage()
                     }
                     fallthrough
-                
+                    
                 case (_, errSecItemNotFound):
                     // No keySpec was found so we need to generate a new one
                     do {
@@ -582,10 +582,10 @@ open class Storage {
                     
                 case StorageError.databaseInvalid:
                     Log.error(.storage, "Database \(action) failed as the database is invalid.")
-                
+                    
                 case StorageError.databaseInvalid:
                     Log.error(.storage, "Database \(action) failed as the database is invalid - [ \(info.callInfo) ]")
-                
+                    
                 case StorageError.databaseSuspended:
                     Log.error(.storage, "Database \(action) failed as the database is suspended - [ \(info.callInfo) ]")
                     
@@ -620,6 +620,9 @@ open class Storage {
         _ info: CallInfo,
         _ operation: @escaping (Database) throws -> T
     ) throws -> T {
+        let action: String = (info.isWrite ? "write" : "read")
+        Log.verbose(.storage, "Starting \(action) query \(info.id) - [ \(info.callInfo) ]")
+        
         guard info.storage?.isValid == true else { throw StorageError.databaseInvalid }
         guard info.storage?.isSuspended == false else { throw StorageError.databaseSuspended }
         
@@ -754,7 +757,7 @@ open class Storage {
             }
         }
         
-        /// Store the task in case we want to
+        /// Store the task in case we want to cancel it later
         info.storage?.addTask(task)
         operationTask = task
         
@@ -960,6 +963,8 @@ public extension Publisher where Failure == Error {
 
 private extension Storage {
     class CallInfo {
+        private static let base32: String = "ABCDEFGHIJKLMNOPQRSTUVWXYZ234567"
+        
         enum Behaviour {
             case syncRead
             case asyncRead
@@ -968,6 +973,7 @@ private extension Storage {
         }
         
         weak var storage: Storage?
+        let id: String = (0..<4).map { _ in "\(base32.randomElement() ?? "0")" }.joined()
         let file: String
         let function: String
         let line: Int
@@ -1031,7 +1037,7 @@ private extension Storage {
                 result?.timer = nil
                 
                 let action: String = (info.isWrite ? "write" : "read")
-                Log.warn(.storage, "Slow \(action) taking longer than \(Storage.slowTransactionThreshold, format: ".2", omitZeroDecimal: true)s - [ \(info.callInfo) ]")
+                Log.warn(.storage, "Slow \(action) query \(info.id) taking longer than \(Storage.slowTransactionThreshold, format: ".2", omitZeroDecimal: true)s - [ \(info.callInfo) ]")
                 result?.wasSlowTransaction = true
             }
             result.timer?.resume()
@@ -1040,14 +1046,17 @@ private extension Storage {
         }
 
         func stop() {
+            let end: CFTimeInterval = CACurrentMediaTime()
+            let action: String = (info.isWrite ? "write" : "read")
             timer?.cancel()
             timer = nil
             
-            guard wasSlowTransaction else { return }
+            guard wasSlowTransaction else {
+                Log.verbose(.storage, "Completed \(action) query \(info.id) after \(end - start, format: ".2", omitZeroDecimal: true)s - [ \(info.callInfo) ]")
+                return
+            }
             
-            let end: CFTimeInterval = CACurrentMediaTime()
-            let action: String = (info.isWrite ? "write" : "read")
-            Log.warn(.storage, "Slow \(action) completed after \(end - start, format: ".2", omitZeroDecimal: true)s - [ \(info.callInfo) ]")
+            Log.warn(.storage, "Completed slow \(action) query \(info.id) after \(end - start, format: ".2", omitZeroDecimal: true)s - [ \(info.callInfo) ]")
         }
     }
 }

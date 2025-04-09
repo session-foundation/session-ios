@@ -132,16 +132,15 @@ public enum Log {
         
         guard !logFiles.isEmpty else { return nil }
         
-        // If the latest log file is too short (ie. less that ~100kb) then we want to create a temporary file
-        // which contains the previous log file logs plus the logs from the newest file so we don't miss info
-        // that might be relevant for debugging
+        /// If the latest log file is too short (ie. less that ~1MB) then we want to create a temporary file which contains the previous
+        /// log file logs plus the logs from the newest file so we don't miss info that might be relevant for debugging
         guard
             logFiles.count > 1,
             let attributes: [FileAttributeKey: Any] = try? dependencies[singleton: .fileManager].attributesOfItem(
                 atPath: logFiles[0]
             ),
             let fileSize: UInt64 = attributes[.size] as? UInt64,
-            fileSize < (100 * 1024)
+            fileSize < (1024 * 1024)
         else { return logFiles[0] }
         
         // The file is too small so lets create a temp file to share instead
@@ -434,6 +433,7 @@ public class Logger {
         
         self.fileLogger.logFormatter = DDLogFileFormatterDefault(dateFormatter: dateFormatter)
         self.fileLogger.rollingFrequency = (24 * 60 * 60) // Refresh everyday
+        self.fileLogger.maximumFileSize = (1024 * 1024 * 5) // Max log file size of 5MB
         self.fileLogger.logFileManager.maximumNumberOfLogFiles = 3 // Save 3 days' log files
         DDLog.add(self.fileLogger)
         
