@@ -31,7 +31,7 @@ public enum MessageReceiverError: Error, CustomStringConvertible {
 
     public var isRetryable: Bool {
         switch self {
-            case .duplicateMessage, .duplicateMessageNewSnode, .duplicateControlMessage,
+            case .duplicateMessage, .duplicateMessageNewSnode, .duplicateControlMessage, .duplicatedCall,
                 .invalidMessage, .unknownMessage, .unknownEnvelopeType, .invalidSignature,
                 .noData, .senderBlocked, .noThread, .selfSend, .decryptionFailed,
                 .invalidConfigMessageHandling, .requiredThreadNotInConfig,
