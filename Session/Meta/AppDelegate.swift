@@ -831,6 +831,7 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
     ///
     /// This decision should be based on whether the information in the notification is otherwise visible to the user.
     func userNotificationCenter(_ center: UNUserNotificationCenter, willPresent notification: UNNotification, withCompletionHandler completionHandler: @escaping (UNNotificationPresentationOptions) -> Void) {
+        Log.info(.cat, "Received remote notifications: \(notification.request.content)")
         if notification.request.content.userInfo["remote"] != nil {
             Log.info(.cat, "Ignoring remote notifications while the app is in the foreground.")
             return
@@ -971,13 +972,12 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
             return
         }
         
-        // FIXME: Handle more gracefully
-        guard let presentingVC = dependencies[singleton: .appContext].frontMostViewController else { preconditionFailure() }
+        guard let currentFrontMostViewController: UIViewController = dependencies[singleton: .appContext].frontMostViewController else { preconditionFailure() }
         
         let callVC: CallVC = CallVC(for: call, using: dependencies)
         
         if
-            let conversationVC: ConversationVC = (presentingVC as? TopBannerController)?.wrappedViewController() as? ConversationVC,
+            let conversationVC: ConversationVC = currentFrontMostViewController as? ConversationVC,
             conversationVC.viewModel.threadData.threadId == call.sessionId
         {
             callVC.conversationVC = conversationVC
@@ -985,7 +985,7 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
             conversationVC.hideInputAccessoryView()
         }
         
-        presentingVC.present(callVC, animated: true, completion: nil)
+        currentFrontMostViewController.present(callVC, animated: true, completion: nil)
     }
 }
 

@@ -22,7 +22,7 @@ extension WebRTCSession: RTCDataChannelDelegate {
     
     public func sendJSON(_ json: [String: Any]) {
         if let dataChannel = self.dataChannel, let jsonAsData = try? JSONSerialization.data(withJSONObject: json, options: [ .fragmentsAllowed ]) {
-            Log.info(.calls, "Send json to data channel")
+            Log.info(.calls, "Send json to data channel: \(json)")
             let dataBuffer = RTCDataBuffer(data: jsonAsData, isBinary: false)
             dataChannel.sendData(dataBuffer)
         }

@@ -201,7 +201,7 @@ public final class SessionCallManager: NSObject, CallManagerProtocol {
     
     // MARK: - UI
     
-    public func showCallUIForCall(caller: String, uuid: String, mode: CallMode, interactionId: Int64?) {
+    public func showCallUIForCall(caller: String, uuid: String, mode: CallMode) {
         guard
             let call: SessionCall = dependencies[singleton: .storage].read({ [dependencies] db in
                 SessionCall(

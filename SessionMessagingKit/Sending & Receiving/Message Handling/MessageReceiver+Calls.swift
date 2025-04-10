@@ -136,14 +136,13 @@ extension MessageReceiver {
             return
         }
         
-        let interaction: Interaction? = try MessageReceiver.insertCallInfoMessage(db, for: message, using: dependencies)
+        _ = try MessageReceiver.insertCallInfoMessage(db, for: message, using: dependencies)
         
         // Handle UI
         dependencies[singleton: .callManager].showCallUIForCall(
             caller: sender,
             uuid: message.uuid,
-            mode: .answer,
-            interactionId: interaction?.id
+            mode: .answer
         )
     }
     
