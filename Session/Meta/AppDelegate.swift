@@ -831,6 +831,7 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
     ///
     /// This decision should be based on whether the information in the notification is otherwise visible to the user.
     func userNotificationCenter(_ center: UNUserNotificationCenter, willPresent notification: UNNotification, withCompletionHandler completionHandler: @escaping (UNNotificationPresentationOptions) -> Void) {
+        Log.info(.cat, "Received remote notifications: \(notification.request.content)")
         if notification.request.content.userInfo["remote"] != nil {
             Log.info(.cat, "Ignoring remote notifications while the app is in the foreground.")
             return
