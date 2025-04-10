@@ -183,6 +183,9 @@ extension Permissions {
     }
     
     public static func checkLocalNetworkPermission(using dependencies: Dependencies) {
+        /// Note: This can't be run in the background like when there is an incoming call, app will crash!!!
+        /// Since it is only use to update the switch status in Settings Screen, it is OK to just run it when app is in foreground.
+        guard dependencies[singleton: .appContext].isAppForegroundAndActive else { return }
         Task {
             do {
                 if try await checkLocalNetworkPermissionWithBonjour() {

@@ -263,7 +263,7 @@ public class PushRegistrationManager: NSObject, PKPushRegistryDelegate {
     }
     
     // NOTE: This function MUST report an incoming call.
-    public func pushRegistry(_ registry: PKPushRegistry, didReceiveIncomingPushWith payload: PKPushPayload, for type: PKPushType) {
+    public func pushRegistry(_ registry: PKPushRegistry, didReceiveIncomingPushWith payload: PKPushPayload, for type: PKPushType, completion completionHandler: @escaping () -> Void) {
         Log.info("[PushRegistrationManager] Receive new voip notification.")
         Log.assert(dependencies[singleton: .appContext].isMainApp)
         Log.assert(type == .voIP)
@@ -306,6 +306,7 @@ public class PushRegistrationManager: NSObject, PKPushRegistryDelegate {
             } else {
                 Log.info(.calls, "Succeeded to report incoming call to CallKit")
             }
+            completionHandler()
         }
     }
 }

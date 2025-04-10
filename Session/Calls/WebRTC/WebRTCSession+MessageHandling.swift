@@ -15,7 +15,7 @@ extension WebRTCSession {
     }
     
     public func handleRemoteSDP(_ sdp: RTCSessionDescription, from sessionId: String) {
-        Log.info(.calls, "Received remote SDP: \(sdp.sdp).")
+        Log.info(.calls, "Handling remote SDP and sending answer.")
         
         peerConnection?.setRemoteDescription(sdp, completionHandler: { [weak self] error in
             if let error = error {

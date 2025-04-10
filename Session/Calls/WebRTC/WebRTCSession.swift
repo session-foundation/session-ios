@@ -359,7 +359,7 @@ public final class WebRTCSession : NSObject, RTCPeerConnectionDelegate {
                             self?.delegate?.iceCandidateDidSend()
                         case .failure(let error):
                             Log.error(.calls, "Error sending ICE candidates due to error: \(error)")
-                            self?.delegate?.handleCallFailed(reason: "Failed to send ICE Candidates.")
+                            self?.delegate?.handleCallFailed(reason: "Failed to send ICE Candidates.") // stringlint:ignore
                     }
                 }
             )
