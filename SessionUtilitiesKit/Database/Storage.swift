@@ -37,6 +37,7 @@ public extension KeychainStorage.DataKey { static let dbCipherKeySpec: Self = "G
 // MARK: - Storage
 
 open class Storage {
+    public static let base32: String = "ABCDEFGHIJKLMNOPQRSTUVWXYZ234567"
     public struct CurrentlyRunningMigration: ThreadSafeType {
         public let identifier: TargetMigrations.Identifier
         public let migration: Migration.Type
@@ -91,9 +92,12 @@ open class Storage {
     /// This property gets set the first time we successfully write to the database
     public private(set) var hasSuccessfullyWritten: Bool = false
     
-    /// This property keeps track of all current database tasks and can be used when suspending the database to explicitly
+    /// This property keeps track of all current database calls and can be used when suspending the database to explicitly
     /// cancel any currently running tasks
-    @ThreadSafeObject private var currentTasks: Set<Task<(), Never>> = []
+    @ThreadSafeObject private var currentCalls: Set<CallInfo> = []
+    
+    /// This property keeps track of all current database observers for logging purposes
+    @ThreadSafeObject private var currentObservers: Set<ObserverInfo> = []
     
     // MARK: - Initialization
     
@@ -486,12 +490,30 @@ open class Storage {
         guard !isSuspended else { return }
         
         isSuspended = true
-        Log.info(.storage, "Database access suspended - cancelling \(currentTasks.count) running task(s).")
+        Log.info(
+            .storage,
+            [
+                "Database access suspended - ",
+                "cancelling \(currentCalls.count) running task(s)\(currentCalls.isEmpty ? "" : " (\(currentCalls.map(\.id).joined(separator: ", "))")), ",
+                "\(currentObservers.count) active observers(s)\(currentObservers.isEmpty ? "" : " (\(currentObservers.map(\.id).joined(separator: ", "))"))."
+            ].joined()
+        )
         
         /// Before triggering an `interrupt` (which will forcibly kill in-progress database queries) we want to try to cancel all
         /// database tasks to give them a small chance to resolve cleanly before we take a brute-force approach
-        currentTasks.forEach { $0.cancel() }
-        _currentTasks.performUpdate { _ in [] }
+        currentCalls.forEach { $0.cancel() }
+        _currentCalls.performUpdate { _ in [] }
+        
+        /// We also want to go through and remove any observers (need to do this on a background thread)
+        if dependencies[feature: .forceKillDatabaseObservationsOnSuspend] {
+            let semaphore: DispatchSemaphore = DispatchSemaphore(value: 0)
+            Task {
+                currentObservers.forEach { $0.cancel() }
+                _currentObservers.performUpdate { _ in [] }
+                semaphore.signal()
+            }
+            semaphore.wait()
+        }
         
         /// Interrupt any open transactions (if this function is called then we are expecting that all processes have finished running
         /// and don't actually want any more transactions to occur)
@@ -571,77 +593,17 @@ open class Storage {
                 default: self = .invalid(StorageError.databaseInvalid)
             }
         }
-        
-        fileprivate static func logIfNeeded(_ error: Error, info: Storage.CallInfo) {
-            let action: String = (info.isWrite ? "write" : "read")
-            
-            switch error {
-                case DatabaseError.SQLITE_ABORT, DatabaseError.SQLITE_INTERRUPT, DatabaseError.SQLITE_ERROR:
-                    let message: String = ((error as? DatabaseError)?.message ?? "Unknown")
-                    Log.error(.storage, "Database \(action) failed due to error: \(message)")
-                    
-                case StorageError.databaseInvalid:
-                    Log.error(.storage, "Database \(action) failed as the database is invalid.")
-                    
-                case StorageError.databaseInvalid:
-                    Log.error(.storage, "Database \(action) failed as the database is invalid - [ \(info.callInfo) ]")
-                    
-                case StorageError.databaseSuspended:
-                    Log.error(.storage, "Database \(action) failed as the database is suspended - [ \(info.callInfo) ]")
-                    
-                case StorageError.transactionDeadlockTimeout:
-                    Log.critical(.storage, "Database \(action) failed due to a potential synchronous query deadlock timeout - [ \(info.callInfo) ]")
-                    
-                default: break
-            }
-        }
-        
-        fileprivate static func logIfNeeded<T>(_ error: Error, info: Storage.CallInfo) -> T? {
-            logIfNeeded(error, info: info)
-            return nil
-        }
-        
-        fileprivate static func logIfNeeded<T>(_ error: Error, info: Storage.CallInfo) -> AnyPublisher<T, Error> {
-            logIfNeeded(error, info: info)
-            return Fail<T, Error>(error: error).eraseToAnyPublisher()
-        }
     }
     
     // MARK: - Operations
     
-    /// Internal type to wrap the database operation `Task` so it can be cancelled when used with `Combine` (since GRDB doesn't
-    /// actually handle publishers publishers)
-    final class TaskHolder {
-        var task: Task<(), Never>?
-    }
-    
-    private static func track<T>(
-        _ db: Database,
-        _ info: CallInfo,
-        _ operation: @escaping (Database) throws -> T
-    ) throws -> T {
-        let action: String = (info.isWrite ? "write" : "read")
-        Log.verbose(.storage, "Starting \(action) query \(info.id) - [ \(info.callInfo) ]")
+    /// Internal type to wrap the result for the `performOperation` so that its assignment is Sendable
+    private final class ResultContainer<T> {
+        var value: Result<T, Error>?
         
-        guard info.storage?.isValid == true else { throw StorageError.databaseInvalid }
-        guard info.storage?.isSuspended == false else { throw StorageError.databaseSuspended }
-        
-        let timer: TransactionTimer = TransactionTimer.start(
-            duration: Storage.slowTransactionThreshold,
-            info: info
-        )
-        defer { timer.stop() }
-        
-        // Get the result
-        let result: T = try operation(db)
-        
-        // Update the state flags
-        switch info.isWrite {
-            case true: info.storage?.hasSuccessfullyWritten = true
-            case false: info.storage?.hasSuccessfullyRead = true
+        init(value: Result<T, Error>? = nil) {
+            self.value = value
         }
-        
-        return result
     }
     
     /// This function manually performs `read`/`write` operations in either a synchronous or asyncronous way using a semaphore to
@@ -661,54 +623,56 @@ open class Storage {
         _ dependencies: Dependencies,
         _ operation: @escaping (Database) throws -> T,
         _ asyncCompletion: ((Result<T, Error>) -> Void)? = nil
-    ) -> (result: Result<T, Error>, task: Task<(), Never>?) {
+    ) -> Result<T, Error> {
         /// Ensure we are in a valid state
         let storageState: StorageState = StorageState(info.storage)
         
         guard case .valid(let dbWriter) = storageState else {
             if info.isAsync { asyncCompletion?(.failure(storageState.forcedError)) }
-            return (.failure(storageState.forcedError), nil)
+            return .failure(storageState.forcedError)
         }
         
         /// Setup required variables
-        let syncQueue = DispatchQueue(label: "com.session.performOperation.syncQueue")
-        let semaphore: DispatchSemaphore = DispatchSemaphore(value: 0)
-        var operationResult: Result<T, Error>?
-        var operationTask: Task<(), Never>?
-        let logErrorIfNeeded: (Result<T, Error>) -> Result<T, Error> = { result in
-            switch result {
-                case .success: break
-                case .failure(let error): StorageState.logIfNeeded(error, info: info)
-            }
+        let semaphore: DispatchSemaphore? = (info.isAsync ? nil : DispatchSemaphore(value: 0))
+        let syncResultContainer: ResultContainer<T>? = (info.isAsync ? nil : ResultContainer())
+        
+        /// Log that we are scheduling the operation (so we have a log in case it's blocked for some reason)
+        info.schedule()
+        
+        /// We need to prevent the task from starting before it's been added to our tracking (otherwise it will never be removed
+        /// resulting in incorrect logs) so create an `AsyncStream` that the task can wait on
+        var startSignalContinuation: AsyncStream<Void>.Continuation?
+        let startSignalStream = AsyncStream<Void> { continuation in
+            startSignalContinuation = continuation
+        }
+        
+        /// Kick off and store the task in case we want to cancel it later
+        info.task = Task {
+            _ = await startSignalStream.first { _ in true }
             
-            return result
-        }
-        
-        /// Convenience function to remove duplication
-        func completeOperation(with result: Result<T, Error>) {
-            syncQueue.sync {
-                guard operationResult == nil else { return }
-                info.storage?.removeTask(operationTask)
-                operationResult = result
-                semaphore.signal()
-                
-                /// For async operations, log and invoke the completion closure.
-                if info.isAsync {
-                    asyncCompletion?(logErrorIfNeeded(result))
-                }
-            }
-        }
-        
-        let task: Task<(), Never> = Task {
-            return await withThrowingTaskGroup(of: T.self) { group in
+            await withThrowingTaskGroup(of: T.self) { group in
                 /// Add the task to perform the actual database operation
                 group.addTask {
                     let trackedOperation: @Sendable (Database) throws -> T = { db in
+                        info.start()
+                        guard info.storage?.isValid == true else { throw StorageError.databaseInvalid }
+                        guard info.storage?.isSuspended == false else {
+                            throw StorageError.databaseSuspended
+                        }
+                        
                         if dependencies[feature: .forceSlowDatabaseQueries] {
                             Thread.sleep(forTimeInterval: 1)
                         }
                         
-                        return try Storage.track(db, info, operation)
+                        let result: T = try operation(db)
+                        
+                        // Update the state flags
+                        switch info.isWrite {
+                            case true: info.storage?.hasSuccessfullyWritten = true
+                            case false: info.storage?.hasSuccessfullyRead = true
+                        }
+                        
+                        return result
                     }
                     
                     return (info.isWrite ?
@@ -749,26 +713,46 @@ open class Storage {
                 
                 /// Wait for the first task to finish
                 ///
-                /// **Note:** THe case where `nextResult` returns `nil` is only meant to happen when the group has no
+                /// **Note:** The case where `nextResult` returns `nil` is only meant to happen when the group has no
                 /// tasks, so shouldn't be considered a valid case (hence the `invalidQueryResult` fallback)
-                let result: Result<T, Error>? = await group.nextResult()
+                let result: Result<T, Error> = await (
+                    group.nextResult() ??
+                    .failure(StorageError.invalidQueryResult)
+                )
                 group.cancelAll()
-                completeOperation(with: result ?? .failure(StorageError.invalidQueryResult))
+                
+                /// Log the result
+                switch result {
+                    case .success: info.complete()
+                    case .failure(let error): info.errored(error)
+                }
+                
+                /// Now that we have completed the database operation we don't need to track the task anymore so we can
+                /// remove it
+                ///
+                /// **Note:** we want to remove it before `asyncCompletion` is called just in case that is a long running
+                /// process
+                info.storage?.removeCall(info)
+                
+                /// Send the result back
+                switch info.isAsync {
+                    case true: asyncCompletion?(result)
+                    case false:
+                        syncResultContainer?.value = result
+                        semaphore?.signal()
+                }
             }
         }
-        
-        /// Store the task in case we want to cancel it later
-        info.storage?.addTask(task)
-        operationTask = task
+        info.storage?.addCall(info)
+        startSignalContinuation?.yield(())
+        startSignalContinuation?.finish()
         
         /// For the `async` operation the returned value should be ignored so just return the `invalidQueryResult` error
-        guard !info.isAsync else {
-            return (.failure(StorageError.invalidQueryResult), task)
-        }
+        guard !info.isAsync else { return .failure(StorageError.invalidQueryResult) }
         
         /// Block until we have a result
-        semaphore.wait()
-        return (logErrorIfNeeded(operationResult ?? .failure(StorageError.transactionDeadlockTimeout)), task)
+        semaphore?.wait()
+        return (syncResultContainer?.value ?? .failure(StorageError.transactionDeadlockTimeout))
     }
     
     private func performPublisherOperation<T>(
@@ -781,7 +765,7 @@ open class Storage {
         let info: CallInfo = CallInfo(self, fileName, functionName, lineNumber, (isWrite ? .asyncWrite : .asyncRead))
         
         switch StorageState(self) {
-            case .invalid(let error): return StorageState.logIfNeeded(error, info: info)
+            case .invalid(let error): return info.errored(error)
             case .valid:
                 /// **Note:** GRDB does have `readPublisher`/`writePublisher` functions but it appears to asynchronously
                 /// trigger both the `output` and `complete` closures at the same time which causes a lot of unexpected
@@ -792,33 +776,49 @@ open class Storage {
                 /// (which behaves in a much more expected way than the GRDB `readPublisher`/`writePublisher` does)
                 /// and hooking that into our `performOperation` function which uses the GRDB async/await functions that support
                 /// cancellation (as we want to support cancellation as well)
-                let holder: TaskHolder = TaskHolder()
-                
                 return Deferred { [dependencies] in
                     Future { resolver in
-                        let (_, task) = Storage.performOperation(info, dependencies, operation) { result in
+                        Storage.performOperation(info, dependencies, operation) { result in
                             resolver(result)
                         }
-                        holder.task = task
                     }
                 }
                 .handleEvents(receiveCancel: { [weak self] in
-                    holder.task?.cancel()
-                    self?.removeTask(holder.task)
+                    info.cancel()
+                    self?.removeCall(info)
                 })
                 .eraseToAnyPublisher()
         }
     }
     
+    private func addCall(_ call: CallInfo) {
+        _currentCalls.performUpdate { $0.inserting(call) }
+    }
+    
+    private func removeCall(_ call: CallInfo) {
+        _currentCalls.performUpdate { $0.removing(call) }
+    }
+    
+    private func addObserver(_ observer: ObserverInfo) {
+        _currentObservers.performUpdate { $0.inserting(observer) }
+    }
+    
+    private func removeObserver(_ observer: ObserverInfo) {
+        _currentObservers.performUpdate { $0.removing(observer) }
+    }
+    
+    private func stopAndRemoveObserver(forId id: String) {
+        _currentObservers.performUpdate {
+            $0.filter { info -> Bool in
+                guard info.id == id else { return true }
+                
+                info.stop()
+                return false
+            }
+        }
+    }
+    
     // MARK: - Functions
-    
-    private func addTask(_ task: Task<(), Never>) {
-        _currentTasks.performUpdate { $0.inserting(task) }
-    }
-    
-    private func removeTask(_ task: Task<(), Never>?) {
-        _currentTasks.performUpdate { $0.removing(task) }
-    }
     
     @discardableResult public func write<T>(
         fileName file: String = #file,
@@ -827,8 +827,8 @@ open class Storage {
         updates: @escaping (Database) throws -> T?
     ) -> T? {
         switch Storage.performOperation(CallInfo(self, file, funcN, line, .syncWrite), dependencies, updates) {
-            case (.failure, _): return nil
-            case (.success(let result), _): return result
+            case .failure: return nil
+            case .success(let result): return result
         }
     }
     
@@ -858,8 +858,8 @@ open class Storage {
         _ value: @escaping (Database) throws -> T?
     ) -> T? {
         switch Storage.performOperation(CallInfo(self, file, funcN, line, .syncRead), dependencies, value) {
-            case (.failure, _): return nil
-            case (.success(let result), _): return result
+            case .failure: return nil
+            case .success(let result): return result
         }
     }
     
@@ -883,6 +883,9 @@ open class Storage {
     /// - returns: a DatabaseCancellable
     public func start<Reducer: ValueReducer>(
         _ observation: ValueObservation<Reducer>,
+        fileName: String = #file,
+        functionName: String = #function,
+        lineNumber: Int = #line,
         scheduling scheduler: ValueObservationScheduler = .async(onQueue: .main),
         onError: @escaping (Error) -> Void,
         onChange: @escaping (Reducer.Value) -> Void
@@ -892,20 +895,39 @@ open class Storage {
             return AnyDatabaseCancellable(cancel: {})
         }
         
-        return observation.start(
-            in: dbWriter,
-            scheduling: scheduler,
-            onError: onError,
-            onChange: onChange
-        )
+        let info: ObserverInfo = ObserverInfo(self, fileName, functionName, lineNumber)
+        addObserver(info)
+        
+        let cancellable: AnyDatabaseCancellable = observation
+            .handleEvents(didCancel: { [weak self] in
+                info.stop()
+                self?.removeObserver(info)
+            })
+            .start(
+                in: dbWriter,
+                scheduling: scheduler,
+                onError: onError,
+                onChange: onChange
+            )
+        info.setObservation(cancellable)
+        
+        return cancellable
     }
     
     /// Add a database observation
     ///
     /// **Note:** This function **MUST NOT** be called from the main thread
-    public func addObserver(_ observer: TransactionObserver?) {
+    public func addObserver(
+        fileName: String = #file,
+        functionName: String = #function,
+        lineNumber: Int = #line,
+        _ observer: IdentifiableTransactionObserver?
+    ) {
         guard isValid, let dbWriter: DatabaseWriter = dbWriter else { return }
-        guard let observer: TransactionObserver = observer else { return }
+        guard let observer: IdentifiableTransactionObserver = observer else { return }
+        
+        let info: ObserverInfo = ObserverInfo(self, observer: observer, fileName, functionName, lineNumber)
+        addObserver(info)
         
         /// This actually triggers a write to the database so can be blocked by other writes so shouldn't be called on the main thread,
         /// we don't dispatch to an async thread in here because `TransactionObserver` isn't `Sendable` so instead just require
@@ -917,9 +939,16 @@ open class Storage {
     /// Remove a database observation
     ///
     /// **Note:** This function **MUST NOT** be called from the main thread
-    public func removeObserver(_ observer: TransactionObserver?) {
+    public func removeObserver(
+        fileName: String = #file,
+        functionName: String = #function,
+        lineNumber: Int = #line,
+        _ observer: IdentifiableTransactionObserver?
+    ) {
         guard isValid, let dbWriter: DatabaseWriter = dbWriter else { return }
-        guard let observer: TransactionObserver = observer else { return }
+        guard let observer: IdentifiableTransactionObserver = observer else { return }
+        
+        stopAndRemoveObserver(forId: observer.id)
         
         /// This actually triggers a write to the database so can be blocked by other writes so shouldn't be called on the main thread,
         /// we don't dispatch to an async thread in here because `TransactionObserver` isn't `Sendable` so instead just require
@@ -962,9 +991,12 @@ public extension Publisher where Failure == Error {
 // MARK: - CallInfo
 
 private extension Storage {
-    class CallInfo {
-        private static let base32: String = "ABCDEFGHIJKLMNOPQRSTUVWXYZ234567"
-        
+    private static let timerQueue = DispatchQueue(
+        label: "\(Storage.queuePrefix)-.transactionTimer",
+        qos: .background
+    )
+    
+    class CallInfo: Hashable {
         enum Behaviour {
             case syncRead
             case asyncRead
@@ -972,18 +1004,34 @@ private extension Storage {
             case asyncWrite
         }
         
+        private enum Event {
+            case scheduled
+            case started
+            case detectedSlowQuery
+            case completed
+            case cancelled
+            case errored(Error)
+            
+            var error: Error? {
+                switch self {
+                    case .errored(let error): return error
+                    default: return nil
+                }
+            }
+        }
+        
         weak var storage: Storage?
+        private let uniqueId: UUID = UUID()
         let id: String = (0..<4).map { _ in "\(base32.randomElement() ?? "0")" }.joined()
         let file: String
         let function: String
         let line: Int
         let behaviour: Behaviour
+        var task: Task<(), Never>?
         
-        var callInfo: String {
-            let fileInfo: String = (file.components(separatedBy: "/").last.map { "\($0):\(line) - " } ?? "")
-            
-            return "\(fileInfo)\(function)"
-        }
+        private var timer: DispatchSourceTimer?
+        private var startTime: CFTimeInterval?
+        private(set) var wasSlowTransaction: Bool = false
         
         var isWrite: Bool {
             switch behaviour {
@@ -998,6 +1046,8 @@ private extension Storage {
             }
         }
         
+        // MARK: - Initialization
+        
         init(
             _ storage: Storage?,
             _ file: String,
@@ -1011,54 +1061,206 @@ private extension Storage {
             self.line = line
             self.behaviour = behaviour
         }
+        
+        // MARK: - Functions
+        
+        private func log(_ event: Event) {
+            let fileInfo: String = (file.components(separatedBy: "/").last.map { "\($0):\(line) - " } ?? "")
+            let action: String = "\(isWrite ? "write" : "read") query \(id)"
+            let callInfo: String = "\(fileInfo)\(function)"
+            let end: CFTimeInterval = CACurrentMediaTime()
+            let durationInfo: String = startTime
+                .map { start in "after \(end - start, format: ".2", omitZeroDecimal: true)s" }
+                .defaulting(to: "before it started")
+            
+            switch (event, wasSlowTransaction, event.error) {
+                case (.scheduled, _, _):
+                    Log.verbose(.storage, "Scheduling \(action) - [ \(callInfo) ]")
+                    
+                case (.started, _, _):
+                    Log.verbose(.storage, "Started \(action) - [ \(callInfo) ]")
+                    
+                case (.detectedSlowQuery, _, _):
+                    Log.warn(.storage, "Slow \(action) taking longer than \(Storage.slowTransactionThreshold, format: ".2", omitZeroDecimal: true)s - [ \(callInfo) ]")
+                    
+                case (.completed, true, _):
+                    Log.warn(.storage, "Completed slow \(action) \(durationInfo) - [ \(callInfo) ]")
+                    
+                case (.completed, false, _):
+                    Log.verbose(.storage, "Completed \(action) \(durationInfo) - [ \(callInfo) ]")
+                    
+                case (.cancelled, _, _):
+                    Log.verbose(.storage, "Cancelled \(action) \(durationInfo) - [ \(callInfo) ]")
+                
+                case (.errored(_ as CancellationError), _, _):
+                    Log.verbose(.storage, "Cancelled \(action) \(durationInfo) - [ \(callInfo) ]")
+                    
+                case (.errored(let error), _, .some(DatabaseError.SQLITE_ABORT)),
+                    (.errored(let error), _, .some(DatabaseError.SQLITE_INTERRUPT)),
+                    (.errored(let error), _, .some(DatabaseError.SQLITE_ERROR)):
+                    let message: String = ((error as? DatabaseError)?.message ?? "Unknown")
+                    Log.error(.storage, "Failed \(action) due to error: \(message)")
+                    
+                case (.errored, _, .some(StorageError.databaseInvalid)):
+                    Log.error(.storage, "Failed \(action) as the database is invalid - [ \(callInfo) ]")
+                    
+                case (.errored, _, .some(StorageError.databaseSuspended)):
+                    Log.error(.storage, "Failed \(action) as the database is suspended - [ \(callInfo) ]")
+                    
+                case (.errored, _, .some(StorageError.transactionDeadlockTimeout)):
+                    Log.error(.storage, "Failed \(action) due to a potential synchronous query deadlock timeout - [ \(callInfo) ]")
+                
+                case (.errored(let error), _, _):
+                    Log.verbose(.storage, "Failed \(action) due to error: \(error) - [ \(callInfo) ]")
+            }
+        }
+        
+        func schedule() {
+            log(.scheduled)
+        }
+        
+        func start() {
+            log(.started)
+            startTime = CACurrentMediaTime()
+            timer = DispatchSource.makeTimerSource(queue: Storage.timerQueue)
+            timer?.schedule(
+                deadline: .now() + .seconds(Int(Storage.slowTransactionThreshold)),
+                repeating: .infinity // Infinity to fire once
+            )
+            timer?.setEventHandler { [weak self] in
+                self?.timer?.cancel()
+                self?.timer = nil
+                self?.wasSlowTransaction = true
+                self?.log(.detectedSlowQuery)
+            }
+            timer?.resume()
+        }
+        
+        func complete() {
+            log(.completed)
+            timer?.cancel()
+            timer = nil
+        }
+        
+        func errored(_ error: Error) {
+            log(.errored(error))
+        }
+        
+        func errored<T>(_ error: Error) -> AnyPublisher<T, Error> {
+            log(.errored(error))
+            return Fail<T, Error>(error: error).eraseToAnyPublisher()
+        }
+        
+        func cancel() {
+            /// Cancelling the task with result in a log being added
+            task?.cancel()
+        }
+        
+        // MARK: - Conformance
+        
+        func hash(into hasher: inout Hasher) {
+            uniqueId.hash(into: &hasher)
+        }
+        
+        static func ==(lhs: CallInfo, rhs: CallInfo) -> Bool {
+            return lhs.uniqueId == rhs.uniqueId
+        }
     }
 }
 
-// MARK: - TransactionTimer
+// MARK: - ObserverInfo
 
 private extension Storage {
-    private static let timerQueue = DispatchQueue(label: "\(Storage.queuePrefix)-.transactionTimer", qos: .background)
-    
-    class TransactionTimer {
-        private let info: Storage.CallInfo
-        private let start: CFTimeInterval = CACurrentMediaTime()
-        private var timer: DispatchSourceTimer? = DispatchSource.makeTimerSource(queue: Storage.timerQueue)
-        private var wasSlowTransaction: Bool = false
+    class ObserverInfo: Hashable {
+        private let uniqueId: UUID = UUID()
+        let id: String
+        let file: String
+        let function: String
+        let line: Int
         
-        private init(info: Storage.CallInfo) {
-            self.info = info
-        }
-
-        static func start(duration: TimeInterval, info: Storage.CallInfo) -> TransactionTimer {
-            let result: TransactionTimer = TransactionTimer(info: info)
-            result.timer?.schedule(deadline: .now() + .seconds(Int(duration)), repeating: .infinity) // Infinity to fire once
-            result.timer?.setEventHandler { [weak result] in
-                result?.timer?.cancel()
-                result?.timer = nil
-                
-                let action: String = (info.isWrite ? "write" : "read")
-                Log.warn(.storage, "Slow \(action) query \(info.id) taking longer than \(Storage.slowTransactionThreshold, format: ".2", omitZeroDecimal: true)s - [ \(info.callInfo) ]")
-                result?.wasSlowTransaction = true
-            }
-            result.timer?.resume()
+        private weak var storage: Storage?
+        private weak var observer: IdentifiableTransactionObserver?
+        private weak var cancellable: AnyDatabaseCancellable?
+        
+        private var callInfo: String {
+            let fileInfo: String = (file.components(separatedBy: "/").last.map { "\($0):\(line) - " } ?? "")
             
-            return result
+            return "\(fileInfo)\(function)"
         }
-
+        
+        // MARK: - Initialization
+        
+        init(
+            _ storage: Storage?,
+            observer: IdentifiableTransactionObserver? = nil,
+            _ file: String,
+            _ function: String,
+            _ line: Int
+        ) {
+            self.id = (observer?.id ?? (0..<4).map { _ in "\(base32.randomElement() ?? "0")" }.joined())
+            self.storage = storage
+            self.file = file
+            self.function = function
+            self.line = line
+            self.observer = observer
+        }
+        
+        // MARK: - Functions
+        
+        func setObservation(_ cancellable: AnyDatabaseCancellable) {
+            self.cancellable = cancellable
+        }
+        
+        func start() {
+            Log.verbose(.storage, "Started observer \(id) - [ \(callInfo) ]")
+        }
+        
         func stop() {
-            let end: CFTimeInterval = CACurrentMediaTime()
-            let action: String = (info.isWrite ? "write" : "read")
-            timer?.cancel()
-            timer = nil
+            guard cancellable != nil || observer != nil else { return }
             
-            guard wasSlowTransaction else {
-                Log.verbose(.storage, "Completed \(action) query \(info.id) after \(end - start, format: ".2", omitZeroDecimal: true)s - [ \(info.callInfo) ]")
-                return
+            cancellable?.cancel()
+            cancellable = nil
+            
+            if let observer: IdentifiableTransactionObserver = observer {
+                /// Need to set to `nil` first to prevent infinite loop
+                self.observer = nil
+                storage?.removeObserver(observer)
             }
             
-            Log.warn(.storage, "Completed slow \(action) query \(info.id) after \(end - start, format: ".2", omitZeroDecimal: true)s - [ \(info.callInfo) ]")
+            Log.verbose(.storage, "Stopped observer \(id) - [ \(callInfo) ]")
+        }
+        
+        func cancel() {
+            guard cancellable != nil || observer != nil else { return }
+            
+            cancellable?.cancel()
+            cancellable = nil
+            
+            if let observer: IdentifiableTransactionObserver = observer {
+                /// Need to set to `nil` first to prevent infinite loop
+                self.observer = nil
+                storage?.removeObserver(observer)
+            }
+            
+            Log.verbose(.storage, "Cancelled observer \(id) - [ \(callInfo) ]")
+        }
+        
+        // MARK: - Conformance
+        
+        func hash(into hasher: inout Hasher) {
+            uniqueId.hash(into: &hasher)
+        }
+        
+        static func ==(lhs: ObserverInfo, rhs: ObserverInfo) -> Bool {
+            return lhs.uniqueId == rhs.uniqueId
         }
     }
+}
+
+// MARK: - IdentifiedTransactionObserver
+
+public protocol IdentifiableTransactionObserver: TransactionObserver {
+    var id: String { get }
 }
 
 // MARK: - Debug Convenience
