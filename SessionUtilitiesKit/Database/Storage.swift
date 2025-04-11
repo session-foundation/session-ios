@@ -123,7 +123,25 @@ open class Storage {
     }
     
     private func configureDatabase(customWriter: DatabaseWriter? = nil) {
-        Log.verbose(.storage, "Configuring new database instance.")
+        /// If we have verbose logging enabled then retrieve and output the size of the database files
+        if dependencies[feature: .logLevel(cat: .storage)] == .verbose {
+            let dbFileSize: String = (try? dependencies[singleton: .fileManager]
+                .attributesOfItem(atPath: Storage.databasePath)
+                .getting(.size) as? Int64)
+                .map { ByteCountFormatter.string(fromByteCount: $0, countStyle: .file) }
+                .defaulting(to: "N/A")
+            let dbShmFileSize: String = (try? dependencies[singleton: .fileManager]
+                .attributesOfItem(atPath: Storage.databasePathShm)
+                .getting(.size) as? Int64)
+                .map { ByteCountFormatter.string(fromByteCount: $0, countStyle: .file) }
+                .defaulting(to: "N/A")
+            let dbWalFileSize: String = (try? dependencies[singleton: .fileManager]
+                .attributesOfItem(atPath: Storage.databasePathWal)
+                .getting(.size) as? Int64)
+                .map { ByteCountFormatter.string(fromByteCount: $0, countStyle: .file) }
+                .defaulting(to: "N/A")
+            Log.verbose(.storage, "Configuring new database instance (db: \(dbFileSize), shm: \(dbShmFileSize), wal: \(dbWalFileSize)).")
+        }
         
         /// Create the database directory if needed and ensure it's protection level is set before attempting to create the database
         /// KeySpec or the database itself
@@ -496,8 +514,8 @@ open class Storage {
             .storage,
             [
                 "Database access suspended - ",
-                "cancelling \(currentCalls.count) running task(s)\(currentCalls.isEmpty ? "" : " (\(currentCalls.map(\.id).joined(separator: ", "))")), ",
-                "\(currentObservers.count) active observers(s)\(currentObservers.isEmpty ? "" : " (\(currentObservers.map(\.id).joined(separator: ", "))"))."
+                "cancelling \(currentCalls.count) running task(s)\(currentCalls.isEmpty ? "" : " (\(currentCalls.map(\.id).joined(separator: ", ")))"), ",
+                "\(currentObservers.count) active observers(s)\(currentObservers.isEmpty ? "" : " (\(currentObservers.map(\.id).joined(separator: ", ")))"), checkpointing and closing connection."
             ].joined()
         )
         
@@ -528,6 +546,26 @@ open class Storage {
         /// Explicitly close the connection to the database (don't want it to exist past this point)
         do { try dbWriter?.close() }
         catch { Log.info(.storage, "Failed to close database connection due to error: \(error)") }
+        
+        /// If we have verbose logging enabled then retrieve and output the size of the database files
+        if dependencies[feature: .logLevel(cat: .storage)] == .verbose {
+            let dbFileSize: String = (try? dependencies[singleton: .fileManager]
+                .attributesOfItem(atPath: Storage.databasePath)
+                .getting(.size) as? Int64)
+                .map { ByteCountFormatter.string(fromByteCount: $0, countStyle: .file) }
+                .defaulting(to: "N/A")
+            let dbShmFileSize: String = (try? dependencies[singleton: .fileManager]
+                .attributesOfItem(atPath: Storage.databasePathShm)
+                .getting(.size) as? Int64)
+                .map { ByteCountFormatter.string(fromByteCount: $0, countStyle: .file) }
+                .defaulting(to: "N/A")
+            let dbWalFileSize: String = (try? dependencies[singleton: .fileManager]
+                .attributesOfItem(atPath: Storage.databasePathWal)
+                .getting(.size) as? Int64)
+                .map { ByteCountFormatter.string(fromByteCount: $0, countStyle: .file) }
+                .defaulting(to: "N/A")
+            Log.verbose(.storage, "Database connection successfully closed (db: \(dbFileSize), shm: \(dbShmFileSize), wal: \(dbWalFileSize)).")
+        }
     }
     
     /// This method reverses the database suspension used to prevent the `0xdead10cc` exception (see `suspendDatabaseAccess()`
