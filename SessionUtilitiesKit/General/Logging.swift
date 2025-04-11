@@ -429,7 +429,7 @@ public class Logger {
         dateFormatter.formatterBehavior = .behavior10_4      // 10.4+ style
         dateFormatter.locale = NSLocale.current              // Use the current locale and include the timezone instead of UTC
         dateFormatter.timeZone = NSTimeZone.local
-        dateFormatter.dateFormat = "yyyy/MM/dd HH:mm:ss:SSS ZZZZZ"
+        dateFormatter.dateFormat = "yyyy/MM/dd HH:mm:ss:SSSa ZZZZZ"
         
         self.fileLogger.logFormatter = DDLogFileFormatterDefault(dateFormatter: dateFormatter)
         self.fileLogger.rollingFrequency = (24 * 60 * 60) // Refresh everyday

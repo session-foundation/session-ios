@@ -123,8 +123,10 @@ open class Storage {
     }
     
     private func configureDatabase(customWriter: DatabaseWriter? = nil) {
-        // Create the database directory if needed and ensure it's protection level is set before attempting to
-        // create the database KeySpec or the database itself
+        Log.verbose(.storage, "Configuring new database instance.")
+        
+        /// Create the database directory if needed and ensure it's protection level is set before attempting to create the database
+        /// KeySpec or the database itself
         try? dependencies[singleton: .fileManager].ensureDirectoryExists(at: Storage.sharedDatabaseDirectoryPath)
         try? dependencies[singleton: .fileManager].protectFileOrFolder(at: Storage.sharedDatabaseDirectoryPath)
         
@@ -515,9 +517,17 @@ open class Storage {
             semaphore.wait()
         }
         
+        /// We want to force a checkpoint (ie. write any data in the WAL to disk, to ensure the main database is in a valid state)
+        do { try checkpoint(.truncate) }
+        catch { Log.info(.storage, "Failed to checkpoint database due to error: \(error)") }
+        
         /// Interrupt any open transactions (if this function is called then we are expecting that all processes have finished running
         /// and don't actually want any more transactions to occur)
         dbWriter?.interrupt()
+        
+        /// Explicitly close the connection to the database (don't want it to exist past this point)
+        do { try dbWriter?.close() }
+        catch { Log.info(.storage, "Failed to close database connection due to error: \(error)") }
     }
     
     /// This method reverses the database suspension used to prevent the `0xdead10cc` exception (see `suspendDatabaseAccess()`
@@ -525,7 +535,10 @@ open class Storage {
     public func resumeDatabaseAccess() {
         guard isSuspended else { return }
         
-        isSuspended = false
+        /// Since we now shut down the database connection as part of the suspension process we now need to open a new connection
+        /// when resuming database access, there isn't really a built-in way to do this so the simplest approach will be to just discard this
+        /// `Storage` instance from `dependencies` so that a new one is created the next time it's accessed
+        dependencies.set(singleton: .storage, to: Storage(using: dependencies))
         Log.info(.storage, "Database access resumed.")
     }
     
