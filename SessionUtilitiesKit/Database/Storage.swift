@@ -236,7 +236,21 @@ open class Storage {
                         /// and get back into a valid state - adding this helps the database resolve situations where it
                         /// can get confused due to crashing mid-transaction
                         config.busyMode = .timeout(1)
-                        Log.warn(.storage, "Database reported busy state during statup, adding grace period to allow startup to continue")
+                        Log.warn(.storage, "Database reported busy state during startup, adding grace period to allow startup to continue")
+                        
+                        // Try to initialise the dbWriter again (hoping the above resolves the lock)
+                        dbWriter = try DatabasePool(
+                            path: "\(Storage.sharedDatabaseDirectoryPath)/\(Storage.dbFileName)",
+                            configuration: config
+                        )
+                        
+                    case DatabaseError.SQLITE_CANTOPEN:
+                        /// We were seeing some cases where the PN extension could get an error where it coudln't open the
+                        /// database but based on the logs all previous queires and everything had completed, so if this happens
+                        /// we want to wait for a brief period and try again in case it was due to something weird the OS was
+                        /// doing with the files
+                        Log.warn(.storage, "Database reported that it couldn't open during startup, retrying after a short delay")
+                        Thread.sleep(forTimeInterval: 1)
                         
                         // Try to initialise the dbWriter again (hoping the above resolves the lock)
                         dbWriter = try DatabasePool(
