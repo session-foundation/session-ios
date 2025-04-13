@@ -34,6 +34,14 @@ public extension Log.Category {
 
 public extension KeychainStorage.DataKey { static let dbCipherKeySpec: Self = "GRDBDatabaseCipherKeySpec" }
 
+// FIXME: Do this properly if we actually want it
+class NoopStorage: Storage {
+    override func configureDatabase(customWriter: (any DatabaseWriter)? = nil) {
+        /// Set the state to suspended so that calling `resumeDatabaseAccess` will create a proper instance
+        isSuspended = true
+    }
+}
+
 // MARK: - Storage
 
 open class Storage {
@@ -64,6 +72,7 @@ open class Storage {
     private static var databasePathShm: String { "\(Storage.sharedDatabaseDirectoryPath)/\(Storage.dbFileName)-shm" }
     private static var databasePathWal: String { "\(Storage.sharedDatabaseDirectoryPath)/\(Storage.dbFileName)-wal" }
     
+    private let id: String = (0..<5).map { _ in "\(base32.randomElement() ?? "0")" }.joined()
     private let dependencies: Dependencies
     fileprivate var dbWriter: DatabaseWriter?
     internal var testDbWriter: DatabaseWriter? { dbWriter }
@@ -83,7 +92,7 @@ open class Storage {
     
     private var startupError: Error?
     public private(set) var isValid: Bool = false
-    public private(set) var isSuspended: Bool = false
+    public fileprivate(set) var isSuspended: Bool = false
     public var isDatabasePasswordAccessible: Bool { ((try? getDatabaseCipherKeySpec()) != nil) }
     
     /// This property gets set the first time we successfully read from the database
@@ -122,7 +131,7 @@ open class Storage {
         )
     }
     
-    private func configureDatabase(customWriter: DatabaseWriter? = nil) {
+    public func configureDatabase(customWriter: DatabaseWriter? = nil) {
         /// If we have verbose logging enabled then retrieve and output the size of the database files
         if dependencies[feature: .logLevel(cat: .storage)] == .verbose {
             let dbFileSize: String = (try? dependencies[singleton: .fileManager]
@@ -140,7 +149,7 @@ open class Storage {
                 .getting(.size) as? Int64)
                 .map { ByteCountFormatter.string(fromByteCount: $0, countStyle: .file) }
                 .defaulting(to: "N/A")
-            Log.verbose(.storage, "Configuring new database instance (db: \(dbFileSize), shm: \(dbShmFileSize), wal: \(dbWalFileSize)).")
+            Log.verbose(.storage, "Configuring new database instance: \(id) (db: \(dbFileSize), shm: \(dbShmFileSize), wal: \(dbWalFileSize)).")
         }
         
         /// Create the database directory if needed and ensure it's protection level is set before attempting to create the database
@@ -196,6 +205,18 @@ open class Storage {
             //
             // For more info see: https://www.zetetic.net/sqlcipher/sqlcipher-api/#cipher_plaintext_header_size
             try db.execute(sql: "PRAGMA cipher_plaintext_header_size = 32")
+            
+            // Activate the persistent WAL mode to ensure the '-wal' and '-shm' files don't get
+            // destroyed which can result in the database failing to open in some cases
+            if db.configuration.readonly == false {
+                var flag: CInt = 1
+                let code = withUnsafeMutablePointer(to: &flag) { flagP in
+                    sqlite3_file_control(db.sqliteConnection, nil, SQLITE_FCNTL_PERSIST_WAL, flagP)
+                }
+                guard code == SQLITE_OK else {
+                    throw DatabaseError(resultCode: ResultCode(rawValue: code))
+                }
+            }
         }
         
         // Create the DatabasePool to allow us to connect to the database and mark the storage as valid
@@ -286,7 +307,7 @@ open class Storage {
     ) {
         guard isValid, let dbWriter: DatabaseWriter = dbWriter else {
             let error: Error = (startupError ?? StorageError.startupFailed)
-            Log.error(.storage, "Statup failed with error: \(error)")
+            Log.error(.storage, "Startup failed with error: \(error)")
             onComplete(.failure(error))
             return
         }
@@ -547,6 +568,9 @@ open class Storage {
         do { try dbWriter?.close() }
         catch { Log.info(.storage, "Failed to close database connection due to error: \(error)") }
         
+        dbWriter = nil
+        dependencies.set(singleton: .storage, to: NoopStorage(using: dependencies))
+        
         /// If we have verbose logging enabled then retrieve and output the size of the database files
         if dependencies[feature: .logLevel(cat: .storage)] == .verbose {
             let dbFileSize: String = (try? dependencies[singleton: .fileManager]
@@ -564,7 +588,7 @@ open class Storage {
                 .getting(.size) as? Int64)
                 .map { ByteCountFormatter.string(fromByteCount: $0, countStyle: .file) }
                 .defaulting(to: "N/A")
-            Log.verbose(.storage, "Database connection successfully closed (db: \(dbFileSize), shm: \(dbShmFileSize), wal: \(dbWalFileSize)).")
+            Log.verbose(.storage, "Database connection successfully closed for \(id) (db: \(dbFileSize), shm: \(dbShmFileSize), wal: \(dbWalFileSize)).")
         }
     }
     
@@ -1123,6 +1147,9 @@ private extension Storage {
             let durationInfo: String = startTime
                 .map { start in "after \(end - start, format: ".2", omitZeroDecimal: true)s" }
                 .defaulting(to: "before it started")
+            let databaseName: String = ((storage?.id)
+                .map { "database \($0)" })
+                .defaulting(to: "the database")
             
             switch (event, wasSlowTransaction, event.error) {
                 case (.scheduled, _, _):
@@ -1153,10 +1180,11 @@ private extension Storage {
                     Log.error(.storage, "Failed \(action) due to error: \(message)")
                     
                 case (.errored, _, .some(StorageError.databaseInvalid)):
-                    Log.error(.storage, "Failed \(action) as the database is invalid - [ \(callInfo) ]")
+                    let message: String = ((storage?.startupError as? DatabaseError)?.message ?? "Unknown")
+                    Log.error(.storage, "Failed \(action) as \(databaseName) is invalid (\(message)) - [ \(callInfo) ]")
                     
                 case (.errored, _, .some(StorageError.databaseSuspended)):
-                    Log.error(.storage, "Failed \(action) as the database is suspended - [ \(callInfo) ]")
+                    Log.error(.storage, "Failed \(action) as \(databaseName) is suspended - [ \(callInfo) ]")
                     
                 case (.errored, _, .some(StorageError.transactionDeadlockTimeout)):
                     Log.error(.storage, "Failed \(action) due to a potential synchronous query deadlock timeout - [ \(callInfo) ]")
