@@ -227,39 +227,34 @@ open class Storage {
                     configuration: config
                 )
             }
-            catch {
-                switch error {
-                    case DatabaseError.SQLITE_BUSY:
-                        /// According to the docs in GRDB there are a few edge-cases where opening the database
-                        /// can fail due to it reporting a "busy" state, by changing the behaviour from `immediateError`
-                        /// to `timeout(1)` we give the database a 1 second grace period to deal with it's issues
-                        /// and get back into a valid state - adding this helps the database resolve situations where it
-                        /// can get confused due to crashing mid-transaction
-                        config.busyMode = .timeout(1)
-                        Log.warn(.storage, "Database reported busy state during startup, adding grace period to allow startup to continue")
-                        
-                        // Try to initialise the dbWriter again (hoping the above resolves the lock)
-                        dbWriter = try DatabasePool(
-                            path: "\(Storage.sharedDatabaseDirectoryPath)/\(Storage.dbFileName)",
-                            configuration: config
-                        )
-                        
-                    case DatabaseError.SQLITE_CANTOPEN:
-                        /// We were seeing some cases where the PN extension could get an error where it coudln't open the
-                        /// database but based on the logs all previous queires and everything had completed, so if this happens
-                        /// we want to wait for a brief period and try again in case it was due to something weird the OS was
-                        /// doing with the files
-                        Log.warn(.storage, "Database reported that it couldn't open during startup, retrying after a short delay")
-                        Thread.sleep(forTimeInterval: 1)
-                        
-                        // Try to initialise the dbWriter again (hoping the above resolves the lock)
-                        dbWriter = try DatabasePool(
-                            path: "\(Storage.sharedDatabaseDirectoryPath)/\(Storage.dbFileName)",
-                            configuration: config
-                        )
-                        
-                    default: throw error
-                }
+            catch DatabaseError.SQLITE_BUSY {
+                /// According to the docs in GRDB there are a few edge-cases where opening the database
+                /// can fail due to it reporting a "busy" state, by changing the behaviour from `immediateError`
+                /// to `timeout(1)` we give the database a 1 second grace period to deal with it's issues
+                /// and get back into a valid state - adding this helps the database resolve situations where it
+                /// can get confused due to crashing mid-transaction
+                config.busyMode = .timeout(1)
+                Log.warn(.storage, "Database reported busy state during startup, adding grace period to allow startup to continue")
+                
+                // Try to initialise the dbWriter again (hoping the above resolves the lock)
+                dbWriter = try DatabasePool(
+                    path: "\(Storage.sharedDatabaseDirectoryPath)/\(Storage.dbFileName)",
+                    configuration: config
+                )
+            }
+            catch let error as DatabaseError where error.resultCode == .SQLITE_CANTOPEN {
+                /// We were seeing some cases where the PN extension could get an error where it coudln't open the
+                /// database but based on the logs all previous queires and everything had completed, so if this happens
+                /// we want to wait for a brief period and try again in case it was due to something weird the OS was
+                /// doing with the files
+                Log.warn(.storage, "Database reported that it couldn't open during startup (\(error.extendedResultCode)), retrying after a short delay")
+                Thread.sleep(forTimeInterval: 1)
+                
+                // Try to initialise the dbWriter again (hoping the above resolves the lock)
+                dbWriter = try DatabasePool(
+                    path: "\(Storage.sharedDatabaseDirectoryPath)/\(Storage.dbFileName)",
+                    configuration: config
+                )
             }
             isValid = true
         }
