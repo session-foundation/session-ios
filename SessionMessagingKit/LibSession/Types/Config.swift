@@ -140,15 +140,22 @@ public extension LibSession {
                         )
                     }
                     
-                    let pushData: Data = Data(
-                        bytes: cPushData.pointee.config,
-                        count: cPushData.pointee.config_len
-                    )
+                    let allPushData: [Data] = (0..<cPushData.pointee.n_configs)
+                        .reduce(into: []) { result, i in
+                            guard let configPtr = cPushData.pointee.config[i] else { return }
+                            
+                            result.append(
+                                Data(
+                                    bytes: configPtr,
+                                    count: cPushData.pointee.config_lens[i]
+                                )
+                            )
+                        }
                     let seqNo: Int64 = cPushData.pointee.seqno
                     free(UnsafeMutableRawPointer(mutating: cPushData))
                     
                     return PendingChanges.PushData(
-                        data: pushData,
+                        data: allPushData,
                         seqNo: seqNo,
                         variant: variant
                     )
@@ -160,7 +167,7 @@ public extension LibSession {
                     guard groups_keys_pending_config(conf, &pushResult, &pushResultLen) else { return nil }
                     
                     return PendingChanges.PushData(
-                        data: Data(bytes: pushResult, count: pushResultLen),
+                        data: [Data(bytes: pushResult, count: pushResultLen)],
                         seqNo: 0,
                         variant: variant
                     )
@@ -169,15 +176,20 @@ public extension LibSession {
         
         func confirmPushed(
             seqNo: Int64,
-            hash: String
-        ) {
-            guard let cHash: [CChar] = hash.cString(using: .ascii) else { return }
-            
+            hashes: [String]
+        ) throws {
             switch self {
                 case .userProfile(let conf), .contacts(let conf),
                     .convoInfoVolatile(let conf), .userGroups(let conf),
                     .groupInfo(let conf), .groupMembers(let conf):
-                    return config_confirm_pushed(conf, seqNo, cHash)
+                    try hashes.withUnsafeCStrArray { cHashes in
+                        config_confirm_pushed(
+                            conf,
+                            seqNo,
+                            cHashes.baseAddress,
+                            cHashes.count
+                        )
+                    }
                     
                 case .groupKeys: return // No need to do anything here
             }
@@ -206,12 +218,12 @@ public extension LibSession {
             return dumpData
         }
         
-        func currentHashes() -> [String] {
+        func activeHashes() -> [String] {
             switch self {
                 case .userProfile(let conf), .contacts(let conf),
                     .convoInfoVolatile(let conf), .userGroups(let conf),
                     .groupInfo(let conf), .groupMembers(let conf):
-                    guard let hashList: UnsafeMutablePointer<config_string_list> = config_current_hashes(conf) else {
+                    guard let hashList: UnsafeMutablePointer<config_string_list> = config_active_hashes(conf) else {
                         return []
                     }
                     
@@ -340,7 +352,7 @@ public extension LibSession {
 public extension LibSession {
     struct PendingChanges {
         public struct PushData {
-            let data: Data
+            let data: [Data]
             let seqNo: Int64
             let variant: ConfigDump.Variant
         }
@@ -361,6 +373,11 @@ public extension LibSession {
             if !hashes.isEmpty {
                 obsoleteHashes.insert(contentsOf: Set(hashes))
             }
+        }
+        
+        mutating func append(contentsOf data: [PushData], hashes: [String] = []) {
+            pushData.append(contentsOf: data)
+            obsoleteHashes.insert(contentsOf: Set(hashes))
         }
     }
 }
