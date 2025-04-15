@@ -90,7 +90,6 @@ class DeveloperSettingsViewModel: SessionTableViewModel, NavigatableStateHolder,
         case updatedGroupsDeleteAttachmentsBeforeNow
         
         case copyDatabasePath
-        case forceKillDatabaseObservationsOnSuspend
         case forceSlowDatabaseQueries
         case exportDatabase
         case importDatabase
@@ -129,7 +128,6 @@ class DeveloperSettingsViewModel: SessionTableViewModel, NavigatableStateHolder,
                 case .updatedGroupsDeleteAttachmentsBeforeNow: return "updatedGroupsDeleteAttachmentsBeforeNow"
                 
                 case .copyDatabasePath: return "copyDatabasePath"
-                case .forceKillDatabaseObservationsOnSuspend: return "forceKillDatabaseObservationsOnSuspend"
                 case .forceSlowDatabaseQueries: return "forceSlowDatabaseQueries"
                 case .exportDatabase: return "exportDatabase"
                 case .importDatabase: return "importDatabase"
@@ -172,7 +170,6 @@ class DeveloperSettingsViewModel: SessionTableViewModel, NavigatableStateHolder,
                 case .updatedGroupsDeleteAttachmentsBeforeNow: result.append(.updatedGroupsDeleteAttachmentsBeforeNow); fallthrough
                 
                 case .copyDatabasePath: result.append(.copyDatabasePath); fallthrough
-                case .forceKillDatabaseObservationsOnSuspend: result.append(forceKillDatabaseObservationsOnSuspend); fallthrough
                 case .forceSlowDatabaseQueries: result.append(.forceSlowDatabaseQueries); fallthrough
                 case .exportDatabase: result.append(.exportDatabase); fallthrough
                 case .importDatabase: result.append(.importDatabase)
@@ -212,7 +209,6 @@ class DeveloperSettingsViewModel: SessionTableViewModel, NavigatableStateHolder,
         let updatedGroupsDeleteBeforeNow: Bool
         let updatedGroupsDeleteAttachmentsBeforeNow: Bool
         
-        let forceKillDatabaseObservationsOnSuspend: Bool
         let forceSlowDatabaseQueries: Bool
     }
     
@@ -247,7 +243,6 @@ class DeveloperSettingsViewModel: SessionTableViewModel, NavigatableStateHolder,
                 updatedGroupsDeleteBeforeNow: dependencies[feature: .updatedGroupsDeleteBeforeNow],
                 updatedGroupsDeleteAttachmentsBeforeNow: dependencies[feature: .updatedGroupsDeleteAttachmentsBeforeNow],
                 
-                forceKillDatabaseObservationsOnSuspend: dependencies[feature: .forceKillDatabaseObservationsOnSuspend],
                 forceSlowDatabaseQueries: dependencies[feature: .forceSlowDatabaseQueries]
             )
         }
@@ -721,27 +716,6 @@ class DeveloperSettingsViewModel: SessionTableViewModel, NavigatableStateHolder,
                     }
                 ),
                 SessionCell.Info(
-                    id: .forceKillDatabaseObservationsOnSuspend,
-                    title: "Force kill database observations on suspend",
-                    subtitle: """
-                    Controls whether we forcibly kill any database observations when suspending the database.
-                    
-                    <b>Note:</b> This <i>shouldn't</i> be needed since the database observations are read-only but might be beneficial to test whether it impacts the frequency of the 0xdead10cc crash.
-                    
-                    <b>Warning:</b> Enabling this setting will mean any screens which observe database changes won't update after returning from the background (eg. Home and Conversation screens) - you will need to leave and return to the screen for them to update (in the case of the Home screen you will need to force close the app).
-                    """,
-                    trailingAccessory: .toggle(
-                        current.forceKillDatabaseObservationsOnSuspend,
-                        oldValue: previous?.forceKillDatabaseObservationsOnSuspend
-                    ),
-                    onTap: { [weak self] in
-                        self?.updateFlag(
-                            for: .forceKillDatabaseObservationsOnSuspend,
-                            to: !current.forceKillDatabaseObservationsOnSuspend
-                        )
-                    }
-                ),
-                SessionCell.Info(
                     id: .forceSlowDatabaseQueries,
                     title: "Force slow database queries",
                     subtitle: """
@@ -905,13 +879,6 @@ class DeveloperSettingsViewModel: SessionTableViewModel, NavigatableStateHolder,
                     }
                     
                     updateFlag(for: .updatedGroupsDeleteAttachmentsBeforeNow, to: nil)
-                    
-                case .forceKillDatabaseObservationsOnSuspend:
-                    guard dependencies.hasSet(feature: .forceKillDatabaseObservationsOnSuspend) else {
-                        return
-                    }
-                    
-                    updateFlag(for: .forceKillDatabaseObservationsOnSuspend, to: nil)
                     
                 case .forceSlowDatabaseQueries:
                     guard dependencies.hasSet(feature: .forceSlowDatabaseQueries) else { return }

@@ -32,10 +32,6 @@ public extension FeatureStorage {
         identifier: "forceSlowDatabaseQueries"
     )
     
-    static let forceKillDatabaseObservationsOnSuspend: FeatureConfig<Bool> = Dependencies.create(
-        identifier: "forceKillDatabaseObservationsOnSuspend"
-    )
-    
     static let updatedGroups: FeatureConfig<Bool> = Dependencies.create(
         identifier: "updatedGroups",
         automaticChangeBehaviour: Feature<Bool>.ChangeBehaviour(

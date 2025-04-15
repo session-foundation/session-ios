@@ -83,8 +83,8 @@ open class Storage {
     // MARK: - Database State Variables
     
     private var startupError: Error?
-    public fileprivate(set) var isValid: Bool = false
-    public fileprivate(set) var isSuspended: Bool = false
+    public private(set) var isValid: Bool = false
+    public private(set) var isSuspended: Bool = false
     public var isDatabasePasswordAccessible: Bool { ((try? getDatabaseCipherKeySpec()) != nil) }
     
     /// This property gets set the first time we successfully read from the database
@@ -197,18 +197,6 @@ open class Storage {
             //
             // For more info see: https://www.zetetic.net/sqlcipher/sqlcipher-api/#cipher_plaintext_header_size
             try db.execute(sql: "PRAGMA cipher_plaintext_header_size = 32")
-            
-            // Activate the persistent WAL mode to ensure the '-wal' and '-shm' files don't get
-            // destroyed which can result in the database failing to open in some cases
-            if db.configuration.readonly == false {
-                var flag: CInt = 1
-                let code = withUnsafeMutablePointer(to: &flag) { flagP in
-                    sqlite3_file_control(db.sqliteConnection, nil, SQLITE_FCNTL_PERSIST_WAL, flagP)
-                }
-                guard code == SQLITE_OK else {
-                    throw DatabaseError(resultCode: ResultCode(rawValue: code))
-                }
-            }
         }
         
         // Create the DatabasePool to allow us to connect to the database and mark the storage as valid
@@ -234,7 +222,6 @@ open class Storage {
                     configuration: config
                 )
             }
-            // TODO: Output this extended error code in other logs
             catch let error as DatabaseError where error.resultCode == .SQLITE_CANTOPEN {
                 /// We were seeing some cases where the PN extension could get an error where it coudln't open the
                 /// database but based on the logs all previous queires and everything had completed, so if this happens
@@ -280,7 +267,7 @@ open class Storage {
                     if result.count <= index {
                         result.append([])
                     }
-                    
+
                     result[index] = (result[index] + [(next.identifier, migrationSet)])
                 }
             }
@@ -485,7 +472,7 @@ open class Storage {
                         resetAllStorage()
                     }
                     fallthrough
-                    
+                
                 case (_, errSecItemNotFound):
                     // No keySpec was found so we need to generate a new one
                     do {
@@ -551,31 +538,9 @@ open class Storage {
         currentCalls.forEach { $0.cancel() }
         _currentCalls.performUpdate { _ in [] }
         
-        /// We also want to go through and remove any observers (need to do this on a background thread)
-        if dependencies[feature: .forceKillDatabaseObservationsOnSuspend] {
-            let semaphore: DispatchSemaphore = DispatchSemaphore(value: 0)
-            Task {
-                currentObservers.forEach { $0.cancel() }
-                _currentObservers.performUpdate { _ in [] }
-                semaphore.signal()
-            }
-            semaphore.wait()
-        }
-        
-        /// We want to force a checkpoint (ie. write any data in the WAL to disk, to ensure the main database is in a valid state)
-        do { try checkpoint(.truncate) }
-        catch { Log.info(.storage, "Failed to checkpoint database due to error: \(error)") }
-        
         /// Interrupt any open transactions (if this function is called then we are expecting that all processes have finished running
         /// and don't actually want any more transactions to occur)
         dbWriter?.interrupt()
-        
-        /// Explicitly close the connection to the database (don't want it to exist past this point)
-        do { try dbWriter?.close() }
-        catch { Log.info(.storage, "Failed to close database connection due to error: \(error)") }
-        
-        dbWriter = nil
-        dependencies.set(singleton: .storage, to: NoopStorage(using: dependencies))
         
         /// If we have verbose logging enabled then retrieve and output the size of the database files
         if dependencies[feature: .logLevel(cat: .storage)] == .verbose {
@@ -594,7 +559,7 @@ open class Storage {
                 .getting(.size) as? Int64)
                 .map { ByteCountFormatter.string(fromByteCount: $0, countStyle: .file) }
                 .defaulting(to: "N/A")
-            Log.verbose(.storage, "Database connection successfully closed for \(id) (db: \(dbFileSize), shm: \(dbShmFileSize), wal: \(dbWalFileSize)).")
+            Log.verbose(.storage, "Database suspended successfully for \(id) (db: \(dbFileSize), shm: \(dbShmFileSize), wal: \(dbWalFileSize)).")
         }
     }
     
@@ -603,10 +568,7 @@ open class Storage {
     public func resumeDatabaseAccess() {
         guard isSuspended else { return }
         
-        /// Since we now shut down the database connection as part of the suspension process we now need to open a new connection
-        /// when resuming database access, there isn't really a built-in way to do this so the simplest approach will be to just discard this
-        /// `Storage` instance from `dependencies` so that a new one is created the next time it's accessed
-        dependencies.set(singleton: .storage, to: Storage(using: dependencies))
+        isSuspended = false
         Log.info(.storage, "Database access resumed.")
     }
     
@@ -1179,14 +1141,13 @@ private extension Storage {
                 case (.errored(_ as CancellationError), _, _):
                     Log.verbose(.storage, "Cancelled \(action) \(durationInfo) - [ \(callInfo) ]")
                     
-                case (.errored(let error), _, .some(DatabaseError.SQLITE_ABORT)),
-                    (.errored(let error), _, .some(DatabaseError.SQLITE_INTERRUPT)),
-                    (.errored(let error), _, .some(DatabaseError.SQLITE_ERROR)):
-                    let message: String = ((error as? DatabaseError)?.message ?? "Unknown")
-                    Log.error(.storage, "Failed \(action) due to error: \(message)")
+                case (.errored(let error as DatabaseError), _, .some(DatabaseError.SQLITE_ABORT)),
+                    (.errored(let error as DatabaseError), _, .some(DatabaseError.SQLITE_INTERRUPT)),
+                    (.errored(let error as DatabaseError), _, .some(DatabaseError.SQLITE_ERROR)):
+                    Log.error(.storage, "Failed \(action) due to error: \(error) (\(error.extendedResultCode)")
                     
                 case (.errored, _, .some(StorageError.databaseInvalid)):
-                    let message: String = ((storage?.startupError as? DatabaseError)?.message ?? "Unknown")
+                    let message: String = (storage?.startupError.map { "\($0)" } ?? "Unknown cause")
                     Log.error(.storage, "Failed \(action) as \(databaseName) is invalid (\(message)) - [ \(callInfo) ]")
                     
                 case (.errored, _, .some(StorageError.databaseSuspended)):
@@ -1346,18 +1307,6 @@ private extension Storage {
 
 public protocol IdentifiableTransactionObserver: TransactionObserver {
     var id: String { get }
-}
-
-// MARK: - NoopStorage
-
-/// This subclasses the `Storage` type, skips configuration and set it's state to invalid and suspended (which results in a `Storage`
-/// instance which won't do anything, but can be used to resume database access by replacing the existing database instance)
-class NoopStorage: Storage {
-    override func configureDatabase(customWriter: (any DatabaseWriter)? = nil) {
-        /// Set the state to invalid and suspended so that calling `resumeDatabaseAccess` will create a proper instance
-        isValid = false
-        isSuspended = true
-    }
 }
 
 // MARK: - Debug Convenience
