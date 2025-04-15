@@ -34,14 +34,6 @@ public extension Log.Category {
 
 public extension KeychainStorage.DataKey { static let dbCipherKeySpec: Self = "GRDBDatabaseCipherKeySpec" }
 
-// FIXME: Do this properly if we actually want it
-class NoopStorage: Storage {
-    override func configureDatabase(customWriter: (any DatabaseWriter)? = nil) {
-        /// Set the state to suspended so that calling `resumeDatabaseAccess` will create a proper instance
-        isSuspended = true
-    }
-}
-
 // MARK: - Storage
 
 open class Storage {
@@ -91,7 +83,7 @@ open class Storage {
     // MARK: - Database State Variables
     
     private var startupError: Error?
-    public private(set) var isValid: Bool = false
+    public fileprivate(set) var isValid: Bool = false
     public fileprivate(set) var isSuspended: Bool = false
     public var isDatabasePasswordAccessible: Bool { ((try? getDatabaseCipherKeySpec()) != nil) }
     
@@ -242,6 +234,7 @@ open class Storage {
                     configuration: config
                 )
             }
+            // TODO: Output this extended error code in other logs
             catch let error as DatabaseError where error.resultCode == .SQLITE_CANTOPEN {
                 /// We were seeing some cases where the PN extension could get an error where it coudln't open the
                 /// database but based on the logs all previous queires and everything had completed, so if this happens
@@ -255,6 +248,10 @@ open class Storage {
                     path: "\(Storage.sharedDatabaseDirectoryPath)/\(Storage.dbFileName)",
                     configuration: config
                 )
+            }
+            catch let error as DatabaseError where error.resultCode == .SQLITE_IOERR {
+                Log.error(.storage, "Database reported that it couldn't open during startup (\(error.extendedResultCode))")
+                throw error
             }
             isValid = true
         }
@@ -1349,6 +1346,18 @@ private extension Storage {
 
 public protocol IdentifiableTransactionObserver: TransactionObserver {
     var id: String { get }
+}
+
+// MARK: - NoopStorage
+
+/// This subclasses the `Storage` type, skips configuration and set it's state to invalid and suspended (which results in a `Storage`
+/// instance which won't do anything, but can be used to resume database access by replacing the existing database instance)
+class NoopStorage: Storage {
+    override func configureDatabase(customWriter: (any DatabaseWriter)? = nil) {
+        /// Set the state to invalid and suspended so that calling `resumeDatabaseAccess` will create a proper instance
+        isValid = false
+        isSuspended = true
+    }
 }
 
 // MARK: - Debug Convenience
