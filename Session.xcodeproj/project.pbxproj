@@ -1009,7 +1009,7 @@
 		FDF2220B2818F38D000A4995 /* SessionApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDF2220A2818F38D000A4995 /* SessionApp.swift */; };
 		FDF2220F281B55E6000A4995 /* QueryInterfaceRequest+Utilities.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDF2220E281B55E6000A4995 /* QueryInterfaceRequest+Utilities.swift */; };
 		FDF22211281B5E0B000A4995 /* TableRecord+Utilities.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDF22210281B5E0B000A4995 /* TableRecord+Utilities.swift */; };
-		FDF2F0222DAE1AF500491E8A /* MessageReceiver+LegacyGroups.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDF2F0212DAE1AEF00491E8A /* MessageReceiver+LegacyGroups.swift */; };
+		FDF2F0222DAE1AF500491E8A /* MessageReceiver+LegacyClosedGroups.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDF2F0212DAE1AEF00491E8A /* MessageReceiver+LegacyClosedGroups.swift */; };
 		FDF40CDE2897A1BC006A0CC4 /* _004_RemoveLegacyYDB.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDF40CDD2897A1BC006A0CC4 /* _004_RemoveLegacyYDB.swift */; };
 		FDF71EA32B072C2800A8D6B5 /* LibSessionMessage.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDF71EA22B072C2800A8D6B5 /* LibSessionMessage.swift */; };
 		FDF71EA52B07363500A8D6B5 /* MessageReceiver+LibSession.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDF71EA42B07363500A8D6B5 /* MessageReceiver+LibSession.swift */; };
@@ -2194,7 +2194,7 @@
 		FDF2220A2818F38D000A4995 /* SessionApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SessionApp.swift; sourceTree = "<group>"; };
 		FDF2220E281B55E6000A4995 /* QueryInterfaceRequest+Utilities.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "QueryInterfaceRequest+Utilities.swift"; sourceTree = "<group>"; };
 		FDF22210281B5E0B000A4995 /* TableRecord+Utilities.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "TableRecord+Utilities.swift"; sourceTree = "<group>"; };
-		FDF2F0212DAE1AEF00491E8A /* MessageReceiver+LegacyGroups.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "MessageReceiver+LegacyGroups.swift"; sourceTree = "<group>"; };
+		FDF2F0212DAE1AEF00491E8A /* MessageReceiver+LegacyClosedGroups.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "MessageReceiver+LegacyClosedGroups.swift"; sourceTree = "<group>"; };
 		FDF40CDD2897A1BC006A0CC4 /* _004_RemoveLegacyYDB.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = _004_RemoveLegacyYDB.swift; sourceTree = "<group>"; };
 		FDF71EA22B072C2800A8D6B5 /* LibSessionMessage.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LibSessionMessage.swift; sourceTree = "<group>"; };
 		FDF71EA42B07363500A8D6B5 /* MessageReceiver+LibSession.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "MessageReceiver+LibSession.swift"; sourceTree = "<group>"; };
@@ -4189,7 +4189,7 @@
 				FD5C7302284F0FA50029977D /* MessageReceiver+Calls.swift */,
 				FD5C7304284F0FF30029977D /* MessageReceiver+VisibleMessages.swift */,
 				FDB5DAE72A95D96C002C8721 /* MessageReceiver+Groups.swift */,
-				FDF2F0212DAE1AEF00491E8A /* MessageReceiver+LegacyGroups.swift */,
+				FDF2F0212DAE1AEF00491E8A /* MessageReceiver+LegacyClosedGroups.swift */,
 				FDF71EA42B07363500A8D6B5 /* MessageReceiver+LibSession.swift */,
 				FD5C7306284F103B0029977D /* MessageReceiver+MessageRequests.swift */,
 			);
@@ -6281,7 +6281,7 @@
 				FDAA167D2AC528A200DDBF77 /* Preferences+Sound.swift in Sources */,
 				FDE754FE2C9BB0D0002A2623 /* Threading+SMK.swift in Sources */,
 				FDF0B75E280AAF35004C14C5 /* Preferences.swift in Sources */,
-				FDF2F0222DAE1AF500491E8A /* MessageReceiver+LegacyGroups.swift in Sources */,
+				FDF2F0222DAE1AF500491E8A /* MessageReceiver+LegacyClosedGroups.swift in Sources */,
 				FD02CC122C367762009AB976 /* Request+PushNotificationAPI.swift in Sources */,
 				FD22726E2C32911C004D8A6C /* FailedMessageSendsJob.swift in Sources */,
 				FDB5DAD42A9483F3002C8721 /* GroupUpdateInviteMessage.swift in Sources */,
