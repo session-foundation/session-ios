@@ -11,10 +11,8 @@ extension MessageReceiver {
         _ db: Database,
         legacyGroupSessionId: String,
         name: String,
-        encryptionKeyPair: KeyPair,
         members: [String],
         admins: [String],
-        expirationTimer: UInt32,
         formationTimestampMs: UInt64,
         forceApprove: Bool,
         using dependencies: Dependencies

@@ -144,23 +144,33 @@ internal extension LibSessionCacheType {
             let members: [LibSession.LegacyGroupMemberInfo] = (group.groupMembers ?? [])
             let admins: Set<LibSession.LegacyGroupMemberInfo> = (group.groupAdmins ?? []).asSet()
             
+            // There were some bugs (somewhere) where the `joinedAt` valid could be in seconds, milliseconds
+            // or even microseconds so we need to try to detect this and convert it to proper seconds (if we don't
+            // have a value then we want it to be at the bottom of the list, so default to `0`)
+            let joinedAt: TimeInterval = {
+                guard let value: Double = group.joinedAt else { return 0 }
+
+                if value > 9_000_000_000_000 {  // Microseconds
+                    return (value / 1_000_000)
+                } else if value > 9_000_000_000 {  // Milliseconds
+                    return (value / 1000)
+                }
+
+                return TimeInterval(value)  // Seconds
+            }()
+            
             if !existingLegacyGroupIds.contains(group.id) {
                 // Add a new group if it doesn't already exist
                 try MessageReceiver.handleNewLegacyClosedGroup(
                     db,
                     legacyGroupSessionId: group.id,
                     name: name,
-                    encryptionKeyPair: KeyPair(
-                        publicKey: lastKeyPair.publicKey.bytes,
-                        secretKey: lastKeyPair.secretKey.bytes
-                    ),
                     members: members
                         .asSet()
                         // In legacy groups admins should also have 'standard' member entries
                         .inserting(contentsOf: admins)
                         .map { $0.profileId },
                     admins: admins.map { $0.profileId },
-                    expirationTimer: UInt32(group.disappearingMessageInfo?.durationSeconds ?? 0),
                     formationTimestampMs: UInt64(joinedAt * 1000),
                     forceApprove: true,
                     using: dependencies
