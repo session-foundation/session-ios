@@ -70,18 +70,16 @@ class MockLibSessionCache: Mock<LibSessionCacheType>, LibSessionCacheType {
         try mockThrowingNoReturn(args: [variant, sessionId], untrackedArgs: [db, change])
     }
     
-    func pendingChanges(_ db: Database, swarmPubkey: String) throws -> LibSession.PendingChanges {
-        return mock(args: [swarmPubkey], untrackedArgs: [db])
+    func pendingChanges(_ db: Database, swarmPublicKey: String) throws -> LibSession.PendingChanges {
+        return mock(args: [swarmPublicKey], untrackedArgs: [db])
     }
     
-    func markingAsPushed(
-        seqNo: Int64,
-        serverHash: String,
+    func createDumpMarkingAsPushed(
+        data: [(pushData: LibSession.PendingChanges.PushData, hash: String)],
         sentTimestamp: Int64,
-        variant: ConfigDump.Variant,
         swarmPublicKey: String
-    ) -> ConfigDump? {
-        return mock(args: [seqNo, serverHash, sentTimestamp, variant, swarmPublicKey])
+    ) throws -> [ConfigDump] {
+        return try mockThrowing(args: [data, sentTimestamp, swarmPublicKey])
     }
 
     // MARK: - Config Message Handling
@@ -90,10 +88,10 @@ class MockLibSessionCache: Mock<LibSessionCacheType>, LibSessionCacheType {
         return mock(args: [config])
     }
     
-    func configHashes(for swarmPubkey: String) -> [String] {
-        return mock(args: [swarmPubkey])
+    func activeHashes(for swarmPublicKey: String) -> [String] {
+        return mock(args: [swarmPublicKey])
     }
-
+    
     func handleConfigMessages(
         _ db: Database,
         swarmPublicKey: String,

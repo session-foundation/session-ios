@@ -275,14 +275,14 @@ public extension LibSession {
                 case .userProfile(let conf), .contacts(let conf),
                     .convoInfoVolatile(let conf), .userGroups(let conf),
                     .groupInfo(let conf), .groupMembers(let conf):
-                    return try messages.map { $0.serverHash }.withUnsafeCStrArray { cMergehashes in
+                    return try messages.map { $0.serverHash }.withUnsafeCStrArray { cMergeHashes in
                         try messages.map { Array($0.data) }.withUnsafeUInt8CArray { cMergeData in
-                            var mergeSize: [size_t] = messages.map { size_t($0.data.count) }
+                            let mergeSize: [size_t] = messages.map { size_t($0.data.count) }
                             let mergedHashesPtr: UnsafeMutablePointer<config_string_list>? = config_merge(
                                 conf,
-                                cMergehashes.baseAddress,
+                                cMergeHashes.baseAddress,
                                 cMergeData.baseAddress,
-                                &mergeSize,
+                                mergeSize,
                                 messages.count
                             )
                             

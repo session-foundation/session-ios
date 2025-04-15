@@ -208,7 +208,7 @@ class MessageSenderGroupsSpec: QuickSpec {
                     .when { $0.config(for: .groupKeys, sessionId: groupId) }
                     .thenReturn(groupKeysConfig)
                 cache
-                    .when { try $0.pendingChanges(.any, swarmPubkey: .any) }
+                    .when { try $0.pendingChanges(.any, swarmPublicKey: .any) }
                     .thenReturn(LibSession.PendingChanges(obsoleteHashes: ["testHash"]))
                 cache.when { $0.configNeedsDump(.any) }.thenReturn(false)
                 cache
@@ -237,15 +237,13 @@ class MessageSenderGroupsSpec: QuickSpec {
                     .thenReturn(())
                 cache
                     .when {
-                        $0.markingAsPushed(
-                            seqNo: .any,
-                            serverHash: .any,
+                        try $0.createDumpMarkingAsPushed(
+                            data: .any,
                             sentTimestamp: .any,
-                            variant: .any,
                             swarmPublicKey: .any
                         )
                     }
-                    .thenReturn(nil)
+                    .thenReturn([])
                 cache
                     .when { $0.pinnedPriority(.any, threadId: .any, threadVariant: .any) }
                     .thenReturn(LibSession.defaultNewThreadPriority)
@@ -287,7 +285,7 @@ class MessageSenderGroupsSpec: QuickSpec {
             context("when creating a group") {
                 beforeEach {
                     mockLibSessionCache
-                        .when { try $0.pendingChanges(.any, swarmPubkey: .any) }
+                        .when { try $0.pendingChanges(.any, swarmPublicKey: .any) }
                         .thenReturn(LibSession.PendingChanges())
                 }
                 
@@ -456,12 +454,12 @@ class MessageSenderGroupsSpec: QuickSpec {
                 // MARK: ---- syncs the group configuration messages
                 it("syncs the group configuration messages") {
                     mockLibSessionCache
-                        .when { try $0.pendingChanges(.any, swarmPubkey: .any) }
+                        .when { try $0.pendingChanges(.any, swarmPublicKey: .any) }
                         .thenReturn(
                             LibSession.PendingChanges(
                                 pushData: [
                                     LibSession.PendingChanges.PushData(
-                                        data: Data([1, 2, 3]),
+                                        data: [Data([1, 2, 3])],
                                         seqNo: 2,
                                         variant: .groupInfo
                                     )
