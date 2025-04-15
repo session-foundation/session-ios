@@ -128,21 +128,145 @@ internal extension LibSessionCacheType {
         let existingLegacyGroupIds: Set<String> = Set(existingThreadInfo
             .filter { $0.value.variant == .legacyGroup }
             .keys)
+        let existingLegacyGroups: [String: ClosedGroup] = (try? ClosedGroup
+            .fetchAll(db, ids: existingLegacyGroupIds))
+            .defaulting(to: [])
+            .reduce(into: [:]) { result, next in result[next.id] = next }
+        let existingLegacyGroupMembers: [String: [GroupMember]] = (try? GroupMember
+            .filter(existingLegacyGroupIds.contains(GroupMember.Columns.groupId))
+            .fetchAll(db))
+            .defaulting(to: [])
+            .grouped(by: \.groupId)
         
-        extractedUserGroups.legacyGroups.forEach { group in
-            guard
-                existingLegacyGroupIds.contains(group.id),
-                existingThreadInfo[group.id]?.pinnedPriority != group.priority
-            else { return }
+        try extractedUserGroups.legacyGroups.forEach { group in
+            guard let name: String = group.name else { return }
             
-            // Update the 'priority' if it changed
-            _ = try? SessionThread
-                .filter(id: group.id)
-                .updateAllAndConfig(
+            let members: [LibSession.LegacyGroupMemberInfo] = (group.groupMembers ?? [])
+            let admins: Set<LibSession.LegacyGroupMemberInfo> = (group.groupAdmins ?? []).asSet()
+            
+            if !existingLegacyGroupIds.contains(group.id) {
+                // Add a new group if it doesn't already exist
+                try MessageReceiver.handleNewLegacyClosedGroup(
                     db,
-                    SessionThread.Columns.pinnedPriority.set(to: group.priority),
+                    legacyGroupSessionId: group.id,
+                    name: name,
+                    encryptionKeyPair: KeyPair(
+                        publicKey: lastKeyPair.publicKey.bytes,
+                        secretKey: lastKeyPair.secretKey.bytes
+                    ),
+                    members: members
+                        .asSet()
+                        // In legacy groups admins should also have 'standard' member entries
+                        .inserting(contentsOf: admins)
+                        .map { $0.profileId },
+                    admins: admins.map { $0.profileId },
+                    expirationTimer: UInt32(group.disappearingMessageInfo?.durationSeconds ?? 0),
+                    formationTimestampMs: UInt64(joinedAt * 1000),
+                    forceApprove: true,
                     using: dependencies
                 )
+            }
+            else {
+                // Otherwise update the existing group
+                let groupChanges: [ConfigColumnAssignment] = [
+                    (existingLegacyGroups[group.id]?.name == name ? nil :
+                        ClosedGroup.Columns.name.set(to: name)
+                    ),
+                    (existingLegacyGroups[group.id]?.formationTimestamp == TimeInterval(joinedAt) ? nil :
+                        ClosedGroup.Columns.formationTimestamp.set(to: TimeInterval(joinedAt))
+                    )
+                ].compactMap { $0 }
+                
+                // Apply any group changes
+                if !groupChanges.isEmpty {
+                    _ = try? ClosedGroup
+                        .filter(id: group.id)
+                        .updateAllAndConfig(
+                            db,
+                            groupChanges,
+                            using: dependencies
+                        )
+                }
+                
+                // Update the members
+                let updatedMembers: Set<GroupMember> = members
+                    .map { member in
+                        GroupMember(
+                            groupId: group.id,
+                            profileId: member.profileId,
+                            role: .standard,
+                            roleStatus: .accepted,  // Legacy group members don't have role statuses
+                            isHidden: false
+                        )
+                    }
+                    .appending(
+                        contentsOf: admins.map { admin in
+                            GroupMember(
+                                groupId: group.id,
+                                profileId: admin.profileId,
+                                role: .standard,
+                                roleStatus: .accepted,  // Legacy group members don't have role statuses
+                                isHidden: false
+                            )
+                        }
+                    )
+                    .asSet()
+                let updatedAdmins: Set<GroupMember> = admins
+                    .map { member in
+                        GroupMember(
+                            groupId: group.id,
+                            profileId: member.profileId,
+                            role: .admin,
+                            roleStatus: .accepted,  // Legacy group members don't have role statuses
+                            isHidden: false
+                        )
+                    }
+                    .asSet()
+
+                if
+                    let existingMembers: Set<GroupMember> = existingLegacyGroupMembers[group.id]?
+                        .filter({ $0.role == .standard || $0.role == .zombie })
+                        .asSet(),
+                    existingMembers != updatedMembers
+                {
+                    // Add in any new members and remove any removed members
+                    try updatedMembers.forEach { try $0.upsert(db) }
+                    try existingMembers
+                        .filter { !updatedMembers.contains($0) }
+                        .forEach { member in
+                            try GroupMember
+                                .filter(
+                                    GroupMember.Columns.groupId == group.id &&
+                                    GroupMember.Columns.profileId == member.profileId && (
+                                        GroupMember.Columns.role == GroupMember.Role.standard ||
+                                        GroupMember.Columns.role == GroupMember.Role.zombie
+                                    )
+                                )
+                                .deleteAll(db)
+                        }
+                }
+
+                if
+                    let existingAdmins: Set<GroupMember> = existingLegacyGroupMembers[group.id]?
+                        .filter({ $0.role == .admin })
+                        .asSet(),
+                    existingAdmins != updatedAdmins
+                {
+                    // Add in any new admins and remove any removed admins
+                    try updatedAdmins.forEach { try $0.upsert(db) }
+                    try existingAdmins
+                        .filter { !updatedAdmins.contains($0) }
+                        .forEach { member in
+                            try GroupMember
+                                .filter(
+                                    GroupMember.Columns.groupId == group.id &&
+                                    GroupMember.Columns.profileId == member.profileId &&
+                                    GroupMember.Columns.role == GroupMember.Role.admin
+                                )
+                                .deleteAll(db)
+                        }
+                }
+            }
         }
         
         // Remove any legacy groups which are no longer in the config
@@ -384,6 +508,67 @@ internal extension LibSession {
                         fallbackError: .getOrConstructFailedUnexpectedly,
                         logMessage: "Unable to upsert legacy group conversation to LibSession"
                     )
+                }
+                
+                // Assign all properties to match the updated group (if there is one)
+                if let updatedName: String = legacyGroup.name {
+                    userGroup.set(\.name, to: updatedName)
+                }
+                
+                // Add/Remove the group members and admins
+                let existingMembers: [String: Bool] = {
+                    guard legacyGroup.groupMembers != nil || legacyGroup.groupAdmins != nil else { return [:] }
+
+                    return LibSession.memberInfo(in: userGroup)
+                }()
+
+                if let groupMembers: [LegacyGroupMemberInfo] = legacyGroup.groupMembers {
+                    // Need to make sure we remove any admins before adding them here otherwise we will
+                    // overwrite the admin permission to be a standard user permission
+                    let memberIds: Set<String> = groupMembers
+                        .map { $0.profileId }
+                        .asSet()
+                        .subtracting(legacyGroup.groupAdmins.defaulting(to: []).map { $0.profileId }.asSet())
+                    let existingMemberIds: Set<String> = Array(existingMembers
+                        .filter { _, isAdmin in !isAdmin }
+                        .keys)
+                        .asSet()
+                    let membersIdsToAdd: Set<String> = memberIds.subtracting(existingMemberIds)
+                    let membersIdsToRemove: Set<String> = existingMemberIds.subtracting(memberIds)
+
+                    try membersIdsToAdd.forEach { memberId in
+                        var cProfileId: [CChar] = try memberId.cString(using: .utf8) ?? { throw LibSessionError.invalidCConversion }()
+                        ugroups_legacy_member_add(userGroup, &cProfileId, false)
+                    }
+
+                    try membersIdsToRemove.forEach { memberId in
+                        var cProfileId: [CChar] = try memberId.cString(using: .utf8) ?? { throw LibSessionError.invalidCConversion }()
+                        ugroups_legacy_member_remove(userGroup, &cProfileId)
+                    }
+                }
+
+                if let groupAdmins: [LegacyGroupMemberInfo] = legacyGroup.groupAdmins {
+                    let adminIds: Set<String> = groupAdmins.map { $0.profileId }.asSet()
+                    let existingAdminIds: Set<String> = Array(existingMembers
+                        .filter { _, isAdmin in isAdmin }
+                        .keys)
+                        .asSet()
+                    let adminIdsToAdd: Set<String> = adminIds.subtracting(existingAdminIds)
+                    let adminIdsToRemove: Set<String> = existingAdminIds.subtracting(adminIds)
+
+                    try adminIdsToAdd.forEach { adminId in
+                        var cProfileId: [CChar] = try adminId.cString(using: .utf8) ?? { throw LibSessionError.invalidCConversion }()
+                        ugroups_legacy_member_add(userGroup, &cProfileId, true)
+                    }
+
+                    try adminIdsToRemove.forEach { adminId in
+                        var cProfileId: [CChar] = try adminId.cString(using: .utf8) ?? { throw LibSessionError.invalidCConversion }()
+                        ugroups_legacy_member_remove(userGroup, &cProfileId)
+                    }
+                }
+
+                if let joinedAt: Int64 = legacyGroup.joinedAt.map({ Int64($0) }) {
+                    userGroup.set(\.joined_at, to: joinedAt)
                 }
                 
                 // Store the updated group (can't be sure if we made any changes above)
@@ -794,7 +979,25 @@ public extension LibSession {
                 legacyGroups.append(
                     LibSession.LegacyGroupInfo(
                         id: groupId,
-                        priority: legacyGroup.priority
+                        name: legacyGroup.get(\.name),
+                        groupMembers: members
+                            .filter { _, isAdmin in !isAdmin }
+                            .map { memberId, _ in
+                                LegacyGroupMemberInfo(
+                                    profileId: memberId,
+                                    rawRole: GroupMember.Role.standard.rawValue
+                                )
+                            },
+                        groupAdmins: members
+                            .filter { _, isAdmin in isAdmin }
+                            .map { memberId, _ in
+                                LegacyGroupMemberInfo(
+                                    profileId: memberId,
+                                    rawRole: GroupMember.Role.admin.rawValue
+                                )
+                            },
+                        priority: legacyGroup.priority,
+                        joinedAt: TimeInterval(legacyGroup.joined_at)
                     )
                 )
             }
@@ -830,15 +1033,32 @@ public extension LibSession {
 public extension LibSession {
     struct LegacyGroupInfo {
         let id: String
+        let name: String?
+        let groupMembers: [LegacyGroupMemberInfo]?
+        let groupAdmins: [LegacyGroupMemberInfo]?
         let priority: Int32?
+        let joinedAt: TimeInterval?
         
         init(
             id: String,
-            priority: Int32? = nil
+            name: String? = nil,
+            groupMembers: [LegacyGroupMemberInfo]? = nil,
+            groupAdmins: [LegacyGroupMemberInfo]? = nil,
+            priority: Int32? = nil,
+            joinedAt: TimeInterval? = nil
         ) {
             self.id = id
+            self.name = name
+            self.groupMembers = groupMembers
+            self.groupAdmins = groupAdmins
             self.priority = priority
+            self.joinedAt = joinedAt
         }
+    }
+    
+    struct LegacyGroupMemberInfo: Hashable {
+        let profileId: String
+        let rawRole: Int
     }
 }
 

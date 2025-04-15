@@ -1,0 +1,79 @@
+// Copyright © 2022 Rangeproof Pty Ltd. All rights reserved.
+
+import Foundation
+import Combine
+import GRDB
+import SessionUtilitiesKit
+import SessionSnodeKit
+
+extension MessageReceiver {
+    internal static func handleNewLegacyClosedGroup(
+        _ db: Database,
+        legacyGroupSessionId: String,
+        name: String,
+        encryptionKeyPair: KeyPair,
+        members: [String],
+        admins: [String],
+        expirationTimer: UInt32,
+        formationTimestampMs: UInt64,
+        forceApprove: Bool,
+        using dependencies: Dependencies
+    ) throws {
+        // With new closed groups we only want to create them if the admin creating the closed group is an
+        // approved contact (to prevent spam via closed groups getting around message requests if users are
+        // on old or modified clients)
+        var hasApprovedAdmin: Bool = false
+        let receivedTimestamp: TimeInterval = (dependencies[cache: .snodeAPI].currentOffsetTimestampMs() / 1000)
+
+        for adminId in admins {
+            if let contact: Contact = try? Contact.fetchOne(db, id: adminId), contact.isApproved {
+                hasApprovedAdmin = true
+                break
+            }
+        }
+
+        // If we want to force approve the group (eg. if it came from config handling) then it
+        // doesn't matter if we have an approved admin - we should add it regardless
+        guard hasApprovedAdmin || forceApprove else { return }
+
+        // Create the group
+        let thread: SessionThread = try SessionThread.upsert(
+            db,
+            id: legacyGroupSessionId,
+            variant: .legacyGroup,
+            values: SessionThread.TargetValues(
+                creationDateTimestamp: .setTo((TimeInterval(formationTimestampMs) / 1000)),
+                shouldBeVisible: .setTo(true)
+            ),
+            using: dependencies
+        )
+        let closedGroup: ClosedGroup = try ClosedGroup(
+            threadId: legacyGroupSessionId,
+            name: name,
+            formationTimestamp: (TimeInterval(formationTimestampMs) / 1000),
+            shouldPoll: true,   // Legacy groups should always poll
+            invited: false      // Legacy groups are never in the "invite" state
+        ).upserted(db)
+
+        // Create the GroupMember records if needed
+        try members.forEach { memberId in
+            try GroupMember(
+                groupId: legacyGroupSessionId,
+                profileId: memberId,
+                role: .standard,
+                roleStatus: .accepted,  // Legacy group members don't have role statuses
+                isHidden: false
+            ).upsert(db)
+        }
+
+        try admins.forEach { adminId in
+            try GroupMember(
+                groupId: legacyGroupSessionId,
+                profileId: adminId,
+                role: .admin,
+                roleStatus: .accepted,  // Legacy group members don't have role statuses
+                isHidden: false
+            ).upsert(db)
+        }
+    }
+}
