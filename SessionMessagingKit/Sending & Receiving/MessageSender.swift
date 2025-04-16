@@ -129,11 +129,15 @@ public final class MessageSender {
                     messageWithProfile.profile = VisibleMessage.VMProfile(
                         displayName: profile.name,
                         profileKey: profileKey,
-                        profilePictureUrl: profilePictureUrl
+                        profilePictureUrl: profilePictureUrl,
+                        blocksCommunityMessageRequests: !db[.checkForCommunityMessageRequests]
                     )
                 }
                 else {
-                    messageWithProfile.profile = VisibleMessage.VMProfile(displayName: profile.name)
+                    messageWithProfile.profile = VisibleMessage.VMProfile(
+                        displayName: profile.name,
+                        blocksCommunityMessageRequests: !db[.checkForCommunityMessageRequests]
+                    )
                 }
         }
         
@@ -482,11 +486,15 @@ public final class MessageSender {
                 message.profile = VisibleMessage.VMProfile(
                     displayName: profile.name,
                     profileKey: profileKey,
-                    profilePictureUrl: profilePictureUrl
+                    profilePictureUrl: profilePictureUrl,
+                    blocksCommunityMessageRequests: !db[.checkForCommunityMessageRequests]
                 )
             }
             else {
-                message.profile = VisibleMessage.VMProfile(displayName: profile.name)
+                message.profile = VisibleMessage.VMProfile(
+                    displayName: profile.name,
+                    blocksCommunityMessageRequests: !db[.checkForCommunityMessageRequests]
+                )
             }
         }
         
