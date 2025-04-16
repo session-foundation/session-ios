@@ -5,8 +5,6 @@
 import Foundation
 
 public final class Features {
-    public static let createUpdatedGroupFromDate: Date = Date(timeIntervalSince1970: 1742421600)
-    public static let legacyGroupDepricationDate: Date = Date(timeIntervalSince1970: 1743631200)
     public static let legacyGroupDepricationUrl: String = "https://getsession.org/groups"
 }
 
@@ -30,22 +28,6 @@ public extension FeatureStorage {
     
     static let forceSlowDatabaseQueries: FeatureConfig<Bool> = Dependencies.create(
         identifier: "forceSlowDatabaseQueries"
-    )
-    
-    static let updatedGroups: FeatureConfig<Bool> = Dependencies.create(
-        identifier: "updatedGroups",
-        automaticChangeBehaviour: Feature<Bool>.ChangeBehaviour(
-            value: true,
-            condition: .after(timestamp: Features.createUpdatedGroupFromDate.timeIntervalSince1970)
-        )
-    )
-    
-    static let legacyGroupsDeprecated: FeatureConfig<Bool> = Dependencies.create(
-        identifier: "legacyGroupsDeprecated",
-        automaticChangeBehaviour: Feature<Bool>.ChangeBehaviour(
-            value: true,
-            condition: .after(timestamp: Features.legacyGroupDepricationDate.timeIntervalSince1970)
-        )
     )
     
     static let updatedGroupsDisableAutoApprove: FeatureConfig<Bool> = Dependencies.create(

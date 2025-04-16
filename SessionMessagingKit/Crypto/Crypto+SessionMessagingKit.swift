@@ -29,11 +29,7 @@ public extension Crypto.Generator {
                 switch destination {
                     case .contact(let publicKey): return Data(SessionId(.standard, hex: publicKey).publicKey)
                     case .syncMessage: return Data(dependencies[cache: .general].sessionId.publicKey)
-                    case .closedGroup(let groupPublicKey):
-                        return try ClosedGroupKeyPair.fetchLatestKeyPair(db, threadId: groupPublicKey)?.publicKey ?? {
-                            throw MessageSenderError.noKeyPair
-                        }()
-
+                    case .closedGroup(let groupPublicKey): throw MessageSenderError.deprecatedLegacyGroup
                     default: throw MessageSenderError.signingFailed
                 }
             }()
@@ -135,48 +131,6 @@ public extension Crypto.Generator {
                     &cCiphertext,
                     cCiphertext.count,
                     &cEd25519SecretKey,
-                    &cSenderSessionId,
-                    &maybePlaintext,
-                    &plaintextLen
-                ),
-                plaintextLen > 0,
-                let plaintext: Data = maybePlaintext.map({ Data(bytes: $0, count: plaintextLen) })
-            else { throw MessageReceiverError.decryptionFailed }
-
-            free(UnsafeMutableRawPointer(mutating: maybePlaintext))
-
-            return (plaintext, String(cString: cSenderSessionId))
-        }
-    }
-
-    static func plaintextWithSessionProtocolLegacyGroup(
-        ciphertext: Data,
-        keyPair: KeyPair,
-        using dependencies: Dependencies
-    ) -> Crypto.Generator<(plaintext: Data, senderSessionIdHex: String)> {
-        return Crypto.Generator(
-            id: "plaintextWithSessionProtocol",
-            args: [ciphertext]
-        ) {
-            var cCiphertext: [UInt8] = Array(ciphertext)
-            var cX25519Pubkey: [UInt8] = keyPair.publicKey
-            var cX25519Seckey: [UInt8] = keyPair.secretKey
-            var cSenderSessionId: [CChar] = [CChar](repeating: 0, count: 67)
-            var maybePlaintext: UnsafeMutablePointer<UInt8>? = nil
-            var plaintextLen: Int = 0
-
-            // Note: We should only need a 32 byte key but there was a bug in 2.7.1 where we
-            // started generating 64 byte keys so, in order to support those, we accept allow
-            // both and the C code just takes the first 32 bytes (which is all that is needed
-            // from the 64 byte key anyway)
-            guard
-                cX25519Pubkey.count == 32,
-                (cX25519Seckey.count == 32 || cX25519Seckey.count == 64),
-                session_decrypt_incoming_legacy_group(
-                    &cCiphertext,
-                    cCiphertext.count,
-                    &cX25519Pubkey,
-                    &cX25519Seckey,
                     &cSenderSessionId,
                     &maybePlaintext,
                     &plaintextLen
