@@ -20,6 +20,9 @@ extension MessageReceiver {
             let messageKind: DataExtractionNotification.Kind = message.kind
         else { throw MessageReceiverError.invalidMessage }
         
+        /// We no longer support the old screenshot notification
+        guard messageKind != .screenshot else { throw MessageReceiverError.deprecatedMessage }
+        
         let timestampMs: Int64 = (
             message.sentTimestampMs.map { Int64($0) } ??
             dependencies[cache: .snodeAPI].currentOffsetTimestampMs()
@@ -47,12 +50,7 @@ extension MessageReceiver {
             threadId: threadId,
             threadVariant: threadVariant,
             authorId: sender,
-            variant: {
-                switch messageKind {
-                    case .screenshot: return .infoScreenshotNotification
-                    case .mediaSaved: return .infoMediaSavedNotification
-                }
-            }(),
+            variant: .infoMediaSavedNotification,
             timestampMs: timestampMs,
             wasRead: wasRead,
             expiresInSeconds: messageExpirationInfo.expiresInSeconds,
