@@ -1,4 +1,4 @@
-// Copyright © 2022 Rangeproof Pty Ltd. All rights reserved.
+// Copyright © 2025 Rangeproof Pty Ltd. All rights reserved.
 
 import Foundation
 
@@ -14,25 +14,24 @@ public extension Collection where Element == String {
             return cChars
         }
         
-        func getPointers(
-            remainingArrays: ArraySlice<[CChar]>,
-            collectedPointers: [UnsafePointer<CChar>?]
-        ) throws -> R {
-            guard let currentArray = remainingArrays.first else {
-                return try collectedPointers.withUnsafeBufferPointer { collectedPointersBuffer in
-                    try body(collectedPointersBuffer)
-                }
-            }
-            
-            return try currentArray.withUnsafeBufferPointer { currentBufferPtr in
-                try getPointers(
-                    remainingArrays: remainingArrays.dropFirst(),
-                    collectedPointers: collectedPointers + [currentBufferPtr.baseAddress]
-                )
+        /// Temporary storage for pointers to the C pointers, needs to live until the closure returns
+        var temporaryPointerStorage: [UnsafePointer<CChar>?] = []
+        temporaryPointerStorage.reserveCapacity(cCharArrays.count)
+        
+        for cCharArray in cCharArrays {
+            /// Get pointer for this specific inner array. The `withUnsafeBufferPointer` scope ends here, but Swift ensures the
+            /// underlying data is valid long enough for the pointer to be added to `temporaryPointerStorage` (ARC keeps the
+            /// `cCharArrays` alive)
+            cCharArray.withUnsafeBufferPointer { bufferPtr in
+                temporaryPointerStorage.append(bufferPtr.baseAddress)
             }
         }
         
-        return try getPointers(remainingArrays: ArraySlice(cCharArrays), collectedPointers: [])
+        /// Get a temporary pointer to `temporaryPointerStorage` which holds valid pointers (or `nil`) for each element,
+        /// this array of pointers has a *shallow* scope.
+        return try temporaryPointerStorage.withUnsafeBufferPointer { pointersBuffer in
+            try body(pointersBuffer)
+        }
     }
 }
 
@@ -40,27 +39,28 @@ public extension Collection where Element == [UInt8]? {
     func withUnsafeUInt8CArray<R>(
         _ body: (UnsafeBufferPointer<UnsafePointer<UInt8>?>) throws -> R
     ) throws -> R {
-        func processNext<I: IteratorProtocol>(
-            iterator: inout I,
-            collectedPointers: [UnsafePointer<UInt8>?]
-        ) throws -> R where I.Element == Element {
-            if let optionalElement: [UInt8]? = iterator.next() {
-                if let array: [UInt8] = optionalElement {
-                     return try array.withUnsafeBufferPointer { bufferPtr in
-                        try processNext(iterator: &iterator, collectedPointers: collectedPointers + [bufferPtr.baseAddress])
-                    }
-                }
-                
-                // It's a nil element in the input collection, add a nil pointer and recurse
-                return try processNext(iterator: &iterator, collectedPointers: collectedPointers + [nil])
-            } else {
-                return try collectedPointers.withUnsafeBufferPointer { pointersBuffer in
-                    try body(pointersBuffer)
-                }
+        /// Temporary storage for pointers to each inner array's data, needs to live until the closure returns
+        var temporaryPointerStorage: [UnsafePointer<UInt8>?] = []
+        temporaryPointerStorage.reserveCapacity(self.count) // Pre-allocate space
+        
+        for element in self {
+            guard let array = element else {
+                temporaryPointerStorage.append(nil)
+                continue
+            }
+            
+            /// Get pointer for this specific inner array. The `withUnsafeBufferPointer` scope ends here, but Swift ensures the
+            /// underlying data is valid long enough for the pointer to be added to `temporaryPointerStorage` (ARC keeps the
+            /// [UInt8] arrays alive)
+            array.withUnsafeBufferPointer { bufferPtr in
+                temporaryPointerStorage.append(bufferPtr.baseAddress)
             }
         }
-
-        var iterator = makeIterator()
-        return try processNext(iterator: &iterator, collectedPointers: [])
+        
+        /// Get a temporary pointer to `temporaryPointerStorage` which holds valid pointers (or `nil`) for each element,
+        /// this array of pointers has a *shallow* scope.
+        return try temporaryPointerStorage.withUnsafeBufferPointer { pointersBuffer in
+            try body(pointersBuffer)
+        }
     }
 }
