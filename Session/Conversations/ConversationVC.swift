@@ -525,12 +525,6 @@ final class ConversationVC: BaseVC, LibSessionRespondingViewController, Conversa
             selector: #selector(applicationDidResignActive(_:)),
             name: UIApplication.didEnterBackgroundNotification, object: nil
         )
-        NotificationCenter.default.addObserver(
-            self,
-            selector: #selector(sendScreenshotNotification),
-            name: UIApplication.userDidTakeScreenshotNotification,
-            object: nil
-        )
        
         // Observe keyboard notifications
         let keyboardNotifications: [Notification.Name] = [
