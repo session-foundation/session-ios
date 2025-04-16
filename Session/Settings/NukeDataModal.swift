@@ -162,7 +162,7 @@ final class NukeDataModal: Modal {
                 .receive(on: DispatchQueue.main)
                 .sinkUntilComplete(
                     receiveCompletion: { _ in
-                        self?.deleteAllLocalData()
+                        NukeDataModal.deleteAllLocalData(using: dependencies)
                         self?.dismiss(animated: true, completion: nil) // Dismiss the loader
                     }
                 )
@@ -256,7 +256,7 @@ final class NukeDataModal: Modal {
                             // If all of the nodes successfully deleted the data then proceed
                             // to delete the local data
                             guard !potentiallyMaliciousSnodes.isEmpty else {
-                                self?.deleteAllLocalData()
+                                NukeDataModal.deleteAllLocalData(using: dependencies)
                                 return
                             }
 
@@ -278,7 +278,7 @@ final class NukeDataModal: Modal {
             }
     }
     
-    private func deleteAllLocalData() {
+    public static func deleteAllLocalData(using dependencies: Dependencies) {
         /// Unregister push notifications if needed
         let isUsingFullAPNs: Bool = dependencies[defaults: .standard, key: .isUsingFullAPNs]
         let maybeDeviceToken: String? = dependencies[defaults: .standard, key: .deviceToken]
@@ -286,7 +286,7 @@ final class NukeDataModal: Modal {
         if isUsingFullAPNs {
             UIApplication.shared.unregisterForRemoteNotifications()
             
-            if let deviceToken: String = maybeDeviceToken {
+            if let deviceToken: String = maybeDeviceToken, dependencies[singleton: .storage].isValid {
                 PushNotificationAPI
                     .unsubscribeAll(token: Data(hex: deviceToken), using: dependencies)
                     .sinkUntilComplete()
