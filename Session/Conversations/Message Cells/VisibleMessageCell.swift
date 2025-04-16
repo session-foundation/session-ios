@@ -272,7 +272,7 @@ final class VisibleMessageCell: MessageCell, TappableLabelDelegate {
     
     override func update(
         with cellViewModel: MessageViewModel,
-        mediaCache: NSCache<NSString, AnyObject>,
+        mediaCache: LRUCache<String, Any>,
         playbackInfo: ConversationViewModel.PlaybackInfo?,
         showExpandedReactions: Bool,
         lastSearchText: String?,
@@ -446,7 +446,7 @@ final class VisibleMessageCell: MessageCell, TappableLabelDelegate {
 
     private func populateContentView(
         for cellViewModel: MessageViewModel,
-        mediaCache: NSCache<NSString, AnyObject>,
+        mediaCache: LRUCache<String, Any>,
         playbackInfo: ConversationViewModel.PlaybackInfo?,
         lastSearchText: String?,
         using dependencies: Dependencies

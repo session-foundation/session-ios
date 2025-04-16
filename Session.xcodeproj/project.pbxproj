@@ -825,7 +825,6 @@
 		FD97B2402A3FEB050027DD57 /* ARC4RandomNumberGenerator.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD97B23F2A3FEB050027DD57 /* ARC4RandomNumberGenerator.swift */; };
 		FD97B2422A3FEBF30027DD57 /* UnreadMarkerCell.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD97B2412A3FEBF30027DD57 /* UnreadMarkerCell.swift */; };
 		FD99D0872D0FA731005D2E15 /* ThreadSafe.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD99D0862D0FA72E005D2E15 /* ThreadSafe.swift */; };
-		FD99D0902D10E71B005D2E15 /* NSCache+Utilities.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD99D08F2D10E718005D2E15 /* NSCache+Utilities.swift */; };
 		FD99D0922D10F5EE005D2E15 /* ThreadSafeSpec.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD99D0912D10F5EB005D2E15 /* ThreadSafeSpec.swift */; };
 		FD9AECA52AAA9609009B3406 /* NotificationResolution.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD9AECA42AAA9609009B3406 /* NotificationResolution.swift */; };
 		FD9BDE012A5D24EA005F1EBC /* SessionUIKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = C331FF1B2558F9D300070591 /* SessionUIKit.framework */; };
@@ -2009,7 +2008,6 @@
 		FD97B23F2A3FEB050027DD57 /* ARC4RandomNumberGenerator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ARC4RandomNumberGenerator.swift; sourceTree = "<group>"; };
 		FD97B2412A3FEBF30027DD57 /* UnreadMarkerCell.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UnreadMarkerCell.swift; sourceTree = "<group>"; };
 		FD99D0862D0FA72E005D2E15 /* ThreadSafe.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ThreadSafe.swift; sourceTree = "<group>"; };
-		FD99D08F2D10E718005D2E15 /* NSCache+Utilities.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "NSCache+Utilities.swift"; sourceTree = "<group>"; };
 		FD99D0912D10F5EB005D2E15 /* ThreadSafeSpec.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ThreadSafeSpec.swift; sourceTree = "<group>"; };
 		FD9AECA42AAA9609009B3406 /* NotificationResolution.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NotificationResolution.swift; sourceTree = "<group>"; };
 		FD9DD2702A72516D00ECB68E /* TestExtensions.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TestExtensions.swift; sourceTree = "<group>"; };
@@ -2792,7 +2790,6 @@
 				FD2272EF2C352200004D8A6C /* General.swift */,
 				C3C2A5CE2553860700C340D1 /* Logging.swift */,
 				C33FDAFD255A580600E217F9 /* LRUCache.swift */,
-				FD99D08F2D10E718005D2E15 /* NSCache+Utilities.swift */,
 				C33FDA7A255A57FB00E217F9 /* NSRegularExpression+SSK.swift */,
 				7B1D74AF27C365960030B423 /* Timer+MainThread.swift */,
 				FD705A91278D051200F16121 /* ReusableView.swift */,
@@ -6048,7 +6045,6 @@
 				FD17D7CD27F546FF00122BE0 /* Setting.swift in Sources */,
 				FDE754D42C9BAF6B002A2623 /* UICollectionView+ReusableView.swift in Sources */,
 				FDE754C02C9BAEF6002A2623 /* Array+Utilities.swift in Sources */,
-				FD99D0902D10E71B005D2E15 /* NSCache+Utilities.swift in Sources */,
 				FD17D7E527F6A09900122BE0 /* Identity.swift in Sources */,
 				FD9004142818AD0B00ABAAF6 /* _002_SetupStandardJobs.swift in Sources */,
 				FDAA16762AC28A3B00DDBF77 /* UserDefaultsType.swift in Sources */,

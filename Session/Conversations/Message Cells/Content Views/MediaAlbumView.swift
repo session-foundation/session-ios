@@ -20,7 +20,7 @@ public class MediaAlbumView: UIStackView {
     }
 
     public required init(
-        mediaCache: NSCache<NSString, AnyObject>,
+        mediaCache: LRUCache<String, Any>,
         items: [Attachment],
         isOutgoing: Bool,
         maxMessageWidth: CGFloat,

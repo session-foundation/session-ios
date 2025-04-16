@@ -62,7 +62,7 @@ final class UnreadMarkerCell: MessageCell {
     
     override func update(
         with cellViewModel: MessageViewModel,
-        mediaCache: NSCache<NSString, AnyObject>,
+        mediaCache: LRUCache<String, Any>,
         playbackInfo: ConversationViewModel.PlaybackInfo?,
         showExpandedReactions: Bool,
         lastSearchText: String?,
