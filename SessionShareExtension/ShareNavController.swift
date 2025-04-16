@@ -173,7 +173,7 @@ final class ShareNavController: UINavigationController, ShareViewDelegate {
     // MARK: - Updating
     
     private func showLockScreenOrMainContent() {
-        if dependencies[singleton: .storage, key: .isScreenLockEnabled] {
+        if dependencies[singleton: .storage, key: .isScreenLockEnabled] && !dependencies[defaults: .appGroup, key: .isMainAppActive] {
             showLockScreen()
         }
         else {
