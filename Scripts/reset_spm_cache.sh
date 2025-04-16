@@ -4,11 +4,6 @@ set -e
 
 green="\e[32;1m"
 
-echo "Checking artifact checksum directly from CI runner..."
-curl -L "https://github.com/session-foundation/libsession-util-spm/releases/download/1.4.0/libsession-util.xcframework.zip" | shasum -a 256
-echo "Proceeding with xcodebuild..."
-
-
 if echo "${DRONE_COMMIT_MESSAGE}" | grep -q -F "[Reset SPM]"; then
   echo "Trigger phrase found in commit message. Clearing SPM caches..."
   
