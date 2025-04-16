@@ -815,16 +815,28 @@ open class Storage {
                 /// behaviours (this behaviour is apparently expected but still causes a number of odd behaviours in our code
                 /// for more information see https://github.com/groue/GRDB.swift/issues/1334)
                 ///
-                /// Instead of this we are just using `Deferred { Future {} }` which is executed on the specified scheduler
-                /// (which behaves in a much more expected way than the GRDB `readPublisher`/`writePublisher` does)
-                /// and hooking that into our `performOperation` function which uses the GRDB async/await functions that support
-                /// cancellation (as we want to support cancellation as well)
+                /// Instead of this we are just using `Deferred { PassthroughSubject }` which is executed on the specified
+                /// scheduler (which behaves in a much more expected way than the GRDB `readPublisher`/`writePublisher`
+                /// does) and hooking that into our `performOperation` function which uses the GRDB async/await functions that
+                /// support cancellation (as we want to support cancellation as well)
                 return Deferred { [dependencies] in
-                    Future { resolver in
-                        Storage.performOperation(info, dependencies, operation) { result in
-                            resolver(result)
+                    let subject: PassthroughSubject<T, Error> = PassthroughSubject()
+                    
+                    Storage.performOperation(info, dependencies, operation) { [weak subject] result in
+                        /// If the query was cancelled then we shouldn't try to propagate the result (as it may result in
+                        /// interacting with deallocated objects)
+                        guard !info.wasCancelled else { return }
+                        
+                        switch result {
+                            case .success(let value):
+                                subject?.send(value)
+                                subject?.send(completion: .finished)
+                            
+                            case .failure(let error): subject?.send(completion: .failure(error))
                         }
                     }
+                    
+                    return subject
                 }
                 .handleEvents(receiveCancel: { [weak self] in
                     info.cancel()
@@ -1071,6 +1083,7 @@ private extension Storage {
         let line: Int
         let behaviour: Behaviour
         var task: Task<(), Never>?
+        @ThreadSafe private(set) var wasCancelled: Bool = false
         
         private var timer: DispatchSourceTimer?
         private var startTime: CFTimeInterval?
@@ -1199,6 +1212,7 @@ private extension Storage {
         
         func cancel() {
             /// Cancelling the task with result in a log being added
+            wasCancelled = true
             task?.cancel()
         }
         
