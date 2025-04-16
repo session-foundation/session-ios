@@ -14,8 +14,8 @@ class MockGeneralCache: Mock<GeneralCacheType>, GeneralCacheType {
         set { mockNoReturn(args: [newValue]) }
     }
     
-    var placeholderCache: NSCache<NSString, UIImage> {
-        get { return (mock() ?? NSCache()) }
+    var placeholderCache: LRUCache<String, UIImage> {
+        get { return (mock() ?? LRUCache()) }
         set { mockNoReturn(args: [newValue]) }
     }
     

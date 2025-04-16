@@ -8,13 +8,21 @@ public struct SessionCarouselView_SwiftUI: View {
     @Binding var index: Int
     
     private let dependencies: Dependencies
+    var mediaCache: LRUCache<String, Any>
     let isOutgoing: Bool
     var contentInfos: [Attachment]
     let numberOfPages: Int
     
-    public init(index: Binding<Int>, isOutgoing: Bool, contentInfos: [Attachment], using dependencies: Dependencies) {
+    public init(
+        index: Binding<Int>,
+        mediaCache: LRUCache<String, Any>,
+        isOutgoing: Bool,
+        contentInfos: [Attachment],
+        using dependencies: Dependencies
+    ) {
         self._index = index
         self.dependencies = dependencies
+        self.mediaCache = mediaCache
         self.isOutgoing = isOutgoing
         self.contentInfos = contentInfos
         self.numberOfPages = contentInfos.count
@@ -33,6 +41,7 @@ public struct SessionCarouselView_SwiftUI: View {
             PageView(index: $index, numberOfPages: self.numberOfPages) {
                 ForEach(self.contentInfos) { attachment in
                     MediaView_SwiftUI(
+                        mediaCache: mediaCache,
                         attachment: attachment,
                         isOutgoing: self.isOutgoing,
                         shouldSupressControls: true,
@@ -212,6 +221,7 @@ struct SessionCarouselView_SwiftUI_Previews: PreviewProvider {
             
             SessionCarouselView_SwiftUI(
                 index: $index,
+                mediaCache: LRUCache(),
                 isOutgoing: true,
                 contentInfos: [
                     Attachment(
