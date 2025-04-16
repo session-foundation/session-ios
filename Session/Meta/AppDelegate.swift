@@ -526,6 +526,28 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
             }
         })
         
+        // Always offer the 'Clear Data' option
+        alert.addAction(UIAlertAction(title: "clearDevice".localized(), style: .destructive) { [weak self, dependencies] _ in
+            let alert: UIAlertController = UIAlertController(
+                title: "clearDevice".localized(),
+                message: "clearDeviceDescription".localized(),
+                preferredStyle: .alert
+            )
+            alert.addAction(UIAlertAction(title: "clear".localized(), style: .destructive) { _ in
+                NukeDataModal.deleteAllLocalData(using: dependencies)
+            })
+            
+            alert.addAction(UIAlertAction(title: "cancel".localized(), style: .default) { _ in
+                DispatchQueue.main.async {
+                    self?.showFailedStartupAlert(
+                        calledFrom: lifecycleMethod,
+                        error: error
+                    )
+                }
+            })
+            self?.window?.rootViewController?.present(alert, animated: animated, completion: nil)
+        })
+        
         switch error {
             // Don't offer the 'Restore' option if it was a 'startupFailed' error as a restore is unlikely to
             // resolve it (most likely the database is locked or the key was somehow lost - safer to get them
@@ -534,38 +556,55 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
                 
             // Offer the 'Restore' option if it was a migration error
             case .databaseError:
-                alert.addAction(UIAlertAction(title: "onboardingAccountExists".localized(), style: .destructive) { [dependencies] _ in
-                    // Reset the current database for a clean migration
-                    dependencies[singleton: .storage].resetForCleanMigration()
-                    
-                    // Hide the top banner if there was one
-                    TopBannerController.hide()
-                    
-                    // The re-run the migration (should succeed since there is no data)
-                    AppSetup.runPostSetupMigrations(
-                        additionalMigrationTargets: [DeprecatedUIKitMigrationTarget.self],
-                        migrationProgressChanged: { [weak self] progress, minEstimatedTotalTime in
-                            self?.loadingViewController?.updateProgress(
-                                progress: progress,
-                                minEstimatedTotalTime: minEstimatedTotalTime
-                            )
-                        },
-                        migrationsCompletion: { [weak self] result in
-                            switch result {
-                                case .failure:
-                                    DispatchQueue.main.async {
-                                        self?.showFailedStartupAlert(
-                                            calledFrom: lifecycleMethod,
-                                            error: .failedToRestore
-                                        )
-                                    }
-                                    
-                                case .success:
-                                    self?.completePostMigrationSetup(calledFrom: lifecycleMethod)
-                            }
-                        },
-                        using: dependencies
+                alert.addAction(UIAlertAction(title: "clearDeviceRestore".localized(), style: .destructive) { [weak self, dependencies] _ in
+                    let alert: UIAlertController = UIAlertController(
+                        title: "clearDeviceRestore".localized(),
+                        message: "databaseErrorRestoreDataWarning".localized(),
+                        preferredStyle: .alert
                     )
+                    alert.addAction(UIAlertAction(title: "clear".localized(), style: .destructive) { _ in
+                        // Reset the current database for a clean migration
+                        dependencies[singleton: .storage].resetForCleanMigration()
+                        
+                        // Hide the top banner if there was one
+                        TopBannerController.hide()
+                        
+                        // The re-run the migration (should succeed since there is no data)
+                        AppSetup.runPostSetupMigrations(
+                            additionalMigrationTargets: [DeprecatedUIKitMigrationTarget.self],
+                            migrationProgressChanged: { [weak self] progress, minEstimatedTotalTime in
+                                self?.loadingViewController?.updateProgress(
+                                    progress: progress,
+                                    minEstimatedTotalTime: minEstimatedTotalTime
+                                )
+                            },
+                            migrationsCompletion: { [weak self] result in
+                                switch result {
+                                    case .failure:
+                                        DispatchQueue.main.async {
+                                            self?.showFailedStartupAlert(
+                                                calledFrom: lifecycleMethod,
+                                                error: .failedToRestore
+                                            )
+                                        }
+                                        
+                                    case .success:
+                                        self?.completePostMigrationSetup(calledFrom: lifecycleMethod)
+                                }
+                            },
+                            using: dependencies
+                        )
+                    })
+                    
+                    alert.addAction(UIAlertAction(title: "cancel".localized(), style: .default) { _ in
+                        DispatchQueue.main.async {
+                            self?.showFailedStartupAlert(
+                                calledFrom: lifecycleMethod,
+                                error: error
+                            )
+                        }
+                    })
+                    self?.window?.rootViewController?.present(alert, animated: animated, completion: nil)
                 })
                 
             default: break
