@@ -607,7 +607,7 @@ public extension LibSession {
         }
         
         public func createDumpMarkingAsPushed(
-            data: [(pushData: PendingChanges.PushData, hash: String)],
+            data: [(pushData: PendingChanges.PushData, hash: String?)],
             sentTimestamp: Int64,
             swarmPublicKey: String
         ) throws -> [ConfigDump] {
@@ -616,15 +616,21 @@ public extension LibSession {
             return try data
                 .grouped(by: \.pushData.variant)
                 .compactMap { variant, data -> ConfigDump? in
-                    // Make sure we don't somehow have a different `seqNo` in one of the values
-                    guard let seqNo = data.first?.pushData.seqNo else { return nil }
+                    // Make sure we don't somehow have a different `seqNo` in one of the values, and
+                    // that all of the values were successfully pushed
+                    guard let seqNo: Int64 = data.first?.pushData.seqNo else { return nil }
                     guard !data.contains(where: { $0.pushData.seqNo != seqNo }) else {
                         throw LibSessionError.foundMultipleSequenceNumbersWhenPushing
+                    }
+                    
+                    let hashes: [String] = data.compactMap({ _, hash in hash })
+                    guard hashes.count == data.count else {
+                        throw LibSessionError.partialMultiConfigPushFailure
                     }
                     guard let config: Config = configStore[sessionId, variant] else { return nil }
                     
                     // Mark the config as pushed
-                    try config.confirmPushed(seqNo: seqNo, hashes: data.map { $0.hash })
+                    try config.confirmPushed(seqNo: seqNo, hashes: hashes)
                     
                     // Update the result to indicate whether the config needs to be dumped
                     guard configNeedsDump(config) else { return nil }
@@ -932,7 +938,7 @@ public protocol LibSessionCacheType: LibSessionImmutableCacheType, MutableCacheT
     ) throws
     func pendingChanges(_ db: Database, swarmPublicKey: String) throws -> LibSession.PendingChanges
     func createDumpMarkingAsPushed(
-        data: [(pushData: LibSession.PendingChanges.PushData, hash: String)],
+        data: [(pushData: LibSession.PendingChanges.PushData, hash: String?)],
         sentTimestamp: Int64,
         swarmPublicKey: String
     ) throws -> [ConfigDump]
@@ -1033,7 +1039,7 @@ private final class NoopLibSessionCache: LibSessionCacheType {
     }
     
     func createDumpMarkingAsPushed(
-        data: [(pushData: LibSession.PendingChanges.PushData, hash: String)],
+        data: [(pushData: LibSession.PendingChanges.PushData, hash: String?)],
         sentTimestamp: Int64,
         swarmPublicKey: String
     ) throws -> [ConfigDump] {

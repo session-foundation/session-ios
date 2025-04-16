@@ -169,8 +169,8 @@ public enum ConfigurationSyncJob: JobExecutor {
                         })
                 else { throw NetworkError.invalidResponse }
                 
-                let results: [(pushData: LibSession.PendingChanges.PushData, hash: String)] = zip(responseWithoutBeforeRequests, pendingChanges.pushData)
-                    .compactMap { (subResponse: Any, pushData: LibSession.PendingChanges.PushData) in
+                let results: [(pushData: LibSession.PendingChanges.PushData, hash: String?)] = zip(responseWithoutBeforeRequests, pendingChanges.pushData)
+                    .map { (subResponse: Any, pushData: LibSession.PendingChanges.PushData) in
                         /// If the request wasn't successful then just ignore it (the next time we sync this config we will try
                         /// to send the changes again)
                         guard
@@ -178,7 +178,7 @@ public enum ConfigurationSyncJob: JobExecutor {
                             200...299 ~= typedResponse.code,
                             !typedResponse.failedToParseBody,
                             let sendMessageResponse: SendMessagesResponse = typedResponse.body
-                        else { return nil }
+                        else { return (pushData, nil) }
                         
                         return (pushData, sendMessageResponse.hash)
                     }

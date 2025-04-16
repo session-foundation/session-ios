@@ -75,7 +75,7 @@ class MockLibSessionCache: Mock<LibSessionCacheType>, LibSessionCacheType {
     }
     
     func createDumpMarkingAsPushed(
-        data: [(pushData: LibSession.PendingChanges.PushData, hash: String)],
+        data: [(pushData: LibSession.PendingChanges.PushData, hash: String?)],
         sentTimestamp: Int64,
         swarmPublicKey: String
     ) throws -> [ConfigDump] {
