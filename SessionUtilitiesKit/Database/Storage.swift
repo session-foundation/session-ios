@@ -825,7 +825,7 @@ open class Storage {
                     Storage.performOperation(info, dependencies, operation) { [weak subject] result in
                         /// If the query was cancelled then we shouldn't try to propagate the result (as it may result in
                         /// interacting with deallocated objects)
-                        guard !info.wasCancelled else { return }
+                        guard !info.cancelledViaCombine else { return }
                         
                         switch result {
                             case .success(let value):
@@ -839,7 +839,7 @@ open class Storage {
                     return subject
                 }
                 .handleEvents(receiveCancel: { [weak self] in
-                    info.cancel()
+                    info.cancel(cancelledViaCombine: true)
                     self?.removeCall(info)
                 })
                 .eraseToAnyPublisher()
@@ -1083,7 +1083,7 @@ private extension Storage {
         let line: Int
         let behaviour: Behaviour
         var task: Task<(), Never>?
-        @ThreadSafe private(set) var wasCancelled: Bool = false
+        @ThreadSafe private(set) var cancelledViaCombine: Bool = false
         
         private var timer: DispatchSourceTimer?
         private var startTime: CFTimeInterval?
@@ -1210,9 +1210,9 @@ private extension Storage {
             return Fail<T, Error>(error: error).eraseToAnyPublisher()
         }
         
-        func cancel() {
+        func cancel(cancelledViaCombine: Bool = false) {
             /// Cancelling the task with result in a log being added
-            wasCancelled = true
+            self.cancelledViaCombine = cancelledViaCombine
             task?.cancel()
         }
         
