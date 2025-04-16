@@ -18,7 +18,7 @@ private extension Log.Category {
 /// This type manages observation and paging for the provided dataQuery
 ///
 /// **Note:** We **MUST** have accurate `filterSQL` and `orderSQL` values otherwise the indexing won't work
-public class PagedDatabaseObserver<ObservedTable, T>: TransactionObserver where ObservedTable: TableRecord & ColumnExpressible & Identifiable, T: FetchableRecordWithRowId & Identifiable {
+public class PagedDatabaseObserver<ObservedTable, T>: IdentifiableTransactionObserver where ObservedTable: TableRecord & ColumnExpressible & Identifiable, T: FetchableRecordWithRowId & Identifiable {
     private let commitProcessingQueue: DispatchQueue = DispatchQueue(
         label: "PagedDatabaseObserver.commitProcessingQueue",
         qos: .userInitiated,
@@ -28,6 +28,7 @@ public class PagedDatabaseObserver<ObservedTable, T>: TransactionObserver where 
     // MARK: - Variables
     
     private let dependencies: Dependencies
+    public let id: String = (0..<4).map { _ in "\(Storage.base32.randomElement() ?? "0")" }.joined()
     private let pagedTableName: String
     private let idColumnName: String
     @ThreadSafe public var pageInfo: PagedData.PageInfo
