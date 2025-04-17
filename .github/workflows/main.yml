@@ -69,7 +69,7 @@ jobs:
             -scheme Session \
             -derivedDataPath ${{ env.DERIVED_DATA_PATH }} \
             -resultBundlePath ./build/artifacts/testResults.xcresult \
-            -parallelizeTargets |
+            -parallelizeTargets \
             -configuration "${{ env.BUILD_CONFIGURATION }}" \
             -sdk iphonesimulator \
             -destination "platform=iOS Simulator,OS=latest" \
