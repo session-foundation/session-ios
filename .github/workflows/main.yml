@@ -62,7 +62,7 @@ jobs:
 
       - name: Build and Run Tests
         run: |
-          set -o pipefail && \
+          NSUnbufferedIO=YES set -o pipefail && \
           xcodebuild \
             -project Session.xcodeproj \
             -scheme Session \
@@ -79,8 +79,8 @@ jobs:
             test \
             CODE_SIGN_IDENTITY="" \
             DEVELOPMENT_TEAM="" \
-            CODE_SIGNING_REQUIRED=NO
-          | xcbeautify --renderer github-actions
+            CODE_SIGNING_REQUIRED=NO \
+          | xcbeautify --renderer github-actions --is-ci
 
       - name: Convert xcresult to JUnit XML
         if: always()
@@ -90,20 +90,41 @@ jobs:
             ./build/artifacts/testResults.xcresult \
             > ./build/artifacts/test-results.xml
 
-      - name: Convert xcresult to JUnit XML
-        if: always()
+      - name: Parse Tests
+        id: parse_tests
+        if: always() && steps.build_test.outcome != 'skipped'
         run: |
-          # Create artifact directory if it doesn't exist (important if tests failed early)
-          mkdir -p ./build/artifacts
-          # Convert. Output JUnit XML. Adjust output path if needed.
-          xcresultparser --output-format JUNIT --input ./build/artifacts/testResults.xcresult --output ./build/artifacts/test-results.xml
+          TOTAL_TESTS=0
+          FAILED_TESTS=0
+          PASSED_TESTS=0
 
-      - name: Publish Test Results as Check
-        if: always()
-        uses: EnricoMi/publish-unit-test-result-action@v2
-        with:
-          files: ./build/artifacts/test-results.xml
-          check_name: "Unit Test Results"
+          if [ -d "$XCRESULT_PATH" ]; then
+            echo "Parsing $XCRESULT_PATH using xcresultparser cli output..."
+            CLI_OUTPUT=$(xcresultparser --output-format cli --input "./build/artifacts/testResults.xcresult")
+
+            if [ -z "$CLI_OUTPUT" ]; then
+               echo "Warning: xcresultparser produced empty CLI output."
+            else
+               TEMP_TOTAL=$(echo "$CLI_OUTPUT" | grep "Number of tests =" | awk '{print $NF}')
+               TEMP_FAILED=$(echo "$CLI_OUTPUT" | grep "Number of failed tests =" | awk '{print $NF}')
+                TOTAL_TESTS=${TEMP_TOTAL:-0}
+               FAILED_TESTS=${TEMP_FAILED:-0}
+
+               [[ "$TOTAL_TESTS" =~ ^[0-9]+$ ]] || TOTAL_TESTS=0
+               [[ "$FAILED_TESTS" =~ ^[0-9]+$ ]] || FAILED_TESTS=0
+
+               PASSED_TESTS=$((TOTAL_TESTS - FAILED_TESTS))
+               if (( PASSED_TESTS < 0 )); then PASSED_TESTS=0; fi
+
+               echo "Test Counts - Total: ${TOTAL_TESTS}, Failed: ${FAILED_TESTS}, Passed: ${PASSED_TESTS}"
+            fi
+          else
+            echo "xcresult bundle not found. Setting counts to 0."
+          fi
+
+          echo "total=${TOTAL_TESTS}" >> $GITHUB_OUTPUT
+          echo "failed=${FAILED_TESTS}" >> $GITHUB_OUTPUT
+          echo "passed=${PASSED_TESTS}" >> $GITHUB_OUTPUT
 
       - name: Upload Simulator App Bundle
         uses: actions/upload-artifact@v4
@@ -114,18 +135,102 @@ jobs:
       - name: Update Build Artifact Check Run Status
         if: always() && github.event_name == 'pull_request' # Always run, but only for PRs
         uses: actions/github-script@v7
+        env:
+            BUILD_CHECK_NAME_INPUT: ${{ env.BUILD_CHECK_NAME }} # Read job env var here
+            BUILD_TEST_OUTCOME_INPUT: ${{ steps.build_test.outcome }}
+            UPLOAD_OUTCOME_INPUT: ${{ steps.upload_artifact.outcome || 'skipped' }}
+            ARTIFACT_URL_INPUT: ${{ steps.upload_artifact.outputs.artifact-url }}
+            HEAD_SHA_INPUT: ${{ steps.pr_sha.outputs.sha || github.sha }}
+            RUN_ID_INPUT: ${{ github.run_id }}
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           script: |
             const updateCheck = require('./.github/scripts/update-build-check.js');
 
+            const checkName = process.env.BUILD_CHECK_NAME_INPUT;
+            const buildTestOutcome = process.env.BUILD_TEST_OUTCOME_INPUT;
+            const uploadOutcome = process.env.UPLOAD_OUTCOME_INPUT;
+            const artifactUrl = process.env.ARTIFACT_URL_INPUT;
+            const headSha = process.env.HEAD_SHA_INPUT;
+            const runId = process.env.RUN_ID_INPUT;
+
+            if (!checkName) {
+              core.setFailed('Error: BUILD_CHECK_NAME_INPUT was not correctly passed to the script.');
+              return;
+            }
+            if (!headSha) {
+              core.setFailed('Error: HEAD_SHA_INPUT was not correctly passed to the script.');
+              return;
+            }
+
             await updateCheck({
               github: github,
               context: context,
-              buildTestOutcome: '${{ steps.build_test.outcome }}',
-              uploadOutcome: '${{ steps.upload_artifact.outcome || 'skipped' }}',
-              artifactUrl: '${{ steps.upload_artifact.outputs.artifact-url }}',
-              checkName: process.env.BUILD_CHECK_NAME,
-              headSha: '${{ steps.pr_sha.outputs.sha || github.sha }}',
-              runId: process.env.GITHUB_RUN_ID
+              buildTestOutcome: buildTestOutcome,
+              uploadOutcome: uploadOutcome,
+              artifactUrl: artifactUrl,
+              checkName: checkName,
+              headSha: headSha,
+              runId: runId
+            });
+
+      - name: Unit Tests
+        if: always() && github.event_name == 'pull_request'
+        uses: actions/github-script@v7
+        env:
+            FAILED_TESTS: ${{ steps.parse_tests.outputs.failed }}
+            PASSED_TESTS: ${{ steps.parse_tests.outputs.passed }}
+            TOTAL_TESTS: ${{ steps.parse_tests.outputs.total }}
+            HEAD_SHA_INPUT: ${{ steps.pr_sha.outputs.sha || github.sha }}
+            RUN_ID_INPUT: ${{ github.run_id }}
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            // This JavaScript part remains the same as the previous version
+            const checkName = "Unit Tests"; // Static check name
+            const failed = parseInt(process.env.FAILED_TESTS || '0');
+            const passed = parseInt(process.env.PASSED_TESTS || '0');
+            const total = parseInt(process.env.TOTAL_TESTS || '0');
+            const headSha = process.env.HEAD_SHA_INPUT;
+            const runId = process.env.RUN_ID_INPUT;
+            const owner = context.repo.owner;
+            const repo = context.repo.repo;
+            const runUrl = `${process.env.GITHUB_SERVER_URL}/${owner}/${repo}/actions/runs/${runId}`;
+
+            let conclusion;
+            let summary;
+
+            // Determine conclusion and format the summary string
+            if (failed > 0) {
+              conclusion = 'failure';
+              summary = `❌ ${failed} failed, ${passed} passed (${total} total)`;
+            } else if (total > 0) {
+              conclusion = 'success';
+              summary = `✅ ${passed} tests passed (${total} total)`;
+            } else {
+               conclusion = 'neutral';
+               summary = `❓ No test results found or 0 tests run.`;
+            }
+
+            summary += `\n\n[View Full Workflow Run Details](${runUrl})`;
+
+            // Basic validation
+            if (!headSha) {
+              core.setFailed('Error: HEAD_SHA_INPUT was not correctly passed.');
+              return;
+            }
+
+            await github.rest.checks.create({
+              owner: owner,
+              repo: repo,
+              name: "Unit Tests",
+              head_sha: headSha,
+              status: 'completed',
+              conclusion: conclusion,
+              completed_at: new Date().toISOString(),
+              output: {
+                title: "Unit Tests",
+                summary: summary
+              },
+              details_url: runUrl
             });
