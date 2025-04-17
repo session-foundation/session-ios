@@ -20,3 +20,8 @@ if echo "${DRONE_COMMIT_MESSAGE}" | grep -q -F "[Reset SPM]"; then
 else
   echo -e "\n${green}Trigger phrase not found. Skipping SPM cache clearing."
 fi
+
+echo "--- Searching for bad checksum string (f528...) ---"
+find /var/folders /tmp ~/Library -type f -exec grep -q 'f528fc9fbc9f' {} \; -print 2>/dev/null | tee find_results_checksum.log
+echo "--- Find Results (Checksum) ---"
+cat find_results_checksum.log || echo "No checksum results found."
