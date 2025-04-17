@@ -22,72 +22,79 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  unit_tests:
+  build_and_test:
     runs-on: macos-14
     env:
       GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      DERIVED_DATA_PATH: ./build/derivedData
+      BUILD_CONFIGURATION: "App_Store_Release"
+
     steps:
+      - name: Set Xcode version
+        run: sudo xcode-select -s /Applications/Xcode_16.2.app
+
+      - name: Install dependencies if needed
+        run:
+          if ! command -v xcbeautify &> /dev/null; then
+            brew install xcbeautify
+          fi
+
+          if ! command -v xcresultparser &> /dev/null; then
+            brew install xcresultparser
+          fi
+
       - name: Version Information
         run: |
           git --version
           xcodebuild -version
           echo "xcbeautify: $(xcbeautify --version)"
+          echo "xcresultparser: $(xcresultparser --version)"
 
       - name: Checkout git repo
         uses: actions/checkout@v4
+
+      - name: Cache Swift Packages
+        uses: actions/cache@v4
+        with:
+          path: ${{ env.DERIVED_DATA_PATH }}/SourcePackages
+          key: ${{ runner.os }}-spm-${{ hashFiles('**/Package.resolved') }}
+          restore-keys: |
+            ${{ runner.os }}-spm-
 
       - name: Build and Run Tests
         run: |
           set -o pipefail && \
           xcodebuild \
-            -project Session.xcodeproj
-            -scheme Session
-            -derivedDataPath ./build/derivedData
-            -resultBundlePath ./build/artifacts/testResults.xcresult
-            -parallelizeTargets
-            -destination "platform=iOS Simulator,OS=latest"
-            -parallel-testing-enabled NO
-            -test-timeouts-enabled YES
-            -maximum-test-execution-time-allowance 10
+            -project Session.xcodeproj \
+            -scheme Session \
+            -derivedDataPath ${{ env.DERIVED_DATA_PATH }} \
+            -resultBundlePath ./build/artifacts/testResults.xcresult \
+            -parallelizeTargets |
+            -configuration "${{ env.BUILD_CONFIGURATION }}" \
+            -sdk iphonesimulator \
+            -destination "platform=iOS Simulator,OS=latest" \
+            -parallel-testing-enabled NO \
+            -test-timeouts-enabled YES \
+            -maximum-test-execution-time-allowance 10 \
             -collect-test-diagnostics never \
             test \
             CODE_SIGN_IDENTITY="" \
-            CODE_SIGNING_REQUIRED=NO \
+            DEVELOPMENT_TEAM="" \
+            CODE_SIGNING_REQUIRED=NO
           | xcbeautify --renderer github-actions
 
-  simulator_build:
-    runs-on: macos-14
-    env:
-      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-    steps:
-      - name: Version Information
-        run: |
-          git --version
-          xcodebuild -version
-          echo "xcbeautify: $(xcbeautify --version)"
+      - name: 'Unit Test Summary'
+        run: xcresultparser --output-format cli --failed-tests-only ./build/artifacts/testResults.xcresult
 
-      - name: Checkout git repo
-        uses: actions/checkout@v4
-
-      - name: Build
-        run: |
-          set -o pipefail &&\
-          xcodebuild \
-            -project Session.xcodeproj \
-            -scheme Session \
-            -derivedDataPath ./build/derivedData \
-            -parallelizeTargets \
-            -configuration "App_Store_Release" \
-            -sdk iphonesimulator \
-            -archivePath ./build/Session_sim.xcarchive \
-            -destination "generic/platform=iOS Simulator" \
-            archive \
-            CODE_SIGN_IDENTITY="" \
-            CODE_SIGNING_REQUIRED=NO \
-          | xcbeautify --renderer github-actions
-
-      - name: Upload Artifacts
+      - name: Upload Simulator App Bundle
         uses: actions/upload-artifact@v4
         with:
           name: session-ios-simulator
-          path: build/Session_sim.xcarchive/Products/Applications/Session.app
+          path: ${{ env.DERIVED_DATA_PATH }}/Build/Products/${{ env.BUILD_CONFIGURATION }}-iphonesimulator/Session.app
+
+      - name: Upload Test Results
+        if: always() # Upload results even if tests fail
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-results
+          path: ./build/artifacts/testResults.xcresult
