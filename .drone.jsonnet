@@ -61,6 +61,9 @@ local clear_spm_cache_on_commit_trigger = {
     name: 'Unit Tests',
     platform: { os: 'darwin', arch: 'arm64' },
     trigger: { event: { exclude: ['push'] } },
+    node: {
+      runner_tag: "fresh",
+    },
     steps: [
       version_info,
       clear_spm_cache_on_commit_trigger,
