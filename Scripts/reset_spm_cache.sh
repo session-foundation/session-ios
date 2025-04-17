@@ -28,9 +28,3 @@ if echo "${DRONE_COMMIT_MESSAGE}" | grep -q -F "[Reset SPM]"; then
 else
   echo -e "\n${green}Trigger phrase not found. Skipping SPM cache clearing."
 fi
-
-echo "--> Finding and removing ALL Swift PM cache locations..."
-find / -name "*SessionUtil*" -type f 2>/dev/null | xargs rm -f 2>/dev/null || true
-find / -path "*/swiftpm*" -type d 2>/dev/null | xargs rm -rf 2>/dev/null || true
-find / -name "*.fingerprint" -type f 2>/dev/null | xargs grep -l "SessionUtil" | xargs rm -f 2>/dev/null || true
-
