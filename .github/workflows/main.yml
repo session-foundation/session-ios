@@ -123,23 +123,17 @@ jobs:
             CODE_SIGNING_REQUIRED=NO \
           | xcbeautify --renderer github-actions --is-ci
 
-          echo "Listing contents of ./build/artifacts/ after xcodebuild:"
-          ls -lR ./build/artifacts/ || echo "Directory ./build/artifacts/ not found or ls failed."
-
       - name: Parse Tests
         id: parse_tests
         if: always() && steps.build_test.outcome != 'skipped'
         run: |
-          echo "Listing contents of ./build/artifacts/ after build/test step:"
-          ls -lR ./build/artifacts/ || echo "Directory ./build/artifacts/ not found or ls failed."
-
           TOTAL_TESTS=0
           FAILED_TESTS=0
           PASSED_TESTS=0
 
           if [ -d "$XCRESULT_PATH" ]; then
             echo "Parsing $XCRESULT_PATH using xcresultparser cli output..."
-            CLI_OUTPUT=$(xcresultparser --output-format cli --input "./build/artifacts/testResults.xcresult")
+            CLI_OUTPUT=$(xcresultparser --output-format cli "./build/artifacts/testResults.xcresult")
 
             if [ -z "$CLI_OUTPUT" ]; then
                echo "Warning: xcresultparser produced empty CLI output."
