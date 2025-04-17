@@ -91,8 +91,6 @@ jobs:
             > ./build/artifacts/test-results.xml
 
       - name: Convert xcresult to JUnit XML
-        # This step should run even if the previous step failed (tests failed)
-        # so that we can report those failures.
         if: always()
         run: |
           # Create artifact directory if it doesn't exist (important if tests failed early)
@@ -102,7 +100,7 @@ jobs:
 
       - name: Publish Test Results as Check
         if: always()
-        uses: EnriqueLozano/publish-unit-test-result-action@v2
+        uses: EnricoMi/publish-unit-test-result-action@v2
         with:
           files: ./build/artifacts/test-results.xml
           check_name: "Unit Test Results"
@@ -112,3 +110,22 @@ jobs:
         with:
           name: session-ios-simulator
           path: ${{ env.DERIVED_DATA_PATH }}/Build/Products/${{ env.BUILD_CONFIGURATION }}-iphonesimulator/Session.app
+
+      - name: Update Build Artifact Check Run Status
+        if: always() && github.event_name == 'pull_request' # Always run, but only for PRs
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            const updateCheck = require('./.github/scripts/update-build-check.js');
+
+            await updateCheck({
+              github: github,
+              context: context,
+              buildTestOutcome: '${{ steps.build_test.outcome }}',
+              uploadOutcome: '${{ steps.upload_artifact.outcome || 'skipped' }}',
+              artifactUrl: '${{ steps.upload_artifact.outputs.artifact-url }}',
+              checkName: process.env.BUILD_CHECK_NAME,
+              headSha: '${{ steps.pr_sha.outputs.sha || github.sha }}',
+              runId: process.env.GITHUB_RUN_ID
+            });
