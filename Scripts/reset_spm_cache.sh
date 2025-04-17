@@ -17,8 +17,8 @@ if echo "${DRONE_COMMIT_MESSAGE}" | grep -q -F "[Reset SPM]"; then
   rm -rf ~/Library/org.swift.swiftpm || echo "Warning: Failed to remove ~/Library/org.swift.swiftpm (might not exist or permissions issue)"
 
   echo "--> Clearing Drone-specific caches..."
-  rm -rf /drone/src/.build || echo "Warning: Failed to remove /drone/src/.build (might not exist or permissions issue)"
-  rm -rf /drone/src/.swiftpm || echo "Warning: Failed to remove /drone/src/.swiftpm (might not exist or permissions issue)"
+  rm -rf /drone/src/.build || echo "Warning: Failed to remove /drone/src/.build"
+  rm -rf /drone/src/.swiftpm || echo "Warning: Failed to remove /drone/src/.swiftpm"
 
   echo -e "\n${green}SPM caches cleared."
 else
