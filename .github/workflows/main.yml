@@ -53,18 +53,22 @@ jobs:
               status: 'in_progress',
               started_at: new Date().toISOString(),
               output: {
-                title: "Unit Tests",
-                summary: "Waiting for results..."
+                title: "Waiting for results...",
+                summary: ""
               }
             });
 
             await github.rest.checks.create({
               owner: context.repo.owner,
               repo: context.repo.repo,
-              name: "Simulator Build",
+              name: "Simulator Build Artifact",
               head_sha: headSha,
               status: 'in_progress',
-              started_at: new Date().toISOString()
+              started_at: new Date().toISOString(),
+              output: {
+                title: "Waiting for build...",
+                summary: ""
+              }
             });
 
       - name: Install Build Tools (If Missing)
@@ -117,6 +121,9 @@ jobs:
             DEVELOPMENT_TEAM="" \
             CODE_SIGNING_REQUIRED=NO \
           | xcbeautify --renderer github-actions --is-ci
+
+          echo "Listing contents of ./build/artifacts/ after xcodebuild:"
+          ls -lR ./build/artifacts/ || echo "Directory ./build/artifacts/ not found or ls failed."
 
       - name: Parse Tests
         id: parse_tests
@@ -191,7 +198,7 @@ jobs:
               buildTestOutcome: buildTestOutcome,
               uploadOutcome: uploadOutcome,
               artifactUrl: artifactUrl,
-              checkName: "Simulator Build",
+              checkName: "Simulator Build Artifact",
               headSha: headSha,
               runId: runId
             });
@@ -248,8 +255,8 @@ jobs:
               conclusion: conclusion,
               completed_at: new Date().toISOString(),
               output: {
-                title: "Unit Tests",
-                summary: summary
+                title: summary,
+                summary: ""
               },
               details_url: runUrl
             });
