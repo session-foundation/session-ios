@@ -5,7 +5,6 @@
 name: Session iOS
 
 on:
-  workflow_dispatch:
   push:
     branches:
       - master
@@ -80,7 +79,7 @@ jobs:
             test \
             CODE_SIGN_IDENTITY="" \
             DEVELOPMENT_TEAM="" \
-            CODE_SIGNING_REQUIRED=NO
+            CODE_SIGNING_REQUIRED=NO \
           | xcbeautify --renderer github-actions
 
       - name: 'Unit Test Summary'
