@@ -22,7 +22,7 @@ concurrency:
 
 jobs:
   build_and_test:
-    runs-on: macos-14
+    runs-on: macos-latest
     env:
       GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       DERIVED_DATA_PATH: ./build/derivedData
@@ -31,6 +31,40 @@ jobs:
     steps:
       - name: Set Xcode version
         run: sudo xcode-select -s /Applications/Xcode_16.2.app
+
+      - name: Create Initial Check Runs
+        if: always() && github.event_name == 'pull_request'
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            const headSha = '${{ steps.pr_sha.outputs.sha || github.sha }}';
+
+            if (!headSha) {
+              core.setFailed('Error: Could not determine head SHA for check run.');
+              return;
+            }
+
+            await github.rest.checks.create({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              name: "Unit Tests",
+              head_sha: headSha,
+              status: 'in_progress',
+              started_at: new Date().toISOString(),
+              output: {
+                title: "Waiting for results..."
+              }
+            });
+
+            await github.rest.checks.create({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              name: "Simulator Build",
+              head_sha: headSha,
+              status: 'in_progress',
+              started_at: new Date().toISOString()
+            });
 
       - name: Install Build Tools (If Missing)
         run: |
@@ -129,7 +163,6 @@ jobs:
         if: always() && github.event_name == 'pull_request' # Always run, but only for PRs
         uses: actions/github-script@v7
         env:
-            BUILD_CHECK_NAME_INPUT: ${{ env.BUILD_CHECK_NAME }} # Read job env var here
             BUILD_TEST_OUTCOME_INPUT: ${{ steps.build_test.outcome }}
             UPLOAD_OUTCOME_INPUT: ${{ steps.upload_artifact.outcome || 'skipped' }}
             ARTIFACT_URL_INPUT: ${{ steps.upload_artifact.outputs.artifact-url }}
@@ -140,17 +173,12 @@ jobs:
           script: |
             const updateCheck = require('./.github/scripts/update-build-check.js');
 
-            const checkName = process.env.BUILD_CHECK_NAME_INPUT;
             const buildTestOutcome = process.env.BUILD_TEST_OUTCOME_INPUT;
             const uploadOutcome = process.env.UPLOAD_OUTCOME_INPUT;
             const artifactUrl = process.env.ARTIFACT_URL_INPUT;
             const headSha = process.env.HEAD_SHA_INPUT;
             const runId = process.env.RUN_ID_INPUT;
 
-            if (!checkName) {
-              core.setFailed('Error: BUILD_CHECK_NAME_INPUT was not correctly passed to the script.');
-              return;
-            }
             if (!headSha) {
               core.setFailed('Error: HEAD_SHA_INPUT was not correctly passed to the script.');
               return;
@@ -162,7 +190,7 @@ jobs:
               buildTestOutcome: buildTestOutcome,
               uploadOutcome: uploadOutcome,
               artifactUrl: artifactUrl,
-              checkName: checkName,
+              checkName: "Simulator Build",
               headSha: headSha,
               runId: runId
             });
@@ -179,8 +207,6 @@ jobs:
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           script: |
-            // This JavaScript part remains the same as the previous version
-            const checkName = "Unit Tests"; // Static check name
             const failed = parseInt(process.env.FAILED_TESTS || '0');
             const passed = parseInt(process.env.PASSED_TESTS || '0');
             const total = parseInt(process.env.TOTAL_TESTS || '0');
@@ -207,7 +233,6 @@ jobs:
 
             summary += `\n\n[View Full Workflow Run Details](${runUrl})`;
 
-            // Basic validation
             if (!headSha) {
               core.setFailed('Error: HEAD_SHA_INPUT was not correctly passed.');
               return;
@@ -221,6 +246,8 @@ jobs:
               status: 'completed',
               conclusion: conclusion,
               completed_at: new Date().toISOString(),
-              output: summary,
+              output: {
+                title: summary
+              },
               details_url: runUrl
             });
