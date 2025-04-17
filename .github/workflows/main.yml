@@ -32,7 +32,7 @@ jobs:
       - name: Set Xcode version
         run: sudo xcode-select -s /Applications/Xcode_16.2.app
 
-      - name: Install dependencies if needed
+      - name: Install Build Tools (If Missing)
         run: |
           if ! command -v xcbeautify &> /dev/null; then
             brew install xcbeautify
@@ -71,7 +71,7 @@ jobs:
             -parallelizeTargets \
             -configuration "${{ env.BUILD_CONFIGURATION }}" \
             -sdk iphonesimulator \
-            -destination "platform=iOS Simulator,OS=latest" \
+            -destination "platform=iOS Simulator,name=iPhone 16,OS=latest" \
             -parallel-testing-enabled NO \
             -test-timeouts-enabled YES \
             -maximum-test-execution-time-allowance 10 \
@@ -79,21 +79,36 @@ jobs:
             test \
             CODE_SIGN_IDENTITY="" \
             DEVELOPMENT_TEAM="" \
-            CODE_SIGNING_REQUIRED=NO \
+            CODE_SIGNING_REQUIRED=NO
           | xcbeautify --renderer github-actions
 
-      - name: 'Unit Test Summary'
-        run: xcresultparser --output-format cli --failed-tests-only ./build/artifacts/testResults.xcresult
+      - name: Convert xcresult to JUnit XML
+        if: always()
+        run: |
+          xcresultparser \
+            --output-format junit \
+            ./build/artifacts/testResults.xcresult \
+            > ./build/artifacts/test-results.xml
+
+      - name: Convert xcresult to JUnit XML
+        # This step should run even if the previous step failed (tests failed)
+        # so that we can report those failures.
+        if: always()
+        run: |
+          # Create artifact directory if it doesn't exist (important if tests failed early)
+          mkdir -p ./build/artifacts
+          # Convert. Output JUnit XML. Adjust output path if needed.
+          xcresultparser --output-format JUNIT --input ./build/artifacts/testResults.xcresult --output ./build/artifacts/test-results.xml
+
+      - name: Publish Test Results as Check
+        if: always()
+        uses: EnriqueLozano/publish-unit-test-result-action@v2
+        with:
+          files: ./build/artifacts/test-results.xml
+          check_name: "Unit Test Results"
 
       - name: Upload Simulator App Bundle
         uses: actions/upload-artifact@v4
         with:
           name: session-ios-simulator
           path: ${{ env.DERIVED_DATA_PATH }}/Build/Products/${{ env.BUILD_CONFIGURATION }}-iphonesimulator/Session.app
-
-      - name: Upload Test Results
-        if: always() # Upload results even if tests fail
-        uses: actions/upload-artifact@v4
-        with:
-          name: test-results
-          path: ./build/artifacts/testResults.xcresult
