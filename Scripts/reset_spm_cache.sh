@@ -16,6 +16,9 @@ if echo "${DRONE_COMMIT_MESSAGE}" | grep -q -F "[Reset SPM]"; then
   echo "--> Clearing global SwiftPM artifact fingerprints (~/Library/org.swift.swiftpm)..."
   rm -rf ~/Library/org.swift.swiftpm || echo "Warning: Failed to remove ~/Library/org.swift.swiftpm (might not exist or permissions issue)"
 
+  echo "--> Removing 'Package.resolved' from project..."
+  rm -rf ./Session.xcodeproj/project.xcworkspace/xcshareddata/swiftpm/Package.resolved || echo "Warning: Failed to remove Package.resolved"
+
   echo "--> Clearing Drone-specific caches..."
   rm -rf /drone/src/.build || echo "Warning: Failed to remove /drone/src/.build"
   rm -rf /drone/src/.swiftpm || echo "Warning: Failed to remove /drone/src/.swiftpm"
