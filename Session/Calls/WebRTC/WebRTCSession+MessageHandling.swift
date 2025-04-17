@@ -15,7 +15,7 @@ extension WebRTCSession {
     }
     
     public func handleRemoteSDP(_ sdp: RTCSessionDescription, from sessionId: String) {
-        Log.info(.calls, "Received remote SDP: \(sdp.sdp).")
+        Log.info(.calls, "Handling remote SDP and sending answer.")
         
         peerConnection?.setRemoteDescription(sdp, completionHandler: { [weak self] error in
             if let error = error {
@@ -27,7 +27,17 @@ extension WebRTCSession {
                 DispatchQueue.global(qos: .userInitiated).async {
                     self?.sendAnswer(to: sessionId)
                         .retry(5)
-                        .sinkUntilComplete()
+                        .sinkUntilComplete(
+                            receiveCompletion: { [weak self] result in
+                                switch result {
+                                    case .finished:
+                                        Log.info(.calls, "Answer message sent")
+                                    case .failure(let error):
+                                        Log.error(.calls, "Error sending answer message  due to error: \(error)")
+                                        self?.delegate?.handleCallFailed(reason: "Failed to send Answer")
+                                }
+                            }
+                        )
                 }
             }
         })

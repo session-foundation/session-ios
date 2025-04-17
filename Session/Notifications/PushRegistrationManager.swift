@@ -263,8 +263,9 @@ public class PushRegistrationManager: NSObject, PKPushRegistryDelegate {
     }
     
     // NOTE: This function MUST report an incoming call.
-    public func pushRegistry(_ registry: PKPushRegistry, didReceiveIncomingPushWith payload: PKPushPayload, for type: PKPushType) {
-        Log.info("[PushRegistrationManager] Receive new voip notification.")
+    public func pushRegistry(_ registry: PKPushRegistry, didReceiveIncomingPushWith payload: PKPushPayload, for type: PKPushType, completion completionHandler: @escaping () -> Void) {
+        Log.appResumedExecution()
+        Log.info(.calls, "Receive new voip notification in PushRegistrationManager.")
         Log.assert(dependencies[singleton: .appContext].isMainApp)
         Log.assert(type == .voIP)
         let payload = payload.dictionaryPayload
@@ -293,11 +294,12 @@ public class PushRegistrationManager: NSObject, PKPushRegistryDelegate {
         
         Log.info(.calls, "Calls created with UUID: \(uuid), caller: \(caller), contactName: \(contactName)")
         
-        dependencies[singleton: .jobRunner].appDidBecomeActive()
-        
         dependencies[singleton: .appReadiness].runNowOrWhenAppDidBecomeReady { [dependencies] in
             // NOTE: Just start 1-1 poller so that it won't wait for polling group messages
-            dependencies[singleton: .currentUserPoller].startIfNeeded(forceStartInBackground: true)
+            DispatchQueue.global(qos: .background).async {
+                dependencies[singleton: .jobRunner].appDidBecomeActive()
+                dependencies[singleton: .currentUserPoller].startIfNeeded(forceStartInBackground: true)
+            }
         }
         
         call.reportIncomingCallIfNeeded { error in
@@ -306,6 +308,7 @@ public class PushRegistrationManager: NSObject, PKPushRegistryDelegate {
             } else {
                 Log.info(.calls, "Succeeded to report incoming call to CallKit")
             }
+            completionHandler()
         }
     }
 }

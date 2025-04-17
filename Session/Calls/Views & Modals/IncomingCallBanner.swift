@@ -215,19 +215,22 @@ final class IncomingCallBanner: UIView, UIGestureRecognizerDelegate {
     
     public func showCallVC(answer: Bool) {
         dismiss()
-        guard let presentingVC: UIViewController = dependencies[singleton: .appContext].frontMostViewController else {
+        guard let currentFrontMostViewController: UIViewController = dependencies[singleton: .appContext].frontMostViewController else {
             Log.critical(.calls, "Failed to retrieve front view controller when showing the call UI")
             return endCall()
         }
         
         let callVC = CallVC(for: self.call, using: dependencies)
-        if let conversationVC = (presentingVC as? TopBannerController)?.wrappedViewController() as? ConversationVC {
+        if
+            let conversationVC = currentFrontMostViewController as? ConversationVC,
+            conversationVC.viewModel.threadData.threadId == call.sessionId
+        {
             callVC.conversationVC = conversationVC
             conversationVC.resignFirstResponder()
             conversationVC.hideInputAccessoryView()
         }
         
-        presentingVC.present(callVC, animated: true) { [weak self] in
+        currentFrontMostViewController.present(callVC, animated: true) { [weak self] in
             guard answer else { return }
             
             self?.call.answerSessionCall()

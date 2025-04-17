@@ -879,6 +879,7 @@ extension ConversationVC:
             }
             return
         }
+        guard viewModel.dependencies[singleton: .appContext].frontMostViewController === self else { return }
         UIView.animate(withDuration: 0.25, animations: {
             self.inputAccessoryView?.isHidden = false
             self.inputAccessoryView?.alpha = 1
@@ -957,6 +958,19 @@ extension ConversationVC:
     ) {
         // For call info messages show the "call missed" modal
         guard cellViewModel.variant != .infoCall else {
+            // Show a toast on failed calls
+            if let mostRecentFailureText = cellViewModel.mostRecentFailureText, !mostRecentFailureText.isEmpty {
+                let toastController: ToastController = ToastController(
+                    text: mostRecentFailureText,
+                    background: .backgroundSecondary
+                )
+                toastController.presentToastView(
+                    fromBottomOfView: self.view,
+                    inset: (snInputView.bounds.height + Values.largeSpacing),
+                    duration: .milliseconds(5000)
+                )
+                return
+            }
             // If the failure was due to the mic permission being denied then we want to show the permission modal,
             // otherwise we want to show the call missed tips modal
             guard

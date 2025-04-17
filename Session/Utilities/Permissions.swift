@@ -173,8 +173,12 @@ extension Permissions {
     // MARK: - Local Network Premission
     
     public static func localNetwork(using dependencies: Dependencies) -> Status {
+#if targetEnvironment(simulator)
+        return .granted
+#else
         let status: Bool = dependencies[singleton: .storage, key: .lastSeenHasLocalNetworkPermission]
-        return status ? .granted : .denied
+        return status ? .granted : .denied        
+#endif
     }
     
     public static func requestLocalNetworkPermissionIfNeeded(using dependencies: Dependencies) {

@@ -266,7 +266,7 @@ public final class SessionCall: CurrentCallProtocol, WebRTCSessionDelegate {
                             Log.info(.calls, "Offer message sent")
                         case .failure(let error):
                             Log.error(.calls, "Error initializing call after 5 retries: \(error), ending call...")
-                            self?.handleCallInitializationFailed()
+                            self?.handleCallFailed(reason: "Failed to send Offer.")
                     }
                 }
             )
@@ -299,9 +299,18 @@ public final class SessionCall: CurrentCallProtocol, WebRTCSessionDelegate {
         hasEnded = true
     }
     
-    func handleCallInitializationFailed() {
+    public func handleCallFailed(reason: String? = nil) {
         self.endSessionCall()
         dependencies[singleton: .callManager].reportCurrentCallEnded(reason: .failed)
+        dependencies[singleton: .storage].writeAsync { [sessionId, uuid] db in
+            _ = try? Interaction
+                .filter(Interaction.Columns.threadId == sessionId)
+                .filter(Interaction.Columns.messageUuid == uuid)
+                .updateAll(
+                    db,
+                    Interaction.Columns.mostRecentFailureText.set(to: reason)
+                )
+        }
     }
     
     // MARK: - Call Message Handling
@@ -511,7 +520,7 @@ public final class SessionCall: CurrentCallProtocol, WebRTCSessionDelegate {
             self?.didTimeout = true
             
             dependencies[singleton: .callManager].endCall(self) { error in
-                self?.timeOutTimer = nil
+                self?.invalidateTimeoutTimer()
             }
         }
     }
@@ -617,14 +626,19 @@ extension SessionCall {
         connectionStepsRecord[step.index] = true
         while let nextStep = currentConnectionStep.nextStep, connectionStepsRecord[nextStep.index] {
             currentConnectionStep = nextStep
-            DispatchQueue.main.async {
+            DispatchQueue.main.async { [dependencies] in
+                guard
+                    dependencies[singleton: .appContext].isMainAppAndActive &&
+                    dependencies[singleton: .appContext].frontMostViewController is CallVC
+                else {
+                    return
+                }
                 self.updateCallDetailedStatus?(
                     self.mode == .offer ?
                     SessionCall.call_connection_steps_sender[self.currentConnectionStep.index] :
                     SessionCall.call_connection_steps_receiver[self.currentConnectionStep.index]
                 )
             }
-            
         }
     }
 }
