@@ -77,18 +77,11 @@ jobs:
             -maximum-test-execution-time-allowance 10 \
             -collect-test-diagnostics never \
             test \
+            ENABLE_TESTABILITY=YES \
             CODE_SIGN_IDENTITY="" \
             DEVELOPMENT_TEAM="" \
             CODE_SIGNING_REQUIRED=NO \
           | xcbeautify --renderer github-actions --is-ci
-
-      - name: Convert xcresult to JUnit XML
-        if: always()
-        run: |
-          xcresultparser \
-            --output-format junit \
-            ./build/artifacts/testResults.xcresult \
-            > ./build/artifacts/test-results.xml
 
       - name: Parse Tests
         id: parse_tests
@@ -228,9 +221,6 @@ jobs:
               status: 'completed',
               conclusion: conclusion,
               completed_at: new Date().toISOString(),
-              output: {
-                title: "Unit Tests",
-                summary: summary
-              },
+              output: summary,
               details_url: runUrl
             });
