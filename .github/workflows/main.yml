@@ -37,7 +37,23 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Build and Run Tests
-        run: NSUnbufferedIO=YES set -o pipefail && xcodebuild test -project Session.xcodeproj -scheme Session -derivedDataPath ./build/derivedData -resultBundlePath ./build/artifacts/testResults.xcresult -parallelizeTargets -destination "platform=iOS Simulator" -parallel-testing-enabled NO -test-timeouts-enabled YES -maximum-test-execution-time-allowance 10 -collect-test-diagnostics never 2>&1 | xcbeautify --renderer github-actions
+        run: |
+          set -o pipefail && \
+          xcodebuild \
+            -project Session.xcodeproj
+            -scheme Session
+            -derivedDataPath ./build/derivedData
+            -resultBundlePath ./build/artifacts/testResults.xcresult
+            -parallelizeTargets
+            -destination "platform=iOS Simulator,OS=latest"
+            -parallel-testing-enabled NO
+            -test-timeouts-enabled YES
+            -maximum-test-execution-time-allowance 10
+            -collect-test-diagnostics never \
+            test \
+            CODE_SIGN_IDENTITY="" \
+            CODE_SIGNING_REQUIRED=NO \
+          | xcbeautify --renderer github-actions
 
   simulator_build:
     runs-on: macos-14
@@ -48,14 +64,27 @@ jobs:
         run: |
           git --version
           xcodebuild -version
-          xcbeautify --version
-          xcresultparser --version
+          echo "xcbeautify: $(xcbeautify --version)"
 
       - name: Checkout git repo
         uses: actions/checkout@v4
 
       - name: Build
-        run: NSUnbufferedIO=YES set -o pipefail && xcodebuild archive -project Session.xcodeproj -scheme Session -derivedDataPath ./build/derivedData -parallelizeTargets -configuration "App_Store_Release" -sdk iphonesimulator -archivePath ./build/Session_sim.xcarchive -destination "generic/platform=iOS Simulator" | xcbeautify --renderer github-actions
+        run: |
+          set -o pipefail &&\
+          xcodebuild \
+            -project Session.xcodeproj \
+            -scheme Session \
+            -derivedDataPath ./build/derivedData \
+            -parallelizeTargets \
+            -configuration "App_Store_Release" \
+            -sdk iphonesimulator \
+            -archivePath ./build/Session_sim.xcarchive \
+            -destination "generic/platform=iOS Simulator" \
+            archive \
+            CODE_SIGN_IDENTITY="" \
+            CODE_SIGNING_REQUIRED=NO \
+          | xcbeautify --renderer github-actions
 
       - name: Upload Artifacts
         uses: actions/upload-artifact@v4
