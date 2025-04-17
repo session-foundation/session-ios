@@ -53,7 +53,8 @@ jobs:
               status: 'in_progress',
               started_at: new Date().toISOString(),
               output: {
-                title: "Waiting for results..."
+                title: "Unit Tests",
+                summary: "Waiting for results..."
               }
             });
 
@@ -247,7 +248,8 @@ jobs:
               conclusion: conclusion,
               completed_at: new Date().toISOString(),
               output: {
-                title: summary
+                title: "Unit Tests",
+                summary: summary
               },
               details_url: runUrl
             });
