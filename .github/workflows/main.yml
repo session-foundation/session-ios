@@ -101,6 +101,7 @@ jobs:
 
       - name: Build and Run Tests
         run: |
+          mkdir -p ./build/artifacts
           NSUnbufferedIO=YES set -o pipefail && \
           xcodebuild \
             -project Session.xcodeproj \
@@ -129,6 +130,9 @@ jobs:
         id: parse_tests
         if: always() && steps.build_test.outcome != 'skipped'
         run: |
+          echo "Listing contents of ./build/artifacts/ after build/test step:"
+          ls -lR ./build/artifacts/ || echo "Directory ./build/artifacts/ not found or ls failed."
+
           TOTAL_TESTS=0
           FAILED_TESTS=0
           PASSED_TESTS=0
@@ -230,16 +234,14 @@ jobs:
             // Determine conclusion and format the summary string
             if (failed > 0) {
               conclusion = 'failure';
-              summary = `❌ ${failed} failed, ${passed} passed (${total} total)`;
+              summary = `${failed} failed, ${passed} passed (${total} total)`;
             } else if (total > 0) {
               conclusion = 'success';
-              summary = `✅ ${passed} tests passed (${total} total)`;
+              summary = `${passed} tests passed (${total} total)`;
             } else {
                conclusion = 'neutral';
-               summary = `❓ No test results found or 0 tests run.`;
+               summary = `No test results found or 0 tests run`;
             }
-
-            summary += `\n\n[View Full Workflow Run Details](${runUrl})`;
 
             if (!headSha) {
               core.setFailed('Error: HEAD_SHA_INPUT was not correctly passed.');
