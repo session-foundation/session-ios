@@ -1,0 +1,70 @@
+# There is a fair bit of duplication here, but it is the best to save our github free minutes for now.
+# We could save and restore cache to different jobs but that takes roughly 3 minutes to save,
+# so better run them in parrallel instead.
+
+name: Session iOS
+
+on:
+  push:
+    branches:
+      - master
+      - dev
+      - 'release/**'
+  pull_request:
+    branches:
+      - master
+      - dev
+      - 'release/**'
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  unit_tests:
+    runs-on: macos-14
+    env:
+      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+    steps:
+      - name: Version Information
+        run: |
+          git --version
+          xcodebuild -version
+          xcbeautify --version
+          xcresultparser --version
+
+      - name: Checkout git repo
+        uses: actions/checkout@v4
+
+      - name: Build and Run Tests
+        run: |
+          devname="Test-iPhone-${DRONE_COMMIT:0:9}-${DRONE_BUILD_EVENT}"
+          device_type=$(xcrun simctl list devicetypes -j | jq -r \'.devicetypes | map(select(.productFamily=="iPhone")) | sort_by(.minRuntimeVersion) | .[-1].identifier\' | tail -n1); xcrun simctl create "$devname" "$device_type"
+          sim_uuid=$(xcrun simctl list devices -je | jq -re \'[.devices[][] | select(.name == "\'$devname\'").udid][0]\')
+          xcrun simctl boot $sim_uuid
+
+          NSUnbufferedIO=YES set -o pipefail && xcodebuild test -project Session.xcodeproj -scheme Session -derivedDataPath ./build/derivedData -resultBundlePath ./build/artifacts/testResults.xcresult -parallelizeTargets -destination "platform=iOS Simulator,id=$sim_uuid" -parallel-testing-enabled NO -test-timeouts-enabled YES -maximum-test-execution-time-allowance 10 -collect-test-diagnostics never 2>&1 | xcbeautify --renderer github-actions
+
+  simulator_build:
+    runs-on: macos-14
+    env:
+      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+    steps:
+      - name: Version Information
+        run: |
+          git --version
+          xcodebuild -version
+          xcbeautify --version
+          xcresultparser --version
+
+      - name: Checkout git repo
+        uses: actions/checkout@v4
+
+      - name: Build
+        run: NSUnbufferedIO=YES set -o pipefail && xcodebuild archive -project Session.xcodeproj -scheme Session -derivedDataPath ./build/derivedData -parallelizeTargets -configuration "App_Store_Release" -sdk iphonesimulator -archivePath ./build/Session_sim.xcarchive -destination "generic/platform=iOS Simulator" | xcbeautify --renderer github-actions
+
+      - name: Upload Artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: session-ios-simulator
+          path: build/Session_sim.xcarchive/Products/Applications/Session.app
