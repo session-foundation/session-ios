@@ -16,12 +16,11 @@ if echo "${DRONE_COMMIT_MESSAGE}" | grep -q -F "[Reset SPM]"; then
   echo "--> Clearing global SwiftPM artifact fingerprints (~/Library/org.swift.swiftpm)..."
   rm -rf ~/Library/org.swift.swiftpm || echo "Warning: Failed to remove ~/Library/org.swift.swiftpm (might not exist or permissions issue)"
 
+  echo "--> Clearing Drone-specific caches..."
+  rm -rf /drone/src/.build || echo "Warning: Failed to remove /drone/src/.build (might not exist or permissions issue)"
+  rm -rf /drone/src/.swiftpm || echo "Warning: Failed to remove /drone/src/.swiftpm (might not exist or permissions issue)"
+
   echo -e "\n${green}SPM caches cleared."
 else
   echo -e "\n${green}Trigger phrase not found. Skipping SPM cache clearing."
 fi
-
-echo "--- Searching for bad checksum string (f528...) ---"
-find /var/folders /tmp ~/Library -type f -exec grep -q 'f528fc9fbc9f' {} \; -print 2>/dev/null | tee find_results_checksum.log
-echo "--- Find Results (Checksum) ---"
-cat find_results_checksum.log || echo "No checksum results found."
