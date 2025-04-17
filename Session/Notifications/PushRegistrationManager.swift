@@ -294,11 +294,12 @@ public class PushRegistrationManager: NSObject, PKPushRegistryDelegate {
         
         Log.info(.calls, "Calls created with UUID: \(uuid), caller: \(caller), contactName: \(contactName)")
         
-        dependencies[singleton: .jobRunner].appDidBecomeActive()
-        
         dependencies[singleton: .appReadiness].runNowOrWhenAppDidBecomeReady { [dependencies] in
             // NOTE: Just start 1-1 poller so that it won't wait for polling group messages
-            dependencies[singleton: .currentUserPoller].startIfNeeded(forceStartInBackground: true)
+            DispatchQueue.global(qos: .background).async {
+                dependencies[singleton: .jobRunner].appDidBecomeActive()
+                dependencies[singleton: .currentUserPoller].startIfNeeded(forceStartInBackground: true)
+            }
         }
         
         call.reportIncomingCallIfNeeded { error in

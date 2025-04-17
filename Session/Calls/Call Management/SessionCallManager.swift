@@ -125,6 +125,7 @@ public final class SessionCallManager: NSObject, CallManagerProtocol {
         // Report the incoming call to the system
         self.provider?.reportNewIncomingCall(with: call.callId, update: update) { [dependencies] error in
             guard error == nil else {
+                Log.error(.calls, "Report incoming call to CallKit failed: \(String(describing: error))")
                 self.reportCurrentCallEnded(reason: .failed)
                 completion(error)
                 return
