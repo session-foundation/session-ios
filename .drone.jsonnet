@@ -122,12 +122,16 @@ local clear_spm_cache_on_commit_trigger = {
     trigger: { event: { exclude: ['pull_request'] } },
     steps: [
       version_info,
+      clear_spm_cache_on_commit_trigger,
       {
         name: 'Build',
         commands: [
           'mkdir build',
           'NSUnbufferedIO=YES set -o pipefail && xcodebuild archive -project Session.xcodeproj -scheme Session -derivedDataPath ./build/derivedData -parallelizeTargets -configuration "App_Store_Release" -sdk iphonesimulator -archivePath ./build/Session_sim.xcarchive -destination "generic/platform=iOS Simulator" | xcbeautify --is-ci',
         ],
+        depends_on: [
+          'Reset SPM Cache if Needed'
+        ]
       },
       {
         name: 'Upload artifacts',
