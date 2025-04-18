@@ -8,21 +8,9 @@ if echo "${DRONE_COMMIT_MESSAGE}" | grep -q -F "[Reset SPM]"; then
   echo "Trigger phrase found in commit message. Clearing SPM caches..."
   
   echo "--> Clearing global SwiftPM caches..."
-  rm -rf ~/.swiftpm || echo "Warning: Failed to remove ~/.swiftpm"
-  rm -rf ~/Library/org.swift.swiftpm || echo "Warning: Failed to remove ~/Library/org.swift.swiftpm"
-  rm -rf ~/Library/Caches/org.swift.swiftpm || echo "Warning: Failed to remove ~/Library/Caches/org.swift.swiftpm"
-  rm -rf ~/Library/Caches/org.swift.swiftpm/repositories || echo "Warning: Failed to remove ~/Library/Caches/org.swift.swiftpm/repositories"
-  rm -rf ~/Library/Caches/com.apple.dt.Xcode || echo "Warning: Failed to remove ~/Library/Caches/com.apple.dt.Xcode"
-  rm -rf /var/folders/*/*/*/com.apple.DeveloperTools/*/Xcode/SourcePackages
-  
-
-  echo "--> Removing project build directories (just in case)..."
-  rm -rf ~/Library/Developer/Xcode/DerivedData || echo "Warning: Failed to remove ~/Library/Developer/Xcode/DerivedData"
-
-  echo "--> Clearing Drone-specific caches..."
-  rm -rf /drone/src/DerivedData || echo "Warning: Failed to remove /drone/src/DerivedData"
-  rm -rf /drone/src/.build || echo "Warning: Failed to remove /drone/src/.build"
-  rm -rf /drone/src/.swiftpm || echo "Warning: Failed to remove /drone/src/.swiftpm"
+  rm -rf Users/drone/.swiftpm || echo "Warning: Failed to remove Users/drone/.swiftpm"
+  rm -rf Users/drone/Library/org.swift.swiftpm || echo "Warning: Failed to remove Users/drone/Library/org.swift.swiftpm"
+  rm -rf Users/drone/Library/Caches/org.swift.swiftpm || echo "Warning: Failed to remove Users/drone/Library/Caches/org.swift.swiftpm"
 
   echo -e "\n${green}SPM caches cleared."
 else
