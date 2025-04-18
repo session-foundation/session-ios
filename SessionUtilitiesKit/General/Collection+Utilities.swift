@@ -6,31 +6,32 @@ public extension Collection where Element == String {
     func withUnsafeCStrArray<R>(
         _ body: (UnsafeBufferPointer<UnsafePointer<CChar>?>) throws -> R
     ) throws -> R {
-        let cCharArrays: [[CChar]] = try map { swiftStr in
-            guard let cChars = swiftStr.cString(using: .utf8) else {
+        let pointerArray = UnsafeMutablePointer<UnsafeMutablePointer<CChar>?>.allocate(capacity: self.count)
+        var allocatedCStrings: [UnsafeMutablePointer<CChar>?] = []
+        allocatedCStrings.reserveCapacity(self.count)
+        defer {
+            for ptr in allocatedCStrings {
+                free(ptr)   /// Need to use `free` for memory allocated by `strdup`
+            }
+            pointerArray.deallocate()
+        }
+        
+        var currentPtr: UnsafeMutablePointer<UnsafeMutablePointer<CChar>?> = pointerArray
+        for element in self {
+            /// `strdup` allocates memory and copies the C string (inc. null terminator), it returns NULL on allocation failure.
+            guard let cString: UnsafeMutablePointer<CChar> = strdup(element) else {
                 throw LibSessionError.invalidCConversion
             }
             
-            return cChars
+            allocatedCStrings.append(cString)  /// Track for cleanup
+            currentPtr.pointee = cString       /// Store pointer in the array
+            currentPtr += 1                    /// Move to next slot in pointer array
         }
         
-        /// Temporary storage for pointers to the C pointers, needs to live until the closure returns
-        var temporaryPointerStorage: [UnsafePointer<CChar>?] = []
-        temporaryPointerStorage.reserveCapacity(cCharArrays.count)
+        let mutableBuffer = UnsafeBufferPointer(start: pointerArray, count: self.count)
         
-        for cCharArray in cCharArrays {
-            /// Get pointer for this specific inner array. The `withUnsafeBufferPointer` scope ends here, but Swift ensures the
-            /// underlying data is valid long enough for the pointer to be added to `temporaryPointerStorage` (ARC keeps the
-            /// `cCharArrays` alive)
-            cCharArray.withUnsafeBufferPointer { bufferPtr in
-                temporaryPointerStorage.append(bufferPtr.baseAddress)
-            }
-        }
-        
-        /// Get a temporary pointer to `temporaryPointerStorage` which holds valid pointers (or `nil`) for each element,
-        /// this array of pointers has a *shallow* scope.
-        return try temporaryPointerStorage.withUnsafeBufferPointer { pointersBuffer in
-            try body(pointersBuffer)
+        return try mutableBuffer.withMemoryRebound(to: UnsafePointer<CChar>?.self) { immutableBuffer in
+            try body(immutableBuffer)
         }
     }
 }
@@ -39,28 +40,38 @@ public extension Collection where Element == [UInt8]? {
     func withUnsafeUInt8CArray<R>(
         _ body: (UnsafeBufferPointer<UnsafePointer<UInt8>?>) throws -> R
     ) throws -> R {
-        /// Temporary storage for pointers to each inner array's data, needs to live until the closure returns
-        var temporaryPointerStorage: [UnsafePointer<UInt8>?] = []
-        temporaryPointerStorage.reserveCapacity(self.count) // Pre-allocate space
-        
-        for element in self {
-            guard let array = element else {
-                temporaryPointerStorage.append(nil)
-                continue
+        let pointerArray = UnsafeMutablePointer<UnsafeMutablePointer<UInt8>?>.allocate(capacity: self.count)
+        var allocatedByteArrays: [UnsafeMutableRawPointer?] = []
+        allocatedByteArrays.reserveCapacity(self.count)
+
+        defer {
+            for ptr in allocatedByteArrays {
+                free(ptr) /// Need to use `free` for memory allocated by `malloc`
             }
             
-            /// Get pointer for this specific inner array. The `withUnsafeBufferPointer` scope ends here, but Swift ensures the
-            /// underlying data is valid long enough for the pointer to be added to `temporaryPointerStorage` (ARC keeps the
-            /// [UInt8] arrays alive)
-            array.withUnsafeBufferPointer { bufferPtr in
-                temporaryPointerStorage.append(bufferPtr.baseAddress)
-            }
+            pointerArray.deallocate()
         }
-        
-        /// Get a temporary pointer to `temporaryPointerStorage` which holds valid pointers (or `nil`) for each element,
-        /// this array of pointers has a *shallow* scope.
-        return try temporaryPointerStorage.withUnsafeBufferPointer { pointersBuffer in
-            try body(pointersBuffer)
+
+        var currentPtr: UnsafeMutablePointer<UnsafeMutablePointer<UInt8>?> = pointerArray
+        for maybeBytes in self {
+            if let bytes = maybeBytes {
+                guard let allocatedMemory: UnsafeMutableRawPointer = malloc(bytes.count) else {
+                    throw LibSessionError.invalidCConversion
+                }
+                
+                allocatedByteArrays.append(allocatedMemory) /// Track for cleanup
+                memcpy(allocatedMemory, bytes, bytes.count) /// Copy bytes into the allocated memory
+                currentPtr.pointee = allocatedMemory.assumingMemoryBound(to: UInt8.self) /// Store in array
+            } else {
+                currentPtr.pointee = nil /// Store nil in array
+            }
+            currentPtr += 1 /// Move to next slot in pointer array
+        }
+
+        let mutableBuffer = UnsafeBufferPointer(start: pointerArray, count: self.count)
+
+        return try mutableBuffer.withMemoryRebound(to: UnsafePointer<UInt8>?.self) { immutableBuffer in
+            try body(immutableBuffer)
         }
     }
 }
