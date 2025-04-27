@@ -45,6 +45,13 @@ local sim_keepalive = {
   depends_on: ['Boot Test Simulator'],
 };
 local sim_delete_cmd = 'if [ -f build/artifacts/sim_uuid ]; then rm -f /Users/$USER/sim-keepalive/$(<./build/artifacts/sim_uuid); fi';
+local clear_spm_cache_on_commit_trigger = {
+  name: 'Reset SPM Cache if Needed',
+  commands: [
+    './Scripts/reset_spm_cache.sh',
+  ],
+};
+
 
 [
   // Unit tests (PRs only)
@@ -56,15 +63,20 @@ local sim_delete_cmd = 'if [ -f build/artifacts/sim_uuid ]; then rm -f /Users/$U
     trigger: { event: { exclude: ['push'] } },
     steps: [
       version_info,
+      clear_spm_cache_on_commit_trigger,
 
       boot_simulator(),
       sim_keepalive,
       {
         name: 'Build and Run Tests',
         commands: [
-          'NSUnbufferedIO=YES set -o pipefail && xcodebuild test -project Session.xcodeproj -scheme Session -derivedDataPath ./build/derivedData -resultBundlePath ./build/artifacts/testResults.xcresult -parallelizeTargets -destination "platform=iOS Simulator,id=$(<./build/artifacts/sim_uuid)" -parallel-testing-enabled NO -test-timeouts-enabled YES -maximum-test-execution-time-allowance 10 -collect-test-diagnostics never 2>&1 | xcbeautify --is-ci',
+          'echo "Explicitly running unit tests on `App_Store_Release` configuration to ensure optimisation behaviour is consistent"',
+          'echo "If tests fail inconsistently from local builds this is likely the difference"',
+          'echo ""',
+          'NSUnbufferedIO=YES set -o pipefail && xcodebuild test -project Session.xcodeproj -scheme Session -derivedDataPath ./build/derivedData -resultBundlePath ./build/artifacts/testResults.xcresult -parallelizeTargets -configuration "App_Store_Release" -destination "platform=iOS Simulator,id=$(<./build/artifacts/sim_uuid)" -parallel-testing-enabled NO -test-timeouts-enabled YES -maximum-test-execution-time-allowance 10 -collect-test-diagnostics never ENABLE_TESTABILITY=YES 2>&1 | xcbeautify --is-ci',
         ],
         depends_on: [
+          'Reset SPM Cache if Needed',
           'Boot Test Simulator'
         ],
       },
@@ -110,12 +122,16 @@ local sim_delete_cmd = 'if [ -f build/artifacts/sim_uuid ]; then rm -f /Users/$U
     trigger: { event: { exclude: ['pull_request'] } },
     steps: [
       version_info,
+      clear_spm_cache_on_commit_trigger,
       {
         name: 'Build',
         commands: [
           'mkdir build',
           'NSUnbufferedIO=YES set -o pipefail && xcodebuild archive -project Session.xcodeproj -scheme Session -derivedDataPath ./build/derivedData -parallelizeTargets -configuration "App_Store_Release" -sdk iphonesimulator -archivePath ./build/Session_sim.xcarchive -destination "generic/platform=iOS Simulator" | xcbeautify --is-ci',
         ],
+        depends_on: [
+          'Reset SPM Cache if Needed'
+        ]
       },
       {
         name: 'Upload artifacts',

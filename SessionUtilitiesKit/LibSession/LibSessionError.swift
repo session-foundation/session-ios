@@ -21,6 +21,7 @@ public enum LibSessionError: Error, CustomStringConvertible {
     case unableToGeneratePushData
     case attemptedToModifyGroupWithoutAdminKey
     case foundMultipleSequenceNumbersWhenPushing
+    case partialMultiConfigPushFailure
     
     case libSessionError(String)
     
@@ -134,6 +135,7 @@ public enum LibSessionError: Error, CustomStringConvertible {
             case .attemptedToModifyGroupWithoutAdminKey:
                 return "Attempted to modify group without admin key (LibSessionError.attemptedToModifyGroupWithoutAdminKey)."
             case .foundMultipleSequenceNumbersWhenPushing: return "Found multiple sequence numbers when pushing (LibSessionError.foundMultipleSequenceNumbersWhenPushing)."
+            case .partialMultiConfigPushFailure: return "Failed to push up part of a multi-part config (LibSessionError.partialMultiConfigPushFailure)."
             
             case .libSessionError(let error): return "\(error)"
         }

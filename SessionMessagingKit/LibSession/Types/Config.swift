@@ -236,7 +236,7 @@ public extension LibSession {
                     return result
                     
                 case .groupKeys(let conf, _, _):
-                    guard let hashList: UnsafeMutablePointer<config_string_list> = groups_keys_current_hashes(conf) else {
+                    guard let hashList: UnsafeMutablePointer<config_string_list> = groups_keys_active_hashes(conf) else {
                         return []
                     }
                     
