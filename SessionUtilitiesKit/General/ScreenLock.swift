@@ -2,6 +2,7 @@
 
 import UIKit
 import LocalAuthentication
+import SessionUIKit
 
 // MARK: - Log.Category
 

@@ -412,8 +412,6 @@ public final class NotificationServiceExtension: UNNotificationServiceExtension 
                 // Configure the different targets
                 SNUtilitiesKit.configure(
                     networkMaxFileSize: Network.maxFileSize,
-                    localizedFormatted: { helper, font in NSAttributedString() },
-                    localizedDeformatted: { helper in NSENotificationPresenter.localizedDeformatted(helper) },
                     using: dependencies
                 )
                 SNMessagingKit.configure(using: dependencies)
@@ -549,7 +547,7 @@ public final class NotificationServiceExtension: UNNotificationServiceExtension 
     private func handleFailureForVoIP(_ db: Database, for callMessage: CallMessage, requestId: String) {
         let notificationContent = UNMutableNotificationContent()
         notificationContent.userInfo = [ NotificationServiceExtension.isFromRemoteKey : true ]
-        notificationContent.title = Constants.app_name
+        notificationContent.title = NSEConstants.app_name
         
         /// Update the app badge in case the unread count changed
         if let unreadCount: Int = try? Interaction.fetchAppBadgeUnreadCount(db, using: dependencies) {
@@ -622,7 +620,7 @@ public final class NotificationServiceExtension: UNNotificationServiceExtension 
         Log.flush()
         Log.reset()
         
-        content.title = Constants.app_name
+        content.title = NSEConstants.app_name
         content.userInfo = [ NotificationServiceExtension.isFromRemoteKey: true ]
         
         /// If it's a notification for a group conversation, the notification preferences are right and we have a name for the group
