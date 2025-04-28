@@ -1,8 +1,6 @@
 // Copyright © 2023 Rangeproof Pty Ltd. All rights reserved.
 
 import SwiftUI
-import SessionUIKit
-import SessionUtilitiesKit
 
 public class HostWrapper: ObservableObject {
     public weak var controller: UIViewController?
@@ -13,7 +11,7 @@ public enum NavigationItemPosition {
     case right
 }
 
-public class SessionHostingViewController<Content>: UIHostingController<ModifiedContent<Content, _EnvironmentKeyWritingModifier<HostWrapper?>>>, ThemedNavigation where Content : View {
+open class SessionHostingViewController<Content>: UIHostingController<ModifiedContent<Content, _EnvironmentKeyWritingModifier<HostWrapper?>>>, ThemedNavigation where Content : View {
     public override var preferredStatusBarStyle: UIStatusBarStyle {
         return ThemeManager.currentTheme.statusBarStyle
     }
@@ -51,11 +49,11 @@ public class SessionHostingViewController<Content>: UIHostingController<Modified
         container.controller = self
     }
     
-    required init?(coder: NSCoder) {
+    required public init?(coder: NSCoder) {
         fatalError("init(coder:) has not been implemented")
     }
     
-    public override func viewDidLoad() {
+    open override func viewDidLoad() {
         super.viewDidLoad()
 
         navigationItem.backButtonTitle = ""
@@ -79,7 +77,7 @@ public class SessionHostingViewController<Content>: UIHostingController<Modified
         super.viewWillDisappear(animated)
     }
 
-    internal func setNavBarTitle(_ title: String, customFontSize: CGFloat? = nil) {
+    public func setNavBarTitle(_ title: String, customFontSize: CGFloat? = nil) {
         let container = UIView()
         navBarTitleLabel.text = title
         crossfadeLabel.text = title
@@ -98,7 +96,7 @@ public class SessionHostingViewController<Content>: UIHostingController<Modified
         navigationItem.titleView = container
     }
     
-    internal func setUpNavBarSessionHeading() {
+    public func setUpNavBarSessionHeading() {
         let headingImageView = UIImageView(
             image: UIImage(named: "SessionHeading")?
                 .withRenderingMode(.alwaysTemplate)
@@ -111,73 +109,11 @@ public class SessionHostingViewController<Content>: UIHostingController<Modified
         navigationItem.titleView = headingImageView
     }
 
-    internal func setUpNavBarSessionIcon(using dependencies: Dependencies) {
-        let logoImageView = UIImageView()
-        logoImageView.image = #imageLiteral(resourceName: "SessionGreen32")
-        logoImageView.contentMode = .scaleAspectFit
-        logoImageView.set(.width, to: 32)
-        logoImageView.set(.height, to: 32)
-        
-        switch (dependencies[feature: .serviceNetwork], dependencies[feature: .forceOffline]) {
-            case (.mainnet, false): navigationItem.titleView = logoImageView
-            case (.testnet, _), (.mainnet, true):
-                let containerView: UIView = UIView()
-                containerView.clipsToBounds = false
-                containerView.addSubview(logoImageView)
-                logoImageView.pin(to: containerView)
-                
-                let labelStackView: UIStackView = UIStackView()
-                labelStackView.axis = .vertical
-                containerView.addSubview(labelStackView)
-                labelStackView.center(in: containerView)
-                labelStackView.transform = CGAffineTransform.identity.rotated(by: -(CGFloat.pi / 6))
-                
-                let testnetLabel: UILabel = UILabel()
-                testnetLabel.font = Fonts.boldSpaceMono(ofSize: 14)
-                testnetLabel.textAlignment = .center
-                
-                if dependencies[feature: .serviceNetwork] != .mainnet {
-                    labelStackView.addArrangedSubview(testnetLabel)
-                }
-                
-                let offlineLabel: UILabel = UILabel()
-                offlineLabel.font = Fonts.boldSpaceMono(ofSize: 14)
-                offlineLabel.textAlignment = .center
-                labelStackView.addArrangedSubview(offlineLabel)
-                
-                ThemeManager.onThemeChange(observer: testnetLabel) { [weak testnetLabel, weak offlineLabel] theme, primaryColor in
-                    guard
-                        let textColor: UIColor = theme.color(for: .textPrimary),
-                        let strokeColor: UIColor = theme.color(for: .backgroundPrimary)
-                    else { return }
-                    
-                    if dependencies[feature: .serviceNetwork] != .mainnet {
-                        testnetLabel?.attributedText = NSAttributedString(
-                            string: dependencies[feature: .serviceNetwork].title,
-                            attributes: [
-                                .foregroundColor: textColor,
-                                .strokeColor: strokeColor,
-                                .strokeWidth: -3
-                            ]
-                        )
-                    }
-                    
-                    offlineLabel?.attributedText = NSAttributedString(
-                        string: "Offline",  // stringlint:ignore
-                        attributes: [
-                            .foregroundColor: textColor,
-                            .strokeColor: strokeColor,
-                            .strokeWidth: -3
-                        ]
-                    )
-                }
-                
-                navigationItem.titleView = containerView
-        }
-        
+    public func setUpNavBarSessionIcon() {
+        navigationItem.titleView = SNUIKit.navBarSessionIcon()
     }
     
-    internal func setUpDismissingButton(on postion: NavigationItemPosition) {
+    public func setUpDismissingButton(on postion: NavigationItemPosition) {
         let closeButton = UIBarButtonItem(image: #imageLiteral(resourceName: "X"), style: .plain, target: self, action: #selector(close))
         closeButton.themeTintColor = .textPrimary
         switch postion {

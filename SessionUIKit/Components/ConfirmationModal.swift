@@ -598,7 +598,7 @@ public extension ConfirmationModal {
             confirmTitle: String? = nil,
             confirmStyle: ThemeValue = .alert_text,
             confirmEnabled: ButtonValidator = true,
-            cancelTitle: String = SNUIKit.localizedString(for: "cancel"),
+            cancelTitle: String = "cancel".localized(),
             cancelStyle: ThemeValue = .danger,
             cancelEnabled: ButtonValidator = true,
             hasCloseButton: Bool = false,

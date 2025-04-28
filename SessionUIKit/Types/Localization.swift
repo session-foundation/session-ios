@@ -30,7 +30,7 @@ final public class LocalizationHelper: CustomStringConvertible {
     }
 
     public func localized() -> String {
-        guard !Dependencies.unsafeNonInjected[feature: .showStringKeys] else {
+        guard !SNUIKit.shouldShowStringKeys() else {
             return "[\(template)]"
         }
         
@@ -80,6 +80,26 @@ final public class LocalizationHelper: CustomStringConvertible {
     }
 }
 
+// MARK: - Convenience
+
+public extension LocalizationHelper {
+    func localizedDeformatted() -> String {
+        return NSAttributedString(stringWithHTMLTags: localized(), font: .systemFont(ofSize: 14)).string
+    }
+    
+    func localizedFormatted(baseFont: UIFont) -> NSAttributedString {
+        return NSAttributedString(stringWithHTMLTags: localized(), font: baseFont)
+    }
+    
+    func localizedFormatted(in view: FontAccessible) -> NSAttributedString {
+        return localizedFormatted(baseFont: (view.fontValue ?? .systemFont(ofSize: 14)))
+    }
+    
+    func localizedFormatted(_ font: UIFont = .systemFont(ofSize: 14)) -> NSAttributedString {
+        return localizedFormatted(baseFont: font)
+    }
+}
+
 public extension String {
     func put(key: String, value: CustomStringConvertible) -> LocalizationHelper {
         return LocalizationHelper(template: self).put(key: key, value: value)
@@ -91,5 +111,13 @@ public extension String {
 
     func localized() -> String {
         return LocalizationHelper(template: self).localized()
+    }
+    
+    func localizedFormatted(baseFont: UIFont) -> NSAttributedString {
+        return LocalizationHelper(template: self).localizedFormatted(baseFont: baseFont)
+    }
+    
+    func localizedDeformatted() -> String {
+        return LocalizationHelper(template: self).localizedDeformatted()
     }
 }

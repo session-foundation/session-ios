@@ -4,6 +4,7 @@
 
 import Foundation
 import GRDB
+import SessionUIKit
 import SessionUtilitiesKit
 
 internal enum StartupError: Error, CustomStringConvertible {

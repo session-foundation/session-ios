@@ -10,12 +10,13 @@ public enum SNUIKit {
         var isStorageValid: Bool { get }
         
         func themeChanged(_ theme: Theme, _ primaryColor: Theme.PrimaryColor, _ matchSystemNightModeSetting: Bool)
+        func navBarSessionIcon() -> NavBarSessionIcon
         func persistentTopBannerChanged(warningKey: String?)
         func cachedContextualActionInfo(tableViewHash: Int, sideKey: String) -> [Int: Any]?
         func cacheContextualActionInfo(tableViewHash: Int, sideKey: String, actionIndex: Int, actionInfo: Any)
         func removeCachedContextualActionInfo(tableViewHash: Int, keys: [String])
         func placeholderIconCacher(cacheKey: String, generator: @escaping () -> UIImage) -> UIImage
-        func localizedString(for key: String) -> String
+        func shouldShowStringKeys() -> Bool
     }
     
     private static var _mainWindow: UIWindow? = nil
@@ -80,6 +81,12 @@ public enum SNUIKit {
         config?.themeChanged(theme, primaryColor, matchSystemNightModeSetting)
     }
     
+    internal static func navBarSessionIcon() -> NavBarSessionIcon {
+        guard let config: ConfigType = self.config else { return NavBarSessionIcon() }
+        
+        return config.navBarSessionIcon()
+    }
+    
     internal static func topBannerChanged(to warning: TopBannerController.Warning?) {
         guard let warning: TopBannerController.Warning = warning else {
             config?.persistentTopBannerChanged(warningKey: nil)
@@ -96,20 +103,9 @@ public enum SNUIKit {
         return config.placeholderIconCacher(cacheKey: cacheKey, generator: generator)
     }
     
-    public static func localizedString(for key: String) -> String {
-        guard let config: ConfigType = self.config else {
-            guard
-                let englishPath: String = Bundle.main.path(forResource: "en", ofType: "lproj"),
-                let englishBundle: Bundle = Bundle(path: englishPath)
-            else { return "" }
-            
-            return englishBundle.localizedString(forKey: key, value: nil, table: nil)
-        }
+    public static func shouldShowStringKeys() -> Bool {
+        guard let config: ConfigType = self.config else { return false }
         
-        return config.localizedString(for: key)
+        return config.shouldShowStringKeys()
     }
-}
-
-internal extension String {
-    func localizedSNUIKit() -> String { SNUIKit.localizedString(for: self) }
 }
