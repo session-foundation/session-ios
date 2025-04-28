@@ -816,6 +816,7 @@
 		FD8A5B112DBF34BD004C689B /* Date+Utilities.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD848B9728422F1A000E298B /* Date+Utilities.swift */; };
 		FD8A5B182DBF47E9004C689B /* SessionUIKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = C331FF1B2558F9D300070591 /* SessionUIKit.framework */; };
 		FD8A5B192DBF47E9004C689B /* SessionUIKit.framework in Embed Frameworks */ = {isa = PBXBuildFile; fileRef = C331FF1B2558F9D300070591 /* SessionUIKit.framework */; settings = {ATTRIBUTES = (CodeSignOnCopy, RemoveHeadersOnCopy, ); }; };
+		FD8A5B1E2DBF4BBC004C689B /* ScreenLock+Errors.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD8A5B1D2DBF4BB8004C689B /* ScreenLock+Errors.swift */; };
 		FD8ECF7B29340FFD00C0D1BB /* LibSession+SessionMessagingKit.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD8ECF7A29340FFD00C0D1BB /* LibSession+SessionMessagingKit.swift */; };
 		FD8ECF7D2934293A00C0D1BB /* _013_SessionUtilChanges.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD8ECF7C2934293A00C0D1BB /* _013_SessionUtilChanges.swift */; };
 		FD8ECF7F2934298100C0D1BB /* ConfigDump.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD8ECF7E2934298100C0D1BB /* ConfigDump.swift */; };
@@ -2020,6 +2021,7 @@
 		FD87DCF928B74DB300AF0F98 /* ConversationSettingsViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ConversationSettingsViewModel.swift; sourceTree = "<group>"; };
 		FD87DCFD28B7582C00AF0F98 /* BlockedContactsViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BlockedContactsViewModel.swift; sourceTree = "<group>"; };
 		FD8A5B0F2DBF2F14004C689B /* NavBarSessionIcon.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NavBarSessionIcon.swift; sourceTree = "<group>"; };
+		FD8A5B1D2DBF4BB8004C689B /* ScreenLock+Errors.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "ScreenLock+Errors.swift"; sourceTree = "<group>"; };
 		FD8ECF7A29340FFD00C0D1BB /* LibSession+SessionMessagingKit.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "LibSession+SessionMessagingKit.swift"; sourceTree = "<group>"; };
 		FD8ECF7C2934293A00C0D1BB /* _013_SessionUtilChanges.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = _013_SessionUtilChanges.swift; sourceTree = "<group>"; };
 		FD8ECF7E2934298100C0D1BB /* ConfigDump.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ConfigDump.swift; sourceTree = "<group>"; };
@@ -3088,6 +3090,7 @@
 				FD2272E32C35134B004D8A6C /* Data+Utilities.swift */,
 				FD848B9728422F1A000E298B /* Date+Utilities.swift */,
 				94E9BC0C2C7BFBDA006984EA /* Localization+Style.swift */,
+				FD8A5B1D2DBF4BB8004C689B /* ScreenLock+Errors.swift */,
 				7BA1E0E72A8087DB00123D0D /* SwiftUI+Utilities.swift */,
 				9422EE2A2B8C3A97004C740D /* String+Utilities.swift */,
 				FDE754BD2C9BA16C002A2623 /* UIButtonConfiguration+Utilities.swift */,
@@ -5810,6 +5813,7 @@
 				FDA335F52D91157A007E0EB6 /* AnimatedImageView.swift in Sources */,
 				FD8A5B0D2DBF2CA1004C689B /* Localization.swift in Sources */,
 				FD37E9F628A5F106003AE748 /* Configuration.swift in Sources */,
+				FD8A5B1E2DBF4BBC004C689B /* ScreenLock+Errors.swift in Sources */,
 				FD2272E62C351378004D8A6C /* SUIKImageFormat.swift in Sources */,
 				7BF8D1FB2A70AF57005F1D6E /* SwiftUI+Theme.swift in Sources */,
 				FD6673FD2D77F54600041530 /* ScreenLockViewController.swift in Sources */,
