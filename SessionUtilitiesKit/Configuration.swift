@@ -9,8 +9,6 @@ public enum SNUtilitiesKit: MigratableTarget { // Just to make the external API 
     public static var isRunningTests: Bool {
         ProcessInfo.processInfo.environment["XCTestConfigurationFilePath"] != nil   // stringlint:ignore
     }
-    fileprivate static var localizedFormatted: (LocalizationHelper, UIFont) -> NSAttributedString = { _, _ in NSAttributedString() }
-    fileprivate static var localizedDeformatted: (LocalizationHelper) -> String = { _ in "" }
 
     public static func migrations() -> TargetMigrations {
         return TargetMigrations(
@@ -39,13 +37,9 @@ public enum SNUtilitiesKit: MigratableTarget { // Just to make the external API 
 
     public static func configure(
         networkMaxFileSize: UInt,
-        localizedFormatted: @escaping (LocalizationHelper, UIFont) -> NSAttributedString,
-        localizedDeformatted: @escaping (LocalizationHelper) -> String,
         using dependencies: Dependencies
     ) {
         self.maxFileSize = networkMaxFileSize
-        self.localizedFormatted = localizedFormatted
-        self.localizedDeformatted = localizedDeformatted
         
         // Register any recurring jobs to ensure they are actually scheduled
         dependencies[singleton: .jobRunner].registerRecurringJobs(
@@ -54,27 +48,5 @@ public enum SNUtilitiesKit: MigratableTarget { // Just to make the external API 
                 (.syncPushTokens, .recurringOnActive, false, true)
             ]
         )
-    }
-}
-
-// MARK: - SNUIKit Localization
-
-public extension String {
-    func localizedFormatted(baseFont: UIFont) -> NSAttributedString {
-        return SNUtilitiesKit.localizedFormatted(LocalizationHelper(template: self), baseFont)
-    }
-    
-    func localizedDeformatted() -> String {
-        return SNUtilitiesKit.localizedDeformatted(LocalizationHelper(template: self))
-    }
-}
-
-public extension LocalizationHelper {
-    func localizedFormatted(baseFont: UIFont) -> NSAttributedString {
-        return SNUtilitiesKit.localizedFormatted(self, baseFont)
-    }
-    
-    func localizedDeformatted() -> String {
-        return SNUtilitiesKit.localizedDeformatted(self)
     }
 }

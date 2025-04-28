@@ -2,7 +2,7 @@
 
 import UIKit
 
-public final class TextField: UITextField {
+public final class SNTextField: UITextField {
     private let usesDefaultHeight: Bool
     private let height: CGFloat
     private let horizontalInset: CGFloat
@@ -18,7 +18,7 @@ public final class TextField: UITextField {
     
     public init(placeholder: String, usesDefaultHeight: Bool = true, customHeight: CGFloat? = nil, customHorizontalInset: CGFloat? = nil, customVerticalInset: CGFloat? = nil) {
         self.usesDefaultHeight = usesDefaultHeight
-        self.height = customHeight ?? TextField.height
+        self.height = customHeight ?? SNTextField.height
         self.horizontalInset = customHorizontalInset ?? (isIPhone5OrSmaller ? Values.mediumSpacing : Values.largeSpacing)
         self.verticalInset = customVerticalInset ?? (isIPhone5OrSmaller ? Values.smallSpacing : Values.largeSpacing)
         
@@ -43,7 +43,7 @@ public final class TextField: UITextField {
         themeTintColor = .primary
         themeBorderColor = .borderSeparator
         layer.borderWidth = 1
-        layer.cornerRadius = TextField.cornerRadius
+        layer.cornerRadius = SNTextField.cornerRadius
         
         if usesDefaultHeight {
             set(.height, to: height)

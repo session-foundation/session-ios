@@ -24,10 +24,6 @@ public class Dependencies {
     
     // MARK: - Global Values, Timing and Async Handling
     
-    /// We should avoid using this value wherever possible because it's not properly injected (which means unit tests won't work correctly
-    /// for anything accessed via this value)
-    public static var unsafeNonInjected: Dependencies { cachedLastCreatedInstance ?? Dependencies() }
-    
     public static var isRTL: Bool {
         /// Determining `isRTL` might require running on the main thread (it may need to accesses UIKit), if it requires the main thread but
         /// we are on a different thread then just default to `false` to prevent the background thread from potentially lagging and/or crashing

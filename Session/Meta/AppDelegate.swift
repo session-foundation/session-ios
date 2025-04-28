@@ -82,8 +82,6 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
                 // Configure the different targets
                 SNUtilitiesKit.configure(
                     networkMaxFileSize: Network.maxFileSize,
-                    localizedFormatted: { helper, font in SessionSNUIKitConfig.localizedFormatted(helper, font) },
-                    localizedDeformatted: { helper in SessionSNUIKitConfig.localizedDeformatted(helper) },
                     using: dependencies
                 )
                 SNMessagingKit.configure(using: dependencies)
@@ -737,7 +735,7 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
                     let viewController = SessionHostingViewController(rootView: LandingScreen(using: dependencies) { [weak self] in
                         self?.handleActivation()
                     })
-                    viewController.setUpNavBarSessionIcon(using: dependencies)
+                    viewController.setUpNavBarSessionIcon()
                     longRunningStartupTimoutCancellable.cancel()
                     rootViewControllerSetupComplete(viewController)
                 }
@@ -745,7 +743,7 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
             case .missingName:
                 DispatchQueue.main.async { [dependencies] in
                     let viewController = SessionHostingViewController(rootView: DisplayNameScreen(using: dependencies))
-                    viewController.setUpNavBarSessionIcon(using: dependencies)
+                    viewController.setUpNavBarSessionIcon()
                     longRunningStartupTimoutCancellable.cancel()
                     rootViewControllerSetupComplete(viewController)
                     
