@@ -117,6 +117,10 @@ public extension String {
         return LocalizationHelper(template: self).localizedFormatted(baseFont: baseFont)
     }
     
+    func localizedFormatted(in view: FontAccessible) -> NSAttributedString {
+        return LocalizationHelper(template: self).localizedFormatted(in: view)
+    }
+    
     func localizedDeformatted() -> String {
         return LocalizationHelper(template: self).localizedDeformatted()
     }

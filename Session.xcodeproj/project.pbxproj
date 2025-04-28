@@ -810,11 +810,12 @@
 		FD87DCFA28B74DB300AF0F98 /* ConversationSettingsViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD87DCF928B74DB300AF0F98 /* ConversationSettingsViewModel.swift */; };
 		FD87DCFE28B7582C00AF0F98 /* BlockedContactsViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD87DCFD28B7582C00AF0F98 /* BlockedContactsViewModel.swift */; };
 		FD8A5B0A2DBF246A004C689B /* Constants.swift in Sources */ = {isa = PBXBuildFile; fileRef = 947AD68F2C8968FF000B2730 /* Constants.swift */; };
-		FD8A5B0C2DBF247B004C689B /* NSEConstants.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD8A5B0B2DBF2479004C689B /* NSEConstants.swift */; };
 		FD8A5B0D2DBF2CA1004C689B /* Localization.swift in Sources */ = {isa = PBXBuildFile; fileRef = 943C6D832B86B5F1004ACE64 /* Localization.swift */; };
 		FD8A5B0E2DBF2DB1004C689B /* SessionHostingViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7B8914762A7CAAE200A4C627 /* SessionHostingViewController.swift */; };
 		FD8A5B102DBF2F17004C689B /* NavBarSessionIcon.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD8A5B0F2DBF2F14004C689B /* NavBarSessionIcon.swift */; };
 		FD8A5B112DBF34BD004C689B /* Date+Utilities.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD848B9728422F1A000E298B /* Date+Utilities.swift */; };
+		FD8A5B182DBF47E9004C689B /* SessionUIKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = C331FF1B2558F9D300070591 /* SessionUIKit.framework */; };
+		FD8A5B192DBF47E9004C689B /* SessionUIKit.framework in Embed Frameworks */ = {isa = PBXBuildFile; fileRef = C331FF1B2558F9D300070591 /* SessionUIKit.framework */; settings = {ATTRIBUTES = (CodeSignOnCopy, RemoveHeadersOnCopy, ); }; };
 		FD8ECF7B29340FFD00C0D1BB /* LibSession+SessionMessagingKit.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD8ECF7A29340FFD00C0D1BB /* LibSession+SessionMessagingKit.swift */; };
 		FD8ECF7D2934293A00C0D1BB /* _013_SessionUtilChanges.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD8ECF7C2934293A00C0D1BB /* _013_SessionUtilChanges.swift */; };
 		FD8ECF7F2934298100C0D1BB /* ConfigDump.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD8ECF7E2934298100C0D1BB /* ConfigDump.swift */; };
@@ -1210,6 +1211,13 @@
 			remoteGlobalIDString = C3C2A678255388CC00C340D1;
 			remoteInfo = SessionUtilitiesKit;
 		};
+		FD8A5B1A2DBF47E9004C689B /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = D221A080169C9E5E00537ABF /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = C331FF1A2558F9D300070591;
+			remoteInfo = SessionUIKit;
+		};
 		FDB348812BE86A4400B716C2 /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
 			containerPortal = D221A080169C9E5E00537ABF /* Project object */;
@@ -1264,6 +1272,17 @@
 				C3C2A5A7255385C100C340D1 /* SessionSnodeKit.framework in Embed Frameworks */,
 				C331FF232558F9D300070591 /* SessionUIKit.framework in Embed Frameworks */,
 				C3C2A6F825539DE700C340D1 /* SessionMessagingKit.framework in Embed Frameworks */,
+			);
+			name = "Embed Frameworks";
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		FD8A5B1C2DBF47E9004C689B /* Embed Frameworks */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 2147483647;
+			dstPath = "";
+			dstSubfolderSpec = 10;
+			files = (
+				FD8A5B192DBF47E9004C689B /* SessionUIKit.framework in Embed Frameworks */,
 			);
 			name = "Embed Frameworks";
 			runOnlyForDeploymentPostprocessing = 0;
@@ -2000,7 +2019,6 @@
 		FD86FDA22BC5020600EC251B /* PrivacyInfo.xcprivacy */ = {isa = PBXFileReference; lastKnownFileType = text.xml; path = PrivacyInfo.xcprivacy; sourceTree = "<group>"; };
 		FD87DCF928B74DB300AF0F98 /* ConversationSettingsViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ConversationSettingsViewModel.swift; sourceTree = "<group>"; };
 		FD87DCFD28B7582C00AF0F98 /* BlockedContactsViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BlockedContactsViewModel.swift; sourceTree = "<group>"; };
-		FD8A5B0B2DBF2479004C689B /* NSEConstants.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NSEConstants.swift; sourceTree = "<group>"; };
 		FD8A5B0F2DBF2F14004C689B /* NavBarSessionIcon.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NavBarSessionIcon.swift; sourceTree = "<group>"; };
 		FD8ECF7A29340FFD00C0D1BB /* LibSession+SessionMessagingKit.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "LibSession+SessionMessagingKit.swift"; sourceTree = "<group>"; };
 		FD8ECF7C2934293A00C0D1BB /* _013_SessionUtilChanges.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = _013_SessionUtilChanges.swift; sourceTree = "<group>"; };
@@ -2273,6 +2291,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				B8D64FBB25BA78310029CFC0 /* SessionMessagingKit.framework in Frameworks */,
+				FD8A5B182DBF47E9004C689B /* SessionUIKit.framework in Frameworks */,
 				B8D64FBD25BA78310029CFC0 /* SessionSnodeKit.framework in Frameworks */,
 				B8D64FBE25BA78310029CFC0 /* SessionUtilitiesKit.framework in Frameworks */,
 				C38EF00C255B61CC007E1867 /* SignalUtilitiesKit.framework in Frameworks */,
@@ -2630,7 +2649,6 @@
 				FD9AECA42AAA9609009B3406 /* NotificationResolution.swift */,
 				7BDCFC07242186E700641C39 /* NotificationServiceExtensionContext.swift */,
 				7BC01A3D241F40AB00BC7C55 /* NotificationServiceExtension.swift */,
-				FD8A5B0B2DBF2479004C689B /* NSEConstants.swift */,
 				7B1D74A927BCC16E0030B423 /* NSENotificationPresenter.swift */,
 			);
 			path = SessionNotificationServiceExtension;
@@ -4833,6 +4851,7 @@
 				FD5E93D52C12D8120038C25A /* Add Commit Hash To Build Info Plist */,
 				FD5E93D72C12DA400038C25A /* Add App Group To Build Info Plist */,
 				FDC498C12AC1775400EDD897 /* Ensure Localizable.strings included */,
+				FD8A5B1C2DBF47E9004C689B /* Embed Frameworks */,
 			);
 			buildRules = (
 			);
@@ -4841,6 +4860,7 @@
 				B8D64FB825BA78270029CFC0 /* PBXTargetDependency */,
 				B8D64FBA25BA78270029CFC0 /* PBXTargetDependency */,
 				C3D90A7125773A44002C9DF5 /* PBXTargetDependency */,
+				FD8A5B1B2DBF47E9004C689B /* PBXTargetDependency */,
 			);
 			name = SessionNotificationServiceExtension;
 			productName = LokiPushNotificationService;
@@ -5747,7 +5767,6 @@
 				7BDCFC08242186E700641C39 /* NotificationServiceExtensionContext.swift in Sources */,
 				7BC01A3E241F40AB00BC7C55 /* NotificationServiceExtension.swift in Sources */,
 				7B1D74AA27BCC16E0030B423 /* NSENotificationPresenter.swift in Sources */,
-				FD8A5B0C2DBF247B004C689B /* NSEConstants.swift in Sources */,
 				FD9AECA52AAA9609009B3406 /* NotificationResolution.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -6818,6 +6837,11 @@
 			isa = PBXTargetDependency;
 			target = C3C2A678255388CC00C340D1 /* SessionUtilitiesKit */;
 			targetProxy = FD83B9B427CF200A005E1583 /* PBXContainerItemProxy */;
+		};
+		FD8A5B1B2DBF47E9004C689B /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = C331FF1A2558F9D300070591 /* SessionUIKit */;
+			targetProxy = FD8A5B1A2DBF47E9004C689B /* PBXContainerItemProxy */;
 		};
 		FDB348822BE86A4400B716C2 /* PBXTargetDependency */ = {
 			isa = PBXTargetDependency;
