@@ -77,13 +77,13 @@ internal struct SessionSNUIKitConfig: SNUIKit.ConfigType {
     }
     
     func placeholderIconCacher(cacheKey: String, generator: @escaping () -> UIImage) -> UIImage {
-        if let cachedIcon: UIImage = dependencies[cache: .general].placeholderCache.object(forKey: cacheKey as NSString) {
+        if let cachedIcon: UIImage = dependencies[cache: .general].placeholderCache.get(key: cacheKey) {
             return cachedIcon
         }
         
         let generatedImage: UIImage = generator()
         dependencies.mutate(cache: .general) {
-            $0.placeholderCache.setObject(generatedImage, forKey: cacheKey as NSString)
+            $0.placeholderCache.set(key: cacheKey, value: generatedImage)
         }
         
         return generatedImage

@@ -7,6 +7,7 @@ import GRDB
 import CallKit
 import UserNotifications
 import BackgroundTasks
+import SessionUIKit
 import SessionMessagingKit
 import SessionSnodeKit
 import SignalUtilitiesKit
@@ -547,7 +548,7 @@ public final class NotificationServiceExtension: UNNotificationServiceExtension 
     private func handleFailureForVoIP(_ db: Database, for callMessage: CallMessage, requestId: String) {
         let notificationContent = UNMutableNotificationContent()
         notificationContent.userInfo = [ NotificationServiceExtension.isFromRemoteKey : true ]
-        notificationContent.title = NSEConstants.app_name
+        notificationContent.title = Constants.app_name
         
         /// Update the app badge in case the unread count changed
         if let unreadCount: Int = try? Interaction.fetchAppBadgeUnreadCount(db, using: dependencies) {
@@ -620,7 +621,7 @@ public final class NotificationServiceExtension: UNNotificationServiceExtension 
         Log.flush()
         Log.reset()
         
-        content.title = NSEConstants.app_name
+        content.title = Constants.app_name
         content.userInfo = [ NotificationServiceExtension.isFromRemoteKey: true ]
         
         /// If it's a notification for a group conversation, the notification preferences are right and we have a name for the group

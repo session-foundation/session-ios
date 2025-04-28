@@ -4,6 +4,7 @@ import Foundation
 import Combine
 import GRDB
 import UserNotifications
+import SessionUIKit
 import SignalUtilitiesKit
 import SessionMessagingKit
 import SessionUtilitiesKit
@@ -111,7 +112,7 @@ public class NSENotificationPresenter: NotificationsManagerType {
                     .localized()
                 
             case .noNameNoPreview:
-                notificationContent.title = NSEConstants.app_name
+                notificationContent.title = Constants.app_name
                 notificationContent.body = "messageNewYouveGot"
                     .putNumber(1)
                     .localized()
@@ -120,7 +121,7 @@ public class NSENotificationPresenter: NotificationsManagerType {
         // If it's a message request then overwrite the body to be something generic (only show a notification
         // when receiving a new message request if there aren't any others or the user had hidden them)
         if isMessageRequest {
-            notificationContent.title = NSEConstants.app_name
+            notificationContent.title = Constants.app_name
             notificationContent.body = "messageRequestsNew".localized()
         }
         
@@ -206,7 +207,7 @@ public class NSENotificationPresenter: NotificationsManagerType {
             notificationContent.badge = NSNumber(value: unreadCount)
         }
         
-        notificationContent.title = NSEConstants.app_name
+        notificationContent.title = Constants.app_name
         notificationContent.body = ""
         
         let senderName: String = Profile.displayName(db, id: interaction.authorId, threadVariant: thread.variant, using: dependencies)

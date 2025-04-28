@@ -4,7 +4,7 @@
 
 import UIKit
 
-// MARK: - PendingLocalizedString
+// MARK: - LocalizationHelper
 
 final public class LocalizationHelper: CustomStringConvertible {
     private let template: String
@@ -115,6 +115,10 @@ public extension String {
     
     func localizedFormatted(baseFont: UIFont) -> NSAttributedString {
         return LocalizationHelper(template: self).localizedFormatted(baseFont: baseFont)
+    }
+    
+    func localizedFormatted(in view: FontAccessible) -> NSAttributedString {
+        return LocalizationHelper(template: self).localizedFormatted(in: view)
     }
     
     func localizedDeformatted() -> String {
