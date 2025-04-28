@@ -180,7 +180,6 @@
 		943C6D842B86B5F1004ACE64 /* Localization.swift in Sources */ = {isa = PBXBuildFile; fileRef = 943C6D832B86B5F1004ACE64 /* Localization.swift */; };
 		946F5A732D5DA3AC00A5ADCE /* Punycode in Frameworks */ = {isa = PBXBuildFile; productRef = 946F5A722D5DA3AC00A5ADCE /* Punycode */; };
 		9473386E2BDF5F3E00B9E169 /* InfoPlist.xcstrings in Resources */ = {isa = PBXBuildFile; fileRef = 9473386D2BDF5F3E00B9E169 /* InfoPlist.xcstrings */; };
-		947AD6902C8968FF000B2730 /* Constants.swift in Sources */ = {isa = PBXBuildFile; fileRef = 947AD68F2C8968FF000B2730 /* Constants.swift */; };
 		94B3DC172AF8592200C88531 /* QuoteView_SwiftUI.swift in Sources */ = {isa = PBXBuildFile; fileRef = 94B3DC162AF8592200C88531 /* QuoteView_SwiftUI.swift */; };
 		94C58AC92D2E037200609195 /* Permissions.swift in Sources */ = {isa = PBXBuildFile; fileRef = 94C58AC82D2E036E00609195 /* Permissions.swift */; };
 		94E9BC0D2C7BFBDA006984EA /* Localization+Style.swift in Sources */ = {isa = PBXBuildFile; fileRef = 94E9BC0C2C7BFBDA006984EA /* Localization+Style.swift */; };
@@ -813,6 +812,8 @@
 		FD86FDA52BC51C5500EC251B /* PrivacyInfo.xcprivacy in Resources */ = {isa = PBXBuildFile; fileRef = FD86FDA22BC5020600EC251B /* PrivacyInfo.xcprivacy */; };
 		FD87DCFA28B74DB300AF0F98 /* ConversationSettingsViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD87DCF928B74DB300AF0F98 /* ConversationSettingsViewModel.swift */; };
 		FD87DCFE28B7582C00AF0F98 /* BlockedContactsViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD87DCFD28B7582C00AF0F98 /* BlockedContactsViewModel.swift */; };
+		FD8A5B0A2DBF246A004C689B /* Constants.swift in Sources */ = {isa = PBXBuildFile; fileRef = 947AD68F2C8968FF000B2730 /* Constants.swift */; };
+		FD8A5B0C2DBF247B004C689B /* NSEConstants.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD8A5B0B2DBF2479004C689B /* NSEConstants.swift */; };
 		FD8ECF7B29340FFD00C0D1BB /* LibSession+SessionMessagingKit.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD8ECF7A29340FFD00C0D1BB /* LibSession+SessionMessagingKit.swift */; };
 		FD8ECF7D2934293A00C0D1BB /* _013_SessionUtilChanges.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD8ECF7C2934293A00C0D1BB /* _013_SessionUtilChanges.swift */; };
 		FD8ECF7F2934298100C0D1BB /* ConfigDump.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD8ECF7E2934298100C0D1BB /* ConfigDump.swift */; };
@@ -1999,6 +2000,7 @@
 		FD86FDA22BC5020600EC251B /* PrivacyInfo.xcprivacy */ = {isa = PBXFileReference; lastKnownFileType = text.xml; path = PrivacyInfo.xcprivacy; sourceTree = "<group>"; };
 		FD87DCF928B74DB300AF0F98 /* ConversationSettingsViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ConversationSettingsViewModel.swift; sourceTree = "<group>"; };
 		FD87DCFD28B7582C00AF0F98 /* BlockedContactsViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BlockedContactsViewModel.swift; sourceTree = "<group>"; };
+		FD8A5B0B2DBF2479004C689B /* NSEConstants.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NSEConstants.swift; sourceTree = "<group>"; };
 		FD8ECF7A29340FFD00C0D1BB /* LibSession+SessionMessagingKit.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "LibSession+SessionMessagingKit.swift"; sourceTree = "<group>"; };
 		FD8ECF7C2934293A00C0D1BB /* _013_SessionUtilChanges.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = _013_SessionUtilChanges.swift; sourceTree = "<group>"; };
 		FD8ECF7E2934298100C0D1BB /* ConfigDump.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ConfigDump.swift; sourceTree = "<group>"; };
@@ -2629,6 +2631,7 @@
 				FD9AECA42AAA9609009B3406 /* NotificationResolution.swift */,
 				7BDCFC07242186E700641C39 /* NotificationServiceExtensionContext.swift */,
 				7BC01A3D241F40AB00BC7C55 /* NotificationServiceExtension.swift */,
+				FD8A5B0B2DBF2479004C689B /* NSEConstants.swift */,
 				7B1D74A927BCC16E0030B423 /* NSENotificationPresenter.swift */,
 			);
 			path = SessionNotificationServiceExtension;
@@ -2781,7 +2784,6 @@
 				FD428B182B4B576F006D0888 /* AppContext.swift */,
 				FDE754BF2C9BAEF6002A2623 /* Array+Utilities.swift */,
 				FD47E0AA2AA68EEA00A55E41 /* Authentication.swift */,
-				947AD68F2C8968FF000B2730 /* Constants.swift */,
 				FDC438CC27BC641200C60D73 /* Set+Utilities.swift */,
 				7BAF54D527ACD0E2003D12F8 /* ReusableView.swift */,
 				B8F5F58225EC94A6003BF8D4 /* Collection+Utilities.swift */,
@@ -3057,10 +3059,11 @@
 			isa = PBXGroup;
 			children = (
 				FD37E9C428A1C701003AE748 /* Themes */,
-				FD37E9C228A1C6F3003AE748 /* ThemeManager.swift */,
+				947AD68F2C8968FF000B2730 /* Constants.swift */,
 				B8BB82BD2394D4CE00BA5194 /* Fonts.swift */,
-				B8BB82A1238F356100BA5194 /* Values.swift */,
 				FDF848F029406A30007DCAE5 /* Format.swift */,
+				FD37E9C228A1C6F3003AE748 /* ThemeManager.swift */,
+				B8BB82A1238F356100BA5194 /* Values.swift */,
 			);
 			path = "Style Guide";
 			sourceTree = "<group>";
@@ -5744,6 +5747,7 @@
 				7BDCFC08242186E700641C39 /* NotificationServiceExtensionContext.swift in Sources */,
 				7BC01A3E241F40AB00BC7C55 /* NotificationServiceExtension.swift in Sources */,
 				7B1D74AA27BCC16E0030B423 /* NSENotificationPresenter.swift in Sources */,
+				FD8A5B0C2DBF247B004C689B /* NSEConstants.swift in Sources */,
 				FD9AECA52AAA9609009B3406 /* NotificationResolution.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -5797,6 +5801,7 @@
 				FD71162A28DA83DF00B47552 /* GradientView.swift in Sources */,
 				FD37E9D728A20B5D003AE748 /* UIColor+Utilities.swift in Sources */,
 				FD37E9C328A1C6F3003AE748 /* ThemeManager.swift in Sources */,
+				FD8A5B0A2DBF246A004C689B /* Constants.swift in Sources */,
 				C331FF9A2558FA6B00070591 /* Values.swift in Sources */,
 				FD37E9C628A1D4EC003AE748 /* Theme+ClassicDark.swift in Sources */,
 				FD16AB5F2A1DD98F0083D849 /* ProfilePictureView.swift in Sources */,
@@ -5973,7 +5978,6 @@
 				FDE754DF2C9BAF8A002A2623 /* KeyPair.swift in Sources */,
 				FD2272D12C34EBD6004D8A6C /* JSONDecoder+Utilities.swift in Sources */,
 				FD6A38F12C2A66B100762359 /* KeychainStorage.swift in Sources */,
-				947AD6902C8968FF000B2730 /* Constants.swift in Sources */,
 				FDC0F0042BFECE12002CBFB9 /* TimeUnit.swift in Sources */,
 				FD2272EA2C351CA7004D8A6C /* Threading.swift in Sources */,
 				FD7115FE28C8202D00B47552 /* ReplaySubject.swift in Sources */,
