@@ -498,6 +498,34 @@ extension ConversationVC:
         
         self.showBlockedModalIfNeeded()
     }
+    
+    func handleDisabledAttachmentButtonTapped() {
+        guard viewModel.threadData.threadIsMessageRequest == true else { return }
+        
+        let toastController: ToastController = ToastController(
+            text: "messageRequestDisabledToastAttachments".localized(),
+            background: .backgroundSecondary
+        )
+        toastController.presentToastView(
+            fromBottomOfView: self.view,
+            inset: (snInputView.bounds.height + Values.largeSpacing),
+            duration: .milliseconds(2500)
+        )
+    }
+    
+    func handleDisabledVoiceMessageButtonTapped() {
+        guard viewModel.threadData.threadIsMessageRequest == true else { return }
+        
+        let toastController: ToastController = ToastController(
+            text: "messageRequestDisabledToastVoiceMessages".localized(),
+            background: .backgroundSecondary
+        )
+        toastController.presentToastView(
+            fromBottomOfView: self.view,
+            inset: (snInputView.bounds.height + Values.largeSpacing),
+            duration: .milliseconds(2500)
+        )
+    }
 
     // MARK: --Message Sending
     
