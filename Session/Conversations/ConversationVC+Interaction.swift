@@ -500,6 +500,9 @@ extension ConversationVC:
     }
     
     func handleDisabledAttachmentButtonTapped() {
+        /// This logic was added because an Apple reviewer rejected an emergency update as they thought these buttons were
+        /// unresponsive (even though there is copy on the screen communicating that they are intentionally disabled) - in order
+        /// to prevent this happening in the future we've added this toast when pressing on the disabled button
         guard viewModel.threadData.threadIsMessageRequest == true else { return }
         
         let toastController: ToastController = ToastController(
@@ -514,6 +517,9 @@ extension ConversationVC:
     }
     
     func handleDisabledVoiceMessageButtonTapped() {
+        /// This logic was added because an Apple reviewer rejected an emergency update as they thought these buttons were
+        /// unresponsive (even though there is copy on the screen communicating that they are intentionally disabled) - in order
+        /// to prevent this happening in the future we've added this toast when pressing on the disabled button
         guard viewModel.threadData.threadIsMessageRequest == true else { return }
         
         let toastController: ToastController = ToastController(
