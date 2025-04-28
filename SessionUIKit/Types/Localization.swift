@@ -4,7 +4,7 @@
 
 import UIKit
 
-// MARK: - PendingLocalizedString
+// MARK: - LocalizationHelper
 
 final public class LocalizationHelper: CustomStringConvertible {
     private let template: String

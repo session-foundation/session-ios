@@ -3,7 +3,6 @@
 // stringlint:disable
 
 import Foundation
-import SessionUtilitiesKit
 
 public extension Date {
     var formattedForDisplay: String {
