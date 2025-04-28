@@ -29,6 +29,18 @@ internal struct SessionSNUIKitConfig: SNUIKit.ConfigType {
         }
     }
     
+    func navBarSessionIcon() -> NavBarSessionIcon {
+        switch (dependencies[feature: .serviceNetwork], dependencies[feature: .forceOffline]) {
+            case (.mainnet, false): return NavBarSessionIcon()
+            case (.testnet, _), (.mainnet, true):
+                return NavBarSessionIcon(
+                    showDebugUI: true,
+                    serviceNetworkTitle: dependencies[feature: .serviceNetwork].title,
+                    isMainnet: (dependencies[feature: .serviceNetwork] != .mainnet)
+                )
+        }
+    }
+    
     func persistentTopBannerChanged(warningKey: String?) {
         dependencies[defaults: .appGroup, key: .topBannerWarningToShow] = warningKey
     }
@@ -77,29 +89,7 @@ internal struct SessionSNUIKitConfig: SNUIKit.ConfigType {
         return generatedImage
     }
     
-    func localizedString(for key: String) -> String {
-        return key.localized()
-    }
-    
-    public static func localizedFormatted(_ helper: LocalizationHelper, _ baseFont: UIFont) -> NSAttributedString {
-        return NSAttributedString(stringWithHTMLTags: helper.localized(), font: baseFont)
-    }
-    
-    public static func localizedDeformatted(_ helper: LocalizationHelper) -> String {
-        return NSAttributedString(stringWithHTMLTags: helper.localized(), font: .systemFont(ofSize: 14)).string
-    }
-}
-
-// MARK: - SNUIKit Localization
-
-public extension LocalizationHelper {
-    func localizedFormatted(in view: FontAccessible) -> NSAttributedString {
-        return localizedFormatted(baseFont: (view.fontValue ?? .systemFont(ofSize: 14)))
-    }    
-}
-
-public extension String {
-    func localizedFormatted(in view: FontAccessible) -> NSAttributedString {
-        return LocalizationHelper(template: self).localizedFormatted(in: view)
+    func shouldShowStringKeys() -> Bool {
+        return dependencies[feature: .showStringKeys]
     }
 }

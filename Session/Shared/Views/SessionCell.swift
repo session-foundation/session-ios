@@ -110,7 +110,7 @@ public class SessionCell: UITableViewCell {
     }()
     
     fileprivate let titleTextField: UITextField = {
-        let textField: TextField = TextField(placeholder: "", usesDefaultHeight: false)
+        let textField: SNTextField = SNTextField(placeholder: "", usesDefaultHeight: false)
         textField.translatesAutoresizingMaskIntoConstraints = false
         textField.textAlignment = .center
         textField.alpha = 0

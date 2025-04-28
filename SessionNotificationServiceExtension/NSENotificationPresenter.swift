@@ -339,11 +339,3 @@ private extension String {
         return result
     }
 }
-
-// MARK: - Localization Styling
-
-internal extension NSENotificationPresenter {
-    static func localizedDeformatted(_ helper: LocalizationHelper) -> String {
-        return NSAttributedString(stringWithHTMLTags: helper.localized(), font: .systemFont(ofSize: 14)).string
-    }
-}

@@ -2,7 +2,7 @@
 
 import UIKit
 
-public final class TextView : UITextView, UITextViewDelegate {
+public final class SNTextView : UITextView, UITextViewDelegate {
     private let usesDefaultHeight: Bool
     private let height: CGFloat
     private let horizontalInset: CGFloat
@@ -29,7 +29,7 @@ public final class TextView : UITextView, UITextViewDelegate {
         onTextChange: ((String) -> Void)? = nil
     ) {
         self.usesDefaultHeight = usesDefaultHeight
-        self.height = customHeight ?? TextField.height
+        self.height = customHeight ?? SNTextField.height
         self.horizontalInset = customHorizontalInset ?? (isIPhone5OrSmaller ? Values.mediumSpacing : Values.largeSpacing)
         self.verticalInset = customVerticalInset ?? (isIPhone5OrSmaller ? Values.smallSpacing : Values.largeSpacing)
         self.placeholder = placeholder
@@ -59,7 +59,7 @@ public final class TextView : UITextView, UITextViewDelegate {
         themeTintColor = .primary
         themeBorderColor = .borderSeparator
         layer.borderWidth = 1
-        layer.cornerRadius = TextField.cornerRadius
+        layer.cornerRadius = SNTextField.cornerRadius
         
         placeholderLabel.text = placeholder
         

@@ -412,8 +412,6 @@ public final class NotificationServiceExtension: UNNotificationServiceExtension 
                 // Configure the different targets
                 SNUtilitiesKit.configure(
                     networkMaxFileSize: Network.maxFileSize,
-                    localizedFormatted: { helper, font in NSAttributedString() },
-                    localizedDeformatted: { helper in NSENotificationPresenter.localizedDeformatted(helper) },
                     using: dependencies
                 )
                 SNMessagingKit.configure(using: dependencies)
