@@ -80,8 +80,8 @@ enum _013_SessionUtilChanges: Migration {
         
         // Insert into the new table, drop the old table and rename the new table to be the old one
         let existingKeyPairs: [Row] = try Row.fetchAll(db, sql: """
-                SELECT threadId, publicKey, secretKey, receivedTimestamp
-                FROM closedGroupKeyPair
+            SELECT threadId, publicKey, secretKey, receivedTimestamp
+            FROM closedGroupKeyPair
         """)
         existingKeyPairs.forEach { row in
             let threadId: String = row["threadId"]
@@ -101,7 +101,7 @@ enum _013_SessionUtilChanges: Migration {
                     publicKey,
                     secretKey,
                     row["receivedTimestamp"],
-                    ClosedGroupKeyPair.generateHash(
+                    generateLegacyClosedGroupKeyPairHash(
                         threadId: threadId,
                         publicKey: publicKey,
                         secretKey: secretKey
@@ -226,5 +226,14 @@ enum _013_SessionUtilChanges: Migration {
         }
         
         Storage.update(progress: 1, for: self, in: target, using: dependencies)
+    }
+}
+
+private extension _013_SessionUtilChanges {
+    static func generateLegacyClosedGroupKeyPairHash(threadId: String, publicKey: Data, secretKey: Data) -> String {
+        return Data(Insecure.MD5
+            .hash(data: threadId.bytes + publicKey.bytes + secretKey.bytes)
+            .makeIterator())
+            .toHexString()
     }
 }

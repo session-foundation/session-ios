@@ -428,13 +428,6 @@ class ThreadSettingsViewModelSpec: QuickSpec {
                             invited: nil
                         ).insert(db)
                         
-                        try ClosedGroupKeyPair(
-                            threadId: legacyGroupPubkey,
-                            publicKey: Data([1, 2, 3]),
-                            secretKey: Data([3, 2, 1]),
-                            receivedTimestamp: 1234567890
-                        ).insert(db)
-                        
                         try GroupMember(
                             groupId: legacyGroupPubkey,
                             profileId: userPubkey,
