@@ -12,10 +12,6 @@ public struct ClosedGroup: Codable, Equatable, Hashable, Identifiable, Fetchable
     public static var databaseTableName: String { "closedGroup" }
     internal static let threadForeignKey = ForeignKey([Columns.threadId], to: [SessionThread.Columns.id])
     public static let thread = belongsTo(SessionThread.self, using: threadForeignKey)
-    internal static let keyPairs = hasMany(
-        ClosedGroupKeyPair.self,
-        using: ClosedGroupKeyPair.closedGroupForeignKey
-    )
     public static let members = hasMany(GroupMember.self, using: GroupMember.closedGroupForeignKey)
     
     public typealias Columns = CodingKeys
@@ -83,10 +79,6 @@ public struct ClosedGroup: Codable, Equatable, Hashable, Identifiable, Fetchable
         request(for: ClosedGroup.thread)
     }
     
-    public var keyPairs: QueryInterfaceRequest<ClosedGroupKeyPair> {
-        request(for: ClosedGroup.keyPairs)
-    }
-    
     public var allMembers: QueryInterfaceRequest<GroupMember> {
         request(for: ClosedGroup.members)
     }
@@ -144,16 +136,6 @@ public struct ClosedGroup: Codable, Equatable, Hashable, Identifiable, Fetchable
     }
 }
 
-// MARK: - GRDB Interactions
-
-public extension ClosedGroup {
-    func fetchLatestKeyPair(_ db: Database) throws -> ClosedGroupKeyPair? {
-        return try keyPairs
-            .order(ClosedGroupKeyPair.Columns.receivedTimestamp.desc)
-            .fetchOne(db)
-    }
-}
-
 // MARK: - Search Queries
 
 public extension ClosedGroup {
@@ -181,7 +163,6 @@ public extension ClosedGroup {
         case pushNotifications
         case messages
         case members
-        case encryptionKeys
         case authDetails
         case libSessionState
         case thread
@@ -339,13 +320,6 @@ public extension ClosedGroup {
                         .sinkUntilComplete()
                 }
             }
-        }
-        
-        // Remove database-located data
-        if dataToRemove.contains(.encryptionKeys) {
-            try ClosedGroupKeyPair
-                .filter(threadIds.contains(ClosedGroupKeyPair.Columns.threadId))
-                .deleteAll(db)
         }
         
         if dataToRemove.contains(.authDetails) {

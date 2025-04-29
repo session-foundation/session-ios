@@ -848,7 +848,7 @@ extension MessageReceiver {
                 
                 return [
                     .poller, .pushNotifications, .messages, .members,
-                    .encryptionKeys, .authDetails, .libSessionState
+                    .authDetails, .libSessionState
                 ]
             }(),
             using: dependencies

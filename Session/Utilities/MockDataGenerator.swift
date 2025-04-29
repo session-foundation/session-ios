@@ -146,11 +146,11 @@ enum MockDataGenerator {
         }
         logProgress("DM Threads", "Done")
             
-        // MARK: - -- Closed Group
+        // MARK: - -- Legacy Closed Group
         
         var cgThreadRandomGenerator: ARC4RandomNumberGenerator = ARC4RandomNumberGenerator(seed: cgRandomSeed)
         var cgThreadIndex: Int = 0
-        logProgress("Closed Group Threads", "Start Generating \(closedGroupThreadCount) threads")
+        logProgress("Legacy Closed Group Threads", "Start Generating \(closedGroupThreadCount) threads")
             
         while cgThreadIndex < closedGroupThreadCount {
             let remainingThreads: Int = (closedGroupThreadCount - cgThreadIndex)
@@ -158,7 +158,7 @@ enum MockDataGenerator {
             (0..<min(chunkSize, remainingThreads)).forEach { index in
                 let threadIndex: Int = (cgThreadIndex + index)
                 
-                logProgress("Closed Group Thread \(threadIndex)", "Start")
+                logProgress("Legacy Closed Group Thread \(threadIndex)", "Start")
                 
                 let data: Data = Data(cgThreadRandomGenerator.nextBytes(count: 16))
                 let randomLegacyGroupPublicKey: String = SessionId(.standard, publicKey: try! Identity.generate(from: data, using: dependencies).x25519KeyPair.publicKey).hexString
@@ -172,7 +172,7 @@ enum MockDataGenerator {
                 
                 // Generate the Contacts in the group
                 var members: [String] = [userSessionId.hexString]
-                logProgress("Closed Group Thread \(threadIndex)", "Generate \(numGroupMembers) Contacts")
+                logProgress("Legacy Closed Group Thread \(threadIndex)", "Generate \(numGroupMembers) Contacts")
                 
                 (0..<numGroupMembers).forEach { _ in
                     let contactData: Data = Data(cgThreadRandomGenerator.nextBytes(count: 16))
@@ -240,43 +240,12 @@ enum MockDataGenerator {
                     .upsert(db)
                 }
                 
-                // Add the group to the user's set of public keys to poll for and store the key pair
-                let encryptionKeyPair = dependencies[singleton: .crypto].generate(.x25519KeyPair())!
-                try! ClosedGroupKeyPair(
-                    threadId: randomLegacyGroupPublicKey,
-                    publicKey: Data(encryptionKeyPair.publicKey),
-                    secretKey: Data(encryptionKeyPair.secretKey),
-                    receivedTimestamp: timestampNow
-                )
-                .upsert(db)
-                
-                // Generate the message history (Note: Unapproved message requests will only include incoming messages)
-                logProgress("Closed Group Thread \(threadIndex)", "Generate \(numMessages) Messages")
-                
-                (0..<numMessages).forEach { index in
-                    let messageWords: Int = ((1..<20).randomElement(using: &cgThreadRandomGenerator) ?? 0)
-                    let senderId: String = (members.randomElement(using: &cgThreadRandomGenerator) ?? userSessionId.hexString)
-                    
-                    _ = try! Interaction(
-                        threadId: thread.id,
-                        threadVariant: thread.variant,
-                        authorId: senderId,
-                        variant: (senderId != userSessionId.hexString ? .standardIncoming : .standardOutgoing),
-                        body: (0..<messageWords)
-                            .compactMap { _ in wordContent.randomElement(using: &cgThreadRandomGenerator) }
-                            .joined(separator: " "),
-                        timestampMs: Int64(floor(timestampNow - Double(index * 5)) * 1000),
-                        using: dependencies
-                    )
-                    .inserted(db)
-                }
-                
-                logProgress("Closed Group Thread \(threadIndex)", "Done")
+                logProgress("Legacy Closed Group Thread \(threadIndex)", "Done")
             }
             
             cgThreadIndex += chunkSize
         }
-        logProgress("Closed Group Threads", "Done")
+        logProgress("Legacy Closed Group Threads", "Done")
         
         // MARK: - --Open Group
         
