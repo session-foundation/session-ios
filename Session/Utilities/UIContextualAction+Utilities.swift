@@ -616,19 +616,18 @@ public extension UIContextualAction {
                                     }
                                 }
                                 
-                                let threadInfo: (SessionThread.Variant, Bool, Bool) = (
+                                let threadInfo: (SessionThread.Variant, Bool) = (
                                     threadViewModel.threadVariant,
-                                    threadViewModel.currentUserIsClosedGroupAdmin == true,
-                                    dependencies[feature: .legacyGroupsDeprecated]
+                                    threadViewModel.currentUserIsClosedGroupAdmin == true
                                 )
                                 
                                 switch threadInfo {
-                                    case (.contact, _, _):
+                                    case (.contact, _):
                                         return "conversationsDeleteDescription"
                                             .put(key: "name", value: threadViewModel.displayName)
                                             .localizedFormatted(baseFont: .boldSystemFont(ofSize: Values.smallFontSize))
                                         
-                                    case (.group, true, _), (.legacyGroup, true, false):
+                                    case (.group, true):
                                         return "groupDeleteDescription"
                                             .put(key: "group_name", value: threadViewModel.displayName)
                                             .localizedFormatted(baseFont: .boldSystemFont(ofSize: Values.smallFontSize))
