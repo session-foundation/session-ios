@@ -31,12 +31,12 @@ public struct SessionSearchBar: View {
                 
                 ZStack(alignment: .leading) {
                     if searchText.isEmpty {
-                        Text("search".localizedSNUIKit())
+                        Text("search".localized())
                             .font(.system(size: Values.smallFontSize))
                             .foregroundColor(themeColor: .textSecondary)
                     }
                     
-                    SwiftUI.TextField(
+                    TextField(
                         "",
                         text: $searchText
                     )
@@ -58,7 +58,7 @@ public struct SessionSearchBar: View {
             Button {
                 cancelAction()
             } label: {
-                Text("cancel".localizedSNUIKit())
+                Text("cancel".localized())
                     .font(.system(size: Values.smallFontSize))
                     .foregroundColor(themeColor: .textSecondary)
                     .padding(.leading, Values.mediumSpacing)

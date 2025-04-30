@@ -53,7 +53,7 @@ final class SeedModal: Modal {
     private lazy var mnemonicLabelContainer: UIView = {
         let result: UIView = UIView()
         result.themeBorderColor = .textPrimary
-        result.layer.cornerRadius = TextField.cornerRadius
+        result.layer.cornerRadius = SNTextField.cornerRadius
         result.layer.borderWidth = 1
         
         return result

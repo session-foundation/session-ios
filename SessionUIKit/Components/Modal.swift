@@ -55,7 +55,7 @@ open class Modal: UIViewController, UIGestureRecognizerDelegate {
     
     public lazy var cancelButton: UIButton = {
         let result: UIButton = Modal.createButton(
-            title: "cancel".localizedSNUIKit(),
+            title: "cancel".localized(),
             titleColor: .textPrimary
         )
         result.addTarget(self, action: #selector(cancel), for: .touchUpInside)

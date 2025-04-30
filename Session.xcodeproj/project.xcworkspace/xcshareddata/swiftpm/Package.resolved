@@ -96,8 +96,8 @@
       "kind" : "remoteSourceControl",
       "location" : "https://github.com/session-foundation/session-grdb-swift.git",
       "state" : {
-        "revision" : "c69f8bf8a7ede8727c20f7c36eeffd3f55598487",
-        "version" : "107.3.0"
+        "revision" : "46f9ca466950a0e7b0839c2951c03bd687b23d3f",
+        "version" : "107.4.1"
       }
     },
     {
