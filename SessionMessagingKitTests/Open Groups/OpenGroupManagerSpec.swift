@@ -2494,7 +2494,7 @@ class OpenGroupManagerSpec: QuickSpec {
                 // MARK: ---- and the key belongs to the current user
                 context("and the key belongs to the current user") {
                     // MARK: ------ matches a blinded key
-                    it("matches a blinded key ") {
+                    it("matches a blinded key") {
                         mockStorage.write { db in
                             try GroupMember(
                                 groupId: OpenGroup.idFor(roomToken: "testRoom", server: "http://127.0.0.1"),

@@ -311,7 +311,11 @@ public class SwarmPoller: SwarmPollerType & PollerType {
                                         MessageReceiverError.duplicateMessage,
                                         MessageReceiverError.selfSend:
                                         break
-                                    
+                                        
+                                    case MessageReceiverError.duplicateMessageNewSnode:
+                                        hadValidHashUpdate = true
+                                        break
+                                        
                                     case DatabaseError.SQLITE_ABORT:
                                         Log.warn(.poller, "Failed to the database being suspended (running in background with no background task).")
                                         
