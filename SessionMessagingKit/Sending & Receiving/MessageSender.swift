@@ -204,10 +204,8 @@ public final class MessageSender {
                 case (.contact(let publicKey), .default), (.syncMessage(let publicKey), _), (.closedGroup(let publicKey), _):
                     let ciphertext: Data = try dependencies[singleton: .crypto].tryGenerate(
                         .ciphertextWithSessionProtocol(
-                            db,
                             plaintext: plaintext,
-                            destination: destination,
-                            using: dependencies
+                            destination: destination
                         )
                     )
                     
@@ -317,7 +315,9 @@ public final class MessageSender {
                 db,
                 id: OpenGroup.idFor(roomToken: roomToken, server: server)
             ),
-            let userEdKeyPair: KeyPair = Identity.fetchUserEd25519KeyPair(db)
+            let userEdKeyPair: KeyPair = dependencies[singleton: .crypto].generate(
+                .ed25519KeyPair(seed: dependencies[cache: .general].ed25519Seed)
+            )
         else { throw MessageSenderError.invalidMessage }
         
         // Set the sender/recipient info (needed to be valid)
@@ -337,7 +337,10 @@ public final class MessageSender {
             }
             guard
                 let blinded15KeyPair: KeyPair = dependencies[singleton: .crypto].generate(
-                    .blinded15KeyPair(serverPublicKey: openGroup.publicKey, ed25519SecretKey: userEdKeyPair.secretKey)
+                    .blinded15KeyPair(
+                        serverPublicKey: openGroup.publicKey,
+                        ed25519SecretKey: userEdKeyPair.secretKey
+                    )
                 )
             else { throw MessageSenderError.signingFailed }
             
@@ -471,11 +474,9 @@ public final class MessageSender {
         // Encrypt the serialized protobuf
         let ciphertext: Data = try dependencies[singleton: .crypto].generateResult(
             .ciphertextWithSessionBlindingProtocol(
-                db,
                 plaintext: plaintext,
                 recipientBlindedId: recipientBlindedPublicKey,
-                serverPublicKey: openGroupPublicKey,
-                using: dependencies
+                serverPublicKey: openGroupPublicKey
             )
         )
         .mapError { MessageSenderError.other(nil, "Couldn't encrypt message for destination: \(destination)", $0) }

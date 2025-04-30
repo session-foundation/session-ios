@@ -11,20 +11,22 @@ public extension Authentication {
     /// Used for when interacting as the current user
     struct standard: AuthenticationMethod {
         public let sessionId: SessionId
-        public let ed25519KeyPair: KeyPair
+        public let ed25519PublicKey: [UInt8]
+        public let ed25519SecretKey: [UInt8]
         
-        public var info: Info { .standard(sessionId: sessionId, ed25519KeyPair: ed25519KeyPair) }
+        public var info: Info { .standard(sessionId: sessionId, ed25519PublicKey: ed25519PublicKey) }
         
-        public init(sessionId: SessionId, ed25519KeyPair: KeyPair) {
+        public init(sessionId: SessionId, ed25519PublicKey: [UInt8], ed25519SecretKey: [UInt8]) {
             self.sessionId = sessionId
-            self.ed25519KeyPair = ed25519KeyPair
+            self.ed25519PublicKey = ed25519PublicKey
+            self.ed25519SecretKey = ed25519SecretKey
         }
         
         // MARK: - SignatureGenerator
         
         public func generateSignature(with verificationBytes: [UInt8], using dependencies: Dependencies) throws -> Authentication.Signature {
             return try dependencies[singleton: .crypto].tryGenerate(
-                .signature(message: verificationBytes, ed25519SecretKey: ed25519KeyPair.secretKey)
+                .signature(message: verificationBytes, ed25519SecretKey: ed25519SecretKey)
             )
         }
     }
@@ -93,11 +95,17 @@ public extension Authentication {
     ) throws -> AuthenticationMethod {
         switch try? SessionId(from: swarmPublicKey) {
             case .some(let sessionId) where sessionId.prefix == .standard:
-                guard let keyPair: KeyPair = Identity.fetchUserEd25519KeyPair(db) else {
-                    throw SnodeAPIError.noKeyPair
-                }
+                guard
+                    let userEdKeyPair: KeyPair = dependencies[singleton: .crypto].generate(
+                        .ed25519KeyPair(seed: dependencies[cache: .general].ed25519Seed)
+                    )
+                else { throw SnodeAPIError.noKeyPair }
                 
-                return Authentication.standard(sessionId: sessionId, ed25519KeyPair: keyPair)
+                return Authentication.standard(
+                    sessionId: sessionId,
+                    ed25519PublicKey: userEdKeyPair.publicKey,
+                    ed25519SecretKey: userEdKeyPair.secretKey
+                )
                 
             case .some(let sessionId) where sessionId.prefix == .group:
                 let authData: GroupAuthData? = try? ClosedGroup

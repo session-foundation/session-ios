@@ -174,10 +174,6 @@ public extension ClosedGroup {
         group: ClosedGroup,
         using dependencies: Dependencies
     ) throws {
-        guard let userED25519KeyPair: KeyPair = Identity.fetchUserEd25519KeyPair(db) else {
-            throw MessageReceiverError.noUserED25519KeyPair
-        }
-        
         /// Update the `USER_GROUPS` config
         try? LibSession.update(
             db,
@@ -226,7 +222,7 @@ public extension ClosedGroup {
             
             _ = try? cache.createAndLoadGroupState(
                 groupSessionId: groupSessionId,
-                userED25519KeyPair: userED25519KeyPair,
+                userED25519SecretKey: dependencies[cache: .general].ed25519SecretKey,
                 groupIdentityPrivateKey: group.groupIdentityPrivateKey
             )
         }

@@ -354,7 +354,7 @@ public final class HomeVC: BaseVC, LibSessionRespondingViewController, UITableVi
         
         // Start polling if needed (i.e. if the user just created or restored their Session ID)
         if
-            Identity.userExists(using: viewModel.dependencies),
+            viewModel.dependencies[cache: .general].userExists,
             let appDelegate: AppDelegate = UIApplication.shared.delegate as? AppDelegate,
             viewModel.dependencies[singleton: .appContext].isMainAppAndActive
         {

@@ -26,7 +26,7 @@ public enum FailedAttachmentDownloadsJob: JobExecutor {
         deferred: @escaping (Job) -> Void,
         using dependencies: Dependencies
     ) {
-        guard Identity.userExists(using: dependencies) else { return success(job, false) }
+        guard dependencies[cache: .general].userExists else { return success(job, false) }
         
         var changeCount: Int = -1
         

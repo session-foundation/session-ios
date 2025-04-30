@@ -175,7 +175,10 @@ public extension Crypto.Verification {
             id: "memberAuthData",
             args: [groupSessionId, ed25519SecretKey, memberAuthData]
         ) {
-            guard var cGroupId: [CChar] = groupSessionId.hexString.cString(using: .utf8) else { return false }
+            guard
+                var cGroupId: [CChar] = groupSessionId.hexString.cString(using: .utf8),
+                ed25519SecretKey.count == 64
+            else { return false }
             
             var cEd25519SecretKey: [UInt8] = ed25519SecretKey
             var cAuthData: [UInt8] = Array(memberAuthData)

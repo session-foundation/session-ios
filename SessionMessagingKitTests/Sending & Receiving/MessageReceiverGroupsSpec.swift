@@ -137,6 +137,7 @@ class MessageReceiverGroupsSpec: QuickSpec {
         @TestState(cache: .general, in: dependencies) var mockGeneralCache: MockGeneralCache! = MockGeneralCache(
             initialSetup: { cache in
                 cache.when { $0.sessionId }.thenReturn(SessionId(.standard, hex: TestConstants.publicKey))
+                cache.when { $0.ed25519SecretKey }.thenReturn(Array(Data(hex: TestConstants.edSecretKey)))
             }
         )
         @TestState var secretKey: [UInt8]! = Array(Data(hex: TestConstants.edSecretKey))
@@ -203,7 +204,7 @@ class MessageReceiverGroupsSpec: QuickSpec {
                     .when { $0.config(for: .groupKeys, sessionId: groupId) }
                     .thenReturn(groupKeysConfig)
                 cache
-                    .when { try $0.pendingChanges(.any, swarmPublicKey: .any) }
+                    .when { try $0.pendingChanges(swarmPublicKey: .any) }
                     .thenReturn(LibSession.PendingChanges())
                 cache.when { $0.configNeedsDump(.any) }.thenReturn(false)
                 cache

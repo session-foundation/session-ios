@@ -208,10 +208,9 @@ public extension LibSession {
         public func loadState(_ db: Database, requestId: String?) {
             // Ensure we have the ed25519 key and that we haven't already loaded the state before
             // we continue
-            guard
-                configStore.isEmpty,
-                let ed25519KeyPair: KeyPair = Identity.fetchUserEd25519KeyPair(db)
-            else { return Log.warn(.libSession, "Ignoring loadState\(requestId.map { " for \($0)" } ?? "") due to existing state") }
+            guard configStore.isEmpty else {
+                return Log.warn(.libSession, "Ignoring loadState\(requestId.map { " for \($0)" } ?? "") due to existing state")
+            }
             
             /// Retrieve the existing dumps from the database
             typealias ConfigInfo = (sessionId: SessionId, variant: ConfigDump.Variant, dump: ConfigDump?)
@@ -274,7 +273,7 @@ public extension LibSession {
                 configStore[sessionId, variant] = try? loadState(
                     for: variant,
                     sessionId: sessionId,
-                    userEd25519SecretKey: ed25519KeyPair.secretKey,
+                    userEd25519SecretKey: dependencies[cache: .general].ed25519SecretKey,
                     groupEd25519SecretKey: groupsByKey[sessionId.hexString]?
                         .groupIdentityPrivateKey
                         .map { Array($0) },
@@ -307,6 +306,8 @@ public extension LibSession {
             groupEd25519SecretKey: [UInt8]?,
             cachedData: Data?
         ) throws -> Config {
+            guard userEd25519SecretKey.count >= 32 else { throw CryptoError.missingUserSecretKey }
+            
             var conf: UnsafeMutablePointer<config_object>? = nil
             var keysConf: UnsafeMutablePointer<config_group_keys>? = nil
             var secretKey: [UInt8] = userEd25519SecretKey
@@ -561,11 +562,8 @@ public extension LibSession {
             }
         }
         
-        public func pendingChanges(
-            _ db: Database,
-            swarmPublicKey: String
-        ) throws -> PendingChanges {
-            guard Identity.userExists(db, using: dependencies) else { throw LibSessionError.userDoesNotExist }
+        public func pendingChanges(swarmPublicKey: String) throws -> PendingChanges {
+            guard dependencies[cache: .general].userExists else { throw LibSessionError.userDoesNotExist }
             
             // Get a list of the different config variants for the provided publicKey
             let userSessionId: SessionId = dependencies[cache: .general].sessionId
@@ -936,7 +934,7 @@ public protocol LibSessionCacheType: LibSessionImmutableCacheType, MutableCacheT
         sessionId: SessionId,
         change: @escaping (LibSession.Config?) throws -> ()
     ) throws
-    func pendingChanges(_ db: Database, swarmPublicKey: String) throws -> LibSession.PendingChanges
+    func pendingChanges(swarmPublicKey: String) throws -> LibSession.PendingChanges
     func createDumpMarkingAsPushed(
         data: [(pushData: LibSession.PendingChanges.PushData, hash: String?)],
         sentTimestamp: Int64,
@@ -1034,7 +1032,7 @@ private final class NoopLibSessionCache: LibSessionCacheType {
         change: (LibSession.Config?) throws -> ()
     ) throws {}
     
-    func pendingChanges(_ db: Database, swarmPublicKey: String) throws -> LibSession.PendingChanges {
+    func pendingChanges(swarmPublicKey: String) throws -> LibSession.PendingChanges {
         return LibSession.PendingChanges()
     }
     

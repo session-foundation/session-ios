@@ -18,8 +18,7 @@ extension MessageReceiver {
     ) throws {
         guard
             let sender: String = message.sender,
-            let senderSessionId: SessionId = try? SessionId(from: sender),
-            let userEd25519KeyPair: KeyPair = Identity.fetchUserEd25519KeyPair(db)
+            let senderSessionId: SessionId = try? SessionId(from: sender)
         else { throw MessageReceiverError.decryptionFailed }
         
         let supportedEncryptionDomains: [LibSession.Crypto.Domain] = [
@@ -34,7 +33,7 @@ extension MessageReceiver {
                         .plaintextWithMultiEncrypt(
                             ciphertext: message.ciphertext,
                             senderSessionId: senderSessionId,
-                            ed25519PrivateKey: userEd25519KeyPair.secretKey,
+                            ed25519PrivateKey: dependencies[cache: .general].ed25519SecretKey,
                             domain: domain
                         )
                     )

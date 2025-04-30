@@ -1214,7 +1214,7 @@ extension Attachment {
             if destination.shouldEncrypt {
                 guard
                     let result: EncryptionData = dependencies[singleton: .crypto].generate(
-                        .encryptAttachment(plaintext: rawData, using: dependencies)
+                        .encryptAttachment(plaintext: rawData)
                     )
                 else {
                     Log.error([cat].compactMap { $0 }, "Couldn't encrypt attachment.")
