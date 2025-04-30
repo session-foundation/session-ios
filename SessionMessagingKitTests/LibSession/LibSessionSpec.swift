@@ -22,6 +22,7 @@ class LibSessionSpec: QuickSpec {
         @TestState(cache: .general, in: dependencies) var mockGeneralCache: MockGeneralCache! = MockGeneralCache(
             initialSetup: { cache in
                 cache.when { $0.sessionId }.thenReturn(SessionId(.standard, hex: TestConstants.publicKey))
+                cache.when { $0.ed25519SecretKey }.thenReturn(Array(Data(hex: TestConstants.edSecretKey)))
             }
         )
         @TestState(singleton: .storage, in: dependencies) var mockStorage: Storage! = SynchronousStorage(
@@ -345,11 +346,8 @@ class LibSessionSpec: QuickSpec {
                 // MARK: ---- throws when there is no user ed25519 keyPair
                 it("throws when there is no user ed25519 keyPair") {
                     var resultError: Error? = nil
-                    
+                    mockGeneralCache.when { $0.ed25519SecretKey }.thenReturn([])
                     mockStorage.write { db in
-                        try Identity.filter(id: .ed25519PublicKey).deleteAll(db)
-                        try Identity.filter(id: .ed25519SecretKey).deleteAll(db)
-                        
                         do {
                             _ = try LibSession.createGroup(
                                 db,

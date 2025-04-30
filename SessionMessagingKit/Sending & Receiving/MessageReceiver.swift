@@ -68,12 +68,10 @@ public enum MessageReceiver {
             case (_, .openGroupInbox(let timestamp, let messageServerId, let serverPublicKey, let senderId, let recipientId)):
                 (plaintext, sender) = try dependencies[singleton: .crypto].tryGenerate(
                     .plaintextWithSessionBlindingProtocol(
-                        db,
                         ciphertext: data,
                         senderId: senderId,
                         recipientId: recipientId,
-                        serverPublicKey: serverPublicKey,
-                        using: dependencies
+                        serverPublicKey: serverPublicKey
                     )
                 )
                 
@@ -99,11 +97,7 @@ public enum MessageReceiver {
                         }
                         
                         (plaintext, sender) = try dependencies[singleton: .crypto].tryGenerate(
-                            .plaintextWithSessionProtocol(
-                                db,
-                                ciphertext: ciphertext,
-                                using: dependencies
-                            )
+                            .plaintextWithSessionProtocol(ciphertext: ciphertext)
                         )
                         plaintext = plaintext.removePadding()   // Remove the padding
                         sentTimestampMs = envelope.timestamp
