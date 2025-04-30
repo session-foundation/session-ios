@@ -130,10 +130,7 @@ public extension MessageViewModel.DeletionBehaviours {
         }
         
         /// If it's a legacy group and they have been deprecated then the user shouldn't be able to delete messages
-        guard
-            threadData.threadVariant != .legacyGroup ||
-            !dependencies[feature: .legacyGroupsDeprecated]
-        else { return nil }
+        guard threadData.threadVariant != .legacyGroup else { return nil }
         
         /// First determine the state of the selected messages
         let state: SelectedMessageState = {

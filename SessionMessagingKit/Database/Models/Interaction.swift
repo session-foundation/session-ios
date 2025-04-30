@@ -921,12 +921,17 @@ public extension Interaction {
         // If the thread is an open group then add the blinded id as a key to check
         if let openGroup: OpenGroup = try? OpenGroup.fetchOne(db, id: threadId) {
             if
-                let userEd25519KeyPair: KeyPair = Identity.fetchUserEd25519KeyPair(db),
                 let blinded15KeyPair: KeyPair = dependencies[singleton: .crypto].generate(
-                    .blinded15KeyPair(serverPublicKey: openGroup.publicKey, ed25519SecretKey: userEd25519KeyPair.secretKey)
+                    .blinded15KeyPair(
+                        serverPublicKey: openGroup.publicKey,
+                        ed25519SecretKey: dependencies[cache: .general].ed25519SecretKey
+                    )
                 ),
                 let blinded25KeyPair: KeyPair = dependencies[singleton: .crypto].generate(
-                    .blinded25KeyPair(serverPublicKey: openGroup.publicKey, ed25519SecretKey: userEd25519KeyPair.secretKey)
+                    .blinded25KeyPair(
+                        serverPublicKey: openGroup.publicKey,
+                        ed25519SecretKey: dependencies[cache: .general].ed25519SecretKey
+                    )
                 )
             {
                 publicKeysToCheck.append(SessionId(.blinded15, publicKey: blinded15KeyPair.publicKey).hexString)

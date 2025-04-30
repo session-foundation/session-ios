@@ -200,10 +200,8 @@ public final class MessageSender {
                 case (.contact(let publicKey), .default), (.syncMessage(let publicKey), _), (.closedGroup(let publicKey), _):
                     let ciphertext: Data = try dependencies[singleton: .crypto].tryGenerate(
                         .ciphertextWithSessionProtocol(
-                            db,
                             plaintext: plaintext,
-                            destination: destination,
-                            using: dependencies
+                            destination: destination
                         )
                     )
                     
@@ -264,22 +262,6 @@ public final class MessageSender {
                     let updatedMessage: Message = message
                     updatedMessage.serverHash = response.hash
                     
-                    // Only legacy groups need to manually trigger push notifications now so only create the job
-                    // if the destination is a legacy group (ie. a group destination with a standard pubkey prefix)
-                    let notifyPushServerJob: Job? = {
-                        guard
-                            case .closedGroup(let groupPublicKey) = destination,
-                            let groupId: SessionId = try? SessionId(from: groupPublicKey),
-                            groupId.prefix == .standard
-                        else { return nil }
-                                    
-                        return Job(
-                            variant: .notifyPushServer,
-                            behaviour: .runOnce,
-                            details: NotifyPushServerJob.Details(message: snodeMessage)
-                        )
-                    }()
-                    
                     // Save the updated message info and send a PN if needed
                     dependencies[singleton: .storage].write { db in
                         try MessageSender.handleSuccessfulMessageSend(
@@ -289,34 +271,7 @@ public final class MessageSender {
                             interactionId: interactionId,
                             using: dependencies
                         )
-                        
-                        guard notifyPushServerJob != nil else { return }
-
-                        dependencies[singleton: .jobRunner].add(
-                            db,
-                            job: notifyPushServerJob,
-                            canStartJob: true
-                        )
                     }
-                    
-                    // If we should send a push notification and are sending from the background then
-                    // we want to send it on this thread
-                    guard
-                        let job: Job = notifyPushServerJob,
-                        !dependencies[defaults: .appGroup, key: .isMainAppActive]
-                    else { return }
-                    
-                    // Want to block the main thread here as it's likely we just went to the background
-                    // and have sent a message in a background task before shutting down the app so want
-                    // the notification to go out
-                    NotifyPushServerJob.run(
-                        job,
-                        scheduler: DispatchQueue.global(qos: .userInitiated),
-                        success: { _, _ in },
-                        failure: { _, _, _ in },
-                        deferred: { _ in },
-                        using: dependencies
-                    )
                 },
                 receiveCompletion: { result in
                     switch result {
@@ -356,7 +311,9 @@ public final class MessageSender {
                 db,
                 id: OpenGroup.idFor(roomToken: roomToken, server: server)
             ),
-            let userEdKeyPair: KeyPair = Identity.fetchUserEd25519KeyPair(db)
+            let userEdKeyPair: KeyPair = dependencies[singleton: .crypto].generate(
+                .ed25519KeyPair(seed: dependencies[cache: .general].ed25519Seed)
+            )
         else { throw MessageSenderError.invalidMessage }
         
         // Set the sender/recipient info (needed to be valid)
@@ -376,7 +333,10 @@ public final class MessageSender {
             }
             guard
                 let blinded15KeyPair: KeyPair = dependencies[singleton: .crypto].generate(
-                    .blinded15KeyPair(serverPublicKey: openGroup.publicKey, ed25519SecretKey: userEdKeyPair.secretKey)
+                    .blinded15KeyPair(
+                        serverPublicKey: openGroup.publicKey,
+                        ed25519SecretKey: userEdKeyPair.secretKey
+                    )
                 )
             else { throw MessageSenderError.signingFailed }
             
@@ -506,11 +466,9 @@ public final class MessageSender {
         // Encrypt the serialized protobuf
         let ciphertext: Data = try dependencies[singleton: .crypto].generateResult(
             .ciphertextWithSessionBlindingProtocol(
-                db,
                 plaintext: plaintext,
                 recipientBlindedId: recipientBlindedPublicKey,
-                serverPublicKey: openGroupPublicKey,
-                using: dependencies
+                serverPublicKey: openGroupPublicKey
             )
         )
         .mapError { MessageSenderError.other(nil, "Couldn't encrypt message for destination: \(destination)", $0) }

@@ -20,6 +20,8 @@ class DeveloperSettingsViewModel: SessionTableViewModel, NavigatableStateHolder,
     public let observableState: ObservableTableSourceState<Section, TableItem> = ObservableTableSourceState()
     
     private var showAdvancedLogging: Bool = false
+    private var contactPrefix: String = ""
+    private var numberOfContacts: Int = 0
     private var databaseKeyEncryptionPassword: String = ""
     private var documentPickerResult: DocumentPickerResult?
     
@@ -77,8 +79,6 @@ class DeveloperSettingsViewModel: SessionTableViewModel, NavigatableStateHolder,
         
         case debugDisappearingMessageDurations
         
-        case updatedGroups
-        case legacyGroupsDeprecated
         case updatedGroupsDisableAutoApprove
         case updatedGroupsRemoveMessagesOnKick
         case updatedGroupsAllowHistoricAccessOnInvite
@@ -89,6 +89,7 @@ class DeveloperSettingsViewModel: SessionTableViewModel, NavigatableStateHolder,
         case updatedGroupsDeleteBeforeNow
         case updatedGroupsDeleteAttachmentsBeforeNow
         
+        case createMockContacts
         case copyDatabasePath
         case forceSlowDatabaseQueries
         case exportDatabase
@@ -115,8 +116,6 @@ class DeveloperSettingsViewModel: SessionTableViewModel, NavigatableStateHolder,
                 
                 case .debugDisappearingMessageDurations: return "debugDisappearingMessageDurations"
                 
-                case .updatedGroups: return "updatedGroups"
-                case .legacyGroupsDeprecated: return "legacyGroupsDeprecated"
                 case .updatedGroupsDisableAutoApprove: return "updatedGroupsDisableAutoApprove"
                 case .updatedGroupsRemoveMessagesOnKick: return "updatedGroupsRemoveMessagesOnKick"
                 case .updatedGroupsAllowHistoricAccessOnInvite: return "updatedGroupsAllowHistoricAccessOnInvite"
@@ -127,6 +126,7 @@ class DeveloperSettingsViewModel: SessionTableViewModel, NavigatableStateHolder,
                 case .updatedGroupsDeleteBeforeNow: return "updatedGroupsDeleteBeforeNow"
                 case .updatedGroupsDeleteAttachmentsBeforeNow: return "updatedGroupsDeleteAttachmentsBeforeNow"
                 
+                case .createMockContacts: return "createMockContacts"
                 case .copyDatabasePath: return "copyDatabasePath"
                 case .forceSlowDatabaseQueries: return "forceSlowDatabaseQueries"
                 case .exportDatabase: return "exportDatabase"
@@ -156,8 +156,6 @@ class DeveloperSettingsViewModel: SessionTableViewModel, NavigatableStateHolder,
                 
                 case .debugDisappearingMessageDurations: result.append(.debugDisappearingMessageDurations); fallthrough
                 
-                case .updatedGroups: result.append(.updatedGroups); fallthrough
-                case .legacyGroupsDeprecated: result.append(.legacyGroupsDeprecated); fallthrough
                 case .updatedGroupsDisableAutoApprove: result.append(.updatedGroupsDisableAutoApprove); fallthrough
                 case .updatedGroupsRemoveMessagesOnKick: result.append(.updatedGroupsRemoveMessagesOnKick); fallthrough
                 case .updatedGroupsAllowHistoricAccessOnInvite:
@@ -169,6 +167,7 @@ class DeveloperSettingsViewModel: SessionTableViewModel, NavigatableStateHolder,
                 case .updatedGroupsDeleteBeforeNow: result.append(.updatedGroupsDeleteBeforeNow); fallthrough
                 case .updatedGroupsDeleteAttachmentsBeforeNow: result.append(.updatedGroupsDeleteAttachmentsBeforeNow); fallthrough
                 
+                case .createMockContacts: result.append(.createMockContacts); fallthrough
                 case .copyDatabasePath: result.append(.copyDatabasePath); fallthrough
                 case .forceSlowDatabaseQueries: result.append(.forceSlowDatabaseQueries); fallthrough
                 case .exportDatabase: result.append(.exportDatabase); fallthrough
@@ -197,8 +196,6 @@ class DeveloperSettingsViewModel: SessionTableViewModel, NavigatableStateHolder,
         
         let debugDisappearingMessageDurations: Bool
         
-        let updatedGroups: Bool
-        let legacyGroupsDeprecated: Bool
         let updatedGroupsDisableAutoApprove: Bool
         let updatedGroupsRemoveMessagesOnKick: Bool
         let updatedGroupsAllowHistoricAccessOnInvite: Bool
@@ -231,8 +228,6 @@ class DeveloperSettingsViewModel: SessionTableViewModel, NavigatableStateHolder,
                 
                 debugDisappearingMessageDurations: dependencies[feature: .debugDisappearingMessageDurations],
                 
-                updatedGroups: dependencies[feature: .updatedGroups],
-                legacyGroupsDeprecated: dependencies[feature: .legacyGroupsDeprecated],
                 updatedGroupsDisableAutoApprove: dependencies[feature: .updatedGroupsDisableAutoApprove],
                 updatedGroupsRemoveMessagesOnKick: dependencies[feature: .updatedGroupsRemoveMessagesOnKick],
                 updatedGroupsAllowHistoricAccessOnInvite: dependencies[feature: .updatedGroupsAllowHistoricAccessOnInvite],
@@ -496,39 +491,6 @@ class DeveloperSettingsViewModel: SessionTableViewModel, NavigatableStateHolder,
             model: .groups,
             elements: [
                 SessionCell.Info(
-                    id: .updatedGroups,
-                    title: "Create Updated Groups",
-                    subtitle: """
-                    Controls whether newly created groups are updated or legacy groups.                    
-                    """,
-                    trailingAccessory: .toggle(
-                        current.updatedGroups,
-                        oldValue: previous?.updatedGroups
-                    ),
-                    onTap: { [weak self] in
-                        self?.updateFlag(
-                            for: .updatedGroups,
-                            to: !current.updatedGroups
-                        )
-                    }
-                ),
-                SessionCell.Info(
-                    id: .legacyGroupsDeprecated,
-                    title: "Legacy Groups Deprecated",
-                    subtitle: """
-                    Controls whether legacy groups have been deprecated.
-                    
-                    Note: This doesn't affect whether updated or legacy groups are created when creating new groups.
-                    """,
-                    trailingAccessory: .toggle(
-                        current.legacyGroupsDeprecated,
-                        oldValue: previous?.legacyGroupsDeprecated
-                    ),
-                    onTap: { [weak self] in
-                        self?.updateLegacyGroupsDeprecated(to: !current.legacyGroupsDeprecated)
-                    }
-                ),
-                SessionCell.Info(
                     id: .updatedGroupsDisableAutoApprove,
                     title: "Disable Auto Approve",
                     subtitle: """
@@ -705,6 +667,19 @@ class DeveloperSettingsViewModel: SessionTableViewModel, NavigatableStateHolder,
             model: .database,
             elements: [
                 SessionCell.Info(
+                    id: .createMockContacts,
+                    title: "Create Mock Contacts",
+                    subtitle: """
+                    Creates the specified number of contacts and adds them to the Contacts config message.
+                    
+                    <b>Note:</b> Some of these may be real contacts so best not to message them
+                    """,
+                    trailingAccessory: .highlightingBackgroundLabel(title: "Create"),
+                    onTap: { [weak self] in
+                        self?.createContacts()
+                    }
+                ),
+                SessionCell.Info(
                     id: .copyDatabasePath,
                     title: "Copy database path",
                     subtitle: """
@@ -793,7 +768,8 @@ class DeveloperSettingsViewModel: SessionTableViewModel, NavigatableStateHolder,
                     updateFlag(for: .showStringKeys, to: nil)
                 
                 case .resetSnodeCache: break    // Not a feature
-                case .copyDatabasePath: break     // Not a feature
+                case .createMockContacts: break // Not a feature
+                case .copyDatabasePath: break   // Not a feature
                 case .exportDatabase: break     // Not a feature
                 case .importDatabase: break     // Not a feature
                 case .advancedLogging: break    // Not a feature
@@ -821,16 +797,6 @@ class DeveloperSettingsViewModel: SessionTableViewModel, NavigatableStateHolder,
                     
                     updateFlag(for: .debugDisappearingMessageDurations, to: nil)
 
-                case .updatedGroups:
-                    guard dependencies.hasSet(feature: .updatedGroups) else { return }
-
-                    updateFlag(for: .updatedGroups, to: nil)
-                
-                case .legacyGroupsDeprecated:
-                    guard dependencies.hasSet(feature: .legacyGroupsDeprecated) else { return }
-                    
-                    updateLegacyGroupsDeprecated(to: nil)
-                    
                 case .updatedGroupsDisableAutoApprove:
                     guard dependencies.hasSet(feature: .updatedGroupsDisableAutoApprove) else { return }
                     
@@ -1070,17 +1036,6 @@ class DeveloperSettingsViewModel: SessionTableViewModel, NavigatableStateHolder,
         forceRefresh(type: .databaseQuery)
     }
     
-    private func updateLegacyGroupsDeprecated(to updatedFlag: Bool?) {
-        updateFlag(for: .legacyGroupsDeprecated, to: updatedFlag)
-        
-        // Stop and restart the group pollers now that the flag has been updated (legacy groups
-        // will/won't be started based on the flag)
-        dependencies.mutate(cache: .groupPollers) {
-            $0.stopAndRemoveAllPollers()
-            $0.startAllPollers()
-        }
-    }
-    
     private func updateForceOffline(current: Bool) {
         updateFlag(for: .forceOffline, to: !current)
         
@@ -1108,6 +1063,109 @@ class DeveloperSettingsViewModel: SessionTableViewModel, NavigatableStateHolder,
                         
                         /// Clear the snode cache
                         dependencies.mutate(cache: .libSessionNetwork) { $0.clearSnodeCache() }
+                    }
+                )
+            ),
+            transitionType: .present
+        )
+    }
+    
+    private func createContacts() {
+        self.transitionToScreen(
+            ConfirmationModal(
+                info: ConfirmationModal.Info(
+                    title: "Create Mock Contacts",
+                    body: .dualInput(
+                        explanation: NSAttributedString(string: "How many contacts should be created?"),
+                        firstInfo: ConfirmationModal.Info.Body.InputInfo(
+                            placeholder: "Prefix",
+                            initialValue: "Contact",
+                            clearButton: true
+                        ),
+                        secondInfo: ConfirmationModal.Info.Body.InputInfo(
+                            placeholder: "Number of contacts",
+                            initialValue: "100",
+                            clearButton: true
+                        ),
+                        onChange: { [weak self] prefix, numberString in
+                            guard let number: Int = Int(numberString) else { return }
+                            
+                            self?.contactPrefix = prefix
+                            self?.numberOfContacts = number
+                        }
+                    ),
+                    confirmTitle: "Create",
+                    confirmStyle: .alert_text,
+                    cancelTitle: "Cancel",
+                    cancelStyle: .alert_text,
+                    hasCloseButton: true,
+                    dismissOnConfirm: false,
+                    onConfirm: { [weak self, dependencies] modal in
+                        guard
+                            let numberOfContacts: Int = self?.numberOfContacts,
+                            numberOfContacts > 0
+                        else { return }
+                        
+                        modal.dismiss(animated: true) {
+                            let viewController: UIViewController = ModalActivityIndicatorViewController(canCancel: false) { indicator in
+                                let timestampMs: Double = dependencies[cache: .snodeAPI].currentOffsetTimestampMs()
+                                
+                                dependencies[singleton: .storage].writeAsync(
+                                    updates: { db in
+                                        try (0..<numberOfContacts).forEach { index in
+                                            guard
+                                                let x25519KeyPair: KeyPair = dependencies[singleton: .crypto].generate(
+                                                    .x25519KeyPair()
+                                                )
+                                            else { return }
+                                            
+                                            let sessionId = SessionId(.standard, publicKey: x25519KeyPair.publicKey)
+                                            
+                                            _ = try Contact(
+                                                id: sessionId.hexString,
+                                                isApproved: true,
+                                                using: dependencies
+                                            ).upserted(db)
+                                            _ = try Profile(
+                                                id: sessionId.hexString,
+                                                name: String(format: "\(self?.contactPrefix ?? "")%04d", index + 1)
+                                            ).upserted(db)
+                                            _ = try SessionThread.upsert(
+                                                db,
+                                                id: sessionId.hexString,
+                                                variant: .contact,
+                                                values: SessionThread.TargetValues(
+                                                    creationDateTimestamp: .setTo(timestampMs / 1000),
+                                                    shouldBeVisible: .setTo(true)
+                                                ),
+                                                using: dependencies
+                                            )
+                                            
+                                            try Contact
+                                                .filter(id: sessionId.hexString)
+                                                .updateAllAndConfig(
+                                                    db,
+                                                    Contact.Columns.isApproved.set(to: true),
+                                                    using: dependencies
+                                                )
+                                        }
+                                    },
+                                    completion: { _ in
+                                        indicator.dismiss {
+                                            self?.showToast(
+                                                text: "Contacts Created",
+                                                backgroundColor: .backgroundSecondary
+                                            )
+                                        }
+                                    }
+                                )
+                            }
+                            
+                            self?.transitionToScreen(viewController, transitionType: .present)
+                        }
+                    },
+                    onCancel: { modal in
+                        modal.dismiss(animated: true)
                     }
                 )
             ),
