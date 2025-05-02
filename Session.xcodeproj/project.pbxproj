@@ -835,8 +835,6 @@
 		FD8A5B322DC191B4004C689B /* _025_DropLegacyClosedGroupKeyPairTable.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD8A5B312DC191AB004C689B /* _025_DropLegacyClosedGroupKeyPairTable.swift */; };
 		FD8A5B342DC1A732004C689B /* _008_ResetUserConfigLastHashes.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD8A5B332DC1A726004C689B /* _008_ResetUserConfigLastHashes.swift */; };
 		FD8A5B302DC18D61004C689B /* GeneralCacheSpec.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD8A5B2F2DC18D5E004C689B /* GeneralCacheSpec.swift */; };
-		FD8A5B322DC191B4004C689B /* _025_DropLegacyClosedGroupKeyPairTable.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD8A5B312DC191AB004C689B /* _025_DropLegacyClosedGroupKeyPairTable.swift */; };
-		FD8A5B302DC18D61004C689B /* GeneralCacheSpec.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD8A5B2F2DC18D5E004C689B /* GeneralCacheSpec.swift */; };
 		FD8ECF7B29340FFD00C0D1BB /* LibSession+SessionMessagingKit.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD8ECF7A29340FFD00C0D1BB /* LibSession+SessionMessagingKit.swift */; };
 		FD8ECF7D2934293A00C0D1BB /* _013_SessionUtilChanges.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD8ECF7C2934293A00C0D1BB /* _013_SessionUtilChanges.swift */; };
 		FD8ECF7F2934298100C0D1BB /* ConfigDump.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD8ECF7E2934298100C0D1BB /* ConfigDump.swift */; };
@@ -2067,8 +2065,6 @@
 		FD8A5B282DC060DD004C689B /* Double+Utilities.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Double+Utilities.swift"; sourceTree = "<group>"; };
 		FD8A5B312DC191AB004C689B /* _025_DropLegacyClosedGroupKeyPairTable.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = _025_DropLegacyClosedGroupKeyPairTable.swift; sourceTree = "<group>"; };
 		FD8A5B332DC1A726004C689B /* _008_ResetUserConfigLastHashes.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = _008_ResetUserConfigLastHashes.swift; sourceTree = "<group>"; };
-		FD8A5B2F2DC18D5E004C689B /* GeneralCacheSpec.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GeneralCacheSpec.swift; sourceTree = "<group>"; };
-		FD8A5B312DC191AB004C689B /* _025_DropLegacyClosedGroupKeyPairTable.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = _025_DropLegacyClosedGroupKeyPairTable.swift; sourceTree = "<group>"; };
 		FD8A5B2F2DC18D5E004C689B /* GeneralCacheSpec.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GeneralCacheSpec.swift; sourceTree = "<group>"; };
 		FD8ECF7A29340FFD00C0D1BB /* LibSession+SessionMessagingKit.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "LibSession+SessionMessagingKit.swift"; sourceTree = "<group>"; };
 		FD8ECF7C2934293A00C0D1BB /* _013_SessionUtilChanges.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = _013_SessionUtilChanges.swift; sourceTree = "<group>"; };
