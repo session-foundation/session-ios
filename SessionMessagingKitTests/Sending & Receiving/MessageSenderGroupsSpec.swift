@@ -147,6 +147,17 @@ class MessageSenderGroupsSpec: QuickSpec {
                     }
                     .thenReturn(())
                 keychain
+                    .when {
+                        try $0.getOrGenerateEncryptionKey(
+                            forKey: .any,
+                            length: .any,
+                            cat: .any,
+                            legacyKey: .any,
+                            legacyService: .any
+                        )
+                    }
+                    .thenReturn(Data([1, 2, 3]))
+                keychain
                     .when { try $0.data(forKey: .pushNotificationEncryptionKey) }
                     .thenReturn(Data((0..<PushNotificationAPI.encryptionKeyLength).map { _ in 1 }))
             }
