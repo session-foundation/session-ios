@@ -987,7 +987,7 @@ class DeveloperSettingsViewModel: SessionTableViewModel, NavigatableStateHolder,
             
             _ = try SnodeReceivedMessageInfo.deleteAll(db)
             _ = try SessionThread.deleteAll(db)
-            _ = try ControlMessageProcessRecord.deleteAll(db)
+            _ = try MessageDeduplication.deleteAll(db)
             _ = try ClosedGroup.deleteAll(db)
             _ = try OpenGroup.deleteAll(db)
             _ = try Capability.deleteAll(db)
@@ -1001,6 +1001,9 @@ class DeveloperSettingsViewModel: SessionTableViewModel, NavigatableStateHolder,
             _ = try BlindedIdLookup.deleteAll(db)
             _ = try ConfigDump.deleteAll(db)
         }
+        
+        /// Remove all dedupe record files
+        dependencies[singleton: .extensionHelper].deleteAllDedupeRecords()
         
         Log.info("[DevSettings] Reloading state for \(String(describing: updatedNetwork))")
         

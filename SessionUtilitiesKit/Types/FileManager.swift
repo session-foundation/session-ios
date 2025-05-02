@@ -47,12 +47,16 @@ public protocol FileManagerType {
     func contents(atPath: String) -> Data?
     func contentsOfDirectory(at url: URL) throws -> [URL]
     func contentsOfDirectory(atPath path: String) throws -> [String]
+    func isDirectoryEmpty(at url: URL) -> Bool
+    func isDirectoryEmpty(atPath path: String) -> Bool
     
     func createFile(atPath: String, contents: Data?, attributes: [FileAttributeKey: Any]?) -> Bool
     func createDirectory(at url: URL, withIntermediateDirectories: Bool, attributes: [FileAttributeKey: Any]?) throws
     func createDirectory(atPath: String, withIntermediateDirectories: Bool, attributes: [FileAttributeKey: Any]?) throws
     func copyItem(atPath: String, toPath: String) throws
     func copyItem(at fromUrl: URL, to toUrl: URL) throws
+    func moveItem(atPath: String, toPath: String) throws
+    func moveItem(at fromUrl: URL, to toUrl: URL) throws
     func removeItem(atPath: String) throws
     
     func attributesOfItem(atPath path: String) throws -> [FileAttributeKey: Any]
@@ -288,6 +292,22 @@ public class SessionFileManager: FileManagerType {
     public func contentsOfDirectory(atPath path: String) throws -> [String] {
         return try fileManager.contentsOfDirectory(atPath: path)
     }
+    
+    public func isDirectoryEmpty(at url: URL) -> Bool {
+        guard
+            let enumerator = fileManager.enumerator(
+                at: url,
+                includingPropertiesForKeys: nil,
+                options: [.skipsHiddenFiles]
+        ) else { return false }
+
+        /// If `nextObject()` returns `nil` immediately, there were no items
+        return enumerator.nextObject() == nil
+    }
+    
+    public func isDirectoryEmpty(atPath path: String) -> Bool {
+        return isDirectoryEmpty(at: URL(fileURLWithPath: path))
+    }
 
     public func createFile(atPath: String, contents: Data?, attributes: [FileAttributeKey: Any]?) -> Bool {
         return fileManager.createFile(atPath: atPath, contents: contents, attributes: attributes)
@@ -315,6 +335,14 @@ public class SessionFileManager: FileManagerType {
     
     public func copyItem(at fromUrl: URL, to toUrl: URL) throws {
         return try fileManager.copyItem(at: fromUrl, to: toUrl)
+    }
+    
+    public func moveItem(atPath: String, toPath: String) throws {
+        try fileManager.moveItem(atPath: atPath, toPath: toPath)
+    }
+    
+    public func moveItem(at fromUrl: URL, to toUrl: URL) throws {
+        try fileManager.moveItem(at: fromUrl, to: toUrl)
     }
     
     public func removeItem(atPath: String) throws {

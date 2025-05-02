@@ -661,6 +661,26 @@ public extension LibSession {
     }
 }
 
+// MARK: - State Access
+
+extension LibSession.Config {
+    public func isContactBlocked(publicKey: String) -> Bool {
+        guard
+            case .contacts(let conf) = self,
+            var cPublicKey: [CChar] = publicKey.cString(using: .utf8)
+        else { return false }
+        
+        var contact: contacts_contact = contacts_contact()
+        
+        guard contacts_get(conf, &contact, &cPublicKey) else {
+            LibSessionError.clear(conf)
+            return false
+        }
+        
+        return contact.blocked
+    }
+}
+
 // MARK: - SyncedContactInfo
 
 extension LibSession {

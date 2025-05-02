@@ -273,6 +273,9 @@ public final class MessageSender {
                             message: updatedMessage,
                             to: destination,
                             interactionId: interactionId,
+                            serverExpirationTimestamp: (
+                                Int64(floor(TimeInterval(dependencies[cache: .snodeAPI].currentOffsetTimestampMs() + SnodeReceivedMessage.defaultExpirationMs) / 1000))
+                            ),
                             using: dependencies
                         )
                     }
@@ -384,7 +387,6 @@ public final class MessageSender {
             )
             .handleEvents(
                 receiveOutput: { _, response in
-                    let serverTimestampMs: UInt64? = response.posted.map { UInt64(floor($0 * 1000)) }
                     let updatedMessage: Message = message
                     updatedMessage.openGroupServerMessageId = UInt64(response.id)
                     
@@ -395,7 +397,7 @@ public final class MessageSender {
                             message: updatedMessage,
                             to: destination,
                             interactionId: interactionId,
-                            serverTimestampMs: serverTimestampMs,
+                            serverTimestampMs: Int64(floor(response.posted * 1000)),
                             using: dependencies
                         )
                     }
@@ -502,7 +504,8 @@ public final class MessageSender {
                             message: updatedMessage,
                             to: destination,
                             interactionId: interactionId,
-                            serverTimestampMs: UInt64(floor(response.posted * 1000)),
+                            serverTimestampMs: Int64(floor(response.posted * 1000)),
+                            serverExpirationTimestamp: Int64(floor(response.expires)),
                             using: dependencies
                         )
                     }
@@ -586,7 +589,8 @@ public final class MessageSender {
         message: Message,
         to destination: Message.Destination,
         interactionId: Int64?,
-        serverTimestampMs: UInt64? = nil,
+        serverTimestampMs: Int64? = nil,
+        serverExpirationTimestamp: Int64? = nil,
         using dependencies: Dependencies
     ) throws {
         // If the message was a reaction then we want to update the reaction instead of the original
@@ -668,15 +672,28 @@ public final class MessageSender {
         // Extract the threadId from the message
         let threadId: String = Message.threadId(forMessage: message, destination: destination, using: dependencies)
         
-        // Prevent ControlMessages from being handled multiple times if not supported
-        try? ControlMessageProcessRecord(
+        // Insert a `MessageDeduplication` record so we don't handle this message when it's received
+        // in the next poll
+        try MessageDeduplication.insert(
+            db,
             threadId: threadId,
+            threadVariant: destination.threadVariant,
+            uniqueIdentifier: {
+                if let serverHash: String = message.serverHash { return serverHash }
+                if let openGroupServerMessageId: UInt64 = message.openGroupServerMessageId {
+                    return "\(openGroupServerMessageId)"
+                }
+                
+                let variantString: String = Message.Variant(from: message)
+                    .map { "\($0)" }
+                    .defaulting(to: "Unknown Variant")
+                Log.warn(.messageSender, "Unable to store deduplication unique identifier for outgoing message of type: \(variantString).")
+                return nil
+            }(),
             message: message,
-            serverExpirationTimestamp: (
-                TimeInterval(dependencies[cache: .snodeAPI].currentOffsetTimestampMs() / 1000) +
-                ControlMessageProcessRecord.defaultExpirationSeconds
-            )
-        )?.insert(db)
+            serverExpirationTimestamp: serverExpirationTimestamp,
+            using: dependencies
+        )
 
         // Sync the message if needed
         scheduleSyncMessageIfNeeded(

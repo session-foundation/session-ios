@@ -130,8 +130,38 @@ class MessageReceiverGroupsSpec: QuickSpec {
                     }
                     .thenReturn(())
                 keychain
+                    .when {
+                        try $0.getOrGenerateEncryptionKey(
+                            forKey: .any,
+                            length: .any,
+                            cat: .any,
+                            legacyKey: .any,
+                            legacyService: .any
+                        )
+                    }
+                    .thenReturn(Data([1, 2, 3]))
+                keychain
                     .when { try $0.data(forKey: .pushNotificationEncryptionKey) }
                     .thenReturn(Data((0..<PushNotificationAPI.encryptionKeyLength).map { _ in 1 }))
+            }
+        )
+        @TestState(singleton: .fileManager, in: dependencies) var mockFileManager: MockFileManager! = MockFileManager(
+            initialSetup: { fileManager in
+                fileManager.when { $0.appSharedDataDirectoryPath }.thenReturn("/test")
+                fileManager
+                    .when { try $0.ensureDirectoryExists(at: .any, fileProtectionType: .any) }
+                    .thenReturn(())
+                fileManager
+                    .when { try $0.protectFileOrFolder(at: .any, fileProtectionType: .any) }
+                    .thenReturn(())
+                fileManager.when { $0.fileExists(atPath: .any) }.thenReturn(false)
+                fileManager.when { $0.temporaryFilePath(fileExtension: .any) }.thenReturn("tmpFile")
+                fileManager.when { try $0.removeItem(atPath: .any) }.thenReturn(())
+                fileManager
+                    .when { $0.createFile(atPath: .any, contents: .any, attributes: .any) }
+                    .thenReturn(true)
+                fileManager.when { try $0.moveItem(atPath: .any, toPath: .any) }.thenReturn(())
+                fileManager.when { try $0.contentsOfDirectory(at: .any) }.thenReturn([])
             }
         )
         @TestState(cache: .general, in: dependencies) var mockGeneralCache: MockGeneralCache! = MockGeneralCache(

@@ -56,6 +56,8 @@ class MockFileManager: Mock<FileManagerType>, FileManagerType {
     func contents(atPath: String) -> Data? { return mock(args: [atPath]) }
     func contentsOfDirectory(at url: URL) throws -> [URL] { return mock(args: [url]) }
     func contentsOfDirectory(atPath path: String) throws -> [String] { return mock(args: [path]) }
+    func isDirectoryEmpty(at url: URL) -> Bool { return mock(args: [url]) }
+    func isDirectoryEmpty(atPath path: String) -> Bool { return mock(args: [path]) }
     
     func createFile(atPath: String, contents: Data?, attributes: [FileAttributeKey : Any]?) -> Bool {
         return mock(args: [atPath, contents, attributes])
@@ -71,6 +73,8 @@ class MockFileManager: Mock<FileManagerType>, FileManagerType {
     
     func copyItem(atPath: String, toPath: String) throws { return try mockThrowing(args: [atPath, toPath]) }
     func copyItem(at fromUrl: URL, to toUrl: URL) throws { return try mockThrowing(args: [fromUrl, toUrl]) }
+    func moveItem(atPath: String, toPath: String) throws { return try mockThrowing(args: [atPath, toPath]) }
+    func moveItem(at fromUrl: URL, to toUrl: URL) throws { return try mockThrowing(args: [fromUrl, toUrl]) }
     func removeItem(atPath: String) throws { return try mockThrowing(args: [atPath]) }
     
     func attributesOfItem(atPath path: String) throws -> [FileAttributeKey: Any] {

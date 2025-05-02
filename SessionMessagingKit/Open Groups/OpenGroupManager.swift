@@ -330,11 +330,8 @@ public final class OpenGroupManager {
             .filter(id: openGroupId)
             .deleteAll(db)
         
-        // Remove any MessageProcessRecord entries (we will want to reprocess all OpenGroup messages
-        // if they get re-added)
-        _ = try? ControlMessageProcessRecord
-            .filter(ControlMessageProcessRecord.Columns.threadId == openGroupId)
-            .deleteAll(db)
+        // Remove any dedupe records (we will want to reprocess all OpenGroup messages if they get re-added)
+        try MessageDeduplication.deleteIfNeeded(db, threadIds: [openGroupId], using: dependencies)
         
         // Remove the open group (no foreign key to the thread so it won't auto-delete)
         if server?.lowercased() != OpenGroupAPI.defaultServer.lowercased() {
@@ -541,22 +538,34 @@ public final class OpenGroupManager {
             }
             
             // Handle messages
-            if let base64EncodedString: String = message.base64EncodedData,
-               let data = Data(base64Encoded: base64EncodedString)
+            if
+                let base64EncodedString: String = message.base64EncodedData,
+                let data = Data(base64Encoded: base64EncodedString),
+                let sender: String = message.sender
             {
                 do {
-                    let processedMessage: ProcessedMessage? = try Message.processReceivedOpenGroupMessage(
-                        db,
-                        openGroupId: openGroup.id,
-                        openGroupServerPublicKey: openGroup.publicKey,
-                        message: message,
+                    let processedMessage: ProcessedMessage = try MessageReceiver.parse(
                         data: data,
+                        origin: .community(
+                            openGroupId: openGroup.id,
+                            sender: sender,
+                            timestamp: message.posted,
+                            messageServerId: message.id,
+                            whisper: message.whisper,
+                            whisperMods: message.whisperMods,
+                            whisperTo: message.whisperTo
+                        ),
+                        using: dependencies
+                    )
+                    try MessageDeduplication.insert(
+                        db,
+                        processedMessage: processedMessage,
                         using: dependencies
                     )
                     
                     switch processedMessage {
-                        case .config, .none: break
-                        case .standard(_, _, _, let messageInfo):
+                        case .config: break
+                        case .standard(_, _, _, let messageInfo, _):
                             try MessageReceiver.handle(
                                 db,
                                 threadId: openGroup.id,
@@ -576,7 +585,6 @@ public final class OpenGroupManager {
                         case DatabaseError.SQLITE_CONSTRAINT_UNIQUE,
                             DatabaseError.SQLITE_CONSTRAINT,    // Sometimes thrown for UNIQUE
                             MessageReceiverError.duplicateMessage,
-                            MessageReceiverError.duplicateControlMessage,
                             MessageReceiverError.selfSend:
                             break
                         
@@ -686,23 +694,32 @@ public final class OpenGroupManager {
             }
 
             do {
-                let processedMessage: ProcessedMessage? = try Message.processReceivedOpenGroupDirectMessage(
-                    db,
-                    openGroupServerPublicKey: openGroup.publicKey,
-                    message: message,
+                let processedMessage: ProcessedMessage = try MessageReceiver.parse(
                     data: messageData,
+                    origin: .openGroupInbox(
+                        timestamp: message.posted,
+                        messageServerId: message.id,
+                        serverPublicKey: openGroup.publicKey,
+                        senderId: message.sender,
+                        recipientId: message.recipient
+                    ),
+                    using: dependencies
+                )
+                try MessageDeduplication.insert(
+                    db,
+                    processedMessage: processedMessage,
                     using: dependencies
                 )
                 
                 switch processedMessage {
-                    case .config, .none: break
-                    case .standard(let threadId, _, let proto, let messageInfo):
-                        // We want to update the BlindedIdLookup cache with the message info so we can avoid using the
-                        // "expensive" lookup when possible
+                    case .config: break
+                    case .standard(let threadId, _, let proto, let messageInfo, _):
+                        /// We want to update the BlindedIdLookup cache with the message info so we can avoid using the
+                        /// "expensive" lookup when possible
                         let lookup: BlindedIdLookup = try {
-                            // Minor optimisation to avoid processing the same sender multiple times in the same
-                            // 'handleMessages' call (since the 'mapping' call is done within a transaction we
-                            // will never have a mapping come through part-way through processing these messages)
+                            /// Minor optimisation to avoid processing the same sender multiple times in the same
+                            /// 'handleMessages' call (since the 'mapping' call is done within a transaction we
+                            /// will never have a mapping come through part-way through processing these messages)
                             if let result: BlindedIdLookup = lookupCache[message.recipient] {
                                 return result
                             }
@@ -759,7 +776,6 @@ public final class OpenGroupManager {
                     case DatabaseError.SQLITE_CONSTRAINT_UNIQUE,
                         DatabaseError.SQLITE_CONSTRAINT,    // Sometimes thrown for UNIQUE
                         MessageReceiverError.duplicateMessage,
-                        MessageReceiverError.duplicateControlMessage,
                         MessageReceiverError.selfSend:
                         break
                         

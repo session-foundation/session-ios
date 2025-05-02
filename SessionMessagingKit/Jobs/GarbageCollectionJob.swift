@@ -29,6 +29,7 @@ public enum GarbageCollectionJob: JobExecutor {
     private struct FileInfo {
         let attachmentLocalRelativePaths: Set<String>
         let displayPictureFilenames: Set<String>
+        let messageDedupeRecords: [MessageDeduplication]
     }
     
     public static func run<S: Scheduler>(
@@ -72,19 +73,12 @@ public enum GarbageCollectionJob: JobExecutor {
         }()
         
         dependencies[singleton: .storage].writeAsync(
-            updates: { db in
+            updates: { db -> FileInfo in
                 let userSessionId: SessionId = dependencies[cache: .general].sessionId
                 
                 /// Remove any typing indicators
                 if finalTypesToCollect.contains(.threadTypingIndicators) {
                     _ = try ThreadTypingIndicator
-                        .deleteAll(db)
-                }
-                
-                /// Remove any expired controlMessageProcessRecords
-                if finalTypesToCollect.contains(.expiredControlMessageProcessRecords) {
-                    _ = try ControlMessageProcessRecord
-                        .filter(ControlMessageProcessRecord.Columns.serverExpirationTimestamp <= timestampNow)
                         .deleteAll(db)
                 }
                 
@@ -358,72 +352,74 @@ public enum GarbageCollectionJob: JobExecutor {
                         .filter(SnodeReceivedMessageInfo.Columns.expirationDateMs <= (timestampNow * 1000))
                         .deleteAll(db)
                 }
+                
+                /// Retrieve any files which need to be deleted
+                var attachmentLocalRelativePaths: Set<String> = []
+                var displayPictureFilenames: Set<String> = []
+                var messageDedupeRecords: [MessageDeduplication] = []
+                
+                /// Orphaned attachment files - attachment files which don't have an associated record in the database
+                if finalTypesToCollect.contains(.orphanedAttachmentFiles) {
+                    /// **Note:** Thumbnails are stored in the `NSCachesDirectory` directory which should be automatically manage
+                    /// it's own garbage collection so we can just ignore it according to the various comments in the following stack overflow
+                    /// post, the directory will be cleared during app updates as well as if the system is running low on memory (if the app isn't running)
+                    /// https://stackoverflow.com/questions/6879860/when-are-files-from-nscachesdirectory-removed
+                    attachmentLocalRelativePaths = try Attachment
+                        .select(.localRelativeFilePath)
+                        .filter(Attachment.Columns.localRelativeFilePath != nil)
+                        .asRequest(of: String.self)
+                        .fetchSet(db)
+                }
+                
+                /// Orphaned display picture files - profile avatar files which don't have an associated record in the database
+                if finalTypesToCollect.contains(.orphanedDisplayPictures) {
+                    displayPictureFilenames.insert(
+                        contentsOf: try Profile
+                            .select(.profilePictureFileName)
+                            .filter(Profile.Columns.profilePictureFileName != nil)
+                            .asRequest(of: String.self)
+                            .fetchSet(db)
+                    )
+                    displayPictureFilenames.insert(
+                        contentsOf: try ClosedGroup
+                            .select(.displayPictureFilename)
+                            .filter(ClosedGroup.Columns.displayPictureFilename != nil)
+                            .asRequest(of: String.self)
+                            .fetchSet(db)
+                    )
+                    displayPictureFilenames.insert(
+                        contentsOf: try OpenGroup
+                            .select(.displayPictureFilename)
+                            .filter(OpenGroup.Columns.displayPictureFilename != nil)
+                            .asRequest(of: String.self)
+                            .fetchSet(db)
+                    )
+                }
+                
+                if finalTypesToCollect.contains(.pruneExpiredDeduplicationRecords) {
+                    messageDedupeRecords = try MessageDeduplication
+                        .filter(MessageDeduplication.Columns.expirationTimestampSeconds < timestampNow)
+                        .fetchAll(db)
+                }
+                
+                return FileInfo(
+                    attachmentLocalRelativePaths: attachmentLocalRelativePaths,
+                    displayPictureFilenames: displayPictureFilenames,
+                    messageDedupeRecords: messageDedupeRecords
+                )
             },
-            completion: { _ in
-                // Dispatch async so we can swap from the write queue to a read one (we are done
-                // writing)
+            completion: { result in
+                guard case .success(let fileInfo) = result else {
+                    return failure(job, StorageError.generic, false)
+                }
+                
+                /// Dispatch async so we don't block the database threads while doing File I/O
                 scheduler.schedule {
-                    // Retrieve a list of all valid attachmnet and avatar file paths
-                    let maybeFileInfo: FileInfo? = dependencies[singleton: .storage].read { db -> FileInfo in
-                        var attachmentLocalRelativePaths: Set<String> = []
-                        var displayPictureFilenames: Set<String> = []
-                        
-                        /// Orphaned attachment files - attachment files which don't have an associated record in the database
-                        if finalTypesToCollect.contains(.orphanedAttachmentFiles) {
-                            /// **Note:** Thumbnails are stored in the `NSCachesDirectory` directory which should be automatically manage
-                            /// it's own garbage collection so we can just ignore it according to the various comments in the following stack overflow
-                            /// post, the directory will be cleared during app updates as well as if the system is running low on memory (if the app isn't running)
-                            /// https://stackoverflow.com/questions/6879860/when-are-files-from-nscachesdirectory-removed
-                            attachmentLocalRelativePaths = try Attachment
-                                .select(.localRelativeFilePath)
-                                .filter(Attachment.Columns.localRelativeFilePath != nil)
-                                .asRequest(of: String.self)
-                                .fetchSet(db)
-                        }
-
-                        /// Orphaned display picture files - profile avatar files which don't have an associated record in the database
-                        if finalTypesToCollect.contains(.orphanedDisplayPictures) {
-                            displayPictureFilenames.insert(
-                                contentsOf: try Profile
-                                    .select(.profilePictureFileName)
-                                    .filter(Profile.Columns.profilePictureFileName != nil)
-                                    .asRequest(of: String.self)
-                                    .fetchSet(db)
-                            )
-                            displayPictureFilenames.insert(
-                                contentsOf: try ClosedGroup
-                                    .select(.displayPictureFilename)
-                                    .filter(ClosedGroup.Columns.displayPictureFilename != nil)
-                                    .asRequest(of: String.self)
-                                    .fetchSet(db)
-                            )
-                            displayPictureFilenames.insert(
-                                contentsOf: try OpenGroup
-                                    .select(.displayPictureFilename)
-                                    .filter(OpenGroup.Columns.displayPictureFilename != nil)
-                                    .asRequest(of: String.self)
-                                    .fetchSet(db)
-                            )
-                        }
-                        
-                        return FileInfo(
-                            attachmentLocalRelativePaths: attachmentLocalRelativePaths,
-                            displayPictureFilenames: displayPictureFilenames
-                        )
-                    }
-                    
-                    // If we couldn't get the file lists then fail (invalid state and don't want to delete all attachment/profile files)
-                    guard let fileInfo: FileInfo = maybeFileInfo else {
-                        failure(job, StorageError.generic, false)
-                        return
-                    }
-                        
                     var deletionErrors: [Error] = []
                     
-                    // Orphaned attachment files (actual deletion)
+                    /// Orphaned attachment files (actual deletion)
                     if finalTypesToCollect.contains(.orphanedAttachmentFiles) {
-                        // Note: Looks like in order to recursively look through files we need to use the
-                        // enumerator method
+                        /// **Note:** Looks like in order to recursively look through files we need to use the enumerator method
                         let fileEnumerator = dependencies[singleton: .fileManager].enumerator(
                             at: URL(fileURLWithPath: Attachment.attachmentsFolder(using: dependencies)),
                             includingPropertiesForKeys: nil,
@@ -436,11 +432,10 @@ public enum GarbageCollectionJob: JobExecutor {
                             .defaulting(to: [])
                             .asSet()
                         
-                        // Note: Directories will have their own entries in the list, if there is a folder with content
-                        // the file will include the directory in it's path with a forward slash so we can use this to
-                        // distinguish empty directories from ones with content so we don't unintentionally delete a
-                        // directory which contains content to keep as well as delete (directories which end up empty after
-                        // this clean up will be removed during the next run)
+                        /// **Note:** Directories will have their own entries in the list, if there is a folder with content the file will
+                        /// include the directory in it's path with a forward slash so we can use this to distinguish empty directories
+                        /// from ones with content so we don't unintentionally delete a directory which contains content to keep as
+                        /// well as delete (directories which end up empty after this clean up will be removed during the next run)
                         // stringlint:ignore_start
                         let directoryNamesContainingContent: [String] = allAttachmentFilePaths
                             .filter { path -> Bool in path.contains("/") }
@@ -451,8 +446,8 @@ public enum GarbageCollectionJob: JobExecutor {
                         // stringlint:ignore_stop
                         
                         orphanedAttachmentFiles.forEach { filepath in
-                            // We don't want a single deletion failure to block deletion of the other files so try
-                            // each one and store the error to be used to determine success/failure of the job
+                            /// We don't want a single deletion failure to block deletion of the other files so try each one and store
+                            /// the error to be used to determine success/failure of the job
                             do {
                                 try dependencies[singleton: .fileManager].removeItem(
                                     atPath: URL(fileURLWithPath: Attachment.attachmentsFolder(using: dependencies))
@@ -466,7 +461,7 @@ public enum GarbageCollectionJob: JobExecutor {
                         Log.info(.cat, "Orphaned attachments removed: \(orphanedAttachmentFiles.count)")
                     }
                     
-                    // Orphaned display picture files (actual deletion)
+                    /// Orphaned display picture files (actual deletion)
                     if finalTypesToCollect.contains(.orphanedDisplayPictures) {
                         let allDisplayPictureFilenames: Set<String> = (try? dependencies[singleton: .fileManager]
                             .contentsOfDirectory(atPath: dependencies[singleton: .displayPictureManager].sharedDataDisplayPictureDirPath()))
@@ -476,8 +471,8 @@ public enum GarbageCollectionJob: JobExecutor {
                             .subtracting(fileInfo.displayPictureFilenames)
                         
                         orphanedFiles.forEach { filename in
-                            // We don't want a single deletion failure to block deletion of the other files so try
-                            // each one and store the error to be used to determine success/failure of the job
+                            /// We don't want a single deletion failure to block deletion of the other files so try each one and store
+                            /// the error to be used to determine success/failure of the job
                             do {
                                 try dependencies[singleton: .fileManager].removeItem(
                                     atPath: dependencies[singleton: .displayPictureManager].filepath(for: filename)
@@ -489,19 +484,55 @@ public enum GarbageCollectionJob: JobExecutor {
                         Log.info(.cat, "Orphaned display pictures removed: \(orphanedFiles.count)")
                     }
                     
-                    // Report a single file deletion as a job failure (even if other content was successfully removed)
+                    /// Explicit deduplication records that we want to delete
+                    if finalTypesToCollect.contains(.pruneExpiredDeduplicationRecords) {
+                        fileInfo.messageDedupeRecords.forEach { record in
+                            /// We don't want a single deletion failure to block deletion of the other files so try each one and store
+                            /// the error to be used to determine success/failure of the job
+                            do {
+                                try dependencies[singleton: .extensionHelper].removeDedupeRecord(
+                                    threadId: record.threadId,
+                                    uniqueIdentifier: record.uniqueIdentifier
+                                )
+                            }
+                            catch { deletionErrors.append(error) }
+                        }
+                    }
+                    
+                    /// Report a single file deletion as a job failure (even if other content was successfully removed)
                     guard deletionErrors.isEmpty else {
                         failure(job, (deletionErrors.first ?? StorageError.generic), false)
                         return
                     }
                     
-                    // If we did a full collection then update the 'lastGarbageCollection' date to
-                    // prevent a full collection from running again in the next 23 hours
-                    if job.behaviour == .recurringOnActive && dependencies.dateNow.timeIntervalSince(lastGarbageCollection) > (23 * 60 * 60) {
-                        dependencies[defaults: .standard, key: .lastGarbageCollection] = dependencies.dateNow
+                    /// Define a `successClosure` to avoid duplication
+                    let successClosure: () -> Void = {
+                        /// If we did a full collection then update the `lastGarbageCollection` date to prevent a full collection
+                        /// from running again in the next 23 hours
+                        if job.behaviour == .recurringOnActive && dependencies.dateNow.timeIntervalSince(lastGarbageCollection) > (23 * 60 * 60) {
+                            dependencies[defaults: .standard, key: .lastGarbageCollection] = dependencies.dateNow
+                        }
+                        
+                        success(job, false)
                     }
                     
-                    success(job, false)
+                    /// Since the explicit file deletion was successful we can now _actually_ delete the `MessageDeduplication`
+                    /// entries from the database (we don't do this until after the files have been removed to ensure we don't orphan
+                    /// files by doing so)
+                    guard !fileInfo.messageDedupeRecords.isEmpty else { return successClosure() }
+                    
+                    dependencies[singleton: .storage]
+                        .writeAsync(
+                            updates: { db in
+                                try fileInfo.messageDedupeRecords.forEach { try $0.delete(db) }
+                            },
+                            completion: { result in
+                                switch result {
+                                    case .failure: failure(job, StorageError.generic, false)
+                                    case .success: successClosure()
+                                }
+                            }
+                        )
                 }
             }
         )
@@ -512,7 +543,6 @@ public enum GarbageCollectionJob: JobExecutor {
 
 extension GarbageCollectionJob {
     public enum Types: Codable, CaseIterable {
-        case expiredControlMessageProcessRecords
         case threadTypingIndicators
         case oldOpenGroupMessages
         case orphanedJobs
@@ -529,6 +559,7 @@ extension GarbageCollectionJob {
         case expiredPendingReadReceipts
         case shadowThreads
         case pruneExpiredLastHashRecords
+        case pruneExpiredDeduplicationRecords
     }
     
     public struct Details: Codable {

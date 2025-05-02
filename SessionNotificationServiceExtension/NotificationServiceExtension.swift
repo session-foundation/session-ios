@@ -135,16 +135,24 @@ public final class NotificationServiceExtension: UNNotificationServiceExtension 
             var threadDisplayName: String?
             
             do {
-                let processedMessage: ProcessedMessage = try Message.processRawReceivedMessageAsNotification(
-                    db,
+                let processedMessage: ProcessedMessage = try MessageReceiver.parse(
                     data: data,
-                    metadata: metadata,
+                    origin: .swarm(
+                        publicKey: metadata.accountId,
+                        namespace: metadata.namespace,
+                        serverHash: metadata.hash,
+                        serverTimestampMs: metadata.createdTimestampMs,
+                        serverExpirationTimestamp: (
+                            (TimeInterval(dependencies[cache: .snodeAPI].currentOffsetTimestampMs() + SnodeReceivedMessage.defaultExpirationMs) / 1000)
+                        )
+                    ),
                     using: dependencies
                 )
+                try MessageDeduplication.ensureMessageIsNotADuplicate(processedMessage, using: dependencies)
                 
                 switch processedMessage {
                     /// Custom handle config messages (as they don't get handled by the normal `MessageReceiver.handle` call
-                    case .config(let swarmPublicKey, let namespace, let serverHash, let serverTimestampMs, let data):
+                    case .config(let swarmPublicKey, let namespace, let serverHash, let serverTimestampMs, let data, _):
                         try dependencies.mutate(cache: .libSession) { cache in
                             try cache.handleConfigMessages(
                                 db,
@@ -162,7 +170,7 @@ public final class NotificationServiceExtension: UNNotificationServiceExtension 
                     
                     /// Due to the way the `CallMessage` works we need to custom handle it's behaviour within the notification
                     /// extension, for all other message types we want to just use the standard `MessageReceiver.handle` call
-                    case .standard(let threadId, let threadVariant, _, let messageInfo) where messageInfo.message is CallMessage:
+                    case .standard(let threadId, let threadVariant, _, let messageInfo, _) where messageInfo.message is CallMessage:
                         processedThreadId = threadId
                         processedThreadVariant = threadVariant
                         
@@ -258,7 +266,7 @@ public final class NotificationServiceExtension: UNNotificationServiceExtension 
                             using: dependencies
                         )
                         
-                    case .standard(let threadId, let threadVariant, let proto, let messageInfo):
+                    case .standard(let threadId, let threadVariant, let proto, let messageInfo, _):
                         processedThreadId = threadId
                         processedThreadVariant = threadVariant
                         threadDisplayName = SessionThread.displayName(
@@ -297,6 +305,10 @@ public final class NotificationServiceExtension: UNNotificationServiceExtension 
                         )
                 }
                 
+                /// Since we successfully handled the message we should now create the dedupe file for the message so we don't
+                /// show duplicate PNs
+                try MessageDeduplication.createDedupeFile(processedMessage, using: dependencies)
+                
                 db.afterNextTransaction(
                     onCommit: { _ in self?.completeSilenty(.success(metadata), requestId: requestId) },
                     onRollback: { _ in self?.completeSilenty(.errorTransactionFailure, requestId: requestId) }
@@ -319,9 +331,7 @@ public final class NotificationServiceExtension: UNNotificationServiceExtension 
                             case (MessageReceiverError.ignorableMessage, _, _):
                                 self?.completeSilenty(.ignoreDueToRequiresNoNotification, requestId: requestId)
                                 
-                            case (MessageReceiverError.duplicateMessage, _, _),
-                                (MessageReceiverError.duplicateControlMessage, _, _),
-                                (MessageReceiverError.duplicateMessageNewSnode, _, _):
+                            case (MessageReceiverError.duplicateMessage, _, _):
                                 self?.completeSilenty(.ignoreDueToDuplicateMessage, requestId: requestId)
                                 
                             /// If it was a `decryptionFailed` error, but it was for a config namespace then just fail silently (don't

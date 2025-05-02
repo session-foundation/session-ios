@@ -236,7 +236,7 @@ extension Onboarding {
                 .tryMap { [userSessionId, dependencies] messages, _, _, _ -> PollResult? in
                     guard
                         let targetMessage: ProcessedMessage = messages.last, /// Just in case there are multiple
-                        case let .config(_, _, serverHash, serverTimestampMs, data) = targetMessage
+                        case let .config(_, _, serverHash, serverTimestampMs, data, _) = targetMessage
                     else { return nil }
                     
                     /// In order to process the config message we need to create and load a `libSession` cache, but we don't want to load this into
