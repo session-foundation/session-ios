@@ -28,6 +28,17 @@ public extension Message {
         /// A message directed to an open group inbox
         case openGroupInbox(server: String, openGroupPublicKey: String, blindedPublicKey: String)
         
+        public var threadVariant: SessionThread.Variant {
+            switch self {
+                case .contact, .syncMessage, .openGroupInbox: return .contact
+                case .closedGroup(let groupId) where (try? SessionId.Prefix(from: groupId)) == .group:
+                    return .group
+                
+                case .closedGroup: return .legacyGroup
+                case .openGroup: return .community
+            }
+        }
+        
         public var defaultNamespace: SnodeAPI.Namespace? {
             switch self {
                 case .contact, .syncMessage: return .`default`

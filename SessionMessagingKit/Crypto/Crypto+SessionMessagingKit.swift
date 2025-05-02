@@ -96,6 +96,35 @@ public extension Crypto.Generator {
             }
         }
     }
+    
+    static func ciphertextWithXChaCha20(plaintext: Data, encKey: [UInt8]) -> Crypto.Generator<Data> {
+        return Crypto.Generator(
+            id: "ciphertextWithXChaCha20",
+            args: [plaintext, encKey]
+        ) {
+            var cPlaintext: [UInt8] = Array(plaintext)
+            var cEncKey: [UInt8] = encKey
+            var maybeCiphertext: UnsafeMutablePointer<UInt8>? = nil
+            var ciphertextLen: Int = 0
+
+            guard
+                cEncKey.count == 32,
+                session_encrypt_xchacha20(
+                    &cPlaintext,
+                    cPlaintext.count,
+                    &cEncKey,
+                    &maybeCiphertext,
+                    &ciphertextLen
+                ),
+                ciphertextLen > 0,
+                let ciphertext: Data = maybeCiphertext.map({ Data(bytes: $0, count: ciphertextLen) })
+            else { throw MessageSenderError.encryptionFailed }
+
+            free(UnsafeMutableRawPointer(mutating: maybeCiphertext))
+
+            return ciphertext
+        }
+    }
 }
 
 // MARK: - Decryption
@@ -218,6 +247,35 @@ public extension Crypto.Generator {
             }
             
             return String(cString: cHash)
+        }
+    }
+    
+    static func plaintextWithXChaCha20(ciphertext: Data, encKey: [UInt8]) -> Crypto.Generator<Data> {
+        return Crypto.Generator(
+            id: "plaintextWithXChaCha20",
+            args: [ciphertext, encKey]
+        ) {
+            var cCiphertext: [UInt8] = Array(ciphertext)
+            var cEncKey: [UInt8] = encKey
+            var maybePlaintext: UnsafeMutablePointer<UInt8>? = nil
+            var plaintextLen: Int = 0
+
+            guard
+                cEncKey.count == 32,
+                session_decrypt_xchacha20(
+                    &cCiphertext,
+                    cCiphertext.count,
+                    &cEncKey,
+                    &maybePlaintext,
+                    &plaintextLen
+                ),
+                plaintextLen > 0,
+                let plaintext: Data = maybePlaintext.map({ Data(bytes: $0, count: plaintextLen) })
+            else { throw MessageReceiverError.decryptionFailed }
+
+            free(UnsafeMutableRawPointer(mutating: maybePlaintext))
+
+            return plaintext
         }
     }
 }

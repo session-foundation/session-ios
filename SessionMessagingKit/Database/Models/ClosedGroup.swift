@@ -259,7 +259,6 @@ public extension ClosedGroup {
         }
         
         // Remove the group from the database and unsubscribe from PNs
-        let userSessionId: SessionId = dependencies[cache: .general].sessionId
         let threadVariants: [ThreadIdVariant] = try {
             guard
                 dataToRemove.contains(.pushNotifications) ||
@@ -336,15 +335,9 @@ public extension ClosedGroup {
                 .filter(threadIds.contains(Interaction.Columns.threadId))
                 .deleteAll(db)
             
-            /// Delete any `ControlMessageProcessRecord` entries that we want to reprocess if the member gets
+            /// Delete any `MessageDeduplication` entries that we want to reprocess if the member gets
             /// re-invited to the group with historic access (these are repeatable records so won't cause issues if we re-run them)
-            try ControlMessageProcessRecord
-                .filter(threadIds.contains(ControlMessageProcessRecord.Columns.threadId))
-                .filter(
-                    ControlMessageProcessRecord.Variant.variantsToBeReprocessedAfterLeavingAndRejoiningConversation
-                        .contains(ControlMessageProcessRecord.Columns.variant)
-                )
-                .deleteAll(db)
+            try MessageDeduplication.deleteIfNeeded(db, threadIds: threadIds, using: dependencies)
             
             /// Also want to delete the `SnodeReceivedMessageInfo` so if the member gets re-invited to the group with
             /// historic access they can re-download and process all of the old messages

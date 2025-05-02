@@ -256,29 +256,41 @@ public class SwarmPoller: SwarmPollerType & PollerType {
                     let processedMessages: [ProcessedMessage] = messages
                         .compactMap { message -> ProcessedMessage? in
                             do {
-                                return try Message.processRawReceivedMessage(
-                                    db,
-                                    rawMessage: message,
-                                    swarmPublicKey: pollerDestination.target,
-                                    shouldStoreMessages: shouldStoreMessages,
+                                let processedMessage: ProcessedMessage = try MessageReceiver.parse(
+                                    data: message.data,
+                                    origin: .swarm(
+                                        publicKey: pollerDestination.target,
+                                        namespace: message.namespace,
+                                        serverHash: message.info.hash,
+                                        serverTimestampMs: message.timestampMs,
+                                        serverExpirationTimestamp: TimeInterval(Double(message.info.expirationDateMs) / 1000)
+                                    ),
                                     using: dependencies
                                 )
+                                try MessageDeduplication.insert(
+                                    db,
+                                    processedMessage: processedMessage,
+                                    using: dependencies
+                                )
+                                hadValidHashUpdate = message.info.storeUpdatedLastHash(db)
+                                
+                                return processedMessage
                             }
                             catch {
+                                // For some error cases we want to update the last hash so do so
+                                if (error as? MessageReceiverError)?.shouldUpdateLastHash == true {
+                                    hadValidHashUpdate = message.info.storeUpdatedLastHash(db)
+                                }
+                                
                                 switch error {
                                     /// Ignore duplicate & selfSend message errors (and don't bother logging them as there
                                     /// will be a lot since we each service node duplicates messages)
                                     case DatabaseError.SQLITE_CONSTRAINT_UNIQUE,
                                         DatabaseError.SQLITE_CONSTRAINT,    /// Sometimes thrown for UNIQUE
                                         MessageReceiverError.duplicateMessage,
-                                        MessageReceiverError.duplicateControlMessage,
                                         MessageReceiverError.selfSend:
                                         break
-                                        
-                                    case MessageReceiverError.duplicateMessageNewSnode:
-                                        hadValidHashUpdate = true
-                                        break
-                                        
+                                    
                                     case DatabaseError.SQLITE_ABORT:
                                         Log.warn(.poller, "Failed to the database being suspended (running in background with no background task).")
                                         
@@ -313,7 +325,7 @@ public class SwarmPoller: SwarmPollerType & PollerType {
                     else {
                         /// Individually process non-config messages
                         processedMessages.forEach { processedMessage in
-                            guard case .standard(let threadId, let threadVariant, let proto, let messageInfo) = processedMessage else {
+                            guard case .standard(let threadId, let threadVariant, let proto, let messageInfo, _) = processedMessage else {
                                 return
                             }
                             
