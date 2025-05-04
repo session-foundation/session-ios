@@ -7,7 +7,7 @@ import SessionUtilitiesKit
 // MARK: - Singleton
 
 public extension Singleton {
-    static let extensionHelper: SingletonConfig<ExtensionHelper> = Dependencies.create(
+    static let extensionHelper: SingletonConfig<ExtensionHelperType> = Dependencies.create(
         identifier: "extensionHelper",
         createInstance: { dependencies in ExtensionHelper(using: dependencies) }
     )
@@ -28,7 +28,7 @@ private extension Log.Category {
 
 // MARK: - ExtensionHelper
 
-public class ExtensionHelper {
+public class ExtensionHelper: ExtensionHelperType {
     private lazy var cacheDirectoryPath: String = "\(dependencies[singleton: .fileManager].appSharedDataDirectoryPath)/extensionCache"
     private lazy var dedupePath: String = "\(cacheDirectoryPath)/dedupe"
     private let encryptionKeyLength: Int = 32
@@ -157,4 +157,15 @@ public enum ExtensionHelperError: Error, CustomStringConvertible {
             case .failedToRemoveDedupeRecord: return "Failed to remove a record for message deduplication."
         }
     }
+}
+
+// MARK: - ExtensionHelperType
+
+public protocol ExtensionHelperType {
+    // MARK: - Deduping
+    
+    func dedupeRecordExists(threadId: String, uniqueIdentifier: String) -> Bool
+    func createDedupeRecord(threadId: String, uniqueIdentifier: String) throws
+    func removeDedupeRecord(threadId: String, uniqueIdentifier: String) throws
+    func deleteAllDedupeRecords()
 }

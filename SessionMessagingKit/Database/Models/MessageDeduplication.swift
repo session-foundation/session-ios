@@ -247,8 +247,6 @@ public extension MessageDeduplication {
     }
 }
 
-
-
 // MARK: - Legacy Dedupe Records
 
 private extension MessageDeduplication {

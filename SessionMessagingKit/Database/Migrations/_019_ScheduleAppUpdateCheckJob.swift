@@ -11,6 +11,13 @@ enum _019_ScheduleAppUpdateCheckJob: Migration {
     static let createdTables: [(TableRecord & FetchableRecord).Type] = []
     
     static func migrate(_ db: Database, using dependencies: Dependencies) throws {
+        /// Only insert jobs if the `jobs` table exists or we aren't running tests (when running tests this allows us to skip running the
+        /// SNUtilitiesKit migrations)
+        guard
+            !SNUtilitiesKit.isRunningTests ||
+            ((try? db.tableExists("job")) == true)
+        else { return Storage.update(progress: 1, for: self, in: target, using: dependencies) }
+        
         try db.execute(sql: """
             INSERT INTO job (variant, behaviour)
             VALUES (\(Job.Variant.checkForAppUpdates.rawValue), \(Job.Behaviour.recurring.rawValue))
