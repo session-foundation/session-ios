@@ -78,6 +78,23 @@ class OpenGroupAPISpec: QuickSpec {
                 crypto
                     .when { $0.generate(.randomBytes(24)) }
                     .thenReturn(Array(Data(base64Encoded: "pbTUizreT0sqJ2R2LloseQDyVL2RYztD")!))
+                crypto
+                    .when { $0.generate(.ed25519KeyPair(seed: .any)) }
+                    .thenReturn(
+                        KeyPair(
+                            publicKey: Array(Data(hex: TestConstants.edPublicKey)),
+                            secretKey: Array(Data(hex: TestConstants.edSecretKey))
+                        )
+                    )
+            }
+        )
+        @TestState(cache: .general, in: dependencies) var mockGeneralCache: MockGeneralCache! = MockGeneralCache(
+            initialSetup: { cache in
+                cache.when { $0.sessionId }.thenReturn(SessionId(.standard, hex: TestConstants.publicKey))
+                cache.when { $0.ed25519SecretKey }.thenReturn(Array(Data(hex: TestConstants.edSecretKey)))
+                cache
+                    .when { $0.ed25519Seed }
+                    .thenReturn(Array(Array(Data(hex: TestConstants.edSecretKey)).prefix(upTo: 32)))
             }
         )
         @TestState var disposables: [AnyCancellable]! = []
@@ -834,12 +851,9 @@ class OpenGroupAPISpec: QuickSpec {
                         expect(preparedRequest).to(beNil())
                     }
                     
-                    // MARK: ------ fails to sign if there is no ed key pair key
-                    it("fails to sign if there is no ed key pair key") {
-                        mockStorage.write { db in
-                            _ = try Identity.filter(id: .ed25519PublicKey).deleteAll(db)
-                            _ = try Identity.filter(id: .ed25519SecretKey).deleteAll(db)
-                        }
+                    // MARK: ------ fails to sign if there is no ed25519SecretKey
+                    it("fails to sign if there is no ed25519SecretKey") {
+                        mockGeneralCache.when { $0.ed25519SecretKey }.thenReturn([])
                         
                         var preparationError: Error?
                         let preparedRequest: Network.PreparedRequest<OpenGroupAPI.Message>? = mockStorage.read { db in
@@ -1125,12 +1139,9 @@ class OpenGroupAPISpec: QuickSpec {
                         expect(preparedRequest).to(beNil())
                     }
                     
-                    // MARK: ------ fails to sign if there is no ed key pair key
-                    it("fails to sign if there is no ed key pair key") {
-                        mockStorage.write { db in
-                            _ = try Identity.filter(id: .ed25519PublicKey).deleteAll(db)
-                            _ = try Identity.filter(id: .ed25519SecretKey).deleteAll(db)
-                        }
+                    // MARK: ------ fails to sign if there is ed25519SecretKey
+                    it("fails to sign if there is ed25519SecretKey") {
+                        mockGeneralCache.when { $0.ed25519SecretKey }.thenReturn([])
                         
                         var preparationError: Error?
                         let preparedRequest: Network.PreparedRequest<NoResponse>? = mockStorage.read { db in
@@ -1719,12 +1730,9 @@ class OpenGroupAPISpec: QuickSpec {
                     expect(preparedRequest).to(beNil())
                 }
                 
-                // MARK: ---- fails when there is no userEdKeyPair
-                it("fails when there is no userEdKeyPair") {
-                    mockStorage.write { db in
-                        _ = try Identity.filter(id: .ed25519PublicKey).deleteAll(db)
-                        _ = try Identity.filter(id: .ed25519SecretKey).deleteAll(db)
-                    }
+                // MARK: ---- fails when there is no ed25519SecretKey
+                it("fails when there is no ed25519SecretKey") {
+                    mockGeneralCache.when { $0.ed25519SecretKey }.thenReturn([])
                     
                     var preparationError: Error?
                     let preparedRequest: Network.PreparedRequest<[OpenGroupAPI.Room]>? = mockStorage.read { db in

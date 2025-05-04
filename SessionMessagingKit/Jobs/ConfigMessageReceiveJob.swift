@@ -117,7 +117,7 @@ extension ConfigMessageReceiveJob {
                 .compactMap { processedMessage -> MessageInfo? in
                     switch processedMessage {
                         case .standard: return nil
-                        case .config(_, let namespace, let serverHash, let serverTimestampMs, let data):
+                        case .config(_, let namespace, let serverHash, let serverTimestampMs, let data, _):
                             return MessageInfo(
                                 namespace: namespace,
                                 serverHash: serverHash,

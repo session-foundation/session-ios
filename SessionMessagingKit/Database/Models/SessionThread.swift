@@ -506,6 +506,9 @@ public extension SessionThread {
                         SessionThread.Columns.shouldBeVisible.set(to: false),
                         using: dependencies
                     )
+                
+                // Remove desired deduplication records
+                try MessageDeduplication.deleteIfNeeded(db, threadIds: threadIds, using: dependencies)
             
             case .deleteContactConversationAndMarkHidden:
                 _ = try SessionThread
@@ -530,6 +533,9 @@ public extension SessionThread {
                         )
                 }
                 
+                // Remove desired deduplication records
+                try MessageDeduplication.deleteIfNeeded(db, threadIds: threadIds, using: dependencies)
+                
                 // Update any other threads to be hidden
                 try LibSession.hide(db, contactIds: Array(remainingThreadIds), using: dependencies)
                 
@@ -549,6 +555,9 @@ public extension SessionThread {
                 _ = try SessionThread
                     .filter(ids: remainingThreadIds)
                     .deleteAll(db)
+                
+                // Remove desired deduplication records
+                try MessageDeduplication.deleteIfNeeded(db, threadIds: threadIds, using: dependencies)
                 
             case .leaveGroupAsync:
                 try threadIds.forEach { threadId in
@@ -761,7 +770,6 @@ public extension SessionThread {
         }
         
         guard
-            let userEdKeyPair: KeyPair = Identity.fetchUserEd25519KeyPair(db),
             let openGroupInfo: OpenGroupInfo = try? OpenGroup
                 .filter(id: threadId)
                 .select(.publicKey, .server)
@@ -785,7 +793,7 @@ public extension SessionThread {
                     .generate(
                         .blinded15KeyPair(
                             serverPublicKey: openGroupInfo.publicKey,
-                            ed25519SecretKey: userEdKeyPair.secretKey
+                            ed25519SecretKey: dependencies[cache: .general].ed25519SecretKey
                         )
                     )
                     .map { SessionId(.blinded15, publicKey: $0.publicKey) }
@@ -795,7 +803,7 @@ public extension SessionThread {
                     .generate(
                         .blinded25KeyPair(
                             serverPublicKey: openGroupInfo.publicKey,
-                            ed25519SecretKey: userEdKeyPair.secretKey
+                            ed25519SecretKey: dependencies[cache: .general].ed25519SecretKey
                         )
                     )
                     .map { SessionId(.blinded25, publicKey: $0.publicKey) }

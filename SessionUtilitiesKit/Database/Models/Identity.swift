@@ -77,17 +77,6 @@ public extension Identity {
         try Identity(variant: .x25519PublicKey, data: Data(x25519KeyPair.publicKey)).upsert(db)
     }
     
-    static func userExists(
-        _ db: Database? = nil,
-        using dependencies: Dependencies
-    ) -> Bool {
-        guard let db: Database = db else {
-            return (dependencies[singleton: .storage].read { db in Identity.userExists(db, using: dependencies) } ?? false)
-        }
-        
-        return (fetchUserEd25519KeyPair(db) != nil)
-    }
-    
     static func fetchUserKeyPair(_ db: Database) -> KeyPair? {
         guard
             let publicKey: Data = try? Identity.fetchOne(db, id: .x25519PublicKey)?.data,

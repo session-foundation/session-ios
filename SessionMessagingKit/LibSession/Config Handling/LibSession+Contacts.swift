@@ -268,7 +268,7 @@ internal extension LibSessionCacheType {
 
 // MARK: - Outgoing Changes
 
-internal extension LibSession {
+public extension LibSession {
     static func upsert(
         contactData: [SyncedContactInfo],
         in config: Config?,
@@ -379,6 +379,11 @@ internal extension LibSession {
 // MARK: - Outgoing Changes
 
 internal extension LibSession {
+    private struct ThreadInfo: Decodable, FetchableRecord {
+        let id: String
+        let creationDateTimestamp: TimeInterval
+    }
+    
     static func updatingContacts<T>(
         _ db: Database,
         _ updated: [T],
@@ -423,6 +428,12 @@ internal extension LibSession {
                 let newProfiles: [String: Profile] = try Profile
                     .fetchAll(db, ids: newContactIds)
                     .reduce(into: [:]) { result, next in result[next.id] = next }
+                let newCreatedTimestamps: [String: TimeInterval] = try SessionThread
+                    .select(.id, .creationDateTimestamp)
+                    .filter(ids: newContactIds)
+                    .asRequest(of: ThreadInfo.self)
+                    .fetchAll(db)
+                    .reduce(into: [:]) { result, next in result[next.id] = next.creationDateTimestamp }
                 
                 // Upsert the updated contact data
                 try LibSession
@@ -432,7 +443,8 @@ internal extension LibSession {
                                 SyncedContactInfo(
                                     id: contact.id,
                                     contact: contact,
-                                    profile: newProfiles[contact.id]
+                                    profile: newProfiles[contact.id],
+                                    created: newCreatedTimestamps[contact.id]
                                 )
                             },
                         in: config,
@@ -649,10 +661,30 @@ public extension LibSession {
     }
 }
 
+// MARK: - State Access
+
+extension LibSession.Config {
+    public func isContactBlocked(publicKey: String) -> Bool {
+        guard
+            case .contacts(let conf) = self,
+            var cPublicKey: [CChar] = publicKey.cString(using: .utf8)
+        else { return false }
+        
+        var contact: contacts_contact = contacts_contact()
+        
+        guard contacts_get(conf, &contact, &cPublicKey) else {
+            LibSessionError.clear(conf)
+            return false
+        }
+        
+        return contact.blocked
+    }
+}
+
 // MARK: - SyncedContactInfo
 
 extension LibSession {
-    struct SyncedContactInfo {
+    public struct SyncedContactInfo {
         let id: String
         let isTrusted: Bool?
         let isApproved: Bool?
@@ -680,7 +712,7 @@ extension LibSession {
             )
         }
         
-        init(
+        public init(
             id: String,
             contact: Contact? = nil,
             profile: Profile? = nil,

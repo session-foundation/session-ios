@@ -330,11 +330,8 @@ public final class OpenGroupManager {
             .filter(id: openGroupId)
             .deleteAll(db)
         
-        // Remove any MessageProcessRecord entries (we will want to reprocess all OpenGroup messages
-        // if they get re-added)
-        _ = try? ControlMessageProcessRecord
-            .filter(ControlMessageProcessRecord.Columns.threadId == openGroupId)
-            .deleteAll(db)
+        // Remove any dedupe records (we will want to reprocess all OpenGroup messages if they get re-added)
+        try MessageDeduplication.deleteIfNeeded(db, threadIds: [openGroupId], using: dependencies)
         
         // Remove the open group (no foreign key to the thread so it won't auto-delete)
         if server?.lowercased() != OpenGroupAPI.defaultServer.lowercased() {
@@ -541,22 +538,34 @@ public final class OpenGroupManager {
             }
             
             // Handle messages
-            if let base64EncodedString: String = message.base64EncodedData,
-               let data = Data(base64Encoded: base64EncodedString)
+            if
+                let base64EncodedString: String = message.base64EncodedData,
+                let data = Data(base64Encoded: base64EncodedString),
+                let sender: String = message.sender
             {
                 do {
-                    let processedMessage: ProcessedMessage? = try Message.processReceivedOpenGroupMessage(
-                        db,
-                        openGroupId: openGroup.id,
-                        openGroupServerPublicKey: openGroup.publicKey,
-                        message: message,
+                    let processedMessage: ProcessedMessage = try MessageReceiver.parse(
                         data: data,
+                        origin: .community(
+                            openGroupId: openGroup.id,
+                            sender: sender,
+                            timestamp: message.posted,
+                            messageServerId: message.id,
+                            whisper: message.whisper,
+                            whisperMods: message.whisperMods,
+                            whisperTo: message.whisperTo
+                        ),
+                        using: dependencies
+                    )
+                    try MessageDeduplication.insert(
+                        db,
+                        processedMessage: processedMessage,
                         using: dependencies
                     )
                     
                     switch processedMessage {
-                        case .config, .none: break
-                        case .standard(_, _, _, let messageInfo):
+                        case .config: break
+                        case .standard(_, _, _, let messageInfo, _):
                             try MessageReceiver.handle(
                                 db,
                                 threadId: openGroup.id,
@@ -576,7 +585,6 @@ public final class OpenGroupManager {
                         case DatabaseError.SQLITE_CONSTRAINT_UNIQUE,
                             DatabaseError.SQLITE_CONSTRAINT,    // Sometimes thrown for UNIQUE
                             MessageReceiverError.duplicateMessage,
-                            MessageReceiverError.duplicateControlMessage,
                             MessageReceiverError.selfSend:
                             break
                         
@@ -686,23 +694,32 @@ public final class OpenGroupManager {
             }
 
             do {
-                let processedMessage: ProcessedMessage? = try Message.processReceivedOpenGroupDirectMessage(
-                    db,
-                    openGroupServerPublicKey: openGroup.publicKey,
-                    message: message,
+                let processedMessage: ProcessedMessage = try MessageReceiver.parse(
                     data: messageData,
+                    origin: .openGroupInbox(
+                        timestamp: message.posted,
+                        messageServerId: message.id,
+                        serverPublicKey: openGroup.publicKey,
+                        senderId: message.sender,
+                        recipientId: message.recipient
+                    ),
+                    using: dependencies
+                )
+                try MessageDeduplication.insert(
+                    db,
+                    processedMessage: processedMessage,
                     using: dependencies
                 )
                 
                 switch processedMessage {
-                    case .config, .none: break
-                    case .standard(let threadId, _, let proto, let messageInfo):
-                        // We want to update the BlindedIdLookup cache with the message info so we can avoid using the
-                        // "expensive" lookup when possible
+                    case .config: break
+                    case .standard(let threadId, _, let proto, let messageInfo, _):
+                        /// We want to update the BlindedIdLookup cache with the message info so we can avoid using the
+                        /// "expensive" lookup when possible
                         let lookup: BlindedIdLookup = try {
-                            // Minor optimisation to avoid processing the same sender multiple times in the same
-                            // 'handleMessages' call (since the 'mapping' call is done within a transaction we
-                            // will never have a mapping come through part-way through processing these messages)
+                            /// Minor optimisation to avoid processing the same sender multiple times in the same
+                            /// 'handleMessages' call (since the 'mapping' call is done within a transaction we
+                            /// will never have a mapping come through part-way through processing these messages)
                             if let result: BlindedIdLookup = lookupCache[message.recipient] {
                                 return result
                             }
@@ -759,7 +776,6 @@ public final class OpenGroupManager {
                     case DatabaseError.SQLITE_CONSTRAINT_UNIQUE,
                         DatabaseError.SQLITE_CONSTRAINT,    // Sometimes thrown for UNIQUE
                         MessageReceiverError.duplicateMessage,
-                        MessageReceiverError.duplicateControlMessage,
                         MessageReceiverError.selfSend:
                         break
                         
@@ -859,73 +875,48 @@ public final class OpenGroupManager {
             .filter(targetRoles.contains(GroupMember.Columns.role))
             .isNotEmpty(db)
         
-        // If the publicKey provided matches a mod or admin directly then just return immediately
+        /// If the `publicKey` provided matches a mod or admin directly then just return immediately
         if isDirectModOrAdmin { return true }
         
-        // Otherwise we need to check if it's a variant of the current users key and if so we want
-        // to check if any of those have mod/admin entries
-        guard let sessionId: SessionId = try? SessionId(from: publicKey) else { return false }
+        /// Otherwise we need to check if the provided `publicKey` is a variant of the current users key so we need to generate each
+        /// variant in order to compare
+        guard
+            let sessionId: SessionId = try? SessionId(from: publicKey),
+            sessionId.prefix != .group,
+            let userEdKeyPair: KeyPair = dependencies[singleton: .crypto].generate(
+                .ed25519KeyPair(seed: dependencies[cache: .general].ed25519Seed)
+            ),
+            let openGroupPublicKey: String = try? OpenGroup
+                .select(.publicKey)
+                .filter(id: groupId)
+                .asRequest(of: String.self)
+                .fetchOne(db),
+            let blinded15KeyPair: KeyPair = dependencies[singleton: .crypto].generate(
+                .blinded15KeyPair(
+                    serverPublicKey: openGroupPublicKey,
+                    ed25519SecretKey: userEdKeyPair.secretKey
+                )
+            ),
+            let blinded25KeyPair: KeyPair = dependencies[singleton: .crypto].generate(
+                .blinded25KeyPair(
+                    serverPublicKey: openGroupPublicKey,
+                    ed25519SecretKey: userEdKeyPair.secretKey
+                )
+            )
+        else { return false }
         
-        // Conveniently the logic for these different cases works in order so we can fallthrough each
-        // case with only minor efficiency losses
-        let userSessionId: SessionId = dependencies[cache: .general].sessionId
+        let possibleKeys: Set<String> = Set([
+            dependencies[cache: .general].sessionId.hexString,
+            SessionId(.unblinded, publicKey: userEdKeyPair.publicKey).hexString,
+            SessionId(.blinded15, publicKey: blinded15KeyPair.publicKey).hexString,
+            SessionId(.blinded25, publicKey: blinded25KeyPair.publicKey).hexString
+        ])
         
-        switch sessionId.prefix {
-            case .standard:
-                guard publicKey == userSessionId.hexString else { return false }
-                fallthrough
-                
-            case .unblinded:
-                guard let userEdKeyPair: KeyPair = Identity.fetchUserEd25519KeyPair(db) else {
-                    return false
-                }
-                guard sessionId.prefix != .unblinded || publicKey == SessionId(.unblinded, publicKey: userEdKeyPair.publicKey).hexString else {
-                    return false
-                }
-                fallthrough
-                
-            case .blinded15, .blinded25:
-                guard
-                    let userEdKeyPair: KeyPair = Identity.fetchUserEd25519KeyPair(db),
-                    let openGroupPublicKey: String = try? OpenGroup
-                        .select(.publicKey)
-                        .filter(id: groupId)
-                        .asRequest(of: String.self)
-                        .fetchOne(db),
-                    let blinded15KeyPair: KeyPair = dependencies[singleton: .crypto].generate(
-                        .blinded15KeyPair(serverPublicKey: openGroupPublicKey, ed25519SecretKey: userEdKeyPair.secretKey)
-                    ),
-                    let blinded25KeyPair: KeyPair = dependencies[singleton: .crypto].generate(
-                        .blinded25KeyPair(serverPublicKey: openGroupPublicKey, ed25519SecretKey: userEdKeyPair.secretKey)
-                    )
-                else { return false }
-                guard
-                    (
-                        sessionId.prefix != .blinded15 &&
-                        sessionId.prefix != .blinded25
-                    ) ||
-                    publicKey == SessionId(.blinded15, publicKey: blinded15KeyPair.publicKey).hexString ||
-                    publicKey == SessionId(.blinded25, publicKey: blinded25KeyPair.publicKey).hexString
-                else { return false }
-                
-                // If we got to here that means that the 'publicKey' value matches one of the current
-                // users 'standard', 'unblinded' or 'blinded' keys and as such we should check if any
-                // of them exist in the `modsAndAminKeys` Set
-                let possibleKeys: Set<String> = Set([
-                    userSessionId.hexString,
-                    SessionId(.unblinded, publicKey: userEdKeyPair.publicKey).hexString,
-                    SessionId(.blinded15, publicKey: blinded15KeyPair.publicKey).hexString,
-                    SessionId(.blinded25, publicKey: blinded25KeyPair.publicKey).hexString
-                ])
-                
-                return GroupMember
-                    .filter(GroupMember.Columns.groupId == groupId)
-                    .filter(possibleKeys.contains(GroupMember.Columns.profileId))
-                    .filter(targetRoles.contains(GroupMember.Columns.role))
-                    .isNotEmpty(db)
-            
-            case .group: return false
-        }
+        return GroupMember
+            .filter(GroupMember.Columns.groupId == groupId)
+            .filter(possibleKeys.contains(GroupMember.Columns.profileId))
+            .filter(targetRoles.contains(GroupMember.Columns.role))
+            .isNotEmpty(db)
     }
 }
 

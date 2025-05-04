@@ -12,10 +12,6 @@ public struct ClosedGroup: Codable, Equatable, Hashable, Identifiable, Fetchable
     public static var databaseTableName: String { "closedGroup" }
     internal static let threadForeignKey = ForeignKey([Columns.threadId], to: [SessionThread.Columns.id])
     public static let thread = belongsTo(SessionThread.self, using: threadForeignKey)
-    internal static let keyPairs = hasMany(
-        ClosedGroupKeyPair.self,
-        using: ClosedGroupKeyPair.closedGroupForeignKey
-    )
     public static let members = hasMany(GroupMember.self, using: GroupMember.closedGroupForeignKey)
     
     public typealias Columns = CodingKeys
@@ -83,10 +79,6 @@ public struct ClosedGroup: Codable, Equatable, Hashable, Identifiable, Fetchable
         request(for: ClosedGroup.thread)
     }
     
-    public var keyPairs: QueryInterfaceRequest<ClosedGroupKeyPair> {
-        request(for: ClosedGroup.keyPairs)
-    }
-    
     public var allMembers: QueryInterfaceRequest<GroupMember> {
         request(for: ClosedGroup.members)
     }
@@ -144,16 +136,6 @@ public struct ClosedGroup: Codable, Equatable, Hashable, Identifiable, Fetchable
     }
 }
 
-// MARK: - GRDB Interactions
-
-public extension ClosedGroup {
-    func fetchLatestKeyPair(_ db: Database) throws -> ClosedGroupKeyPair? {
-        return try keyPairs
-            .order(ClosedGroupKeyPair.Columns.receivedTimestamp.desc)
-            .fetchOne(db)
-    }
-}
-
 // MARK: - Search Queries
 
 public extension ClosedGroup {
@@ -181,7 +163,6 @@ public extension ClosedGroup {
         case pushNotifications
         case messages
         case members
-        case encryptionKeys
         case authDetails
         case libSessionState
         case thread
@@ -193,10 +174,6 @@ public extension ClosedGroup {
         group: ClosedGroup,
         using dependencies: Dependencies
     ) throws {
-        guard let userED25519KeyPair: KeyPair = Identity.fetchUserEd25519KeyPair(db) else {
-            throw MessageReceiverError.noUserED25519KeyPair
-        }
-        
         /// Update the `USER_GROUPS` config
         try? LibSession.update(
             db,
@@ -245,7 +222,7 @@ public extension ClosedGroup {
             
             _ = try? cache.createAndLoadGroupState(
                 groupSessionId: groupSessionId,
-                userED25519KeyPair: userED25519KeyPair,
+                userED25519SecretKey: dependencies[cache: .general].ed25519SecretKey,
                 groupIdentityPrivateKey: group.groupIdentityPrivateKey
             )
         }
@@ -282,7 +259,6 @@ public extension ClosedGroup {
         }
         
         // Remove the group from the database and unsubscribe from PNs
-        let userSessionId: SessionId = dependencies[cache: .general].sessionId
         let threadVariants: [ThreadIdVariant] = try {
             guard
                 dataToRemove.contains(.pushNotifications) ||
@@ -302,21 +278,6 @@ public extension ClosedGroup {
             threadIds.forEach { threadId in
                 if dataToRemove.contains(.poller) {
                     dependencies.mutate(cache: .groupPollers) { $0.stopAndRemovePoller(for: threadId) }
-                }
-                
-                if dataToRemove.contains(.pushNotifications) {
-                    threadVariants
-                        .filter { $0.variant == .legacyGroup }
-                        .forEach { threadIdVariant in
-                            try? PushNotificationAPI
-                                .preparedUnsubscribeFromLegacyGroup(
-                                    legacyGroupId: threadId,
-                                    userSessionId: userSessionId,
-                                    using: dependencies
-                                )
-                                .send(using: dependencies)
-                                .sinkUntilComplete()
-                        }
                 }
                 
                 if dataToRemove.contains(.libSessionState) {
@@ -356,13 +317,6 @@ public extension ClosedGroup {
             }
         }
         
-        // Remove database-located data
-        if dataToRemove.contains(.encryptionKeys) {
-            try ClosedGroupKeyPair
-                .filter(threadIds.contains(ClosedGroupKeyPair.Columns.threadId))
-                .deleteAll(db)
-        }
-        
         if dataToRemove.contains(.authDetails) {
             /// Need to explicitly trigger config updates here because relying on `updateAllAndConfig` will result in an
             /// error being thrown by `libSession` because it'll attempt to update the `GROUP_INFO` config if the user
@@ -381,15 +335,9 @@ public extension ClosedGroup {
                 .filter(threadIds.contains(Interaction.Columns.threadId))
                 .deleteAll(db)
             
-            /// Delete any `ControlMessageProcessRecord` entries that we want to reprocess if the member gets
+            /// Delete any `MessageDeduplication` entries that we want to reprocess if the member gets
             /// re-invited to the group with historic access (these are repeatable records so won't cause issues if we re-run them)
-            try ControlMessageProcessRecord
-                .filter(threadIds.contains(ControlMessageProcessRecord.Columns.threadId))
-                .filter(
-                    ControlMessageProcessRecord.Variant.variantsToBeReprocessedAfterLeavingAndRejoiningConversation
-                        .contains(ControlMessageProcessRecord.Columns.variant)
-                )
-                .deleteAll(db)
+            try MessageDeduplication.deleteIfNeeded(db, threadIds: threadIds, using: dependencies)
             
             /// Also want to delete the `SnodeReceivedMessageInfo` so if the member gets re-invited to the group with
             /// historic access they can re-download and process all of the old messages
