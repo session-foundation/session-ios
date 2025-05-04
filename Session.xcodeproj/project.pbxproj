@@ -829,6 +829,8 @@
 		FD981BC42DC304E600564172 /* MessageDeduplication.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD981BC32DC304E100564172 /* MessageDeduplication.swift */; };
 		FD981BC62DC3310B00564172 /* ExtensionHelper.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD981BC52DC3310800564172 /* ExtensionHelper.swift */; };
 		FD981BC92DC4641100564172 /* ExtensionHelperSpec.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD981BC82DC4640D00564172 /* ExtensionHelperSpec.swift */; };
+		FD981BCB2DC4A21C00564172 /* MessageDeduplicationSpec.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD981BCA2DC4A21800564172 /* MessageDeduplicationSpec.swift */; };
+		FD981BCD2DC81ABF00564172 /* MockExtensionHelper.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD981BCC2DC81ABB00564172 /* MockExtensionHelper.swift */; };
 		FD99D0872D0FA731005D2E15 /* ThreadSafe.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD99D0862D0FA72E005D2E15 /* ThreadSafe.swift */; };
 		FD99D0922D10F5EE005D2E15 /* ThreadSafeSpec.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD99D0912D10F5EB005D2E15 /* ThreadSafeSpec.swift */; };
 		FD9AECA52AAA9609009B3406 /* NotificationResolution.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD9AECA42AAA9609009B3406 /* NotificationResolution.swift */; };
@@ -2023,6 +2025,8 @@
 		FD981BC32DC304E100564172 /* MessageDeduplication.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MessageDeduplication.swift; sourceTree = "<group>"; };
 		FD981BC52DC3310800564172 /* ExtensionHelper.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ExtensionHelper.swift; sourceTree = "<group>"; };
 		FD981BC82DC4640D00564172 /* ExtensionHelperSpec.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ExtensionHelperSpec.swift; sourceTree = "<group>"; };
+		FD981BCA2DC4A21800564172 /* MessageDeduplicationSpec.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MessageDeduplicationSpec.swift; sourceTree = "<group>"; };
+		FD981BCC2DC81ABB00564172 /* MockExtensionHelper.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MockExtensionHelper.swift; sourceTree = "<group>"; };
 		FD99D0862D0FA72E005D2E15 /* ThreadSafe.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ThreadSafe.swift; sourceTree = "<group>"; };
 		FD99D0912D10F5EB005D2E15 /* ThreadSafeSpec.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ThreadSafeSpec.swift; sourceTree = "<group>"; };
 		FD9AECA42AAA9609009B3406 /* NotificationResolution.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NotificationResolution.swift; sourceTree = "<group>"; };
@@ -4061,6 +4065,7 @@
 			isa = PBXGroup;
 			children = (
 				FD61FCF82D308CC5005752DE /* GroupMemberSpec.swift */,
+				FD981BCA2DC4A21800564172 /* MessageDeduplicationSpec.swift */,
 			);
 			path = Models;
 			sourceTree = "<group>";
@@ -4547,6 +4552,7 @@
 				FD336F6E2CAA37CB00C0B51B /* MockCommunityPoller.swift */,
 				FD336F582CAA28CF00C0B51B /* MockCommunityPollerCache.swift */,
 				FD336F592CAA28CF00C0B51B /* MockDisplayPictureCache.swift */,
+				FD981BCC2DC81ABB00564172 /* MockExtensionHelper.swift */,
 				FD336F5A2CAA28CF00C0B51B /* MockGroupPollerCache.swift */,
 				FD336F5B2CAA28CF00C0B51B /* MockLibSessionCache.swift */,
 				FD336F5C2CAA28CF00C0B51B /* MockNotificationsManager.swift */,
@@ -6690,6 +6696,7 @@
 				FDE754A82C9B964D002A2623 /* MessageReceiverGroupsSpec.swift in Sources */,
 				FD01504C2CA243CB005B08A1 /* Mock.swift in Sources */,
 				FD981BC92DC4641100564172 /* ExtensionHelperSpec.swift in Sources */,
+				FD981BCB2DC4A21C00564172 /* MessageDeduplicationSpec.swift in Sources */,
 				FD83B9C727CF3F10005E1583 /* CapabilitiesSpec.swift in Sources */,
 				FD2AAAF128ED57B500A49611 /* SynchronousStorage.swift in Sources */,
 				FD23CE2A2A6775660000B97C /* MockCrypto.swift in Sources */,
@@ -6697,6 +6704,7 @@
 				FDC2909827D7129B005DAE71 /* PersonalizationSpec.swift in Sources */,
 				FD481A962CAE0AE000ECC4CF /* MockAppContext.swift in Sources */,
 				FD0150452CA243BB005B08A1 /* LibSessionUtilSpec.swift in Sources */,
+				FD981BCD2DC81ABF00564172 /* MockExtensionHelper.swift in Sources */,
 				FD336F602CAA28CF00C0B51B /* CommonSMKMockExtensions.swift in Sources */,
 				FD336F612CAA28CF00C0B51B /* MockNotificationsManager.swift in Sources */,
 				FD336F622CAA28CF00C0B51B /* CustomArgSummaryDescribable+SMK.swift in Sources */,
