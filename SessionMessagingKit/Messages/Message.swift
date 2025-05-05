@@ -205,7 +205,6 @@ public extension Message {
     enum Variant: String, Codable, CaseIterable {
         case readReceipt
         case typingIndicator
-        case closedGroupControlMessage
         case dataExtractionNotification
         case expirationTimerUpdate
         case unsendRequest
@@ -226,7 +225,6 @@ public extension Message {
             switch type {
                 case is ReadReceipt: self = .readReceipt
                 case is TypingIndicator: self = .typingIndicator
-                case is ClosedGroupControlMessage: self = .closedGroupControlMessage
                 case is DataExtractionNotification: self = .dataExtractionNotification
                 case is ExpirationTimerUpdate: self = .expirationTimerUpdate
                 case is UnsendRequest: self = .unsendRequest
@@ -250,7 +248,6 @@ public extension Message {
             switch self {
                 case .readReceipt: return ReadReceipt.self
                 case .typingIndicator: return TypingIndicator.self
-                case .closedGroupControlMessage: return ClosedGroupControlMessage.self
                 case .dataExtractionNotification: return DataExtractionNotification.self
                 case .expirationTimerUpdate: return ExpirationTimerUpdate.self
                 case .unsendRequest: return UnsendRequest.self
@@ -275,7 +272,6 @@ public extension Message {
             let priorities: [Variant] = [
                 .readReceipt,
                 .typingIndicator,
-                .closedGroupControlMessage,
                 .groupUpdateInvite,
                 .groupUpdatePromote,
                 .groupUpdateInfoChange,
@@ -304,9 +300,6 @@ public extension Message {
             switch self {
                 case .readReceipt: return try container.decode(ReadReceipt.self, forKey: key)
                 case .typingIndicator: return try container.decode(TypingIndicator.self, forKey: key)
-                
-                case .closedGroupControlMessage:
-                    return try container.decode(ClosedGroupControlMessage.self, forKey: key)
                     
                 case .dataExtractionNotification:
                     return try container.decode(DataExtractionNotification.self, forKey: key)
@@ -357,37 +350,11 @@ public extension Message {
         return try decodedMessage ?? { throw MessageReceiverError.unknownMessage(proto) }()
     }
     
-    static func requiresExistingConversation(message: Message, threadVariant: SessionThread.Variant) -> Bool {
-        switch threadVariant {
-            /// Process every message sent to these conversation types (the `MessageReceiver` will determine whether a message should
-            /// result in a conversation appearing if it's not already visible after processing the message - this just controls whether the messages
-            /// should be processed)
-            case .contact, .group, .community: return false
-                
-            case .legacyGroup:
-                switch message {
-                    case let controlMessage as ClosedGroupControlMessage:
-                        switch controlMessage.kind {
-                            case .new: return false
-                            default: return true
-                        }
-                        
-                    default: return true
-                }
-        }
-    }
-    
     static func shouldSync(message: Message) -> Bool {
         switch message {
             case is VisibleMessage: return true
             case is ExpirationTimerUpdate: return true
             case is UnsendRequest: return true
-            
-            case let controlMessage as ClosedGroupControlMessage:
-                switch controlMessage.kind {
-                    case .new: return true
-                    default: return false
-                }
                 
             case let callMessage as CallMessage:
                 switch callMessage.kind {
@@ -769,10 +736,6 @@ public extension Message {
         switch (destination, message) {
             // Disappear after sent messages with exceptions
             case (_, is UnsendRequest): return message.ttl
-                
-            // FIXME: Remove these two cases once legacy groups are deprecated
-            case (.closedGroup, is ClosedGroupControlMessage), (.closedGroup, is ExpirationTimerUpdate):
-                return message.ttl
                 
             case (.closedGroup, is GroupUpdateInviteMessage), (.closedGroup, is GroupUpdateInviteResponseMessage),
                 (.closedGroup, is GroupUpdatePromoteMessage), (.closedGroup, is GroupUpdateMemberLeftMessage),

@@ -240,19 +240,6 @@ public enum MessageReceiver {
         associatedWithProto proto: SNProtoContent,
         using dependencies: Dependencies
     ) throws {
-        // Check if the message requires an existing conversation (if it does and the conversation isn't in
-        // the config then the message will be dropped)
-        guard
-            !Message.requiresExistingConversation(message: message, threadVariant: threadVariant) ||
-            LibSession.conversationInConfig(
-                db,
-                threadId: threadId,
-                threadVariant: threadVariant,
-                visibleOnly: false,
-                using: dependencies
-            )
-        else { throw MessageReceiverError.requiredThreadNotInConfig }
-        
         // Throw if the message is outdated and shouldn't be processed
         try throwIfMessageOutdated(
             db,
@@ -368,8 +355,7 @@ public enum MessageReceiver {
                     message: message,
                     using: dependencies
                 )
-                
-            case is ClosedGroupControlMessage: throw MessageReceiverError.deprecatedMessage
+            
             default: throw MessageReceiverError.unknownMessage(proto)
         }
         
@@ -398,13 +384,6 @@ public enum MessageReceiver {
                 case is TypingIndicator: return true
                 case is UnsendRequest: return true
                 case is CallMessage: return (threadId != dependencies[cache: .general].sessionId.hexString)
-                    
-                case let message as ClosedGroupControlMessage:
-                    // Only re-show a legacy group conversation if we are going to add a control text message
-                    switch message.kind {
-                        case .new, .encryptionKeyPair, .encryptionKeyPairRequest: return false
-                        default: return true
-                    }
                     
                 /// These are sent to the one-to-one conversation so they shouldn't make that visible
                 case is GroupUpdateInviteMessage, is GroupUpdatePromoteMessage:

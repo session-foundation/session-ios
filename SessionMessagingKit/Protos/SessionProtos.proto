@@ -172,40 +172,12 @@ message DataMessage {
     // @required
     required string name = 3;
   }
-
-  message ClosedGroupControlMessage {
-
-    enum Type {
-      NEW                         = 1; // publicKey, name, encryptionKeyPair, members, admins, expirationTimer
-      ENCRYPTION_KEY_PAIR         = 3; // publicKey, wrappers
-      NAME_CHANGE                 = 4; // name
-      MEMBERS_ADDED               = 5; // members
-      MEMBERS_REMOVED             = 6; // members
-      MEMBER_LEFT                 = 7;
-      ENCRYPTION_KEY_PAIR_REQUEST = 8;
-    }
-
-    message KeyPairWrapper {
-      // @required
-      required bytes publicKey        = 1; // The public key of the user the key pair is meant for
-      // @required
-      required bytes encryptedKeyPair = 2; // The encrypted key pair
-    }
-
-    // @required
-    required Type           type              = 1;
-    optional bytes          publicKey         = 2;
-    optional string         name              = 3;
-    optional KeyPair        encryptionKeyPair = 4;
-    repeated bytes          members           = 5;
-    repeated bytes          admins            = 6;
-    repeated KeyPairWrapper wrappers          = 7;
-    optional uint32         expirationTimer   = 8;
-  }
     
     
   //  reserved 3;
   //  reserved "group";
+  // reserved 104;
+  // reserved "closedGroupControlMessage";
 
   optional string                    body                           = 1;
   repeated AttachmentPointer         attachments                    = 2;
@@ -218,7 +190,6 @@ message DataMessage {
   optional Reaction                  reaction                       = 11;
   optional LokiProfile               profile                        = 101;
   optional OpenGroupInvitation       openGroupInvitation            = 102;
-  optional ClosedGroupControlMessage closedGroupControlMessage      = 104;
   optional string                    syncTarget                     = 105;
   optional bool                      blocksCommunityMessageRequests = 106;
   optional GroupUpdateMessage        groupUpdateMessage             = 120;

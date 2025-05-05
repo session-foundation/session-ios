@@ -566,7 +566,6 @@
 		FD245C5D2850660F00B966DD /* OWSAudioPlayer.m in Sources */ = {isa = PBXBuildFile; fileRef = C38EF2F7255B6DBC007E1867 /* OWSAudioPlayer.m */; };
 		FD245C5F2850662200B966DD /* OWSWindowManager.m in Sources */ = {isa = PBXBuildFile; fileRef = C38EF306255B6DBE007E1867 /* OWSWindowManager.m */; };
 		FD245C632850664600B966DD /* Configuration.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD245C612850664300B966DD /* Configuration.swift */; };
-		FD245C652850665400B966DD /* ClosedGroupControlMessage.swift in Sources */ = {isa = PBXBuildFile; fileRef = C34A977325A3E34A00852C71 /* ClosedGroupControlMessage.swift */; };
 		FD245C662850665900B966DD /* OpenGroupAPI.swift in Sources */ = {isa = PBXBuildFile; fileRef = B88FA7B726045D100049422F /* OpenGroupAPI.swift */; };
 		FD245C682850666300B966DD /* Message+Destination.swift in Sources */ = {isa = PBXBuildFile; fileRef = C352A30825574D8400338F3E /* Message+Destination.swift */; };
 		FD245C692850666800B966DD /* ExpirationTimerUpdate.swift in Sources */ = {isa = PBXBuildFile; fileRef = C300A5E62554B07300555489 /* ExpirationTimerUpdate.swift */; };
@@ -1549,7 +1548,6 @@
 		C33FDBA8255A581500E217F9 /* LinkPreviewDraft.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = LinkPreviewDraft.swift; sourceTree = "<group>"; };
 		C33FDBD3255A581800E217F9 /* OWSSignalAddress.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = OWSSignalAddress.swift; sourceTree = "<group>"; };
 		C33FDBDE255A581900E217F9 /* PushNotificationAPI.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = PushNotificationAPI.swift; sourceTree = "<group>"; };
-		C34A977325A3E34A00852C71 /* ClosedGroupControlMessage.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ClosedGroupControlMessage.swift; sourceTree = "<group>"; };
 		C34C8F7323A7830A00D82669 /* SpaceMono-Bold.ttf */ = {isa = PBXFileReference; lastKnownFileType = file; path = "SpaceMono-Bold.ttf"; sourceTree = "<group>"; };
 		C352A30825574D8400338F3E /* Message+Destination.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Message+Destination.swift"; sourceTree = "<group>"; };
 		C3548F0724456AB6009433A8 /* UIView+Wrapping.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "UIView+Wrapping.swift"; sourceTree = "<group>"; };
@@ -2910,7 +2908,6 @@
 				FDB5DAD22A9483D4002C8721 /* Group Update Messages */,
 				C3C2A7702553A41E00C340D1 /* ControlMessage.swift */,
 				B8DE1FB526C22FCB0079C9CE /* CallMessage.swift */,
-				C34A977325A3E34A00852C71 /* ClosedGroupControlMessage.swift */,
 				B8F5F60225EDE16F003BF8D4 /* DataExtractionNotification.swift */,
 				C300A5E62554B07300555489 /* ExpirationTimerUpdate.swift */,
 				7B93D06F27CF194000811CB6 /* MessageRequestResponse.swift */,
@@ -6208,7 +6205,6 @@
 				FD432434299C6985008A0213 /* PendingReadReceipt.swift in Sources */,
 				FDC4381727B32EC700C60D73 /* Personalization.swift in Sources */,
 				FD245C51285065CC00B966DD /* MessageReceiver.swift in Sources */,
-				FD245C652850665400B966DD /* ClosedGroupControlMessage.swift in Sources */,
 				FDC4387827B5C35400C60D73 /* SendMessageRequest.swift in Sources */,
 				FDC383392A93411100FFD6A2 /* Setting+Utilities.swift in Sources */,
 				FDB5DAE62A95D8B0002C8721 /* GroupUpdateDeleteMemberContentMessage.swift in Sources */,
