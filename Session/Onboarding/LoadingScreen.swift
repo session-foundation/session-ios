@@ -131,7 +131,7 @@ struct LoadingScreen: View {
             let viewController: SessionHostingViewController = SessionHostingViewController(
                 rootView: DisplayNameScreen(using: viewModel.dependencies)
             )
-            viewController.setUpNavBarSessionIcon(using: viewModel.dependencies)
+            viewController.setUpNavBarSessionIcon()
             if let navigationController = self.host.controller?.navigationController {
                 let updatedViewControllers: [UIViewController] = navigationController.viewControllers
                     .filter { !$0.isKind(of: SessionHostingViewController<LoadingScreen>.self) }

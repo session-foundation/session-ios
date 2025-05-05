@@ -7,6 +7,7 @@ import GRDB
 import CallKit
 import UserNotifications
 import BackgroundTasks
+import SessionUIKit
 import SessionMessagingKit
 import SessionSnodeKit
 import SignalUtilitiesKit
@@ -412,8 +413,6 @@ public final class NotificationServiceExtension: UNNotificationServiceExtension 
                 // Configure the different targets
                 SNUtilitiesKit.configure(
                     networkMaxFileSize: Network.maxFileSize,
-                    localizedFormatted: { helper, font in NSAttributedString() },
-                    localizedDeformatted: { helper in NSENotificationPresenter.localizedDeformatted(helper) },
                     using: dependencies
                 )
                 SNMessagingKit.configure(using: dependencies)

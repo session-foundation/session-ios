@@ -30,13 +30,13 @@ public enum Format {
                 return (Format.fileSizeFormatter
                     .string(from: NSNumber(floatLiteral: (fileSizeDouble / oneMegabyte)))?
                     .appending("MB") ??     // stringlint:ignore
-                    "attachmentsNa".localizedSNUIKit())
+                    "attachmentsNa".localized())
             
             default:
                 return (Format.fileSizeFormatter
                     .string(from: NSNumber(floatLiteral: max(0.1, (fileSizeDouble / oneKilobyte))))?
                     .appending("KB") ??     // stringlint:ignore
-                    "attachmentsNa".localizedSNUIKit())
+                    "attachmentsNa".localized())
         }
     }
     

@@ -61,8 +61,6 @@ final class ShareNavController: UINavigationController, ShareViewDelegate {
                 // Configure the different targets
                 SNUtilitiesKit.configure(
                     networkMaxFileSize: Network.maxFileSize,
-                    localizedFormatted: { helper, font in SAESNUIKitConfig.localizedFormatted(helper, font) },
-                    localizedDeformatted: { helper in SAESNUIKitConfig.localizedDeformatted(helper) },
                     using: dependencies
                 )
                 SNMessagingKit.configure(using: dependencies)
@@ -737,6 +735,18 @@ private struct SAESNUIKitConfig: SNUIKit.ConfigType {
         }
     }
     
+    func navBarSessionIcon() -> NavBarSessionIcon {
+        switch (dependencies[feature: .serviceNetwork], dependencies[feature: .forceOffline]) {
+            case (.mainnet, false): return NavBarSessionIcon()
+            case (.testnet, _), (.mainnet, true):
+                return NavBarSessionIcon(
+                    showDebugUI: true,
+                    serviceNetworkTitle: dependencies[feature: .serviceNetwork].title,
+                    isMainnet: (dependencies[feature: .serviceNetwork] != .mainnet)
+                )
+        }
+    }
+    
     func persistentTopBannerChanged(warningKey: String?) {
         dependencies[defaults: .appGroup, key: .topBannerWarningToShow] = warningKey
     }
@@ -753,27 +763,19 @@ private struct SAESNUIKitConfig: SNUIKit.ConfigType {
     func removeCachedContextualActionInfo(tableViewHash: Int, keys: [String]) {}
     
     func placeholderIconCacher(cacheKey: String, generator: @escaping () -> UIImage) -> UIImage {
-        if let cachedIcon: UIImage = dependencies[cache: .general].placeholderCache.object(forKey: cacheKey as NSString) {
+        if let cachedIcon: UIImage = dependencies[cache: .general].placeholderCache.get(key: cacheKey) {
             return cachedIcon
         }
         
         let generatedImage: UIImage = generator()
         dependencies.mutate(cache: .general) {
-            $0.placeholderCache.setObject(generatedImage, forKey: cacheKey as NSString)
+            $0.placeholderCache.set(key: cacheKey, value: generatedImage)
         }
         
         return generatedImage
     }
     
-    func localizedString(for key: String) -> String {
-        return key.localized()
-    }
-    
-    public static func localizedFormatted(_ helper: LocalizationHelper, _ baseFont: UIFont) -> NSAttributedString {
-        return NSAttributedString(stringWithHTMLTags: helper.localized(), font: baseFont)
-    }
-    
-    public static func localizedDeformatted(_ helper: LocalizationHelper) -> String {
-        return NSAttributedString(stringWithHTMLTags: helper.localized(), font: .systemFont(ofSize: 14)).string
+    func shouldShowStringKeys() -> Bool {
+        return dependencies[feature: .showStringKeys]
     }
 }

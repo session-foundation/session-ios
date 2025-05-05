@@ -214,6 +214,11 @@ public class ScreenLockWindow {
         isShowingScreenLockUI = true
         
         ScreenLock.tryToUnlockScreenLock(
+            localizedReason: "authenticateToOpen"
+                .put(key: "app_name", value:  Constants.app_name)
+                .localized(),
+            errorMap: ScreenLockErrors.errorMap,
+            defaultErrorDescription: ScreenLockErrors.defaultError,
             success: { [weak self] in
                 Log.info(.screenLock, "Unlock screen lock succeeded")
                 self?.isShowingScreenLockUI = false

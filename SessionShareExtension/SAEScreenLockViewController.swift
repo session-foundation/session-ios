@@ -108,6 +108,11 @@ final class SAEScreenLockViewController: ScreenLockViewController {
         isShowingAuthUI = true
         
         ScreenLock.tryToUnlockScreenLock(
+            localizedReason: "authenticateToOpen"
+                .put(key: "app_name", value:  Constants.app_name)
+                .localized(),
+            errorMap: ScreenLockErrors.errorMap,
+            defaultErrorDescription: ScreenLockErrors.defaultError,
             success: { [weak self] in
                 Log.assertOnMainThread()
                 Log.info("unlock screen lock succeeded.")

@@ -94,8 +94,8 @@ final class NewClosedGroupVC: BaseVC, UITableViewDataSource, UITableViewDelegate
         return result
     }()
     
-    private lazy var nameTextField: TextField = {
-        let result = TextField(
+    private lazy var nameTextField: SNTextField = {
+        let result = SNTextField(
             placeholder: "groupNameEnter".localized(),
             usesDefaultHeight: false,
             customHeight: NewClosedGroupVC.textFieldHeight

@@ -300,8 +300,8 @@ private final class EnterURLVC: UIViewController, UIGestureRecognizerDelegate, O
     private var keyboardTransitionSnapshot1: UIView?
     private var keyboardTransitionSnapshot2: UIView?
     
-    private lazy var urlTextView: TextView = {
-        let result: TextView = TextView(placeholder: "communityEnterUrl".localized())
+    private lazy var urlTextView: SNTextView = {
+        let result: SNTextView = SNTextView(placeholder: "communityEnterUrl".localized())
         result.keyboardType = .URL
         result.autocapitalizationType = .none
         result.autocorrectionType = .no

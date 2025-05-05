@@ -44,6 +44,9 @@ public enum ScreenLock {
     /// * Asynchronously.
     /// * On the main thread.
     public static func tryToUnlockScreenLock(
+        localizedReason: String,
+        errorMap: [LAError.Code: String],
+        defaultErrorDescription: String,
         success: @escaping (() -> Void),
         failure: @escaping ((Error) -> Void),
         unexpectedFailure: @escaping ((Error) -> Void),
@@ -51,11 +54,11 @@ public enum ScreenLock {
     ) {
         Log.assertOnMainThread()
 
+        // Description of how and the app uses Touch ID/Face ID/Phone Passcode to unlock 'screen lock'.
         tryToVerifyLocalAuthentication(
-            // Description of how and the app uses Touch ID/Face ID/Phone Passcode to unlock 'screen lock'.
-            localizedReason: "authenticateToOpen"
-                .put(key: "app_name", value:  Constants.app_name)
-                .localized()
+            localizedReason: localizedReason,
+            errorMap: errorMap,
+            defaultErrorDescription: defaultErrorDescription
         ) { outcome in
             Log.assertOnMainThread()
             
@@ -89,11 +92,11 @@ public enum ScreenLock {
     /// * On the main thread.
     private static func tryToVerifyLocalAuthentication(
         localizedReason: String,
+        errorMap: [LAError.Code: String],
+        defaultErrorDescription: String,
         completion completionParam: @escaping ((Outcome) -> Void)
     ) {
         Log.assertOnMainThread()
-
-        let defaultErrorDescription = "authenticateNotAccessed".localized()
 
         // Ensure completion is always called on the main thread.
         let completion = { outcome in
@@ -110,8 +113,12 @@ public enum ScreenLock {
         if !canEvaluatePolicy || authError != nil {
             Log.error(.screenLock, "Could not determine if local authentication is supported: \(String(describing: authError))")
 
-            let outcome = self.outcomeForLAError(errorParam: authError,
-                                                 defaultErrorDescription: defaultErrorDescription)
+            let outcome = self.outcomeForLAError(
+                errorParam: authError,
+                errorMap: errorMap,
+                defaultErrorDescription: defaultErrorDescription
+            )
+            
             switch outcome {
                 case .success:
                     Log.error(.screenLock, "Local authentication unexpected success")
@@ -133,6 +140,7 @@ public enum ScreenLock {
             
             let outcome = self.outcomeForLAError(
                 errorParam: evaluateError,
+                errorMap: errorMap,
                 defaultErrorDescription: defaultErrorDescription
             )
             
@@ -149,7 +157,11 @@ public enum ScreenLock {
 
     // MARK: - Outcome
 
-    private static func outcomeForLAError(errorParam: Error?, defaultErrorDescription: String) -> Outcome {
+    private static func outcomeForLAError(
+        errorParam: Error?,
+        errorMap: [LAError.Code: String],
+        defaultErrorDescription: String
+    ) -> Outcome {
         if let error = errorParam {
             guard let laError = error as? LAError else {
                 return .failure(error: defaultErrorDescription)
@@ -158,15 +170,15 @@ public enum ScreenLock {
             switch laError.code {
                 case .biometryNotAvailable:
                     Log.error(.screenLock, "Local authentication error: biometryNotAvailable.")
-                    return .failure(error: "lockAppEnablePasscode".localized())
+                    return .failure(error: errorMap[laError.code] ?? defaultErrorDescription)
                     
                 case .biometryNotEnrolled:
                     Log.error(.screenLock, "Local authentication error: biometryNotEnrolled.")
-                    return .failure(error: "lockAppEnablePasscode".localized())
+                    return .failure(error: errorMap[laError.code] ?? defaultErrorDescription)
                     
                 case .biometryLockout:
                     Log.error(.screenLock, "Local authentication error: biometryLockout.")
-                    return .failure(error: "authenticateFailedTooManyAttempts".localized())
+                    return .failure(error: errorMap[laError.code] ?? defaultErrorDescription)
                     
                 default:
                     // Fall through to second switch
@@ -176,7 +188,7 @@ public enum ScreenLock {
             switch laError.code {
                 case .authenticationFailed:
                     Log.error(.screenLock, "Local authentication error: authenticationFailed.")
-                    return .failure(error: "authenticateFailed".localized())
+                    return .failure(error: errorMap[laError.code] ?? defaultErrorDescription)
                     
                 case .userCancel, .userFallback, .systemCancel, .appCancel:
                     Log.info(.screenLock, "Local authentication cancelled.")
@@ -184,19 +196,19 @@ public enum ScreenLock {
                     
                 case .passcodeNotSet:
                     Log.error(.screenLock, "Local authentication error: passcodeNotSet.")
-                    return .failure(error: "lockAppEnablePasscode".localized())
+                    return .failure(error: errorMap[laError.code] ?? defaultErrorDescription)
                     
                 case .touchIDNotAvailable:
                     Log.error(.screenLock, "Local authentication error: touchIDNotAvailable.")
-                    return .failure(error: "lockAppEnablePasscode".localized())
+                    return .failure(error: errorMap[laError.code] ?? defaultErrorDescription)
                     
                 case .touchIDNotEnrolled:
                     Log.error(.screenLock, "Local authentication error: touchIDNotEnrolled.")
-                    return .failure(error: "lockAppEnablePasscode".localized())
+                    return .failure(error: errorMap[laError.code] ?? defaultErrorDescription)
                     
                 case .touchIDLockout:
                     Log.error(.screenLock, "Local authentication error: touchIDLockout.")
-                    return .failure(error: "authenticateFailedTooManyAttempts".localized())
+                    return .failure(error: errorMap[laError.code] ?? defaultErrorDescription)
                     
                 case .invalidContext:
                     Log.error(.screenLock, "Context not valid.")

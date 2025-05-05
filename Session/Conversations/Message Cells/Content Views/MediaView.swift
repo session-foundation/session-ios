@@ -18,7 +18,7 @@ public class MediaView: UIView {
     // MARK: -
 
     private let dependencies: Dependencies
-    private let mediaCache: NSCache<NSString, AnyObject>?
+    private let mediaCache: LRUCache<String, Any>
     public let attachment: Attachment
     private let isOutgoing: Bool
     private let shouldSupressControls: Bool
@@ -48,7 +48,7 @@ public class MediaView: UIView {
     // MARK: - Initializers
 
     public required init(
-        mediaCache: NSCache<NSString, AnyObject>? = nil,
+        mediaCache: LRUCache<String, Any>,
         attachment: Attachment,
         isOutgoing: Bool,
         shouldSupressControls: Bool,
@@ -410,18 +410,18 @@ public class MediaView: UIView {
     }
 
     private func tryToLoadMedia(
-        loadMediaBlock: @escaping (@escaping (AnyObject?) -> Void) -> Void,
-        applyMediaBlock: @escaping (AnyObject) -> Void,
+        loadMediaBlock: @escaping (@escaping (Any?) -> Void) -> Void,
+        applyMediaBlock: @escaping (Any) -> Void,
         cacheKey: String
     ) {
         // It's critical that we update loadState once
         // our load attempt is complete.
-        let loadCompletion: (AnyObject?) -> Void = { [weak self] possibleMedia in
+        let loadCompletion: (Any?) -> Void = { [weak self] possibleMedia in
             guard self?.loadState == .loading else {
                 Log.verbose("[MediaView] Skipping obsolete load.")
                 return
             }
-            guard let media: AnyObject = possibleMedia else {
+            guard let media: Any = possibleMedia else {
                 self?.loadState = .failed
                 // TODO:
                 //            [self showAttachmentErrorViewWithMediaView:mediaView];
@@ -430,7 +430,7 @@ public class MediaView: UIView {
             
             applyMediaBlock(media)
             
-            self?.mediaCache?.setObject(media, forKey: cacheKey as NSString)
+            self?.mediaCache.set(key: cacheKey, value: media)
             self?.loadState = .loaded
         }
 
@@ -439,7 +439,7 @@ public class MediaView: UIView {
             return
         }
 
-        if let media: AnyObject = self.mediaCache?.object(forKey: cacheKey as NSString) {
+        if let media: Any = self.mediaCache.get(key: cacheKey) {
             Log.verbose("[MediaView] media cache hit")
             
             guard Thread.isMainThread else {
@@ -513,14 +513,14 @@ struct MediaView_SwiftUI: UIViewRepresentable {
     public typealias UIViewType = MediaView
     
     private let dependencies: Dependencies
-    private let mediaCache: NSCache<NSString, AnyObject>?
+    private let mediaCache: LRUCache<String, Any>
     public let attachment: Attachment
     private let isOutgoing: Bool
     private let shouldSupressControls: Bool
     private let cornerRadius: CGFloat
     
     public init(
-        mediaCache: NSCache<NSString, AnyObject>? = nil,
+        mediaCache: LRUCache<String, Any>,
         attachment: Attachment,
         isOutgoing: Bool,
         shouldSupressControls: Bool,
