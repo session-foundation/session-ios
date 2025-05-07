@@ -41,7 +41,8 @@ public enum SNMessagingKit: MigratableTarget { // Just to make the external API 
                     _021_ReworkRecipientState.self,
                     _022_GroupsRebuildChanges.self,
                     _023_GroupsExpiredFlag.self,
-                    _024_FixBustedInteractionVariant.self
+                    _024_FixBustedInteractionVariant.self,
+                    _025_DropLegacyClosedGroupKeyPairTable.self
                 ]
             ]
         )
@@ -58,7 +59,6 @@ public enum SNMessagingKit: MigratableTarget { // Just to make the external API 
             .garbageCollection: GarbageCollectionJob.self,
             .messageSend: MessageSendJob.self,
             .messageReceive: MessageReceiveJob.self,
-            .notifyPushServer: NotifyPushServerJob.self,
             .sendReadReceipts: SendReadReceiptsJob.self,
             .attachmentUpload: AttachmentUploadJob.self,
             .groupLeaving: GroupLeavingJob.self,

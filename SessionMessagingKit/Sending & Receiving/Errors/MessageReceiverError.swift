@@ -75,7 +75,6 @@ public enum MessageReceiverError: Error, CustomStringConvertible {
                             ("hasQuote", (content.dataMessage?.quote != nil)),
                             ("hasLinkPreview", (content.dataMessage?.preview != nil)),
                             ("hasOpenGroupInvitation", (content.dataMessage?.openGroupInvitation != nil)),
-                            ("hasLegacyGroupControlMessage", (content.dataMessage?.closedGroupControlMessage != nil)),
                             ("hasGroupV2ControlMessage", (content.dataMessage?.groupUpdateMessage != nil)),
                             ("hasTimestamp", (content.dataMessage?.hasTimestamp == true)),
                             ("hasSyncTarget", (content.dataMessage?.hasSyncTarget == true)),

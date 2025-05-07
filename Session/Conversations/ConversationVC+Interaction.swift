@@ -1516,10 +1516,7 @@ extension ConversationVC:
     }
     
     func removeReact(_ cellViewModel: MessageViewModel, for emoji: EmojiWithSkinTones) {
-        guard
-            viewModel.threadData.threadVariant != .legacyGroup ||
-            !viewModel.dependencies[feature: .legacyGroupsDeprecated]
-        else { return }
+        guard viewModel.threadData.threadVariant != .legacyGroup else { return }
         
         react(cellViewModel, with: emoji.rawValue, remove: true)
     }

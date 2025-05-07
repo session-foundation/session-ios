@@ -163,75 +163,13 @@ public enum MessageReceiver {
                         threadVariant = .group
                         threadIdGenerator = { _ in publicKey }
                         
-                    // FIXME: Remove once updated groups has been around for long enough
-                    case .legacyClosedGroup:
-                        guard
-                            let envelope: SNProtoEnvelope = try? MessageWrapper.unwrap(data: data),
-                            let ciphertext: Data = envelope.content,
-                            let closedGroup: ClosedGroup = try? ClosedGroup.fetchOne(db, id: publicKey)
-                        else {
-                            Log.warn(.messageReceiver, "Failed to unwrap data for message from 'legacyClosedGroup' namespace.")
-                            throw MessageReceiverError.invalidMessage
-                        }
-                        
-                        guard
-                            let encryptionKeyPairs: [ClosedGroupKeyPair] = try? closedGroup.keyPairs
-                                .order(ClosedGroupKeyPair.Columns.receivedTimestamp.desc)
-                                .fetchAll(db),
-                            !encryptionKeyPairs.isEmpty
-                        else { throw MessageReceiverError.noGroupKeyPair }
-                        
-                        // Loop through all known group key pairs in reverse order (i.e. try the latest key
-                        // pair first (which'll more than likely be the one we want) but try older ones in
-                        // case that didn't work)
-                        func decrypt(keyPairs: [ClosedGroupKeyPair], lastError: Error? = nil) throws -> (Data, String) {
-                            guard let keyPair: ClosedGroupKeyPair = keyPairs.first else {
-                                throw (lastError ?? MessageReceiverError.decryptionFailed)
-                            }
-                            
-                            do {
-                                return try dependencies[singleton: .crypto].tryGenerate(
-                                    .plaintextWithSessionProtocolLegacyGroup(
-                                        ciphertext: ciphertext,
-                                        keyPair: KeyPair(
-                                            publicKey: keyPair.publicKey.bytes,
-                                            secretKey: keyPair.secretKey.bytes
-                                        ),
-                                        using: dependencies
-                                    )
-                                )
-                            }
-                            catch {
-                                return try decrypt(keyPairs: Array(keyPairs.suffix(from: 1)), lastError: error)
-                            }
-                        }
-                        
-                        (plaintext, sender) = try decrypt(keyPairs: encryptionKeyPairs)
-                        plaintext = plaintext.removePadding()   // Remove the padding
-                        sentTimestampMs = envelope.timestamp
-                        
-                        /// If we weren't given a `serverHash` then compute one locally using the same logic the swarm would
-                        switch swarmServerHash.isEmpty {
-                            case false: serverHash = swarmServerHash
-                            case true:
-                                serverHash = dependencies[singleton: .crypto].generate(
-                                    .messageServerHash(swarmPubkey: publicKey, namespace: namespace, data: data)
-                                ).defaulting(to: "")
-                        }
-                        
-                        openGroupServerMessageId = nil
-                        openGroupWhisper = false
-                        openGroupWhisperMods = false
-                        openGroupWhisperTo = nil
-                        threadVariant = .legacyGroup
-                        threadIdGenerator = { _ in publicKey }
-                        
                     case .configUserProfile, .configContacts, .configConvoInfoVolatile, .configUserGroups:
                         throw MessageReceiverError.invalidConfigMessageHandling
                         
                     case .configGroupInfo, .configGroupMembers, .configGroupKeys:
                         throw MessageReceiverError.invalidConfigMessageHandling
-                        
+                    
+                    case .legacyClosedGroup: throw MessageReceiverError.deprecatedMessage
                     case .all, .unknown:
                         Log.warn(.messageReceiver, "Couldn't process message due to invalid namespace.")
                         throw MessageReceiverError.unknownMessage(nil)
@@ -302,19 +240,6 @@ public enum MessageReceiver {
         associatedWithProto proto: SNProtoContent,
         using dependencies: Dependencies
     ) throws {
-        // Check if the message requires an existing conversation (if it does and the conversation isn't in
-        // the config then the message will be dropped)
-        guard
-            !Message.requiresExistingConversation(message: message, threadVariant: threadVariant) ||
-            LibSession.conversationInConfig(
-                db,
-                threadId: threadId,
-                threadVariant: threadVariant,
-                visibleOnly: false,
-                using: dependencies
-            )
-        else { throw MessageReceiverError.requiredThreadNotInConfig }
-        
         // Throw if the message is outdated and shouldn't be processed
         try throwIfMessageOutdated(
             db,
@@ -345,15 +270,6 @@ public enum MessageReceiver {
                 
             case let message as TypingIndicator:
                 try MessageReceiver.handleTypingIndicator(
-                    db,
-                    threadId: threadId,
-                    threadVariant: threadVariant,
-                    message: message,
-                    using: dependencies
-                )
-                
-            case let message as ClosedGroupControlMessage:
-                try MessageReceiver.handleLegacyClosedGroupControlMessage(
                     db,
                     threadId: threadId,
                     threadVariant: threadVariant,
@@ -468,13 +384,6 @@ public enum MessageReceiver {
                 case is TypingIndicator: return true
                 case is UnsendRequest: return true
                 case is CallMessage: return (threadId != dependencies[cache: .general].sessionId.hexString)
-                    
-                case let message as ClosedGroupControlMessage:
-                    // Only re-show a legacy group conversation if we are going to add a control text message
-                    switch message.kind {
-                        case .new, .encryptionKeyPair, .encryptionKeyPairRequest: return false
-                        default: return true
-                    }
                     
                 /// These are sent to the one-to-one conversation so they shouldn't make that visible
                 case is GroupUpdateInviteMessage, is GroupUpdatePromoteMessage:

@@ -105,12 +105,7 @@ public final class GroupPoller: SwarmPoller {
             .mutate(cache: .libSession) { cache in
                 cache.conversationLastRead(
                     threadId: pollerDestination.target,
-                    // FIXME: Remove this check when legacy groups are deprecated (leaving the feature flag commented out to make it easier to find)
-                    // dependencies[feature: .legacyGroupsDeprecated]
-                    threadVariant: ((try? SessionId.Prefix(from: pollerDestination.target)) != .standard ?
-                        .group :
-                        .legacyGroup
-                    ),
+                    threadVariant: .group,
                     openGroup: nil
                 )
             }
@@ -163,16 +158,14 @@ public extension GroupPoller {
                         try ClosedGroup
                             .select(.threadId)
                             .filter(ClosedGroup.Columns.shouldPoll == true)
+                            .filter(
+                                ClosedGroup.Columns.threadId > SessionId.Prefix.group.rawValue &&
+                                ClosedGroup.Columns.threadId < SessionId.Prefix.group.endOfRangeString
+                            )
                             .asRequest(of: String.self)
                             .fetchSet(db)
                     }?
                     .forEach { [weak self] swarmPublicKey in
-                        // If legacy groups have been deprecated then don't start pollers for them
-                        guard
-                            !dependencies[feature: .legacyGroupsDeprecated] ||
-                            (try? SessionId.Prefix(from: swarmPublicKey)) != .standard
-                        else { return }
-                        
                         self?.getOrCreatePoller(for: swarmPublicKey).startIfNeeded()
                     }
             }

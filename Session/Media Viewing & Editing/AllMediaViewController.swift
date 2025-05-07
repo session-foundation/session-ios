@@ -190,10 +190,8 @@ extension AllMediaViewController: MediaTileViewControllerDelegate {
         using dependencies: Dependencies
     ) {
         guard
-            !updatedData.isEmpty, (
-                threadVariant != .legacyGroup ||
-                !dependencies[feature: .legacyGroupsDeprecated]
-            )
+            !updatedData.isEmpty,
+            threadVariant != .legacyGroup
         else {
             self.navigationItem.rightBarButtonItem = nil
             return

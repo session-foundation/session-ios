@@ -251,25 +251,7 @@ extension MessageSender {
         using dependencies: Dependencies
     ) -> AnyPublisher<Void, Error> {
         guard let sessionId: SessionId = try? SessionId(from: groupSessionId), sessionId.prefix == .group else {
-            // FIXME: Fail with `MessageSenderError.invalidClosedGroupUpdate` once support for legacy groups is removed
-            let maybeMemberIds: Set<String>? = dependencies[singleton: .storage].read { db in
-                try GroupMember
-                    .filter(GroupMember.Columns.groupId == groupSessionId)
-                    .select(.profileId)
-                    .asRequest(of: String.self)
-                    .fetchSet(db)
-            }
-            
-            guard let memberIds: Set<String> = maybeMemberIds else {
-                return Fail(error: MessageSenderError.invalidClosedGroupUpdate).eraseToAnyPublisher()
-            }
-            
-            return MessageSender.update(
-                legacyGroupSessionId: groupSessionId,
-                with: memberIds,
-                name: name,
-                using: dependencies
-            )
+            return Fail(error: MessageSenderError.invalidClosedGroupUpdate).eraseToAnyPublisher()
         }
         
         return dependencies[singleton: .storage]

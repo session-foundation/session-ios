@@ -31,7 +31,7 @@ public struct ControlMessageProcessRecord: Codable, FetchableRecord, Persistable
         
         case readReceipt = 1
         case typingIndicator = 2
-        case legacyGroupControlMessage = 3
+        @available(*, deprecated) case legacyGroupControlMessage = 3
         case dataExtractionNotification = 4
         case expirationTimerUpdate = 5
         @available(*, deprecated) case configurationMessage = 6
@@ -58,7 +58,7 @@ public struct ControlMessageProcessRecord: Codable, FetchableRecord, Persistable
         case groupUpdateDeleteMemberContent = 18
         
         internal static let variantsToBeReprocessedAfterLeavingAndRejoiningConversation: Set<Variant> = [
-            .legacyGroupControlMessage, .dataExtractionNotification, .expirationTimerUpdate, .unsendRequest,
+            .dataExtractionNotification, .expirationTimerUpdate, .unsendRequest,
             .messageRequestResponse, .call, .visibleMessageDedupe, .groupUpdateInfoChange, .groupUpdateMemberChange,
             .groupUpdateMemberLeftNotification, .groupUpdateDeleteMemberContent
         ]
@@ -100,15 +100,6 @@ public struct ControlMessageProcessRecord: Codable, FetchableRecord, Persistable
         // message handling to make sure the messages are for the same ongoing call
         if message is CallMessage { return nil }
         
-        // Allow '.new' and 'encryptionKeyPair' closed group control message duplicates to avoid
-        // the following situation:
-        // • The app performed a background poll or received a push notification
-        // • This method was invoked and the received message timestamps table was updated
-        // • Processing wasn't finished
-        // • The user doesn't see the new closed group
-        if case .new = (message as? ClosedGroupControlMessage)?.kind { return nil }
-        if case .encryptionKeyPair = (message as? ClosedGroupControlMessage)?.kind { return nil }
-        
         // The `LibSessionMessage` doesn't have enough metadata to be able to dedupe via
         // the `ControlMessageProcessRecord` so just always process it
         if message is LibSessionMessage { return nil }
@@ -123,7 +114,6 @@ public struct ControlMessageProcessRecord: Codable, FetchableRecord, Persistable
             switch message {
                 case is ReadReceipt: return .readReceipt
                 case is TypingIndicator: return .typingIndicator
-                case is ClosedGroupControlMessage: return .legacyGroupControlMessage
                 case is DataExtractionNotification: return .dataExtractionNotification
                 case is ExpirationTimerUpdate: return .expirationTimerUpdate
                 case is UnsendRequest: return .unsendRequest
@@ -160,10 +150,10 @@ internal extension ControlMessageProcessRecord {
         switch variant {
             case .standardOutgoing, .standardIncoming, ._legacyStandardIncomingDeleted,
                 .standardIncomingDeleted, .standardIncomingDeletedLocally, .standardOutgoingDeleted,
-                .standardOutgoingDeletedLocally, .infoLegacyGroupCreated:
+                .standardOutgoingDeletedLocally, .infoLegacyGroupCreated,
+                .infoLegacyGroupUpdated, .infoLegacyGroupCurrentUserLeft:
                 return nil
                 
-            case .infoLegacyGroupUpdated, .infoLegacyGroupCurrentUserLeft: self.variant = .legacyGroupControlMessage
             case .infoDisappearingMessagesUpdate: self.variant = .expirationTimerUpdate
             case .infoScreenshotNotification, .infoMediaSavedNotification: self.variant = .dataExtractionNotification
             case .infoMessageRequestAccepted: self.variant = .messageRequestResponse
@@ -172,12 +162,7 @@ internal extension ControlMessageProcessRecord {
             case .infoGroupInfoInvited, .infoGroupMembersUpdated: self.variant = .groupUpdateMemberChange
                 
             case .infoGroupCurrentUserLeaving, .infoGroupCurrentUserErrorLeaving:
-                // If the `threadId` is for an updated group then it's a `groupControlMessage`, otherwise
-                // assume it's a `legacyGroupControlMessage`
-                self.variant = ((try? SessionId(from: threadId))?.prefix == .group ?
-                    .groupUpdateMemberLeft :
-                    .legacyGroupControlMessage
-                )
+                self.variant = .groupUpdateMemberLeft
         }
         
         self.threadId = threadId

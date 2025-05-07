@@ -383,14 +383,6 @@ class ThreadDisappearingMessagesSettingsViewModel: SessionTableViewModel, Naviga
                         disappearingMessagesConfig: updatedConfig,
                         using: dependencies
                     )
-                
-                case .legacyGroup:
-                    try LibSession.update(
-                        db,
-                        legacyGroupSessionId: threadId,
-                        disappearingConfig: updatedConfig,
-                        using: dependencies
-                    )
                     
                 case .group: break // Handled above
                 default: break
