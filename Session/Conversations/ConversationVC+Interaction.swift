@@ -498,6 +498,40 @@ extension ConversationVC:
         
         self.showBlockedModalIfNeeded()
     }
+    
+    func handleDisabledAttachmentButtonTapped() {
+        /// This logic was added because an Apple reviewer rejected an emergency update as they thought these buttons were
+        /// unresponsive (even though there is copy on the screen communicating that they are intentionally disabled) - in order
+        /// to prevent this happening in the future we've added this toast when pressing on the disabled button
+        guard viewModel.threadData.threadIsMessageRequest == true else { return }
+        
+        let toastController: ToastController = ToastController(
+            text: "messageRequestDisabledToastAttachments".localized(),
+            background: .backgroundSecondary
+        )
+        toastController.presentToastView(
+            fromBottomOfView: self.view,
+            inset: (snInputView.bounds.height + Values.largeSpacing),
+            duration: .milliseconds(2500)
+        )
+    }
+    
+    func handleDisabledVoiceMessageButtonTapped() {
+        /// This logic was added because an Apple reviewer rejected an emergency update as they thought these buttons were
+        /// unresponsive (even though there is copy on the screen communicating that they are intentionally disabled) - in order
+        /// to prevent this happening in the future we've added this toast when pressing on the disabled button
+        guard viewModel.threadData.threadIsMessageRequest == true else { return }
+        
+        let toastController: ToastController = ToastController(
+            text: "messageRequestDisabledToastVoiceMessages".localized(),
+            background: .backgroundSecondary
+        )
+        toastController.presentToastView(
+            fromBottomOfView: self.view,
+            inset: (snInputView.bounds.height + Values.largeSpacing),
+            duration: .milliseconds(2500)
+        )
+    }
 
     // MARK: --Message Sending
     
