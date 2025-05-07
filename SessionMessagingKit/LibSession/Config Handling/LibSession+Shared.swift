@@ -694,7 +694,6 @@ public extension LibSession.Cache {
                     sound: sound,
                     mutedUntil: (contact.mute_until > 0 ? TimeInterval(contact.mute_until) : nil)
                 )
-                
             
             case .community:
                 guard
