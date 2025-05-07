@@ -203,7 +203,7 @@ class MessageReceiverGroupsSpec: QuickSpec {
                     .when { $0.config(for: .groupKeys, sessionId: groupId) }
                     .thenReturn(groupKeysConfig)
                 cache
-                    .when { try $0.pendingChanges(.any, swarmPubkey: .any) }
+                    .when { try $0.pendingChanges(.any, swarmPublicKey: .any) }
                     .thenReturn(LibSession.PendingChanges())
                 cache.when { $0.configNeedsDump(.any) }.thenReturn(false)
                 cache

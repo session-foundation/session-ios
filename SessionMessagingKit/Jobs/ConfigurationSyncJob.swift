@@ -69,7 +69,7 @@ public enum ConfigurationSyncJob: JobExecutor {
             let swarmPublicKey: String = job.threadId,
             let pendingChanges: LibSession.PendingChanges = dependencies[singleton: .storage].read({ db in
                 try dependencies.mutate(cache: .libSession) {
-                    try $0.pendingChanges(db, swarmPubkey: swarmPublicKey)
+                    try $0.pendingChanges(db, swarmPublicKey: swarmPublicKey)
                 }
             })
         else {
@@ -100,23 +100,26 @@ public enum ConfigurationSyncJob: JobExecutor {
                     requests: []
                         .appending(contentsOf: additionalTransientData?.beforeSequenceRequests)
                         .appending(
-                            contentsOf: try pendingChanges.pushData.map { pushData -> ErasedPreparedRequest in
-                                try SnodeAPI
-                                    .preparedSendMessage(
-                                        message: SnodeMessage(
-                                            recipient: swarmPublicKey,
-                                            data: pushData.data.base64EncodedString(),
-                                            ttl: pushData.variant.ttl,
-                                            timestampMs: UInt64(messageSendTimestamp)
-                                        ),
-                                        in: pushData.variant.namespace,
-                                        authMethod: try Authentication.with(
-                                            db,
-                                            swarmPublicKey: swarmPublicKey,
-                                            using: dependencies
-                                        ),
-                                        using: dependencies
-                                    )
+                            contentsOf: try pendingChanges.pushData
+                                .flatMap { pushData -> [ErasedPreparedRequest] in
+                                    try pushData.data.map { data -> ErasedPreparedRequest in
+                                        try SnodeAPI
+                                            .preparedSendMessage(
+                                                message: SnodeMessage(
+                                                    recipient: swarmPublicKey,
+                                                    data: data.base64EncodedString(),
+                                                    ttl: pushData.variant.ttl,
+                                                    timestampMs: UInt64(messageSendTimestamp)
+                                                ),
+                                                in: pushData.variant.namespace,
+                                                authMethod: try Authentication.with(
+                                                    db,
+                                                    swarmPublicKey: swarmPublicKey,
+                                                    using: dependencies
+                                                ),
+                                                using: dependencies
+                                            )
+                                    }
                             }
                         )
                         .appending(try {
@@ -166,8 +169,8 @@ public enum ConfigurationSyncJob: JobExecutor {
                         })
                 else { throw NetworkError.invalidResponse }
                 
-                return zip(responseWithoutBeforeRequests, pendingChanges.pushData)
-                    .compactMap { (subResponse: Any, pushData: LibSession.PendingChanges.PushData) in
+                let results: [(pushData: LibSession.PendingChanges.PushData, hash: String?)] = zip(responseWithoutBeforeRequests, pendingChanges.pushData)
+                    .map { (subResponse: Any, pushData: LibSession.PendingChanges.PushData) in
                         /// If the request wasn't successful then just ignore it (the next time we sync this config we will try
                         /// to send the changes again)
                         guard
@@ -175,20 +178,20 @@ public enum ConfigurationSyncJob: JobExecutor {
                             200...299 ~= typedResponse.code,
                             !typedResponse.failedToParseBody,
                             let sendMessageResponse: SendMessagesResponse = typedResponse.body
-                        else { return nil }
+                        else { return (pushData, nil) }
                         
-                        /// Since this change was successful we need to mark it as pushed and generate any config dumps
-                        /// which need to be stored
-                        return dependencies.mutate(cache: .libSession) { cache in
-                            cache.markingAsPushed(
-                                seqNo: pushData.seqNo,
-                                serverHash: sendMessageResponse.hash,
-                                sentTimestamp: messageSendTimestamp,
-                                variant: pushData.variant,
-                                swarmPublicKey: swarmPublicKey
-                            )
-                        }
+                        return (pushData, sendMessageResponse.hash)
                     }
+                
+                /// Since this change was successful we need to mark it as pushed and generate any config dumps
+                /// which need to be stored
+                return try dependencies.mutate(cache: .libSession) { cache in
+                    try cache.createDumpMarkingAsPushed(
+                        data: results,
+                        sentTimestamp: messageSendTimestamp,
+                        swarmPublicKey: swarmPublicKey
+                    )
+                }
             }
             .sinkUntilComplete(
                 receiveCompletion: { result in
