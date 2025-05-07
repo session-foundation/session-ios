@@ -390,9 +390,9 @@ final class InputView: UIView, InputViewButtonDelegate, InputTextViewDelegate, M
         disabledInputLabel.text = (updatedInputState.message ?? "")
         disabledInputLabel.accessibilityIdentifier = updatedInputState.messageAccessibility?.identifier
         disabledInputLabel.accessibilityLabel = updatedInputState.messageAccessibility?.label
-
-        attachmentsButton.isUserInteractionEnabled = (updatedInputState.allowedInputTypes == .all)
-        voiceMessageButton.isUserInteractionEnabled = (updatedInputState.allowedInputTypes == .all)
+        
+        attachmentsButton.isSoftDisabled = (updatedInputState.allowedInputTypes != .all)
+        voiceMessageButton.isSoftDisabled = (updatedInputState.allowedInputTypes != .all)
 
         UIView.animate(withDuration: 0.3) { [weak self] in
             self?.bottomStackView?.alpha = (updatedInputState.allowedInputTypes != .none ? 1 : 0)
@@ -443,10 +443,14 @@ final class InputView: UIView, InputViewButtonDelegate, InputTextViewDelegate, M
 
     func handleInputViewButtonTapped(_ inputViewButton: InputViewButton) {
         if inputViewButton == sendButton { delegate?.handleSendButtonTapped() }
+        if inputViewButton == voiceMessageButton && inputState.allowedInputTypes != .all {
+            delegate?.handleDisabledVoiceMessageButtonTapped()
+        }
     }
 
     func handleInputViewButtonLongPressBegan(_ inputViewButton: InputViewButton?) {
         guard inputViewButton == voiceMessageButton else { return }
+        guard inputState.allowedInputTypes == .all else { return }
         
         // Note: The 'showVoiceMessageUI' call MUST come before triggering 'startVoiceMessageRecording'
         // because if something goes wrong it'll trigger `hideVoiceMessageUI` and we don't want it to
@@ -584,6 +588,7 @@ protocol InputViewDelegate: ExpandingAttachmentsButtonDelegate, VoiceMessageReco
     func showLinkPreviewSuggestionModal()
     func handleSendButtonTapped()
     func handleDisabledInputTapped()
+    func handleDisabledVoiceMessageButtonTapped()
     func inputTextViewDidChangeContent(_ inputTextView: InputTextView)
     func handleMentionSelected(_ mentionInfo: MentionInfo, from view: MentionSelectionView)
     func didPasteImageFromPasteboard(_ image: UIImage)

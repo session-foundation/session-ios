@@ -414,6 +414,10 @@ public struct SessionThreadViewModel: FetchableRecordWithRowId, Decodable, Equat
             case .contact:
                 guard threadIsMessageRequest == true else { return true }
                 
+                // If the thread is an incoming message request then we should be able to reply
+                // regardless of the original senders `blocksCommunityMessageRequests` setting
+                guard threadRequiresApproval == true else { return true }
+                
                 return (profile?.blocksCommunityMessageRequests != true)
                 
             case .legacyGroup: return false

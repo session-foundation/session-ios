@@ -14,6 +14,7 @@ final class InputViewButton: UIView {
     private lazy var heightConstraint = set(.height, to: InputViewButton.size)
     private var longPressTimer: Timer?
     private var isLongPress = false
+    public var isSoftDisabled = false
     
     // MARK: - UI Components
     
@@ -145,7 +146,7 @@ final class InputViewButton: UIView {
     // We want to detect both taps and long presses
     
     override func touchesBegan(_ touches: Set<UITouch>, with event: UIEvent?) {
-        guard isUserInteractionEnabled else { return }
+        guard !isSoftDisabled && isUserInteractionEnabled else { return }
         
         UIImpactFeedbackGenerator(style: .heavy).impactOccurred()
         expand()
@@ -157,7 +158,7 @@ final class InputViewButton: UIView {
     }
 
     override func touchesMoved(_ touches: Set<UITouch>, with event: UIEvent?) {
-        guard isUserInteractionEnabled else { return }
+        guard !isSoftDisabled && isUserInteractionEnabled else { return }
         
         if isLongPress {
             delegate?.handleInputViewButtonLongPressMoved(self, with: touches.first)
@@ -166,6 +167,11 @@ final class InputViewButton: UIView {
 
     override func touchesEnded(_ touches: Set<UITouch>, with event: UIEvent?) {
         guard isUserInteractionEnabled else { return }
+        guard !isSoftDisabled else {
+            delegate?.handleInputViewButtonTapped(self)
+            onTap?()
+            return
+        }
         
         collapse()
         if !isLongPress {
