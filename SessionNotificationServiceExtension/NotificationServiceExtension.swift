@@ -891,9 +891,10 @@ public final class NotificationServiceExtension: UNNotificationServiceExtension 
                     threadId: info.metadata.accountId,
                     threadVariant: targetThreadVariant,
                     openGroupUrlInfo: nil,  /// Communities current don't support PNs
+                    applicationState: .background
                 )
             }
-            .defaulting(to: (.defaultMode(for: targetThreadVariant), .defaultPreviewType, nil))
+            .defaulting(to: .defaultFor(targetThreadVariant))
         Log.error(.cat, "\(resolution) after \(.seconds(duration), unit: .ms), showing generic failure message for message from namespace: \(info.metadata.namespace), requestId: \(info.requestId).")
         
         /// Now we are done with the database, we should suspend it
