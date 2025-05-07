@@ -3,6 +3,7 @@
 // stringlint:disable
 
 import Foundation
+import SessionMessagingKit
 
 enum AppNotificationAction: CaseIterable {
     case markAsRead
@@ -14,6 +15,16 @@ extension AppNotificationAction {
         switch self {
             case .markAsRead: return "Signal.AppNotifications.Action.markAsRead"
             case .reply: return "Signal.AppNotifications.Action.reply"
+        }
+    }
+}
+
+extension NotificationCategory {
+    var actions: [AppNotificationAction] {
+        switch self {
+            case .incomingMessage: return [.markAsRead, .reply]
+            case .errorMessage: return []
+            case .threadlessErrorMessage: return []
         }
     }
 }

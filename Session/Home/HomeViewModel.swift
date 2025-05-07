@@ -364,28 +364,27 @@ public class HomeViewModel: NavigatableStateHolder {
                         }
                         .map { viewModel -> SessionThreadViewModel in
                             viewModel.populatingPostQueryData(
-                                currentUserBlinded15SessionIdForThisThread: groupedOldData[viewModel.threadId]?
+                                currentUserSessionIds: (groupedOldData[viewModel.threadId]?
                                     .first?
-                                    .currentUserBlinded15SessionId,
-                                currentUserBlinded25SessionIdForThisThread: groupedOldData[viewModel.threadId]?
-                                    .first?
-                                    .currentUserBlinded25SessionId,
+                                    .currentUserSessionIds)
+                                .defaulting(to: [dependencies[cache: .general].sessionId.hexString]),
                                 wasKickedFromGroup: (
                                     viewModel.threadVariant == .group &&
-                                    LibSession.wasKickedFromGroup(
-                                        groupSessionId: SessionId(.group, hex: viewModel.threadId),
-                                        using: dependencies
-                                    )
+                                    dependencies.mutate(cache: .libSession, config: .userGroups) { config in
+                                        (config?
+                                            .wasKickedFromGroup(groupSessionId: SessionId(.group, hex: viewModel.threadId)))
+                                            .defaulting(to: false)
+                                    }
                                 ),
                                 groupIsDestroyed: (
                                     viewModel.threadVariant == .group &&
-                                    LibSession.groupIsDestroyed(
-                                        groupSessionId: SessionId(.group, hex: viewModel.threadId),
-                                        using: dependencies
-                                    )
+                                    dependencies.mutate(cache: .libSession, config: .userGroups) { config in
+                                        (config?
+                                            .groupIsDestroyed(groupSessionId: SessionId(.group, hex: viewModel.threadId)))
+                                            .defaulting(to: false)
+                                    }
                                 ),
-                                threadCanWrite: false,  // Irrelevant for the HomeViewModel
-                                using: dependencies
+                                threadCanWrite: false  // Irrelevant for the HomeViewModel
                             )
                         }
                 )

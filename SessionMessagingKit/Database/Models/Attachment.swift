@@ -248,6 +248,37 @@ extension Attachment: CustomStringConvertible {
             self.contentType = contentType
             self.sourceFilename = sourceFilename
         }
+        
+        public init(id: String, proto: SNProtoAttachmentPointer, sourceFilename: String? = nil) {
+            self.init(
+                id: id,
+                variant: {
+                    let voiceMessageFlag: Int32 = SNProtoAttachmentPointer.SNProtoAttachmentPointerFlags
+                        .voiceMessage
+                        .rawValue
+                    
+                    guard proto.hasFlags && ((proto.flags & UInt32(voiceMessageFlag)) > 0) else {
+                        return .standard
+                    }
+                    
+                    return .voiceMessage
+                }(),
+                contentType: (
+                    proto.contentType ??
+                    Attachment.inferContentType(from: proto.fileName)
+                ),
+                sourceFilename: sourceFilename
+            )
+        }
+    }
+    
+    public var descriptionInfo: DescriptionInfo {
+        Attachment.DescriptionInfo(
+            id: id,
+            variant: variant,
+            contentType: contentType,
+            sourceFilename: sourceFilename
+        )
     }
     
     public static func description(for descriptionInfo: DescriptionInfo?, count: Int?) -> String? {
@@ -391,16 +422,16 @@ extension Attachment {
 // MARK: - Protobuf
 
 extension Attachment {
-    public init(proto: SNProtoAttachmentPointer) {
-        func inferContentType(from filename: String?) -> String {
-            guard
-                let fileName: String = filename,
-                let fileExtension: String = URL(string: fileName)?.pathExtension
-            else { return UTType.mimeTypeDefault }
-            
-            return (UTType.sessionMimeType(for: fileExtension) ?? UTType.mimeTypeDefault)
-        }
+    public static func inferContentType(from filename: String?) -> String {
+        guard
+            let fileName: String = filename,
+            let fileExtension: String = URL(string: fileName)?.pathExtension
+        else { return UTType.mimeTypeDefault }
         
+        return (UTType.sessionMimeType(for: fileExtension) ?? UTType.mimeTypeDefault)
+    }
+    
+    public init(proto: SNProtoAttachmentPointer) {
         self.id = UUID().uuidString
         self.serverId = "\(proto.id)"
         self.variant = {
@@ -415,7 +446,7 @@ extension Attachment {
             return .voiceMessage
         }()
         self.state = .pendingDownload
-        self.contentType = (proto.contentType ?? inferContentType(from: proto.fileName))
+        self.contentType = (proto.contentType ?? Attachment.inferContentType(from: proto.fileName))
         self.byteCount = UInt(proto.size)
         self.creationTimestamp = nil
         self.sourceFilename = proto.fileName

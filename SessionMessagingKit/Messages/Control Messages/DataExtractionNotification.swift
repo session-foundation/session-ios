@@ -15,7 +15,7 @@ public final class DataExtractionNotification: ControlMessage {
     
     // MARK: - Kind
     
-    public enum Kind: CustomStringConvertible, Codable {
+    public enum Kind: CustomStringConvertible, Codable, Equatable {
         case screenshot
         case mediaSaved(timestamp: UInt64)  // Note: The 'timestamp' should the original message timestamp
 

@@ -844,7 +844,7 @@ class ThreadSettingsViewModel: SessionTableViewModel, NavigatableStateHolder, Ob
                     request: Contact
                         .filter(Contact.Columns.isApproved == true)
                         .filter(Contact.Columns.didApproveMe == true)
-                        .filter(Contact.Columns.id != threadViewModel.currentUserSessionId),
+                        .filter(!threadViewModel.currentUserSessionIds.contains(Contact.Columns.id)),
                     footerTitle: "membersInvite".localized(),
                     footerAccessibility: Accessibility(
                         identifier: "Invite contacts button"

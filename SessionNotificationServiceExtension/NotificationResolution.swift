@@ -21,11 +21,10 @@ enum NotificationResolution: CustomStringConvertible {
     
     case errorTimeout
     case errorNotReadyForExtensions
-    case errorNoContentLegacy
+    case errorLegacyPushNotification
     case errorDatabaseInvalid
     case errorDatabaseMigrations(Error)
     case errorTransactionFailure
-    case errorLegacyGroupKeysMissing
     case errorCallFailure
     case errorNoContent(PushNotificationAPI.NotificationMetadata)
     case errorProcessing(PushNotificationAPI.ProcessResult)
@@ -51,11 +50,10 @@ enum NotificationResolution: CustomStringConvertible {
             
             case .errorTimeout: return "Failed: Execution time expired"
             case .errorNotReadyForExtensions: return "Failed: App not ready for extensions"
-            case .errorNoContentLegacy: return "Failed: Legacy notification contained invalid payload"
+            case .errorLegacyPushNotification: return "Failed: Legacy push notifications are no longer supported"
             case .errorDatabaseInvalid: return "Failed: Database in invalid state"
             case .errorDatabaseMigrations(let error): return "Failed: Database migration error: \(error)"
             case .errorTransactionFailure: return "Failed: Unexpected database transaction rollback"
-            case .errorLegacyGroupKeysMissing: return "Failed: No legacy group decryption keys"
             case .errorCallFailure: return "Failed: Failed to handle call message"
             
             case .errorNoContent(let metadata):
@@ -74,11 +72,11 @@ enum NotificationResolution: CustomStringConvertible {
                 .ignoreDueToRequiresNoNotification, .ignoreDueToDuplicateMessage, .ignoreDueToContentSize:
                 return .info
                 
-            case .errorNotReadyForExtensions, .errorNoContentLegacy, .errorNoContent, .errorCallFailure:
+            case .errorNotReadyForExtensions, .errorLegacyPushNotification, .errorNoContent, .errorCallFailure:
                 return .warn
                 
             case .errorTimeout, .errorDatabaseInvalid, .errorDatabaseMigrations, .errorTransactionFailure,
-                    .errorLegacyGroupKeysMissing, .errorProcessing, .errorMessageHandling, .errorOther:
+                    .errorProcessing, .errorMessageHandling, .errorOther:
                 return .error
         }
     }

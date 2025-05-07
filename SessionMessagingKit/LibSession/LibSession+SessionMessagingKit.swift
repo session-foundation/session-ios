@@ -665,10 +665,10 @@ public extension LibSession {
                 .reduce([], +)
         }
         
-        public func handleConfigMessages(
-            _ db: Database,
+        public func mergeConfigMessages(
             swarmPublicKey: String,
-            messages: [ConfigMessageReceiveJob.Details.MessageInfo]
+            messages: [ConfigMessageReceiveJob.Details.MessageInfo],
+            afterMerge: (SessionId, ConfigDump.Variant, LibSession.Config?, Int64) throws -> Void
         ) throws {
             guard !messages.isEmpty else { return }
             guard !swarmPublicKey.isEmpty else { throw MessageReceiverError.noThread }
@@ -687,89 +687,103 @@ public extension LibSession {
                         // to handle the result)
                         guard let latestServerTimestampMs: Int64 = try config?.merge(messages) else { return }
                         
-                        // Apply the updated states to the database
-                        switch variant {
-                            case .userProfile:
-                                try handleUserProfileUpdate(
-                                    db,
-                                    in: config,
-                                    serverTimestampMs: latestServerTimestampMs
-                                )
-                                
-                            case .contacts:
-                                try handleContactsUpdate(
-                                    db,
-                                    in: config,
-                                    serverTimestampMs: latestServerTimestampMs
-                                )
-                                
-                            case .convoInfoVolatile:
-                                try handleConvoInfoVolatileUpdate(
-                                    db,
-                                    in: config
-                                )
-                                
-                            case .userGroups:
-                                try handleUserGroupsUpdate(
-                                    db,
-                                    in: config,
-                                    serverTimestampMs: latestServerTimestampMs
-                                )
-                                
-                            case .groupInfo:
-                                try handleGroupInfoUpdate(
-                                    db,
-                                    in: config,
-                                    groupSessionId: sessionId,
-                                    serverTimestampMs: latestServerTimestampMs
-                                )
-                                
-                            case .groupMembers:
-                                try handleGroupMembersUpdate(
-                                    db,
-                                    in: config,
-                                    groupSessionId: sessionId,
-                                    serverTimestampMs: latestServerTimestampMs
-                                )
-                                
-                            case .groupKeys:
-                                try handleGroupKeysUpdate(
-                                    db,
-                                    in: config,
-                                    groupSessionId: sessionId
-                                )
-                            
-                            case .invalid: Log.error(.libSession, "Failed to process merge of invalid config namespace")
-                        }
-                        
-                        // Need to check if the config needs to be dumped (this might have changed
-                        // after handling the merge changes)
-                        guard configNeedsDump(config) else {
-                            try ConfigDump
-                                .filter(
-                                    ConfigDump.Columns.variant == variant &&
-                                    ConfigDump.Columns.publicKey == sessionId.hexString
-                                )
-                                .updateAll(
-                                    db,
-                                    ConfigDump.Columns.timestampMs.set(to: latestServerTimestampMs)
-                                )
-                            
-                            return
-                        }
-                        
-                        try createDump(
-                            config: config,
-                            for: variant,
-                            sessionId: sessionId,
-                            timestampMs: latestServerTimestampMs
-                        )?.upsert(db)
+                        // Now that the config message has been merged, run any after-merge logic
+                        try afterMerge(sessionId, variant, config, latestServerTimestampMs)
                     }
                     catch {
                         Log.error(.libSession, "Failed to process merge of \(variant) config data")
                         throw error
                     }
                 }
+        }
+        
+        public func handleConfigMessages(
+            _ db: Database,
+            swarmPublicKey: String,
+            messages: [ConfigMessageReceiveJob.Details.MessageInfo]
+        ) throws {
+            try mergeConfigMessages(
+                swarmPublicKey: swarmPublicKey,
+                messages: messages
+            ) { sessionId, variant, config, latestServerTimestampMs in
+                // Apply the updated states to the database
+                switch variant {
+                    case .userProfile:
+                        try handleUserProfileUpdate(
+                            db,
+                            in: config,
+                            serverTimestampMs: latestServerTimestampMs
+                        )
+                        
+                    case .contacts:
+                        try handleContactsUpdate(
+                            db,
+                            in: config,
+                            serverTimestampMs: latestServerTimestampMs
+                        )
+                        
+                    case .convoInfoVolatile:
+                        try handleConvoInfoVolatileUpdate(
+                            db,
+                            in: config
+                        )
+                        
+                    case .userGroups:
+                        try handleUserGroupsUpdate(
+                            db,
+                            in: config,
+                            serverTimestampMs: latestServerTimestampMs
+                        )
+                        
+                    case .groupInfo:
+                        try handleGroupInfoUpdate(
+                            db,
+                            in: config,
+                            groupSessionId: sessionId,
+                            serverTimestampMs: latestServerTimestampMs
+                        )
+                        
+                    case .groupMembers:
+                        try handleGroupMembersUpdate(
+                            db,
+                            in: config,
+                            groupSessionId: sessionId,
+                            serverTimestampMs: latestServerTimestampMs
+                        )
+                        
+                    case .groupKeys:
+                        try handleGroupKeysUpdate(
+                            db,
+                            in: config,
+                            groupSessionId: sessionId
+                        )
+                    
+                    case .invalid: Log.error(.libSession, "Failed to process merge of invalid config namespace")
+                }
+                
+                // Need to check if the config needs to be dumped (this might have changed
+                // after handling the merge changes)
+                guard configNeedsDump(config) else {
+                    try ConfigDump
+                        .filter(
+                            ConfigDump.Columns.variant == variant &&
+                            ConfigDump.Columns.publicKey == sessionId.hexString
+                        )
+                        .updateAll(
+                            db,
+                            ConfigDump.Columns.timestampMs.set(to: latestServerTimestampMs)
+                        )
+                    
+                    return
+                }
+                
+                try createDump(
+                    config: config,
+                    for: variant,
+                    sessionId: sessionId,
+                    timestampMs: latestServerTimestampMs
+                )?.upsert(db)
+            }
             
             // Now that the local state has been updated, schedule a config sync if needed (this will
             // push any pending updates and properly update the state)
@@ -946,6 +960,11 @@ public protocol LibSessionCacheType: LibSessionImmutableCacheType, MutableCacheT
     func configNeedsDump(_ config: LibSession.Config?) -> Bool
     func activeHashes(for swarmPublicKey: String) -> [String]
     
+    func mergeConfigMessages(
+        swarmPublicKey: String,
+        messages: [ConfigMessageReceiveJob.Details.MessageInfo],
+        afterMerge: (SessionId, ConfigDump.Variant, LibSession.Config?, Int64) throws -> Void
+    ) throws
     func handleConfigMessages(
         _ db: Database,
         swarmPublicKey: String,
@@ -1048,6 +1067,11 @@ private final class NoopLibSessionCache: LibSessionCacheType {
     
     func configNeedsDump(_ config: LibSession.Config?) -> Bool { return false }
     func activeHashes(for swarmPublicKey: String) -> [String] { return [] }
+    func mergeConfigMessages(
+        swarmPublicKey: String,
+        messages: [ConfigMessageReceiveJob.Details.MessageInfo],
+        afterMerge: (SessionId, ConfigDump.Variant, LibSession.Config?, Int64) throws -> Void
+    ) throws {}
     func handleConfigMessages(
         _ db: Database,
         swarmPublicKey: String,
