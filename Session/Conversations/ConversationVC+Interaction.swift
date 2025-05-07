@@ -2547,8 +2547,6 @@ extension ConversationVC:
     
     // MARK: - Data Extraction Notifications
     
-    @objc func sendScreenshotNotification() { sendDataExtraction(kind: .screenshot) }
-    
     func sendDataExtraction(kind: DataExtractionNotification.Kind) {
         // Only send screenshot notifications to one-to-one conversations
         guard self.viewModel.threadData.threadVariant == .contact else { return }
