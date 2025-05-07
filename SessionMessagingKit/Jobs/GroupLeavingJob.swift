@@ -38,16 +38,6 @@ public enum GroupLeavingJob: JobExecutor {
         
         dependencies[singleton: .storage]
             .writePublisher { db -> LeaveType in
-                guard
-                    let threadVariant: SessionThread.Variant = try? SessionThread
-                        .filter(id: threadId)
-                        .select(.variant)
-                        .asRequest(of: SessionThread.Variant.self)
-                        .fetchOne(db)
-                else {
-                    Log.error(.cat, "Failed due to non-existent group conversation")
-                    throw MessageSenderError.noThread
-                }
                 guard (try? ClosedGroup.exists(db, id: threadId)) == true else {
                     Log.error(.cat, "Failed due to non-existent group")
                     throw MessageSenderError.invalidClosedGroupUpdate
@@ -67,26 +57,21 @@ public enum GroupLeavingJob: JobExecutor {
                     .defaulting(to: 0)
                 let finalBehaviour: GroupLeavingJob.Details.Behaviour = {
                     guard
-                        threadVariant == .group,
-                        (
-                            LibSession.wasKickedFromGroup(
-                                groupSessionId: SessionId(.group, hex: threadId),
-                                using: dependencies
-                            ) ||
-                            LibSession.groupIsDestroyed(
-                                groupSessionId: SessionId(.group, hex: threadId),
-                                using: dependencies
-                            )
+                        LibSession.wasKickedFromGroup(
+                            groupSessionId: SessionId(.group, hex: threadId),
+                            using: dependencies
+                        ) ||
+                        LibSession.groupIsDestroyed(
+                            groupSessionId: SessionId(.group, hex: threadId),
+                            using: dependencies
                         )
                     else { return details.behaviour }
                     
                     return .delete
                 }()
                 
-                switch (threadVariant, finalBehaviour, isAdminUser, (isAdminUser && numAdminUsers == 1)) {
-                    /// Legacy group only supports the 'delete' behaviour so don't bother checking
-                    case (.legacyGroup, _, _, _): return .delete
-                    case (.group, .leave, _, false):
+                switch (finalBehaviour, isAdminUser, (isAdminUser && numAdminUsers == 1)) {
+                    case (.leave, _, false):
                         let disappearingConfig: DisappearingMessagesConfiguration? = try? DisappearingMessagesConfiguration.fetchOne(db, id: threadId)
                         
                         return .leave(
@@ -122,7 +107,7 @@ public enum GroupLeavingJob: JobExecutor {
                                 .map { _, _ in () }
                         )
                         
-                    case (.group, .delete, true, _), (.group, .leave, true, true):
+                    case (.delete, true, _), (.leave, true, true):
                         let groupSessionId: SessionId = SessionId(.group, hex: threadId)
                         
                         /// Skip the automatic config sync because we want to perform it synchronously as part of this job
@@ -134,7 +119,7 @@ public enum GroupLeavingJob: JobExecutor {
                         
                         return .delete
                     
-                    case (.group, .delete, false, _): return .delete
+                    case (.delete, false, _): return .delete
                         
                     default: throw MessageSenderError.invalidClosedGroupUpdate
                 }

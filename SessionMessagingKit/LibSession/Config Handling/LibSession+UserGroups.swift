@@ -277,6 +277,17 @@ internal extension LibSessionCacheType {
                         }
                 }
             }
+            
+            // Make any thread-specific changes if needed
+            if existingThreadInfo[group.id]?.pinnedPriority != group.priority {
+                _ = try? SessionThread
+                    .filter(id: group.id)
+                    .updateAllAndConfig(
+                        db,
+                        SessionThread.Columns.pinnedPriority.set(to: group.priority),
+                        using: dependencies
+                    )
+            }
         }
         
         // Remove any legacy groups which are no longer in the config
