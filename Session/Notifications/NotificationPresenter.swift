@@ -101,6 +101,24 @@ public class NotificationPresenter: NSObject, UNUserNotificationCenterDelegate, 
             userInfo: notificationUserInfo(threadId: thread.id, threadVariant: thread.variant),
             applicationState: applicationState
         )
+    }
+    
+    public func addNotificationRequest(
+        threadId: String,
+        threadVariant: SessionThread.Variant,
+        identifier: String,
+        category: NotificationCategory,
+        content: UNMutableNotificationContent,
+        notificationSettings: Preferences.NotificationSettings,
+        applicationState: UIApplication.State
+    ) {
+        var trigger: UNNotificationTrigger?
+        let shouldPresentNotification: Bool = shouldPresentNotification(
+            threadId: threadId,
+            category: category,
+            applicationState: applicationState,
+            using: dependencies
+        )
         
         /// Add the title if needed
         switch notificationSettings.previewType {
@@ -133,6 +151,16 @@ public class NotificationPresenter: NSObject, UNUserNotificationCenterDelegate, 
             content: content,
             notificationSettings: notificationSettings
         )
+
+        Log.debug("presenting notification with identifier: \(identifier)")
+        
+        /// If we are replacing a notification then cancel the original one
+        if notifications[identifier] != nil {
+            cancelNotifications(identifiers: [identifier])
+        }
+        
+        notificationCenter.add(request)
+        _notifications.performUpdate { $0.setting(identifier, request) }
     }
     
     public func addNotificationRequest(

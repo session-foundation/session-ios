@@ -373,7 +373,7 @@ public extension Message {
             case is VisibleMessage: return true
             case is ExpirationTimerUpdate: return true
             case is UnsendRequest: return true
-
+            
             case let callMessage as CallMessage:
                 switch callMessage.kind {
                     case .answer, .endCall: return true

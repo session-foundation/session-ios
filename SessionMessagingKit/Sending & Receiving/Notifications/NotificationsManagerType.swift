@@ -244,7 +244,7 @@ public extension NotificationsManagerType {
                 return "callsYouMissedCallPermissions"
                     .put(key: "name", value: senderName)
                     .localizedDeformatted()
-                
+            
             case is CallMessage:
                 let senderName: String = displayNameRetriever(sender)
                     .defaulting(to: Profile.truncated(id: sender, threadVariant: threadVariant))
