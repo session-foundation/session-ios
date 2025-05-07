@@ -469,18 +469,18 @@ public extension LibSessionCacheType {
                 return group.last_read
         }
     }
-    
+}
+
+// MARK: State Access
+
+public extension LibSession.Config {
     func timestampAlreadyRead(
         threadId: String,
         threadVariant: SessionThread.Variant,
         timestampMs: Int64,
-        userSessionId: SessionId,
-        openGroup: OpenGroup?
+        openGroupUrlInfo: LibSession.OpenGroupUrlInfo?
     ) -> Bool {
-        // If we don't have a config then just assume it's unread
-        guard case .convoInfoVolatile(let conf) = config(for: .convoInfoVolatile, sessionId: userSessionId) else {
-            return false
-        }
+        guard case .convoInfoVolatile(let conf) = self else { return false }
                 
         switch threadVariant {
             case .contact:
@@ -509,13 +509,11 @@ public extension LibSessionCacheType {
                 return (legacyGroup.last_read >= timestampMs)
                 
             case .community:
-                guard let openGroup: OpenGroup = openGroup else { return false }
-                
                 var convoCommunity: convo_info_volatile_community = convo_info_volatile_community()
                 
                 guard
-                    var cBaseUrl: [CChar] = openGroup.server.cString(using: .utf8),
-                    var cRoomToken: [CChar] = openGroup.roomToken.cString(using: .utf8),
+                    var cBaseUrl: [CChar] = openGroupUrlInfo?.server.cString(using: .utf8),
+                    var cRoomToken: [CChar] = openGroupUrlInfo?.roomToken.cString(using: .utf8),
                     convo_info_volatile_get_community(conf, &convoCommunity, &cBaseUrl, &cRoomToken)
                 else {
                     LibSessionError.clear(conf)
@@ -540,29 +538,6 @@ public extension LibSessionCacheType {
 // MARK: - VolatileThreadInfo
 
 public extension LibSession {
-    struct OpenGroupUrlInfo: FetchableRecord, Codable, Hashable {
-        let threadId: String
-        let server: String
-        let roomToken: String
-        let publicKey: String
-        
-        static func fetchOne(_ db: Database, id: String) throws -> OpenGroupUrlInfo? {
-            return try OpenGroup
-                .filter(id: id)
-                .select(.threadId, .server, .roomToken, .publicKey)
-                .asRequest(of: OpenGroupUrlInfo.self)
-                .fetchOne(db)
-        }
-        
-        static func fetchAll(_ db: Database, ids: [String]) throws -> [OpenGroupUrlInfo] {
-            return try OpenGroup
-                .filter(ids: ids)
-                .select(.threadId, .server, .roomToken, .publicKey)
-                .asRequest(of: OpenGroupUrlInfo.self)
-                .fetchAll(db)
-        }
-    }
-    
     struct VolatileThreadInfo {
         enum Change {
             case markedAsUnread(Bool)

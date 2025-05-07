@@ -854,9 +854,7 @@ extension ConversationVC:
             currentMentionStartIndex = lastCharacterIndex
             snInputView.showMentionsUI(
                 for: self.viewModel.mentions(),
-                currentUserSessionId: self.viewModel.threadData.currentUserSessionId,
-                currentUserBlinded15SessionId: self.viewModel.threadData.currentUserBlinded15SessionId,
-                currentUserBlinded25SessionId: self.viewModel.threadData.currentUserBlinded25SessionId
+                currentUserSessionIds: self.viewModel.threadData.currentUserSessionIds
             )
         }
         else if lastCharacter.isWhitespace || lastCharacter == "@" { // the lastCharacter == "@" is to check for @@
@@ -868,9 +866,7 @@ extension ConversationVC:
                 let query = String(newText[newText.index(after: currentMentionStartIndex)...]) // + 1 to get rid of the @
                 snInputView.showMentionsUI(
                     for: self.viewModel.mentions(for: query),
-                    currentUserSessionId: self.viewModel.threadData.currentUserSessionId,
-                    currentUserBlinded15SessionId: self.viewModel.threadData.currentUserBlinded15SessionId,
-                    currentUserBlinded25SessionId: self.viewModel.threadData.currentUserBlinded25SessionId
+                    currentUserSessionIds: self.viewModel.threadData.currentUserSessionIds
                 )
             }
         }
@@ -1473,7 +1469,8 @@ extension ConversationVC:
             shouldShowClearAllButton: viewModel.dependencies[singleton: .openGroupManager].isUserModeratorOrAdmin(
                 publicKey: self.viewModel.threadData.currentUserSessionId,
                 for: self.viewModel.threadData.openGroupRoomToken,
-                on: self.viewModel.threadData.openGroupServer
+                on: self.viewModel.threadData.openGroupServer,
+                currentUserSessionIds: self.viewModel.threadData.currentUserSessionIds
             )
         )
         reactionListSheet.modalPresentationStyle = .overFullScreen
@@ -1664,7 +1661,7 @@ extension ConversationVC:
                     guard !remove else {
                         return try? Reaction
                             .filter(Reaction.Columns.interactionId == cellViewModel.id)
-                            .filter(Reaction.Columns.authorId == cellViewModel.currentUserSessionId)
+                            .filter(cellViewModel.currentUserSessionIds.contains(Reaction.Columns.authorId))
                             .filter(Reaction.Columns.emoji == emoji)
                             .fetchOne(db)
                     }
@@ -1690,7 +1687,7 @@ extension ConversationVC:
                 if remove {
                     try Reaction
                         .filter(Reaction.Columns.interactionId == cellViewModel.id)
-                        .filter(Reaction.Columns.authorId == cellViewModel.currentUserSessionId)
+                        .filter(cellViewModel.currentUserSessionIds.contains(Reaction.Columns.authorId))
                         .filter(Reaction.Columns.emoji == emoji)
                         .deleteAll(db)
                 }
@@ -2028,9 +2025,7 @@ extension ConversationVC:
             timestampMs: cellViewModel.timestampMs,
             attachments: cellViewModel.attachments,
             linkPreviewAttachment: cellViewModel.linkPreviewAttachment,
-            currentUserSessionId: cellViewModel.currentUserSessionId,
-            currentUserBlinded15SessionId: cellViewModel.currentUserBlinded15SessionId,
-            currentUserBlinded25SessionId: cellViewModel.currentUserBlinded25SessionId
+            currentUserSessionIds: cellViewModel.currentUserSessionIds
         )
         
         guard let quoteDraft: QuotedReplyModel = maybeQuoteDraft else { return }

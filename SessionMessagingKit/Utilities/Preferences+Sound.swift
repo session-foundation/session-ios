@@ -159,7 +159,8 @@ public extension Preferences {
             )
         }
         
-        public func notificationSound(isQuiet: Bool) -> UNNotificationSound {
+        public func notificationSound(isQuiet: Bool) -> UNNotificationSound? {
+            guard self != .none else { return nil }
             guard let filename: String = filename(quiet: isQuiet) else {
                 Log.warn(.cat, "Filename was unexpectedly nil")
                 return UNNotificationSound.default

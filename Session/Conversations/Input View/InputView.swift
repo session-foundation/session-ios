@@ -279,9 +279,7 @@ final class InputView: UIView, InputViewButtonDelegate, InputTextViewDelegate, M
             authorId: quoteDraftInfo.model.authorId,
             quotedText: quoteDraftInfo.model.body,
             threadVariant: threadVariant,
-            currentUserSessionId: quoteDraftInfo.model.currentUserSessionId,
-            currentUserBlinded15SessionId: quoteDraftInfo.model.currentUserBlinded15SessionId,
-            currentUserBlinded25SessionId: quoteDraftInfo.model.currentUserBlinded25SessionId,
+            currentUserSessionIds: quoteDraftInfo.model.currentUserSessionIds,
             direction: (quoteDraftInfo.isOutgoing ? .outgoing : .incoming),
             attachment: quoteDraftInfo.model.attachment,
             using: dependencies
@@ -539,13 +537,9 @@ final class InputView: UIView, InputViewButtonDelegate, InputTextViewDelegate, M
 
     func showMentionsUI(
         for candidates: [MentionInfo],
-        currentUserSessionId: String,
-        currentUserBlinded15SessionId: String?,
-        currentUserBlinded25SessionId: String?
+        currentUserSessionIds: Set<String>
     ) {
-        mentionsView.currentUserSessionId = currentUserSessionId
-        mentionsView.currentUserBlinded15SessionId = currentUserBlinded15SessionId
-        mentionsView.currentUserBlinded25SessionId = currentUserBlinded25SessionId
+        mentionsView.currentUserSessionIds = currentUserSessionIds
         mentionsView.candidates = candidates
         
         let mentionCellHeight = (ProfilePictureView.Size.message.viewSize + 2 * Values.smallSpacing)

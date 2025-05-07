@@ -85,8 +85,7 @@ public struct SessionThreadViewModel: FetchableRecordWithRowId, Decodable, Equat
         case threadContactNameInternal
         case authorNameInternal
         case currentUserSessionId
-        case currentUserBlinded15SessionId
-        case currentUserBlinded25SessionId
+        case currentUserSessionIds
         case recentReactionEmoji
         case wasKickedFromGroup
         case groupIsDestroyed
@@ -188,8 +187,7 @@ public struct SessionThreadViewModel: FetchableRecordWithRowId, Decodable, Equat
     private let threadContactNameInternal: String?
     private let authorNameInternal: String?
     public let currentUserSessionId: String
-    public let currentUserBlinded15SessionId: String?
-    public let currentUserBlinded25SessionId: String?
+    public let currentUserSessionIds: Set<String>
     public let recentReactionEmoji: [String]?
     public let wasKickedFromGroup: Bool?
     public let groupIsDestroyed: Bool?
@@ -426,17 +424,18 @@ public struct SessionThreadViewModel: FetchableRecordWithRowId, Decodable, Equat
                 guard wasKickedFromGroup != true else { return false }
                 guard threadIsMessageRequest == false else { return true }
                 
-                // Double check LibSession directly just in case we the view model hasn't been
-                // updated since they were changed
+                /// Double check LibSession directly just in case we the view model hasn't been updated since they were changed
                 guard
-                    !LibSession.wasKickedFromGroup(
-                        groupSessionId: SessionId(.group, hex: threadId),
-                        using: dependencies
-                    ) &&
-                    !LibSession.groupIsDestroyed(
-                        groupSessionId: SessionId(.group, hex: threadId),
-                        using: dependencies
-                    )
+                    !dependencies.mutate(cache: .libSession, config: .userGroups, { config in
+                        (config?
+                            .wasKickedFromGroup(groupSessionId: SessionId(.group, hex: threadId)))
+                            .defaulting(to: false)
+                    }) &&
+                    !dependencies.mutate(cache: .libSession, config: .userGroups, { config in
+                        (config?
+                            .groupIsDestroyed(groupSessionId: SessionId(.group, hex: threadId)))
+                            .defaulting(to: false)
+                    })
                 else { return false }
                 
                 return interactionVariant?.isGroupLeavingStatus != true
@@ -539,8 +538,7 @@ public extension SessionThreadViewModel {
         self.threadContactNameInternal = nil
         self.authorNameInternal = nil
         self.currentUserSessionId = dependencies[cache: .general].sessionId.hexString
-        self.currentUserBlinded15SessionId = nil
-        self.currentUserBlinded25SessionId = nil
+        self.currentUserSessionIds = [dependencies[cache: .general].sessionId.hexString]
         self.recentReactionEmoji = nil
         self.wasKickedFromGroup = false
         self.groupIsDestroyed = false
@@ -610,8 +608,7 @@ public extension SessionThreadViewModel {
             threadContactNameInternal: self.threadContactNameInternal,
             authorNameInternal: self.authorNameInternal,
             currentUserSessionId: self.currentUserSessionId,
-            currentUserBlinded15SessionId: self.currentUserBlinded15SessionId,
-            currentUserBlinded25SessionId: self.currentUserBlinded25SessionId,
+            currentUserSessionIds: self.currentUserSessionIds,
             recentReactionEmoji: (recentReactionEmoji ?? self.recentReactionEmoji),
             wasKickedFromGroup: self.wasKickedFromGroup,
             groupIsDestroyed: self.groupIsDestroyed
@@ -619,13 +616,10 @@ public extension SessionThreadViewModel {
     }
     
     func populatingPostQueryData(
-        _ db: Database? = nil,
-        currentUserBlinded15SessionIdForThisThread: String?,
-        currentUserBlinded25SessionIdForThisThread: String?,
+        currentUserSessionIds: Set<String>,
         wasKickedFromGroup: Bool,
         groupIsDestroyed: Bool,
-        threadCanWrite: Bool,
-        using dependencies: Dependencies
+        threadCanWrite: Bool
     ) -> SessionThreadViewModel {
         return SessionThreadViewModel(
             rowId: self.rowId,
@@ -684,26 +678,7 @@ public extension SessionThreadViewModel {
             threadContactNameInternal: self.threadContactNameInternal,
             authorNameInternal: self.authorNameInternal,
             currentUserSessionId: self.currentUserSessionId,
-            currentUserBlinded15SessionId: (
-                currentUserBlinded15SessionIdForThisThread ??
-                SessionThread.getCurrentUserBlindedSessionId(
-                    db,
-                    threadId: self.threadId,
-                    threadVariant: self.threadVariant,
-                    blindingPrefix: .blinded15,
-                    using: dependencies
-                )?.hexString
-            ),
-            currentUserBlinded25SessionId: (
-                currentUserBlinded25SessionIdForThisThread ??
-                SessionThread.getCurrentUserBlindedSessionId(
-                    db,
-                    threadId: self.threadId,
-                    threadVariant: self.threadVariant,
-                    blindingPrefix: .blinded25,
-                    using: dependencies
-                )?.hexString
-            ),
+            currentUserSessionIds: currentUserSessionIds,
             recentReactionEmoji: self.recentReactionEmoji,
             wasKickedFromGroup: wasKickedFromGroup,
             groupIsDestroyed: groupIsDestroyed

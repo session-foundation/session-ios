@@ -4,26 +4,18 @@
 
 import Foundation
 
-enum AppNotificationCategory: CaseIterable {
+public enum NotificationCategory: CaseIterable {
     case incomingMessage
     case errorMessage
     case threadlessErrorMessage
 }
 
-extension AppNotificationCategory {
+public extension NotificationCategory {
     var identifier: String {
         switch self {
             case .incomingMessage: return "Signal.AppNotificationCategory.incomingMessage"
             case .errorMessage: return "Signal.AppNotificationCategory.errorMessage"
             case .threadlessErrorMessage: return "Signal.AppNotificationCategory.threadlessErrorMessage"
-        }
-    }
-
-    var actions: [AppNotificationAction] {
-        switch self {
-            case .incomingMessage: return [.markAsRead, .reply]
-            case .errorMessage: return []
-            case .threadlessErrorMessage: return []
         }
     }
 }

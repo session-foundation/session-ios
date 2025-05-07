@@ -114,6 +114,22 @@ public extension Setting.IntKey {
 }
 
 public enum Preferences {
+    public struct NotificationSettings {
+        public static func defaultFor(_ threadVariant: SessionThread.Variant) -> NotificationSettings {
+            return NotificationSettings(
+                mode: .defaultMode(for: threadVariant),
+                previewType: .defaultPreviewType,
+                sound: nil,
+                mutedUntil: nil
+            )
+        }
+        
+        public let mode: NotificationMode
+        public let previewType: Preferences.NotificationPreviewType
+        public let sound: UNNotificationSound?
+        public let mutedUntil: TimeInterval?
+    }
+    
     // stringlint:ignore_contents
     public static var isCallKitSupported: Bool {
 #if targetEnvironment(simulator)

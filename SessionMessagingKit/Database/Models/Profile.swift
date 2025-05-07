@@ -369,12 +369,13 @@ public extension Profile {
     /// The name to display in the UI for a given thread variant
     func displayName(
         for threadVariant: SessionThread.Variant = .contact,
+        messageProfile: VisibleMessage.VMProfile? = nil,
         ignoringNickname: Bool = false
     ) -> String {
         return Profile.displayName(
             for: threadVariant,
             id: id,
-            name: name,
+            name: (messageProfile?.displayName?.nullIfEmpty ?? name),
             nickname: (ignoringNickname ? nil : nickname),
             suppressId: false
         )

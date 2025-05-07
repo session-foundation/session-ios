@@ -246,7 +246,8 @@ extension ContextMenuVC {
             dependencies[singleton: .openGroupManager].isUserModeratorOrAdmin(
                 publicKey: threadViewModel.currentUserSessionId,
                 for: threadViewModel.openGroupRoomToken,
-                on: threadViewModel.openGroupServer
+                on: threadViewModel.openGroupServer,
+                currentUserSessionIds: threadViewModel.currentUserSessionIds
             )
         )
         let shouldShowEmojiActions: Bool = {
