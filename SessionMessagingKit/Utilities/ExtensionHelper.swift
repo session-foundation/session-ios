@@ -169,7 +169,7 @@ public class ExtensionHelper: ExtensionHelperType {
     // MARK: - Deduping
     
     // stringlint:ignore_contents
-    private func dedupeRecordPath(_ threadId: String, _ uniqueIdentifier: String) -> String? {
+    private func threadDedupeRecordPath(_ threadId: String) -> String? {
         guard
             let conversationPath: String = conversationPath(threadId),
             let data: Data = "DedupeRecordSalt-\(uniqueIdentifier)".data(using: .utf8),
@@ -592,6 +592,29 @@ public extension ExtensionHelper {
         public let ed25519SecretKey: [UInt8]
         public let unreadCount: Int
     }
+    
+    // MARK: - Config Dumps
+    
+    private func hash(for sessionId: SessionId, variant: ConfigDump.Variant) -> [UInt8]? {
+        return "\(sessionId.hexString)-\(variant)".data(using: .utf8).map { dataToHash in
+            dependencies[singleton: .crypto].generate(
+                .hash(message: Array(dataToHash))
+            )
+        }
+    }
+    
+    public func lastUpdatedTimestamp(
+        for sessionId: SessionId,
+        variant: ConfigDump.Variant
+    ) -> TimeInterval {
+        guard let hash: [UInt8] = hash(for: sessionId, variant: variant) else { return 0 }
+        
+        return ((try? dependencies[singleton: .fileManager]
+            .attributesOfItem(atPath: "\(dumpFilePath(hash))")
+            .getting(.modificationDate) as? Date)?
+            .timeIntervalSince1970)
+            .defaulting(to: 0)
+    }
 }
 
 // MARK: - ExtensionHelperError
@@ -635,6 +658,7 @@ public protocol ExtensionHelperType {
     func dedupeRecordExists(threadId: String, uniqueIdentifier: String) -> Bool
     func createDedupeRecord(threadId: String, uniqueIdentifier: String) throws
     func removeDedupeRecord(threadId: String, uniqueIdentifier: String) throws
+    func deleteAllDedupeRecords()
     
     // MARK: - Config Dumps
     
