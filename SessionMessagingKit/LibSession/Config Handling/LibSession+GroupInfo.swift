@@ -461,26 +461,26 @@ public extension LibSessionCacheType {
     }
 }
 
-// MARK: - Direct Values
+// MARK: - State Access
 
-extension LibSession {
-    static func groupName(in config: Config?) throws -> String {
+public extension LibSession.Config {
+    var groupName: String? {
         guard
-            case .groupInfo(let conf) = config,
+            case .groupInfo(let conf) = self,
             let groupNamePtr: UnsafePointer<CChar> = groups_info_get_name(conf)
-        else { throw LibSessionError.invalidConfigObject }
+        else { return nil }
         
         return String(cString: groupNamePtr)
     }
     
-    static func groupDeleteBefore(in config: Config?) throws -> TimeInterval {
-        guard case .groupInfo(let conf) = config else { throw LibSessionError.invalidConfigObject }
+    var deleteBefore: TimeInterval? {
+        guard case .groupInfo(let conf) = self else { return nil }
         
         return TimeInterval(groups_info_get_delete_before(conf))
     }
     
-    static func groupAttachmentDeleteBefore(in config: Config?) throws -> TimeInterval {
-        guard case .groupInfo(let conf) = config else { throw LibSessionError.invalidConfigObject }
+    var deleteAttachmentsBefore: TimeInterval? {
+        guard case .groupInfo(let conf) = self else { return nil }
         
         return TimeInterval(groups_info_get_attach_delete_before(conf))
     }

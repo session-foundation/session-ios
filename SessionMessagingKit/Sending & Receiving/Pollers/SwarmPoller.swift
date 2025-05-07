@@ -274,6 +274,27 @@ public class SwarmPoller: SwarmPollerType & PollerType {
                                 )
                                 hadValidHashUpdate = message.info.storeUpdatedLastHash(db)
                                 
+                                /// We need additional dedupe logic if the message is a `CallMessage` as multiple messages can
+                                /// related to the same call
+                                switch processedMessage {
+                                    case .standard(let threadId, _, _, let messageInfo, _):
+                                        guard let callMessage: CallMessage = messageInfo.message as? CallMessage else {
+                                            break
+                                        }
+                                        
+                                        try MessageDeduplication.ensureCallMessageIsNotADuplicate(
+                                            threadId: threadId,
+                                            callMessage: callMessage,
+                                            using: dependencies
+                                        )
+                                        try dependencies[singleton: .extensionHelper].createDedupeRecord(
+                                            threadId: threadId,
+                                            uniqueIdentifier: callMessage.uuid
+                                        )
+                                        
+                                    default: break
+                                }
+                                
                                 return processedMessage
                             }
                             catch {

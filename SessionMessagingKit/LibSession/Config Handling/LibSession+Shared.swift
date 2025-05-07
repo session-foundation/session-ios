@@ -27,9 +27,9 @@ public extension LibSession {
 
 internal extension LibSession {
     /// This is a buffer period within which we will process messages which would result in a config change, any message which would normally
-    /// result in a config change which was sent before `lastConfigMessage.timestamp - configChangeBufferPeriod` will not
+    /// result in a config change which was sent before `lastConfigMessage.timestamp - configChangeBufferPeriodMs` will not
     /// actually have it's changes applied (info messages would still be inserted though)
-    static let configChangeBufferPeriod: TimeInterval = (2 * 60)
+    static let configChangeBufferPeriodMs: Int64 = ((2 * 60) * 1000)
     
     static let columnsRelatedToThreads: [ColumnExpression] = [
         SessionThread.Columns.pinnedPriority,
@@ -331,37 +331,6 @@ internal extension LibSession {
         }
     }
     
-    static func canPerformChange(
-        _ db: Database,
-        threadId: String,
-        targetConfig: ConfigDump.Variant,
-        changeTimestampMs: Int64,
-        using dependencies: Dependencies
-    ) -> Bool {
-        let targetSessionId: String = {
-            switch targetConfig {
-                case .userProfile, .contacts, .convoInfoVolatile, .userGroups:
-                    return dependencies[cache: .general].sessionId.hexString
-                    
-                case .groupInfo, .groupMembers, .groupKeys: return threadId
-                case .invalid: return ""
-            }
-        }()
-        
-        let configDumpTimestampMs: Int64 = (try? ConfigDump
-            .filter(
-                ConfigDump.Columns.variant == targetConfig &&
-                ConfigDump.Columns.sessionId == targetSessionId
-            )
-            .select(.timestampMs)
-            .asRequest(of: Int64.self)
-            .fetchOne(db))
-            .defaulting(to: 0)
-        
-        // Ensure the change occurred after the last config message was handled (minus the buffer period)
-        return (changeTimestampMs >= (configDumpTimestampMs - Int64(LibSession.configChangeBufferPeriod * 1000)))
-    }
-    
     static func checkLoopLimitReached(_ loopCounter: inout Int, for variant: ConfigDump.Variant, maxLoopCount: Int = 50000) throws {
         loopCounter += 1
         
@@ -374,8 +343,21 @@ internal extension LibSession {
 
 // MARK: - State Access
 
-extension LibSession.Config {
-    public func pinnedPriority(
+public extension LibSession.Config {
+    func canPerformChange(
+        sessionId: SessionId,
+        changeTimestampMs: Int64,
+        using dependencies: Dependencies
+    ) -> Bool {
+        let configDumpTimestamp: TimeInterval = dependencies[singleton: .extensionHelper]
+            .lastUpdatedTimestamp(for: sessionId, variant: variant)
+        let configDumpTimestampMs: Int64 = Int64(configDumpTimestamp * 1000)
+        
+        /// Ensure the change occurred after the last config message was handled (minus the buffer period)
+        return (changeTimestampMs >= (configDumpTimestampMs - LibSession.configChangeBufferPeriodMs))
+    }
+    
+    func pinnedPriority(
         _ db: Database,
         threadId: String,
         threadVariant: SessionThread.Variant
@@ -399,7 +381,8 @@ extension LibSession.Config {
                 
             case (.community, .userGroups(let conf)):
                 guard
-                    let urlInfo: LibSession.OpenGroupUrlInfo = try? LibSession.OpenGroupUrlInfo.fetchOne(db, id: threadId),
+                    let urlInfo: LibSession.OpenGroupUrlInfo = try? LibSession.OpenGroupUrlInfo
+                        .fetchOne(db, id: threadId),
                     var cBaseUrl: [CChar] = urlInfo.server.cString(using: .utf8),
                     var cRoom: [CChar] = urlInfo.roomToken.cString(using: .utf8)
                 else { return LibSession.defaultNewThreadPriority }
@@ -435,7 +418,122 @@ extension LibSession.Config {
         }
     }
     
-    public func disappearingMessagesConfig(
+    /// Returns whether the specified conversation is a message request
+    ///
+    /// **Note:** Defaults to `true` on failure
+    func isMessageRequest(
+        threadId: String,
+        threadVariant: SessionThread.Variant
+    ) -> Bool {
+        guard var cThreadId: [CChar] = threadId.cString(using: .utf8) else { return true }
+        
+        switch (threadVariant, self) {
+            case (.community, _), (.legacyGroup, _): return false
+            case (_, .contacts(let conf)):
+                var contact: contacts_contact = contacts_contact()
+                
+                guard contacts_get(conf, &contact, &cThreadId) else {
+                    LibSessionError.clear(conf)
+                    return true
+                }
+                
+                return contact.approved
+                
+            case (.group, .userGroups(let conf)):
+                var group: ugroups_group_info = ugroups_group_info()
+                _ = user_groups_get_group(conf, &group, &cThreadId)
+                LibSessionError.clear(conf)
+                
+                return (group.invited == false)
+            
+            default:
+                Log.warn(.libSession, "Attempted to determine if a conversation was a message request for invalid combination of threadVariant: \(threadVariant) and config variant: \(variant)")
+                return true
+        }
+    }
+    
+    func notificationSettings(
+        threadId: String,
+        threadVariant: SessionThread.Variant,
+        openGroupUrlInfo: LibSession.OpenGroupUrlInfo?,
+        applicationState: UIApplication.State
+    ) -> Preferences.NotificationSettings {
+        guard var cThreadId: [CChar] = threadId.cString(using: .utf8) else {
+            return .defaultFor(threadVariant)
+        }
+        
+        // TODO: [Database Relocation] Need to add this to local libSession
+//        sound = (db[.defaultNotificationSound] ?? Preferences.Sound.defaultNotificationSound)
+        let sound: UNNotificationSound? = Preferences.Sound.defaultNotificationSound
+            .notificationSound(isQuiet: (applicationState == .active))
+        
+        // TODO: [Database Relocation] Need to add this to local libSession
+//        let previewType: Preferences.NotificationPreviewType = db[.preferencesNotificationPreviewType]
+//            .defaulting(to: .defaultPreviewType)
+        
+        switch (threadVariant, self) {
+            case (_, .contacts(let conf)):
+                var contact: contacts_contact = contacts_contact()
+                
+                guard contacts_get(conf, &contact, &cThreadId) else {
+                    LibSessionError.clear(conf)
+                    return .defaultFor(threadVariant)
+                }
+                
+                return Preferences.NotificationSettings(
+                    mode: Preferences.NotificationMode(
+                        libSessionValue: contact.notifications,
+                        threadVariant: threadVariant
+                    ),
+                    previewType: .defaultPreviewType,    // TODO: [Database Relocation] Add this
+                    sound: sound,
+                    mutedUntil: (contact.mute_until > 0 ? TimeInterval(contact.mute_until) : nil)
+                )
+                
+            case (.legacyGroup, _): return .defaultFor(threadVariant)
+            case (.community, .userGroups(let conf)):
+                guard
+                    let urlInfo: LibSession.OpenGroupUrlInfo = openGroupUrlInfo,
+                    var cBaseUrl: [CChar] = urlInfo.server.cString(using: .utf8),
+                    var cRoom: [CChar] = urlInfo.roomToken.cString(using: .utf8)
+                else { return .defaultFor(threadVariant) }
+                
+                var community: ugroups_community_info = ugroups_community_info()
+                _ = user_groups_get_community(conf, &community, &cBaseUrl, &cRoom)
+                LibSessionError.clear(conf)
+                
+                return Preferences.NotificationSettings(
+                    mode: Preferences.NotificationMode(
+                        libSessionValue: community.notifications,
+                        threadVariant: threadVariant
+                    ),
+                    previewType: .defaultPreviewType,    // TODO: [Database Relocation] Add this
+                    sound: sound,
+                    mutedUntil: (community.mute_until > 0 ? TimeInterval(community.mute_until) : nil)
+                )
+                
+            case (.group, .userGroups(let conf)):
+                var group: ugroups_group_info = ugroups_group_info()
+                _ = user_groups_get_group(conf, &group, &cThreadId)
+                LibSessionError.clear(conf)
+                
+                return Preferences.NotificationSettings(
+                    mode: Preferences.NotificationMode(
+                        libSessionValue: group.notifications,
+                        threadVariant: threadVariant
+                    ),
+                    previewType: .defaultPreviewType,    // TODO: [Database Relocation] Add this
+                    sound: sound,
+                    mutedUntil: (group.mute_until > 0 ? TimeInterval(group.mute_until) : nil)
+                )
+            
+            default:
+                Log.warn(.libSession, "Attempted to retrieve notification settings for invalid combination of threadVariant: \(threadVariant) and config variant: \(variant)")
+                return .defaultFor(threadVariant)
+        }
+    }
+    
+    func disappearingMessagesConfig(
         threadId: String,
         threadVariant: SessionThread.Variant
     ) -> DisappearingMessagesConfiguration? {
@@ -506,19 +604,17 @@ extension LibSession.Config {
         }
     }
     
-    public func isAdmin() -> Bool {
+    func isAdmin() -> Bool {
         guard case .groupKeys(let conf, _, _) = self else { return false }
         
         return groups_keys_is_admin(conf)
     }
-}
-
-public extension LibSession {
-    static func conversationInConfig(
-        _ db: Database,
+    
+    func conversationInConfig(
         threadId: String,
         threadVariant: SessionThread.Variant,
         visibleOnly: Bool,
+        openGroupUrlInfo: LibSession.OpenGroupUrlInfo?,
         using dependencies: Dependencies
     ) -> Bool {
         // Currently blinded conversations cannot be contained in the config, so there is no
@@ -527,79 +623,114 @@ public extension LibSession {
             threadVariant == .community || (
                 (try? SessionId(from: threadId))?.prefix != .blinded15 &&
                 (try? SessionId(from: threadId))?.prefix != .blinded25
-            )
+            ),
+            var cThreadId: [CChar] = threadId.cString(using: .utf8)
         else { return false }
         
-        let userSessionId: SessionId = dependencies[cache: .general].sessionId
-        let configVariant: ConfigDump.Variant = {
-            switch threadVariant {
-                case .contact: return (threadId == userSessionId.hexString ? .userProfile : .contacts)
-                case .legacyGroup, .group, .community: return .userGroups
-            }
-        }()
-        
-        return dependencies.mutate(cache: .libSession) { cache in
-            guard var cThreadId: [CChar] = threadId.cString(using: .utf8) else { return false }
+        switch (threadVariant, self) {
+            case (_, .userProfile(let conf)):
+                return (
+                    !visibleOnly ||
+                    LibSession.shouldBeVisible(priority: user_profile_get_nts_priority(conf))
+                )
             
-            switch (threadVariant, cache.config(for: configVariant, sessionId: userSessionId)) {
-                case (_, .userProfile(let conf)):
-                    return (
-                        !visibleOnly ||
-                        LibSession.shouldBeVisible(priority: user_profile_get_nts_priority(conf))
-                    )
+            case (_, .contacts(let conf)):
+                var contact: contacts_contact = contacts_contact()
                 
-                case (_, .contacts(let conf)):
-                    var contact: contacts_contact = contacts_contact()
-                    
-                    guard contacts_get(conf, &contact, &cThreadId) else {
-                        LibSessionError.clear(conf)
-                        return false
-                    }
-                    
-                    /// If the user opens a conversation with an existing contact but doesn't send them a message
-                    /// then the one-to-one conversation should remain hidden so we want to delete the `SessionThread`
-                    /// when leaving the conversation
-                    return (!visibleOnly || LibSession.shouldBeVisible(priority: contact.priority))
-                    
-                case (.community, .userGroups(let conf)):
-                    let maybeUrlInfo: OpenGroupUrlInfo? = (try? OpenGroupUrlInfo
-                        .fetchAll(db, ids: [threadId]))?
-                        .first
-                    
-                    guard
-                        let urlInfo: OpenGroupUrlInfo = maybeUrlInfo,
-                        var cBaseUrl: [CChar] = urlInfo.server.cString(using: .utf8),
-                        var cRoom: [CChar] = urlInfo.roomToken.cString(using: .utf8)
-                    else { return false }
-                    
-                    var community: ugroups_community_info = ugroups_community_info()
-                    
-                    /// Not handling the `hidden` behaviour for communities so just indicate the existence
-                    let result: Bool = user_groups_get_community(conf, &community, &cBaseUrl, &cRoom)
+                guard contacts_get(conf, &contact, &cThreadId) else {
                     LibSessionError.clear(conf)
-                    
-                    return result
-                    
-                case (.legacyGroup, .userGroups(let conf)):
-                    let groupInfo: UnsafeMutablePointer<ugroups_legacy_group_info>? = user_groups_get_legacy_group(conf, &cThreadId)
-                    LibSessionError.clear(conf)
-                    
-                    /// Not handling the `hidden` behaviour for legacy groups so just indicate the existence
-                    if groupInfo != nil {
-                        ugroups_legacy_group_free(groupInfo)
-                        return true
-                    }
-                    
                     return false
-                    
-                case (.group, .userGroups(let conf)):
-                    var group: ugroups_group_info = ugroups_group_info()
-                    
-                    /// Not handling the `hidden` behaviour for legacy groups so just indicate the existence
-                    return user_groups_get_group(conf, &group, &cThreadId)
+                }
                 
-                default: return false
-            }
+                /// If the user opens a conversation with an existing contact but doesn't send them a message
+                /// then the one-to-one conversation should remain hidden so we want to delete the `SessionThread`
+                /// when leaving the conversation
+                return (!visibleOnly || LibSession.shouldBeVisible(priority: contact.priority))
+                
+            case (.community, .userGroups(let conf)):
+                guard
+                    let urlInfo: LibSession.OpenGroupUrlInfo = openGroupUrlInfo,
+                    var cBaseUrl: [CChar] = urlInfo.server.cString(using: .utf8),
+                    var cRoom: [CChar] = urlInfo.roomToken.cString(using: .utf8)
+                else { return false }
+                
+                var community: ugroups_community_info = ugroups_community_info()
+                
+                /// Not handling the `hidden` behaviour for communities so just indicate the existence
+                let result: Bool = user_groups_get_community(conf, &community, &cBaseUrl, &cRoom)
+                LibSessionError.clear(conf)
+                
+                return result
+                
+            case (.legacyGroup, .userGroups(let conf)):
+                let groupInfo: UnsafeMutablePointer<ugroups_legacy_group_info>? = user_groups_get_legacy_group(conf, &cThreadId)
+                LibSessionError.clear(conf)
+                
+                /// Not handling the `hidden` behaviour for legacy groups so just indicate the existence
+                if groupInfo != nil {
+                    ugroups_legacy_group_free(groupInfo)
+                    return true
+                }
+                
+                return false
+                
+            case (.group, .userGroups(let conf)):
+                var group: ugroups_group_info = ugroups_group_info()
+                
+                /// Not handling the `hidden` behaviour for legacy groups so just indicate the existence
+                return user_groups_get_group(conf, &group, &cThreadId)
+            
+            default: return false
+        }
+    }
+}
+
+// MARK: - Dependencies Convenience
+
+public extension Dependencies {
+    @discardableResult func mutate<R>(
+        cache: CacheConfig<LibSessionCacheType, LibSessionImmutableCacheType>,
+        config variant: ConfigDump.Variant,
+        _ mutation: (LibSession.Config?) -> R
+    ) -> R {
+        let userSessionId: SessionId = self[cache: .general].sessionId
+        
+        return mutate(cache: cache) { cache in
+            mutation(cache.config(for: variant, sessionId: userSessionId))
+        }
+    }
+    
+    @discardableResult func mutate<R>(
+        cache: CacheConfig<LibSessionCacheType, LibSessionImmutableCacheType>,
+        config variant: ConfigDump.Variant,
+        groupSessionId: SessionId,
+        _ mutation: (LibSession.Config?) -> R
+    ) -> R {
+        return mutate(cache: cache) { cache in
+            mutation(cache.config(for: variant, sessionId: groupSessionId))
+        }
+    }
+    
+    @discardableResult func mutate<R>(
+        cache: CacheConfig<LibSessionCacheType, LibSessionImmutableCacheType>,
+        config variant: ConfigDump.Variant,
+        _ mutation: (LibSession.Config?) throws -> R
+    ) throws -> R {
+        let userSessionId: SessionId = self[cache: .general].sessionId
+        
+        return try mutate(cache: cache) { cache in
+            try mutation(cache.config(for: variant, sessionId: userSessionId))
+        }
+    }
+    
+    @discardableResult func mutate<R>(
+        cache: CacheConfig<LibSessionCacheType, LibSessionImmutableCacheType>,
+        config variant: ConfigDump.Variant,
+        groupSessionId: SessionId,
+        _ mutation: (LibSession.Config?) throws -> R
+    ) throws -> R {
+        return try mutate(cache: cache) { cache in
+            try mutation(cache.config(for: variant, sessionId: groupSessionId))
         }
     }
 }
@@ -641,6 +772,93 @@ extension LibSession {
     }
 }
 
+// MARK: - OpenGroupInfo
+
+public extension LibSession {
+    struct OpenGroupUrlInfo: FetchableRecord, Codable, Hashable {
+        let threadId: String
+        let server: String
+        let roomToken: String
+        let publicKey: String
+        
+        // MARK: - Queries
+        
+        static func fetchOne(_ db: Database, id: String) throws -> OpenGroupUrlInfo? {
+            return try OpenGroup
+                .filter(id: id)
+                .select(.threadId, .server, .roomToken, .publicKey)
+                .asRequest(of: OpenGroupUrlInfo.self)
+                .fetchOne(db)
+        }
+        
+        static func fetchAll(_ db: Database, ids: [String]) throws -> [OpenGroupUrlInfo] {
+            return try OpenGroup
+                .filter(ids: ids)
+                .select(.threadId, .server, .roomToken, .publicKey)
+                .asRequest(of: OpenGroupUrlInfo.self)
+                .fetchAll(db)
+        }
+    }
+    
+    struct OpenGroupCapabilityInfo: FetchableRecord, Codable, Hashable {
+        private let urlInfo: OpenGroupUrlInfo
+        
+        var threadId: String { urlInfo.threadId }
+        var server: String { urlInfo.server }
+        var roomToken: String { urlInfo.roomToken }
+        var publicKey: String { urlInfo.publicKey }
+        let capabilities: Set<Capability.Variant>
+        
+        // MARK: - Queries
+        
+        public static func fetchOne(_ db: Database, id: String) throws -> OpenGroupCapabilityInfo? {
+            let maybeUrlInfo: OpenGroupUrlInfo? = try OpenGroup
+                .filter(id: id)
+                .select(.threadId, .server, .roomToken, .publicKey)
+                .asRequest(of: OpenGroupUrlInfo.self)
+                .fetchOne(db)
+            
+            guard let urlInfo: OpenGroupUrlInfo = maybeUrlInfo else { return nil }
+            
+            let capabilities: Set<Capability.Variant> = (try? Capability
+                .select(.variant)
+                .filter(Capability.Columns.openGroupServer == urlInfo.server.lowercased())
+                .asRequest(of: Capability.Variant.self)
+                .fetchSet(db))
+                .defaulting(to: [])
+            
+            return OpenGroupCapabilityInfo(
+                urlInfo: urlInfo,
+                capabilities: capabilities
+            )
+        }
+        
+        public static func fetchAll(_ db: Database, ids: [String]) throws -> [OpenGroupCapabilityInfo] {
+            let allUrlInfo: [OpenGroupUrlInfo] = try OpenGroup
+                .filter(ids: ids)
+                .select(.threadId, .server, .roomToken, .publicKey)
+                .asRequest(of: OpenGroupUrlInfo.self)
+                .fetchAll(db)
+            
+            guard !allUrlInfo.isEmpty else { return [] }
+            
+            return allUrlInfo.map { urlInfo -> OpenGroupCapabilityInfo in
+                let capabilities: Set<Capability.Variant> = (try? Capability
+                    .select(.variant)
+                    .filter(Capability.Columns.openGroupServer == urlInfo.server.lowercased())
+                    .asRequest(of: Capability.Variant.self)
+                    .fetchSet(db))
+                    .defaulting(to: [])
+                
+                return OpenGroupCapabilityInfo(
+                    urlInfo: urlInfo,
+                    capabilities: capabilities
+                )
+            }
+        }
+    }
+}
+
 // MARK: - LibSessionRespondingViewController
 
 public protocol LibSessionRespondingViewController {
@@ -655,4 +873,19 @@ public extension LibSessionRespondingViewController {
     
     func isConversation(in threadIds: [String]) -> Bool { return false }
     func forceRefreshIfNeeded() {}
+}
+
+// MARK: - Preferences.NotificationMode
+
+private extension Preferences.NotificationMode {
+    init(libSessionValue: CONVO_NOTIFY_MODE, threadVariant: SessionThread.Variant) {
+        switch libSessionValue {
+            case CONVO_NOTIFY_DEFAULT: self = .defaultMode(for: threadVariant)
+            case CONVO_NOTIFY_ALL: self = .all
+            case CONVO_NOTIFY_DISABLED: self = .none
+            case CONVO_NOTIFY_MENTIONS_ONLY: self = .mentionsOnly
+                
+            default: self = .defaultMode(for: threadVariant)
+        }
+    }
 }

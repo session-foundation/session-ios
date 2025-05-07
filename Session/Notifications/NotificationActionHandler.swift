@@ -102,7 +102,7 @@ public class NotificationActionHandler {
     // MARK: - Actions
 
     func markAsRead(userInfo: [AnyHashable: Any]) -> AnyPublisher<Void, Error> {
-        guard let threadId: String = userInfo[AppNotificationUserInfoKey.threadId] as? String else {
+        guard let threadId: String = userInfo[NotificationUserInfoKey.threadId] as? String else {
             return Fail(error: NotificationError.failDebug("threadId was unexpectedly nil"))
                 .eraseToAnyPublisher()
         }
@@ -120,7 +120,7 @@ public class NotificationActionHandler {
         replyText: String,
         applicationState: UIApplication.State
     ) -> AnyPublisher<Void, Error> {
-        guard let threadId = userInfo[AppNotificationUserInfoKey.threadId] as? String else {
+        guard let threadId = userInfo[NotificationUserInfoKey.threadId] as? String else {
             return Fail<Void, Error>(error: NotificationError.failDebug("threadId was unexpectedly nil"))
                 .eraseToAnyPublisher()
         }
@@ -198,8 +198,8 @@ public class NotificationActionHandler {
 
     func showThread(userInfo: [AnyHashable: Any]) -> AnyPublisher<Void, Never> {
         guard
-            let threadId = userInfo[AppNotificationUserInfoKey.threadId] as? String,
-            let threadVariantRaw = userInfo[AppNotificationUserInfoKey.threadVariantRaw] as? Int,
+            let threadId = userInfo[NotificationUserInfoKey.threadId] as? String,
+            let threadVariantRaw = userInfo[NotificationUserInfoKey.threadVariantRaw] as? Int,
             let threadVariant: SessionThread.Variant = SessionThread.Variant(rawValue: threadVariantRaw)
         else { return showHomeVC() }
 

@@ -77,15 +77,15 @@ extension MessageReceiver {
             ),
             using: dependencies
         )
-        let maybeOpenGroup: OpenGroup? = {
+        let openGroupUrlInfo: LibSession.OpenGroupUrlInfo? = {
             guard threadVariant == .community else { return nil }
             
-            return try? OpenGroup.fetchOne(db, id: threadId)
+            return try? LibSession.OpenGroupUrlInfo.fetchOne(db, id: threadId)
         }()
         let variant: Interaction.Variant = try {
             guard
                 let senderSessionId: SessionId = try? SessionId(from: sender),
-                let openGroup: OpenGroup = maybeOpenGroup
+                let openGroupUrlInfo: LibSession.OpenGroupUrlInfo = openGroupUrlInfo
             else {
                 return (sender == userSessionId.hexString ?
                     .standardOutgoing :
@@ -101,7 +101,7 @@ extension MessageReceiver {
                             .sessionId(
                                 userSessionId.hexString,
                                 matchesBlindedId: sender,
-                                serverPublicKey: openGroup.publicKey
+                                serverPublicKey: openGroupUrlInfo.publicKey
                             )
                         )
                     else { return .standardIncoming }
@@ -119,6 +119,30 @@ extension MessageReceiver {
                     throw MessageReceiverError.invalidSender
             }
         }()
+        let generateCurrentUserSessionIds: () -> Set<String> = {
+            guard threadVariant == .community else { return [userSessionId.hexString] }
+            
+            let openGroupCapabilityInfo = try? LibSession.OpenGroupCapabilityInfo
+                .fetchOne(db, id: threadId)
+            
+            return Set([
+                userSessionId,
+                SessionThread.getCurrentUserBlindedSessionId(
+                    threadId: threadId,
+                    threadVariant: threadVariant,
+                    blindingPrefix: .blinded15,
+                    openGroupCapabilityInfo: openGroupCapabilityInfo,
+                    using: dependencies
+                ),
+                SessionThread.getCurrentUserBlindedSessionId(
+                    threadId: threadId,
+                    threadVariant: threadVariant,
+                    blindingPrefix: .blinded25,
+                    openGroupCapabilityInfo: openGroupCapabilityInfo,
+                    using: dependencies
+                )
+            ].compactMap { $0 }.map { $0.hexString })
+        }
         
         // Handle emoji reacts first (otherwise it's essentially an invalid message)
         if let interactionId: Int64 = try handleEmojiReactIfNeeded(
@@ -128,7 +152,8 @@ extension MessageReceiver {
             associatedWithProto: proto,
             sender: sender,
             messageSentTimestamp: messageSentTimestamp,
-            openGroup: maybeOpenGroup,
+            openGroupUrlInfo: openGroupUrlInfo,
+            currentUserSessionIds: generateCurrentUserSessionIds(),
             using: dependencies
         ) {
             return interactionId
@@ -143,15 +168,16 @@ extension MessageReceiver {
         // Auto-mark sent messages or messages older than the 'lastReadTimestampMs' as read
         let wasRead: Bool = (
             variant == .standardOutgoing ||
-            dependencies.mutate(cache: .libSession) { cache in
-                cache.timestampAlreadyRead(
-                    threadId: thread.id,
-                    threadVariant: thread.variant,
-                    timestampMs: Int64(messageSentTimestamp * 1000),
-                    userSessionId: userSessionId,
-                    openGroup: maybeOpenGroup
-                )
-            }
+            dependencies
+                .mutate(cache: .libSession, config: .convoInfoVolatile) { config in
+                    config?.timestampAlreadyRead(
+                        threadId: thread.id,
+                        threadVariant: thread.variant,
+                        timestampMs: Int64(messageSentTimestamp * 1000),
+                        openGroupUrlInfo: openGroupUrlInfo
+                    )
+                }
+                .defaulting(to: false)
         )
         let messageExpirationInfo: Message.MessageExpirationInfo = Message.getMessageExpirationInfo(
             threadVariant: thread.variant,
@@ -385,12 +411,53 @@ extension MessageReceiver {
         // Notify the user if needed
         guard variant == .standardIncoming && !interaction.wasRead else { return interactionId }
         
-        // Use the same identifier for notifications when in backgroud polling to prevent spam
-        dependencies[singleton: .notificationsManager].notifyUser(
-            db,
-            for: interaction,
-            in: thread,
-            applicationState: (isMainAppActive ? .active : .background)
+        try? dependencies[singleton: .notificationsManager].notifyUser(
+            message: message,
+            threadId: threadId,
+            threadVariant: threadVariant,
+            interactionId: interactionId,
+            interactionVariant: interaction.variant,
+            attachmentDescriptionInfo: attachments.map { $0.descriptionInfo },
+            openGroupUrlInfo: openGroupUrlInfo,
+            applicationState: (isMainAppActive ? .active : .background),
+            currentUserSessionIds: generateCurrentUserSessionIds(),
+            displayNameRetriever: { sessionId in
+                Profile.displayNameNoFallback(
+                    db,
+                    id: sessionId,
+                    threadVariant: threadVariant,
+                    using: dependencies
+                )
+            },
+            shouldShowForMessageRequest: {
+                let numInteractions: Int = {
+                    switch interaction.serverHash {
+                        case .some(let serverHash):
+                            return (try? Interaction
+                                .filter(Interaction.Columns.threadId == threadId)
+                                .filter(Interaction.Columns.serverHash != serverHash)
+                                .fetchCount(db))
+                                .defaulting(to: 0)
+
+                        case .none:
+                            return (try? Interaction
+                                .filter(Interaction.Columns.threadId == threadId)
+                                .filter(Interaction.Columns.timestampMs != interaction.timestampMs)
+                                .fetchCount(db))
+                                .defaulting(to: 0)
+                    }
+                }()
+
+                // We only want to show a notification for the first interaction in the thread
+                guard numInteractions == 0 else { return false }
+
+                // Need to re-show the message requests section if it had been hidden
+                if db[.hasHiddenMessageRequests] {
+                    db[.hasHiddenMessageRequests] = false
+                }
+                
+                return true
+            }
         )
         
         return interactionId
@@ -403,7 +470,8 @@ extension MessageReceiver {
         associatedWithProto proto: SNProtoContent,
         sender: String,
         messageSentTimestamp: TimeInterval,
-        openGroup: OpenGroup?,
+        openGroupUrlInfo: LibSession.OpenGroupUrlInfo?,
+        currentUserSessionIds: Set<String>,
         using dependencies: Dependencies
     ) throws -> Int64? {
         guard
@@ -411,6 +479,8 @@ extension MessageReceiver {
             proto.dataMessage?.reaction != nil
         else { return nil }
         
+        // Since we have database access here make sure the original message for this reaction exists
+        // before handling it or showing a notification
         let maybeInteractionId: Int64? = try? Interaction
             .select(.id)
             .filter(Interaction.Columns.threadId == thread.id)
@@ -447,24 +517,39 @@ extension MessageReceiver {
                     count: 1,
                     sortId: sortId
                 ).inserted(db)
-                let timestampAlreadyRead: Bool = dependencies.mutate(cache: .libSession) { cache in
-                    cache.timestampAlreadyRead(
-                        threadId: thread.id,
-                        threadVariant: thread.variant,
-                        timestampMs: timestampMs,
-                        userSessionId: userSessionId,
-                        openGroup: openGroup
-                    )
-                }
+                let timestampAlreadyRead: Bool = dependencies
+                    .mutate(cache: .libSession, config: .convoInfoVolatile) { config in
+                        config?.timestampAlreadyRead(
+                            threadId: thread.id,
+                            threadVariant: thread.variant,
+                            timestampMs: timestampMs,
+                            openGroupUrlInfo: openGroupUrlInfo
+                        )
+                    }
+                    .defaulting(to: false)
                 
                 // Don't notify if the reaction was added before the lastest read timestamp for
                 // the conversation
                 if sender != userSessionId.hexString && !timestampAlreadyRead {
-                    dependencies[singleton: .notificationsManager].notifyUser(
-                        db,
-                        forReaction: reaction,
-                        in: thread,
-                        applicationState: (isMainAppActive ? .active : .background)
+                    try? dependencies[singleton: .notificationsManager].notifyUser(
+                        message: message,
+                        threadId: thread.id,
+                        threadVariant: thread.variant,
+                        interactionId: interactionId,
+                        interactionVariant: .standardIncoming,
+                        attachmentDescriptionInfo: nil,
+                        openGroupUrlInfo: openGroupUrlInfo,
+                        applicationState: (isMainAppActive ? .active : .background),
+                        currentUserSessionIds: currentUserSessionIds,
+                        displayNameRetriever: { sessionId in
+                            Profile.displayNameNoFallback(
+                                db,
+                                id: sessionId,
+                                threadVariant: thread.variant,
+                                using: dependencies
+                            )
+                        },
+                        shouldShowForMessageRequest: { false }
                     )
                 }
                 

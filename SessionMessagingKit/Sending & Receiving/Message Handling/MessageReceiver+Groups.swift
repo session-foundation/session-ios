@@ -143,8 +143,8 @@ extension MessageReceiver {
         
         try processGroupInvite(
             db,
+            message: message,
             sender: sender,
-            serverHash: message.serverHash,
             sentTimestampMs: Int64(sentTimestampMs),
             groupSessionId: message.groupSessionId,
             groupName: message.groupName,
@@ -261,8 +261,8 @@ extension MessageReceiver {
         // Process the promotion as a group invite (if needed)
         try processGroupInvite(
             db,
+            message: message,
             sender: sender,
-            serverHash: message.serverHash,
             sentTimestampMs: Int64(sentTimestampMs),
             groupSessionId: groupSessionId,
             groupName: message.groupName,
@@ -800,11 +800,17 @@ extension MessageReceiver {
         
         /// If we haven't already handled being kicked from the group then update the name of the group in `USER_GROUPS` so
         /// that if the user doesn't delete the group and links a new device, the group will have the same name as on the current device
-        if !LibSession.wasKickedFromGroup(groupSessionId: groupSessionId, using: dependencies) {
+        let wasKickedFromGroup: Bool = dependencies
+            .mutate(cache: .libSession, config: .userGroups) { config in
+                config?.wasKickedFromGroup(groupSessionId: groupSessionId)
+            }
+            .defaulting(to: false)
+        
+        if !wasKickedFromGroup {
             dependencies.mutate(cache: .libSession) { cache in
                 let groupInfoConfig: LibSession.Config? = cache.config(for: .groupInfo, sessionId: groupSessionId)
                 let userGroupsConfig: LibSession.Config? = cache.config(for: .userGroups, sessionId: userSessionId)
-                let groupName: String? = try? LibSession.groupName(in: groupInfoConfig)
+                let groupName: String? = groupInfoConfig?.groupName
                 
                 switch groupName {
                     case .none: Log.warn(.messageReceiver, "Failed to update group name before being kicked.")
@@ -858,8 +864,8 @@ extension MessageReceiver {
     
     internal static func processGroupInvite(
         _ db: Database,
+        message: Message,
         sender: String,
-        serverHash: String?,
         sentTimestampMs: Int64,
         groupSessionId: SessionId,
         groupName: String,
@@ -881,10 +887,11 @@ extension MessageReceiver {
         
         /// If we had previously been kicked from a group then we need to update the flag in `UserGroups` so that we don't consider
         /// ourselves as kicked anymore
-        let wasKickedFromGroup: Bool = LibSession.wasKickedFromGroup(
-            groupSessionId: groupSessionId,
-            using: dependencies
-        )
+        let wasKickedFromGroup: Bool = dependencies
+            .mutate(cache: .libSession, config: .userGroups) { config in
+                config?.wasKickedFromGroup(groupSessionId: groupSessionId)
+            }
+            .defaulting(to: false)
         try MessageReceiver.handleNewGroup(
             db,
             groupSessionId: groupSessionId.hexString,
@@ -909,7 +916,7 @@ extension MessageReceiver {
         /// Now that we've added the group info into the `USER_GROUPS` config we should try to delete the original invitation/promotion
         /// from the swarm so we don't need to worry about it being reprocessed on another device if the user happens to leave or get
         /// removed from the group before another device has received it (ie. stop the group from incorrectly reappearing)
-        switch serverHash {
+        switch message.serverHash {
             case .none: break
             case .some(let serverHash):
                 db.afterNextTransaction { db in
@@ -971,15 +978,16 @@ extension MessageReceiver {
                 }
             }(),
             timestampMs: sentTimestampMs,
-            wasRead: dependencies.mutate(cache: .libSession) { cache in
-                cache.timestampAlreadyRead(
-                    threadId: groupSessionId.hexString,
-                    threadVariant: .group,
-                    timestampMs: sentTimestampMs,
-                    userSessionId: userSessionId,
-                    openGroup: nil
-                )
-            },
+            wasRead: dependencies
+                .mutate(cache: .libSession, config: .convoInfoVolatile) { config in
+                    config?.timestampAlreadyRead(
+                        threadId: groupSessionId.hexString,
+                        threadVariant: .group,
+                        timestampMs: sentTimestampMs,
+                        openGroupUrlInfo: nil
+                    )
+                }
+                .defaulting(to: false),
             using: dependencies
         ).inserted(db)
         
@@ -1006,22 +1014,37 @@ extension MessageReceiver {
             /// If the sender wasn't approved this is a message request so we should notify the user about the invite
             case (false, _):
                 let isMainAppActive: Bool = dependencies[defaults: .appGroup, key: .isMainAppActive]
-                dependencies[singleton: .notificationsManager].notifyUser(
+                let thread: SessionThread = try SessionThread.upsert(
                     db,
-                    for: interaction,
-                    in: try SessionThread.upsert(
-                        db,
-                        id: groupSessionId.hexString,
-                        variant: .group,
-                        values: SessionThread.TargetValues(
-                            creationDateTimestamp: .useExistingOrSetTo(
-                                dependencies[cache: .snodeAPI].currentOffsetTimestampMs() / 1000
-                            ),
-                            shouldBeVisible: .useExisting
+                    id: groupSessionId.hexString,
+                    variant: .group,
+                    values: SessionThread.TargetValues(
+                        creationDateTimestamp: .useExistingOrSetTo(
+                            dependencies[cache: .snodeAPI].currentOffsetTimestampMs() / 1000
                         ),
-                        using: dependencies
+                        shouldBeVisible: .useExisting
                     ),
-                    applicationState: (isMainAppActive ? .active : .background)
+                    using: dependencies
+                )
+                try? dependencies[singleton: .notificationsManager].notifyUser(
+                    message: message,
+                    threadId: thread.id,
+                    threadVariant: thread.variant,
+                    interactionId: (interaction.id ?? 0),
+                    interactionVariant: interaction.variant,
+                    attachmentDescriptionInfo: nil,
+                    openGroupUrlInfo: nil,
+                    applicationState: (isMainAppActive ? .active : .background),
+                    currentUserSessionIds: [dependencies[cache: .general].sessionId.hexString],
+                    displayNameRetriever: { sessionId in
+                        Profile.displayNameNoFallback(
+                            db,
+                            id: sessionId,
+                            threadVariant: thread.variant,
+                            using: dependencies
+                        )
+                    },
+                    shouldShowForMessageRequest: { false }
                 )
             
             /// If the sender is approved and this was an admin invitation then do nothing

@@ -914,7 +914,7 @@ public extension Interaction {
         quoteAuthorId: String? = nil,
         using dependencies: Dependencies
     ) -> Bool {
-        var publicKeysToCheck: [String] = [
+        var publicKeysToCheck: Set<String> = [
             dependencies[cache: .general].sessionId.hexString
         ]
         
@@ -934,8 +934,8 @@ public extension Interaction {
                     )
                 )
             {
-                publicKeysToCheck.append(SessionId(.blinded15, publicKey: blinded15KeyPair.publicKey).hexString)
-                publicKeysToCheck.append(SessionId(.blinded25, publicKey: blinded25KeyPair.publicKey).hexString)
+                publicKeysToCheck.insert(SessionId(.blinded15, publicKey: blinded15KeyPair.publicKey).hexString)
+                publicKeysToCheck.insert(SessionId(.blinded25, publicKey: blinded25KeyPair.publicKey).hexString)
             }
         }
         
@@ -948,7 +948,7 @@ public extension Interaction {
     
     // stringlint:ignore_contents
     static func isUserMentioned(
-        publicKeysToCheck: [String],
+        publicKeysToCheck: Set<String>,
         body: String?,
         quoteAuthorId: String? = nil
     ) -> Bool {
@@ -1388,25 +1388,33 @@ public extension Interaction {
             let quote: TypedTableAlias<Quote> = TypedTableAlias()
             let interaction: TypedTableAlias<Interaction> = TypedTableAlias()
             let interactionAttachment: TypedTableAlias<InteractionAttachment> = TypedTableAlias()
-            var blinded15SessionIdHexString: String = ""
-            var blinded25SessionIdHexString: String = ""
+            let userSessionId: SessionId = dependencies[cache: .general].sessionId
+            var userSessionIds: Set<String> = [userSessionId.hexString]
             
             /// If it's a `community` conversation then we need to get the blinded ids
-            if threadVariant == .community {
-                blinded15SessionIdHexString = (SessionThread.getCurrentUserBlindedSessionId(
-                    db,
-                    threadId: threadId,
-                    threadVariant: threadVariant,
-                    blindingPrefix: .blinded15,
-                    using: dependencies
-                )?.hexString).defaulting(to: "")
-                blinded25SessionIdHexString = (SessionThread.getCurrentUserBlindedSessionId(
-                    db,
-                    threadId: threadId,
-                    threadVariant: threadVariant,
-                    blindingPrefix: .blinded25,
-                    using: dependencies
-                )?.hexString).defaulting(to: "")
+            if
+                threadVariant == .community,
+                let openGroupCapabilityInfo: LibSession.OpenGroupCapabilityInfo = try? LibSession.OpenGroupCapabilityInfo
+                    .fetchOne(db, id: threadId)
+            {
+                userSessionIds = userSessionIds.inserting(
+                    SessionThread.getCurrentUserBlindedSessionId(
+                        threadId: threadId,
+                        threadVariant: threadVariant,
+                        blindingPrefix: .blinded15,
+                        openGroupCapabilityInfo: openGroupCapabilityInfo,
+                        using: dependencies
+                    )?.hexString
+                )
+                userSessionIds = userSessionIds.inserting(
+                    SessionThread.getCurrentUserBlindedSessionId(
+                        threadId: threadId,
+                        threadVariant: threadVariant,
+                        blindingPrefix: .blinded25,
+                        openGroupCapabilityInfo: openGroupCapabilityInfo,
+                        using: dependencies
+                    )?.hexString
+                )
             }
             
             /// Construct a request which gets the `quote.attachmentId` for any `Quote` entries related
@@ -1419,11 +1427,8 @@ public extension Interaction {
                         \(interaction[.authorId]) = \(quote[.authorId]) OR (
                             -- A users outgoing message is stored in some cases using their standard id
                             -- but the quote will use their blinded id so handle that case
-                            \(interaction[.authorId]) = \(dependencies[cache: .general].sessionId.hexString) AND
-                            (
-                                \(quote[.authorId]) = \(blinded15SessionIdHexString) OR
-                                \(quote[.authorId]) = \(blinded25SessionIdHexString)
-                            )
+                            \(interaction[.authorId]) = \(userSessionId.hexString) AND
+                            \(quote[.authorId]) IN \(userSessionIds)
                         )
                     )
                 )

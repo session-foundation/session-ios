@@ -65,17 +65,6 @@ public extension String {
         return ranges
     }
     
-    static func filterNotificationText(_ text: String?) -> String? {
-        guard let text = text?.filteredForDisplay else { return nil }
-
-        // iOS strips anything that looks like a printf formatting character from
-        // the notification body, so if we want to dispay a literal "%" in a notification
-        // it must be escaped.
-        // see https://developer.apple.com/documentation/uikit/uilocalnotification/1616646-alertbody
-        // for more details.
-        return text.replacingOccurrences(of: "%", with: "%%")
-    }
-    
     func appending(_ other: String?) -> String {
         guard let value: String = other else { return self }
         
@@ -208,6 +197,15 @@ public extension String {
         }
         
         return self.trimmingCharacters(in: .whitespacesAndNewlines)
+    }
+    
+    /// iOS strips anything that looks like a printf formatting character from the notification body, so if we want to dispay a literal "%" in
+    /// a notification it must be escaped.
+    ///
+    /// See https://developer.apple.com/documentation/usernotifications/unnotificationcontent/body for
+    /// more details.
+    var filteredForNotification: String {
+        self.replacingOccurrences(of: "%", with: "%%")
     }
     
     private var hasExcessiveDiacriticals: Bool {

@@ -57,21 +57,30 @@ public enum GroupLeavingJob: JobExecutor {
                     .defaulting(to: 0)
                 let finalBehaviour: GroupLeavingJob.Details.Behaviour = {
                     guard
-                        LibSession.wasKickedFromGroup(
-                            groupSessionId: SessionId(.group, hex: threadId),
-                            using: dependencies
-                        ) ||
-                        LibSession.groupIsDestroyed(
-                            groupSessionId: SessionId(.group, hex: threadId),
-                            using: dependencies
+                        threadVariant == .group,
+                        (
+                            dependencies.mutate(cache: .libSession, config: .userGroups) { config in
+                                (config?
+                                    .wasKickedFromGroup(groupSessionId: SessionId(.group, hex: threadId)))
+                                    .defaulting(to: false)
+                            } ||
+                            dependencies.mutate(cache: .libSession, config: .userGroups) { config in
+                                (config?
+                                    .groupIsDestroyed(groupSessionId: SessionId(.group, hex: threadId)))
+                                    .defaulting(to: false)
+                            }
                         )
                     else { return details.behaviour }
                     
                     return .delete
                 }()
                 
-                switch (finalBehaviour, isAdminUser, (isAdminUser && numAdminUsers == 1)) {
-                    case (.leave, _, false):
+                switch (threadVariant, finalBehaviour, isAdminUser, (isAdminUser && numAdminUsers == 1)) {
+                    case (.legacyGroup, _, _, _):
+                        // Legacy group only supports the 'delete' behaviour so don't bother checking
+                        return .delete
+                    
+                    case (.group, .leave, _, false):
                         let disappearingConfig: DisappearingMessagesConfiguration? = try? DisappearingMessagesConfiguration.fetchOne(db, id: threadId)
                         
                         return .leave(

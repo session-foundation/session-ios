@@ -41,27 +41,26 @@ public class ThreadPickerViewModel {
                 .map { threadViewModel in
                     let wasKickedFromGroup: Bool = (
                         threadViewModel.threadVariant == .group &&
-                        LibSession.wasKickedFromGroup(
-                            groupSessionId: SessionId(.group, hex: threadViewModel.threadId),
-                            using: dependencies
-                        )
+                        dependencies.mutate(cache: .libSession, config: .userGroups) { config in
+                            (config?
+                                .wasKickedFromGroup(groupSessionId: SessionId(.group, hex: threadViewModel.threadId)))
+                                .defaulting(to: false)
+                        }
                     )
                     let groupIsDestroyed: Bool = (
                         threadViewModel.threadVariant == .group &&
-                        LibSession.groupIsDestroyed(
-                            groupSessionId: SessionId(.group, hex: threadViewModel.threadId),
-                            using: dependencies
-                        )
+                        dependencies.mutate(cache: .libSession, config: .userGroups) { config in
+                            (config?
+                                .groupIsDestroyed(groupSessionId: SessionId(.group, hex: threadViewModel.threadId)))
+                                .defaulting(to: false)
+                        }
                     )
                     
                     return threadViewModel.populatingPostQueryData(
-                        db,
-                        currentUserBlinded15SessionIdForThisThread: nil,
-                        currentUserBlinded25SessionIdForThisThread: nil,
+                        currentUserSessionIds: [userSessionId.hexString],
                         wasKickedFromGroup: wasKickedFromGroup,
                         groupIsDestroyed: groupIsDestroyed,
-                        threadCanWrite: threadViewModel.determineInitialCanWriteFlag(using: dependencies),
-                        using: dependencies
+                        threadCanWrite: threadViewModel.determineInitialCanWriteFlag(using: dependencies)
                     )
                 }
         }
