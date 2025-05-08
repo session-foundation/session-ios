@@ -108,7 +108,7 @@ public class ConversationViewModel: OWSAudioPlayerDelegate, NavigatableStateHold
     }()
     
     // MARK: - Initialization
-    
+    // TODO: [Database Relocation] Initialise this with the thread data from the home screen (might mean we can avoid some of the `initialData` query?
     init(
         threadId: String,
         threadVariant: SessionThread.Variant,
@@ -647,11 +647,11 @@ public class ConversationViewModel: OWSAudioPlayerDelegate, NavigatableStateHold
                                 ),
                                 isLastOutgoing: (
                                     cellViewModel.id == sortedData
-                                        .filter { threadData.currentUserSessionIds.contains($0.authorId) }
+                                        .filter { (threadData.currentUserSessionIds ?? []).contains($0.authorId) }
                                         .last?
                                         .id
                                 ),
-                                currentUserSessionIds: threadData.currentUserSessionIds,
+                                currentUserSessionIds: (threadData.currentUserSessionIds ?? []),
                                 using: dependencies
                             )
                         }
@@ -721,14 +721,14 @@ public class ConversationViewModel: OWSAudioPlayerDelegate, NavigatableStateHold
         let interaction: Interaction = Interaction(
             threadId: threadData.threadId,
             threadVariant: threadData.threadVariant,
-            authorId: threadData.currentUserSessionIds
+            authorId: (threadData.currentUserSessionIds ?? [])
                 .first { $0.hasPrefix(SessionId.Prefix.blinded15.rawValue) }
                 .defaulting(to: threadData.currentUserSessionId),
             variant: .standardOutgoing,
             body: text,
             timestampMs: sentTimestampMs,
             hasMention: Interaction.isUserMentioned(
-                publicKeysToCheck: threadData.currentUserSessionIds,
+                publicKeysToCheck: (threadData.currentUserSessionIds ?? []),
                 body: text
             ),
             expiresInSeconds: threadData.disappearingMessagesConfiguration?.expiresInSeconds(),
@@ -775,7 +775,7 @@ public class ConversationViewModel: OWSAudioPlayerDelegate, NavigatableStateHold
                             publicKey: threadData.currentUserSessionId,
                             for: threadData.openGroupRoomToken,
                             on: threadData.openGroupServer,
-                            currentUserSessionIds: threadData.currentUserSessionIds
+                            currentUserSessionIds: (threadData.currentUserSessionIds ?? [])
                         )
                         
                     default: return false

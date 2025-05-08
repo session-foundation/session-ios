@@ -197,7 +197,7 @@ public enum PushNotificationAPI {
             receiveCompletion: { result in
                 switch result {
                     case .finished: break
-                    case .failure: Log.error(.cat, "Couldn't subscribe for push notifications.")
+                    case .failure(let error): Log.error(.cat, "Couldn't subscribe for push notifications due to error: \(error).")
                 }
             }
         )
@@ -244,7 +244,7 @@ public enum PushNotificationAPI {
             receiveCompletion: { result in
                 switch result {
                     case .finished: break
-                    case .failure: Log.error(.cat, "Couldn't unsubscribe for push notifications.")
+                    case .failure(let error): Log.error(.cat, "Couldn't unsubscribe for push notifications due to error: \(error).")
                 }
             }
         )

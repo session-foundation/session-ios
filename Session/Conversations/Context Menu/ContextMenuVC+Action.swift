@@ -247,7 +247,7 @@ extension ContextMenuVC {
                 publicKey: threadViewModel.currentUserSessionId,
                 for: threadViewModel.openGroupRoomToken,
                 on: threadViewModel.openGroupServer,
-                currentUserSessionIds: threadViewModel.currentUserSessionIds
+                currentUserSessionIds: (threadViewModel.currentUserSessionIds ?? [])
             )
         )
         let shouldShowEmojiActions: Bool = {
