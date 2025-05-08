@@ -1,6 +1,7 @@
 // Copyright © 2025 Rangeproof Pty Ltd. All rights reserved.
 
 import Foundation
+import SessionUtilitiesKit
 
 import Quick
 import Nimble
@@ -56,8 +57,8 @@ class ExtesnionHelperSpec: QuickSpec {
             }
         )
         
-        // MARK: - an ExtesnionHelper
-        describe("an ExtesnionHelper") {
+        // MARK: - an ExtensionHelper - File Management
+        describe("an ExtensionHelper") {
             // MARK: -- when writing an encrypted file
             context("when writing an encrypted file") {
                 // MARK: ---- ensures the write directory exists
@@ -217,6 +218,34 @@ class ExtesnionHelperSpec: QuickSpec {
                     }.to(throwError(TestError.mock))
                 }
             }
+        }
+        
+        // MARK: - an ExtensionHelper - Deduping
+        describe("an ExtensionHelper") {
+            // MARK: -- when checking whether a single dedupe record exists
+            context("when checking whether a single dedupe record exists") {
+                // MARK: ---- returns true when at least one record exists
+                it("returns true when at least one record exists") {
+                    mockFileManager.when { $0.isDirectoryEmpty(atPath: .any) }.thenReturn(false)
+                    
+                    expect(extensionHelper.hasAtLeastOneDedupeRecord(threadId: "threadId")).to(beTrue())
+                }
+                
+                // MARK: ---- returns false when a record does not exist
+                it("returns false when a record does not exist") {
+                    mockFileManager.when { $0.isDirectoryEmpty(atPath: .any) }.thenReturn(true)
+                    
+                    expect(extensionHelper.hasAtLeastOneDedupeRecord(threadId: "threadId")).to(beFalse())
+                }
+                
+                // MARK: ---- returns false when failing to generate a hash
+                it("returns false when failing to generate a hash") {
+                    mockFileManager.when { $0.isDirectoryEmpty(atPath: .any) }.thenReturn(false)
+                    mockCrypto.when { $0.generate(.hash(message: .any)) }.thenReturn(nil)
+                    
+                    expect(extensionHelper.hasAtLeastOneDedupeRecord(threadId: "threadId")).to(beFalse())
+                }
+            }
             
             // MARK: -- when checking for dedupe records
             context("when checking for dedupe records") {
@@ -370,6 +399,44 @@ class ExtesnionHelperSpec: QuickSpec {
                     expect(mockFileManager).to(call(.exactly(times: 1), matchingParameters: .all) {
                         try? $0.removeItem(atPath: "/test/extensionCache/dedupe")
                     })
+                }
+            }
+        }
+        
+        // MARK: - an ExtensionHelper - Config Dumps
+        describe("an ExtensionHelper") {
+            // MARK: -- when retrieving the last updated timestamp
+            context("when retrieving the last updated timestamp") {
+                // MARK: ---- returns the timestamp
+                it("returns the timestamp") {
+                    mockFileManager
+                        .when { try $0.attributesOfItem(atPath: .any) }
+                        .thenReturn([.modificationDate: Date(timeIntervalSince1970: 1234567890)])
+                    
+                    expect(extensionHelper.lastUpdatedTimestamp(
+                        for: SessionId(.standard, hex: TestConstants.publicKey),
+                        variant: .userProfile
+                    )).to(equal(1234567890))
+                }
+                
+                // MARK: ---- returns zero when it fails to generate a hash
+                it("returns zero when it fails to generate a hash") {
+                    mockCrypto.when { $0.generate(.hash(message: .any)) }.thenReturn(nil)
+                    
+                    expect(extensionHelper.lastUpdatedTimestamp(
+                        for: SessionId(.standard, hex: TestConstants.publicKey),
+                        variant: .userProfile
+                    )).to(equal(0))
+                }
+                
+                // MARK: ---- throws when failing to retrieve file metadata
+                it("throws when failing to retrieve file metadata") {
+                    mockFileManager.when { try $0.attributesOfItem(atPath: .any) }.thenReturn(nil)
+                    
+                    expect(extensionHelper.lastUpdatedTimestamp(
+                        for: SessionId(.standard, hex: TestConstants.publicKey),
+                        variant: .userProfile
+                    )).to(equal(0))
                 }
             }
         }
