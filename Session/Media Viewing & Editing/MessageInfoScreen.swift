@@ -486,7 +486,7 @@ struct MessageBubble: View {
                                     authorId: quote.authorId,
                                     quotedText: quote.body,
                                     threadVariant: messageViewModel.threadVariant,
-                                    currentUserSessionIds: messageViewModel.currentUserSessionIds,
+                                    currentUserSessionIds: (messageViewModel.currentUserSessionIds ?? []),
                                     direction: (messageViewModel.variant == .standardOutgoing ? .outgoing : .incoming),
                                     attachment: messageViewModel.quoteAttachment
                                 ),

@@ -14,6 +14,7 @@ fileprivate typealias ReactionInfo = MessageViewModel.ReactionInfo
 fileprivate typealias TypingIndicatorInfo = MessageViewModel.TypingIndicatorInfo
 fileprivate typealias QuotedInfo = MessageViewModel.QuotedInfo
 
+// TODO: [Database Relocation] Refactor this to split database data from no-database data (to avoid unneeded nullables)
 public struct MessageViewModel: FetchableRecordWithRowId, Decodable, Equatable, Hashable, Identifiable, Differentiable, ColumnExpressible {
     public typealias Columns = CodingKeys
     public enum CodingKeys: String, CodingKey, ColumnExpression, CaseIterable {
@@ -196,7 +197,7 @@ public struct MessageViewModel: FetchableRecordWithRowId, Decodable, Equatable, 
     public let isLastOutgoing: Bool
     
     /// This contains all sessionId values for the current user (standard and any blinded variants)
-    public let currentUserSessionIds: Set<String>
+    public let currentUserSessionIds: Set<String>?
     
     /// This is a temporary id used before an outgoing message is persisted into the database
     public let optimisticMessageId: UUID?

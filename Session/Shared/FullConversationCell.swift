@@ -345,11 +345,11 @@ public final class FullConversationCell: UITableViewCell, SwipeActionOptimisticC
                     isOpenGroupInvitation: (cellViewModel.interactionIsOpenGroupInvitation == true),
                     using: dependencies
                 ),
-                authorName: (!cellViewModel.currentUserSessionIds.contains(cellViewModel.authorId ?? "") ?
+                authorName: (!(cellViewModel.currentUserSessionIds ?? []).contains(cellViewModel.authorId ?? "") ?
                     cellViewModel.authorName(for: .contact) :
                     nil
                 ),
-                currentUserSessionIds: cellViewModel.currentUserSessionIds,
+                currentUserSessionIds: (cellViewModel.currentUserSessionIds ?? []),
                 searchText: searchText.lowercased(),
                 fontSize: Values.smallFontSize,
                 textColor: textColor,
@@ -383,7 +383,7 @@ public final class FullConversationCell: UITableViewCell, SwipeActionOptimisticC
             
             displayNameLabel?.attributedText = self?.getHighlightedSnippet(
                 content: cellViewModel.displayName,
-                currentUserSessionIds: cellViewModel.currentUserSessionIds,
+                currentUserSessionIds: (cellViewModel.currentUserSessionIds ?? []),
                 searchText: searchText.lowercased(),
                 fontSize: Values.mediumFontSize,
                 textColor: textColor,
@@ -402,7 +402,7 @@ public final class FullConversationCell: UITableViewCell, SwipeActionOptimisticC
                     if cellViewModel.threadVariant == .legacyGroup || cellViewModel.threadVariant == .group {
                         snippetLabel?.attributedText = self?.getHighlightedSnippet(
                             content: (cellViewModel.threadMemberNames ?? ""),
-                            currentUserSessionIds: cellViewModel.currentUserSessionIds,
+                            currentUserSessionIds: (cellViewModel.currentUserSessionIds ?? []),
                             searchText: searchText.lowercased(),
                             fontSize: Values.smallFontSize,
                             textColor: textColor,
@@ -657,7 +657,7 @@ public final class FullConversationCell: UITableViewCell, SwipeActionOptimisticC
             string: MentionUtilities.highlightMentionsNoAttributes(
                 in: previewText,
                 threadVariant: cellViewModel.threadVariant,
-                currentUserSessionIds: cellViewModel.currentUserSessionIds,
+                currentUserSessionIds: (cellViewModel.currentUserSessionIds ?? []),
                 using: dependencies
             ),
             attributes: [ .foregroundColor: textColor ]

@@ -16,6 +16,7 @@ fileprivate typealias ViewModel = SessionThreadViewModel
 ///
 /// **Note:** When updating the UI make sure to check the actual queries being run as some fields will have incorrect default values
 /// in order to optimise their queries to only include the required data
+// TODO: [Database Relocation] Refactor this to split database data from no-database data (to avoid unneeded nullables)
 public struct SessionThreadViewModel: FetchableRecordWithRowId, Decodable, Equatable, Hashable, Identifiable, Differentiable, ColumnExpressible, ThreadSafeType {
     public typealias Columns = CodingKeys
     public enum CodingKeys: String, CodingKey, ColumnExpression, CaseIterable {
@@ -187,7 +188,7 @@ public struct SessionThreadViewModel: FetchableRecordWithRowId, Decodable, Equat
     private let threadContactNameInternal: String?
     private let authorNameInternal: String?
     public let currentUserSessionId: String
-    public let currentUserSessionIds: Set<String>
+    public let currentUserSessionIds: Set<String>?
     public let recentReactionEmoji: [String]?
     public let wasKickedFromGroup: Bool?
     public let groupIsDestroyed: Bool?
