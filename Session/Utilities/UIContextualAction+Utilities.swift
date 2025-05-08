@@ -651,9 +651,9 @@ public extension UIContextualAction {
                                         let deletionType: SessionThread.DeletionType = {
                                             switch (threadViewModel.threadVariant, isMessageRequest, groupDestroyedOrKicked) {
                                                 case (.community, _, _): return .deleteCommunityAndContent
-                                                case (.group, true, _), (.group, _, true): return .deleteGroupAndContent
-                                                case (.group, _, _), (.legacyGroup, _, _):
-                                                    return .leaveGroupAsync
+                                                case (.group, true, _), (.group, _, true), (.legacyGroup, _, _):
+                                                    return .deleteGroupAndContent
+                                                case (.group, _, _): return .leaveGroupAsync
                                                 
                                                 case (.contact, _, _): return .deleteContactConversationAndMarkHidden
                                             }
