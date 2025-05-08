@@ -828,6 +828,56 @@ class MessageDeduplicationSpec: QuickSpec {
                     })
                 }
             }
+            
+            // MARK: -- when ensuring a call message is not a duplicate
+            context("when ensuring a call message is not a duplicate") {
+                // MARK: ---- does not throw when not a duplicate
+                it("does not throw when not a duplicate") {
+                    expect {
+                        try MessageDeduplication.ensureCallMessageIsNotADuplicate(
+                            threadId: "testThreadId",
+                            callMessage: CallMessage(
+                                uuid: "12345",
+                                kind: .preOffer,
+                                sdps: [],
+                                sentTimestampMs: nil
+                            ),
+                            using: dependencies
+                        )
+                    }.toNot(throwError())
+                }
+                
+                // MARK: ---- does nothing if no call message is provided
+                it("does nothing if no call message is provided") {
+                    expect {
+                        try MessageDeduplication.ensureCallMessageIsNotADuplicate(
+                            threadId: "testThreadId",
+                            callMessage: nil,
+                            using: dependencies
+                        )
+                    }.toNot(throwError())
+                }
+                
+                // MARK: ---- throws when the call message is a duplicate
+                it("throws when the call message is a duplicate") {
+                    mockExtensionHelper
+                        .when { $0.dedupeRecordExists(threadId: .any, uniqueIdentifier: .any) }
+                        .thenReturn(true)
+                    
+                    expect {
+                        try MessageDeduplication.ensureCallMessageIsNotADuplicate(
+                            threadId: "testThreadId",
+                            callMessage: CallMessage(
+                                uuid: "12345",
+                                kind: .preOffer,
+                                sdps: [],
+                                sentTimestampMs: nil
+                            ),
+                            using: dependencies
+                        )
+                    }.to(throwError(MessageReceiverError.duplicatedCall))
+                }
+            }
         }
     }
 }
