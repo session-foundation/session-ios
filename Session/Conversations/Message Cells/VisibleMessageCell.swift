@@ -550,7 +550,7 @@ final class VisibleMessageCell: MessageCell, TappableLabelDelegate {
                         authorId: quote.authorId,
                         quotedText: quote.body,
                         threadVariant: cellViewModel.threadVariant,
-                        currentUserSessionIds: cellViewModel.currentUserSessionIds,
+                        currentUserSessionIds: (cellViewModel.currentUserSessionIds ?? []),
                         direction: (cellViewModel.variant.isOutgoing ? .outgoing : .incoming),
                         attachment: cellViewModel.quoteAttachment,
                         using: dependencies
@@ -626,7 +626,7 @@ final class VisibleMessageCell: MessageCell, TappableLabelDelegate {
                     authorId: quote.authorId,
                     quotedText: quote.body,
                     threadVariant: cellViewModel.threadVariant,
-                    currentUserSessionIds: cellViewModel.currentUserSessionIds,
+                    currentUserSessionIds: (cellViewModel.currentUserSessionIds ?? []),
                     direction: (cellViewModel.variant.isOutgoing ? .outgoing : .incoming),
                     attachment: cellViewModel.quoteAttachment,
                     using: dependencies
@@ -676,7 +676,7 @@ final class VisibleMessageCell: MessageCell, TappableLabelDelegate {
                     authorId: quote.authorId,
                     quotedText: quote.body,
                     threadVariant: cellViewModel.threadVariant,
-                    currentUserSessionIds: cellViewModel.currentUserSessionIds,
+                    currentUserSessionIds: (cellViewModel.currentUserSessionIds ?? []),
                     direction: (cellViewModel.variant.isOutgoing ? .outgoing : .incoming),
                     attachment: cellViewModel.quoteAttachment,
                     using: dependencies
@@ -760,7 +760,7 @@ final class VisibleMessageCell: MessageCell, TappableLabelDelegate {
                     return
                 }
                 
-                let isSelfSend: Bool = cellViewModel.currentUserSessionIds.contains(reactionInfo.reaction.authorId)
+                let isSelfSend: Bool = (cellViewModel.currentUserSessionIds ?? []).contains(reactionInfo.reaction.authorId)
                 
                 if let value: ReactionViewModel = result.value(forKey: emoji) {
                     result.replace(
@@ -1175,7 +1175,7 @@ final class VisibleMessageCell: MessageCell, TappableLabelDelegate {
             attributedString: MentionUtilities.highlightMentions(
                 in: body,
                 threadVariant: cellViewModel.threadVariant,
-                currentUserSessionIds: cellViewModel.currentUserSessionIds,
+                currentUserSessionIds: (cellViewModel.currentUserSessionIds ?? []),
                 location: (isOutgoing ? .outgoingMessage : .incomingMessage),
                 textColor: actualTextColor,
                 theme: theme,

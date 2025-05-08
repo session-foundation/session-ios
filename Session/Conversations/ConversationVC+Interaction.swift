@@ -820,7 +820,7 @@ extension ConversationVC:
             currentMentionStartIndex = lastCharacterIndex
             snInputView.showMentionsUI(
                 for: self.viewModel.mentions(),
-                currentUserSessionIds: self.viewModel.threadData.currentUserSessionIds
+                currentUserSessionIds: (self.viewModel.threadData.currentUserSessionIds ?? [])
             )
         }
         else if lastCharacter.isWhitespace || lastCharacter == "@" { // the lastCharacter == "@" is to check for @@
@@ -832,7 +832,7 @@ extension ConversationVC:
                 let query = String(newText[newText.index(after: currentMentionStartIndex)...]) // + 1 to get rid of the @
                 snInputView.showMentionsUI(
                     for: self.viewModel.mentions(for: query),
-                    currentUserSessionIds: self.viewModel.threadData.currentUserSessionIds
+                    currentUserSessionIds: (self.viewModel.threadData.currentUserSessionIds ?? [])
                 )
             }
         }
@@ -1436,7 +1436,7 @@ extension ConversationVC:
                 publicKey: self.viewModel.threadData.currentUserSessionId,
                 for: self.viewModel.threadData.openGroupRoomToken,
                 on: self.viewModel.threadData.openGroupServer,
-                currentUserSessionIds: self.viewModel.threadData.currentUserSessionIds
+                currentUserSessionIds: (self.viewModel.threadData.currentUserSessionIds ?? [])
             )
         )
         reactionListSheet.modalPresentationStyle = .overFullScreen
@@ -1627,7 +1627,7 @@ extension ConversationVC:
                     guard !remove else {
                         return try? Reaction
                             .filter(Reaction.Columns.interactionId == cellViewModel.id)
-                            .filter(cellViewModel.currentUserSessionIds.contains(Reaction.Columns.authorId))
+                            .filter((cellViewModel.currentUserSessionIds ?? []).contains(Reaction.Columns.authorId))
                             .filter(Reaction.Columns.emoji == emoji)
                             .fetchOne(db)
                     }
@@ -1653,7 +1653,7 @@ extension ConversationVC:
                 if remove {
                     try Reaction
                         .filter(Reaction.Columns.interactionId == cellViewModel.id)
-                        .filter(cellViewModel.currentUserSessionIds.contains(Reaction.Columns.authorId))
+                        .filter((cellViewModel.currentUserSessionIds ?? []).contains(Reaction.Columns.authorId))
                         .filter(Reaction.Columns.emoji == emoji)
                         .deleteAll(db)
                 }
@@ -1991,7 +1991,7 @@ extension ConversationVC:
             timestampMs: cellViewModel.timestampMs,
             attachments: cellViewModel.attachments,
             linkPreviewAttachment: cellViewModel.linkPreviewAttachment,
-            currentUserSessionIds: cellViewModel.currentUserSessionIds
+            currentUserSessionIds: (cellViewModel.currentUserSessionIds ?? [])
         )
         
         guard let quoteDraft: QuotedReplyModel = maybeQuoteDraft else { return }
