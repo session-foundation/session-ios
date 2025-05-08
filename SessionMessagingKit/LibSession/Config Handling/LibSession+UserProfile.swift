@@ -46,7 +46,6 @@ internal extension LibSessionCacheType {
         // A profile must have a name so if this is null then it's invalid and can be ignored
         guard let profileNamePtr: UnsafePointer<CChar> = user_profile_get_name(conf) else { return }
         
-        let userSessionId: SessionId = dependencies[cache: .general].sessionId
         let profileName: String = String(cString: profileNamePtr)
         let profilePic: user_profile_pic = user_profile_get_pic(conf)
         let profilePictureUrl: String? = profilePic.get(\.url, nullIfEmpty: true)

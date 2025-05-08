@@ -30,13 +30,8 @@ public protocol NotificationsManagerType {
     
     func notifyForFailedSend(_ db: Database, in thread: SessionThread, applicationState: UIApplication.State)
     func addNotificationRequest(
-        threadId: String,
-        threadVariant: SessionThread.Variant,
-        identifier: String,
-        category: NotificationCategory,
-        content: UNMutableNotificationContent,
-        notificationSettings: Preferences.NotificationSettings,
-        applicationState: UIApplication.State
+        content: NotificationContent,
+        notificationSettings: Preferences.NotificationSettings
     )
     
     func cancelNotifications(identifiers: [String])
@@ -111,7 +106,10 @@ public extension NotificationsManagerType {
                     callMessage: callMessage,
                     using: dependencies
                 )
-                
+            
+            /// Group invitations and promotions may show notifications in some cases
+            case is GroupUpdateInviteMessage, is GroupUpdatePromoteMessage: break
+            
             /// No other messages should have notifications
             default: throw MessageReceiverError.ignorableMessage
         }
@@ -119,20 +117,20 @@ public extension NotificationsManagerType {
         /// Ensure the sender isn't blocked (this should be checked when parsing the message but we should also check here in case
         /// that logic ever changes)
         guard
-            !dependencies.mutate(cache: .libSession, config: .contacts, { config in
-                (config?.isContactBlocked(publicKey: sender)).defaulting(to: false)
+            !dependencies.mutate(cache: .libSession, { cache in
+                cache.isContactBlocked(contactId: sender)
             })
         else { throw MessageReceiverError.senderBlocked }
         
         /// Ensure the message hasn't already been maked as read (don't want to show notification in that case)
         guard
-            !dependencies.mutate(cache: .libSession, config: .convoInfoVolatile, { config in
-                (config?.timestampAlreadyRead(
+            !dependencies.mutate(cache: .libSession, { cache in
+                cache.timestampAlreadyRead(
                     threadId: threadId,
                     threadVariant: threadVariant,
                     timestampMs: (message.sentTimestampMs.map { Int64($0) } ?? 0),  /// Default to unread
                     openGroupUrlInfo: openGroupUrlInfo
-                )).defaulting(to: false)  /// Default to unread
+                )
             })
         else { throw MessageReceiverError.ignorableMessage }
         
@@ -140,7 +138,7 @@ public extension NotificationsManagerType {
         switch (threadVariant, isMessageRequest) {
             case (.community, _), (.legacyGroup, _), (.contact, false), (.group, false): break
             case (.contact, true), (.group, true):
-                guard shouldShowForMessageRequest() else { throw MessageReceiverError.ignorableMessage }
+                guard shouldShowForMessageRequest() else { throw MessageReceiverError.ignorableMessageRequestMessage }
                 break
         }
         
@@ -169,11 +167,10 @@ public extension NotificationsManagerType {
                 let groupId: SessionId = SessionId(.group, hex: threadId)
                 let senderName: String = displayNameRetriever(sender)
                     .defaulting(to: Profile.truncated(id: sender, threadVariant: threadVariant))
-                let groupName: String = dependencies
-                    .mutate(cache: .libSession, config: .groupInfo, groupSessionId: groupId) { config in
-                        config?.groupName
-                    }
-                    .defaulting(to: "groupUnknown".localized())
+                let groupName: String = dependencies.mutate(cache: .libSession) { cache in
+                    cache.groupName(groupSessionId: groupId)
+                }
+                .defaulting(to: "groupUnknown".localized())
                 
                 return "notificationsIosGroup"
                     .put(key: "name", value: senderName)
@@ -248,7 +245,7 @@ public extension NotificationsManagerType {
                     .put(key: "name", value: senderName)
                     .localizedDeformatted()
                 
-            case let callMessage as CallMessage:
+            case is CallMessage:
                 let senderName: String = displayNameRetriever(sender)
                     .defaulting(to: Profile.truncated(id: sender, threadVariant: threadVariant))
                 
@@ -278,24 +275,19 @@ public extension NotificationsManagerType {
         shouldShowForMessageRequest: () -> Bool
     ) throws {
         let targetConfig: ConfigDump.Variant = (threadVariant == .contact ? .contacts : .userGroups)
-        let isMessageRequest: Bool = dependencies
-            .mutate(cache: .libSession, config: targetConfig) { config in
-                config?.isMessageRequest(
-                    threadId: threadId,
-                    threadVariant: threadVariant
-                )
-            }
-            .defaulting(to: true)
-        let notificationSettings: Preferences.NotificationSettings = dependencies
-            .mutate(cache: .libSession, config: targetConfig) { config in
-                config?.notificationSettings(
-                    threadId: threadId,
-                    threadVariant: threadVariant,
-                    openGroupUrlInfo: openGroupUrlInfo,
-                    applicationState: applicationState
-                )
-            }
-            .defaulting(to: Preferences.NotificationSettings.defaultFor(threadVariant))
+        let isMessageRequest: Bool = dependencies.mutate(cache: .libSession) { cache in
+            cache.isMessageRequest(
+                threadId: threadId,
+                threadVariant: threadVariant
+            )
+        }
+        let notificationSettings: Preferences.NotificationSettings = dependencies.mutate(cache: .libSession) { cache in
+            cache.notificationSettings(
+                threadId: threadId,
+                threadVariant: threadVariant,
+                openGroupUrlInfo: openGroupUrlInfo
+            )
+        }
         
         /// Ensure we should be showing a notification for the thread
         try ensureWeShouldShowNotification(
@@ -314,60 +306,54 @@ public extension NotificationsManagerType {
             using: dependencies
         )
         
-        /// Construct the `notificationContent`
-        let notificationContent = UNMutableNotificationContent()
-        notificationContent.userInfo = notificationUserInfo(threadId: threadId, threadVariant: threadVariant)
-        notificationContent.title = try notificationTitle(
-            message: message,
-            threadId: threadId,
-            threadVariant: threadVariant,
-            isMessageRequest: isMessageRequest,
-            notificationSettings: notificationSettings,
-            displayNameRetriever: displayNameRetriever,
-            using: dependencies
-        )
-        notificationContent.body = notificationBody(
-            message: message,
-            threadVariant: threadVariant,
-            isMessageRequest: isMessageRequest,
-            notificationSettings: notificationSettings,
-            interactionVariant: interactionVariant,
-            attachmentDescriptionInfo: attachmentDescriptionInfo,
-            currentUserSessionIds: currentUserSessionIds,
-            displayNameRetriever: displayNameRetriever,
-            using: dependencies
-        )
-        
-        /// Add the notification sound if needed
-        if notificationShouldPlaySound(applicationState: applicationState) {
-            notificationContent.sound = notificationSettings.sound
-        }
-        
-        // TODO: [Database Relocation] Need to figure out how to manage the unread count...
-        /// Update the app badge in case the unread count changed
-//        if let unreadCount: Int = try? Interaction.fetchAppBadgeUnreadCount(db, using: dependencies) {
-//            notificationContent.badge = NSNumber(value: unreadCount)
-//        }
-        
         /// Actually add the notification
         addNotificationRequest(
-            threadId: threadId,
-            threadVariant: threadVariant,
-            identifier: {
-                switch (message as? VisibleMessage)?.reaction {
-                    case .some: return UUID().uuidString
-                    default:
-                        return Interaction.notificationIdentifier(
-                            for: interactionId,
-                            threadId: threadId,
-                            shouldGroupMessagesForThread: (threadVariant == .community)
-                        )
-                }
-            }(),
-            category: .incomingMessage,
-            content: notificationContent,
-            notificationSettings: notificationSettings,
-            applicationState: applicationState
+            content: NotificationContent(
+                threadId: threadId,
+                threadVariant: threadVariant,
+                identifier: {
+                    switch (message as? VisibleMessage)?.reaction {
+                        case .some: return UUID().uuidString
+                        default:
+                            return Interaction.notificationIdentifier(
+                                for: interactionId,
+                                threadId: threadId,
+                                shouldGroupMessagesForThread: (threadVariant == .community)
+                            )
+                    }
+                }(),
+                category: .incomingMessage,
+                title: try notificationTitle(
+                    message: message,
+                    threadId: threadId,
+                    threadVariant: threadVariant,
+                    isMessageRequest: isMessageRequest,
+                    notificationSettings: notificationSettings,
+                    displayNameRetriever: displayNameRetriever,
+                    using: dependencies
+                ),
+                body: notificationBody(
+                    message: message,
+                    threadVariant: threadVariant,
+                    isMessageRequest: isMessageRequest,
+                    notificationSettings: notificationSettings,
+                    interactionVariant: interactionVariant,
+                    attachmentDescriptionInfo: attachmentDescriptionInfo,
+                    currentUserSessionIds: currentUserSessionIds,
+                    displayNameRetriever: displayNameRetriever,
+                    using: dependencies
+                ),
+                // TODO: [Database Relocation] Need to figure out how to manage the unread count...
+                /// Update the app badge in case the unread count changed
+        //        if let unreadCount: Int = try? Interaction.fetchAppBadgeUnreadCount(db, using: dependencies) {
+        //            notificationContent.badge = NSNumber(value: unreadCount)
+        //        }
+    //            badge: ,
+                sound: notificationSettings.sound,
+                userInfo: notificationUserInfo(threadId: threadId, threadVariant: threadVariant),
+                applicationState: applicationState
+            ),
+            notificationSettings: notificationSettings
         )
     }
 }
@@ -398,13 +384,8 @@ public struct NoopNotificationsManager: NotificationsManagerType {
     public func notifyForFailedSend(_ db: Database, in thread: SessionThread, applicationState: UIApplication.State) {}
     
     public func addNotificationRequest(
-        threadId: String,
-        threadVariant: SessionThread.Variant,
-        identifier: String,
-        category: NotificationCategory,
-        content: UNMutableNotificationContent,
-        notificationSettings: Preferences.NotificationSettings,
-        applicationState: UIApplication.State
+        content: NotificationContent,
+        notificationSettings: Preferences.NotificationSettings
     ) {}
     public func cancelNotifications(identifiers: [String]) {}
     public func clearAllNotifications() {}

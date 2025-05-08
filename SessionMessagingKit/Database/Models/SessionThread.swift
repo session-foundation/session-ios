@@ -223,10 +223,15 @@ public extension SessionThread {
         switch try? fetchOne(db, id: id) {
             case .some(let existingThread): result = existingThread
             case .none:
-                let targetPriority: Int32 = dependencies
-                    .mutate(cache: .libSession) { $0.pinnedPriority(db, threadId: id, threadVariant: variant) }
-                    .defaulting(to: LibSession.defaultNewThreadPriority)
-                
+                let targetPriority: Int32 = dependencies.mutate(cache: .libSession) { cache in
+                    cache.pinnedPriority(
+                        threadId: id,
+                        threadVariant: variant,
+                        openGroupUrlInfo: (variant != .community ? nil :
+                            try? LibSession.OpenGroupUrlInfo.fetchOne(db, id: id)
+                        )
+                    )
+                }
                 result = try SessionThread(
                     id: id,
                     variant: variant,
@@ -289,9 +294,15 @@ public extension SessionThread {
         /// should both be sourced from `libSession`
         switch (values.pinnedPriority, values.shouldBeVisible) {
             case (.useLibSession, .useLibSession):
-                let targetPriority: Int32 = dependencies
-                    .mutate(cache: .libSession) { $0.pinnedPriority(db, threadId: id, threadVariant: variant) }
-                    .defaulting(to: LibSession.defaultNewThreadPriority)
+                let targetPriority: Int32 = dependencies.mutate(cache: .libSession) { cache in
+                    cache.pinnedPriority(
+                        threadId: id,
+                        threadVariant: variant,
+                        openGroupUrlInfo: (variant != .community ? nil :
+                            try? LibSession.OpenGroupUrlInfo.fetchOne(db, id: id)
+                        )
+                    )
+                }
                 let libSessionShouldBeVisible: Bool = LibSession.shouldBeVisible(priority: targetPriority)
                 
                 if targetPriority != result.pinnedPriority {
@@ -672,10 +683,10 @@ public extension SessionThread {
     static func displayName(
         threadId: String,
         variant: Variant,
-        closedGroupName: String? = nil,
-        openGroupName: String? = nil,
-        isNoteToSelf: Bool = false,
-        profile: Profile? = nil
+        closedGroupName: String?,
+        openGroupName: String?,
+        isNoteToSelf: Bool,
+        profile: Profile?
     ) -> String {
         switch variant {
             case .legacyGroup, .group: return (closedGroupName ?? "groupUnknown".localized())

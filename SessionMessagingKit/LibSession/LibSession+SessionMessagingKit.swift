@@ -566,7 +566,6 @@ public extension LibSession {
             guard dependencies[cache: .general].userExists else { throw LibSessionError.userDoesNotExist }
             
             // Get a list of the different config variants for the provided publicKey
-            let userSessionId: SessionId = dependencies[cache: .general].sessionId
             let targetSessionId: SessionId = try SessionId(from: swarmPublicKey)
             let targetVariants: [(sessionId: SessionId, variant: ConfigDump.Variant)] = {
                 switch (swarmPublicKey, targetSessionId) {
@@ -814,85 +813,6 @@ public extension LibSession {
                     _ = try configStore[sessionId, variant]?.merge(message)
                 }
         }
-        
-        // MARK: - Value Access
-        
-        public func pinnedPriority(
-            _ db: Database,
-            threadId: String,
-            threadVariant: SessionThread.Variant
-        ) -> Int32? {
-            let userSessionId: SessionId = dependencies[cache: .general].sessionId
-            
-            switch threadVariant {
-                case .contact where threadId == userSessionId.hexString:
-                    return configStore[userSessionId, .userProfile]?.pinnedPriority(
-                        db,
-                        threadId: threadId,
-                        threadVariant: threadVariant
-                    )
-                    
-                case .contact:
-                    return configStore[userSessionId, .contacts]?.pinnedPriority(
-                        db,
-                        threadId: threadId,
-                        threadVariant: threadVariant
-                    )
-                    
-                case .community, .group, .legacyGroup:
-                    return configStore[userSessionId, .userGroups]?.pinnedPriority(
-                        db,
-                        threadId: threadId,
-                        threadVariant: threadVariant
-                    )
-            }
-        }
-        
-        public func disappearingMessagesConfig(
-            threadId: String,
-            threadVariant: SessionThread.Variant
-        ) -> DisappearingMessagesConfiguration? {
-            let userSessionId: SessionId = dependencies[cache: .general].sessionId
-            
-            switch threadVariant {
-                case .contact where threadId == userSessionId.hexString:
-                    return configStore[userSessionId, .userProfile]?.disappearingMessagesConfig(
-                        threadId: threadId,
-                        threadVariant: threadVariant
-                    )
-                    
-                case .contact:
-                    return configStore[userSessionId, .contacts]?.disappearingMessagesConfig(
-                        threadId: threadId,
-                        threadVariant: threadVariant
-                    )
-                    
-                case .community, .legacyGroup:
-                    return configStore[userSessionId, .userGroups]?.disappearingMessagesConfig(
-                        threadId: threadId,
-                        threadVariant: threadVariant
-                    )
-                    
-                case .group:
-                    guard
-                        let groupSessionId: SessionId = try? SessionId(from: threadId),
-                        groupSessionId.prefix == .group
-                    else { return nil }
-                    
-                    return configStore[groupSessionId, .groupInfo]?.disappearingMessagesConfig(
-                        threadId: threadId,
-                        threadVariant: threadVariant
-                    )
-            }
-        }
-        
-        public func isAdmin(groupSessionId: SessionId) -> Bool {
-            guard let config: LibSession.Config = configStore[groupSessionId, .groupKeys] else {
-                return false
-            }
-            
-            return config.isAdmin()
-        }
     }
 }
 
@@ -922,6 +842,10 @@ public protocol LibSessionCacheType: LibSessionImmutableCacheType, MutableCacheT
         userEd25519KeyPair: KeyPair,
         groupEd25519SecretKey: [UInt8]?
     )
+    func loadAdminKey(
+        groupIdentitySeed: Data,
+        groupSessionId: SessionId,
+    ) throws
     func hasConfig(for variant: ConfigDump.Variant, sessionId: SessionId) -> Bool
     func config(for variant: ConfigDump.Variant, sessionId: SessionId) -> LibSession.Config?
     func setConfig(for variant: ConfigDump.Variant, sessionId: SessionId, to config: LibSession.Config)
@@ -980,18 +904,65 @@ public protocol LibSessionCacheType: LibSessionImmutableCacheType, MutableCacheT
         messages: [ConfigMessageReceiveJob.Details.MessageInfo]
     ) throws
     
-    // MARK: - Value Access
+    // MARK: - State Access
     
-    func pinnedPriority(
-        _ db: Database,
+    func canPerformChange(
+        threadId: String,
+        threadVariant: SessionThread.Variant,
+        changeTimestampMs: Int64
+    ) -> Bool
+    func conversationInConfig(
+        threadId: String,
+        threadVariant: SessionThread.Variant,
+        visibleOnly: Bool,
+        openGroupUrlInfo: LibSession.OpenGroupUrlInfo?
+    ) -> Bool
+    func conversationDisplayName(
+        threadId: String,
+        threadVariant: SessionThread.Variant,
+        contactProfile: Profile?,
+        visibleMessage: VisibleMessage?,
+        openGroupName: String?,
+        openGroupUrlInfo: LibSession.OpenGroupUrlInfo?
+    ) -> String
+    
+    /// Returns whether the specified conversation is a message request
+    ///
+    /// **Note:** Defaults to `true` on failure
+    func isMessageRequest(
         threadId: String,
         threadVariant: SessionThread.Variant
-    ) -> Int32?
+    ) -> Bool
+    func pinnedPriority(
+        threadId: String,
+        threadVariant: SessionThread.Variant,
+        openGroupUrlInfo: LibSession.OpenGroupUrlInfo?
+    ) -> Int32
+    func notificationSettings(
+        threadId: String,
+        threadVariant: SessionThread.Variant,
+        openGroupUrlInfo: LibSession.OpenGroupUrlInfo?
+    ) -> Preferences.NotificationSettings
     func disappearingMessagesConfig(
         threadId: String,
         threadVariant: SessionThread.Variant
     ) -> DisappearingMessagesConfiguration?
+    
+    func isContactBlocked(contactId: String) -> Bool
+    func profile(
+        threadId: String,
+        threadVariant: SessionThread.Variant,
+        contactId: String,
+        visibleMessage: VisibleMessage?
+    ) -> Profile?
+    
+    func hasCredentials(groupSessionId: SessionId) -> Bool
     func isAdmin(groupSessionId: SessionId) -> Bool
+    func wasKickedFromGroup(groupSessionId: SessionId) -> Bool
+    func groupName(groupSessionId: SessionId) -> String?
+    func groupIsDestroyed(groupSessionId: SessionId) -> Bool
+    func groupDeleteBefore(groupSessionId: SessionId) -> TimeInterval?
+    func groupDeleteAttachmentsBefore(groupSessionId: SessionId) -> TimeInterval?
 }
 
 public extension LibSessionCacheType {
@@ -1022,6 +993,10 @@ private final class NoopLibSessionCache: LibSessionCacheType {
         userEd25519KeyPair: KeyPair,
         groupEd25519SecretKey: [UInt8]?
     ) {}
+    func loadAdminKey(
+        groupIdentitySeed: Data,
+        groupSessionId: SessionId,
+    ) throws {}
     func hasConfig(for variant: ConfigDump.Variant, sessionId: SessionId) -> Bool { return false }
     func config(for variant: ConfigDump.Variant, sessionId: SessionId) -> LibSession.Config? { return nil }
     func setConfig(for variant: ConfigDump.Variant, sessionId: SessionId, to config: LibSession.Config) {}
@@ -1082,18 +1057,62 @@ private final class NoopLibSessionCache: LibSessionCacheType {
         messages: [ConfigMessageReceiveJob.Details.MessageInfo]
     ) throws {}
     
-    // MARK: - Value Access
+    // MARK: - State Access
     
-    func pinnedPriority(
-        _ db: Database,
+    func canPerformChange(
+        threadId: String,
+        threadVariant: SessionThread.Variant,
+        changeTimestampMs: Int64
+    ) -> Bool { return false }
+    func conversationInConfig(
+        threadId: String,
+        threadVariant: SessionThread.Variant,
+        visibleOnly: Bool,
+        openGroupUrlInfo: LibSession.OpenGroupUrlInfo?
+    ) -> Bool { return false }
+    func conversationDisplayName(
+        threadId: String,
+        threadVariant: SessionThread.Variant,
+        contactProfile: Profile?,
+        visibleMessage: VisibleMessage?,
+        openGroupName: String?,
+        openGroupUrlInfo: LibSession.OpenGroupUrlInfo?
+    ) -> String { return "" }
+    
+    func isMessageRequest(
         threadId: String,
         threadVariant: SessionThread.Variant
-    ) -> Int32? { return nil }
+    ) -> Bool { return false }
+    func pinnedPriority(
+        threadId: String,
+        threadVariant: SessionThread.Variant,
+        openGroupUrlInfo: LibSession.OpenGroupUrlInfo?
+    ) -> Int32 { return LibSession.defaultNewThreadPriority }
+    func notificationSettings(
+        threadId: String,
+        threadVariant: SessionThread.Variant,
+        openGroupUrlInfo: LibSession.OpenGroupUrlInfo?
+    ) -> Preferences.NotificationSettings { return .defaultFor(threadVariant) }
     func disappearingMessagesConfig(
         threadId: String,
         threadVariant: SessionThread.Variant
     ) -> DisappearingMessagesConfiguration? { return nil }
+    
+    func isContactBlocked(contactId: String) -> Bool { return false }
+    func profile(
+        threadId: String,
+        threadVariant: SessionThread.Variant,
+        contactId: String,
+        visibleMessage: VisibleMessage?
+    ) -> Profile? { return nil }
+    
+    func hasCredentials(groupSessionId: SessionId) -> Bool { return false }
     func isAdmin(groupSessionId: SessionId) -> Bool { return false }
+    func wasKickedFromGroup(groupSessionId: SessionId) -> Bool { return false }
+    func groupName(groupSessionId: SessionId) -> String? { return nil }
+    func groupIsDestroyed(groupSessionId: SessionId) -> Bool { return false }
+    func groupDeleteBefore(groupSessionId: SessionId) -> TimeInterval? { return nil }
+    func groupDeleteAttachmentsBefore(groupSessionId: SessionId) -> TimeInterval? { return nil }
 }
 
 // MARK: - Convenience

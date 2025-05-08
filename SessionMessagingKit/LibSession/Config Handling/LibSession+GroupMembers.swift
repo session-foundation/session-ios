@@ -34,7 +34,6 @@ internal extension LibSessionCacheType {
         guard case .groupMembers(let conf) = config else { throw LibSessionError.invalidConfigObject }
         
         // Get the two member sets
-        let userSessionId: SessionId = dependencies[cache: .general].sessionId
         let updatedMembers: Set<GroupMember> = try LibSession.extractMembers(from: conf, groupSessionId: groupSessionId)
         let existingMembers: Set<GroupMember> = (try? GroupMember
             .filter(GroupMember.Columns.groupId == groupSessionId.hexString)
@@ -368,7 +367,11 @@ internal extension LibSession {
         // isn't an admin (non-admins can't update `GroupMembers` anyway)
         let targetMembers: [GroupMember] = updatedMembers
             .filter { (try? SessionId(from: $0.groupId))?.prefix == .group }
-            .filter { isAdmin(groupSessionId: SessionId(.group, hex: $0.groupId), using: dependencies) }
+            .filter { member in
+                dependencies.mutate(cache: .libSession, { cache in
+                    cache.isAdmin(groupSessionId: SessionId(.group, hex: member.groupId))
+                })
+            }
         
         // If we only updated the current user contact then no need to continue
         guard
@@ -392,35 +395,6 @@ internal extension LibSession {
         }
         
         return updated
-    }
-}
-
-// MARK: - State Access
-
-extension LibSession.Config {
-    public func memberProfile(memberId: String) -> Profile? {
-        guard
-            case .groupMembers(let conf) = self,
-            var cMemberId: [CChar] = memberId.cString(using: .utf8)
-        else { return nil }
-        
-        var member: config_group_member = config_group_member()
-        
-        guard groups_members_get(conf, &member, &cMemberId) else {
-            LibSessionError.clear(conf)
-            return nil
-        }
-        
-        let profilePictureUrl: String? = member.get(\.profile_pic.url, nullIfEmpty: true)
-        return Profile(
-            id: memberId,
-            name: member.get(\.name),
-            lastNameUpdate: nil,
-            nickname: nil,
-            profilePictureUrl: profilePictureUrl,
-            profileEncryptionKey: (profilePictureUrl == nil ? nil : member.get(\.profile_pic.key)),
-            lastProfilePictureUpdate: nil
-        )
     }
 }
 

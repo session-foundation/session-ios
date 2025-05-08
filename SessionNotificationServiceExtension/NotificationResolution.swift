@@ -16,6 +16,7 @@ enum NotificationResolution: CustomStringConvertible {
     case ignoreDueToNonLegacyGroupLegacyNotification
     case ignoreDueToOutdatedMessage
     case ignoreDueToRequiresNoNotification
+    case ignoreDueToMessageRequest
     case ignoreDueToDuplicateMessage
     case ignoreDueToContentSize(PushNotificationAPI.NotificationMetadata)
     
@@ -41,6 +42,7 @@ enum NotificationResolution: CustomStringConvertible {
             case .ignoreDueToNonLegacyGroupLegacyNotification: return "Ignored: Non-group legacy notification"
             case .ignoreDueToOutdatedMessage: return "Ignored: Alteady seen message"
             case .ignoreDueToRequiresNoNotification: return "Ignored: Message requires no notification"
+            case .ignoreDueToMessageRequest: return "Ignored: Subsequent message in a message request"
             
             case .ignoreDueToDuplicateMessage:
                 return "Ignored: Duplicate message (probably received it just before going to the background)"
@@ -69,7 +71,8 @@ enum NotificationResolution: CustomStringConvertible {
         switch self {
             case .success, .successCall, .ignoreDueToMainAppRunning, .ignoreDueToNoContentFromApple,
                 .ignoreDueToNonLegacyGroupLegacyNotification, .ignoreDueToOutdatedMessage,
-                .ignoreDueToRequiresNoNotification, .ignoreDueToDuplicateMessage, .ignoreDueToContentSize:
+                .ignoreDueToRequiresNoNotification, .ignoreDueToMessageRequest, .ignoreDueToDuplicateMessage,
+                .ignoreDueToContentSize:
                 return .info
                 
             case .errorNotReadyForExtensions, .errorLegacyPushNotification, .errorNoContent, .errorCallFailure:

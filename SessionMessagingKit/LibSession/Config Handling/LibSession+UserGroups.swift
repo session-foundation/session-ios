@@ -432,7 +432,7 @@ internal extension LibSessionCacheType {
         groupSessionIds: [String],
         using dependencies: Dependencies
     ) throws {
-        try performAndPushChange(db, for: .userGroups, sessionId: dependencies[cache: .general].sessionId) { config in
+        try performAndPushChange(db, for: .userGroups, sessionId: userSessionId) { config in
             guard case .userGroups(let conf) = config else { throw LibSessionError.invalidConfigObject }
             
             try groupSessionIds.forEach { groupId in
@@ -452,7 +452,7 @@ internal extension LibSessionCacheType {
         groupSessionIds: [String],
         using dependencies: Dependencies
     ) throws {
-        try performAndPushChange(db, for: .userGroups, sessionId: dependencies[cache: .general].sessionId) { config in
+        try performAndPushChange(db, for: .userGroups, sessionId: userSessionId) { config in
             guard case .userGroups(let conf) = config else { throw LibSessionError.invalidConfigObject }
             
             try groupSessionIds.forEach { groupId in
@@ -472,7 +472,7 @@ internal extension LibSessionCacheType {
         groupSessionIds: [String],
         using dependencies: Dependencies
     ) throws {
-        try performAndPushChange(db, for: .userGroups, sessionId: dependencies[cache: .general].sessionId) { config in
+        try performAndPushChange(db, for: .userGroups, sessionId: userSessionId) { config in
             guard case .userGroups(let conf) = config else { throw LibSessionError.invalidConfigObject }
             
             try groupSessionIds.forEach { groupId in
@@ -916,13 +916,13 @@ public extension LibSession {
 
 // MARK: - State Access
 
-public extension LibSession.Config {
+public extension LibSession.Cache {
     func hasCredentials(groupSessionId: SessionId) -> Bool {
         var userGroup: ugroups_group_info = ugroups_group_info()
         
         /// If the group doesn't exist or a conversion fails then assume the user hasn't been kicked
         guard
-            case .userGroups(let conf) = self,
+            case .userGroups(let conf) = config(for: .userGroups, sessionId: userSessionId),
             var cGroupId: [CChar] = groupSessionId.hexString.cString(using: .utf8),
             user_groups_get_group(conf, &userGroup, &cGroupId)
         else { return false }
@@ -935,7 +935,7 @@ public extension LibSession.Config {
         
         /// If the group doesn't exist or a conversion fails then assume the user hasn't been kicked
         guard
-            case .userGroups(let conf) = self,
+            case .userGroups(let conf) = config(for: .userGroups, sessionId: userSessionId),
             var cGroupId: [CChar] = groupSessionId.hexString.cString(using: .utf8),
             user_groups_get_group(conf, &userGroup, &cGroupId)
         else { return false }
@@ -948,58 +948,12 @@ public extension LibSession.Config {
         
         /// If the group doesn't exist or a conversion fails then assume the group hasn't been destroyed
         guard
-            case .userGroups(let conf) = self,
+            case .userGroups(let conf) = config(for: .userGroups, sessionId: userSessionId),
             var cGroupId: [CChar] = groupSessionId.hexString.cString(using: .utf8),
             user_groups_get_group(conf, &userGroup, &cGroupId)
         else { return false }
         
         return ugroups_group_is_destroyed(&userGroup)
-    }
-    
-    func groupName(groupId: String) -> String? {
-        guard
-            case .userGroups(let conf) = self,
-            var cGroupId: [CChar] = groupId.cString(using: .utf8)
-        else { return nil }
-
-        var group: ugroups_group_info = ugroups_group_info()
-        
-        guard user_groups_get_group(conf, &group, &cGroupId) else {
-            LibSessionError.clear(conf)
-            
-            guard let legacyGroup: UnsafeMutablePointer<ugroups_legacy_group_info> = user_groups_get_legacy_group(conf, &cGroupId) else {
-                LibSessionError.clear(conf)
-                return nil
-            }
-            
-            defer { ugroups_legacy_group_free(legacyGroup) }
-            return legacyGroup.get(\.name)
-        }
-        
-        return group.get(\.name)
-    }
-    
-    func communityName(groupId: String) -> String? {
-        guard
-            case .userGroups(let conf) = self,
-            var cGroupId: [CChar] = groupId.cString(using: .utf8)
-        else { return nil }
-
-        var group: ugroups_group_info = ugroups_group_info()
-        
-        guard user_groups_get_group(conf, &group, &cGroupId) else {
-            LibSessionError.clear(conf)
-            
-            guard let legacyGroup: UnsafeMutablePointer<ugroups_legacy_group_info> = user_groups_get_legacy_group(conf, &cGroupId) else {
-                LibSessionError.clear(conf)
-                return nil
-            }
-            
-            defer { ugroups_legacy_group_free(legacyGroup) }
-            return legacyGroup.get(\.name)
-        }
-        
-        return group.get(\.name)
     }
 }
 

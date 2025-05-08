@@ -41,18 +41,14 @@ public class ThreadPickerViewModel {
                 .map { threadViewModel in
                     let wasKickedFromGroup: Bool = (
                         threadViewModel.threadVariant == .group &&
-                        dependencies.mutate(cache: .libSession, config: .userGroups) { config in
-                            (config?
-                                .wasKickedFromGroup(groupSessionId: SessionId(.group, hex: threadViewModel.threadId)))
-                                .defaulting(to: false)
+                        dependencies.mutate(cache: .libSession) { cache in
+                            cache.wasKickedFromGroup(groupSessionId: SessionId(.group, hex: threadViewModel.threadId))
                         }
                     )
                     let groupIsDestroyed: Bool = (
                         threadViewModel.threadVariant == .group &&
-                        dependencies.mutate(cache: .libSession, config: .userGroups) { config in
-                            (config?
-                                .groupIsDestroyed(groupSessionId: SessionId(.group, hex: threadViewModel.threadId)))
-                                .defaulting(to: false)
+                        dependencies.mutate(cache: .libSession) { cache in
+                            cache.groupIsDestroyed(groupSessionId: SessionId(.group, hex: threadViewModel.threadId))
                         }
                     )
                     

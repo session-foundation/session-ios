@@ -337,15 +337,6 @@ internal extension LibSession {
             using: dependencies
         )
     }
-    
-    static func isAdmin(
-        groupSessionId: SessionId,
-        using dependencies: Dependencies
-    ) -> Bool {
-        return dependencies.mutate(cache: .libSession) { cache in
-            return cache.isAdmin(groupSessionId: groupSessionId)
-        }
-    }
 }
 
 internal extension LibSessionCacheType {

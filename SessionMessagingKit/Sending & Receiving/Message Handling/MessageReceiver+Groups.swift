@@ -510,7 +510,9 @@ extension MessageReceiver {
         guard
             let sender: String = message.sender,
             let sentTimestampMs: UInt64 = message.sentTimestampMs,
-            LibSession.isAdmin(groupSessionId: groupSessionId, using: dependencies)
+            dependencies.mutate(cache: .libSession, { cache in
+                cache.isAdmin(groupSessionId: groupSessionId)
+            })
         else { throw MessageReceiverError.invalidMessage }
         
         // Trigger this removal in a separate process because it requires a number of requests to be made
@@ -735,7 +737,9 @@ extension MessageReceiver {
         /// messages from the swarm as well
         guard
             !hashes.isEmpty,
-            LibSession.isAdmin(groupSessionId: groupSessionId, using: dependencies),
+            dependencies.mutate(cache: .libSession, { cache in
+                cache.isAdmin(groupSessionId: groupSessionId)
+            }),
             let authMethod: AuthenticationMethod = try? Authentication.with(
                 db,
                 swarmPublicKey: groupSessionId.hexString,
@@ -800,19 +804,13 @@ extension MessageReceiver {
         
         /// If we haven't already handled being kicked from the group then update the name of the group in `USER_GROUPS` so
         /// that if the user doesn't delete the group and links a new device, the group will have the same name as on the current device
-        let wasKickedFromGroup: Bool = dependencies
-            .mutate(cache: .libSession, config: .userGroups) { config in
-                config?.wasKickedFromGroup(groupSessionId: groupSessionId)
-            }
-            .defaulting(to: false)
+        let wasKickedFromGroup: Bool = dependencies.mutate(cache: .libSession) { cache in
+            cache.wasKickedFromGroup(groupSessionId: groupSessionId)
+        }
         
         if !wasKickedFromGroup {
             dependencies.mutate(cache: .libSession) { cache in
-                let groupInfoConfig: LibSession.Config? = cache.config(for: .groupInfo, sessionId: groupSessionId)
-                let userGroupsConfig: LibSession.Config? = cache.config(for: .userGroups, sessionId: userSessionId)
-                let groupName: String? = groupInfoConfig?.groupName
-                
-                switch groupName {
+                switch cache.groupName(groupSessionId: groupSessionId) {
                     case .none: Log.warn(.messageReceiver, "Failed to update group name before being kicked.")
                     case .some(let name):
                         try? LibSession.upsert(
@@ -822,7 +820,7 @@ extension MessageReceiver {
                                     name: name
                                 )
                             ],
-                            in: userGroupsConfig,
+                            in: cache.config(for: .userGroups, sessionId: userSessionId),
                             using: dependencies
                         )
                 }
@@ -887,11 +885,9 @@ extension MessageReceiver {
         
         /// If we had previously been kicked from a group then we need to update the flag in `UserGroups` so that we don't consider
         /// ourselves as kicked anymore
-        let wasKickedFromGroup: Bool = dependencies
-            .mutate(cache: .libSession, config: .userGroups) { config in
-                config?.wasKickedFromGroup(groupSessionId: groupSessionId)
-            }
-            .defaulting(to: false)
+        let wasKickedFromGroup: Bool = dependencies.mutate(cache: .libSession) { cache in
+            cache.wasKickedFromGroup(groupSessionId: groupSessionId)
+        }
         try MessageReceiver.handleNewGroup(
             db,
             groupSessionId: groupSessionId.hexString,
@@ -978,16 +974,14 @@ extension MessageReceiver {
                 }
             }(),
             timestampMs: sentTimestampMs,
-            wasRead: dependencies
-                .mutate(cache: .libSession, config: .convoInfoVolatile) { config in
-                    config?.timestampAlreadyRead(
-                        threadId: groupSessionId.hexString,
-                        threadVariant: .group,
-                        timestampMs: sentTimestampMs,
-                        openGroupUrlInfo: nil
-                    )
-                }
-                .defaulting(to: false),
+            wasRead: dependencies.mutate(cache: .libSession) { cache in
+                cache.timestampAlreadyRead(
+                    threadId: groupSessionId.hexString,
+                    threadVariant: .group,
+                    timestampMs: sentTimestampMs,
+                    openGroupUrlInfo: nil
+                )
+            },
             using: dependencies
         ).inserted(db)
         
