@@ -65,26 +65,12 @@ extension PushNotificationAPI.NotificationMetadata {
 
 // MARK: - Convenience
 
-extension PushNotificationAPI.NotificationMetadata {
+public extension PushNotificationAPI.NotificationMetadata {
     static var invalid: PushNotificationAPI.NotificationMetadata {
         PushNotificationAPI.NotificationMetadata(
             accountId: "",
             hash: "",
             namespace: .unknown,
-            createdTimestampMs: 0,
-            expirationTimestampMs: 0,
-            dataLength: 0,
-            dataTooLong: false
-        )
-    }
-    
-    static func legacyGroupMessage(envelope: SNProtoEnvelope) throws -> PushNotificationAPI.NotificationMetadata {
-        guard let publicKey: String = envelope.source else { throw MessageReceiverError.invalidMessage }
-        
-        return PushNotificationAPI.NotificationMetadata(
-            accountId: publicKey,
-            hash: "",
-            namespace: .legacyClosedGroup,
             createdTimestampMs: 0,
             expirationTimestampMs: 0,
             dataLength: 0,

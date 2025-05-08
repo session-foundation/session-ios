@@ -326,7 +326,7 @@ public class DisplayPictureManager {
                 // Encrypt the avatar for upload
                 guard
                     let encryptedData: Data = dependencies[singleton: .crypto].generate(
-                        .encryptedDataDisplayPicture(data: finalImageData, key: newEncryptionKey, using: dependencies)
+                        .encryptedDataDisplayPicture(data: finalImageData, key: newEncryptionKey)
                     )
                 else {
                     Log.error(.displayPictureManager, "Updating service with profile failed.")

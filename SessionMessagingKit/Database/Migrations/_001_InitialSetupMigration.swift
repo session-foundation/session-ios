@@ -12,9 +12,9 @@ enum _001_InitialSetupMigration: Migration {
     static let minExpectedRunDuration: TimeInterval = 0.1
     static let createdTables: [(TableRecord & FetchableRecord).Type] = [
         Contact.self, Profile.self, SessionThread.self, DisappearingMessagesConfiguration.self,
-        ClosedGroup.self, ClosedGroupKeyPair.self, OpenGroup.self, Capability.self, BlindedIdLookup.self,
+        ClosedGroup.self, OpenGroup.self, Capability.self, BlindedIdLookup.self,
         GroupMember.self, Interaction.self, Attachment.self, InteractionAttachment.self, Quote.self,
-        LinkPreview.self, ControlMessageProcessRecord.self, ThreadTypingIndicator.self
+        LinkPreview.self, ThreadTypingIndicator.self
     ]
     
     public static let fullTextSearchTokenizer: FTS5TokenizerDescriptor = {

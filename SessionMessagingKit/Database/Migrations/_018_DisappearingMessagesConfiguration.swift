@@ -129,22 +129,6 @@ enum _018_DisappearingMessagesConfiguration: Migration {
             using: dependencies
         )
         
-        try LibSession.upsert(
-            legacyGroups: disappearingMessageInfo
-                .filter { $0["variant"] == SessionThread.Variant.legacyGroup.rawValue }
-                .map {
-                    LibSession.LegacyGroupInfo(
-                        id: $0["id"],
-                        disappearingMessageInfo: LibSession.DisappearingMessageInfo(
-                            isEnabled: $0["isEnabled"],
-                            durationSeconds: $0["durationSeconds"],
-                            rawType: legacyGroupType.rawValue
-                        )
-                    )
-                },
-            in: userGroupsConfig
-        )
-        
         // Now that the state is updated we need to save the updated config dumps
         if cache.configNeedsDump(userProfileConfig), let dumpData: Data = try userProfileConfig.dump() {
             try db.execute(

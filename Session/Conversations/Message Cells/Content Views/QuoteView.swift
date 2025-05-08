@@ -30,9 +30,7 @@ final class QuoteView: UIView {
         authorId: String,
         quotedText: String?,
         threadVariant: SessionThread.Variant,
-        currentUserSessionId: String?,
-        currentUserBlinded15SessionId: String?,
-        currentUserBlinded25SessionId: String?,
+        currentUserSessionIds: Set<String>,
         direction: Direction,
         attachment: Attachment?,
         using dependencies: Dependencies,
@@ -48,9 +46,7 @@ final class QuoteView: UIView {
             authorId: authorId,
             quotedText: quotedText,
             threadVariant: threadVariant,
-            currentUserSessionId: currentUserSessionId,
-            currentUserBlinded15SessionId: currentUserBlinded15SessionId,
-            currentUserBlinded25SessionId: currentUserBlinded25SessionId,
+            currentUserSessionIds: currentUserSessionIds,
             direction: direction,
             attachment: attachment
         )
@@ -69,9 +65,7 @@ final class QuoteView: UIView {
         authorId: String,
         quotedText: String?,
         threadVariant: SessionThread.Variant,
-        currentUserSessionId: String?,
-        currentUserBlinded15SessionId: String?,
-        currentUserBlinded25SessionId: String?,
+        currentUserSessionIds: Set<String>,
         direction: Direction,
         attachment: Attachment?
     ) {
@@ -197,9 +191,7 @@ final class QuoteView: UIView {
                     MentionUtilities.highlightMentions(
                         in: $0,
                         threadVariant: threadVariant,
-                        currentUserSessionId: currentUserSessionId,
-                        currentUserBlinded15SessionId: currentUserBlinded15SessionId,
-                        currentUserBlinded25SessionId: currentUserBlinded25SessionId,
+                        currentUserSessionIds: currentUserSessionIds,
                         location: {
                             switch (mode, direction) {
                                 case (.draft, _): return .quoteDraft
@@ -225,19 +217,10 @@ final class QuoteView: UIView {
         }
         
         // Label stack view
-        let isCurrentUser: Bool = [
-            currentUserSessionId,
-            currentUserBlinded15SessionId,
-            currentUserBlinded25SessionId
-        ]
-        .compactMap { $0 }
-        .asSet()
-        .contains(authorId)
-        
         let authorLabel = UILabel()
         authorLabel.font = .boldSystemFont(ofSize: Values.smallFontSize)
         authorLabel.text = {
-            guard !isCurrentUser else { return "you".localized() }
+            guard !currentUserSessionIds.contains(authorId) else { return "you".localized() }
             guard body != nil else {
                 // When we can't find the quoted message we want to hide the author label
                 return Profile.displayNameNoFallback(

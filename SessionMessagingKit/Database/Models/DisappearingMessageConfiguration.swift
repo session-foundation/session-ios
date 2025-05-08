@@ -319,8 +319,7 @@ public extension DisappearingMessagesConfiguration {
                     threadId: threadId,
                     threadVariant: threadVariant,
                     timestampMs: timestampMs,
-                    userSessionId: userSessionId,
-                    openGroup: nil
+                    openGroupUrlInfo: nil
                 )
             }
         )

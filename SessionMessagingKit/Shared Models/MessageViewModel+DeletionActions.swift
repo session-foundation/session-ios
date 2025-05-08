@@ -130,10 +130,7 @@ public extension MessageViewModel.DeletionBehaviours {
         }
         
         /// If it's a legacy group and they have been deprecated then the user shouldn't be able to delete messages
-        guard
-            threadData.threadVariant != .legacyGroup ||
-            !dependencies[feature: .legacyGroupsDeprecated]
-        else { return nil }
+        guard threadData.threadVariant != .legacyGroup else { return nil }
         
         /// First determine the state of the selected messages
         let state: SelectedMessageState = {
@@ -164,7 +161,8 @@ public extension MessageViewModel.DeletionBehaviours {
                             db,
                             publicKey: threadData.currentUserSessionId,
                             for: roomToken,
-                            on: server
+                            on: server,
+                            currentUserSessionIds: (threadData.currentUserSessionIds ?? [])
                         )
                 }
             }()
@@ -367,7 +365,7 @@ public extension MessageViewModel.DeletionBehaviours {
             case (.contact, _):
                 /// Only include messages sent by the current user (can't delete incoming messages in contact conversations)
                 let targetViewModels: [MessageViewModel] = cellViewModels
-                    .filter { $0.authorId == threadData.currentUserSessionId }
+                    .filter { threadData.currentUserSessionId.contains($0.authorId) }
                 let serverHashes: Set<String> = try Interaction.serverHashesForDeletion(
                     db,
                     interactionIds: targetViewModels.map { $0.id }.asSet()
@@ -442,7 +440,7 @@ public extension MessageViewModel.DeletionBehaviours {
             case (.legacyGroup, _):
                 /// Only try to delete messages send by other users if the current user is an admin
                 let targetViewModels: [MessageViewModel] = cellViewModels
-                    .filter { isAdmin || $0.authorId == threadData.currentUserSessionId }
+                    .filter { isAdmin || (threadData.currentUserSessionIds ?? []).contains($0.authorId) }
                 let unsendRequests: [Network.PreparedRequest<Void>] = try targetViewModels.map { model in
                     try MessageSender.preparedSend(
                         db,
@@ -499,7 +497,7 @@ public extension MessageViewModel.DeletionBehaviours {
             case (.group, false):
                 /// Only include messages sent by the current user (non-admins can't delete incoming messages in group conversations)
                 let targetViewModels: [MessageViewModel] = cellViewModels
-                    .filter { $0.authorId == threadData.currentUserSessionId }
+                    .filter { (threadData.currentUserSessionIds ?? []).contains($0.authorId) }
                 let serverHashes: Set<String> = try Interaction.serverHashesForDeletion(
                     db,
                     interactionIds: targetViewModels.map { $0.id }.asSet()
