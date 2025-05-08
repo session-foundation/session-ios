@@ -83,82 +83,78 @@ public class NotificationPresenter: NSObject, UNUserNotificationCenterDelegate, 
         in thread: SessionThread,
         applicationState: UIApplication.State
     ) {
-        let targetConfig: ConfigDump.Variant = (thread.variant == .contact ? .contacts : .userGroups)
-        let notificationSettings: Preferences.NotificationSettings = dependencies
-            .mutate(cache: .libSession, config: targetConfig) { config in
-                config?.notificationSettings(
-                    threadId: thread.id,
-                    threadVariant: thread.variant,
-                    openGroupUrlInfo: nil,  /// Communities current don't support PNs
-                    applicationState: applicationState
-                )
-            }
-            .defaulting(to: Preferences.NotificationSettings.defaultFor(thread.variant))
-        
-        let content = UNMutableNotificationContent()
-        content.userInfo = notificationUserInfo(threadId: thread.id, threadVariant: thread.variant)
-        content.categoryIdentifier = NotificationCategory.errorMessage.identifier
-        content.threadIdentifier = thread.id
-        content.body = "messageErrorDelivery".localized()
-        
-        /// Add the title if needed
-        switch notificationSettings.previewType {
-            case .noNameNoPreview: content.title = Constants.app_name
-            case .nameNoPreview, .nameAndPreview:
-                content.title = SessionThread.displayName(
-                    threadId: thread.id,
-                    variant: thread.variant,
-                    closedGroupName: try? thread.closedGroup
-                        .select(.name)
-                        .asRequest(of: String.self)
-                        .fetchOne(db),
-                    openGroupName: try? thread.openGroup
-                        .select(.name)
-                        .asRequest(of: String.self)
-                        .fetchOne(db),
-                    isNoteToSelf: (thread.isNoteToSelf(db, using: dependencies) == true),
-                    profile: try? Profile.fetchOne(db, id: thread.id)
-                )
+        let notificationSettings: Preferences.NotificationSettings = dependencies.mutate(cache: .libSession) { cache in
+            cache.notificationSettings(
+                threadId: thread.id,
+                threadVariant: thread.variant,
+                openGroupUrlInfo: nil  /// Communities current don't support PNs
+            )
         }
         
-        /// Add the notification sound if needed
-        if notificationShouldPlaySound(applicationState: applicationState) {
-            content.sound = notificationSettings.sound
-        }
-        
-        addNotificationRequest(
+        var content: NotificationContent = NotificationContent(
             threadId: thread.id,
             threadVariant: thread.variant,
             identifier: thread.id,
             category: .errorMessage,
-            content: content,
-            notificationSettings: notificationSettings,
+            body: "messageErrorDelivery".localized(),
+            sound: notificationSettings.sound,
+            userInfo: notificationUserInfo(threadId: thread.id, threadVariant: thread.variant),
             applicationState: applicationState
+        )
+        
+        /// Add the title if needed
+        switch notificationSettings.previewType {
+            case .noNameNoPreview: content = content.with(title: Constants.app_name)
+            case .nameNoPreview, .nameAndPreview:
+                content = content.with(
+                    title: dependencies.mutate(cache: .libSession) { cache in
+                        cache.conversationDisplayName(
+                            threadId: thread.id,
+                            threadVariant: thread.variant,
+                            contactProfile: (thread.variant != .contact ? nil :
+                                try? Profile.fetchOne(db, id: thread.id)
+                            ),
+                            visibleMessage: nil,    /// This notification is unrelated to the received message
+                            openGroupName: (thread.variant != .community ? nil :
+                                try? thread.openGroup
+                                    .select(.name)
+                                    .asRequest(of: String.self)
+                                    .fetchOne(db)
+                            ),
+                            openGroupUrlInfo: (thread.variant != .community ? nil :
+                                try? LibSession.OpenGroupUrlInfo.fetchOne(db, id: thread.id)
+                            )
+                        )
+                    }
+                )
+        }
+        
+        addNotificationRequest(
+            content: content,
+            notificationSettings: notificationSettings
         )
     }
     
     public func addNotificationRequest(
-        threadId: String,
-        threadVariant: SessionThread.Variant,
-        identifier: String,
-        category: NotificationCategory,
-        content: UNMutableNotificationContent,
-        notificationSettings: Preferences.NotificationSettings,
-        applicationState: UIApplication.State
+        content: NotificationContent,
+        notificationSettings: Preferences.NotificationSettings
     ) {
         var trigger: UNNotificationTrigger?
         let shouldPresentNotification: Bool = shouldPresentNotification(
-            threadId: threadId,
-            category: category,
-            applicationState: applicationState,
+            threadId: content.threadId,
+            category: content.category,
+            applicationState: content.applicationState,
             using: dependencies
+        )
+        let mutableContent: UNMutableNotificationContent = content.toMutableContent(
+            shouldPlaySound: notificationShouldPlaySound(applicationState: content.applicationState)
         )
         
         switch shouldPresentNotification {
             case true:
                 let shouldGroupNotification: Bool = (
-                    threadVariant == .community &&
-                    identifier == threadId
+                    content.threadVariant == .community &&
+                    content.identifier == content.threadId
                 )
                 
                 if shouldGroupNotification {
@@ -167,7 +163,7 @@ public class NotificationPresenter: NSObject, UNUserNotificationCenterDelegate, 
                         repeats: false
                     )
                     
-                    let numberExistingNotifications: Int? = notifications[identifier]?
+                    let numberExistingNotifications: Int? = notifications[content.identifier]?
                         .content
                         .userInfo[NotificationUserInfoKey.threadNotificationCounter]
                         .asType(Int.self)
@@ -175,35 +171,35 @@ public class NotificationPresenter: NSObject, UNUserNotificationCenterDelegate, 
                     
                     if numberExistingNotifications != nil {
                         numberOfNotifications += 1  // Add one for the current notification
-                        content.body = "messageNewYouveGot"
+                        mutableContent.body = "messageNewYouveGot"
                             .putNumber(numberOfNotifications)
                             .localized()
                     }
                     
-                    content.userInfo[NotificationUserInfoKey.threadNotificationCounter] = numberOfNotifications
+                    mutableContent.userInfo[NotificationUserInfoKey.threadNotificationCounter] = numberOfNotifications
                 }
                 
             case false:
                 // Play sound and vibrate, but without a `body` no banner will show
-                content.body = ""
+                mutableContent.body = ""
                 Log.debug("supressing notification body")
         }
         
         let request = UNNotificationRequest(
-            identifier: identifier,
-            content: content,
+            identifier: content.identifier,
+            content: mutableContent,
             trigger: trigger
         )
 
-        Log.debug("presenting notification with identifier: \(identifier)")
+        Log.debug("presenting notification with identifier: \(content.identifier)")
         
         /// If we are replacing a notification then cancel the original one
-        if notifications[identifier] != nil {
-            cancelNotifications(identifiers: [identifier])
+        if notifications[content.identifier] != nil {
+            cancelNotifications(identifiers: [content.identifier])
         }
         
         notificationCenter.add(request)
-        _notifications.performUpdate { $0.setting(identifier, request) }
+        _notifications.performUpdate { $0.setting(content.identifier, request) }
     }
     
     // MARK: - Clearing

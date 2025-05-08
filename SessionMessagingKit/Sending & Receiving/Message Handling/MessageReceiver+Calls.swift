@@ -281,16 +281,14 @@ extension MessageReceiver {
             variant: .infoCall,
             body: String(data: messageInfoData, encoding: .utf8),
             timestampMs: messageSentTimestampMs,
-            wasRead: dependencies
-                .mutate(cache: .libSession, config: .convoInfoVolatile) { config in
-                    config?.timestampAlreadyRead(
-                        threadId: thread.id,
-                        threadVariant: thread.variant,
-                        timestampMs: messageSentTimestampMs,
-                        openGroupUrlInfo: nil
-                    )
-                }
-                .defaulting(to: false),
+            wasRead: dependencies.mutate(cache: .libSession) { cache in
+                cache.timestampAlreadyRead(
+                    threadId: thread.id,
+                    threadVariant: thread.variant,
+                    timestampMs: messageSentTimestampMs,
+                    openGroupUrlInfo: nil
+                )
+            },
             expiresInSeconds: message.expiresInSeconds,
             expiresStartedAtMs: message.expiresStartedAtMs,
             using: dependencies
@@ -374,16 +372,14 @@ extension MessageReceiver {
             variant: .infoCall,
             body: String(data: messageInfoData, encoding: .utf8),
             timestampMs: timestampMs,
-            wasRead: dependencies
-                .mutate(cache: .libSession, config: .convoInfoVolatile) { config in
-                    config?.timestampAlreadyRead(
-                        threadId: thread.id,
-                        threadVariant: thread.variant,
-                        timestampMs: timestampMs,
-                        openGroupUrlInfo: nil
-                    )
-                }
-                .defaulting(to: false),
+            wasRead: dependencies.mutate(cache: .libSession) { cache in
+                cache.timestampAlreadyRead(
+                    threadId: thread.id,
+                    threadVariant: thread.variant,
+                    timestampMs: timestampMs,
+                    openGroupUrlInfo: nil
+                )
+            },
             expiresInSeconds: message.expiresInSeconds,
             expiresStartedAtMs: message.expiresStartedAtMs,
             using: dependencies

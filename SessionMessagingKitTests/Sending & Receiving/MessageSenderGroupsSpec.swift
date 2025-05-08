@@ -202,65 +202,17 @@ class MessageSenderGroupsSpec: QuickSpec {
         }()
         @TestState(cache: .libSession, in: dependencies) var mockLibSessionCache: MockLibSessionCache! = MockLibSessionCache(
             initialSetup: { cache in
-                let userSessionId: SessionId = SessionId(.standard, hex: TestConstants.publicKey)
-                
-                cache.when { $0.isEmpty }.thenReturn(false)
-                cache.when { $0.setConfig(for: .any, sessionId: .any, to: .any) }.thenReturn(())
-                cache.when { $0.removeConfigs(for: .any) }.thenReturn(())
-                cache
-                    .when { $0.config(for: .userGroups, sessionId: userSessionId) }
-                    .thenReturn(userGroupsConfig)
-                cache
-                    .when { $0.config(for: .groupInfo, sessionId: groupId) }
-                    .thenReturn(groupInfoConfig)
-                cache
-                    .when { $0.config(for: .groupMembers, sessionId: groupId) }
-                    .thenReturn(groupMembersConfig)
-                cache
-                    .when { $0.config(for: .groupKeys, sessionId: groupId) }
-                    .thenReturn(groupKeysConfig)
+                cache.defaultInitialSetup(
+                    configs: [
+                        .userGroups: userGroupsConfig,
+                        .groupInfo: groupInfoConfig,
+                        .groupMembers: groupMembersConfig,
+                        .groupKeys: groupKeysConfig
+                    ]
+                )
                 cache
                     .when { try $0.pendingChanges(swarmPublicKey: .any) }
                     .thenReturn(LibSession.PendingChanges(obsoleteHashes: ["testHash"]))
-                cache.when { $0.configNeedsDump(.any) }.thenReturn(false)
-                cache
-                    .when { try $0.createDump(config: .any, for: .any, sessionId: .any, timestampMs: .any) }
-                    .thenReturn(nil)
-                cache
-                    .when { try $0.withCustomBehaviour(.any, for: .any, variant: .any, change: { }) }
-                    .then { args, untrackedArgs in
-                        let callback: (() throws -> Void)? = (untrackedArgs[test: 0] as? () throws -> Void)
-                        try? callback?()
-                    }
-                    .thenReturn(())
-                cache
-                    .when { try $0.performAndPushChange(.any, for: .any, sessionId: .any, change: { _ in }) }
-                    .then { args, untrackedArgs in
-                        let callback: ((LibSession.Config?) throws -> Void)? = (untrackedArgs[test: 1] as? (LibSession.Config?) throws -> Void)
-                        
-                        switch args[test: 0] as? ConfigDump.Variant {
-                            case .userGroups: try? callback?(userGroupsConfig)
-                            case .groupInfo: try? callback?(groupInfoConfig)
-                            case .groupMembers: try? callback?(groupMembersConfig)
-                            case .groupKeys: try? callback?(groupKeysConfig)
-                            default: break
-                        }
-                    }
-                    .thenReturn(())
-                cache
-                    .when {
-                        try $0.createDumpMarkingAsPushed(
-                            data: .any,
-                            sentTimestamp: .any,
-                            swarmPublicKey: .any
-                        )
-                    }
-                    .thenReturn([])
-                cache
-                    .when { $0.pinnedPriority(.any, threadId: .any, threadVariant: .any) }
-                    .thenReturn(LibSession.defaultNewThreadPriority)
-                cache.when { $0.disappearingMessagesConfig(threadId: .any, threadVariant: .any) }
-                    .thenReturn(nil)
             }
         )
         @TestState(cache: .snodeAPI, in: dependencies) var mockSnodeAPICache: MockSnodeAPICache! = MockSnodeAPICache(

@@ -425,17 +425,11 @@ public struct SessionThreadViewModel: FetchableRecordWithRowId, Decodable, Equat
                 guard wasKickedFromGroup != true else { return false }
                 guard threadIsMessageRequest == false else { return true }
                 
-                /// Double check LibSession directly just in case we the view model hasn't been updated since they were changed
+                /// Double check `libSession` directly just in case we the view model hasn't been updated since they were changed
                 guard
-                    !dependencies.mutate(cache: .libSession, config: .userGroups, { config in
-                        (config?
-                            .wasKickedFromGroup(groupSessionId: SessionId(.group, hex: threadId)))
-                            .defaulting(to: false)
-                    }) &&
-                    !dependencies.mutate(cache: .libSession, config: .userGroups, { config in
-                        (config?
-                            .groupIsDestroyed(groupSessionId: SessionId(.group, hex: threadId)))
-                            .defaulting(to: false)
+                    dependencies.mutate(cache: .libSession, { cache in
+                        !cache.wasKickedFromGroup(groupSessionId: SessionId(.group, hex: threadId)) &&
+                        !cache.groupIsDestroyed(groupSessionId: SessionId(.group, hex: threadId))
                     })
                 else { return false }
                 

@@ -194,11 +194,9 @@ public enum MessageReceiver {
         
         // Don't process the envelope any further if the sender is blocked
         guard
-            dependencies.mutate(cache: .libSession, { cache in
-                cache
-                    .config(for: .contacts, sessionId: userSessionId)?
-                    .isContactBlocked(publicKey: sender)
-            }) != true ||
+            !dependencies.mutate(cache: .libSession, { cache in
+                cache.isContactBlocked(contactId: sender)
+            }) ||
             message.processWithBlockedSender
         else { throw MessageReceiverError.senderBlocked }
         
@@ -512,23 +510,23 @@ public enum MessageReceiver {
             /// • The message wasn't sent before all messages/attachments were deleted
             case (.group, _):
                 let messageSentTimestamp: TimeInterval = TimeInterval((message.sentTimestampMs ?? 0) / 1000)
+                let groupSessionId: SessionId = SessionId(.group, hex: threadId)
                 
                 /// Ensure the group is able to receive messages
-                try dependencies.mutate(cache: .libSession, config: .userGroups) { config in
+                try dependencies.mutate(cache: .libSession) { cache in
                     guard
-                        let config: LibSession.Config = config,
-                        config.hasCredentials(groupSessionId: SessionId(.group, hex: threadId)),
-                        !config.groupIsDestroyed(groupSessionId: SessionId(.group, hex: threadId)),
-                        !config.wasKickedFromGroup(groupSessionId: SessionId(.group, hex: threadId))
+                        cache.hasCredentials(groupSessionId: groupSessionId),
+                        !cache.groupIsDestroyed(groupSessionId: groupSessionId),
+                        !cache.wasKickedFromGroup(groupSessionId: groupSessionId)
                     else { throw MessageReceiverError.outdatedMessage }
                     
                     return
                 }
                 
                 /// Ensure the message shouldn't have been deleted
-                try dependencies.mutate(cache: .libSession, config: .groupInfo, groupSessionId: SessionId(.group, hex: threadId)) { config in
-                    let deleteBefore: TimeInterval = (config?.deleteBefore ?? 0)
-                    let deleteAttachmentsBefore: TimeInterval = (config?.deleteAttachmentsBefore ?? 0)
+                try dependencies.mutate(cache: .libSession) { cache in
+                    let deleteBefore: TimeInterval = (cache.groupDeleteBefore(groupSessionId: groupSessionId) ?? 0)
+                    let deleteAttachmentsBefore: TimeInterval = (cache.groupDeleteAttachmentsBefore(groupSessionId: groupSessionId) ?? 0)
                     
                     guard
                         messageSentTimestamp > deleteBefore && (
@@ -543,35 +541,26 @@ public enum MessageReceiver {
         
         /// If the conversation is not visible in the config and the message was sent before the last config update (minus a buffer period)
         /// then we can assume that the user has hidden/deleted the conversation and it shouldn't be reshown by this (old) message
-        let userSessionId: SessionId = dependencies[cache: .general].sessionId
-        let targetConfig: ConfigDump.Variant = {
-            switch threadVariant {
-                case .contact: return (threadId == userSessionId.hexString ? .userProfile : .contacts)
-                case .legacyGroup, .group, .community: return .userGroups
-            }
-        }()
-        
-        try dependencies.mutate(cache: .libSession, config: targetConfig, { config in
-            let conversationInConfig: Bool? = config?.conversationInConfig(
+        try dependencies.mutate(cache: .libSession) { cache in
+            let conversationInConfig: Bool? = cache.conversationInConfig(
                 threadId: threadId,
                 threadVariant: threadVariant,
                 visibleOnly: true,
-                openGroupUrlInfo: openGroupUrlInfo,
-                using: dependencies
+                openGroupUrlInfo: openGroupUrlInfo
             )
-            let canPerformConfigChange: Bool? = config?.canPerformChange(
-                sessionId: userSessionId,
+            let canPerformConfigChange: Bool? = cache.canPerformChange(
+                threadId: threadId,
+                threadVariant: threadVariant,
                 changeTimestampMs: message.sentTimestampMs
                     .map { Int64($0) }
-                    .defaulting(to: dependencies[cache: .snodeAPI].currentOffsetTimestampMs()),
-                using: dependencies
+                    .defaulting(to: dependencies[cache: .snodeAPI].currentOffsetTimestampMs())
             )
             
             switch (conversationInConfig, canPerformConfigChange) {
                 case (false, false): throw MessageReceiverError.outdatedMessage
                 default: break
             }
-        })
+        }
         
         /// If we made it here then the message is not outdated
     }

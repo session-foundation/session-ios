@@ -22,6 +22,7 @@ public enum MessageReceiverError: Error, CustomStringConvertible {
     case invalidConfigMessageHandling
     case outdatedMessage
     case ignorableMessage
+    case ignorableMessageRequestMessage
     case duplicatedCall
     case missingRequiredAdminPrivileges
     case deprecatedMessage
@@ -30,7 +31,7 @@ public enum MessageReceiverError: Error, CustomStringConvertible {
         switch self {
             case .duplicateMessage, .invalidMessage, .unknownMessage, .unknownEnvelopeType,
                 .invalidSignature, .noData, .senderBlocked, .noThread, .selfSend, .decryptionFailed,
-                .invalidConfigMessageHandling, .outdatedMessage, .ignorableMessage,
+                .invalidConfigMessageHandling, .outdatedMessage, .ignorableMessage, .ignorableMessageRequestMessage,
                 .missingRequiredAdminPrivileges:
                 return false
                 
@@ -107,6 +108,7 @@ public enum MessageReceiverError: Error, CustomStringConvertible {
             case .invalidConfigMessageHandling: return "Invalid handling of a config message."
             case .outdatedMessage: return "Message was sent before a config change which would have removed the message."
             case .ignorableMessage: return "Message should be ignored."
+            case .ignorableMessageRequestMessage: return "Message request message should be ignored."
             case .duplicatedCall: return "Duplicate call."
             case .missingRequiredAdminPrivileges: return "Handling this message requires admin privileges which the current user does not have."
             case .deprecatedMessage: return "This message type has been deprecated."

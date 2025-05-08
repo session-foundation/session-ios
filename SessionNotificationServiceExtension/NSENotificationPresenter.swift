@@ -48,30 +48,27 @@ public class NSENotificationPresenter: NotificationsManagerType {
     }
     
     public func addNotificationRequest(
-        threadId: String,
-        threadVariant: SessionThread.Variant,
-        identifier: String,
-        category: NotificationCategory,
-        content: UNMutableNotificationContent,
-        notificationSettings: Preferences.NotificationSettings,
-        applicationState: UIApplication.State
+        content: NotificationContent,
+        notificationSettings: Preferences.NotificationSettings
     ) {
         let request = UNNotificationRequest(
-            identifier: identifier,
-            content: content,
+            identifier: content.identifier,
+            content: content.toMutableContent(
+                shouldPlaySound: notificationShouldPlaySound(applicationState: content.applicationState)
+            ),
             trigger: nil
         )
         
-        Log.info("Add remote notification request: \(identifier)")
+        Log.info("Add remote notification request: \(content.identifier)")
         let semaphore = DispatchSemaphore(value: 0)
         UNUserNotificationCenter.current().add(request) { error in
             if let error = error {
-                Log.error("Failed to add notification request '\(identifier)' due to error: \(error)")
+                Log.error("Failed to add notification request '\(content.identifier)' due to error: \(error)")
             }
             semaphore.signal()
         }
         semaphore.wait()
-        Log.info("Finish adding remote notification request '\(identifier)")
+        Log.info("Finish adding remote notification request '\(content.identifier)")
     }
     
     // MARK: - Clearing

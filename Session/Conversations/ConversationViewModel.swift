@@ -276,18 +276,14 @@ public class ConversationViewModel: OWSAudioPlayerDelegate, NavigatableStateHold
             ),
             wasKickedFromGroup: (
                 threadVariant == .group &&
-                dependencies.mutate(cache: .libSession, config: .userGroups) { config in
-                    (config?
-                        .wasKickedFromGroup(groupSessionId: SessionId(.group, hex: threadId)))
-                        .defaulting(to: false)
+                dependencies.mutate(cache: .libSession) { cache in
+                    cache.wasKickedFromGroup(groupSessionId: SessionId(.group, hex: threadId))
                 }
             ),
             groupIsDestroyed: (
                 threadVariant == .group &&
-                dependencies.mutate(cache: .libSession, config: .userGroups) { config in
-                    (config?
-                        .groupIsDestroyed(groupSessionId: SessionId(.group, hex: threadId)))
-                        .defaulting(to: false)
+                dependencies.mutate(cache: .libSession) { cache in
+                    cache.groupIsDestroyed(groupSessionId: SessionId(.group, hex: threadId))
                 }
             ),
             threadCanWrite: true   // Assume true
@@ -359,18 +355,14 @@ public class ConversationViewModel: OWSAudioPlayerDelegate, NavigatableStateHold
                     .map { viewModel -> SessionThreadViewModel in
                         let wasKickedFromGroup: Bool = (
                             viewModel.threadVariant == .group &&
-                            dependencies.mutate(cache: .libSession, config: .userGroups) { config in
-                                (config?
-                                    .wasKickedFromGroup(groupSessionId: SessionId(.group, hex: viewModel.threadId)))
-                                    .defaulting(to: false)
+                            dependencies.mutate(cache: .libSession) { cache in
+                                cache.wasKickedFromGroup(groupSessionId: SessionId(.group, hex: viewModel.threadId))
                             }
                         )
                         let groupIsDestroyed: Bool = (
                             viewModel.threadVariant == .group &&
-                            dependencies.mutate(cache: .libSession, config: .userGroups) { config in
-                                (config?
-                                    .groupIsDestroyed(groupSessionId: SessionId(.group, hex: viewModel.threadId)))
-                                    .defaulting(to: false)
+                            dependencies.mutate(cache: .libSession) { cache in
+                                cache.groupIsDestroyed(groupSessionId: SessionId(.group, hex: viewModel.threadId))
                             }
                         )
                         
