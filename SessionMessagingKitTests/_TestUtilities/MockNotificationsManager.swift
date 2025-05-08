@@ -25,35 +25,26 @@ public class MockNotificationsManager: Mock<NotificationsManagerType>, Notificat
         return mock()
     }
     
-    public func notifyUser(
-        _ db: Database,
-        for interaction: Interaction,
-        in thread: SessionThread,
-        applicationState: UIApplication.State
-    ) {
-        mockNoReturn(args: [interaction, thread, applicationState], untrackedArgs: [db])
+    public func notificationUserInfo(
+        threadId: String,
+        threadVariant: SessionThread.Variant
+    ) -> [String: Any] {
+        return mock(args: [threadId, threadVariant])
     }
     
-    public func notifyUser(
-        _ db: Database,
-        forIncomingCall interaction: Interaction,
-        in thread: SessionThread,
-        applicationState: UIApplication.State
-    ) {
-        mockNoReturn(args: [interaction, thread, applicationState], untrackedArgs: [db])
-    }
-    
-    public func notifyUser(
-        _ db: Database,
-        forReaction reaction: Reaction,
-        in thread: SessionThread,
-        applicationState: UIApplication.State
-    ) {
-        mockNoReturn(args: [reaction, thread, applicationState], untrackedArgs: [db])
+    public func notificationShouldPlaySound(applicationState: UIApplication.State) -> Bool {
+        return mock(args: [applicationState])
     }
     
     public func notifyForFailedSend(_ db: Database, in thread: SessionThread, applicationState: UIApplication.State) {
         mockNoReturn(args: [thread, applicationState], untrackedArgs: [db])
+    }
+    
+    public func addNotificationRequest(
+        content: NotificationContent,
+        notificationSettings: Preferences.NotificationSettings
+    ) {
+        mockNoReturn(args: [content, notificationSettings])
     }
     
     public func cancelNotifications(identifiers: [String]) {

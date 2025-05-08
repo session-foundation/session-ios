@@ -69,15 +69,9 @@ public enum GroupLeavingJob: JobExecutor {
                     guard
                         threadVariant == .group,
                         (
-                            dependencies.mutate(cache: .libSession, config: .userGroups) { config in
-                                (config?
-                                    .wasKickedFromGroup(groupSessionId: SessionId(.group, hex: threadId)))
-                                    .defaulting(to: false)
-                            } ||
-                            dependencies.mutate(cache: .libSession, config: .userGroups) { config in
-                                (config?
-                                    .groupIsDestroyed(groupSessionId: SessionId(.group, hex: threadId)))
-                                    .defaulting(to: false)
+                            dependencies.mutate(cache: .libSession) { cache in
+                                cache.wasKickedFromGroup(groupSessionId: SessionId(.group, hex: threadId)) ||
+                                cache.groupIsDestroyed(groupSessionId: SessionId(.group, hex: threadId))
                             }
                         )
                     else { return details.behaviour }

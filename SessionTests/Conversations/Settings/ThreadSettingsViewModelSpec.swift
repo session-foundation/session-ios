@@ -64,30 +64,7 @@ class ThreadSettingsViewModelSpec: QuickSpec {
             }
         )
         @TestState(cache: .libSession, in: dependencies) var mockLibSessionCache: MockLibSessionCache! = MockLibSessionCache(
-            initialSetup: { cache in
-                cache
-                    .when { try $0.performAndPushChange(.any, for: .any, sessionId: .any, change: { _ in }) }
-                    .thenReturn(())
-                cache
-                    .when { $0.pinnedPriority(.any, threadId: .any, threadVariant: .any) }
-                    .thenReturn(LibSession.defaultNewThreadPriority)
-                cache.when { $0.disappearingMessagesConfig(threadId: .any, threadVariant: .any) }
-                    .thenReturn(nil)
-                cache
-                    .when { $0.isAdmin(groupSessionId: .any) }
-                    .thenReturn(false)
-                cache
-                    .when { try $0.withCustomBehaviour(.any, for: .any, variant: .any, change: { }) }
-                    .then { args, untrackedArgs in
-                        let callback: (() throws -> Void)? = (untrackedArgs[test: 0] as? () throws -> Void)
-                        try? callback?()
-                    }
-                    .thenReturn(())
-                cache.when { $0.isEmpty }.thenReturn(false)
-                cache
-                    .when { try $0.pendingChanges(swarmPublicKey: .any) }
-                    .thenReturn(LibSession.PendingChanges())
-            }
+            initialSetup: { $0.defaultInitialSetup() }
         )
         @TestState(singleton: .crypto, in: dependencies) var mockCrypto: MockCrypto! = MockCrypto(
             initialSetup: { crypto in

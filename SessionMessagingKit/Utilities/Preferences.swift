@@ -119,14 +119,14 @@ public enum Preferences {
             return NotificationSettings(
                 mode: .defaultMode(for: threadVariant),
                 previewType: .defaultPreviewType,
-                sound: nil,
+                sound: .defaultNotificationSound,
                 mutedUntil: nil
             )
         }
         
         public let mode: NotificationMode
         public let previewType: Preferences.NotificationPreviewType
-        public let sound: UNNotificationSound?
+        public let sound: Preferences.Sound
         public let mutedUntil: TimeInterval?
     }
     

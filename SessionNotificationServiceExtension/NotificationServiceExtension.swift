@@ -201,50 +201,16 @@ public final class NotificationServiceExtension: UNNotificationServiceExtension 
                 
             case .standard(let threadId, let threadVariantVal, _, let messageInfo, _):
                 threadVariant = threadVariantVal
-                threadDisplayName = SessionThread.displayName(
-                    threadId: threadId,
-                    variant: threadVariantVal,
-                    closedGroupName: {
-                        switch threadVariant {
-                            case .legacyGroup:
-                                return dependencies.mutate(cache: .libSession) { cache in
-                                    let config: LibSession.Config? = cache.config(for: .userGroups, sessionId: userSessionId)
-                                    
-                                    return config?.groupName(groupId: threadId)
-                                }
-                                
-                            case .group:
-                                return dependencies.mutate(cache: .libSession) { cache in
-                                    guard let groupInfoConfig: LibSession.Config = cache.config(for: .groupInfo, sessionId: SessionId(.group, hex: threadId)) else {
-                                        let config: LibSession.Config? = cache.config(for: .userGroups, sessionId: userSessionId)
-                                        
-                                        return config?.groupName(groupId: threadId)
-                                    }
-                                    
-                                    return groupInfoConfig.groupName
-                                }
-                                
-                            default: return nil
-                        }
-                    }(),
-                    openGroupName: nil, // Community PNs not currently supported
-                    isNoteToSelf: (threadId == userSessionId.hexString),
-                    profile: {
-                        switch (threadVariant, threadId) {
-                            case (.contact, threadId) where threadId == userSessionId.hexString:
-                                return nil  // Covered by the `isNoteToSelf` above
-                                
-                            case (.contact, _):
-                                return dependencies.mutate(cache: .libSession) { cache in
-                                    let config: LibSession.Config? = cache.config(for: .contacts, sessionId: SessionId(.standard, hex: threadId))
-                                    
-                                    return config?.profile(contactId: threadId)
-                                }
-                                
-                            default: return nil
-                        }
-                    }()
-                )
+                threadDisplayName = dependencies.mutate(cache: .libSession) { cache in
+                    cache.conversationDisplayName(
+                        threadId: threadId,
+                        threadVariant: threadVariantVal,
+                        contactProfile: nil,    /// No database access in the NSE
+                        visibleMessage: messageInfo.message as? VisibleMessage,
+                        openGroupName: nil,     /// Community PNs not currently supported
+                        openGroupUrlInfo: nil   /// Community PNs not currently supported
+                    )
+                }
         }
         
         return (
@@ -326,24 +292,14 @@ public final class NotificationServiceExtension: UNNotificationServiceExtension 
         
         /// Define the `displayNameRetriever` so it can be reused
         let displayNameRetriever: (String) -> String? = { [dependencies] sessionId in
-            // FIXME: Once `libSession` manages unsynced "Profile" data we should source this from there
-            let contactProfile: Profile? = dependencies.mutate(cache: .libSession, config: .contacts) { config in
-                config?.profile(contactId: sessionId)
-            }
-            let contactName: String? = contactProfile?.displayName(
-                for: threadVariant,
-                messageProfile: (messageInfo.message as? VisibleMessage)?.profile
-            )
-            
-            guard contactName == nil && threadVariant == .group else { return contactName }
-            
-            /// If we couldn't get a direct name for the contact then try to extract their name from `GroupMembers`
-            /// if it's a group conversation
-            let groupSessionId: SessionId = SessionId(.group, hex: threadId)
-            
-            return (dependencies
-                .mutate(cache: .libSession, config: .groupMembers, groupSessionId: groupSessionId) { config in
-                    config?.memberProfile(memberId: sessionId)
+            (dependencies
+                .mutate(cache: .libSession) { cache in
+                    cache.profile(
+                        threadId: threadId,
+                        threadVariant: threadVariant,
+                        contactId: sessionId,
+                        visibleMessage: (messageInfo.message as? VisibleMessage)
+                    )
                 }?
                 .displayName(for: threadVariant))
                 .defaulting(to: Profile.truncated(id: sessionId, threadVariant: threadVariant))
@@ -382,6 +338,14 @@ public final class NotificationServiceExtension: UNNotificationServiceExtension 
                     case .provisionalAnswer, .iceCandidates: break
                 }
                 
+                /// We need additional dedupe logic if the message is a `CallMessage` as multiple messages can related to the
+                /// same call so we need to ensure the call message itself isn't a duplicate
+                try MessageDeduplication.ensureCallMessageIsNotADuplicate(
+                    threadId: threadId,
+                    callMessage: callMessage,
+                    using: dependencies
+                )
+                
                 // TODO: [Database Relocation] Need to store 'db[.areCallsEnabled]' in libSession
                 let areCallsEnabled: Bool = true // db[.areCallsEnabled]
                 let hasMicrophonePermission: Bool = {
@@ -394,28 +358,11 @@ public final class NotificationServiceExtension: UNNotificationServiceExtension 
                     dependencies[defaults: .appGroup, key: .isCallOngoing] &&
                     (dependencies[defaults: .appGroup, key: .lastCallPreOffer] != nil)
                 )
-                /// We need additional dedupe logic if the message is a `CallMessage` as multiple messages can
-                /// related to the same call
-                let insertAdditionalCallDedupeRecord: (CallMessage, Dependencies) throws -> Void = { callMessage, dependencies in
-                    try MessageDeduplication.ensureCallMessageIsNotADuplicate(
-                        threadId: threadId,
-                        callMessage: callMessage,
-                        using: dependencies
-                    )
-                    try dependencies[singleton: .extensionHelper].createDedupeRecord(
-                        threadId: threadId,
-                        uniqueIdentifier: callMessage.uuid
-                    )
-                }
-                
                 /// Handle the call as needed
                 switch ((areCallsEnabled && hasMicrophonePermission), isCallOngoing) {
                     case (false, _):
-                        /// Store the `state` on the `Message` to make it easier to handle the notification
-                        try insertAdditionalCallDedupeRecord(callMessage, dependencies)
+                        /// Update the `CallMessage.state` value so the correct notification logic can occur
                         callMessage.state = (areCallsEnabled ? .permissionDeniedMicrophone : .permissionDenied)
-                        // TODO: [Database Relocation] Will need to add the above logic prior to local notifications when handling calls
-                        // TODO: [Database Relocation] Need to test that the above assignment comes through the below '.notifyUser(' call
                         
                     case (true, true):
                         Log.info(.calls, "Sending end call message because there is an ongoing call.")
@@ -430,11 +377,16 @@ public final class NotificationServiceExtension: UNNotificationServiceExtension 
                     case (true, false):
                         guard
                             let sender: String = callMessage.sender,
-                            let sentTimestampMs: UInt64 = callMessage.sentTimestampMs
+                            let sentTimestampMs: UInt64 = callMessage.sentTimestampMs,
+                            threadVariant == .contact,
+                            !dependencies.mutate(cache: .libSession, { cache in
+                                cache.isMessageRequest(
+                                    threadId: threadId,
+                                    threadVariant: threadVariant
+                                )
+                            })
                         else { throw MessageReceiverError.invalidMessage }
                         
-                        /// Insert the dedupe record and then handle the message
-                        try insertAdditionalCallDedupeRecord(callMessage, dependencies)
                         return handleSuccessForIncomingCall(
                             notification,
                             threadVariant: threadVariant,
@@ -482,6 +434,14 @@ public final class NotificationServiceExtension: UNNotificationServiceExtension 
         /// Since we successfully handled the message we should now create the dedupe file for the message so we don't
         /// show duplicate PNs
         try MessageDeduplication.createDedupeFile(notification.processedMessage, using: dependencies)
+        
+        /// We need additional dedupe logic if the message is a `CallMessage` as multiple messages can related to the same call
+        if let callMessage: CallMessage = messageInfo.message as? CallMessage {
+            try dependencies[singleton: .extensionHelper].createDedupeRecord(
+                threadId: threadId,
+                uniqueIdentifier: callMessage.uuid
+            )
+        }
     }
     
     private func handleError(
@@ -531,6 +491,9 @@ public final class NotificationServiceExtension: UNNotificationServiceExtension 
             case (MessageReceiverError.ignorableMessage, _, _):
                 self.completeSilenty(info, .ignoreDueToRequiresNoNotification)
                 
+            case (MessageReceiverError.ignorableMessageRequestMessage, _, _):
+                self.completeSilenty(info, .ignoreDueToMessageRequest)
+                
             case (MessageReceiverError.duplicateMessage, _, _):
                 self.completeSilenty(info, .ignoreDueToDuplicateMessage)
                 
@@ -545,9 +508,8 @@ public final class NotificationServiceExtension: UNNotificationServiceExtension 
             case (MessageReceiverError.decryptionFailed, .group, _):
                 guard
                     let threadId: String = processedNotification?.threadId,
-                    dependencies.mutate(cache: .libSession, config: .userGroups, { config in
-                        (config?.hasCredentials(groupSessionId: SessionId(.group, hex: threadId)))
-                            .defaulting(to: false)
+                    dependencies.mutate(cache: .libSession, { cache in
+                        cache.hasCredentials(groupSessionId: SessionId(.group, hex: threadId))
                     })
                 else {
                     self.completeSilenty(info, .errorMessageHandling(.decryptionFailed))
@@ -669,6 +631,9 @@ public final class NotificationServiceExtension: UNNotificationServiceExtension 
                                 
                             case (MessageReceiverError.ignorableMessage, _, _):
                                 self?.completeSilenty(notification.info, .ignoreDueToRequiresNoNotification)
+                                
+                            case (MessageReceiverError.ignorableMessageRequestMessage, _, _):
+                                self?.completeSilenty(notification.info, .ignoreDueToMessageRequest)
                                 
                             case (MessageReceiverError.duplicateMessage, _, _):
                                 self?.completeSilenty(notification.info, .ignoreDueToDuplicateMessage)
@@ -884,17 +849,13 @@ public final class NotificationServiceExtension: UNNotificationServiceExtension 
         
         let duration: CFTimeInterval = (CACurrentMediaTime() - startTime)
         let targetThreadVariant: SessionThread.Variant = (threadVariant ?? .contact) /// Fallback to `contact`
-        let targetConfig: ConfigDump.Variant = (targetThreadVariant == .contact ? .contacts : .userGroups)
-        let notificationSettings: Preferences.NotificationSettings = dependencies
-            .mutate(cache: .libSession, config: targetConfig) { config in
-                config?.notificationSettings(
-                    threadId: info.metadata.accountId,
-                    threadVariant: targetThreadVariant,
-                    openGroupUrlInfo: nil,  /// Communities current don't support PNs
-                    applicationState: .background
-                )
-            }
-            .defaulting(to: .defaultFor(targetThreadVariant))
+        let notificationSettings: Preferences.NotificationSettings = dependencies.mutate(cache: .libSession) { cache in
+            cache.notificationSettings(
+                threadId: info.metadata.accountId,
+                threadVariant: targetThreadVariant,
+                openGroupUrlInfo: nil  /// Communities current don't support PNs
+            )
+        }
         Log.error(.cat, "\(resolution) after \(.seconds(duration), unit: .ms), showing generic failure message for message from namespace: \(info.metadata.namespace), requestId: \(info.requestId).")
         
         /// Now we are done with the database, we should suspend it
