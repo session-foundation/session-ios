@@ -398,35 +398,6 @@ internal extension LibSession {
     }
 }
 
-// MARK: - State Access
-
-extension LibSession.Config {
-    public func memberProfile(memberId: String) -> Profile? {
-        guard
-            case .groupMembers(let conf) = self,
-            var cMemberId: [CChar] = memberId.cString(using: .utf8)
-        else { return nil }
-        
-        var member: config_group_member = config_group_member()
-        
-        guard groups_members_get(conf, &member, &cMemberId) else {
-            LibSessionError.clear(conf)
-            return nil
-        }
-        
-        let profilePictureUrl: String? = member.get(\.profile_pic.url, nullIfEmpty: true)
-        return Profile(
-            id: memberId,
-            name: member.get(\.name),
-            lastNameUpdate: nil,
-            nickname: nil,
-            profilePictureUrl: profilePictureUrl,
-            profileEncryptionKey: (profilePictureUrl == nil ? nil : member.get(\.profile_pic.key)),
-            lastProfilePictureUpdate: nil
-        )
-    }
-}
-
 // MARK: - MemberData
 
 private struct MemberData {

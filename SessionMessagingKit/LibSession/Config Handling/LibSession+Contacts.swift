@@ -678,31 +678,6 @@ public extension LibSession.Cache {
         
         return contact.blocked
     }
-    
-    func profile(contactId: String) -> Profile? {
-        guard
-            case .contacts(let conf) = self,
-            var cContactId: [CChar] = contactId.cString(using: .utf8)
-        else { return nil }
-        
-        var contact: contacts_contact = contacts_contact()
-        
-        guard contacts_get(conf, &contact, &cContactId) else {
-            LibSessionError.clear(conf)
-            return nil
-        }
-        
-        let profilePictureUrl: String? = contact.get(\.profile_pic.url, nullIfEmpty: true)
-        return Profile(
-            id: contactId,
-            name: contact.get(\.name),
-            lastNameUpdate: nil,
-            nickname: contact.get(\.nickname, nullIfEmpty: true),
-            profilePictureUrl: profilePictureUrl,
-            profileEncryptionKey: (profilePictureUrl == nil ? nil : contact.get(\.profile_pic.key)),
-            lastProfilePictureUpdate: nil
-        )
-    }
 }
 
 // MARK: - SyncedContactInfo

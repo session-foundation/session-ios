@@ -469,11 +469,7 @@ public extension LibSessionCacheType {
                 return group.last_read
         }
     }
-}
-
-// MARK: State Access
-
-public extension LibSession.Config {
+    
     func timestampAlreadyRead(
         threadId: String,
         threadVariant: SessionThread.Variant,
