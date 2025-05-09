@@ -715,15 +715,6 @@ struct SessionProtos_DataMessage {
   /// Clears the value of `openGroupInvitation`. Subsequent reads from it will return its default value.
   mutating func clearOpenGroupInvitation() {_uniqueStorage()._openGroupInvitation = nil}
 
-  var closedGroupControlMessage: SessionProtos_DataMessage.ClosedGroupControlMessage {
-    get {return _storage._closedGroupControlMessage ?? SessionProtos_DataMessage.ClosedGroupControlMessage()}
-    set {_uniqueStorage()._closedGroupControlMessage = newValue}
-  }
-  /// Returns true if `closedGroupControlMessage` has been explicitly set.
-  var hasClosedGroupControlMessage: Bool {return _storage._closedGroupControlMessage != nil}
-  /// Clears the value of `closedGroupControlMessage`. Subsequent reads from it will return its default value.
-  mutating func clearClosedGroupControlMessage() {_uniqueStorage()._closedGroupControlMessage = nil}
-
   var syncTarget: String {
     get {return _storage._syncTarget ?? String()}
     set {_uniqueStorage()._syncTarget = newValue}
@@ -1050,158 +1041,6 @@ struct SessionProtos_DataMessage {
     fileprivate var _name: String? = nil
   }
 
-  struct ClosedGroupControlMessage {
-    // SwiftProtobuf.Message conformance is added in an extension below. See the
-    // `Message` and `Message+*Additions` files in the SwiftProtobuf library for
-    // methods supported on all messages.
-
-    /// @required
-    var type: SessionProtos_DataMessage.ClosedGroupControlMessage.TypeEnum {
-      get {return _type ?? .new}
-      set {_type = newValue}
-    }
-    /// Returns true if `type` has been explicitly set.
-    var hasType: Bool {return self._type != nil}
-    /// Clears the value of `type`. Subsequent reads from it will return its default value.
-    mutating func clearType() {self._type = nil}
-
-    var publicKey: Data {
-      get {return _publicKey ?? Data()}
-      set {_publicKey = newValue}
-    }
-    /// Returns true if `publicKey` has been explicitly set.
-    var hasPublicKey: Bool {return self._publicKey != nil}
-    /// Clears the value of `publicKey`. Subsequent reads from it will return its default value.
-    mutating func clearPublicKey() {self._publicKey = nil}
-
-    var name: String {
-      get {return _name ?? String()}
-      set {_name = newValue}
-    }
-    /// Returns true if `name` has been explicitly set.
-    var hasName: Bool {return self._name != nil}
-    /// Clears the value of `name`. Subsequent reads from it will return its default value.
-    mutating func clearName() {self._name = nil}
-
-    var encryptionKeyPair: SessionProtos_KeyPair {
-      get {return _encryptionKeyPair ?? SessionProtos_KeyPair()}
-      set {_encryptionKeyPair = newValue}
-    }
-    /// Returns true if `encryptionKeyPair` has been explicitly set.
-    var hasEncryptionKeyPair: Bool {return self._encryptionKeyPair != nil}
-    /// Clears the value of `encryptionKeyPair`. Subsequent reads from it will return its default value.
-    mutating func clearEncryptionKeyPair() {self._encryptionKeyPair = nil}
-
-    var members: [Data] = []
-
-    var admins: [Data] = []
-
-    var wrappers: [SessionProtos_DataMessage.ClosedGroupControlMessage.KeyPairWrapper] = []
-
-    var expirationTimer: UInt32 {
-      get {return _expirationTimer ?? 0}
-      set {_expirationTimer = newValue}
-    }
-    /// Returns true if `expirationTimer` has been explicitly set.
-    var hasExpirationTimer: Bool {return self._expirationTimer != nil}
-    /// Clears the value of `expirationTimer`. Subsequent reads from it will return its default value.
-    mutating func clearExpirationTimer() {self._expirationTimer = nil}
-
-    var unknownFields = SwiftProtobuf.UnknownStorage()
-
-    enum TypeEnum: SwiftProtobuf.Enum {
-      typealias RawValue = Int
-
-      /// publicKey, name, encryptionKeyPair, members, admins, expirationTimer
-      case new // = 1
-
-      /// publicKey, wrappers
-      case encryptionKeyPair // = 3
-
-      /// name
-      case nameChange // = 4
-
-      /// members
-      case membersAdded // = 5
-
-      /// members
-      case membersRemoved // = 6
-      case memberLeft // = 7
-      case encryptionKeyPairRequest // = 8
-
-      init() {
-        self = .new
-      }
-
-      init?(rawValue: Int) {
-        switch rawValue {
-        case 1: self = .new
-        case 3: self = .encryptionKeyPair
-        case 4: self = .nameChange
-        case 5: self = .membersAdded
-        case 6: self = .membersRemoved
-        case 7: self = .memberLeft
-        case 8: self = .encryptionKeyPairRequest
-        default: return nil
-        }
-      }
-
-      var rawValue: Int {
-        switch self {
-        case .new: return 1
-        case .encryptionKeyPair: return 3
-        case .nameChange: return 4
-        case .membersAdded: return 5
-        case .membersRemoved: return 6
-        case .memberLeft: return 7
-        case .encryptionKeyPairRequest: return 8
-        }
-      }
-
-    }
-
-    struct KeyPairWrapper {
-      // SwiftProtobuf.Message conformance is added in an extension below. See the
-      // `Message` and `Message+*Additions` files in the SwiftProtobuf library for
-      // methods supported on all messages.
-
-      /// @required
-      var publicKey: Data {
-        get {return _publicKey ?? Data()}
-        set {_publicKey = newValue}
-      }
-      /// Returns true if `publicKey` has been explicitly set.
-      var hasPublicKey: Bool {return self._publicKey != nil}
-      /// Clears the value of `publicKey`. Subsequent reads from it will return its default value.
-      mutating func clearPublicKey() {self._publicKey = nil}
-
-      /// @required
-      var encryptedKeyPair: Data {
-        get {return _encryptedKeyPair ?? Data()}
-        set {_encryptedKeyPair = newValue}
-      }
-      /// Returns true if `encryptedKeyPair` has been explicitly set.
-      var hasEncryptedKeyPair: Bool {return self._encryptedKeyPair != nil}
-      /// Clears the value of `encryptedKeyPair`. Subsequent reads from it will return its default value.
-      mutating func clearEncryptedKeyPair() {self._encryptedKeyPair = nil}
-
-      var unknownFields = SwiftProtobuf.UnknownStorage()
-
-      init() {}
-
-      fileprivate var _publicKey: Data? = nil
-      fileprivate var _encryptedKeyPair: Data? = nil
-    }
-
-    init() {}
-
-    fileprivate var _type: SessionProtos_DataMessage.ClosedGroupControlMessage.TypeEnum? = nil
-    fileprivate var _publicKey: Data? = nil
-    fileprivate var _name: String? = nil
-    fileprivate var _encryptionKeyPair: SessionProtos_KeyPair? = nil
-    fileprivate var _expirationTimer: UInt32? = nil
-  }
-
   init() {}
 
   fileprivate var _storage = _StorageClass.defaultInstance
@@ -1218,10 +1057,6 @@ extension SessionProtos_DataMessage.Quote.QuotedAttachment.Flags: CaseIterable {
 }
 
 extension SessionProtos_DataMessage.Reaction.Action: CaseIterable {
-  // Support synthesized by the compiler.
-}
-
-extension SessionProtos_DataMessage.ClosedGroupControlMessage.TypeEnum: CaseIterable {
   // Support synthesized by the compiler.
 }
 
@@ -1885,9 +1720,6 @@ extension SessionProtos_DataMessage.Preview: @unchecked Sendable {}
 extension SessionProtos_DataMessage.Reaction: @unchecked Sendable {}
 extension SessionProtos_DataMessage.Reaction.Action: @unchecked Sendable {}
 extension SessionProtos_DataMessage.OpenGroupInvitation: @unchecked Sendable {}
-extension SessionProtos_DataMessage.ClosedGroupControlMessage: @unchecked Sendable {}
-extension SessionProtos_DataMessage.ClosedGroupControlMessage.TypeEnum: @unchecked Sendable {}
-extension SessionProtos_DataMessage.ClosedGroupControlMessage.KeyPairWrapper: @unchecked Sendable {}
 extension SessionProtos_ReceiptMessage: @unchecked Sendable {}
 extension SessionProtos_ReceiptMessage.TypeEnum: @unchecked Sendable {}
 extension SessionProtos_AttachmentPointer: @unchecked Sendable {}
@@ -2539,7 +2371,6 @@ extension SessionProtos_DataMessage: SwiftProtobuf.Message, SwiftProtobuf._Messa
     11: .same(proto: "reaction"),
     101: .same(proto: "profile"),
     102: .same(proto: "openGroupInvitation"),
-    104: .same(proto: "closedGroupControlMessage"),
     105: .same(proto: "syncTarget"),
     106: .same(proto: "blocksCommunityMessageRequests"),
     120: .same(proto: "groupUpdateMessage"),
@@ -2556,7 +2387,6 @@ extension SessionProtos_DataMessage: SwiftProtobuf.Message, SwiftProtobuf._Messa
     var _reaction: SessionProtos_DataMessage.Reaction? = nil
     var _profile: SessionProtos_LokiProfile? = nil
     var _openGroupInvitation: SessionProtos_DataMessage.OpenGroupInvitation? = nil
-    var _closedGroupControlMessage: SessionProtos_DataMessage.ClosedGroupControlMessage? = nil
     var _syncTarget: String? = nil
     var _blocksCommunityMessageRequests: Bool? = nil
     var _groupUpdateMessage: SessionProtos_GroupUpdateMessage? = nil
@@ -2576,7 +2406,6 @@ extension SessionProtos_DataMessage: SwiftProtobuf.Message, SwiftProtobuf._Messa
       _reaction = source._reaction
       _profile = source._profile
       _openGroupInvitation = source._openGroupInvitation
-      _closedGroupControlMessage = source._closedGroupControlMessage
       _syncTarget = source._syncTarget
       _blocksCommunityMessageRequests = source._blocksCommunityMessageRequests
       _groupUpdateMessage = source._groupUpdateMessage
@@ -2597,7 +2426,6 @@ extension SessionProtos_DataMessage: SwiftProtobuf.Message, SwiftProtobuf._Messa
       if !SwiftProtobuf.Internal.areAllInitialized(_storage._preview) {return false}
       if let v = _storage._reaction, !v.isInitialized {return false}
       if let v = _storage._openGroupInvitation, !v.isInitialized {return false}
-      if let v = _storage._closedGroupControlMessage, !v.isInitialized {return false}
       if let v = _storage._groupUpdateMessage, !v.isInitialized {return false}
       return true
     }
@@ -2621,7 +2449,6 @@ extension SessionProtos_DataMessage: SwiftProtobuf.Message, SwiftProtobuf._Messa
         case 11: try { try decoder.decodeSingularMessageField(value: &_storage._reaction) }()
         case 101: try { try decoder.decodeSingularMessageField(value: &_storage._profile) }()
         case 102: try { try decoder.decodeSingularMessageField(value: &_storage._openGroupInvitation) }()
-        case 104: try { try decoder.decodeSingularMessageField(value: &_storage._closedGroupControlMessage) }()
         case 105: try { try decoder.decodeSingularStringField(value: &_storage._syncTarget) }()
         case 106: try { try decoder.decodeSingularBoolField(value: &_storage._blocksCommunityMessageRequests) }()
         case 120: try { try decoder.decodeSingularMessageField(value: &_storage._groupUpdateMessage) }()
@@ -2667,9 +2494,6 @@ extension SessionProtos_DataMessage: SwiftProtobuf.Message, SwiftProtobuf._Messa
       try { if let v = _storage._openGroupInvitation {
         try visitor.visitSingularMessageField(value: v, fieldNumber: 102)
       } }()
-      try { if let v = _storage._closedGroupControlMessage {
-        try visitor.visitSingularMessageField(value: v, fieldNumber: 104)
-      } }()
       try { if let v = _storage._syncTarget {
         try visitor.visitSingularStringField(value: v, fieldNumber: 105)
       } }()
@@ -2698,7 +2522,6 @@ extension SessionProtos_DataMessage: SwiftProtobuf.Message, SwiftProtobuf._Messa
         if _storage._reaction != rhs_storage._reaction {return false}
         if _storage._profile != rhs_storage._profile {return false}
         if _storage._openGroupInvitation != rhs_storage._openGroupInvitation {return false}
-        if _storage._closedGroupControlMessage != rhs_storage._closedGroupControlMessage {return false}
         if _storage._syncTarget != rhs_storage._syncTarget {return false}
         if _storage._blocksCommunityMessageRequests != rhs_storage._blocksCommunityMessageRequests {return false}
         if _storage._groupUpdateMessage != rhs_storage._groupUpdateMessage {return false}
@@ -3008,151 +2831,6 @@ extension SessionProtos_DataMessage.OpenGroupInvitation: SwiftProtobuf.Message, 
   static func ==(lhs: SessionProtos_DataMessage.OpenGroupInvitation, rhs: SessionProtos_DataMessage.OpenGroupInvitation) -> Bool {
     if lhs._url != rhs._url {return false}
     if lhs._name != rhs._name {return false}
-    if lhs.unknownFields != rhs.unknownFields {return false}
-    return true
-  }
-}
-
-extension SessionProtos_DataMessage.ClosedGroupControlMessage: SwiftProtobuf.Message, SwiftProtobuf._MessageImplementationBase, SwiftProtobuf._ProtoNameProviding {
-  static let protoMessageName: String = SessionProtos_DataMessage.protoMessageName + ".ClosedGroupControlMessage"
-  static let _protobuf_nameMap: SwiftProtobuf._NameMap = [
-    1: .same(proto: "type"),
-    2: .same(proto: "publicKey"),
-    3: .same(proto: "name"),
-    4: .same(proto: "encryptionKeyPair"),
-    5: .same(proto: "members"),
-    6: .same(proto: "admins"),
-    7: .same(proto: "wrappers"),
-    8: .same(proto: "expirationTimer"),
-  ]
-
-  public var isInitialized: Bool {
-    if self._type == nil {return false}
-    if let v = self._encryptionKeyPair, !v.isInitialized {return false}
-    if !SwiftProtobuf.Internal.areAllInitialized(self.wrappers) {return false}
-    return true
-  }
-
-  mutating func decodeMessage<D: SwiftProtobuf.Decoder>(decoder: inout D) throws {
-    while let fieldNumber = try decoder.nextFieldNumber() {
-      // The use of inline closures is to circumvent an issue where the compiler
-      // allocates stack space for every case branch when no optimizations are
-      // enabled. https://github.com/apple/swift-protobuf/issues/1034
-      switch fieldNumber {
-      case 1: try { try decoder.decodeSingularEnumField(value: &self._type) }()
-      case 2: try { try decoder.decodeSingularBytesField(value: &self._publicKey) }()
-      case 3: try { try decoder.decodeSingularStringField(value: &self._name) }()
-      case 4: try { try decoder.decodeSingularMessageField(value: &self._encryptionKeyPair) }()
-      case 5: try { try decoder.decodeRepeatedBytesField(value: &self.members) }()
-      case 6: try { try decoder.decodeRepeatedBytesField(value: &self.admins) }()
-      case 7: try { try decoder.decodeRepeatedMessageField(value: &self.wrappers) }()
-      case 8: try { try decoder.decodeSingularUInt32Field(value: &self._expirationTimer) }()
-      default: break
-      }
-    }
-  }
-
-  func traverse<V: SwiftProtobuf.Visitor>(visitor: inout V) throws {
-    // The use of inline closures is to circumvent an issue where the compiler
-    // allocates stack space for every if/case branch local when no optimizations
-    // are enabled. https://github.com/apple/swift-protobuf/issues/1034 and
-    // https://github.com/apple/swift-protobuf/issues/1182
-    try { if let v = self._type {
-      try visitor.visitSingularEnumField(value: v, fieldNumber: 1)
-    } }()
-    try { if let v = self._publicKey {
-      try visitor.visitSingularBytesField(value: v, fieldNumber: 2)
-    } }()
-    try { if let v = self._name {
-      try visitor.visitSingularStringField(value: v, fieldNumber: 3)
-    } }()
-    try { if let v = self._encryptionKeyPair {
-      try visitor.visitSingularMessageField(value: v, fieldNumber: 4)
-    } }()
-    if !self.members.isEmpty {
-      try visitor.visitRepeatedBytesField(value: self.members, fieldNumber: 5)
-    }
-    if !self.admins.isEmpty {
-      try visitor.visitRepeatedBytesField(value: self.admins, fieldNumber: 6)
-    }
-    if !self.wrappers.isEmpty {
-      try visitor.visitRepeatedMessageField(value: self.wrappers, fieldNumber: 7)
-    }
-    try { if let v = self._expirationTimer {
-      try visitor.visitSingularUInt32Field(value: v, fieldNumber: 8)
-    } }()
-    try unknownFields.traverse(visitor: &visitor)
-  }
-
-  static func ==(lhs: SessionProtos_DataMessage.ClosedGroupControlMessage, rhs: SessionProtos_DataMessage.ClosedGroupControlMessage) -> Bool {
-    if lhs._type != rhs._type {return false}
-    if lhs._publicKey != rhs._publicKey {return false}
-    if lhs._name != rhs._name {return false}
-    if lhs._encryptionKeyPair != rhs._encryptionKeyPair {return false}
-    if lhs.members != rhs.members {return false}
-    if lhs.admins != rhs.admins {return false}
-    if lhs.wrappers != rhs.wrappers {return false}
-    if lhs._expirationTimer != rhs._expirationTimer {return false}
-    if lhs.unknownFields != rhs.unknownFields {return false}
-    return true
-  }
-}
-
-extension SessionProtos_DataMessage.ClosedGroupControlMessage.TypeEnum: SwiftProtobuf._ProtoNameProviding {
-  static let _protobuf_nameMap: SwiftProtobuf._NameMap = [
-    1: .same(proto: "NEW"),
-    3: .same(proto: "ENCRYPTION_KEY_PAIR"),
-    4: .same(proto: "NAME_CHANGE"),
-    5: .same(proto: "MEMBERS_ADDED"),
-    6: .same(proto: "MEMBERS_REMOVED"),
-    7: .same(proto: "MEMBER_LEFT"),
-    8: .same(proto: "ENCRYPTION_KEY_PAIR_REQUEST"),
-  ]
-}
-
-extension SessionProtos_DataMessage.ClosedGroupControlMessage.KeyPairWrapper: SwiftProtobuf.Message, SwiftProtobuf._MessageImplementationBase, SwiftProtobuf._ProtoNameProviding {
-  static let protoMessageName: String = SessionProtos_DataMessage.ClosedGroupControlMessage.protoMessageName + ".KeyPairWrapper"
-  static let _protobuf_nameMap: SwiftProtobuf._NameMap = [
-    1: .same(proto: "publicKey"),
-    2: .same(proto: "encryptedKeyPair"),
-  ]
-
-  public var isInitialized: Bool {
-    if self._publicKey == nil {return false}
-    if self._encryptedKeyPair == nil {return false}
-    return true
-  }
-
-  mutating func decodeMessage<D: SwiftProtobuf.Decoder>(decoder: inout D) throws {
-    while let fieldNumber = try decoder.nextFieldNumber() {
-      // The use of inline closures is to circumvent an issue where the compiler
-      // allocates stack space for every case branch when no optimizations are
-      // enabled. https://github.com/apple/swift-protobuf/issues/1034
-      switch fieldNumber {
-      case 1: try { try decoder.decodeSingularBytesField(value: &self._publicKey) }()
-      case 2: try { try decoder.decodeSingularBytesField(value: &self._encryptedKeyPair) }()
-      default: break
-      }
-    }
-  }
-
-  func traverse<V: SwiftProtobuf.Visitor>(visitor: inout V) throws {
-    // The use of inline closures is to circumvent an issue where the compiler
-    // allocates stack space for every if/case branch local when no optimizations
-    // are enabled. https://github.com/apple/swift-protobuf/issues/1034 and
-    // https://github.com/apple/swift-protobuf/issues/1182
-    try { if let v = self._publicKey {
-      try visitor.visitSingularBytesField(value: v, fieldNumber: 1)
-    } }()
-    try { if let v = self._encryptedKeyPair {
-      try visitor.visitSingularBytesField(value: v, fieldNumber: 2)
-    } }()
-    try unknownFields.traverse(visitor: &visitor)
-  }
-
-  static func ==(lhs: SessionProtos_DataMessage.ClosedGroupControlMessage.KeyPairWrapper, rhs: SessionProtos_DataMessage.ClosedGroupControlMessage.KeyPairWrapper) -> Bool {
-    if lhs._publicKey != rhs._publicKey {return false}
-    if lhs._encryptedKeyPair != rhs._encryptedKeyPair {return false}
     if lhs.unknownFields != rhs.unknownFields {return false}
     return true
   }

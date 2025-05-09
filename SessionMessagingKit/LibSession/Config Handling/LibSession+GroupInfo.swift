@@ -64,7 +64,7 @@ internal extension LibSessionCacheType {
                 threadIds: [groupSessionId.hexString],
                 dataToRemove: [
                     .poller, .pushNotifications, .messages, .members,
-                    .encryptionKeys, .authDetails, .libSessionState
+                    .authDetails, .libSessionState
                 ],
                 using: dependencies
             )

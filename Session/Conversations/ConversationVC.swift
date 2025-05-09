@@ -100,13 +100,7 @@ final class ConversationVC: BaseVC, LibSessionRespondingViewController, Conversa
     }
 
     lazy var mnemonic: String = { ((try? Identity.mnemonic(using: viewModel.dependencies)) ?? "") }()
-
-    // FIXME: Would be good to create a Swift-based cache and replace this
-    lazy var mediaCache: NSCache<NSString, AnyObject> = {
-        let result = NSCache<NSString, AnyObject>()
-        result.countLimit = 40
-        return result
-    }()
+    lazy var mediaCache: LRUCache<String, Any> = LRUCache(maxCacheSize: 40)
 
     lazy var recordVoiceMessageActivity = AudioActivity(
         audioDescription: "Voice message",  // stringlint:ignore
@@ -250,10 +244,7 @@ final class ConversationVC: BaseVC, LibSessionRespondingViewController, Conversa
                 onTap: { [weak self] in self?.openUrl(Features.legacyGroupDepricationUrl) }
             )
         )
-        result.isHidden = (
-            viewModel.threadData.threadVariant != .legacyGroup ||
-            !viewModel.dependencies[feature: .updatedGroups]
-        )
+        result.isHidden = (viewModel.threadData.threadVariant != .legacyGroup)
         
         return result
     }()
@@ -356,8 +347,7 @@ final class ConversationVC: BaseVC, LibSessionRespondingViewController, Conversa
         let result: UIView = UIView()
         result.isHidden = (
             viewModel.threadData.threadVariant != .legacyGroup ||
-            viewModel.threadData.currentUserIsClosedGroupAdmin != true ||
-            !viewModel.dependencies[feature: .updatedGroups]
+            viewModel.threadData.currentUserIsClosedGroupAdmin != true
         )
         
         return result
@@ -525,12 +515,6 @@ final class ConversationVC: BaseVC, LibSessionRespondingViewController, Conversa
             selector: #selector(applicationDidResignActive(_:)),
             name: UIApplication.didEnterBackgroundNotification, object: nil
         )
-        NotificationCenter.default.addObserver(
-            self,
-            selector: #selector(sendScreenshotNotification),
-            name: UIApplication.userDidTakeScreenshotNotification,
-            object: nil
-        )
        
         // Observe keyboard notifications
         let keyboardNotifications: [Notification.Name] = [
@@ -618,7 +602,7 @@ final class ConversationVC: BaseVC, LibSessionRespondingViewController, Conversa
     override func viewDidDisappear(_ animated: Bool) {
         super.viewDidDisappear(animated)
         
-        mediaCache.removeAllObjects()
+        mediaCache.clear()
         hasReloadedThreadDataAfterDisappearance = false
         viewIsDisappearing = false
         
@@ -876,10 +860,7 @@ final class ConversationVC: BaseVC, LibSessionRespondingViewController, Conversa
             viewModel.threadData.threadVariant != updatedThreadData.threadVariant ||
             viewModel.threadData.currentUserIsClosedGroupAdmin != updatedThreadData.currentUserIsClosedGroupAdmin
         {
-            legacyGroupsBanner.isHidden = (
-                updatedThreadData.threadVariant != .legacyGroup ||
-                !viewModel.dependencies[feature: .updatedGroups]
-            )
+            legacyGroupsBanner.isHidden = (updatedThreadData.threadVariant != .legacyGroup)
         }
         
         if

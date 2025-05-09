@@ -129,11 +129,15 @@ public final class MessageSender {
                     messageWithProfile.profile = VisibleMessage.VMProfile(
                         displayName: profile.name,
                         profileKey: profileKey,
-                        profilePictureUrl: profilePictureUrl
+                        profilePictureUrl: profilePictureUrl,
+                        blocksCommunityMessageRequests: !db[.checkForCommunityMessageRequests]
                     )
                 }
                 else {
-                    messageWithProfile.profile = VisibleMessage.VMProfile(displayName: profile.name)
+                    messageWithProfile.profile = VisibleMessage.VMProfile(
+                        displayName: profile.name,
+                        blocksCommunityMessageRequests: !db[.checkForCommunityMessageRequests]
+                    )
                 }
         }
         
@@ -264,22 +268,6 @@ public final class MessageSender {
                     let updatedMessage: Message = message
                     updatedMessage.serverHash = response.hash
                     
-                    // Only legacy groups need to manually trigger push notifications now so only create the job
-                    // if the destination is a legacy group (ie. a group destination with a standard pubkey prefix)
-                    let notifyPushServerJob: Job? = {
-                        guard
-                            case .closedGroup(let groupPublicKey) = destination,
-                            let groupId: SessionId = try? SessionId(from: groupPublicKey),
-                            groupId.prefix == .standard
-                        else { return nil }
-                                    
-                        return Job(
-                            variant: .notifyPushServer,
-                            behaviour: .runOnce,
-                            details: NotifyPushServerJob.Details(message: snodeMessage)
-                        )
-                    }()
-                    
                     // Save the updated message info and send a PN if needed
                     dependencies[singleton: .storage].write { db in
                         try MessageSender.handleSuccessfulMessageSend(
@@ -289,34 +277,7 @@ public final class MessageSender {
                             interactionId: interactionId,
                             using: dependencies
                         )
-                        
-                        guard notifyPushServerJob != nil else { return }
-
-                        dependencies[singleton: .jobRunner].add(
-                            db,
-                            job: notifyPushServerJob,
-                            canStartJob: true
-                        )
                     }
-                    
-                    // If we should send a push notification and are sending from the background then
-                    // we want to send it on this thread
-                    guard
-                        let job: Job = notifyPushServerJob,
-                        !dependencies[defaults: .appGroup, key: .isMainAppActive]
-                    else { return }
-                    
-                    // Want to block the main thread here as it's likely we just went to the background
-                    // and have sent a message in a background task before shutting down the app so want
-                    // the notification to go out
-                    NotifyPushServerJob.run(
-                        job,
-                        scheduler: DispatchQueue.global(qos: .userInitiated),
-                        success: { _, _ in },
-                        failure: { _, _, _ in },
-                        deferred: { _ in },
-                        using: dependencies
-                    )
                 },
                 receiveCompletion: { result in
                     switch result {
@@ -482,11 +443,15 @@ public final class MessageSender {
                 message.profile = VisibleMessage.VMProfile(
                     displayName: profile.name,
                     profileKey: profileKey,
-                    profilePictureUrl: profilePictureUrl
+                    profilePictureUrl: profilePictureUrl,
+                    blocksCommunityMessageRequests: !db[.checkForCommunityMessageRequests]
                 )
             }
             else {
-                message.profile = VisibleMessage.VMProfile(displayName: profile.name)
+                message.profile = VisibleMessage.VMProfile(
+                    displayName: profile.name,
+                    blocksCommunityMessageRequests: !db[.checkForCommunityMessageRequests]
+                )
             }
         }
         

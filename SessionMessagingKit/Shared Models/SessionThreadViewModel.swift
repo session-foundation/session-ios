@@ -305,10 +305,8 @@ public struct SessionThreadViewModel: FetchableRecordWithRowId, Decodable, Equat
     public func canAccessSettings(using dependencies: Dependencies) -> Bool {
         return (
             threadRequiresApproval == false &&
-            threadIsMessageRequest == false && (
-                threadVariant != .legacyGroup ||
-                !dependencies[feature: .legacyGroupsDeprecated]
-            )
+            threadIsMessageRequest == false &&
+            threadVariant != .legacyGroup
         )
     }
     
@@ -416,17 +414,13 @@ public struct SessionThreadViewModel: FetchableRecordWithRowId, Decodable, Equat
             case .contact:
                 guard threadIsMessageRequest == true else { return true }
                 
+                // If the thread is an incoming message request then we should be able to reply
+                // regardless of the original senders `blocksCommunityMessageRequests` setting
+                guard threadRequiresApproval == true else { return true }
+                
                 return (profile?.blocksCommunityMessageRequests != true)
                 
-            case .legacyGroup:
-                guard !dependencies[feature: .legacyGroupsDeprecated] else { return false }
-                guard threadIsMessageRequest == false else { return true }
-                
-                return (
-                    currentUserIsClosedGroupMember == true &&
-                    interactionVariant?.isGroupLeavingStatus != true
-                )
-                
+            case .legacyGroup: return false
             case .group:
                 guard groupIsDestroyed != true else { return false }
                 guard wasKickedFromGroup != true else { return false }

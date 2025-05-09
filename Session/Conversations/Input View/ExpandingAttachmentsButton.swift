@@ -8,6 +8,16 @@ final class ExpandingAttachmentsButton: UIView, InputViewButtonDelegate {
     private weak var delegate: ExpandingAttachmentsButtonDelegate?
     private var isExpanded = false { didSet { expandOrCollapse() } }
     
+    public var isSoftDisabled = false {
+        didSet {
+            gifButton.isSoftDisabled = isSoftDisabled
+            documentButton.isSoftDisabled = isSoftDisabled
+            libraryButton.isSoftDisabled = isSoftDisabled
+            cameraButton.isSoftDisabled = isSoftDisabled
+            mainButton.isSoftDisabled = isSoftDisabled
+        }
+    }
+    
     override var isUserInteractionEnabled: Bool {
         didSet {
             gifButton.isUserInteractionEnabled = isUserInteractionEnabled
@@ -141,6 +151,11 @@ final class ExpandingAttachmentsButton: UIView, InputViewButtonDelegate {
     
     // MARK: Interaction
     func handleInputViewButtonTapped(_ inputViewButton: InputViewButton) {
+        guard !isSoftDisabled else {
+            delegate?.handleDisabledAttachmentButtonTapped()
+            return
+        }
+        
         if inputViewButton == gifButton { delegate?.handleGIFButtonTapped(); isExpanded = false }
         if inputViewButton == documentButton { delegate?.handleDocumentButtonTapped(); isExpanded = false }
         if inputViewButton == libraryButton { delegate?.handleLibraryButtonTapped(); isExpanded = false }
@@ -167,6 +182,7 @@ final class ExpandingAttachmentsButton: UIView, InputViewButtonDelegate {
 // MARK: - Delegate
 
 protocol ExpandingAttachmentsButtonDelegate: AnyObject {
+    func handleDisabledAttachmentButtonTapped()
 
     func handleGIFButtonTapped()
     func handleDocumentButtonTapped()

@@ -4,6 +4,7 @@ import Foundation
 import Combine
 import GRDB
 import UserNotifications
+import SessionUIKit
 import SignalUtilitiesKit
 import SessionMessagingKit
 import SessionUtilitiesKit
@@ -337,13 +338,5 @@ private extension String {
             m0 = regex.firstMatch(in: result, options: .withoutAnchoringBounds, range: NSRange(location: matchEnd, length: result.utf16.count - matchEnd))
         }
         return result
-    }
-}
-
-// MARK: - Localization Styling
-
-internal extension NSENotificationPresenter {
-    static func localizedDeformatted(_ helper: LocalizationHelper) -> String {
-        return NSAttributedString(stringWithHTMLTags: helper.localized(), font: .systemFont(ofSize: 14)).string
     }
 }

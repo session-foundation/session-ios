@@ -288,7 +288,6 @@ public final class JobRunner: JobRunnerType {
                 jobVariants: [
                     jobVariants.remove(.attachmentUpload),
                     jobVariants.remove(.messageSend),
-                    jobVariants.remove(.notifyPushServer),
                     jobVariants.remove(.sendReadReceipts),
                     jobVariants.remove(.groupLeaving),
                     jobVariants.remove(.configurationSync),

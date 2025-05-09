@@ -787,12 +787,10 @@ public final class HomeVC: BaseVC, LibSessionRespondingViewController, UITableVi
                 // the 'Note to Self' conversation also doesn't support 'mark as unread' so don't
                 // provide it there either
                 guard
+                    threadViewModel.threadVariant != .legacyGroup &&
                     threadViewModel.threadId != threadViewModel.currentUserSessionId && (
                         threadViewModel.threadVariant != .contact ||
                         (try? SessionId(from: section.elements[indexPath.row].threadId))?.prefix == .standard
-                    ) && (
-                        threadViewModel.threadVariant != .legacyGroup ||
-                        !viewModel.dependencies[feature: .legacyGroupsDeprecated]
                     )
                 else { return nil }
                 
@@ -838,12 +836,8 @@ public final class HomeVC: BaseVC, LibSessionRespondingViewController, UITableVi
                 // Cannot properly sync outgoing blinded message requests so only provide valid options
                 let shouldHavePinAction: Bool = {
                     switch threadViewModel.threadVariant {
-                        case .legacyGroup:
-                            // Only allow unpin once deprecated
-                            return (
-                                !viewModel.dependencies[feature: .legacyGroupsDeprecated] ||
-                                threadViewModel.threadPinnedPriority > 0
-                            )
+                        // Only allow unpin for legacy groups
+                        case .legacyGroup: return threadViewModel.threadPinnedPriority > 0
                         
                         default:
                             return (
@@ -862,18 +856,14 @@ public final class HomeVC: BaseVC, LibSessionRespondingViewController, UITableVi
                         
                         case .group: return (threadViewModel.currentUserIsClosedGroupMember == true)
                             
-                        case .legacyGroup: return (
-                            !viewModel.dependencies[feature: .legacyGroupsDeprecated] &&
-                            threadViewModel.currentUserIsClosedGroupMember == true
-                        )
-                            
+                        case .legacyGroup: return false
                         case .community: return true
                     }
                 }()
                 let destructiveAction: UIContextualAction.SwipeAction = {
-                    switch (threadViewModel.threadVariant, threadViewModel.threadIsNoteToSelf, threadViewModel.currentUserIsClosedGroupMember, viewModel.dependencies[feature: .legacyGroupsDeprecated]) {
-                        case (.contact, true, _, _): return .hide
-                        case (.legacyGroup, _, true, false), (.group, _, true, _), (.community, _, _, _): return .leave
+                    switch (threadViewModel.threadVariant, threadViewModel.threadIsNoteToSelf, threadViewModel.currentUserIsClosedGroupMember) {
+                        case (.contact, true, _): return .hide
+                        case (.group, _, true), (.community, _, _): return .leave
                         default: return .delete
                     }
                 }()

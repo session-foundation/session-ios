@@ -96,8 +96,8 @@ public class SwarmPoller: SwarmPollerType & PollerType {
     /// for cases where we need explicit/custom behaviours to occur (eg. Onboarding)
     public func poll(forceSynchronousProcessing: Bool) -> AnyPublisher<PollResult, Error> {
         let pollerQueue: DispatchQueue = self.pollerQueue
-        let configHashes: [String] = dependencies.mutate(cache: .libSession) { cache in
-            cache.configHashes(for: pollerDestination.target)
+        let activeHashes: [String] = dependencies.mutate(cache: .libSession) { cache in
+            cache.activeHashes(for: pollerDestination.target)
         }
         
         /// Fetch the messages
@@ -116,7 +116,7 @@ public class SwarmPoller: SwarmPollerType & PollerType {
                         try SnodeAPI.preparedPoll(
                             db,
                             namespaces: namespaces,
-                            refreshingConfigHashes: configHashes,
+                            refreshingConfigHashes: activeHashes,
                             from: snode,
                             authMethod: authMethod,
                             using: dependencies

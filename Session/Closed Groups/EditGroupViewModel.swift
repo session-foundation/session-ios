@@ -450,50 +450,23 @@ class EditGroupViewModel: SessionTableViewModel, NavigatableStateHolder, Editabl
                     footerAccessibility: Accessibility(
                         identifier: "Confirm invite button"
                     ),
-                    onSubmit: { [weak self, threadId, dependencies] in
-                        switch try? SessionId.Prefix(from: threadId) {
-                            case .group:
-                                return .callback { viewModel, selectedMemberInfo in
-                                    let updatedMemberIds: Set<String> = currentMemberIds
-                                        .inserting(contentsOf: selectedMemberInfo.map { $0.profileId }.asSet())
-                                    
-                                    guard updatedMemberIds.count <= LibSession.sizeMaxGroupMemberCount else {
-                                        throw UserListError.error("groupAddMemberMaximum".localized())
-                                    }
-                                    
-                                    // Adding members is an async process and after adding members we
-                                    // want to return to the edit group screen so the admin can see the
-                                    // invitation statuses
-                                    self?.addMembers(
-                                        currentGroupName: currentGroupName,
-                                        memberInfo: selectedMemberInfo.map { ($0.profileId, $0.profile) }
-                                    )
-                                    self?.dismissScreen()
-                                }
-                                
-                            case .standard: // Assume it's a legacy group
-                                return .publisher { [dependencies, threadId] _, selectedMemberInfo in
-                                    let updatedMemberIds: Set<String> = currentMemberIds
-                                        .inserting(contentsOf: selectedMemberInfo.map { $0.profileId }.asSet())
-                                    
-                                    guard updatedMemberIds.count <= LibSession.sizeMaxGroupMemberCount else {
-                                        return Fail(error: .error("groupAddMemberMaximum".localized()))
-                                            .eraseToAnyPublisher()
-                                    }
-                                    
-                                    return MessageSender.update(
-                                        legacyGroupSessionId: threadId,
-                                        with: updatedMemberIds,
-                                        name: currentGroupName,
-                                        using: dependencies
-                                    )
-                                    .mapError { _ in
-                                        UserListError.error("deleteAfterLegacyGroupsGroupUpdateErrorTitle".localized())
-                                    }
-                                    .eraseToAnyPublisher()
-                                }
-                                
-                            default: return .none
+                    onSubmit: { [weak self] in
+                        .callback { viewModel, selectedMemberInfo in
+                            let updatedMemberIds: Set<String> = currentMemberIds
+                                .inserting(contentsOf: selectedMemberInfo.map { $0.profileId }.asSet())
+                            
+                            guard updatedMemberIds.count <= LibSession.sizeMaxGroupMemberCount else {
+                                throw UserListError.error("groupAddMemberMaximum".localized())
+                            }
+                            
+                            // Adding members is an async process and after adding members we
+                            // want to return to the edit group screen so the admin can see the
+                            // invitation statuses
+                            self?.addMembers(
+                                currentGroupName: currentGroupName,
+                                memberInfo: selectedMemberInfo.map { ($0.profileId, $0.profile) }
+                            )
+                            self?.dismissScreen()
                         }
                     }(),
                     using: dependencies
@@ -782,88 +755,18 @@ class EditGroupViewModel: SessionTableViewModel, NavigatableStateHolder, Editabl
                 cancelStyle: .alert_text,
                 dismissOnConfirm: false,
                 onConfirm: { [weak self, threadId, dependencies] modal in
-                    switch try? SessionId.Prefix(from: threadId) {
-                        case .group:
-                            MessageSender
-                                .removeGroupMembers(
-                                    groupSessionId: threadId,
-                                    memberIds: memberIds,
-                                    removeTheirMessages: dependencies[feature: .updatedGroupsRemoveMessagesOnKick],
-                                    sendMemberChangedMessage: true,
-                                    using: dependencies
-                                )
-                                .subscribe(on: DispatchQueue.global(qos: .userInitiated), using: dependencies)
-                                .sinkUntilComplete()
-                            self?.selectedIdsSubject.send((currentGroupName, []))
-                            modal.dismiss(animated: true)
-                        
-                        case .standard: // Assume it's a legacy group
-                            let updatedMemberIds: Set<String> = (self?.tableData
-                                .first(where: { $0.model == .members })?
-                                .elements
-                                .compactMap { item -> String? in
-                                    switch item.id {
-                                        case .member(let profileId): return profileId
-                                        default: return nil
-                                    }
-                                })
-                                .defaulting(to: [])
-                                .asSet()
-                                .removing(contentsOf: memberIds)
-                            
-                            let viewController = ModalActivityIndicatorViewController(canCancel: false) { [weak self, dependencies, threadId] modalActivityIndicator in
-                                MessageSender
-                                    .update(
-                                        legacyGroupSessionId: threadId,
-                                        with: updatedMemberIds,
-                                        name: currentGroupName,
-                                        using: dependencies
-                                    )
-                                    .eraseToAnyPublisher()
-                                    .subscribe(on: DispatchQueue.global(qos: .userInitiated), using: dependencies)
-                                    .receive(on: DispatchQueue.main, using: dependencies)
-                                    .sinkUntilComplete(
-                                        receiveCompletion: { [weak self] result in
-                                            modalActivityIndicator.dismiss(completion: {
-                                                switch result {
-                                                    case .finished:
-                                                        self?.selectedIdsSubject.send((currentGroupName, []))
-                                                        modalActivityIndicator.dismiss {
-                                                            modal.dismiss(animated: true)
-                                                        }
-                                                        
-                                                    case .failure:
-                                                        self?.transitionToScreen(
-                                                            ConfirmationModal(
-                                                                info: ConfirmationModal.Info(
-                                                                    title: "theError".localized(),
-                                                                    body: .text("deleteAfterLegacyGroupsGroupUpdateErrorTitle".localized()),
-                                                                    cancelTitle: "okay".localized(),
-                                                                    cancelStyle: .alert_text
-                                                                )
-                                                            ),
-                                                            transitionType: .present
-                                                        )
-                                                }
-                                            })
-                                        }
-                                    )
-                            }
-                            self?.transitionToScreen(viewController, transitionType: .present)
-                        
-                        default:
-                            self?.transitionToScreen(
-                                ConfirmationModal(
-                                    info: ConfirmationModal.Info(
-                                        title: "theError".localized(),
-                                        body: .text("deleteAfterLegacyGroupsGroupUpdateErrorTitle".localized()),
-                                        cancelTitle: "okay".localized(),
-                                        cancelStyle: .alert_text
-                                    )
-                                ),
-                                transitionType: .present
-                            )
-                    }
+                    MessageSender
+                        .removeGroupMembers(
+                            groupSessionId: threadId,
+                            memberIds: memberIds,
+                            removeTheirMessages: dependencies[feature: .updatedGroupsRemoveMessagesOnKick],
+                            sendMemberChangedMessage: true,
+                            using: dependencies
+                        )
+                        .subscribe(on: DispatchQueue.global(qos: .userInitiated), using: dependencies)
+                        .sinkUntilComplete()
+                    self?.selectedIdsSubject.send((currentGroupName, []))
+                    modal.dismiss(animated: true)
                 }
             )
         )
